@@ -1,0 +1,70 @@
+openapi: 3.1.0
+info:
+  title: Nuzm Platform API
+  version: 0.0.0
+  description: >
+    Contract-first API. Implemented operations live under `paths`. Planned operations are
+    inventoried in `planned-paths.yaml` (generated from docs/04) and are NOT part of the contract
+    until implemented by their milestone. Conventions: docs/04 section 1.
+  license:
+    name: UNLICENSED
+servers:
+  - url: http://127.0.0.1:4000
+    description: Local development
+tags:
+  - name: platform
+    description: Platform health
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      tags: [platform]
+      summary: Liveness probe
+      description: Returns 200 when the API process is serving requests. Does not check dependencies.
+      security: []
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '404':
+          description: Unknown route
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status, service, time]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        service:
+          type: string
+        time:
+          type: string
+          format: date-time
+    Problem:
+      description: RFC 9457 problem details (docs/04 section 1).
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        traceId:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object

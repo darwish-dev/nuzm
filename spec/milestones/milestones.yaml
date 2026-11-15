@@ -1,0 +1,62 @@
+# Generated from docs/03 on S01; keep in sync (spec drift check will enforce once tooling exists).
+milestones:
+  - id: M01
+    name: "Bootstrap, IAM, Tenancy & Portal Shells"
+    sprints: [1, 4]
+    depends_hard: []
+    depends_soft: []
+  - id: M02
+    name: "Ledger, Metering & Entitlements"
+    sprints: [5, 7]
+    depends_hard: [M01]
+    depends_soft: []
+  - id: M03
+    name: "Payments, Invoicing, Tax & ZATCA"
+    sprints: [8, 12]
+    depends_hard: [M01, M02]
+    depends_soft: []
+  - id: M04
+    name: "Saudi Compliance & Data Residency"
+    sprints: [13, 15]
+    depends_hard: [M01]
+    depends_soft: [M02]
+  - id: M05
+    name: "Provider Framework & Compute (Alibaba, Huawei, Contabo)"
+    sprints: [16, 23]
+    depends_hard: [M01, M02, M03, M04]
+    depends_soft: []
+  - id: M06
+    name: "CloudPanel Shared Hosting"
+    sprints: [24, 27]
+    depends_hard: [M01, M02, M04, M05]
+    depends_soft: [M03]
+  - id: M07
+    name: "Domains & DNS Reseller"
+    sprints: [28, 31]
+    depends_hard: [M01, M02, M03, M04, M05]
+    depends_soft: [M06]
+  - id: M08
+    name: "Managed Data & Email"
+    sprints: [32, 36]
+    depends_hard: [M01, M02, M04, M05, M07]
+    depends_soft: [M03, M06]
+  - id: M09
+    name: "AI Core & Website Builder"
+    sprints: [37, 41]
+    depends_hard: [M01, M02, M04, M06]
+    depends_soft: [M03, M05, M07, M08]
+  - id: M10
+    name: "Full-stack AI App Builder & Mobile Builder"
+    sprints: [42, 50]
+    depends_hard: [M01, M02, M04, M05, M06, M08, M09]
+    depends_soft: [M07]
+  - id: M11
+    name: "Automation, Marketplace, Agency & Reseller Programs"
+    sprints: [51, 54]
+    depends_hard: [M01, M02, M03, M09]
+    depends_soft: [M04, M10]
+  - id: M12
+    name: "Enterprise, Hardening & Launch"
+    sprints: [55, 58]
+    depends_hard: [M01, M02, M03, M04, M05, M06, M07, M08, M09, M10, M11]
+    depends_soft: []

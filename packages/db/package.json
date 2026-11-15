@@ -1,0 +1,28 @@
+{
+  "name": "@nuzm/db",
+  "private": true,
+  "version": "0.0.0",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.mts",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "migrate": "tsx src/cli.ts migrate",
+    "rollback": "tsx src/cli.ts rollback",
+    "check": "tsx src/cli.ts check"
+  },
+  "dependencies": {
+    "pg": "^8.23.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

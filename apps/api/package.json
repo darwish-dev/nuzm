@@ -1,0 +1,24 @@
+{
+  "name": "@nuzm/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx watch src/main.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.5.0",
+    "@nestjs/core": "^12.5.0",
+    "@nestjs/platform-fastify": "^12.5.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^12.5.0",
+    "@swc/core": "^1.16.22",
+    "unplugin-swc": "^2.0.0"
+  }
+}

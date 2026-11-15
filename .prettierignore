@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+coverage
+pnpm-lock.yaml
+docs/
+CLAUDE.md
+spec/db/ownership.yaml
+spec/milestones/milestones.yaml
+next-env.d.ts

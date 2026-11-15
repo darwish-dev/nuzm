@@ -125,7 +125,14 @@ schemas:
     created_by: M12
     extended_by: []
     tables: [alerts, incident_updates, incidents, launch_gates, provider_incidents, recovery_exercises, slo_definitions]
-tenant_less: []
+tenant_less:
+  # user-scoped identity data (hashes/refs only); access via session/token hash lookups
+  - identity.users
+  - identity.sessions
+  - identity.mfa_factors
+  - identity.recovery_codes
+  # provider callbacks arrive before an org is known; deduped by (provider, event_id)
+  - platform.webhook_events_inbound
 migration_ranges:
   M01: "0001-0199"
   M02: "0200-0299"

@@ -12,7 +12,8 @@
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "migrate": "tsx src/cli.ts migrate",
     "rollback": "tsx src/cli.ts rollback",
-    "check": "tsx src/cli.ts check"
+    "check": "tsx src/cli.ts check",
+    "dev-logins": "tsx src/cli.ts dev-logins"
   },
   "dependencies": {
     "pg": "^8.23.1",

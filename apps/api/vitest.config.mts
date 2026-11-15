@@ -3,6 +3,6 @@ import { defineConfig } from 'vitest/config';
 
 // NestJS needs decorator metadata, which esbuild does not emit; SWC does.
 export default defineConfig({
-  test: { include: ['src/**/*.spec.ts'] },
+  test: { include: ['src/**/*.spec.ts'], exclude: ['src/**/*.int.spec.ts'] },
   plugins: [swc.vite({ module: { type: 'es6' } })],
 });

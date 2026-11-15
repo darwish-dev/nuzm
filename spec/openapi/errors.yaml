@@ -1,0 +1,24 @@
+# Stable error-code registry (docs/04 §1). Mirrored by ERROR_REGISTRY in apps/api/src/common/errors.ts;
+# apps/api/src/common/errors.spec.ts fails if the two drift.
+errors:
+  unauthenticated: { status: 401, title: Authentication required }
+  forbidden: { status: 403, title: Forbidden }
+  step_up_required: { status: 401, title: Recent MFA verification required }
+  mfa_required: { status: 403, title: MFA enrollment/verification required }
+  csrf_failed: { status: 403, title: CSRF token missing or invalid }
+  invalid_return_to: { status: 400, title: returnTo is not allowed }
+  oidc_state_mismatch: { status: 400, title: OIDC state mismatch or missing login context }
+  oidc_token_invalid: { status: 400, title: OIDC token exchange or validation failed }
+  idp_user_disabled: { status: 403, title: User is disabled }
+  not_found: { status: 404, title: Not found }
+  validation_failed: { status: 422, title: Validation failed }
+  idempotency_key_required: { status: 400, title: Idempotency-Key header required }
+  idempotency_key_reuse: { status: 422, title: Idempotency-Key reused with a different request }
+  idempotency_in_progress: { status: 409, title: Request with this Idempotency-Key is in progress }
+  conflict: { status: 409, title: Conflict }
+  precondition_failed: { status: 412, title: Precondition failed }
+  rate_limited: { status: 429, title: Too many requests }
+  operation_not_cancellable: { status: 409, title: Operation cannot be cancelled }
+  lease_lost: { status: 409, title: Operation lease lost }
+  internal_error: { status: 500, title: Internal error }
+  service_unavailable: { status: 503, title: Service unavailable }

@@ -7,14 +7,24 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "dev": "tsx watch src/main.ts"
+    "dev": "tsx watch src/main.ts",
+    "test:integration": "vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.5",
     "@nestjs/common": "^12.5.0",
     "@nestjs/core": "^12.5.0",
     "@nestjs/platform-fastify": "^12.5.0",
+    "@node-rs/argon2": "^2.2.2",
+    "@nuzm/domain": "workspace:*",
+    "@nuzm/platform": "workspace:*",
+    "fastify": "5.12.8",
+    "jose": "^6.2.17",
+    "otpauth": "^9.6.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "uuid": "^14.0.3",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@nestjs/testing": "^12.5.0",

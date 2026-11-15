@@ -14,6 +14,10 @@ servers:
 tags:
   - name: platform
     description: Platform health
+  - name: auth
+    description: OIDC login, sessions and MFA
+  - name: identity
+    description: Current principal
 paths:
   /healthz:
     get:
@@ -35,8 +39,295 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /v1/auth/oidc/login:
+    get:
+      operationId: oidcLogin
+      tags: [auth]
+      summary: Start OIDC login (authorization code + PKCE S256)
+      description: Redirects to the identity provider. `returnTo` must be a relative path or an allow-listed origin.
+      security: []
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema: { type: string, maxLength: 2048 }
+          description: Where to land after login.
+      responses:
+        '302': { description: Redirect to the identity provider }
+        '400': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/auth/oidc/callback:
+    get:
+      operationId: oidcCallback
+      tags: [auth]
+      summary: Complete OIDC login and issue the session cookies
+      description: Validates state, exchanges the code with the PKCE verifier, validates the ID token and creates a session.
+      security: []
+      parameters:
+        - {
+            name: code,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: Authorization code.,
+          }
+        - {
+            name: state,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: Opaque state echoed from login.,
+          }
+        - {
+            name: error,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: Error code from the identity provider.,
+          }
+      responses:
+        '302': { description: Redirect to returnTo with session and CSRF cookies set }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Revoke the current session
+      description: Requires the CSRF header. Clears the session cookies.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '204': { description: Logged out }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/auth/sessions:
+    get:
+      operationId: listSessions
+      tags: [auth]
+      summary: List the caller's active sessions
+      description: Only the caller's own sessions are returned; `current` marks the calling session.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Session' } }
+                  nextCursor: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/Problem' }
+  /v1/auth/sessions/{id}:
+    delete:
+      operationId: revokeSession
+      tags: [auth]
+      summary: Revoke one of the caller's sessions
+      description: Unknown and foreign sessions both return 404.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Session id.,
+          }
+      responses:
+        '204': { description: Revoked }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/me:
+    get:
+      operationId: getMe
+      tags: [identity]
+      summary: Current principal
+      description: Memberships, permissions and feature flags are populated once tenancy lands (M01 S03).
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Principal
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/auth/mfa/factors:
+    post:
+      operationId: enrollMfaFactor
+      tags: [auth]
+      summary: Start TOTP enrolment
+      description: The secret and otpauth URI are returned once; the secret is stored only in the secret store.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type: { type: string, enum: [totp] }
+      responses:
+        '201':
+          description: Pending factor
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, type, status, otpauthUri, secret]
+                properties:
+                  id: { type: string, format: uuid }
+                  type: { type: string }
+                  status: { type: string, enum: [pending] }
+                  otpauthUri: { type: string }
+                  secret: { type: string }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/auth/mfa/factors/{id}/verification:
+    post:
+      operationId: verifyMfaFactor
+      tags: [auth]
+      summary: Verify a TOTP code or a recovery code
+      description: Activates a pending factor, elevates the session and rotates its tokens. Failures count towards a lockout.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Factor id.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string, pattern: '^[0-9]{6}$' }
+                recoveryCode: { type: string }
+      responses:
+        '200':
+          description: Verified
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mfaLevel, activated]
+                properties:
+                  mfaLevel: { type: string, enum: [totp, recovery] }
+                  activated: { type: boolean }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/auth/mfa/factors/{id}:
+    delete:
+      operationId: removeMfaFactor
+      tags: [auth]
+      summary: Remove an MFA factor (step-up required)
+      description: Needs a recent MFA verification. Platform users cannot remove their last active factor.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Factor id.,
+          }
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/auth/mfa/recovery-codes:
+    post:
+      operationId: generateRecoveryCodes
+      tags: [auth]
+      summary: Generate 10 single-use recovery codes (step-up required)
+      description: Shown once; invalidates any previous batch. Requires an active factor.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '201':
+          description: Codes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [codes]
+                properties:
+                  codes: { type: array, minItems: 10, maxItems: 10, items: { type: string } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: nuzm_session
+      description: Opaque server-side session (admin realm uses nuzm_admin_session).
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Double-submit CSRF token, required on unsafe methods with cookie auth.
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
   schemas:
+    Session:
+      type: object
+      required:
+        [id, realm, createdAt, lastSeenAt, idleExpiresAt, absoluteExpiresAt, mfaLevel, current]
+      properties:
+        id: { type: string, format: uuid }
+        realm: { type: string, enum: [web, admin] }
+        createdAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        idleExpiresAt: { type: string, format: date-time }
+        absoluteExpiresAt: { type: string, format: date-time }
+        mfaLevel: { type: string, enum: [none, totp, recovery] }
+        userAgent: { type: [string, 'null'] }
+        ip: { type: [string, 'null'] }
+        current: { type: boolean }
+    Me:
+      type: object
+      required:
+        [
+          id,
+          email,
+          emailVerified,
+          locale,
+          isPlatformUser,
+          mfaLevel,
+          memberships,
+          permissions,
+          featureFlags,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        emailVerified: { type: boolean }
+        displayName: { type: [string, 'null'] }
+        locale: { type: string, enum: [ar, en] }
+        isPlatformUser: { type: boolean }
+        mfaLevel: { type: string, enum: [none, totp, recovery] }
+        memberships: { type: array, items: { type: object } }
+        permissions: { type: array, items: { type: string } }
+        featureFlags: { type: object }
     Health:
       type: object
       required: [status, service, time]

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,6 +9,7 @@ import { migrate, rollback } from './runner';
 const admin = process.env.NUZM_TEST_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/postgres';
 const manifest = loadManifest(join(__dirname, '../../../spec/db/ownership.yaml'));
 const migrationsDir = join(__dirname, '../migrations');
+const allOrdinals = discoverMigrations(migrationsDir, manifest).map((m) => m.ordinal);
 const dbName = `nuzm_test_${Date.now()}_${Math.floor(Math.random() * 1e4)}`;
 const url = admin.replace(/\/[^/]*$/, `/${dbName}`);
 
@@ -38,9 +40,11 @@ afterAll(async () => {
 describe('migration runner (real PostgreSQL)', () => {
   it('applies from empty, creates roles NOLOGIN and the platform schema', async () => {
     const done = await migrate({ url, migrationsDir, manifest });
-    expect(done.map((m) => m.ordinal)).toEqual([1]);
-    const roles = await sql<{ rolname: string; rolcanlogin: boolean }>(
-      `SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname LIKE 'nuzm\\_%' AND rolname <> 'nuzm_admin' ORDER BY 1`,
+    expect(done.map((m) => m.ordinal)).toEqual(allOrdinals);
+    // Roles are cluster-wide and dev tooling may enable LOGIN on this cluster, so assert what the
+    // migration controls: the roles exist and the migration never grants LOGIN or sets a password.
+    const roles = await sql<{ rolname: string }>(
+      `SELECT rolname FROM pg_roles WHERE rolname LIKE 'nuzm\\_%' AND rolname <> 'nuzm_admin' ORDER BY 1`,
     );
     expect(roles.map((r) => r.rolname)).toEqual(
       expect.arrayContaining([
@@ -50,7 +54,15 @@ describe('migration runner (real PostgreSQL)', () => {
         'nuzm_worker',
       ]),
     );
-    expect(roles.every((r) => !r.rolcanlogin)).toBe(true);
+    const sqlText = readFileSync(
+      join(migrationsDir, 'platform/0001__platform__roles_and_schema.sql'),
+      'utf8',
+    )
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('--')) // ignore comments
+      .join('\n');
+    expect(sqlText).toMatch(/CREATE ROLE %I NOLOGIN/);
+    expect(sqlText).not.toMatch(/PASSWORD|\bLOGIN\b(?!.*NOLOGIN)/);
     expect(await sql(`SELECT 1 FROM pg_namespace WHERE nspname = 'platform'`)).toHaveLength(1);
   });
 
@@ -69,7 +81,7 @@ describe('migration runner (real PostgreSQL)', () => {
       const results = await Promise.all(
         [1, 2, 3].map(() => migrate({ url: u, migrationsDir, manifest })),
       );
-      expect(results.map((r) => r.length).sort()).toEqual([0, 0, 1]);
+      expect(results.map((r) => r.length).sort()).toEqual([0, 0, allOrdinals.length]);
     } finally {
       const d = new Client({ connectionString: admin });
       await d.connect();
@@ -86,10 +98,12 @@ describe('migration runner (real PostgreSQL)', () => {
   });
 
   it('rolls back using the documented .down.sql and re-applies', async () => {
-    const reverted = await rollback({ url, migrationsDir, manifest });
-    expect(reverted.map((m) => m.ordinal)).toEqual([1]);
+    const reverted = await rollback({ url, migrationsDir, manifest }, allOrdinals.length);
+    expect(reverted.map((m) => m.ordinal)).toEqual([...allOrdinals].reverse());
     expect(await sql(`SELECT 1 FROM pg_namespace WHERE nspname = 'platform'`)).toHaveLength(0);
-    expect((await migrate({ url, migrationsDir, manifest })).map((m) => m.ordinal)).toEqual([1]);
+    expect((await migrate({ url, migrationsDir, manifest })).map((m) => m.ordinal)).toEqual(
+      allOrdinals,
+    );
   });
 });
 
@@ -98,9 +112,12 @@ describe('ownership + RLS checks (docs/05 rules)', () => {
     ...manifest,
     schemas: {
       ...manifest.schemas,
-      platform: { ...manifest.schemas.platform!, tables: ['widgets', 'lookup'] },
+      platform: {
+        ...manifest.schemas.platform!,
+        tables: [...manifest.schemas.platform!.tables, 'widgets', 'lookup'],
+      },
     },
-    tenant_less: [],
+    tenant_less: manifest.tenant_less,
   };
 
   it('passes on a clean database', async () => {
@@ -118,20 +135,27 @@ describe('ownership + RLS checks (docs/05 rules)', () => {
     await sql(
       `CREATE POLICY tenant ON platform.widgets USING (org_id = current_setting('app.org_id', true)::uuid)`,
     );
-    expect(await checkDatabase(url, { ...m, tenant_less: ['platform.lookup'] })).toEqual([]);
+    expect(
+      await checkDatabase(url, { ...m, tenant_less: [...m.tenant_less, 'platform.lookup'] }),
+    ).toEqual([]);
   });
 
   it('flags tenant-less tables that are not explicitly listed', async () => {
     await sql(`CREATE TABLE platform.lookup (code text primary key)`);
     const kinds = (await checkDatabase(url, m)).map((v) => v.kind);
     expect(kinds).toContain('tenant_less_unlisted');
-    expect(await checkDatabase(url, { ...m, tenant_less: ['platform.lookup'] })).toEqual([]);
+    expect(
+      await checkDatabase(url, { ...m, tenant_less: [...m.tenant_less, 'platform.lookup'] }),
+    ).toEqual([]);
   });
 
   it('flags tables and schemas the manifest does not know', async () => {
     await sql(`CREATE TABLE platform.rogue (org_id uuid)`);
     await sql(`CREATE SCHEMA rogue_schema`);
-    const v = await checkDatabase(url, { ...m, tenant_less: ['platform.lookup'] });
+    const v = await checkDatabase(url, {
+      ...m,
+      tenant_less: [...m.tenant_less, 'platform.lookup'],
+    });
     expect(v.some((x) => x.kind === 'unknown_table' && x.object === 'platform.rogue')).toBe(true);
     expect(v.some((x) => x.kind === 'unknown_schema' && x.object === 'rogue_schema')).toBe(true);
   });

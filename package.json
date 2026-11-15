@@ -15,7 +15,7 @@
     "format": "prettier --write .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:integration": "pnpm --filter @nuzm/db run test:integration",
+    "test:integration": "pnpm -r --if-present run test:integration",
     "spec:lint": "spectral lint spec/openapi/openapi.yaml --ruleset spec/openapi/.spectral.yaml --fail-severity=warn",
     "spec:drift": "tsx scripts/spec-drift.ts",
     "db:migrate": "pnpm --filter @nuzm/db run migrate",
@@ -25,7 +25,8 @@
     "services:start": "scripts/dev-services.sh start",
     "services:stop": "scripts/dev-services.sh stop",
     "services:status": "scripts/dev-services.sh status",
-    "verify:full": "pnpm verify && pnpm services:status && pnpm db:migrate && pnpm db:test-rls && pnpm test:integration"
+    "verify:full": "pnpm verify && pnpm services:status && pnpm db:migrate && pnpm db:test-rls && pnpm test:integration",
+    "db:dev-logins": "pnpm --filter @nuzm/db run dev-logins"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

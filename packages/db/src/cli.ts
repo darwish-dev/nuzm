@@ -37,6 +37,21 @@ async function main() {
   } else if (cmd === 'rollback') {
     const done = await rollback({ url, migrationsDir, manifest });
     console.log(`reverted: ${done.map((m) => `${m.ordinal}:${m.slug}`).join(', ') || 'nothing'}`);
+  } else if (cmd === 'dev-logins') {
+    // DEV ONLY: give the runtime roles LOGIN + a throwaway password on the project-local cluster.
+    const u = new URL(url);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(u.hostname))
+      throw new Error('dev-logins only runs against a local database');
+    const pw = (process.env.NUZM_DEV_ROLE_PASSWORD ?? 'nuzm_dev_only').replace(/'/g, '');
+    const c = new Client({ connectionString: url });
+    await c.connect();
+    try {
+      for (const r of ['nuzm_app', 'nuzm_worker'])
+        await c.query(`ALTER ROLE ${r} LOGIN PASSWORD '${pw}'`);
+    } finally {
+      await c.end();
+    }
+    console.log('dev logins enabled for nuzm_app, nuzm_worker (dev password)');
   } else if (cmd === 'check') {
     const v = await checkDatabase(url, manifest);
     if (v.length) {
@@ -47,7 +62,7 @@ async function main() {
     }
     console.log('db check OK: ownership + RLS rules hold');
   } else {
-    console.error('usage: cli.ts migrate|rollback|check');
+    console.error('usage: cli.ts migrate|rollback|dev-logins|check');
     process.exit(2);
   }
 }

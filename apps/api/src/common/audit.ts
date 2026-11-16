@@ -1,15 +1,28 @@
 /**
- * Audit sink interface. S02 ships the interface plus a structured-log sink; S04 binds the persistent
- * hash-chained `audit.audit_logs` writer. Every auth outcome calls `record` (docs/04, M01 §9).
+ * Audit sink port. Every mutation and every auth outcome calls `record` (docs/04, M01 §9). The persistent
+ * implementation (hash-chained `audit.audit_logs`) lives in modules/audit; `LogAuditSink` is the fallback
+ * for tools and unit tests that run without a database.
  */
+export type AuditAction = `${string}.${string}.${string}`; // <domain>.<resource>.<action>
+
 export interface AuditEvent {
-  action: string; // e.g. auth.login.succeeded
+  action: AuditAction; // e.g. auth.login.succeeded
+  /** Effective actor. For an impersonated session this is the TARGET user; see impersonatorUserId. */
   actorUserId?: string;
+  actorApiKeyId?: string;
+  impersonatorUserId?: string;
+  actorType?: 'user' | 'api_key' | 'system' | 'impersonator';
+  /** Target organization (chain owner). Omit for platform-level events. */
   orgId?: string;
+  actingOrgId?: string;
   resource?: { type: string; id?: string };
   outcome: 'success' | 'failure';
   traceId?: string;
   ip?: string;
+  userAgent?: string;
+  /** PII-minimised summaries of state before/after a mutation (never secrets). */
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
   detail?: Record<string, unknown>;
 }
 

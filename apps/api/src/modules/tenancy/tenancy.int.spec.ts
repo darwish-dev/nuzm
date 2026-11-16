@@ -396,7 +396,12 @@ describe('invitation_expiry_single_use and acceptance', () => {
       body: { email, role },
       headers: { 'idempotency-key': key },
     });
-  const tokenFor = (email: string) => mailer.sent.filter((m) => m.to === email).pop()!.data.token;
+  const tokenFor = (email: string) =>
+    (
+      mailer.sent.filter((m) => m.to === email && m.template === 'invitation').pop()!.data as {
+        token: string;
+      }
+    ).token;
 
   it('creates a pending invitation, mails the token once, and never returns the token or its hash', async () => {
     const r = await invite('newbie@example.test');

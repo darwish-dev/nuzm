@@ -1,7 +1,11 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
-import { ANY_AUTHENTICATED, REQUIRE_PERMISSION } from '../../common/access';
+import {
+  ANY_AUTHENTICATED,
+  REQUIRE_PERMISSION,
+  REQUIRE_PLATFORM_PERMISSION,
+} from '../../common/access';
 import { ProblemException } from '../../common/errors';
 import { ApiKeyService, PUBLIC, SessionAuthenticator, permissionCovers } from '../identity';
 import { PolicyService } from './policy.service';
@@ -29,6 +33,10 @@ export class AccessGuard implements CanActivate {
       targets,
     );
     const anyAuth = this.reflector.getAllAndOverride<boolean>(ANY_AUTHENTICATED, targets);
+    const platformNeeded = this.reflector.getAllAndOverride<string | undefined>(
+      REQUIRE_PLATFORM_PERMISSION,
+      targets,
+    );
     const req = ctx.switchToHttp().getRequest<FastifyRequest>();
 
     // Agency/reseller delegation arrives with M11; until then the header is refused, never trusted.
@@ -36,6 +44,19 @@ export class AccessGuard implements CanActivate {
       throw new ProblemException('forbidden', 'delegated access is not available');
 
     const auth = req.headers.authorization;
+    if (platformNeeded) {
+      // Admin console: never reachable with API keys, and never with a web-realm session.
+      if (typeof auth === 'string' && /^Bearer\s+/i.test(auth))
+        throw new ProblemException('unauthenticated');
+      const principal = await this.sessions.authenticate(ctx);
+      if (principal.realm !== 'admin' || principal.impersonatorUserId)
+        throw new ProblemException('forbidden', 'admin console requires an admin-realm session');
+      const pa = await this.policy.platformAccess(principal.userId);
+      if (!pa || !permissionCovers(pa.permissions, platformNeeded))
+        throw new ProblemException('forbidden');
+      req.platform = { userId: principal.userId, roles: pa.roles, permissions: pa.permissions };
+      return true;
+    }
     if (typeof auth === 'string' && /^Bearer\s+nzk_/i.test(auth)) {
       if (!needed) throw new ProblemException('unauthenticated'); // API keys only reach org-scoped routes
       const key = await this.apiKeys.authenticate(auth.replace(/^Bearer\s+/i, '').trim(), req.ip);

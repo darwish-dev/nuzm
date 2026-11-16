@@ -69,6 +69,29 @@ export class PolicyService {
     };
   }
 
+  /**
+   * Platform (admin-console) authority: roles assigned in tenancy.platform_roles, only for users flagged
+   * `is_platform_user` and active. Returns null when the user has no platform role.
+   */
+  async platformAccess(
+    userId: string,
+  ): Promise<{ roles: string[]; permissions: ReadonlySet<string> } | null> {
+    const roles = await this.db.withoutScope(async (c) =>
+      (
+        await c.query<{ role: string }>(
+          `SELECT pr.role FROM tenancy.platform_roles pr JOIN identity.users u ON u.id = pr.user_id
+              WHERE pr.user_id = $1 AND u.is_platform_user AND u.status = 'active' ORDER BY pr.role`,
+          [userId],
+        )
+      ).rows.map((r) => r.role),
+    );
+    if (roles.length === 0) return null;
+    const map = await this.rolePermissions();
+    const permissions = new Set<string>();
+    for (const r of roles) for (const p of map.get(r) ?? []) permissions.add(p);
+    return { roles, permissions };
+  }
+
   /** Permissions currently held by a user in an org (used to bound API key scopes at creation). */
   async userPermissions(userId: string, orgId: string): Promise<ReadonlySet<string>> {
     return (await this.membership(userId, orgId))?.permissions ?? new Set();

@@ -12,6 +12,19 @@ export const ANY_AUTHENTICATED = 'nuzm:any-authenticated';
 export const RequirePermission = (permission: string) =>
   SetMetadata(REQUIRE_PERMISSION, permission);
 export const AnyAuthenticated = () => SetMetadata(ANY_AUTHENTICATED, true);
+/**
+ * Admin-console routes: the caller must hold this PLATFORM permission through a platform role
+ * (tenancy.platform_roles), be flagged as a platform user, and use an MFA-verified admin-realm session.
+ */
+export const REQUIRE_PLATFORM_PERMISSION = 'nuzm:require-platform-permission';
+export const RequirePlatformPermission = (permission: string) =>
+  SetMetadata(REQUIRE_PLATFORM_PERMISSION, permission);
+
+export interface PlatformContext {
+  userId: string;
+  roles: readonly string[];
+  permissions: ReadonlySet<string>;
+}
 
 export interface AccessContext {
   orgId: string;
@@ -23,6 +36,7 @@ export interface AccessContext {
 declare module 'fastify' {
   interface FastifyRequest {
     access?: AccessContext;
+    platform?: PlatformContext;
   }
 }
 
@@ -33,3 +47,8 @@ export const Org = createParamDecorator((_d: unknown, ctx: ExecutionContext): st
 export const Access = createParamDecorator((_d: unknown, ctx: ExecutionContext): AccessContext => {
   return ctx.switchToHttp().getRequest<FastifyRequest>().access!;
 });
+export const Platform = createParamDecorator(
+  (_d: unknown, ctx: ExecutionContext): PlatformContext => {
+    return ctx.switchToHttp().getRequest<FastifyRequest>().platform!;
+  },
+);

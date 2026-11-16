@@ -22,6 +22,7 @@ export const PUBLIC = 'nuzm:public';
 export const REALM = 'nuzm:realm';
 export const STEP_UP = 'nuzm:stepup';
 export const PRE_MFA = 'nuzm:premfa';
+export const NO_IMPERSONATION = 'nuzm:no-impersonation';
 /** Opt a route out of authentication (login, callback, health). Everything else is deny-by-default. */
 export const Public = () => SetMetadata(PUBLIC, true);
 /** Route realm; default `web`. Admin-console routes must declare `@RealmOnly('admin')`. */
@@ -30,6 +31,8 @@ export const RealmOnly = (realm: Realm | 'any') => SetMetadata(REALM, realm);
 export const StepUp = (maxAgeSeconds?: number) => SetMetadata(STEP_UP, maxAgeSeconds ?? true);
 /** Routes usable before MFA is completed (enrol/verify). Admin-realm sessions are otherwise MFA-gated. */
 export const AllowPreMfa = () => SetMetadata(PRE_MFA, true);
+/** Refuse impersonated sessions (credential/MFA/API-key management must never be done as someone else). */
+export const DenyImpersonation = () => SetMetadata(NO_IMPERSONATION, true);
 export const CurrentPrincipal = createParamDecorator(
   (_d: unknown, ctx: ExecutionContext): Principal => {
     return ctx.switchToHttp().getRequest<FastifyRequest>().principal!;
@@ -86,6 +89,11 @@ export class SessionAuthenticator {
     ) {
       throw new ProblemException('mfa_required', 'admin sessions require MFA');
     }
+    if (
+      principal.impersonatorUserId &&
+      this.reflector.getAllAndOverride<boolean>(NO_IMPERSONATION, targets)
+    )
+      throw new ProblemException('forbidden', 'not available while impersonating');
     const stepUp = this.reflector.getAllAndOverride<number | boolean | undefined>(STEP_UP, targets);
     if (stepUp) {
       const maxAge = (typeof stepUp === 'number' ? stepUp : this.cfg.stepUpMaxAgeSeconds) * 1000;

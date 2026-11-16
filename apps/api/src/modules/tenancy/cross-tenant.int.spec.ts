@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OperationsService } from '@nuzm/platform';
+import { NotificationService } from '../notifications';
 import { parse } from 'yaml';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
@@ -58,13 +59,16 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
       invitations: A.invitation,
       'api-keys': A.apiKey,
       operations: A.operation,
+      notifications: A.notification,
     } as Record<string, string>
   )[root];
 };
 const urlFor = (o: Op) => o.path.replace(/\{(\w+)\}/g, (_m, p) => fixtureFor(o, p)!);
 const bodyFor = (o: Op): unknown => {
-  if (o.method === 'PATCH')
+  if (o.method === 'PATCH') {
+    if (o.path.startsWith('/v1/notifications/')) return { read: true };
     return o.path.includes('/members/') ? { role: 'viewer' } : { name: 'hijack' };
+  }
   if (o.method === 'POST')
     return o.path.endsWith('/environments') ? { name: 'x', kind: 'dev' } : undefined;
   return undefined;
@@ -121,6 +125,12 @@ beforeAll(async () => {
     await a('POST', '/v1/api-keys', { name: 'A-key', scopes: ['project:read'] })
   ).json().id;
   A.operation = (await app.get(OperationsService).create(orgA, { kind: 'ct.op' })).id;
+  await app
+    .get(NotificationService)
+    .notify({ orgId: orgA, userId: aliceId, kind: 'test.fixture', params: {} });
+  A.notification = (
+    await h.env.sql(`SELECT id FROM platform.notifications WHERE user_id=$1`, [aliceId])
+  )[0]!.id as string;
   // org B's API key carries EVERY org permission an owner has: the strongest key org B can hold
   const ownerPerms = (
     await h.env.sql(`SELECT permission FROM tenancy.role_permissions WHERE role='owner'`)
@@ -159,6 +169,7 @@ describe('generated cross-tenant coverage', () => {
       const sec = op.security as unknown[] | undefined;
       return (
         !op['x-nuzm-permission'] &&
+        !op['x-nuzm-platform-permission'] &&
         op['x-nuzm-access'] !== 'any-authenticated' &&
         !(Array.isArray(sec) && sec.length === 0)
       );
@@ -207,6 +218,38 @@ describe('org B API key (every owner permission) vs org A ids → 404', () => {
     expect(r.statusCode).not.toBe(200);
     expect(r.statusCode).not.toBe(403);
   });
+});
+
+describe('admin-console routes are unreachable with tenant credentials', () => {
+  const adminOps = allOps.filter((o) =>
+    Boolean(spec.paths[o.path]![o.method.toLowerCase()]!['x-nuzm-platform-permission']),
+  );
+  it('discovers the admin operations from the spec', () =>
+    expect(adminOps.length).toBeGreaterThan(5));
+  it.each(adminOps.map((o) => [`${o.method} ${o.path}`, o] as const))(
+    '%s refuses an org owner session and an API key',
+    async (_n, o) => {
+      const url = o.path.replace(/\{(\w+)\}/g, aliceId);
+      const viaSession = await app.inject({
+        method: o.method,
+        url,
+        headers: {
+          cookie: cookieHeader(bobJar),
+          'x-csrf-token': bobJar.nuzm_csrf!,
+          'x-nuzm-org': orgB,
+        },
+        ...(o.method === 'GET' ? {} : { payload: {} }),
+      });
+      const viaKey = await app.inject({
+        method: o.method,
+        url,
+        headers: { authorization: `Bearer ${bobKey}` },
+        ...(o.method === 'GET' ? {} : { payload: {} }),
+      });
+      expect(viaSession.statusCode, viaSession.body).toBe(401); // no admin-realm session cookie
+      expect(viaKey.statusCode, viaKey.body).toBe(401);
+    },
+  );
 });
 
 describe("list routes never leak the other org's rows", () => {

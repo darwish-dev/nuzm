@@ -38,6 +38,12 @@ tags:
     description: Durable operations
   - name: resources
     description: Resource inventory
+  - name: audit
+    description: Tamper-evident audit log
+  - name: notifications
+    description: In-app notifications
+  - name: admin
+    description: Admin console (platform roles, admin realm, MFA-verified session)
 paths:
   /healthz:
     get:
@@ -1189,6 +1195,281 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit]
+      summary: List audit events of the active organization
+      description: List audit events of the active organization, newest first. Requires permission `audit:read`; without `audit:read_all` (billing_admin) only billing-domain events are returned. Chain integrity is verified by a background job.
+      x-nuzm-permission: audit:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: actorUserId, in: query, schema: { type: string, format: uuid } }
+        - { name: resourceType, in: query, schema: { type: string } }
+        - { name: resourceId, in: query, schema: { type: string } }
+        - {
+            name: action,
+            in: query,
+            schema: { type: string },
+            description: 'Exact action or a prefix such as tenancy.*',
+          }
+        - { name: outcome, in: query, schema: { type: string, enum: [success, failure] } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List my notifications
+      description: List the caller's own notifications in the active organization. Sessions only (API keys are refused).
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: unread, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/notifications/{id}:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification read or unread
+      description: Mark one of the caller's own notifications read or unread. Another user's notification is 404.
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Generic' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/organizations:
+    get:
+      operationId: adminListOrganizations
+      tags: [admin]
+      summary: List organizations (all tenants)
+      description: 'Search organizations across tenants. Creating organizations on behalf of a customer (docs/04 POST) is NOT implemented: owner semantics are undecided. Platform permission `admin:org:read`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:org:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [active, suspended] } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/organizations/{id}:
+    patch:
+      operationId: adminSetOrganizationStatus
+      tags: [admin]
+      summary: Suspend or reinstate an organization
+      description: 'Body {status, reason}; a reason is required to suspend. Owners are notified. Platform permission `admin:org:manage`; admin-realm session with MFA and step-up.'
+      x-nuzm-platform-permission: admin:org:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Generic' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: List users
+      description: Search users across tenants (no credentials or secrets are returned). Platform permission `admin:user:read`; admin-realm session with MFA.
+      x-nuzm-platform-permission: admin:user:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/users/{id}/impersonation:
+    post:
+      operationId: adminStartImpersonation
+      tags: [admin]
+      summary: Start a time-boxed impersonation session
+      description: 'Body {reason (10..500), ttlMinutes (1..30), approvalRef (required unless platform_admin), notifyOrgOwners?}. 403 if the target is a platform user. Sets the target web-realm cookies; audited in every target organization. Platform permission `admin:impersonate`; admin-realm session with MFA and step-up.'
+      x-nuzm-platform-permission: admin:impersonate
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Generic' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/feature-flags:
+    get:
+      operationId: adminListFeatureFlags
+      tags: [admin]
+      summary: List feature flags
+      description: All global and per-organization flags. Platform permission `admin:flags:manage`; admin-realm session with MFA.
+      x-nuzm-platform-permission: admin:flags:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: adminSetFeatureFlag
+      tags: [admin]
+      summary: Set a feature flag
+      description: 'Body {key, scope: global|org, orgId?, value}. Audited with before/after. Platform permission `admin:flags:manage`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:flags:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Generic' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/audit-logs:
+    get:
+      operationId: adminListAuditLogs
+      tags: [admin]
+      summary: Cross-organization audit log
+      description: Same store as /v1/audit-logs with privileged scope. The query itself is audited. Platform permission `admin:audit:read`; admin-realm session with MFA.
+      x-nuzm-platform-permission: admin:audit:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: orgId, in: query, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: actorUserId, in: query, schema: { type: string, format: uuid } }
+        - { name: resourceType, in: query, schema: { type: string } }
+        - { name: resourceId, in: query, schema: { type: string } }
+        - {
+            name: action,
+            in: query,
+            schema: { type: string },
+            description: 'Exact action or a prefix such as tenancy.*',
+          }
+        - { name: outcome, in: query, schema: { type: string, enum: [success, failure] } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:

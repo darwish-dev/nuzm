@@ -65,6 +65,13 @@ export class MeController {
       locale: u.locale,
       isPlatformUser: u.is_platform_user,
       mfaLevel: p.mfaLevel,
+      impersonation: p.impersonatorUserId
+        ? {
+            byUserId: p.impersonatorUserId,
+            reason: p.impersonationReason ?? '',
+            expiresAt: p.absoluteExpiresAt?.toISOString() ?? null,
+          }
+        : null,
       memberships: memberships.map((r) => ({
         orgId: r.org_id,
         name: r.name,

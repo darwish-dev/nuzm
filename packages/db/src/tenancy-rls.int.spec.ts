@@ -260,6 +260,7 @@ describe('RBAC seed data invariants', () => {
     expect(support).toContain('admin:impersonate');
     expect(support.filter((p) => /billing|flags|member/.test(p))).toEqual([]);
     expect(await perms('finance')).not.toContain('admin:impersonate');
-    expect(await perms('platform_admin')).not.toContain('admin:impersonate');
+    // docs/04 §2.1 lists `platform_admin` as allowed to impersonate (S04 migration 0008); S03 had it the other way round.
+    expect(await perms('platform_admin')).toContain('admin:impersonate');
   });
 });

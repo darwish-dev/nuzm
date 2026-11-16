@@ -59,6 +59,7 @@ export class Harness {
     overrides: Record<string, string> = {},
     issuer?: string,
     controllers: Type[] = [],
+    opts: { realAudit?: boolean } = {},
   ) {
     applyTestIdentityEnv(issuer ?? this.idp.issuer, {
       LOGIN_RATE_PER_MINUTE: '100000',
@@ -68,9 +69,10 @@ export class Harness {
     const sink = new MemorySink();
     const secrets = new MemorySecretStore();
     const mailer = new MemoryMailer();
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers })
-      .overrideProvider(AuditSink)
-      .useValue(sink)
+    const builder = Test.createTestingModule({ imports: [AppModule], controllers });
+    // Real audit = the hash-chained DB sink (audit/admin tests); default = in-memory sink for fast assertions.
+    if (!opts.realAudit) builder.overrideProvider(AuditSink).useValue(sink);
+    const moduleRef = await builder
       .overrideProvider(SecretStore)
       .useValue(secrets)
       .overrideProvider(Mailer)
@@ -105,7 +107,7 @@ export class Harness {
   authed(
     app: App,
     jar: Record<string, string>,
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     url: string,
     opts: { csrf?: boolean; body?: unknown } = {},
   ) {
@@ -143,11 +145,28 @@ export class Harness {
 
   /** Mark a session as recently MFA-verified (satisfies @StepUp()). */
   async elevate(jar: Record<string, string>) {
-    const hash = createHash('sha256').update(jar.nuzm_session!).digest('hex');
+    const hash = createHash('sha256')
+      .update((jar.nuzm_session ?? jar.nuzm_admin_session)!)
+      .digest('hex');
     await this.env.sql(
       `UPDATE identity.sessions SET mfa_level='totp', mfa_verified_at=now() WHERE token_hash=$1`,
       [hash],
     );
+  }
+
+  /** A platform (staff) user with the given platform roles and an MFA-verified admin-realm session. */
+  async platformUser(app: App, sub: string, roles: string[]) {
+    const id = await this.createUser(sub);
+    await this.env.sql(`UPDATE identity.users SET is_platform_user = true WHERE id = $1`, [id]);
+    for (const r of roles)
+      await this.env.sql(`INSERT INTO tenancy.platform_roles (user_id, role) VALUES ($1, $2)`, [
+        id,
+        r,
+      ]);
+    const s = await app.get(SessionService).create(id, 'admin', {});
+    const jar = { nuzm_admin_session: s.token, nuzm_admin_csrf: s.csrf };
+    await this.elevate(jar);
+    return { id, jar };
   }
 
   async closeApp(app: App) {

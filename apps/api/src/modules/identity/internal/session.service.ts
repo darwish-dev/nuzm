@@ -12,6 +12,18 @@ export interface Principal {
   mfaLevel: 'none' | 'totp' | 'recovery';
   mfaVerifiedAt: Date | null;
   email: string;
+  /** Set only for support impersonation sessions: the platform user acting AS this principal. */
+  impersonatorUserId?: string;
+  impersonationReason?: string;
+  absoluteExpiresAt?: Date;
+}
+
+export interface Impersonation {
+  byUserId: string;
+  reason: string;
+  ref?: string;
+  /** Hard cap 30 min (also a DB CHECK). */
+  ttlSeconds: number;
 }
 
 export interface SessionInfo {
@@ -36,24 +48,40 @@ export class SessionService {
     private readonly cfg: IdentityConfig,
   ) {}
 
-  async create(userId: string, realm: Realm, meta: { ip?: string; userAgent?: string }) {
+  async create(
+    userId: string,
+    realm: Realm,
+    meta: { ip?: string; userAgent?: string },
+    impersonation?: Impersonation,
+  ) {
     const token = rand('nzs_');
     const csrf = rand('nzc_');
     const id = uuidv7();
+    if (
+      impersonation &&
+      (realm !== 'web' || impersonation.ttlSeconds > 1800 || impersonation.ttlSeconds < 60)
+    )
+      throw new Error('impersonation sessions are web-realm and 1-30 minutes');
+    const absolute = impersonation ? impersonation.ttlSeconds : this.cfg.absoluteSeconds;
+    const idle = impersonation ? Math.min(this.cfg.idleSeconds, absolute) : this.cfg.idleSeconds;
     await this.db.withoutScope((c) =>
       c.query(
-        `INSERT INTO identity.sessions (id, user_id, realm, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent)
-         VALUES ($1,$2,$3,$4,$5, now() + make_interval(secs=>$6), now() + make_interval(secs=>$7), $8, $9)`,
+        `INSERT INTO identity.sessions (id, user_id, realm, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent,
+           impersonator_user_id, impersonation_reason, impersonation_ref)
+         VALUES ($1,$2,$3,$4,$5, now() + make_interval(secs=>$6), now() + make_interval(secs=>$7), $8, $9, $10, $11, $12)`,
         [
           id,
           userId,
           realm,
           sha(token),
           sha(csrf),
-          this.cfg.idleSeconds,
-          this.cfg.absoluteSeconds,
+          idle,
+          absolute,
           meta.ip ?? null,
           meta.userAgent?.slice(0, 300) ?? null,
+          impersonation?.byUserId ?? null,
+          impersonation?.reason ?? null,
+          impersonation?.ref ?? null,
         ],
       ),
     );
@@ -74,8 +102,12 @@ export class SessionService {
         mfa_verified_at: Date | null;
         csrf_hash: string;
         email: string;
+        impersonator_user_id: string | null;
+        impersonation_reason: string | null;
+        absolute_expires_at: Date;
       }>(
-        `SELECT s.id, s.user_id, s.realm, s.mfa_level, s.mfa_verified_at, s.csrf_hash, u.email
+        `SELECT s.id, s.user_id, s.realm, s.mfa_level, s.mfa_verified_at, s.csrf_hash, u.email,
+                s.impersonator_user_id, s.impersonation_reason, s.absolute_expires_at
            FROM identity.sessions s JOIN identity.users u ON u.id = s.user_id
           WHERE s.token_hash = $1 AND s.revoked_at IS NULL
             AND s.idle_expires_at > now() AND s.absolute_expires_at > now() AND u.status = 'active'`,
@@ -96,6 +128,13 @@ export class SessionService {
         mfaVerifiedAt: r.mfa_verified_at,
         email: r.email,
         csrfHash: r.csrf_hash,
+        absoluteExpiresAt: r.absolute_expires_at,
+        ...(r.impersonator_user_id
+          ? {
+              impersonatorUserId: r.impersonator_user_id,
+              impersonationReason: r.impersonation_reason ?? '',
+            }
+          : {}),
       };
     });
   }

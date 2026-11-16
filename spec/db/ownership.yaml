@@ -4,7 +4,7 @@ schemas:
     owner_module: platform
     created_by: M01
     extended_by: []
-    tables: [feature_flags, idempotency_keys, notifications, operation_steps, operations, outbox, webhook_events_inbound]
+    tables: [feature_flags, idempotency_keys, notification_preferences, notifications, operation_steps, operations, outbox, webhook_events_inbound]
   identity:
     owner_module: identity
     created_by: M01
@@ -14,12 +14,12 @@ schemas:
     owner_module: tenancy
     created_by: M01
     extended_by: [M11]
-    tables: [environments, invitations, memberships, organizations, permissions, projects, role_permissions, roles, workspaces]
+    tables: [environments, invitations, memberships, organizations, permissions, platform_roles, projects, role_permissions, roles, workspaces]
   audit:
     owner_module: audit
     created_by: M01
     extended_by: [M04, M12]
-    tables: [access_reviews, audit_checkpoints, audit_logs, legal_holds, retention_policies]
+    tables: [access_reviews, audit_checkpoints, audit_logs, chain_heads, legal_holds, retention_policies]
   metering:
     owner_module: metering
     created_by: M02
@@ -137,6 +137,10 @@ tenant_less:
   - tenancy.roles
   - tenancy.permissions
   - tenancy.role_permissions
+  # platform-role assignments: tenant-less by nature (platform staff, not org members)
+  - tenancy.platform_roles
+  # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)
+  - audit.chain_heads
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations

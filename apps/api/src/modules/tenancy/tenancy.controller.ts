@@ -21,7 +21,7 @@ import {
   RequirePermission,
   type AccessContext,
 } from '../../common/access';
-import { AuditSink } from '../../common/audit';
+import { AuditSink, type AuditAction } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { DB } from '../../common/tokens';
@@ -55,7 +55,7 @@ export class TenancyController {
 
   private rec(
     req: FastifyRequest,
-    action: string,
+    action: AuditAction,
     orgId: string | undefined,
     actorUserId: string | undefined,
     resource?: { type: string; id?: string },
@@ -87,7 +87,7 @@ export class TenancyController {
     void reply.header('etag', etag(org.version));
     await this.rec(
       req,
-      'org.created',
+      'tenancy.organization.created',
       org.id,
       p.userId,
       { type: 'organization', id: org.id },
@@ -122,7 +122,10 @@ export class TenancyController {
   ) {
     const org = await this.orgs.update(orgId, ifMatch(req), b(body) as never);
     void reply.header('etag', etag(org.version));
-    await this.rec(req, 'org.updated', orgId, a.actor.userId, { type: 'organization', id: orgId });
+    await this.rec(req, 'tenancy.organization.updated', orgId, a.actor.userId, {
+      type: 'organization',
+      id: orgId,
+    });
     return org;
   }
 
@@ -157,7 +160,7 @@ export class TenancyController {
     void reply.header('etag', etag(m.version));
     await this.rec(
       req,
-      'member.role_changed',
+      'tenancy.member.role_changed',
       orgId,
       a.actor.userId,
       { type: 'member', id: userId },
@@ -176,7 +179,10 @@ export class TenancyController {
     @Access() a: AccessContext,
   ) {
     await this.members.remove(orgId, { userId: a.actor.userId, role: a.role }, userId);
-    await this.rec(req, 'member.removed', orgId, a.actor.userId, { type: 'member', id: userId });
+    await this.rec(req, 'tenancy.member.removed', orgId, a.actor.userId, {
+      type: 'member',
+      id: userId,
+    });
   }
 
   // ---- invitations -------------------------------------------------------------------------
@@ -199,7 +205,7 @@ export class TenancyController {
     );
     await this.rec(
       req,
-      'member.invited',
+      'tenancy.invitation.created',
       orgId,
       a.actor.userId,
       { type: 'invitation', id: inv.id },
@@ -225,7 +231,7 @@ export class TenancyController {
   ) {
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ProblemException('not_found');
     await this.invitations.revoke(orgId, id);
-    await this.rec(req, 'member.invitation_revoked', orgId, a.actor.userId, {
+    await this.rec(req, 'tenancy.invitation.revoked', orgId, a.actor.userId, {
       type: 'invitation',
       id,
     });
@@ -249,7 +255,10 @@ export class TenancyController {
       id,
       b(body).token as string,
     );
-    await this.rec(req, 'member.accepted', r.orgId, p.userId, { type: 'invitation', id });
+    await this.rec(req, 'tenancy.invitation.accepted', r.orgId, p.userId, {
+      type: 'invitation',
+      id,
+    });
     return r;
   }
 
@@ -299,7 +308,7 @@ export class TenancyController {
     @Access() a: AccessContext,
   ) {
     const w = await this.work.createWorkspace(orgId, a.actor.userId, b(body) as never);
-    await this.rec(req, 'workspace.created', orgId, a.actor.userId, {
+    await this.rec(req, 'tenancy.workspace.created', orgId, a.actor.userId, {
       type: 'workspace',
       id: w.id,
     });
@@ -334,7 +343,10 @@ export class TenancyController {
   ) {
     const w = await this.work.updateWorkspace(orgId, id, ifMatch(req), b(body));
     void reply.header('etag', etag(w.version));
-    await this.rec(req, 'workspace.updated', orgId, a.actor.userId, { type: 'workspace', id });
+    await this.rec(req, 'tenancy.workspace.updated', orgId, a.actor.userId, {
+      type: 'workspace',
+      id,
+    });
     return w;
   }
   @RequirePermission('workspace:delete')
@@ -348,7 +360,10 @@ export class TenancyController {
   ) {
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ProblemException('not_found');
     await this.work.deleteWorkspace(orgId, id);
-    await this.rec(req, 'workspace.deleted', orgId, a.actor.userId, { type: 'workspace', id });
+    await this.rec(req, 'tenancy.workspace.deleted', orgId, a.actor.userId, {
+      type: 'workspace',
+      id,
+    });
   }
 
   // ---- projects ------------------------------------------------------------------------------
@@ -363,7 +378,10 @@ export class TenancyController {
     @Access() a: AccessContext,
   ) {
     const p = await this.work.createProject(orgId, a.actor.userId, b(body) as never);
-    await this.rec(req, 'project.created', orgId, a.actor.userId, { type: 'project', id: p.id });
+    await this.rec(req, 'tenancy.project.created', orgId, a.actor.userId, {
+      type: 'project',
+      id: p.id,
+    });
     return p;
   }
   @RequirePermission('project:read')
@@ -395,7 +413,7 @@ export class TenancyController {
   ) {
     const p = await this.work.updateProject(orgId, id, ifMatch(req), b(body));
     void reply.header('etag', etag(p.version));
-    await this.rec(req, 'project.updated', orgId, a.actor.userId, { type: 'project', id });
+    await this.rec(req, 'tenancy.project.updated', orgId, a.actor.userId, { type: 'project', id });
     return p;
   }
   @RequirePermission('project:delete')
@@ -409,7 +427,7 @@ export class TenancyController {
   ) {
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ProblemException('not_found');
     await this.work.deleteProject(orgId, id);
-    await this.rec(req, 'project.deleted', orgId, a.actor.userId, { type: 'project', id });
+    await this.rec(req, 'tenancy.project.deleted', orgId, a.actor.userId, { type: 'project', id });
   }
 
   // ---- environments --------------------------------------------------------------------------
@@ -425,7 +443,7 @@ export class TenancyController {
     @Access() a: AccessContext,
   ) {
     const e = await this.work.createEnvironment(orgId, id, b(body) as never);
-    await this.rec(req, 'environment.created', orgId, a.actor.userId, {
+    await this.rec(req, 'tenancy.environment.created', orgId, a.actor.userId, {
       type: 'environment',
       id: e.id,
     });
@@ -449,7 +467,7 @@ export class TenancyController {
   ) {
     const e = await this.work.updateEnvironment(orgId, id, envId, ifMatch(req), b(body));
     void reply.header('etag', etag(e.version));
-    await this.rec(req, 'environment.updated', orgId, a.actor.userId, {
+    await this.rec(req, 'tenancy.environment.updated', orgId, a.actor.userId, {
       type: 'environment',
       id: envId,
     });
@@ -466,7 +484,7 @@ export class TenancyController {
     @Access() a: AccessContext,
   ) {
     await this.work.deleteEnvironment(orgId, id, envId);
-    await this.rec(req, 'environment.deleted', orgId, a.actor.userId, {
+    await this.rec(req, 'tenancy.environment.deleted', orgId, a.actor.userId, {
       type: 'environment',
       id: envId,
     });

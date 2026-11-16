@@ -1,4 +1,12 @@
-import { Db, OperationsService, OutboxRelay, eventId } from '@nuzm/platform';
+import {
+  AuditIntegrity,
+  Db,
+  HmacCheckpointSigner,
+  OperationsService,
+  OutboxRelay,
+  eventId,
+} from '@nuzm/platform';
+import { makeAuditJob } from './audit-job';
 import { runLoop } from './loop';
 
 /**
@@ -28,8 +36,19 @@ void operations; // handlers arrive with the first operation kinds (M05+)
 const log = (m: string, extra: Record<string, unknown> = {}) =>
   console.log(JSON.stringify({ worker: m, ...extra }));
 
+// Audit integrity: verify chains + sign checkpoints. Disabled (loudly) when no signing key is configured.
+const auditJob = process.env.AUDIT_CHECKPOINT_KEY
+  ? makeAuditJob(new AuditIntegrity(db, HmacCheckpointSigner.fromEnv()), {
+      everyMs: Number(process.env.AUDIT_VERIFY_INTERVAL_SECONDS ?? 300) * 1000,
+      log,
+      onBroken: (broken) =>
+        console.error(JSON.stringify({ worker: 'AUDIT_CHAIN_BROKEN', chains: broken })),
+    })
+  : (log('audit_job_disabled', { reason: 'AUDIT_CHECKPOINT_KEY not set' }), null);
+
 void runLoop(
   async () => {
+    await auditJob?.();
     const r = await relay.runOnce(async (row) => {
       const handler = subscribers.get(row.topic);
       // Unknown topic: acknowledge after logging so the outbox does not grow unbounded before

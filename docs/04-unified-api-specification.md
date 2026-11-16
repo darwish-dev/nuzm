@@ -206,3 +206,5 @@ Raised during milestone drafting. Nothing below may be implemented until the own
 | PA-14 | GET `/v1/admin/hosting/abuse-cases` · PATCH `/v1/admin/hosting/sites/{id}` (suspend, per-site quota override) | Abuse-case listing, site suspension and quotas | M06 |
 | PA-15 | POST `/v1/databases/{id}/credential-reveals` · POST `/v1/storage/buckets/{id}/credential-reveals` | One-time, audited secret reveal | M08 |
 | PA-16 | POST `/v1/ai/credit-purchases` (from an `ai-credit` quote) | Buying AI credits has no order endpoint | M09 |
+| PA-17 | GET `/v1/audit-logs/integrity` (own org chain status + last signed checkpoint) | Integrity badge on the audit screen (UI-M01-17); the verifier exists, the endpoint is not exposed | M01 |
+| PA-18 | GET/PUT `/v1/notifications/preferences` (per kind and channel) | Notification preferences screen (UI-M01-18); service and table exist, the endpoint is not exposed | M01 |

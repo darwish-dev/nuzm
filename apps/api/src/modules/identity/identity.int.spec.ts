@@ -212,7 +212,7 @@ describe('session lifecycle', () => {
     const ok = await authed(main.app, jar, 'POST', '/v1/auth/logout');
     expect(ok.statusCode).toBe(204);
     expect((await authed(main.app, jar, 'GET', '/v1/me')).statusCode).toBe(401);
-    expect(main.sink.events.map((e) => e.action)).toContain('auth.logout');
+    expect(main.sink.events.map((e) => e.action)).toContain('auth.session.logout');
   });
 
   it('session fixation: a pre-existing session is revoked on login and fresh tokens are issued', async () => {
@@ -385,7 +385,7 @@ describe('audit trail of auth outcomes', () => {
       expect.arrayContaining([
         'auth.login.succeeded:success',
         'auth.login.failed:failure',
-        'auth.logout:success',
+        'auth.session.logout:success',
         'auth.login.rejected:failure',
       ]),
     );

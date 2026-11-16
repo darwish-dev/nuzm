@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { Db } from '@nuzm/platform';
-import { AuditSink, LogAuditSink } from '../../common/audit';
 import { FileDevSecretStore, SecretStore } from '../../common/secrets';
 import { DB, IDENTITY_CONFIG } from '../../common/tokens';
 import { IdentityController } from './identity.controller';
@@ -27,7 +26,6 @@ import { SessionAuthenticator } from './session.guard';
       inject: [DB, IDENTITY_CONFIG],
     },
     { provide: UserService, useFactory: (db: Db) => new UserService(db), inject: [DB] },
-    { provide: AuditSink, useClass: LogAuditSink },
     // DEV-ONLY secret store until D-12 (production vault) is decided; refuses to start in production.
     {
       provide: SecretStore,
@@ -55,7 +53,6 @@ import { SessionAuthenticator } from './session.guard';
     UserService,
     MfaService,
     ApiKeyService,
-    AuditSink,
     SecretStore,
     IDENTITY_CONFIG,
   ],

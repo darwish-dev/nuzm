@@ -8,3 +8,11 @@ export {
   type NewOperation,
   type ClaimedOperation,
 } from './operations';
+export {
+  AuditIntegrity,
+  HmacCheckpointSigner,
+  PLATFORM_CHAIN,
+  checkpointMessage,
+  type CheckpointSigner,
+  type ChainReport,
+} from './audit';

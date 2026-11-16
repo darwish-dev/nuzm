@@ -52,6 +52,40 @@ async function main() {
       await c.end();
     }
     console.log('dev logins enabled for nuzm_app, nuzm_worker (dev password)');
+  } else if (cmd === 'grant-platform-role') {
+    // DEV/OPERATOR bootstrap for platform staff (the assignment API, PA-12, awaits owner approval).
+    // Production use is a human-gated action (CLAUDE.md §5); this refuses non-local databases.
+    const [, email, role] = process.argv.slice(2);
+    if (!email || !role) throw new Error('usage: grant-platform-role <email> <role>');
+    const u = new URL(url);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(u.hostname))
+      throw new Error('grant-platform-role only runs against a local database');
+    const c = new Client({ connectionString: url });
+    await c.connect();
+    try {
+      const r = await c.query(
+        `SELECT 1 FROM tenancy.roles WHERE name = $1 AND scope = 'platform'`,
+        [role],
+      );
+      if (!r.rowCount) throw new Error(`unknown platform role: ${role}`);
+      const usr = await c.query(`SELECT id FROM identity.users WHERE lower(email) = lower($1)`, [
+        email,
+      ]);
+      if (usr.rowCount !== 1)
+        throw new Error(`expected exactly one user with email ${email} (sign in once first)`);
+      await c.query('BEGIN');
+      await c.query(`UPDATE identity.users SET is_platform_user = true WHERE id = $1`, [
+        usr.rows[0].id,
+      ]);
+      await c.query(
+        `INSERT INTO tenancy.platform_roles (user_id, role) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [usr.rows[0].id, role],
+      );
+      await c.query('COMMIT');
+    } finally {
+      await c.end();
+    }
+    console.log(`granted platform role ${role} to ${email}`);
   } else if (cmd === 'check') {
     const v = await checkDatabase(url, manifest);
     if (v.length) {
@@ -62,7 +96,7 @@ async function main() {
     }
     console.log('db check OK: ownership + RLS rules hold');
   } else {
-    console.error('usage: cli.ts migrate|rollback|dev-logins|check');
+    console.error('usage: cli.ts migrate|rollback|dev-logins|grant-platform-role|check');
     process.exit(2);
   }
 }

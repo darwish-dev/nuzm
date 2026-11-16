@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { Db } from '@nuzm/platform';
-import { DevLogMailer, Mailer, UnconfiguredMailer } from '../../common/mailer';
+import { Mailer } from '../../common/mailer';
 import { DB } from '../../common/tokens';
 import { IdentityModule } from '../identity';
 import {
@@ -19,11 +19,6 @@ import { TenancyController } from './tenancy.controller';
   imports: [IdentityModule],
   controllers: [TenancyController],
   providers: [
-    {
-      provide: Mailer,
-      useFactory: () =>
-        process.env.NODE_ENV === 'production' ? new UnconfiguredMailer() : new DevLogMailer(),
-    },
     { provide: ResidencyPolicy, useClass: AllowAllResidencyPolicy }, // NOT VERIFIED until M04
     { provide: RetentionHook, useClass: NoopRetentionHook },
     { provide: OrgService, useFactory: (db: Db) => new OrgService(db), inject: [DB] },

@@ -4,7 +4,7 @@ import { Access, Org, RequirePermission, type AccessContext } from '../../common
 import { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
-import { ApiKeyService, StepUp } from '../identity';
+import { ApiKeyService, DenyImpersonation, StepUp } from '../identity';
 import { PolicyService } from './policy.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,6 +19,7 @@ export class ApiKeysController {
   ) {}
 
   /** Session-only and step-up protected: an API key can never mint another API key. */
+  @DenyImpersonation()
   @RequirePermission('apikey:manage')
   @StepUp()
   @Idempotent()
@@ -61,7 +62,7 @@ export class ApiKeysController {
       perms,
     );
     await this.audit.record({
-      action: 'apikey.created',
+      action: 'identity.api_key.created',
       orgId,
       actorUserId: a.actor.userId,
       resource: { type: 'api_key', id: k.id },
@@ -98,6 +99,7 @@ export class ApiKeysController {
     };
   }
 
+  @DenyImpersonation()
   @RequirePermission('apikey:manage')
   @Delete(':id')
   @HttpCode(204)
@@ -115,7 +117,7 @@ export class ApiKeysController {
     );
     if (!ok) throw new ProblemException('not_found');
     await this.audit.record({
-      action: 'apikey.revoked',
+      action: 'identity.api_key.revoked',
       orgId,
       actorUserId: a.actor.userId,
       resource: { type: 'api_key', id },

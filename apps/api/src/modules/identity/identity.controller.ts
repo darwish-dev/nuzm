@@ -19,6 +19,7 @@ import { AnyAuthenticated } from '../../common/access';
 import { IDENTITY_CONFIG } from '../../common/tokens';
 import {
   AllowPreMfa,
+  DenyImpersonation,
   CSRF_COOKIE,
   CurrentPrincipal,
   Public,
@@ -173,7 +174,7 @@ export class IdentityController {
     void reply.clearCookie(SESSION_COOKIE[p.realm], { path: '/' });
     void reply.clearCookie(CSRF_COOKIE[p.realm], { path: '/' });
     await this.audit.record({
-      action: 'auth.logout',
+      action: 'auth.session.logout',
       actorUserId: p.userId,
       outcome: 'success',
       traceId: req.traceId,
@@ -208,6 +209,7 @@ export class IdentityController {
 
   // ---- MFA ---------------------------------------------------------------------------------
 
+  @DenyImpersonation()
   @AllowPreMfa()
   @Post('auth/mfa/factors')
   @HttpCode(201)
@@ -236,6 +238,7 @@ export class IdentityController {
   }
 
   /** Verifies a TOTP `code` (activating a pending factor) or a single-use `recoveryCode`; elevates and rotates the session. */
+  @DenyImpersonation()
   @AllowPreMfa()
   @Post('auth/mfa/factors/:id/verification')
   @HttpCode(200)
@@ -303,6 +306,7 @@ export class IdentityController {
     return { mfaLevel: level, activated };
   }
 
+  @DenyImpersonation()
   @StepUp()
   @Delete('auth/mfa/factors/:id')
   @HttpCode(204)
@@ -324,6 +328,7 @@ export class IdentityController {
     });
   }
 
+  @DenyImpersonation()
   @StepUp()
   @Post('auth/mfa/recovery-codes')
   @HttpCode(201)

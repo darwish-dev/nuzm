@@ -58,6 +58,14 @@ export class Db {
     return this.tx({ 'app.worker_scope': 'claim' }, fn);
   }
 
+  /**
+   * Admin-console scope: cross-organization reads (organizations, memberships, audit) and global flag writes.
+   * Call ONLY from the admin module AFTER the access guard has verified a platform permission.
+   */
+  withPlatformScope<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
+    return this.tx({ 'app.platform_scope': 'admin' }, fn);
+  }
+
   /** Pre-org lookups that identify the org (API key prefix). */
   withAuthScope<T>(
     scope: 'api_key_lookup' | 'invitation_accept',

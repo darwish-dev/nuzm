@@ -2194,6 +2194,64 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/billing/tax-profile:
+    get:
+      operationId: getTaxProfile
+      tags: [billing]
+      summary: The organization's tax profile
+      description: 'Invoicing identity of the active organization (legal name ar/en, VAT and CR numbers, address, buyer type b2b/b2c). 404 until one is set. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxProfile' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putTaxProfile
+      tags: [billing]
+      summary: Create or replace the tax profile
+      description: 'Creating needs no precondition; replacing needs If-Match with the profile ETag (428 without, 412 when stale). Format rules (VAT/CR number, postal code, building number) are configuration marked [VERIFY] with the tax advisor; a b2b buyer needs a VAT number and a complete address. Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: If-Match,
+            in: header,
+            required: false,
+            schema: { type: string },
+            description: ETag of the profile being replaced.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaxProfileWrite' }
+      responses:
+        '200':
+          description: Success
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxProfile' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -2253,6 +2311,44 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    TaxProfileWrite:
+      type: object
+      required: [buyerType, legalName]
+      properties:
+        buyerType: { type: string, enum: [b2b, b2c] }
+        legalName:
+          type: object
+          required: [ar, en]
+          properties:
+            ar: { type: string, minLength: 1, maxLength: 200 }
+            en: { type: string, minLength: 1, maxLength: 200 }
+        vatNumber: { type: [string, 'null'] }
+        crNumber: { type: [string, 'null'] }
+        address:
+          type: object
+          properties:
+            street: { type: string }
+            buildingNumber: { type: string }
+            district: { type: string }
+            city: { type: string }
+            postalCode: { type: string }
+            country: { type: string, pattern: '^[A-Z]{2}$' }
+    TaxProfile:
+      type: object
+      required: [buyerType, legalName, vatNumber, crNumber, address, version, updatedAt]
+      properties:
+        buyerType: { type: string, enum: [b2b, b2c] }
+        legalName:
+          type: object
+          required: [ar, en]
+          properties:
+            ar: { type: string }
+            en: { type: string }
+        vatNumber: { type: [string, 'null'] }
+        crNumber: { type: [string, 'null'] }
+        address: { type: object, additionalProperties: { type: string } }
+        version: { type: integer }
+        updatedAt: { type: string, format: date-time }
     CreateQuote:
       type: object
       required: [kind, items]
@@ -2317,11 +2413,18 @@ components:
           type: object
           required: [status, rateBps, taxMinor, source, note]
           properties:
-            status: { type: string, enum: [provisional] }
+            status: { type: string, enum: [provisional, computed] }
             rateBps: { type: integer }
             taxMinor: { type: string }
             source: { type: string }
             note: { type: string }
+            rateCode: { type: string }
+            reviewRequired:
+              {
+                type: boolean,
+                description: 'The case is not covered by advisor-approved configuration (unknown scope, foreign buyer).',
+              }
+            reasons: { type: array, items: { type: string } }
         totalMinor: { type: string }
         requiresApproval: { type: boolean }
         approvalDetail: { type: array, items: { type: object, additionalProperties: true } }

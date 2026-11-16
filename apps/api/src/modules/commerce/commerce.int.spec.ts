@@ -100,7 +100,13 @@ describe('quotes', () => {
       totalMinor: '1150',
       requiresApproval: false,
       residency: { status: 'not_evaluated' },
-      taxEstimate: { status: 'provisional', rateBps: 1500, taxMinor: '150', source: 'config' },
+      taxEstimate: {
+        status: 'computed',
+        rateCode: 'SA-VAT-STD',
+        rateBps: 1500,
+        taxMinor: '150',
+        source: 'tax_rates',
+      },
     });
     expect(q.items).toEqual([
       expect.objectContaining({

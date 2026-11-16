@@ -222,7 +222,8 @@ describe('customer statement and balance', () => {
     }
     expect(r.body).not.toContain('4100'); // no platform account codes
     expect(r.body).not.toContain('other org'.toLowerCase());
-    expect(JSON.stringify(items)).not.toContain('999');
+    // the other organization's 999 grant must not appear (compare amounts, not the raw JSON text: ids and timestamps contain digits)
+    expect(items.some((i: Row) => i.amountMinor === '999' || i.balanceMinor === '999')).toBe(false);
   });
 
   it('paginates by cursor without gaps or duplicates and filters by kind', async () => {

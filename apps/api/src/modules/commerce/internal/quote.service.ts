@@ -4,8 +4,8 @@ import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { formatDec, parseDec } from '../../../common/rating';
 import type { QuotaService, SpendService } from '../../billing';
+import type { TaxService } from '../../invoicing';
 import { QUOTE_KINDS, type QuoteKind, type QuotePricerRegistry } from './pricers';
-import type { TaxEstimator } from './tax-estimator';
 
 type Row = Record<string, unknown>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -54,7 +54,7 @@ export class QuoteService {
     private readonly db: Db,
     private readonly audit: AuditSink,
     private readonly pricers: QuotePricerRegistry,
-    private readonly tax: TaxEstimator,
+    private readonly tax: Pick<TaxService, 'estimate'>,
     private readonly quotas: Pick<QuotaService, 'assertAllowed'>,
     private readonly spend: Pick<SpendService, 'evaluate'>,
     private readonly opts: { ttlMinutes: number } = { ttlMinutes: 15 },
@@ -117,7 +117,22 @@ export class QuoteService {
       await this.quotas.assertAllowed(orgId, group, formatDec(q), now);
 
     const subtotal = priced.items.reduce((s, i) => s + i.amountMinor, 0n);
-    const { taxMinor, estimate } = this.tax.estimate(subtotal);
+    // tax per line from the effective-dated rates and the buyer's tax profile (the invoicing tax engine, docs/11 §4)
+    const te = await this.tax.estimate(
+      orgId,
+      priced.items.map((i) => i.amountMinor),
+      now,
+    );
+    const taxMinor = te.taxMinor;
+    const estimate = {
+      status: te.status,
+      rateCode: te.rateCode,
+      rateBps: te.rateBps,
+      source: te.source,
+      reviewRequired: te.reviewRequired,
+      reasons: te.reasons,
+      note: 'computed from the configured tax rates; the issued invoice is authoritative and rates await tax-advisor sign-off [VERIFY HG-03-04]',
+    };
     const total = subtotal + taxMinor;
     const id = uuidv7();
     const spend = await this.spend.evaluate(orgId, {

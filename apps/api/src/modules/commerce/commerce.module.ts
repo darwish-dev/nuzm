@@ -3,10 +3,10 @@ import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
 import { PriceBookService, QuotaService, SpendService } from '../billing';
+import { TaxService } from '../invoicing';
 import { OrderService } from './internal/order.service';
 import { AiCreditPricer, PlanPricer, QuotePricerRegistry } from './internal/pricers';
 import { QuoteService } from './internal/quote.service';
-import { TaxEstimator } from './internal/tax-estimator';
 import { QuotesController } from './quotes.controller';
 
 /**
@@ -27,21 +27,20 @@ import { QuotesController } from './quotes.controller';
       },
       inject: [DB, PriceBookService],
     },
-    { provide: TaxEstimator, useFactory: () => TaxEstimator.fromEnv() },
     {
       provide: QuoteService,
       useFactory: (
         db: Db,
         a: AuditSink,
         r: QuotePricerRegistry,
-        t: TaxEstimator,
+        t: TaxService,
         q: QuotaService,
         s: SpendService,
       ) =>
         new QuoteService(db, a, r, t, q, s, {
           ttlMinutes: Number(process.env.QUOTE_TTL_MINUTES ?? 15),
         }),
-      inject: [DB, AuditSink, QuotePricerRegistry, TaxEstimator, QuotaService, SpendService],
+      inject: [DB, AuditSink, QuotePricerRegistry, TaxService, QuotaService, SpendService],
     },
     {
       provide: OrderService,

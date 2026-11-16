@@ -1356,10 +1356,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/tax-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization's tax profile
+         * @description Invoicing identity of the active organization (legal name ar/en, VAT and CR numbers, address, buyer type b2b/b2c). 404 until one is set. Requires permission `billing:read`.
+         */
+        get: operations["getTaxProfile"];
+        /**
+         * Create or replace the tax profile
+         * @description Creating needs no precondition; replacing needs If-Match with the profile ETag (428 without, 412 when stale). Format rules (VAT/CR number, postal code, building number) are configuration marked [VERIFY] with the tax advisor; a b2b buyer needs a VAT number and a complete address. Requires permission `billing:manage`.
+         */
+        put: operations["putTaxProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        TaxProfileWrite: {
+            /** @enum {string} */
+            buyerType: "b2b" | "b2c";
+            legalName: {
+                ar: string;
+                en: string;
+            };
+            vatNumber?: string | null;
+            crNumber?: string | null;
+            address?: {
+                street?: string;
+                buildingNumber?: string;
+                district?: string;
+                city?: string;
+                postalCode?: string;
+                country?: string;
+            };
+        };
+        TaxProfile: {
+            /** @enum {string} */
+            buyerType: "b2b" | "b2c";
+            legalName: {
+                ar: string;
+                en: string;
+            };
+            vatNumber: string | null;
+            crNumber: string | null;
+            address: {
+                [key: string]: string;
+            };
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         CreateQuote: {
             /** @enum {string} */
             kind: "compute" | "hosting" | "domain" | "database" | "storage" | "email" | "ai-credit" | "plan" | "marketplace";
@@ -1397,11 +1455,15 @@ export interface components {
             subtotalMinor: string;
             taxEstimate: {
                 /** @enum {string} */
-                status: "provisional";
+                status: "provisional" | "computed";
                 rateBps: number;
                 taxMinor: string;
                 source: string;
                 note: string;
+                rateCode?: string;
+                /** @description The case is not covered by advisor-approved configuration (unknown scope, foreign buyer). */
+                reviewRequired?: boolean;
+                reasons?: string[];
             };
             totalMinor: string;
             requiresApproval: boolean;
@@ -4851,6 +4913,69 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    getTaxProfile: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxProfile"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    putTaxProfile: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the profile being replaced. */
+                "If-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxProfileWrite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxProfile"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
         };
     };
 }

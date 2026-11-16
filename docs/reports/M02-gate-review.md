@@ -1,6 +1,6 @@
-# Gate Review — M02 (PREPARED 2026-11-17 by the implementing agent; owner decision pending)
+# Gate Review — M02 (SIGNED by the owner via chat on 2026-11-17, with deferrals)
 
-- Date / reviewers: prepared 2026-11-17; **reviewers: owner (pending)**. This file does not record a sign-off.
+- Date / reviewers: prepared 2026-11-17 by the implementing agent; **reviewer: owner**.
 - All acceptance rows PASS or listed below as PARTIAL / NOT VERIFIED / BLOCKED / NOT DONE: see [M02-report.md §H](M02-report.md). Rows needing an owner decision before DONE: **AC-M02-06** (10,000-op projection scale not run), **AC-M02-12** (UI-M02-14/-16 not built; -11/-12/-15 partial), **AC-M02-11** (no load fixture).
 - BLOCKED (owner): **HG-02-01** approved price book v1 and pricing/margin policy (AC-M02-14); provider-cost import against real bills (AC-M02-16, M05). NOT VERIFIED until M03/M04: tax and residency on quotes (AC-M02-15). D-23, D-25, D-30, D-31 OPEN. M01 BLOCKED items unchanged.
 - Open critical/high defects: none known. Known limitations: quota evaluation for usage that arrives only through the worker outbox waits for the next read or API ingest (no sweeper); orders are not counted in the month's spend; project caps see approved spend only; spend alert-threshold notifications and balance committed-spend fields are not implemented; no keyboard-only or screen-reader pass.
@@ -8,5 +8,5 @@
 - `spec/` in sync: `spec drift OK: 83 implemented route(s) all declared (83 declared)`; `sdk schema is up to date`; spectral lint clean; `db check OK`.
 - Compliance hooks checklist: residency `data_region` tag present on usage (placeholder `sa-pending`) and quote residency block present but **not evaluated — M04**; PII: ledger/usage/quotes hold ids and amounts, no personal content; audit for every mutation ✔ (actions listed in the sprint reports); retention placeholder (D-34), no deletion jobs.
 - Owner decisions requested: see [M02-report §I](M02-report.md): (1) HG-02-01/D-23/D-25; (2) money response shape; (3) `plan` quote semantics; (4) endpoints for provider-cost import, platform-wide usage events, adjustment listing/approval; (5) `quota_meters` mapping; (6) viewer access to quotes and `admin` as approver; (7) counting orders in spend; (8) carried M01 decisions.
-- Decision: **pending**. Options: sign with deferrals (each NOT DONE row recorded as DEFERRED in an `M02-deferrals.md`), or ask for specific rows to be built first.
-- Owner sign-off: _not given_.
+- Decision: **proceed** to M03. Owner chose "Sign, defer the open rows": every not-fully-done row is DEFERRED per [M02-deferrals.md](M02-deferrals.md). The BLOCKED items and the open owner decisions listed there remain OPEN and are not covered by this sign-off.
+- Owner sign-off: project owner, recorded from the chat decision of 2026-11-17 (a written signature is not captured here).

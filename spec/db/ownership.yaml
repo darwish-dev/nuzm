@@ -147,6 +147,10 @@ tenant_less:
   # price books: global reference data (public price list), written only from the admin console scope
   - billing.price_books
   - billing.quota_meters
+  # platform configuration read by every runtime role, written by seed/config migrations only (docs/11 §4, §6)
+  - invoicing.billing_entities
+  - invoicing.tax_rates
+  - invoicing.invoice_sequences
   - billing.price_book_versions
   - billing.price_items
   # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)

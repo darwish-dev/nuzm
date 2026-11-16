@@ -1,7 +1,7 @@
 # M02 Milestone Report — Ledger, Metering & Entitlements
 
 Format: CLAUDE.md §10. Sprint reports: [S05](S05-report.md) · [S06](S06-report.md) · [S07a](S07a-report.md) · [S07b](S07b-report.md) · [S07c](S07c-report.md). Gate review: [M02-gate-review.md](M02-gate-review.md). Demo: [demo-m02](../runbooks/demo-m02.md).
-Status: **READY FOR GATE REVIEW WITH LISTED GAPS. NOT DONE (owner has not signed).** BLOCKED and NOT VERIFIED rows are listed in §H; none was converted to PASS using a mock.
+Status: **SIGNED by the owner with deferrals on 2026-11-17** ([M02-deferrals.md](M02-deferrals.md)). BLOCKED and NOT VERIFIED rows are listed in §H; none was converted to PASS using a mock.
 
 ## A. Repository findings and assumptions
 - Approved documentation (HG-00-01) governs; M01 was signed with deferrals (2026-11-16). Local-only git (D-01); one team, sequential sprints (D-02).

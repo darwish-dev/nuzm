@@ -27,6 +27,10 @@ export async function createEnv(): Promise<TestEnv> {
   const name = `nuzm_test_p_${Date.now()}_${Math.floor(Math.random() * 1e5)}`;
   const root = new Client({ connectionString: admin });
   await root.connect();
+  // ALTER ROLE / GRANT touch cluster-wide catalog rows: parallel test files that create environments at once fail with
+  // "tuple concurrently updated". Advisory locks are per database and every environment's admin client uses `postgres`,
+  // so this lock is a cluster-wide mutex for the setup phase (released when the admin client closes).
+  await root.query('SELECT pg_advisory_lock(7300001)');
   await root.query(`CREATE DATABASE "${name}"`);
   const adminUrl = admin.replace(/\/[^/]*$/, `/${name}`);
   const repo = join(__dirname, '../../../..');

@@ -54,6 +54,7 @@ describe('ledger_tx_always_balanced (property)', () => {
         expect(net(b, c)).toBe(0n);
         expect(() => assertBalanced(b.postings)).not.toThrow();
       }),
+      { numRuns: 10_000 }, // AC-M02-01: 10,000 generated transactions
     ));
 
   it('wallet consumes balance for any net/VAT split, and the wallet is debited gross', () =>
@@ -72,6 +73,7 @@ describe('ledger_tx_always_balanced (property)', () => {
         expect(BigInt(wallet.amountMinor)).toBe(n + v);
         expect(b.postings.some((p) => p.account.code === '2300')).toBe(v > 0n);
       }),
+      { numRuns: 10_000 }, // AC-M02-01
     ));
 
   it('provider cost accruals balance on one sub-ledger', () =>

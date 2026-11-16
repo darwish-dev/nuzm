@@ -221,3 +221,39 @@ export const Ltr = ({ children }: { children: ReactNode }) => (
     {children}
   </bdi>
 );
+
+/** Native `<meter>` (announced by screen readers with its label); `value` is a 0..100 percentage. */
+export function Meter({ label, percent }: { label: string; percent: number }) {
+  const v = Math.max(0, Math.min(100, Math.round(percent)));
+  return (
+    <meter className="nz-meter" min={0} max={100} value={v} aria-label={label}>
+      {v}%
+    </meter>
+  );
+}
+
+/**
+ * Horizontal bars for a small series. The bars are decoration (aria-hidden): the label and the exact value are text, so the
+ * chart carries the same information for assistive technology and in print.
+ */
+export function Bars({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: { key: string; label: ReactNode; value: ReactNode; ratio: number }[];
+}) {
+  return (
+    <ul className="nz-bars" aria-label={label}>
+      {rows.map((r) => (
+        <li key={r.key}>
+          <span>{r.label}</span>
+          <span className="nz-bar" aria-hidden="true">
+            <span style={{ inlineSize: `${Math.max(2, Math.min(100, r.ratio * 100))}%` }} />
+          </span>
+          <span>{r.value}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}

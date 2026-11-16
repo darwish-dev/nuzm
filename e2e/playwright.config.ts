@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { defineConfig } from '@playwright/test';
 
 /**
@@ -6,9 +7,13 @@ import { defineConfig } from '@playwright/test';
  * `channel: 'chrome'` uses the installed Chrome (Playwright's bundled Chromium does not support macOS 13).
  */
 const E2E_DB = 'nuzm_e2e';
+/** Service key of the synthetic metering producer the billing E2E posts usage with (test-only value). */
+export const PRODUCER_KEY = 'e2e-producer-key';
 export const USERS = [
   { sub: 'e2e-owner-ar', email: 'owner-ar@example.test', name: 'Layla Owner' },
   { sub: 'e2e-owner-en', email: 'owner-en@example.test', name: 'Layla Owner' },
+  { sub: 'e2e-billing-ar', email: 'billing-ar@example.test', name: 'Omar Billing' },
+  { sub: 'e2e-billing-en', email: 'billing-en@example.test', name: 'Omar Billing' },
   { sub: 'e2e-staff-ar', email: 'staff-ar@example.test', name: 'Sara Staff' },
   { sub: 'e2e-staff-en', email: 'staff-en@example.test', name: 'Sara Staff' },
 ];
@@ -41,6 +46,12 @@ export default defineConfig({
       env: {
         DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/${E2E_DB}`,
         DEV_IDP_USERS: JSON.stringify(USERS),
+        METERING_SOURCE_KEYS: JSON.stringify([
+          {
+            source: 'e2e@M99',
+            sha256: createHash('sha256').update(PRODUCER_KEY).digest('hex'),
+          },
+        ]),
       },
     },
     {

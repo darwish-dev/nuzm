@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { browserApi } from '../lib/client';
 
@@ -44,4 +45,20 @@ export function SignOut({ label, to }: { label: string; to: string }) {
       {label}
     </button>
   );
+}
+
+/**
+ * The server resolves the active organization (cookie hint, else the first active membership) but the browser client sends
+ * `X-Nuzm-Org` from the `nuzm_org` cookie. A member who never created or switched an organization (an invited user) had no
+ * cookie, so every mutation failed with 422. Keep the cookie equal to what the server resolved.
+ */
+export function ActiveOrgCookie({ orgId }: { orgId: string }) {
+  useEffect(() => {
+    const current = document.cookie
+      .split('; ')
+      .find((c) => c.startsWith('nuzm_org='))
+      ?.slice('nuzm_org='.length);
+    if (current !== orgId) document.cookie = `nuzm_org=${orgId}; path=/; samesite=lax`;
+  }, [orgId]);
+  return null;
 }

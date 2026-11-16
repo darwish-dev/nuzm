@@ -250,6 +250,34 @@ describe('ingest fixtures (docs/12 §12)', () => {
     ).toMatchObject({ q: '3.00000000', event_count: 1 });
   });
 
+  it('AC-M02-03: 1,000+ replayed duplicates change nothing (events, aggregates, counts)', async () => {
+    const res = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const distinct = Array.from({ length: 50 }, (_, i) =>
+      baseEvent(orgA, {
+        resourceId: res,
+        windowStart: at(200 + i),
+        quantity: '2',
+        seq: `dup-${i}`,
+      }),
+    );
+    const first = await ingest(distinct);
+    expect(first.summary).toMatchObject({ accepted: 50, duplicate: 0 });
+    const before = (await aggs(orgA, 'compute.vcpu_hours')).filter((a) => a.resource_key === res);
+    let duplicates = 0;
+    for (let round = 0; round < 2; round++)
+      for (let k = 0; k < 10; k++) {
+        const batch = Array.from({ length: 50 }, (_, i) => distinct[i]!); // 10 x 50 = 500 per round
+        const r = await ingest(batch);
+        duplicates += r.summary.duplicate;
+        expect(r.summary).toMatchObject({ accepted: 0, rejected: 0 });
+      }
+    expect(duplicates).toBe(1000);
+    expect((await events(orgA, `resource_id = '${res}'`)).length).toBe(50);
+    expect((await aggs(orgA, 'compute.vcpu_hours')).filter((a) => a.resource_key === res)).toEqual(
+      before,
+    );
+  });
+
   it('the same eventId with a DIFFERENT payload is rejected (event_id_conflict), not silently merged', async () => {
     const e = baseEvent(orgA, { resourceId: resource, quantity: '3' });
     const r = await ingest([{ ...e, quantity: '9' }]);

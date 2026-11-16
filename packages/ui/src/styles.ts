@@ -49,5 +49,12 @@ a { color: var(--nuzm-color-accent); }
 .nz-row { display: flex; gap: var(--nuzm-space-3); align-items: center; flex-wrap: wrap; }
 .nz-ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
 .nz-sr { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.nz-h2 { margin: 0 0 var(--nuzm-space-3); font-size: 1.15rem; }
+.nz-grid { display: grid; gap: var(--nuzm-space-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-block: var(--nuzm-space-4); }
+.nz-meter { inline-size: 100%; block-size: 14px; accent-color: var(--nuzm-color-fg); }
+.nz-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--nuzm-space-2); }
+.nz-bars li { display: grid; grid-template-columns: minmax(7rem, 14rem) 1fr auto; gap: var(--nuzm-space-3); align-items: center; }
+.nz-bars .nz-bar { block-size: 12px; background: var(--nuzm-color-border); border-radius: var(--nuzm-radius-sm); overflow: hidden; }
+.nz-bars .nz-bar > span { display: block; block-size: 100%; background: var(--nuzm-color-fg); }
 @media (max-width: 760px) { .nz-shell { grid-template-columns: 1fr; } .nz-nav { border-inline-end: 0; border-block-end: 1px solid var(--nuzm-color-border); } }
 `;

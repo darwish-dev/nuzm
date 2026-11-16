@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { isLocale, locales, t, formatDateTime } from '@nuzm/i18n';
 import { Banner, Ltr, LocaleSwitch, NavList, Shell } from '@nuzm/ui';
-import { OrgSwitcher, SignOut } from '../../../components/ConsoleChrome';
+import { ActiveOrgCookie, OrgSwitcher, SignOut } from '../../../components/ConsoleChrome';
 import { requireSession } from '../../../lib/server';
 
 export default async function ConsoleLayout({
@@ -27,6 +27,14 @@ export default async function ConsoleLayout({
     ...gated('project:read', '/projects', 'nav.projects'),
     ...gated('operation:read', '/operations', 'nav.operations'),
     ...gated('resource:read', '/resources', 'nav.resources'),
+    ...(s.org && (s.can('billing:read') || s.can('usage:read'))
+      ? [
+          {
+            href: `${base}/billing${s.can('billing:read') ? '' : '/usage'}`,
+            label: t(locale, 'nav.billing'),
+          },
+        ]
+      : []),
     ...gated('audit:read', '/audit-logs', 'nav.audit'),
     ...gated('member:read', '/settings/members', 'nav.members'),
     ...gated('member:invite', '/settings/invitations', 'nav.invitations'),
@@ -41,7 +49,12 @@ export default async function ConsoleLayout({
     ...(s.org?.type === 'reseller'
       ? [{ href: `${base}/reseller`, label: t(locale, 'nav.reseller') }]
       : []),
-  ].map((i) => ({ ...i, current: path === i.href }));
+  ].map((i) => ({
+    ...i,
+    // the Billing entry stays current on every billing sub-page
+    current:
+      path === i.href || (i.href.endsWith('/billing') ? path.startsWith(`${i.href}/`) : false),
+  }));
   const imp = s.me.impersonation;
   return (
     <Shell
@@ -87,6 +100,7 @@ export default async function ConsoleLayout({
         </>
       }
     >
+      {s.org && <ActiveOrgCookie orgId={s.org.orgId} />}
       {children}
     </Shell>
   );

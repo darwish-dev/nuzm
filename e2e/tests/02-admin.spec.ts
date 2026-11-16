@@ -72,6 +72,42 @@ test('admin console: staff sign-in with mandatory MFA, suspend/reinstate, audit 
   await expect(page.getByRole('cell', { name: 'beta.dashboard' })).toBeVisible();
   await audit(page, info, 'admin-feature-flags');
 
+  // --- billing administration (platform_admin: reads, publishes and approves; MFA is still fresh)
+  await page.goto(adm('/billing/ledger'));
+  await expect(page.getByRole('heading', { name: T(info, 'abill.title') })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '4100', exact: true }).first()).toBeVisible();
+  await audit(page, info, 'admin-billing-ledger');
+
+  await page.goto(adm('/billing/price-books'));
+  await expect(page.getByRole('heading', { name: 'default (SAR)' })).toBeVisible();
+  await expect(page.getByText(T(info, 'abill.books.placeholder'))).toBeVisible();
+  await audit(page, info, 'admin-billing-price-books');
+
+  await page.goto(adm('/billing/plans'));
+  await expect(page.getByRole('cell', { name: 'free', exact: true })).toBeVisible();
+  await audit(page, info, 'admin-billing-plans');
+
+  await page.goto(adm('/billing/meters'));
+  const meter = `e2e.units_${L}`;
+  await page.getByLabel(T(info, 'abill.f.meterId')).fill(meter);
+  await page.getByLabel(T(info, 'abill.f.unit')).fill('unit');
+  await page.getByLabel(T(info, 'abill.f.window')).selectOption('day');
+  await page.getByRole('button', { name: T(info, 'action.create') }).click();
+  await expect(page.getByText(T(info, 'abill.meters.created'))).toBeVisible();
+  await expect(page.getByRole('cell', { name: meter, exact: true })).toBeVisible();
+  await audit(page, info, 'admin-billing-meters');
+  await page.getByLabel(T(info, 'abill.f.meterId')).fill(meter); // duplicate id → clear message
+  await page.getByLabel(T(info, 'abill.f.unit')).fill('unit');
+  await page.getByRole('button', { name: T(info, 'action.create') }).click();
+  await expect(page.getByText(T(info, 'abill.meters.exists'))).toBeVisible();
+
+  await page.goto(adm('/billing/adjustments'));
+  await expect(page.getByText(T(info, 'abill.adj.note'))).toBeVisible();
+  await audit(page, info, 'admin-billing-adjustments');
+  await page.getByLabel(T(info, 'abill.f.adjId')).fill('00000000-0000-4000-8000-000000000000');
+  await page.getByRole('button', { name: T(info, 'abill.act.decide') }).click();
+  await expect(page.getByText(T(info, 'abill.adj.notFound'))).toBeVisible();
+
   // --- a fresh sign-in is CHALLENGED (not asked to enrol again)
   await page.context().clearCookies();
   await signIn(page, info, `staff-${L}@example.test`, ADMIN);

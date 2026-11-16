@@ -16,3 +16,4 @@ export {
   type CheckpointSigner,
   type ChainReport,
 } from './audit';
+export { emitUsage, usageEventId, type UsageEvent } from './metering';

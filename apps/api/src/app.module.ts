@@ -6,6 +6,7 @@ import { BillingModule } from './modules/billing';
 import { HealthModule } from './modules/health';
 import { IdentityModule } from './modules/identity';
 import { NotificationsModule } from './modules/notifications';
+import { MeteringModule } from './modules/metering';
 import { PlatformModule } from './modules/platform';
 import { TenancyModule } from './modules/tenancy';
 
@@ -14,6 +15,7 @@ import { TenancyModule } from './modules/tenancy';
     PlatformModule,
     AuditModule,
     BillingModule,
+    MeteringModule,
     IdentityModule,
     NotificationsModule,
     AccessModule,

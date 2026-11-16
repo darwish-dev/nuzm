@@ -142,6 +142,12 @@ tenant_less:
   # plan catalogue: global reference data, readable by every runtime role, written only from the admin console scope
   - billing.plans
   - billing.plan_versions
+  # meter catalogue: global reference data, written only from the admin console scope
+  - metering.meters
+  # price books: global reference data (public price list), written only from the admin console scope
+  - billing.price_books
+  - billing.price_book_versions
+  - billing.price_items
   # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)
   - audit.chain_heads
 # isolated by RLS on their own key instead of an org_id column

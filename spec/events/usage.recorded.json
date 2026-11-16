@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nuzm:event:usage.recorded:1",
+  "title": "usage.recorded",
+  "description": "A billable or quota-relevant usage fact (docs/12 §2). Emitted by producers through emitUsage() (outbox) or POST /v1/internal/metering/events. Ingest is idempotent by (orgId, eventId). Quantities are decimal strings; no event carries content (prompts, file names, e-mail addresses).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "orgId",
+    "meterId",
+    "quantity",
+    "unit",
+    "windowStart",
+    "windowEnd",
+    "occurredAt",
+    "dataRegion",
+    "source"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "uuidv5 over org|meter|resource|windowStart|sourceSeq (see usageEventId())."
+    },
+    "orgId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "From the producer's authenticated context, never from user input."
+    },
+    "meterId": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" },
+    "quantity": {
+      "type": "string",
+      "pattern": "^-?[0-9]{1,16}(\\.[0-9]{1,8})?$",
+      "description": "In the meter unit; negative only with adjustsEventId."
+    },
+    "unit": { "type": "string" },
+    "resourceId": { "type": "string", "format": "uuid" },
+    "projectId": { "type": "string", "format": "uuid" },
+    "environmentId": { "type": "string", "format": "uuid" },
+    "windowStart": { "type": "string", "format": "date-time" },
+    "windowEnd": { "type": "string", "format": "date-time" },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Producer clock; ingest rejects more than 5 minutes in the future and flags more than 1 minute."
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Keys must be in the meter's allow-list."
+    },
+    "dataRegion": {
+      "type": "string",
+      "description": "Residency tag (placeholder 'sa-pending' until M04)."
+    },
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "actingOrgId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Agency/reseller attribution, not billing."
+    },
+    "providerEventId": { "type": "string" },
+    "tags": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Non-billing labels; never used for rating or authorization."
+    },
+    "adjustsEventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "A correction: lands in the adjusted event's window."
+    },
+    "source": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*@M[0-9]{2}$" }
+  }
+}

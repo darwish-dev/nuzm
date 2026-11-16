@@ -166,7 +166,7 @@ describe('generated cross-tenant coverage', () => {
     expect(missing).toEqual([]);
   });
 
-  it('every operation declares an access rule: a permission, any-authenticated, or no security (public)', () => {
+  it('every operation declares an access rule: a permission, any-authenticated, service-key, or no security (public)', () => {
     const bad = allOps.filter((o) => {
       const op = spec.paths[o.path]![o.method.toLowerCase()]!;
       const sec = op.security as unknown[] | undefined;
@@ -174,6 +174,7 @@ describe('generated cross-tenant coverage', () => {
         !op['x-nuzm-permission'] &&
         !op['x-nuzm-platform-permission'] &&
         op['x-nuzm-access'] !== 'any-authenticated' &&
+        op['x-nuzm-access'] !== 'service-key' &&
         !(Array.isArray(sec) && sec.length === 0)
       );
     });

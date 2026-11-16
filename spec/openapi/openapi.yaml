@@ -42,6 +42,8 @@ tags:
     description: Tamper-evident audit log
   - name: notifications
     description: In-app notifications
+  - name: metering
+    description: Usage ingestion and the meter catalogue
   - name: billing
     description: Plans, entitlements, ledger statement and wallet balance
   - name: admin
@@ -1716,6 +1718,144 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/internal/metering/events:
+    post:
+      operationId: ingestUsageEvents
+      x-nuzm-access: service-key
+      tags: [metering]
+      summary: Ingest usage events (internal producers)
+      description: 'INTERNAL: for node agents and sandbox runners with a per-source service key (not a user session). Batch of 1..500 events; the key fixes the source and may restrict organizations, so an orgId the key is not scoped to is rejected per event. Idempotent by eventId: duplicates have no effect. mTLS terminates at the ingress.'
+      security: [{ sourceKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IngestRequest' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestResponse' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/admin/meters:
+    get:
+      operationId: adminListMeters
+      tags: [metering]
+      summary: Meter catalogue
+      description: 'All meters with unit, window, basis and the dimension allow-list. Platform permission `admin:billing:read`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeterPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminCreateMeter
+      tags: [metering]
+      summary: Extend the meter catalogue
+      description: 'Unit is immutable once events exist; the id must be new. Platform permission `admin:meters:manage`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:meters:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MeterWrite' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Meter' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/price-books:
+    get:
+      operationId: adminListPriceBooks
+      tags: [billing]
+      summary: Price books
+      description: 'Books with versions and items. Platform permission `admin:billing:read`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PriceBookPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminCreatePriceBook
+      tags: [billing]
+      summary: Create a price book
+      description: 'Creates the book with its first DRAFT version. Platform permission `admin:billing:manage`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceBookWrite' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PriceBook' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/price-books/{id}/versions:
+    post:
+      operationId: adminPriceBookVersion
+      tags: [billing]
+      summary: Create a draft version or publish one
+      description: 'Body {effectiveFrom, items[], note?} creates a DRAFT (admin:billing:manage); body {publishVersionId} publishes it (admin:billing:publish, a different person than the creator; effective date must be later than every published version). Platform permission `admin:billing:read`; admin-realm session with MFA and step-up.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceBookWrite' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PriceBook' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -1749,6 +1889,10 @@ components:
       schema: { type: string }
       description: Opaque cursor from nextCursor.
   securitySchemes:
+    sourceKey:
+      type: http
+      scheme: bearer
+      description: Per-source metering service key (internal producers). Not a user credential.
     apiKey:
       type: http
       scheme: bearer
@@ -1771,6 +1915,148 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    UsageEventInput:
+      type: object
+      required:
+        [eventId, orgId, meterId, quantity, unit, windowStart, windowEnd, occurredAt, dataRegion]
+      description: See spec/events/usage.recorded.json. `quantity` is a decimal string in the meter unit (negative only with adjustsEventId).
+      properties:
+        eventId: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        meterId: { type: string }
+        quantity: { type: string }
+        unit: { type: string }
+        resourceId: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        environmentId: { type: string, format: uuid }
+        windowStart: { type: string, format: date-time }
+        windowEnd: { type: string, format: date-time }
+        occurredAt: { type: string, format: date-time }
+        dimensions: { type: object, additionalProperties: { type: string } }
+        dataRegion: { type: string }
+        schemaVersion: { type: integer }
+        actingOrgId: { type: string, format: uuid }
+        providerEventId: { type: string }
+        tags: { type: object, additionalProperties: { type: string } }
+        adjustsEventId: { type: string, format: uuid }
+    IngestRequest:
+      type: object
+      required: [events]
+      properties:
+        events:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 500,
+            items: { $ref: '#/components/schemas/UsageEventInput' },
+          }
+    IngestResponse:
+      type: object
+      required: [results, summary]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [index, result]
+            properties:
+              index: { type: integer }
+              eventId: { type: [string, 'null'] }
+              result: { type: string, enum: [accepted, duplicate, rejected] }
+              reason: { type: [string, 'null'] }
+        summary:
+          type: object
+          properties:
+            accepted: { type: integer }
+            duplicate: { type: integer }
+            rejected: { type: integer }
+    Meter:
+      type: object
+      required: [id, unit, aggregationWindow, basis, dimensionsAllowed]
+      properties:
+        id: { type: string }
+        unit: { type: string }
+        aggregationWindow: { type: string, enum: [hour, day, event] }
+        basis: { type: string, enum: [usage, included, pass, subscription] }
+        dimensionsAllowed: { type: array, items: { type: string } }
+        description: { type: string }
+        hasEvents: { type: boolean }
+    MeterPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Meter' } }
+        nextCursor: { type: [string, 'null'] }
+    MeterWrite:
+      type: object
+      required: [id, unit, aggregationWindow, basis]
+      properties:
+        id: { type: string }
+        unit: { type: string }
+        aggregationWindow: { type: string, enum: [hour, day, event] }
+        basis: { type: string, enum: [usage, included, pass, subscription] }
+        dimensionsAllowed: { type: array, items: { type: string } }
+        description: { type: string }
+    PriceItem:
+      type: object
+      required: [meterId, tierModel, includedAllowance, rounding]
+      properties:
+        meterId: { type: string }
+        tierModel: { type: string, enum: [flat, graduated, volume] }
+        unitPriceMinor:
+          { type: [string, 'null'], description: 'Flat: minor units per unit (up to 8 decimals)' }
+        tiers:
+          type: [array, 'null']
+          items:
+            type: object
+            properties:
+              upTo: { type: [string, 'null'] }
+              unitPriceMinor: { type: string }
+        includedAllowance: { type: string }
+        rounding: { type: string, enum: [half_up, up, down] }
+    PriceBook:
+      type: object
+      required: [id, name, currency, placeholder, versions]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        currency: { type: string }
+        status: { type: string }
+        placeholder:
+          {
+            type: boolean,
+            description: 'true = DRAFT-NOT-APPROVED seed (HG-02-01); refused for rating in production',
+          }
+        versions:
+          type: array
+          items:
+            type: object
+            required: [id, version, status, effectiveFrom, items]
+            properties:
+              id: { type: string, format: uuid }
+              version: { type: integer }
+              status: { type: string, enum: [draft, published] }
+              effectiveFrom: { type: string, format: date-time }
+              createdBy: { type: [string, 'null'] }
+              publishedBy: { type: [string, 'null'] }
+              publishedAt: { type: [string, 'null'] }
+              note: { type: [string, 'null'] }
+              items: { type: array, items: { $ref: '#/components/schemas/PriceItem' } }
+    PriceBookPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PriceBook' } }
+        nextCursor: { type: [string, 'null'] }
+    PriceBookWrite:
+      type: object
+      properties:
+        name: { type: string }
+        currency: { type: string }
+        effectiveFrom: { type: string, format: date-time }
+        note: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/PriceItem' } }
+        publishVersionId: { type: string, format: uuid }
     PlanEntitlement:
       type: object
       required: [kind, mode]

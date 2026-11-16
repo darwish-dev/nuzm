@@ -1060,10 +1060,226 @@ export interface paths {
         patch: operations["adminUpdatePlan"];
         trace?: never;
     };
+    "/v1/internal/metering/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest usage events (internal producers)
+         * @description INTERNAL: for node agents and sandbox runners with a per-source service key (not a user session). Batch of 1..500 events; the key fixes the source and may restrict organizations, so an orgId the key is not scoped to is rejected per event. Idempotent by eventId: duplicates have no effect. mTLS terminates at the ingress.
+         */
+        post: operations["ingestUsageEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Meter catalogue
+         * @description All meters with unit, window, basis and the dimension allow-list. Platform permission `admin:billing:read`; admin-realm session with MFA.
+         */
+        get: operations["adminListMeters"];
+        put?: never;
+        /**
+         * Extend the meter catalogue
+         * @description Unit is immutable once events exist; the id must be new. Platform permission `admin:meters:manage`; admin-realm session with MFA.
+         */
+        post: operations["adminCreateMeter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/price-books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Price books
+         * @description Books with versions and items. Platform permission `admin:billing:read`; admin-realm session with MFA.
+         */
+        get: operations["adminListPriceBooks"];
+        put?: never;
+        /**
+         * Create a price book
+         * @description Creates the book with its first DRAFT version. Platform permission `admin:billing:manage`; admin-realm session with MFA.
+         */
+        post: operations["adminCreatePriceBook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/price-books/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a draft version or publish one
+         * @description Body {effectiveFrom, items[], note?} creates a DRAFT (admin:billing:manage); body {publishVersionId} publishes it (admin:billing:publish, a different person than the creator; effective date must be later than every published version). Platform permission `admin:billing:read`; admin-realm session with MFA and step-up.
+         */
+        post: operations["adminPriceBookVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description See spec/events/usage.recorded.json. `quantity` is a decimal string in the meter unit (negative only with adjustsEventId). */
+        UsageEventInput: {
+            /** Format: uuid */
+            eventId: string;
+            /** Format: uuid */
+            orgId: string;
+            meterId: string;
+            quantity: string;
+            unit: string;
+            /** Format: uuid */
+            resourceId?: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** Format: uuid */
+            environmentId?: string;
+            /** Format: date-time */
+            windowStart: string;
+            /** Format: date-time */
+            windowEnd: string;
+            /** Format: date-time */
+            occurredAt: string;
+            dimensions?: {
+                [key: string]: string;
+            };
+            dataRegion: string;
+            schemaVersion?: number;
+            /** Format: uuid */
+            actingOrgId?: string;
+            providerEventId?: string;
+            tags?: {
+                [key: string]: string;
+            };
+            /** Format: uuid */
+            adjustsEventId?: string;
+        };
+        IngestRequest: {
+            events: components["schemas"]["UsageEventInput"][];
+        };
+        IngestResponse: {
+            results: {
+                index: number;
+                eventId?: string | null;
+                /** @enum {string} */
+                result: "accepted" | "duplicate" | "rejected";
+                reason?: string | null;
+            }[];
+            summary: {
+                accepted?: number;
+                duplicate?: number;
+                rejected?: number;
+            };
+        };
+        Meter: {
+            id: string;
+            unit: string;
+            /** @enum {string} */
+            aggregationWindow: "hour" | "day" | "event";
+            /** @enum {string} */
+            basis: "usage" | "included" | "pass" | "subscription";
+            dimensionsAllowed: string[];
+            description?: string;
+            hasEvents?: boolean;
+        };
+        MeterPage: {
+            items: components["schemas"]["Meter"][];
+            nextCursor?: string | null;
+        };
+        MeterWrite: {
+            id: string;
+            unit: string;
+            /** @enum {string} */
+            aggregationWindow: "hour" | "day" | "event";
+            /** @enum {string} */
+            basis: "usage" | "included" | "pass" | "subscription";
+            dimensionsAllowed?: string[];
+            description?: string;
+        };
+        PriceItem: {
+            meterId: string;
+            /** @enum {string} */
+            tierModel: "flat" | "graduated" | "volume";
+            /** @description Flat: minor units per unit (up to 8 decimals) */
+            unitPriceMinor?: string | null;
+            tiers?: {
+                upTo?: string | null;
+                unitPriceMinor?: string;
+            }[] | null;
+            includedAllowance: string;
+            /** @enum {string} */
+            rounding: "half_up" | "up" | "down";
+        };
+        PriceBook: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            currency: string;
+            status?: string;
+            /** @description true = DRAFT-NOT-APPROVED seed (HG-02-01); refused for rating in production */
+            placeholder: boolean;
+            versions: {
+                /** Format: uuid */
+                id: string;
+                version: number;
+                /** @enum {string} */
+                status: "draft" | "published";
+                /** Format: date-time */
+                effectiveFrom: string;
+                createdBy?: string | null;
+                publishedBy?: string | null;
+                publishedAt?: string | null;
+                note?: string | null;
+                items: components["schemas"]["PriceItem"][];
+            }[];
+        };
+        PriceBookPage: {
+            items: components["schemas"]["PriceBook"][];
+            nextCursor: string | null;
+        };
+        PriceBookWrite: {
+            name?: string;
+            currency?: string;
+            /** Format: date-time */
+            effectiveFrom?: string;
+            note?: string;
+            items?: components["schemas"]["PriceItem"][];
+            /** Format: uuid */
+            publishVersionId?: string;
+        };
         PlanEntitlement: {
             /** @enum {string} */
             kind: "meter_limit" | "feature";
@@ -3582,6 +3798,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    ingestUsageEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IngestRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestResponse"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    adminListMeters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeterPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminCreateMeter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeterWrite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meter"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListPriceBooks: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBookPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminCreatePriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceBookWrite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminPriceBookVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceBookWrite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
                 };
             };
             401: components["responses"]["Problem"];

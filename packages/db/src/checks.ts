@@ -37,7 +37,8 @@ export async function checkDatabase(url: string, manifest: Manifest): Promise<Vi
         EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'org_id' AND NOT a.attisdropped) AS has_org,
         (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid)::text AS policies
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE c.relkind IN ('r','p') AND n.nspname NOT LIKE 'pg\\_%' AND n.nspname <> 'information_schema'
+      WHERE c.relkind IN ('r','p') AND NOT c.relispartition -- partitions are governed by their parent table
+        AND n.nspname NOT LIKE 'pg\\_%' AND n.nspname <> 'information_schema'
       ORDER BY 1, 2`);
     const schemasWithObjects = await c.query<{ nspname: string }>(
       `SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema'`,

@@ -9,6 +9,7 @@ import {
 import { initTelemetry, withSpan } from '@nuzm/telemetry';
 import { makeAuditJob } from './audit-job';
 import { walletProjector } from './billing-consumers';
+import { makePartitionJob, usageIngestor } from './metering-consumers';
 import { runLoop } from './loop';
 
 /**
@@ -35,10 +36,15 @@ const subscribers = new Map<
   (payload: unknown, meta: { eventId: string; orgId: string }) => Promise<void>
 >();
 subscribers.set('ledger.posted', walletProjector(db)); // wallet projection (M02)
+subscribers.set(
+  'usage.recorded',
+  usageIngestor(db, (m, x) => console.log(JSON.stringify({ worker: m, ...x }))),
+); // metering ingest (M02)
 void operations; // handlers arrive with the first operation kinds (M05+)
 
 const log = (m: string, extra: Record<string, unknown> = {}) =>
   console.log(JSON.stringify({ worker: m, ...extra }));
+const partitions = makePartitionJob(db, { everyMs: 6 * 3600_000, log });
 
 // Audit integrity: verify chains + sign checkpoints. Disabled (loudly) when no signing key is configured.
 const auditJob = process.env.AUDIT_CHECKPOINT_KEY
@@ -54,6 +60,7 @@ void runLoop(
   () =>
     withSpan('worker.tick', async () => {
       await auditJob?.();
+      await partitions();
       const r = await relay.runOnce(async (row) => {
         const handler = subscribers.get(row.topic);
         // Unknown topic: acknowledge after logging so the outbox does not grow unbounded before

@@ -107,26 +107,29 @@ export class ApiKeyService {
     return { id, prefix, key: `${prefix}_${secret}` }; // `key` is shown exactly once
   }
 
-  async list(orgId: string) {
+  async list(orgId: string, opts: { createdBy?: string } = {}) {
     return this.db.withOrg(
       orgId,
       async (c) =>
         (
           await c.query(
-            `SELECT id, name, prefix, scopes, ip_allow_list, expires_at, last_used_at, revoked_at, created_at FROM identity.api_keys ORDER BY created_at DESC`,
+            `SELECT id, name, prefix, scopes, ip_allow_list, expires_at, last_used_at, revoked_at, created_at, created_by
+             FROM identity.api_keys WHERE ($1::uuid IS NULL OR created_by = $1) ORDER BY id DESC`,
+            [opts.createdBy ?? null],
           )
         ).rows,
     );
   }
 
-  async revoke(orgId: string, id: string): Promise<boolean> {
+  /** `onlyCreatedBy` restricts non-admin callers to their own keys (a foreign key is then simply "not found"). */
+  async revoke(orgId: string, id: string, opts: { onlyCreatedBy?: string } = {}): Promise<boolean> {
     this.cache.clear();
     return this.db.withOrg(orgId, async (c) =>
       Boolean(
         (
           await c.query(
-            `UPDATE identity.api_keys SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`,
-            [id],
+            `UPDATE identity.api_keys SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL AND ($2::uuid IS NULL OR created_by = $2)`,
+            [id, opts.onlyCreatedBy ?? null],
           )
         ).rowCount,
       ),

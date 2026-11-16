@@ -8,6 +8,8 @@ const DEV_PW = 'nuzm_dev_only'; // dev/test cluster only; never used outside the
 
 export const ORG_A = '00000000-0000-7000-8000-00000000000a';
 export const ORG_B = '00000000-0000-7000-8000-00000000000b';
+/** Seed user who created ORG_A/ORG_B. */
+export const SEED_USER = '00000000-0000-7000-8000-0000000000f1';
 
 export interface TestEnv {
   name: string;
@@ -36,6 +38,23 @@ export async function createEnv(): Promise<TestEnv> {
   for (const r of ['nuzm_app', 'nuzm_worker'])
     await root.query(`ALTER ROLE ${r} LOGIN PASSWORD '${DEV_PW}'`);
   await root.end();
+  // Seed a user and the two organizations that tests use (FKs require real rows).
+  const seed = new Client({ connectionString: adminUrl });
+  await seed.connect();
+  await seed.query(
+    `INSERT INTO identity.users (id, issuer, subject, email) VALUES ($1,'seed','seed-user','seed@example.test')`,
+    [SEED_USER],
+  );
+  for (const [org, slug] of [
+    [ORG_A, 'org-a'],
+    [ORG_B, 'org-b'],
+  ] as const) {
+    await seed.query(
+      `INSERT INTO tenancy.organizations (id, name, slug, type, country, created_by) VALUES ($1,$2,$2,'customer','SA',$3)`,
+      [org, slug, SEED_USER],
+    );
+  }
+  await seed.end();
   const asRole = (r: string) => adminUrl.replace('nuzm_admin@', `${r}:${DEV_PW}@`);
   const appUrl = asRole('nuzm_app');
   const workerUrl = asRole('nuzm_worker');

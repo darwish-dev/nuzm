@@ -9,6 +9,8 @@ export interface Manifest {
     { owner_module: string; created_by: string; extended_by: string[]; tables: string[] }
   >;
   tenant_less: string[];
+  /** Tables isolated by RLS on their own key instead of an org_id column (e.g. tenancy.organizations by id). */
+  rls_keyed: string[];
   migration_ranges: Record<string, string>;
 }
 
@@ -30,6 +32,7 @@ export function loadManifest(path: string): Manifest {
   return {
     schemas: raw.schemas ?? {},
     tenant_less: raw.tenant_less ?? [],
+    rls_keyed: raw.rls_keyed ?? [],
     migration_ranges: raw.migration_ranges ?? {},
   };
 }

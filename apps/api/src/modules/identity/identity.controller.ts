@@ -15,6 +15,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { SlidingWindowLimiter } from '../../common/rate-limit';
+import { AnyAuthenticated } from '../../common/access';
 import { IDENTITY_CONFIG } from '../../common/tokens';
 import {
   AllowPreMfa,
@@ -36,6 +37,7 @@ import { UserService } from './internal/user.service';
 const LOGIN_COOKIE = 'nuzm_oidc';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+@AnyAuthenticated()
 @RealmOnly('any')
 @Controller('v1')
 export class IdentityController {
@@ -202,25 +204,6 @@ export class IdentityController {
       traceId: req.traceId,
       ip: req.ip,
     });
-  }
-
-  /** Principal basics now; memberships/permissions/flags are added by tenancy in S03. */
-  @Get('me')
-  async me(@CurrentPrincipal() p: Principal) {
-    const u = await this.users.get(p.userId);
-    if (!u) throw new ProblemException('unauthenticated');
-    return {
-      id: u.id,
-      email: u.email,
-      emailVerified: u.email_verified,
-      displayName: u.display_name,
-      locale: u.locale,
-      isPlatformUser: u.is_platform_user,
-      mfaLevel: p.mfaLevel,
-      memberships: [] as unknown[],
-      permissions: [] as string[],
-      featureFlags: {} as Record<string, unknown>,
-    };
   }
 
   // ---- MFA ---------------------------------------------------------------------------------

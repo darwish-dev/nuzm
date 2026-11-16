@@ -55,6 +55,12 @@ beforeAll(async () => {
     [U],
   );
   for (const [i, org] of [A, B].entries()) {
+    await root(
+      `INSERT INTO tenancy.organizations (id, name, slug, type, country, created_by) VALUES ($1,$2,$3,'customer','SA',$4)`,
+      [org, `Org ${i}`, `org-${i}`, U],
+    );
+  }
+  for (const [i, org] of [A, B].entries()) {
     await root(`INSERT INTO platform.operations (id, org_id, kind) VALUES ($1,$2,'test')`, [
       `00000000-0000-7000-8000-0000000001${i}0`,
       org,

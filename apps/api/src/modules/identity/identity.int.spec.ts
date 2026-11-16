@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { Controller, Get } from '@nestjs/common';
+import { AnyAuthenticated } from '../../common/access';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SessionService } from './internal/session.service';
 import { RealmOnly } from './index';
@@ -7,6 +8,7 @@ import { Harness, cookieHeader, jarFrom, type App } from './testing/app-harness'
 
 @Controller('test-admin')
 class AdminProbeController {
+  @AnyAuthenticated()
   @RealmOnly('admin')
   @Get('probe')
   probe() {

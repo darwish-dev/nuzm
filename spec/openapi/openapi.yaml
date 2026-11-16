@@ -18,6 +18,26 @@ tags:
     description: OIDC login, sessions and MFA
   - name: identity
     description: Current principal
+  - name: organizations
+    description: Organizations
+  - name: members
+    description: Membership and roles
+  - name: invitations
+    description: Invitations
+  - name: rbac
+    description: Role and permission catalogue
+  - name: workspaces
+    description: Workspaces
+  - name: projects
+    description: Projects
+  - name: environments
+    description: Environments
+  - name: api-keys
+    description: API keys
+  - name: operations
+    description: Durable operations
+  - name: resources
+    description: Resource inventory
 paths:
   /healthz:
     get:
@@ -268,8 +288,944 @@ paths:
                   codes: { type: array, minItems: 10, maxItems: 10, items: { type: string } }
         '401': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+  /v1/organizations:
+    post:
+      operationId: createOrganization
+      tags: [organizations]
+      summary: Create an organization
+      description: Create an organization.
+      x-nuzm-access: any-authenticated
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrganization' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listOrganizations
+      tags: [organizations]
+      summary: List the caller's organizations
+      description: List the caller's organizations.
+      x-nuzm-access: any-authenticated
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /v1/organizations/{orgId}:
+    get:
+      operationId: getOrganization
+      tags: [organizations]
+      summary: Get an organization
+      description: Get an organization. Requires permission `org:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: orgId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Organization id.,
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateOrganization
+      tags: [organizations]
+      summary: Update an organization
+      description: Update an organization. Requires permission `org:update` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404. Requires If-Match with the current ETag.
+      x-nuzm-permission: org:update
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: orgId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Organization id.,
+          }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOrganization' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/organizations/{orgId}/members:
+    get:
+      operationId: listMembers
+      tags: [members]
+      summary: List members
+      description: List members. Requires permission `member:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: member:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: orgId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Organization id.,
+          }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/organizations/{orgId}/members/{userId}:
+    patch:
+      operationId: changeMemberRole
+      tags: [members]
+      summary: Change a member's role
+      description: Change a member's role. Requires permission `member:manage` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404. Requires a recent MFA verification (step-up). Requires If-Match with the current ETag.
+      x-nuzm-permission: member:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: orgId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Organization id.,
+          }
+        - {
+            name: userId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Member user id.,
+          }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeRole' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: removeMember
+      tags: [members]
+      summary: Remove a member
+      description: Remove a member. Requires permission `member:manage` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: member:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: orgId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Organization id.,
+          }
+        - {
+            name: userId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Member user id.,
+          }
+      responses:
+        '204': { description: Done }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/invitations:
+    post:
+      operationId: createInvitation
+      tags: [invitations]
+      summary: Invite a person by email
+      description: Invite a person by email. Requires permission `member:invite` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: member:invite
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateInvitation' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listInvitations
+      tags: [invitations]
+      summary: List invitations
+      description: List invitations. Requires permission `member:invite` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: member:invite
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/invitations/{id}/acceptance:
+    post:
+      operationId: acceptInvitation
+      tags: [invitations]
+      summary: Accept an invitation with its token
+      description: Accept an invitation with its token.
+      x-nuzm-access: any-authenticated
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcceptInvitation' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+  /v1/invitations/{id}:
+    delete:
+      operationId: revokeInvitation
+      tags: [invitations]
+      summary: Revoke an invitation
+      description: Revoke an invitation. Requires permission `member:invite` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: member:invite
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '204': { description: Done }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/roles:
+    get:
+      operationId: listRoles
+      tags: [rbac]
+      summary: List roles and their permissions
+      description: List roles and their permissions.
+      x-nuzm-access: any-authenticated
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /v1/permissions:
+    get:
+      operationId: listPermissions
+      tags: [rbac]
+      summary: List permissions
+      description: List permissions.
+      x-nuzm-access: any-authenticated
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /v1/workspaces:
+    post:
+      operationId: createWorkspace
+      tags: [workspaces]
+      summary: Create a workspace
+      description: Create a workspace. Requires permission `workspace:create` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: workspace:create
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWorkspace' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listWorkspaces
+      tags: [workspaces]
+      summary: List workspaces
+      description: List workspaces. Requires permission `workspace:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: workspace:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/workspaces/{id}:
+    get:
+      operationId: getWorkspace
+      tags: [workspaces]
+      summary: Get a workspace
+      description: Get a workspace. Requires permission `workspace:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: workspace:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateWorkspace
+      tags: [workspaces]
+      summary: Update a workspace
+      description: Update a workspace. Requires permission `workspace:update` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404. Requires If-Match with the current ETag.
+      x-nuzm-permission: workspace:update
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateNamed' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteWorkspace
+      tags: [workspaces]
+      summary: Delete a workspace (soft)
+      description: Delete a workspace (soft). Requires permission `workspace:delete` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: workspace:delete
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '204': { description: Done }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/projects:
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a project
+      description: Create a project. Requires permission `project:create` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: project:create
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProject' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List projects
+      description: List projects. Requires permission `project:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: project:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a project
+      description: Get a project. Requires permission `project:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: project:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      description: Update a project. Requires permission `project:update` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404. Requires If-Match with the current ETag.
+      x-nuzm-permission: project:update
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateNamed' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project (soft)
+      description: Delete a project (soft). Requires permission `project:delete` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: project:delete
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '204': { description: Done }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/projects/{id}/environments:
+    post:
+      operationId: createEnvironment
+      tags: [environments]
+      summary: Create an environment
+      description: Create an environment. Requires permission `project:create` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: project:create
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEnvironment' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEnvironments
+      tags: [environments]
+      summary: List environments
+      description: List environments. Requires permission `project:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: project:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/projects/{id}/environments/{envId}:
+    patch:
+      operationId: updateEnvironment
+      tags: [environments]
+      summary: Update an environment
+      description: Update an environment. Requires permission `project:update` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404. Requires If-Match with the current ETag.
+      x-nuzm-permission: project:update
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - {
+            name: envId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateNamed' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteEnvironment
+      tags: [environments]
+      summary: Delete an environment (soft)
+      description: Delete an environment (soft). Requires permission `project:delete` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: project:delete
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - {
+            name: envId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '204': { description: Done }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/api-keys:
+    post:
+      operationId: createApiKey
+      tags: [api-keys]
+      summary: Create an API key (step-up; secret shown once)
+      description: Create an API key (step-up; secret shown once). Requires permission `apikey:manage` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404. Requires a recent MFA verification (step-up).
+      x-nuzm-permission: apikey:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateApiKey' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listApiKeys
+      tags: [api-keys]
+      summary: List API keys
+      description: List API keys. Requires permission `apikey:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: apikey:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/api-keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      tags: [api-keys]
+      summary: Revoke an API key
+      description: Revoke an API key. Requires permission `apikey:manage` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: apikey:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '204': { description: Done }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/operations:
+    get:
+      operationId: listOperations
+      tags: [operations]
+      summary: List durable operations
+      description: List durable operations. Requires permission `operation:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: operation:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/operations/{id}:
+    get:
+      operationId: getOperation
+      tags: [operations]
+      summary: Get an operation
+      description: Get an operation. Requires permission `operation:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: operation:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/operations/{id}/cancellation:
+    post:
+      operationId: cancelOperation
+      tags: [operations]
+      summary: Cancel an operation
+      description: Cancel an operation. Requires permission `operation:cancel` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: operation:cancel
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '202': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/resources:
+    get:
+      operationId: listResources
+      tags: [resources]
+      summary: Unified resource inventory (empty until owners emit events)
+      description: Unified resource inventory (empty until owners emit events). Requires permission `resource:read` in the active organization (path orgId or X-Nuzm-Org); a non-member receives 404.
+      x-nuzm-permission: resource:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
 components:
+  parameters:
+    OrgHeader:
+      name: X-Nuzm-Org
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+      description: Active organization for session callers (verified against membership; API keys fix their own org).
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 255 }
+      description: Makes the request safely retryable; same key plus same body replays the first response.
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: { type: string }
+      description: ETag of the version being modified; stale values return 412.
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      description: Page size.
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string }
+      description: Opaque cursor from nextCursor.
   securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: Organization API key (nzk_…), scoped to a subset of its creator's permissions.
     sessionCookie:
       type: apiKey
       in: cookie
@@ -288,6 +1244,72 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    Generic:
+      type: object
+      description: Resource or page. Concrete shapes are tightened per resource as clients are generated.
+      additionalProperties: true
+    CreateOrganization:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        type: { type: string, enum: [customer, agency, reseller], default: customer }
+        country: { type: string, pattern: '^[A-Za-z]{2}$', default: SA }
+        defaultLocale: { type: string, enum: [ar, en], default: ar }
+        slug: { type: string }
+    UpdateOrganization:
+      type: object
+      properties:
+        name: { type: string }
+        defaultLocale: { type: string, enum: [ar, en] }
+    ChangeRole:
+      type: object
+      required: [role]
+      properties:
+        role: { type: string, enum: [owner, admin, billing_admin, developer, viewer] }
+    CreateInvitation:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email }
+        role: { type: string, enum: [owner, admin, billing_admin, developer, viewer] }
+    AcceptInvitation:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    CreateWorkspace:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+    UpdateNamed:
+      type: object
+      properties:
+        name: { type: string }
+    CreateProject:
+      type: object
+      required: [workspaceId, name]
+      properties:
+        workspaceId: { type: string, format: uuid }
+        name: { type: string }
+        defaultRegionPolicy: { type: object }
+    CreateEnvironment:
+      type: object
+      required: [name, kind]
+      properties:
+        name: { type: string }
+        kind: { type: string, enum: [dev, staging, prod] }
+        dataRegion: { type: string }
+    CreateApiKey:
+      type: object
+      required: [name, scopes]
+      properties:
+        name: { type: string }
+        scopes: { type: array, items: { type: string } }
+        expiresAt: { type: string, format: date-time }
+        ipAllowList: { type: array, items: { type: string } }
     Session:
       type: object
       required:
@@ -325,7 +1347,18 @@ components:
         locale: { type: string, enum: [ar, en] }
         isPlatformUser: { type: boolean }
         mfaLevel: { type: string, enum: [none, totp, recovery] }
-        memberships: { type: array, items: { type: object } }
+        memberships:
+          type: array
+          items:
+            type: object
+            required: [orgId, name, slug, type, status, role]
+            properties:
+              orgId: { type: string, format: uuid }
+              name: { type: string }
+              slug: { type: string }
+              type: { type: string, enum: [customer, agency, reseller] }
+              status: { type: string, enum: [active, suspended] }
+              role: { type: string }
         permissions: { type: array, items: { type: string } }
         featureFlags: { type: object }
     Health:

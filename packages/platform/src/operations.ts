@@ -111,6 +111,34 @@ export class OperationsService {
     });
   }
 
+  async steps(
+    orgId: string,
+    id: string,
+  ): Promise<
+    {
+      seq: number;
+      name: string;
+      state: string;
+      startedAt: string | null;
+      finishedAt: string | null;
+    }[]
+  > {
+    return this.db.withOrg(orgId, async (c) =>
+      (
+        await c.query(
+          `SELECT seq, name, state, started_at, finished_at FROM platform.operation_steps WHERE operation_id=$1 ORDER BY seq`,
+          [id],
+        )
+      ).rows.map((r) => ({
+        seq: r.seq,
+        name: r.name,
+        state: r.state,
+        startedAt: r.started_at?.toISOString() ?? null,
+        finishedAt: r.finished_at?.toISOString() ?? null,
+      })),
+    );
+  }
+
   /**
    * Claim due operations across orgs under the audited claim scope. Reclaims expired leases: a
    * `waiting_provider` operation whose worker vanished becomes `needs_reconcile` (the provider-side

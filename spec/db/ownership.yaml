@@ -133,6 +133,13 @@ tenant_less:
   - identity.recovery_codes
   # provider callbacks arrive before an org is known; deduped by (provider, event_id)
   - platform.webhook_events_inbound
+  # RBAC reference data (seeded by migration; read-only to runtime roles)
+  - tenancy.roles
+  - tenancy.permissions
+  - tenancy.role_permissions
+# isolated by RLS on their own key instead of an org_id column
+rls_keyed:
+  - tenancy.organizations
 migration_ranges:
   M01: "0001-0199"
   M02: "0200-0299"

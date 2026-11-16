@@ -32,9 +32,25 @@ export class Db {
     }
   }
 
-  withOrg<T>(orgId: string, fn: (c: PoolClient) => Promise<T>): Promise<T> {
+  /** Active-org context. Optionally also records the caller (`app.user_id`) for rows scoped to both. */
+  withOrg<T>(
+    orgId: string,
+    fn: (c: PoolClient) => Promise<T>,
+    opts: { userId?: string } = {},
+  ): Promise<T> {
     if (!UUID.test(orgId)) throw new PlatformError('validation_failed', 'orgId must be a UUID');
-    return this.tx({ 'app.org_id': orgId }, fn);
+    if (opts.userId !== undefined && !UUID.test(opts.userId))
+      throw new PlatformError('validation_failed', 'userId must be a UUID');
+    return this.tx(
+      { 'app.org_id': orgId, ...(opts.userId ? { 'app.user_id': opts.userId } : {}) },
+      fn,
+    );
+  }
+
+  /** Caller-scoped context: lets a user discover THEIR memberships/organizations before picking an org. */
+  withUser<T>(userId: string, fn: (c: PoolClient) => Promise<T>): Promise<T> {
+    if (!UUID.test(userId)) throw new PlatformError('validation_failed', 'userId must be a UUID');
+    return this.tx({ 'app.user_id': userId }, fn);
   }
 
   /** Explicit, audited cross-org scope for the worker claim loop (operations, outbox). */
@@ -43,7 +59,10 @@ export class Db {
   }
 
   /** Pre-org lookups that identify the org (API key prefix). */
-  withAuthScope<T>(scope: 'api_key_lookup', fn: (c: PoolClient) => Promise<T>): Promise<T> {
+  withAuthScope<T>(
+    scope: 'api_key_lookup' | 'invitation_accept',
+    fn: (c: PoolClient) => Promise<T>,
+  ): Promise<T> {
     return this.tx({ 'app.auth_scope': scope }, fn);
   }
 

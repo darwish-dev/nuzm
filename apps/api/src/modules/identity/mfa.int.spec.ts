@@ -41,10 +41,11 @@ async function enrolled(sub: string) {
   const e = await post(jar, '/v1/auth/mfa/factors', { type: 'totp' });
   expect(e.statusCode).toBe(201);
   const { id, secret } = e.json();
-  const v = await post(jar, `/v1/auth/mfa/factors/${id}/verification`, { code: codeAt(secret) });
+  const used = codeAt(secret);
+  const v = await post(jar, `/v1/auth/mfa/factors/${id}/verification`, { code: used });
   expect(v.statusCode).toBe(200);
   jar = jarFrom(v, jar);
-  return { jar, id: id as string, secret: secret as string };
+  return { jar, id: id as string, secret: secret as string, used };
 }
 
 describe('mfa_enroll_verify_recover', () => {
@@ -83,10 +84,9 @@ describe('mfa_enroll_verify_recover', () => {
   });
 
   it('rejects a replayed TOTP code but accepts the next time step', async () => {
-    const { jar, id, secret } = await enrolled('m-replay');
-    const same = await post(jar, `/v1/auth/mfa/factors/${id}/verification`, {
-      code: codeAt(secret),
-    });
+    const { jar, id, secret, used } = await enrolled('m-replay');
+    // replay the EXACT code used at activation (deterministic even if a 30 s step boundary passes)
+    const same = await post(jar, `/v1/auth/mfa/factors/${id}/verification`, { code: used });
     expect(same.statusCode).toBe(422); // same step already used at activation
     const next = await post(jar, `/v1/auth/mfa/factors/${id}/verification`, {
       code: codeAt(secret, 1),

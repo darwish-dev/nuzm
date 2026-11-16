@@ -1,5 +1,4 @@
 import {
-  CanActivate,
   ExecutionContext,
   Inject,
   Injectable,
@@ -45,16 +44,16 @@ export const CSRF_COOKIE: Record<Realm, string> = { web: 'nuzm_csrf', admin: 'nu
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 @Injectable()
-export class SessionGuard implements CanActivate {
+export class SessionAuthenticator {
   constructor(
     private readonly reflector: Reflector,
     private readonly sessions: SessionService,
     @Inject(IDENTITY_CONFIG) private readonly cfg: IdentityConfig,
   ) {}
 
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+  /** Authenticates a session request and sets `req.principal`; throws a ProblemException otherwise. */
+  async authenticate(ctx: ExecutionContext): Promise<Principal> {
     const targets = [ctx.getHandler(), ctx.getClass()];
-    if (this.reflector.getAllAndOverride<boolean>(PUBLIC, targets)) return true;
     const routeRealm = this.reflector.getAllAndOverride<Realm | 'any'>(REALM, targets) ?? 'web';
     const req = ctx.switchToHttp().getRequest<FastifyRequest>();
     const jar = (req.cookies ?? {}) as Record<string, string | undefined>;
@@ -96,6 +95,6 @@ export class SessionGuard implements CanActivate {
       }
     }
     req.principal = principal;
-    return true;
+    return principal;
   }
 }

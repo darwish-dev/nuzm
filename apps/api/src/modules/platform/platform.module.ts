@@ -2,6 +2,7 @@ import { Global, Module, type OnModuleDestroy, Inject } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Db, IdempotencyService, OperationsService } from '@nuzm/platform';
 import { IdempotencyInterceptor } from '../../common/idempotency';
+import { OperationsController } from './operations.controller';
 import { DB } from '../../common/tokens';
 
 /**
@@ -10,6 +11,7 @@ import { DB } from '../../common/tokens';
  */
 @Global()
 @Module({
+  controllers: [OperationsController],
   providers: [
     { provide: DB, useFactory: () => new Db(process.env.DATABASE_URL ?? '') },
     {

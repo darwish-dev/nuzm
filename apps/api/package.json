@@ -21,6 +21,7 @@
     "fastify": "5.12.8",
     "jose": "^6.2.17",
     "otpauth": "^9.6.0",
+    "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "uuid": "^14.0.3",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@nestjs/testing": "^12.5.0",
     "@swc/core": "^1.16.22",
+    "@types/pg": "^8.23.1",
     "unplugin-swc": "^2.0.0"
   }
 }

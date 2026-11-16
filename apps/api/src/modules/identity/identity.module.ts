@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
 import { Db } from '@nuzm/platform';
 import { AuditSink, LogAuditSink } from '../../common/audit';
 import { FileDevSecretStore, SecretStore } from '../../common/secrets';
@@ -11,7 +10,7 @@ import { ApiKeyService } from './internal/api-key.service';
 import { MfaService, derivePepper } from './internal/mfa.service';
 import { SessionService } from './internal/session.service';
 import { UserService } from './internal/user.service';
-import { SessionGuard } from './session.guard';
+import { SessionAuthenticator } from './session.guard';
 
 @Module({
   controllers: [IdentityController],
@@ -48,9 +47,10 @@ import { SessionGuard } from './session.guard';
       inject: [DB, SecretStore, IDENTITY_CONFIG],
     },
     { provide: ApiKeyService, useFactory: (db: Db) => new ApiKeyService(db), inject: [DB] },
-    { provide: APP_GUARD, useClass: SessionGuard },
+    SessionAuthenticator,
   ],
   exports: [
+    SessionAuthenticator,
     SessionService,
     UserService,
     MfaService,

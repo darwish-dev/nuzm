@@ -71,7 +71,7 @@ export async function checkDatabase(url: string, manifest: Manifest): Promise<Vi
           detail: 'table not listed in ownership manifest',
         });
       }
-      if (t.has_org) {
+      if (t.has_org || manifest.rls_keyed.includes(fq)) {
         if (!t.rls)
           out.push({
             kind: 'rls_missing',
@@ -84,7 +84,7 @@ export async function checkDatabase(url: string, manifest: Manifest): Promise<Vi
           out.push({
             kind: 'policy_missing',
             object: fq,
-            detail: 'org_id table without any policy',
+            detail: 'tenant-scoped table without any policy',
           });
       } else if (!manifest.tenant_less.includes(fq)) {
         out.push({

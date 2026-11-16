@@ -6,7 +6,10 @@ import type { Type } from '@nestjs/common';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
 import { AuditSink, type AuditEvent } from '../../../common/audit';
+import { Mailer, type MailMessage } from '../../../common/mailer';
 import { MemorySecretStore, SecretStore } from '../../../common/secrets';
+import { SessionService } from '../index';
+import { createHash } from 'node:crypto';
 import { applyTestIdentityEnv } from './env';
 import { TestIdp } from './test-idp';
 
@@ -14,6 +17,18 @@ export class MemorySink extends AuditSink {
   events: AuditEvent[] = [];
   record(e: AuditEvent) {
     this.events.push(e);
+  }
+}
+
+export class MemoryMailer extends Mailer {
+  sent: MailMessage[] = [];
+  failNext = false;
+  async send(m: MailMessage) {
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error('smtp down');
+    }
+    this.sent.push(m);
   }
 }
 
@@ -52,18 +67,21 @@ export class Harness {
     process.env.DATABASE_URL = this.env.appUrl;
     const sink = new MemorySink();
     const secrets = new MemorySecretStore();
+    const mailer = new MemoryMailer();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers })
       .overrideProvider(AuditSink)
       .useValue(sink)
       .overrideProvider(SecretStore)
       .useValue(secrets)
+      .overrideProvider(Mailer)
+      .useValue(mailer)
       .compile();
     const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     await configureApp(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     this.apps.push(app);
-    return { app, sink, secrets };
+    return { app, sink, secrets, mailer };
   }
 
   /** login → IdP authorize → callback; returns the cookie jar. */
@@ -105,6 +123,33 @@ export class Harness {
   }
 
   /** Close one app early (e.g. a short-lived app inside a test); the harness will not close it again. */
+  /** Create a user row directly (verified email) and return its id. */
+  async createUser(
+    sub: string,
+    opts: { emailVerified?: boolean; email?: string } = {},
+  ): Promise<string> {
+    const r = await this.env.sql(
+      `INSERT INTO identity.users (id, issuer, subject, email, email_verified) VALUES (gen_random_uuid(), 'test', $1, $2, $3) RETURNING id`,
+      [sub, opts.email ?? `${sub}@example.test`, opts.emailVerified ?? true],
+    );
+    return r[0]!.id as string;
+  }
+
+  /** A signed-in web session for a user without going through OIDC (OIDC itself is tested separately). */
+  async sessionFor(app: App, userId: string): Promise<Record<string, string>> {
+    const s = await app.get(SessionService).create(userId, 'web', {});
+    return { nuzm_session: s.token, nuzm_csrf: s.csrf };
+  }
+
+  /** Mark a session as recently MFA-verified (satisfies @StepUp()). */
+  async elevate(jar: Record<string, string>) {
+    const hash = createHash('sha256').update(jar.nuzm_session!).digest('hex');
+    await this.env.sql(
+      `UPDATE identity.sessions SET mfa_level='totp', mfa_verified_at=now() WHERE token_hash=$1`,
+      [hash],
+    );
+  }
+
   async closeApp(app: App) {
     this.apps = this.apps.filter((a) => a !== app);
     await app.close();

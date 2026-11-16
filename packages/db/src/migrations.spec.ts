@@ -10,6 +10,7 @@ const manifest: Manifest = {
     billing: { owner_module: 'billing', created_by: 'M02', extended_by: [], tables: [] },
   },
   tenant_less: [],
+  rls_keyed: [],
   migration_ranges: { M01: '0001-0199', M02: '0200-0299' },
 };
 

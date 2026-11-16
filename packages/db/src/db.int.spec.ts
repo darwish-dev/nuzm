@@ -149,6 +149,27 @@ describe('ownership + RLS checks (docs/05 rules)', () => {
     ).toEqual([]);
   });
 
+  it('rls_keyed tables (no org_id) must still carry forced RLS and a policy', async () => {
+    await sql(`CREATE TABLE platform.keyed (id uuid primary key)`);
+    const keyed = {
+      ...m,
+      tenant_less: [...m.tenant_less, 'platform.lookup'],
+      schemas: {
+        ...m.schemas,
+        platform: { ...m.schemas.platform!, tables: [...m.schemas.platform!.tables, 'keyed'] },
+      },
+      rls_keyed: [...m.rls_keyed, 'platform.keyed'],
+    };
+    expect((await checkDatabase(url, keyed)).map((v) => v.kind)).toEqual(
+      expect.arrayContaining(['rls_missing', 'policy_missing']),
+    );
+    await sql(
+      `ALTER TABLE platform.keyed ENABLE ROW LEVEL SECURITY; ALTER TABLE platform.keyed FORCE ROW LEVEL SECURITY; CREATE POLICY k ON platform.keyed USING (id = nullif(current_setting('app.org_id', true), '')::uuid)`,
+    );
+    expect(await checkDatabase(url, keyed)).toEqual([]);
+    await sql(`DROP TABLE platform.keyed`);
+  });
+
   it('flags tables and schemas the manifest does not know', async () => {
     await sql(`CREATE TABLE platform.rogue (org_id uuid)`);
     await sql(`CREATE SCHEMA rogue_schema`);

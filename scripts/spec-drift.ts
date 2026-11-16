@@ -55,6 +55,12 @@ for (const file of walk(srcDir)) {
   }
 }
 
+// Two-way: every declared operation must also exist in code (planned operations live in planned-paths.yaml).
+const implemented = new Set(found);
+for (const d of declared) {
+  if (!implemented.has(d)) problems.push(`${d} is declared in openapi.yaml but not implemented`);
+}
+
 if (problems.length) {
   console.error('SPEC DRIFT:\n' + problems.map((p) => ' - ' + p).join('\n'));
   process.exit(1);

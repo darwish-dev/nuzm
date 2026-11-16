@@ -33,6 +33,7 @@
     "@nestjs/testing": "^12.5.0",
     "@swc/core": "^1.16.22",
     "@types/pg": "^8.23.1",
+    "fast-check": "^4.10.2",
     "unplugin-swc": "^2.0.0"
   }
 }

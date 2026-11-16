@@ -42,6 +42,8 @@ tags:
     description: Tamper-evident audit log
   - name: notifications
     description: In-app notifications
+  - name: billing
+    description: Plans, entitlements, ledger statement and wallet balance
   - name: admin
     description: Admin console (platform roles, admin realm, MFA-verified session)
 paths:
@@ -1475,6 +1477,245 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/billing/plans:
+    get:
+      operationId: listPlans
+      tags: [billing]
+      summary: Plan catalogue
+      description: 'Published plans with their entitlements; prices arrive with price books (S06). Requires permission `org:read` in the active organization.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      x-nuzm-global-reference: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/plans/{id}:
+    get:
+      operationId: getPlan
+      tags: [billing]
+      summary: Get a plan
+      description: 'A published plan; the same catalogue for every organization. Requires permission `org:read` in the active organization.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      x-nuzm-global-reference: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Plan' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/entitlements:
+    get:
+      operationId: getEntitlements
+      tags: [billing]
+      summary: Effective entitlements
+      description: 'Plan limits and features with organization overrides applied; `source` says where each value comes from. Requires permission `org:read` in the active organization.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EffectiveEntitlements' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/ledger:
+    get:
+      operationId: listLedger
+      tags: [billing]
+      summary: Customer statement
+      description: 'Postings on the organization own accounts (wallet etc.) with a running balance; platform accounts are never shown. Requires permission `billing:read` in the active organization.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: kind, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LedgerPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/billing/balance:
+    get:
+      operationId: getBalance
+      tags: [billing]
+      summary: Wallet balance
+      description: 'Prepaid wallet balance per currency (projection of the ledger). Requires permission `billing:read` in the active organization.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Balance' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/ledger-accounts:
+    get:
+      operationId: adminListLedgerAccounts
+      tags: [admin]
+      summary: Ledger accounts
+      description: 'Chart of accounts with balances derived from postings. Platform permission `admin:billing:read`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: orgId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLedgerAccountPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/ledger-transactions:
+    get:
+      operationId: adminListLedgerTransactions
+      tags: [admin]
+      summary: Ledger transactions
+      description: 'Transactions with their postings, newest first. Platform permission `admin:billing:read`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: orgId, in: query, schema: { type: string, format: uuid } }
+        - { name: kind, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLedgerTransactionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/plans:
+    get:
+      operationId: adminListPlans
+      tags: [admin]
+      summary: Plans (all versions)
+      description: 'Draft and published versions. Platform permission `admin:billing:read`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlanPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminCreatePlan
+      tags: [admin]
+      summary: Create a plan
+      description: 'Creates the plan with its first DRAFT version. Platform permission `admin:billing:manage`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlanWrite' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlan' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/plans/{id}:
+    patch:
+      operationId: adminUpdatePlan
+      tags: [admin]
+      summary: Edit, publish or branch a plan
+      description: 'Body {name?, entitlements? (replaces the draft), action?: publish|new_draft}. Published versions are immutable; `new_draft` copies the latest published version. Platform permission `admin:billing:manage`; admin-realm session with MFA.'
+      x-nuzm-platform-permission: admin:billing:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlanWrite' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlan' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -1530,6 +1771,214 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    PlanEntitlement:
+      type: object
+      required: [kind, mode]
+      properties:
+        kind: { type: string, enum: [meter_limit, feature] }
+        meterGroup: { type: [string, 'null'] }
+        featureKey: { type: [string, 'null'] }
+        limit: { type: [string, 'null'], description: 'Integer string' }
+        allowance: { type: [string, 'null'], description: 'Integer string' }
+        mode: { type: string, enum: [soft, hard] }
+        enabled: { type: boolean }
+    Plan:
+      type: object
+      required: [id, key, name, placeholder, version, entitlements]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        name:
+          type: object
+          required: [ar, en]
+          properties:
+            ar: { type: string }
+            en: { type: string }
+        placeholder: { type: boolean, description: 'true = DRAFT-NOT-APPROVED seed (HG-02-01)' }
+        version:
+          type: object
+          required: [id, version, currency]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer }
+            currency: { type: string }
+            publishedAt: { type: [string, 'null'], format: date-time }
+        entitlements: { type: array, items: { $ref: '#/components/schemas/PlanEntitlement' } }
+        price:
+          {
+            type: [object, 'null'],
+            description: 'Resolved from the price book (S06); null until then.',
+          }
+    PlanPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Plan' } }
+        nextCursor: { type: [string, 'null'] }
+    EffectiveEntitlements:
+      type: object
+      required: [plan, features, limits, marketplace]
+      properties:
+        plan:
+          type: object
+          required: [key, versionId, source]
+          properties:
+            key: { type: string }
+            versionId: { type: string, format: uuid }
+            source: { type: string, enum: [assignment, default] }
+        features:
+          type: object
+          additionalProperties:
+            type: object
+            required: [enabled, source]
+            properties:
+              enabled: { type: boolean }
+              source: { type: string, enum: [plan, override] }
+        limits:
+          type: array
+          items:
+            type: object
+            required: [meterGroup, mode, source]
+            properties:
+              meterGroup: { type: string }
+              limit: { type: [string, 'null'] }
+              allowance: { type: [string, 'null'] }
+              mode: { type: string, enum: [soft, hard] }
+              source: { type: string, enum: [plan, override] }
+        marketplace: { type: array, items: {}, description: 'Placeholder until M11.' }
+    LedgerLine:
+      type: object
+      required:
+        [
+          id,
+          transactionId,
+          occurredAt,
+          kind,
+          description,
+          direction,
+          amountMinor,
+          currency,
+          balanceMinor,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        transactionId: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        kind: { type: string }
+        description: { type: string }
+        direction: { type: string, enum: [debit, credit] }
+        amountMinor: { type: string, description: 'Integer minor units' }
+        currency: { type: string }
+        balanceMinor: { type: string, description: 'Running wallet balance after this line' }
+        reference: { type: [string, 'null'] }
+    LedgerPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LedgerLine' } }
+        nextCursor: { type: [string, 'null'] }
+    Balance:
+      type: object
+      required: [balances]
+      properties:
+        balances:
+          type: array
+          items:
+            type: object
+            required: [currency, balanceMinor]
+            properties:
+              currency: { type: string }
+              balanceMinor: { type: string }
+    AdminLedgerAccount:
+      type: object
+      required: [id, code, name, type, normalSide, currency, balanceMinor]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        type: { type: string }
+        normalSide: { type: string, enum: [debit, credit] }
+        orgId: { type: [string, 'null'], format: uuid }
+        subledgerKey: { type: [string, 'null'] }
+        currency: { type: string }
+        balanceMinor: { type: string }
+    AdminLedgerAccountPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminLedgerAccount' } }
+        nextCursor: { type: [string, 'null'] }
+    AdminLedgerTransaction:
+      type: object
+      required: [id, kind, description, occurredAt, postings]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: [string, 'null'], format: uuid }
+        kind: { type: string }
+        description: { type: string }
+        idempotencyKey: { type: string }
+        reversesId: { type: [string, 'null'], format: uuid }
+        occurredAt: { type: string, format: date-time }
+        postings:
+          type: array
+          items:
+            type: object
+            required: [accountCode, direction, amountMinor, currency]
+            properties:
+              accountCode: { type: string }
+              direction: { type: string, enum: [debit, credit] }
+              amountMinor: { type: string }
+              currency: { type: string }
+              dimensions: { type: object, additionalProperties: true }
+    AdminLedgerTransactionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminLedgerTransaction' } }
+        nextCursor: { type: [string, 'null'] }
+    PlanWrite:
+      type: object
+      properties:
+        key: { type: string }
+        name:
+          type: object
+          properties:
+            ar: { type: string }
+            en: { type: string }
+        currency: { type: string }
+        entitlements: { type: array, items: { $ref: '#/components/schemas/PlanEntitlement' } }
+        action: { type: string, enum: [publish, new_draft] }
+    AdminPlan:
+      type: object
+      required: [id, key, name, status, placeholder, versions]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        name:
+          type: object
+          properties:
+            ar: { type: string }
+            en: { type: string }
+        status: { type: string }
+        placeholder: { type: boolean }
+        versions:
+          type: array
+          items:
+            type: object
+            required: [id, version, status, entitlements]
+            properties:
+              id: { type: string, format: uuid }
+              version: { type: integer }
+              status: { type: string, enum: [draft, published] }
+              currency: { type: string }
+              publishedAt: { type: [string, 'null'] }
+              entitlements: { type: array, items: { $ref: '#/components/schemas/PlanEntitlement' } }
+    AdminPlanPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminPlan' } }
+        nextCursor: { type: [string, 'null'] }
     Organization:
       type: object
       required:

@@ -876,10 +876,369 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan catalogue
+         * @description Published plans with their entitlements; prices arrive with price books (S06). Requires permission `org:read` in the active organization.
+         */
+        get: operations["listPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a plan
+         * @description A published plan; the same catalogue for every organization. Requires permission `org:read` in the active organization.
+         */
+        get: operations["getPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Effective entitlements
+         * @description Plan limits and features with organization overrides applied; `source` says where each value comes from. Requires permission `org:read` in the active organization.
+         */
+        get: operations["getEntitlements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customer statement
+         * @description Postings on the organization own accounts (wallet etc.) with a running balance; platform accounts are never shown. Requires permission `billing:read` in the active organization.
+         */
+        get: operations["listLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Wallet balance
+         * @description Prepaid wallet balance per currency (projection of the ledger). Requires permission `billing:read` in the active organization.
+         */
+        get: operations["getBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/ledger-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ledger accounts
+         * @description Chart of accounts with balances derived from postings. Platform permission `admin:billing:read`; admin-realm session with MFA.
+         */
+        get: operations["adminListLedgerAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/ledger-transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ledger transactions
+         * @description Transactions with their postings, newest first. Platform permission `admin:billing:read`; admin-realm session with MFA.
+         */
+        get: operations["adminListLedgerTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plans (all versions)
+         * @description Draft and published versions. Platform permission `admin:billing:read`; admin-realm session with MFA.
+         */
+        get: operations["adminListPlans"];
+        put?: never;
+        /**
+         * Create a plan
+         * @description Creates the plan with its first DRAFT version. Platform permission `admin:billing:manage`; admin-realm session with MFA.
+         */
+        post: operations["adminCreatePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit, publish or branch a plan
+         * @description Body {name?, entitlements? (replaces the draft), action?: publish|new_draft}. Published versions are immutable; `new_draft` copies the latest published version. Platform permission `admin:billing:manage`; admin-realm session with MFA.
+         */
+        patch: operations["adminUpdatePlan"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        PlanEntitlement: {
+            /** @enum {string} */
+            kind: "meter_limit" | "feature";
+            meterGroup?: string | null;
+            featureKey?: string | null;
+            /** @description Integer string */
+            limit?: string | null;
+            /** @description Integer string */
+            allowance?: string | null;
+            /** @enum {string} */
+            mode: "soft" | "hard";
+            enabled?: boolean;
+        };
+        Plan: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            /** @description true = DRAFT-NOT-APPROVED seed (HG-02-01) */
+            placeholder: boolean;
+            version: {
+                /** Format: uuid */
+                id: string;
+                version: number;
+                currency: string;
+                /** Format: date-time */
+                publishedAt?: string | null;
+            };
+            entitlements: components["schemas"]["PlanEntitlement"][];
+            /** @description Resolved from the price book (S06); null until then. */
+            price?: Record<string, never> | null;
+        };
+        PlanPage: {
+            items: components["schemas"]["Plan"][];
+            nextCursor: string | null;
+        };
+        EffectiveEntitlements: {
+            plan: {
+                key: string;
+                /** Format: uuid */
+                versionId: string;
+                /** @enum {string} */
+                source: "assignment" | "default";
+            };
+            features: {
+                [key: string]: {
+                    enabled: boolean;
+                    /** @enum {string} */
+                    source: "plan" | "override";
+                };
+            };
+            limits: {
+                meterGroup: string;
+                limit?: string | null;
+                allowance?: string | null;
+                /** @enum {string} */
+                mode: "soft" | "hard";
+                /** @enum {string} */
+                source: "plan" | "override";
+            }[];
+            /** @description Placeholder until M11. */
+            marketplace: unknown[];
+        };
+        LedgerLine: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            transactionId: string;
+            /** Format: date-time */
+            occurredAt: string;
+            kind: string;
+            description: string;
+            /** @enum {string} */
+            direction: "debit" | "credit";
+            /** @description Integer minor units */
+            amountMinor: string;
+            currency: string;
+            /** @description Running wallet balance after this line */
+            balanceMinor: string;
+            reference?: string | null;
+        };
+        LedgerPage: {
+            items: components["schemas"]["LedgerLine"][];
+            nextCursor: string | null;
+        };
+        Balance: {
+            balances: {
+                currency: string;
+                balanceMinor: string;
+            }[];
+        };
+        AdminLedgerAccount: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            type: string;
+            /** @enum {string} */
+            normalSide: "debit" | "credit";
+            /** Format: uuid */
+            orgId?: string | null;
+            subledgerKey?: string | null;
+            currency: string;
+            balanceMinor: string;
+        };
+        AdminLedgerAccountPage: {
+            items: components["schemas"]["AdminLedgerAccount"][];
+            nextCursor: string | null;
+        };
+        AdminLedgerTransaction: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId?: string | null;
+            kind: string;
+            description: string;
+            idempotencyKey?: string;
+            /** Format: uuid */
+            reversesId?: string | null;
+            /** Format: date-time */
+            occurredAt: string;
+            postings: {
+                accountCode: string;
+                /** @enum {string} */
+                direction: "debit" | "credit";
+                amountMinor: string;
+                currency: string;
+                dimensions?: {
+                    [key: string]: unknown;
+                };
+            }[];
+        };
+        AdminLedgerTransactionPage: {
+            items: components["schemas"]["AdminLedgerTransaction"][];
+            nextCursor: string | null;
+        };
+        PlanWrite: {
+            key?: string;
+            name?: {
+                ar?: string;
+                en?: string;
+            };
+            currency?: string;
+            entitlements?: components["schemas"]["PlanEntitlement"][];
+            /** @enum {string} */
+            action?: "publish" | "new_draft";
+        };
+        AdminPlan: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            name: {
+                ar?: string;
+                en?: string;
+            };
+            status: string;
+            placeholder: boolean;
+            versions: {
+                /** Format: uuid */
+                id: string;
+                version: number;
+                /** @enum {string} */
+                status: "draft" | "published";
+                currency?: string;
+                publishedAt?: string | null;
+                entitlements: components["schemas"]["PlanEntitlement"][];
+            }[];
+        };
+        AdminPlanPage: {
+            items: components["schemas"]["AdminPlan"][];
+            nextCursor: string | null;
+        };
         Organization: {
             /** Format: uuid */
             id: string;
@@ -2935,6 +3294,300 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listPlans: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getPlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getEntitlements: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveEntitlements"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listLedger: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                from?: string;
+                to?: string;
+                kind?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBalance: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Balance"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminListLedgerAccounts: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                code?: string;
+                orgId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLedgerAccountPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListLedgerTransactions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                orgId?: string;
+                kind?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLedgerTransactionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListPlans: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPlanPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminCreatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanWrite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminUpdatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanWrite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

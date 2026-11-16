@@ -8,6 +8,7 @@ import {
 } from '@nuzm/platform';
 import { initTelemetry, withSpan } from '@nuzm/telemetry';
 import { makeAuditJob } from './audit-job';
+import { walletProjector } from './billing-consumers';
 import { runLoop } from './loop';
 
 /**
@@ -33,6 +34,7 @@ const subscribers = new Map<
   string,
   (payload: unknown, meta: { eventId: string; orgId: string }) => Promise<void>
 >();
+subscribers.set('ledger.posted', walletProjector(db)); // wallet projection (M02)
 void operations; // handlers arrive with the first operation kinds (M05+)
 
 const log = (m: string, extra: Record<string, unknown> = {}) =>

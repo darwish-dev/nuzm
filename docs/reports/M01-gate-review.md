@@ -1,4 +1,4 @@
-# Gate Review — M01 (DRAFT for owner review; not signed)
+# Gate Review — M01 (SIGNED by the owner via chat on 2026-11-16, with deferrals)
 
 - Date / reviewers: prepared 2026-11-16 by the implementing agent; **reviewers: owner (pending)**.
 - All acceptance rows PASS or listed below as BLOCKED/NOT VERIFIED with owner: see [M01-report.md §H](M01-report.md). Rows that are **NOT DONE** and need an owner decision (DEFER with a change-log entry, or build before M02): audit partitioning; admin operations monitor (UI-M01-28) and roles viewer (UI-M01-29); standalone MFA challenge page (UI-M01-04); operations detail drawer (UI-M01-19); audit integrity badge (needs PA-17); notification preferences screen (PA-18); E2E for invitation-by-mail accept and impersonation start; keyboard-only walkthrough; header-scan test; load smoke; DB-failover test.
@@ -8,5 +8,5 @@
 - `spec/` in sync (drift check output): `spec drift OK: 55 implemented route(s) all declared (55 declared)`; `sdk schema is up to date`; spectral lint clean.
 - Compliance hooks checklist: audit for every mutation (atomic, fail-closed) ✔; `data_region` placeholder `sa-pending` and `ResidencyPolicy` allow-all stub **NOT VERIFIED — M04**; PII: audit stores hashed IP/UA and no invited-email addresses; classification annotations for `identity.users` fields: **not yet written into `spec/db/ownership.yaml`** (M01 §9.4, to do or defer); no metering emitted (none required in M01).
 - Owner decisions requested: (1) additive contract changes listed in M01-report §A; (2) PA-12, PA-17, PA-18; (3) `POST /v1/admin/organizations` semantics; (4) impersonation approval model; (5) audit partitioning change-log entry; (6) per-console OIDC clients.
-- Decision: proceed / hold — **pending owner**
-- Owner sign-off (name, date): _______________
+- Decision: **proceed** to M02. Owner chose "Sign, defer the open rows": every NOT DONE row is DEFERRED per [M01-deferrals.md](M01-deferrals.md). The BLOCKED items and the six owner decisions above remain OPEN and are not resolved by this sign-off.
+- Owner sign-off: project owner, recorded from the chat decision of 2026-11-16 (a written signature is not captured here).

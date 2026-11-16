@@ -18,6 +18,8 @@ type Op = {
   path: string;
   permission: string;
   params: string[];
+  /** Global reference data (e.g. the plan catalogue): the same for every organization, so no 404 isolation applies. */
+  global: boolean;
 };
 const spec = parse(
   readFileSync(join(__dirname, '../../../../../spec/openapi/openapi.yaml'), 'utf8'),
@@ -30,12 +32,13 @@ for (const [path, item] of Object.entries(spec.paths)) {
       method: m.toUpperCase() as Op['method'],
       path,
       permission: (op['x-nuzm-permission'] as string) ?? '',
+      global: op['x-nuzm-global-reference'] === true,
       params: [...path.matchAll(/\{(\w+)\}/g)].map((x) => x[1]!),
     });
   }
 }
 const orgScoped = allOps.filter((o) => o.permission);
-const withIds = orgScoped.filter((o) => o.params.length > 0);
+const withIds = orgScoped.filter((o) => o.params.length > 0 && !o.global);
 
 const h = new Harness();
 let app: App;

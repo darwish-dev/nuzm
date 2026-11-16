@@ -17,6 +17,11 @@ export const ERROR_REGISTRY = {
   not_found: { status: 404, title: 'Not found' },
   validation_failed: { status: 422, title: 'Validation failed' },
   idempotency_key_required: { status: 400, title: 'Idempotency-Key header required' },
+  insufficient_funds: { status: 402, title: 'Insufficient wallet balance' },
+  recipe_not_implemented: {
+    status: 501,
+    title: 'Ledger recipe is not implemented in this milestone',
+  },
   idempotency_key_reuse: { status: 422, title: 'Idempotency-Key reused with a different request' },
   idempotency_in_progress: {
     status: 409,

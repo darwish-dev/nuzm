@@ -25,3 +25,12 @@ export function pageOf<T extends { id: string }>(rows: T[], limit: number): Page
       rows.length > limit ? Buffer.from(items[items.length - 1]!.id).toString('base64url') : null,
   };
 }
+
+/** Keyset cursor for time-ordered lists: base64url of `<ISO time>|<uuid>`. */
+export const encodeTimeCursor = (t: Date, id: string) =>
+  Buffer.from(`${t.toISOString()}|${id}`).toString('base64url');
+export function decodeTimeCursor(raw: unknown): { t: string; id: string } | null {
+  if (typeof raw !== 'string' || raw === '') return null;
+  const [t, id] = Buffer.from(raw, 'base64url').toString('utf8').split('|');
+  return t && id && !Number.isNaN(Date.parse(t)) && UUID.test(id) ? { t, id } : null;
+}

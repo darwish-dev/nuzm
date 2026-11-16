@@ -139,6 +139,9 @@ tenant_less:
   - tenancy.role_permissions
   # platform-role assignments: tenant-less by nature (platform staff, not org members)
   - tenancy.platform_roles
+  # plan catalogue: global reference data, readable by every runtime role, written only from the admin console scope
+  - billing.plans
+  - billing.plan_versions
   # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)
   - audit.chain_heads
 # isolated by RLS on their own key instead of an org_id column

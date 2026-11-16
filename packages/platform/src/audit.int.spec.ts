@@ -153,6 +153,17 @@ describe('audit hash chain (real PostgreSQL)', () => {
   });
 });
 
+describe('unscoped callers are refused (NULL-scope regression, found in M02 review)', () => {
+  it('verify_chain and chain_tips raise when no scope is set at all', async () => {
+    await expect(
+      env.app.withoutScope((c) => c.query('SELECT * FROM audit.verify_chain($1)', [ORG_A])),
+    ).rejects.toThrow(/not in scope/);
+    await expect(
+      env.app.withoutScope((c) => c.query('SELECT * FROM audit.chain_tips()')),
+    ).rejects.toThrow(/platform scope required/);
+  });
+});
+
 describe('tamper detection', () => {
   it('detects an edited row, naming the first bad sequence', async () => {
     await asAttacker(() =>

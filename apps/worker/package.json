@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
-    "dev": "tsx src/main.ts"
+    "dev": "tsx src/main.ts",
+    "test:integration": "vitest run --config vitest.integration.config.mts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

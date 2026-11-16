@@ -1,3 +1,4 @@
+import { AuditSink } from '../../../common/audit';
 import { enqueue, type Db } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
 import { decodeCursor, pageOf, parseLimit, type Page } from './pagination';
@@ -15,7 +16,10 @@ export interface Member {
 export const ORG_ROLES = ['owner', 'admin', 'billing_admin', 'developer', 'viewer'] as const;
 
 export class MemberService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly audit: AuditSink,
+  ) {}
 
   async list(orgId: string, q: { limit?: unknown; cursor?: unknown }): Promise<Page<Member>> {
     const limit = parseLimit(q.limit);
@@ -83,6 +87,14 @@ export class MemberService {
         from: t.role,
         to: newRole,
       });
+      await this.audit.record({
+        action: 'tenancy.member.role_changed',
+        orgId,
+        resource: { type: 'member', id: targetUserId },
+        outcome: 'success',
+        before: { role: t.role },
+        after: { role: newRole },
+      });
       const m = (
         await c.query(
           `SELECT m.id, m.user_id, u.email, u.display_name, m.role, m.created_at, m.version FROM tenancy.memberships m JOIN identity.users u ON u.id=m.user_id WHERE m.id=$1`,
@@ -123,6 +135,13 @@ export class MemberService {
         throw new ProblemException('conflict', 'cannot remove the last owner');
       await c.query('DELETE FROM tenancy.memberships WHERE id=$1', [t.id]);
       await enqueue(c, orgId, 'member.removed', { userId: targetUserId, by: actor.userId });
+      await this.audit.record({
+        action: 'tenancy.member.removed',
+        orgId,
+        resource: { type: 'member', id: targetUserId },
+        outcome: 'success',
+        before: { role: t.role },
+      });
     });
   }
 }

@@ -1,7 +1,23 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Pool, type PoolClient } from 'pg';
 import { PlatformError } from './errors';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The transaction currently running on this async path (set by `Db.tx`, cleared when it ends). */
+export interface ActiveTx {
+  readonly client: PoolClient;
+  /** `app.org_id` of the transaction, if it is org-scoped. */
+  readonly orgId?: string;
+  /** False once COMMIT/ROLLBACK ran: a late (un-awaited) continuation must never use the released client. */
+  open: boolean;
+}
+const txStore = new AsyncLocalStorage<ActiveTx>();
+/** Lets cross-cutting writers (the audit sink) join the caller's transaction so both commit or neither does. */
+export const activeTx = (): ActiveTx | undefined => {
+  const t = txStore.getStore();
+  return t?.open ? t : undefined;
+};
 
 /**
  * Transaction helper that applies PostgreSQL row-level-security context. GUCs are set with
@@ -21,9 +37,15 @@ export class Db {
       await client.query('BEGIN');
       for (const [k, v] of Object.entries(gucs))
         await client.query('SELECT set_config($1, $2, true)', [k, v]);
-      const result = await fn(client);
-      await client.query('COMMIT');
-      return result;
+      const entry: ActiveTx = { client, orgId: gucs['app.org_id'], open: true };
+      try {
+        const result = await txStore.run(entry, () => fn(client));
+        entry.open = false;
+        await client.query('COMMIT');
+        return result;
+      } finally {
+        entry.open = false;
+      }
     } catch (e) {
       await client.query('ROLLBACK').catch(() => undefined);
       throw e;

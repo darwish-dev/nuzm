@@ -1,4 +1,4 @@
-export { Db } from './db';
+export { Db, activeTx, type ActiveTx } from './db';
 export { PlatformError } from './errors';
 export { IdempotencyService, requestHash, type StoredResponse } from './idempotency';
 export { OutboxRelay, enqueue, eventId, type OutboxRow } from './outbox';

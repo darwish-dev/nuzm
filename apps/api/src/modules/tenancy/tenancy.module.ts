@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { Db } from '@nuzm/platform';
+import { AuditSink } from '../../common/audit';
 import { Mailer } from '../../common/mailer';
 import { DB } from '../../common/tokens';
 import { IdentityModule } from '../identity';
@@ -21,17 +22,26 @@ import { TenancyController } from './tenancy.controller';
   providers: [
     { provide: ResidencyPolicy, useClass: AllowAllResidencyPolicy }, // NOT VERIFIED until M04
     { provide: RetentionHook, useClass: NoopRetentionHook },
-    { provide: OrgService, useFactory: (db: Db) => new OrgService(db), inject: [DB] },
-    { provide: MemberService, useFactory: (db: Db) => new MemberService(db), inject: [DB] },
+    {
+      provide: OrgService,
+      useFactory: (db: Db, a: AuditSink) => new OrgService(db, a),
+      inject: [DB, AuditSink],
+    },
+    {
+      provide: MemberService,
+      useFactory: (db: Db, a: AuditSink) => new MemberService(db, a),
+      inject: [DB, AuditSink],
+    },
     {
       provide: InvitationService,
-      useFactory: (db: Db, m: Mailer) => new InvitationService(db, m),
-      inject: [DB, Mailer],
+      useFactory: (db: Db, m: Mailer, a: AuditSink) => new InvitationService(db, m, a),
+      inject: [DB, Mailer, AuditSink],
     },
     {
       provide: WorkspaceService,
-      useFactory: (db: Db, r: ResidencyPolicy, h: RetentionHook) => new WorkspaceService(db, r, h),
-      inject: [DB, ResidencyPolicy, RetentionHook],
+      useFactory: (db: Db, r: ResidencyPolicy, h: RetentionHook, a: AuditSink) =>
+        new WorkspaceService(db, r, h, a),
+      inject: [DB, ResidencyPolicy, RetentionHook, AuditSink],
     },
   ],
   exports: [OrgService],

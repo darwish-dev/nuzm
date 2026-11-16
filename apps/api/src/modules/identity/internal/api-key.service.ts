@@ -1,3 +1,4 @@
+import type { AuditSink } from '../../../common/audit';
 import { BlockList, isIP } from 'node:net';
 import { createHash, randomBytes } from 'node:crypto';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
@@ -62,6 +63,8 @@ export class ApiKeyService {
   constructor(
     private readonly db: Db,
     private readonly cacheMs = 30_000,
+    /** When set, key creation/revocation are audited inside the same transaction (fail-closed). */
+    private readonly audit?: AuditSink,
   ) {}
 
   async create(
@@ -103,6 +106,14 @@ export class ApiKeyService {
           req.expiresAt ?? null,
         ],
       );
+      await this.audit?.record({
+        action: 'identity.api_key.created',
+        orgId,
+        actorUserId: createdBy,
+        resource: { type: 'api_key', id },
+        outcome: 'success',
+        after: { name: req.name.trim(), prefix, scopes: req.scopes },
+      });
     });
     return { id, prefix, key: `${prefix}_${secret}` }; // `key` is shown exactly once
   }
@@ -124,16 +135,24 @@ export class ApiKeyService {
   /** `onlyCreatedBy` restricts non-admin callers to their own keys (a foreign key is then simply "not found"). */
   async revoke(orgId: string, id: string, opts: { onlyCreatedBy?: string } = {}): Promise<boolean> {
     this.cache.clear();
-    return this.db.withOrg(orgId, async (c) =>
-      Boolean(
+    return this.db.withOrg(orgId, async (c) => {
+      const revoked = Boolean(
         (
           await c.query(
             `UPDATE identity.api_keys SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL AND ($2::uuid IS NULL OR created_by = $2)`,
             [id, opts.onlyCreatedBy ?? null],
           )
         ).rowCount,
-      ),
-    );
+      );
+      if (revoked)
+        await this.audit?.record({
+          action: 'identity.api_key.revoked',
+          orgId,
+          resource: { type: 'api_key', id },
+          outcome: 'success',
+        });
+      return revoked;
+    });
   }
 
   /** Create a replacement with identical scopes/limits and revoke the old key in one transaction. */

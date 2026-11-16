@@ -1,3 +1,4 @@
+import type { AuditSink } from '../../../common/audit';
 import { v7 as uuidv7 } from 'uuid';
 import type { Db } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
@@ -14,7 +15,10 @@ export interface FlagRow {
 }
 
 export class FeatureFlagService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly audit: AuditSink,
+  ) {}
 
   async list(): Promise<FlagRow[]> {
     return this.db.withPlatformScope(async (c) =>
@@ -71,6 +75,16 @@ export class FeatureFlagService {
           [uuidv7(), input.key, orgId, JSON.stringify(input.value), actorUserId],
         )
       ).rows[0]!;
+      await this.audit.record({
+        action: 'admin.feature_flag.set',
+        actorUserId,
+        orgId: orgId ?? undefined,
+        resource: { type: 'feature_flag', id: row.key },
+        outcome: 'success',
+        before: { value: prev?.value ?? null },
+        after: { value: row.value },
+        detail: { scope: row.org_id ? 'org' : 'global' },
+      });
       return {
         before: prev?.value ?? null,
         after: {

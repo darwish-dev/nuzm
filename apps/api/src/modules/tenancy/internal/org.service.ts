@@ -1,4 +1,4 @@
-import type { PoolClient } from 'pg';
+import { AuditSink } from '../../../common/audit';
 import { v7 as uuidv7 } from 'uuid';
 import { enqueue, type Db } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
@@ -42,7 +42,10 @@ export interface CreateOrg {
 }
 
 export class OrgService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly audit: AuditSink,
+  ) {}
 
   static validate(i: CreateOrg) {
     const name = typeof i.name === 'string' ? i.name.trim() : '';
@@ -84,6 +87,13 @@ export class OrgService {
             [uuidv7(), id, userId],
           );
           await enqueue(c, id, 'org.created', { orgId: id, type: v.type });
+          await this.audit.record({
+            action: 'tenancy.organization.created',
+            orgId: id,
+            resource: { type: 'organization', id },
+            outcome: 'success',
+            after: { name: v.name, type: v.type, country: v.country },
+          });
           return toOrg(rows[0]);
         },
         { userId },
@@ -155,18 +165,28 @@ export class OrgService {
         throw new ProblemException(exists ? 'precondition_failed' : 'not_found');
       }
       await enqueue(c, orgId, 'org.updated', { orgId });
+      await this.audit.record({
+        action: 'tenancy.organization.updated',
+        orgId,
+        resource: { type: 'organization', id: orgId },
+        outcome: 'success',
+        after: { name: rows[0].name, defaultLocale: rows[0].default_locale },
+      });
       return toOrg(rows[0]);
     });
   }
 
-  /** Used by the admin console later (S04): suspend/reinstate with a reason. */
+  /**
+   * Suspend/reinstate (admin console). Runs in the organization's own context so the status change, its outbox event
+   * and its audit row commit together. `reason` is stored on the organization and recorded in the audit event.
+   */
   async setStatus(
     orgId: string,
     status: 'active' | 'suspended',
     reason: string | null,
-    c?: PoolClient,
+    opts: { before?: 'active' | 'suspended'; traceId?: string } = {},
   ): Promise<void> {
-    const run = async (cl: PoolClient) => {
+    await this.db.withOrg(orgId, async (cl) => {
       await cl.query(
         `UPDATE tenancy.organizations SET status=$2, suspended_reason=$3, updated_at=now(), version=version+1 WHERE id=$1`,
         [orgId, status, reason],
@@ -174,8 +194,17 @@ export class OrgService {
       await enqueue(cl, orgId, status === 'suspended' ? 'org.suspended' : 'org.reinstated', {
         orgId,
       });
-    };
-    if (c) return run(c);
-    return this.db.withOrg(orgId, run);
+      await this.audit.record({
+        action:
+          status === 'suspended' ? 'admin.organization.suspended' : 'admin.organization.reinstated',
+        orgId,
+        resource: { type: 'organization', id: orgId },
+        outcome: 'success',
+        traceId: opts.traceId,
+        before: opts.before ? { status: opts.before } : undefined,
+        after: { status },
+        detail: { reason },
+      });
+    });
   }
 }

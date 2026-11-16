@@ -87,19 +87,10 @@ export class AdminController {
     const org = await this.read.organization(id);
     if (!org) throw new ProblemException('not_found');
     if (org.status !== status) {
-      await this.orgs.setStatus(id, status, status === 'suspended' ? reason : null);
-      await this.audit.record({
-        action:
-          status === 'suspended' ? 'admin.organization.suspended' : 'admin.organization.reinstated',
-        actorUserId: who.userId,
-        orgId: id,
-        resource: { type: 'organization', id },
-        outcome: 'success',
+      // the status change, its outbox event AND its audit row commit in one transaction (OrgService.setStatus)
+      await this.orgs.setStatus(id, status, status === 'suspended' ? reason : null, {
+        before: org.status,
         traceId: req.traceId,
-        ip: req.ip,
-        before: { status: org.status },
-        after: { status },
-        detail: { reason: reason || null },
       });
       for (const owner of await this.read.owners(id))
         await this.notifications.notify({
@@ -154,7 +145,6 @@ export class AdminController {
     @Platform() who: PlatformContext,
     @Body()
     body: { key?: string; scope?: 'global' | 'org'; orgId?: string; value?: unknown } | undefined,
-    @Req() req: FastifyRequest,
   ) {
     const b = body ?? {};
     if (typeof b.key !== 'string')
@@ -172,18 +162,6 @@ export class AdminController {
       },
       who.userId,
     );
-    await this.audit.record({
-      action: 'admin.feature_flag.set',
-      actorUserId: who.userId,
-      orgId: r.after.orgId ?? undefined,
-      resource: { type: 'feature_flag', id: r.after.key },
-      outcome: 'success',
-      traceId: req.traceId,
-      ip: req.ip,
-      before: { value: r.before },
-      after: { value: r.after.value },
-      detail: { scope: r.after.scope },
-    });
     return r.after;
   }
 

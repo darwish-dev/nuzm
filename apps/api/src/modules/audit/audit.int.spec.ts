@@ -91,6 +91,28 @@ describe('persistent audit sink', () => {
     expect((await integrity.verifyChain(orgA)).ok).toBe(true);
   });
 
+  it('is fail-closed end to end: when the audit write fails, the API mutation does not happen', async () => {
+    const sink = app.get(AuditSink);
+    const original = sink.record.bind(sink);
+    sink.record = (e) =>
+      e.action === 'tenancy.workspace.created'
+        ? Promise.reject(new Error('audit store down'))
+        : original(e);
+    const quiet = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    try {
+      const r = await call(aliceJar, 'POST', '/v1/workspaces', orgA, { name: 'ghost-workspace' });
+      expect(r.statusCode).toBe(500);
+    } finally {
+      sink.record = original;
+      process.stderr.write = quiet;
+    }
+    const rows = await h.env.sql(`SELECT 1 FROM tenancy.workspaces WHERE name = 'ghost-workspace'`);
+    expect(rows).toHaveLength(0); // no unaudited workspace exists
+    const ok = await call(aliceJar, 'POST', '/v1/workspaces', orgA, { name: 'ghost-workspace' });
+    expect(ok.statusCode).toBe(201); // and the same request succeeds once auditing works (idempotency/slug not poisoned)
+  });
+
   it('attributes API-key calls to the key (actor_type api_key)', async () => {
     await h.elevate(aliceJar);
     const k = await call(aliceJar, 'POST', '/v1/api-keys', orgA, {

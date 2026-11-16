@@ -1,3 +1,4 @@
+import { AuditSink } from '../../../common/audit';
 import { createHash, randomBytes } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import { enqueue, type Db } from '@nuzm/platform';
@@ -32,6 +33,7 @@ export class InvitationService {
   constructor(
     private readonly db: Db,
     private readonly mailer: Mailer,
+    private readonly audit: AuditSink,
     private readonly ttlSeconds = 7 * 86400, // proposal: 7 days
   ) {}
 
@@ -91,6 +93,13 @@ export class InvitationService {
         throw e;
       }
       await enqueue(c, orgId, 'member.invited', { invitationId: id, role: input.role }); // never the token or email
+      await this.audit.record({
+        action: 'tenancy.invitation.created',
+        orgId,
+        resource: { type: 'invitation', id },
+        outcome: 'success',
+        after: { role: input.role }, // the invited email is personal data: not stored in the audit trail
+      });
       return (
         await c.query<{ name: string }>('SELECT name FROM tenancy.organizations WHERE id=$1', [
           orgId,
@@ -113,9 +122,16 @@ export class InvitationService {
       });
     } catch {
       // Delivery failed: do not leave an undeliverable (but valid) invitation behind.
-      await this.db.withOrg(orgId, (c) =>
-        c.query('DELETE FROM tenancy.invitations WHERE id=$1', [id]),
-      );
+      await this.db.withOrg(orgId, async (c) => {
+        await c.query('DELETE FROM tenancy.invitations WHERE id=$1', [id]);
+        await this.audit.record({
+          action: 'tenancy.invitation.revoked',
+          orgId,
+          resource: { type: 'invitation', id },
+          outcome: 'failure',
+          detail: { reason: 'delivery_failed' },
+        });
+      });
       throw new ProblemException('service_unavailable', 'could not deliver the invitation email');
     }
     return this.get(orgId, id) as Promise<Invitation>;
@@ -156,7 +172,15 @@ export class InvitationService {
         `UPDATE tenancy.invitations SET revoked_at=now() WHERE id=$1 AND accepted_at IS NULL AND revoked_at IS NULL`,
         [id],
       );
-      if (r.rowCount) await enqueue(c, orgId, 'member.invitation_revoked', { invitationId: id });
+      if (r.rowCount) {
+        await enqueue(c, orgId, 'member.invitation_revoked', { invitationId: id });
+        await this.audit.record({
+          action: 'tenancy.invitation.revoked',
+          orgId,
+          resource: { type: 'invitation', id },
+          outcome: 'success',
+        });
+      }
       return r.rowCount;
     });
     if (!n) throw new ProblemException('not_found');
@@ -208,6 +232,14 @@ export class InvitationService {
         if (!ins.rowCount)
           throw new ProblemException('conflict', 'already a member of this organization'); // rolls back the accept
         await enqueue(c, inv.org_id, 'member.accepted', { userId: user.id, role: inv.role });
+        await this.audit.record({
+          action: 'tenancy.invitation.accepted',
+          orgId: inv.org_id,
+          actorUserId: user.id,
+          resource: { type: 'invitation', id: inv.id },
+          outcome: 'success',
+          after: { role: inv.role },
+        });
         return { orgId: inv.org_id as string, role: inv.role as string };
       },
       { userId: user.id },

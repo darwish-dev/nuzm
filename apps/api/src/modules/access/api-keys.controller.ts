@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
-import { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { ApiKeyService, DenyImpersonation, StepUp } from '../identity';
@@ -15,7 +14,6 @@ export class ApiKeysController {
   constructor(
     private readonly keys: ApiKeyService,
     private readonly policy: PolicyService,
-    private readonly audit: AuditSink,
   ) {}
 
   /** Session-only and step-up protected: an API key can never mint another API key. */
@@ -61,15 +59,6 @@ export class ApiKeysController {
       },
       perms,
     );
-    await this.audit.record({
-      action: 'identity.api_key.created',
-      orgId,
-      actorUserId: a.actor.userId,
-      resource: { type: 'api_key', id: k.id },
-      outcome: 'success',
-      traceId: req.traceId,
-      ip: req.ip,
-    });
     return {
       id: k.id,
       prefix: k.prefix,
@@ -116,14 +105,5 @@ export class ApiKeysController {
       sees(a.role) ? {} : { onlyCreatedBy: a.actor.userId },
     );
     if (!ok) throw new ProblemException('not_found');
-    await this.audit.record({
-      action: 'identity.api_key.revoked',
-      orgId,
-      actorUserId: a.actor.userId,
-      resource: { type: 'api_key', id },
-      outcome: 'success',
-      traceId: req.traceId,
-      ip: req.ip,
-    });
   }
 }

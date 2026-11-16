@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { Db } from '@nuzm/platform';
 import { FileDevSecretStore, SecretStore } from '../../common/secrets';
+import { AuditSink } from '../../common/audit';
 import { DB, IDENTITY_CONFIG } from '../../common/tokens';
 import { IdentityController } from './identity.controller';
 import { loadIdentityConfig, type IdentityConfig } from './internal/config';
@@ -44,7 +45,11 @@ import { SessionAuthenticator } from './session.guard';
         }),
       inject: [DB, SecretStore, IDENTITY_CONFIG],
     },
-    { provide: ApiKeyService, useFactory: (db: Db) => new ApiKeyService(db), inject: [DB] },
+    {
+      provide: ApiKeyService,
+      useFactory: (db: Db, a: AuditSink) => new ApiKeyService(db, 30_000, a),
+      inject: [DB, AuditSink],
+    },
     SessionAuthenticator,
   ],
   exports: [

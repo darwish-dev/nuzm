@@ -23,9 +23,9 @@ S01 bootstrap + approved docs; S02 identity/platform mechanisms/worker; S03 tena
 0001–0010, each with `.down.sql` (dev/staging). Production is forward-only; first-release rollback = restore a snapshot ([runbook](../runbooks/restore-db-from-dump.md), NOT VERIFIED). The audit down-migration drops the schema and must never run in production.
 
 ## E. Tests run (actual)
-`pnpm verify:full` → **EXIT=0 in 290 s** (read from the run's own log line; two earlier runs failed on unused imports and on an integration spec that built a module without the audit module, both fixed).
+`pnpm verify:full` → **EXIT=0 in 283 s** (after the atomic-audit change; the E2E suite below ran before it and was not re-run) (read from the run's own log line; two earlier runs failed on unused imports and on an integration spec that built a module without the audit module, both fixed).
 - Lint, typecheck, build: 19/19 and 11/11 turbo tasks (both Next.js apps build). Unit: i18n 9, domain 6, db 9, ui 7, telemetry 3, web 5, worker 4, admin 5, sdk 4, api 25 (**77**).
-- Integration on real PostgreSQL: db 43, platform 31, api 192 (**266**), including the spec-generated cross-tenant suite.
+- Integration on real PostgreSQL: db 43, platform 31, api 199 (**273**), including the spec-generated cross-tenant suite.
 - `spec:lint` clean; `spec:drift` OK (55 operations declared and implemented, two-way); `sdk:check` up to date; `scan:secrets` 341 files, 0 hits; `db check` OK.
 - **E2E: `pnpm test:e2e` → EXIT=0, 4 passed** (customer + admin flows × `ar` and `en`, real API + dev IdP + built Next.js apps + system Chrome 157), 27 screens per locale each checked for `lang`/`dir` and axe WCAG 2.0/2.1 A+AA (including colour contrast) with **zero violations**, screenshots stored in `docs/reports/screenshots/{ar,en}/` (secrets masked). Playwright's bundled Chromium does not support macOS 13, so the installed Chrome is used (`channel: 'chrome'`).
 - Not run: load smoke, DB-failover test, real IdP, Redis, CI.
@@ -33,7 +33,7 @@ S01 bootstrap + approved docs; S02 identity/platform mechanisms/worker; S03 tena
 ## F. Security, tenant isolation, billing, residency verification
 - **Isolation:** forced RLS; every `{id}` route returns 404 for a foreign org (session and API key), generated from the spec; admin routes refuse tenant sessions and keys; worker role limited to claim scope; audit chain heads unreachable by runtime roles.
 - **Auth:** OIDC code + PKCE, hash-only sessions, CSRF, fixation defence, return-to allow-list, lockout, step-up, mandatory admin MFA, realm separation (including two consoles on one cookie host).
-- **Audit:** every mutation writes a chained event; tamper detection verified against a privileged attacker; **audit rows are written after commit, not in the same transaction** (limitation, fix before M02).
+- **Audit:** every tenant mutation writes its chained event **inside the same database transaction** as the change (the sink joins the caller's transaction): a failed audit write rolls the change back (fail-closed; tested at DB level and end to end through the API), and a rolled-back change leaves no phantom audit row or sequence gap. Still after-the-fact (own transaction, still loud on failure): authentication outcomes, platform-chain admin events outside a service transaction, operation-cancel requests, impersonation notices. Tamper detection verified against a privileged attacker.
 - **Headers:** CSP (with `'unsafe-inline'` scripts until nonce-based CSP in M12), HSTS, nosniff, frame-deny, referrer, permissions-policy on both Next.js apps; the API sets nosniff/no-store/referrer. A header scan test is NOT written (the headers are configured and the E2E passes under them).
 - **Billing/residency:** not in scope; `ResidencyPolicy` is an allow-all stub **NOT VERIFIED — M04**.
 
@@ -74,5 +74,5 @@ S01 bootstrap + approved docs; S02 identity/platform mechanisms/worker; S03 tena
 
 ## I. Next-milestone handoff and open decisions
 - M02 (ledger, metering, entitlements) can start from: `platform.operations/outbox/idempotency`, `audit` (with the same-transaction audit fix first), RBAC with seeded `billing_admin`/`finance`, the SDK and UI kit.
-- Before M02: make audit same-transaction (outbox), decide partitioning, confirm the additive contract changes in §A, resolve the closed-form of UI-M01-02/04/11/19 with the owner.
+- Before M02: decide partitioning, confirm the additive contract changes in §A, resolve the closed-form of UI-M01-02/04/11/19 with the owner. (Same-transaction audit was done after this report's first draft; see §F.)
 - Gate review: use `templates/gate-review-template.md`; the owner signs, or lists NOT DONE rows as DEFERRED with change-log entries.

@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
-import type { Db } from '@nuzm/platform';
+import { activeTx, type Db } from '@nuzm/platform';
 import { AuditSink, type AuditEvent } from '../../../common/audit';
 import { currentRequest } from '../../../common/request-context';
 
@@ -22,9 +22,9 @@ export function scrub(v: unknown, depth = 0): unknown {
 
 /**
  * Persistent audit sink: appends to the hash-chained `audit.audit_logs`. The chain link/hash are computed by a
- * database trigger. The row is written in its own transaction AFTER the mutation commits; if the write fails
- * the full event goes to stderr (structured, no secrets) and the error propagates, so an unaudited mutation is
- * never silent. (Same-transaction audit is a tracked follow-up, see the S04 report.)
+ * database trigger. Called inside a service's org-scoped transaction the row joins that transaction (atomic with the
+ * change, fail-closed); called anywhere else it commits on its own, after the fact. If the write fails the full event
+ * goes to stderr (structured, no secrets) and the error propagates, so an unaudited mutation is never silent.
  */
 export class DbAuditSink extends AuditSink {
   constructor(
@@ -87,7 +87,11 @@ export class DbAuditSink extends AuditSink {
       JSON.stringify(scrub(e.detail ?? {})),
     ];
     try {
-      if (row.orgId) await this.db.withOrg(row.orgId, (c) => c.query(sql, params));
+      // Inside a transaction with the SAME org scope (an organization, or none for platform-chain events) the event joins it: the change and its audit row commit
+      // together, and a failed audit write rolls the change back (fail-closed). Otherwise it commits on its own.
+      const tx = activeTx();
+      if (tx && (row.orgId ?? undefined) === tx.orgId) await tx.client.query(sql, params);
+      else if (row.orgId) await this.db.withOrg(row.orgId, (c) => c.query(sql, params));
       else await this.db.withoutScope((c) => c.query(sql, params));
     } catch (err) {
       process.stderr.write(

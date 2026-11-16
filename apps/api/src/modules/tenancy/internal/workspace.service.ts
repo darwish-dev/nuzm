@@ -1,3 +1,4 @@
+import { AuditSink, type AuditAction } from '../../../common/audit';
 import { v7 as uuidv7 } from 'uuid';
 import { enqueue, type Db } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
@@ -81,7 +82,18 @@ export class WorkspaceService {
     private readonly db: Db,
     private readonly residency: ResidencyPolicy,
     private readonly retention: RetentionHook,
+    private readonly audit: AuditSink,
   ) {}
+
+  /** Audit inside the caller's transaction (the sink joins it): change + audit row commit together. */
+  private rec(action: AuditAction, orgId: string, type: string, id: string) {
+    return this.audit.record({
+      action,
+      orgId,
+      resource: { type, id },
+      outcome: 'success',
+    });
+  }
 
   // ---- workspaces ----
   async createWorkspace(
@@ -106,6 +118,7 @@ export class WorkspaceService {
           )
         ).rows[0];
         await enqueue(c, orgId, 'workspace.created', { workspaceId: id });
+        await this.rec('tenancy.workspace.created', orgId, 'workspace', id);
         return ws(r);
       } catch (e) {
         return dup(e, 'a workspace with this slug already exists');
@@ -179,6 +192,7 @@ export class WorkspaceService {
       );
       if (!r.rowCount) throw new ProblemException('not_found');
       await enqueue(c, orgId, 'workspace.deleted', { workspaceId: id });
+      await this.rec('tenancy.workspace.deleted', orgId, 'workspace', id);
     });
     await this.retention.onSoftDelete(orgId, 'workspace', id);
   }
@@ -213,6 +227,7 @@ export class WorkspaceService {
           )
         ).rows[0];
         await enqueue(c, orgId, 'project.created', { projectId: id });
+        await this.rec('tenancy.project.created', orgId, 'project', id);
         return pr(r);
       } catch (e) {
         return dup(e, 'a project with this name already exists in the workspace');
@@ -297,6 +312,7 @@ export class WorkspaceService {
       );
       if (!r.rowCount) throw new ProblemException('not_found');
       await enqueue(c, orgId, 'project.deleted', { projectId: id });
+      await this.rec('tenancy.project.deleted', orgId, 'project', id);
     });
     await this.retention.onSoftDelete(orgId, 'project', id);
   }
@@ -336,6 +352,7 @@ export class WorkspaceService {
           )
         ).rows[0];
         await enqueue(c, orgId, 'environment.created', { environmentId: id, projectId });
+        await this.rec('tenancy.environment.created', orgId, 'environment', id);
         return en(r);
       } catch (e) {
         return dup(e, 'an environment with this name already exists in the project');
@@ -406,6 +423,7 @@ export class WorkspaceService {
       );
       if (!r.rowCount) throw new ProblemException('not_found');
       await enqueue(c, orgId, 'environment.deleted', { environmentId: id });
+      await this.rec('tenancy.environment.deleted', orgId, 'environment', id);
     });
     await this.retention.onSoftDelete(orgId, 'environment', id);
   }
@@ -435,6 +453,7 @@ export class WorkspaceService {
         throw new ProblemException(exists ? 'precondition_failed' : 'not_found');
       }
       await enqueue(c, orgId, topic, { id });
+      await this.rec(`tenancy.${topic}` as AuditAction, orgId, topic.split('.')[0]!, id);
       return shape(r);
     });
   }

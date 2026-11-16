@@ -67,5 +67,5 @@ Status: backend of S04 implemented. **Not complete as S04**: SDK generation, por
 ## I. Handoff and open decisions
 - Next: S04b = SDK from OpenAPI, `apps/web` + `apps/admin` shells and the UI-M01 screens, OTel, runbooks, M01 report.
 - Owner decisions: PA-12/17/18; `POST /v1/admin/organizations` semantics; impersonation approval model (`approvalRef`); partitioning change-log entry; `X-Nuzm-Org` selector (from S03).
-- Known limitation: audit rows are written after the mutation commits, in their own transaction (failure is loud but the mutation is already committed). Same-transaction audit via the outbox is the proper fix and should be scheduled before M02 (money flows).
+- Resolved after this report: audit rows now join the mutation's transaction (see M01-report §F).
 - Known limitation: truncating the **unchecked tail** of a chain is undetectable until the next checkpoint; the checkpoint interval (default 300 s) bounds that window.

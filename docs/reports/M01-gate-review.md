@@ -1,0 +1,12 @@
+# Gate Review — M01 (DRAFT for owner review; not signed)
+
+- Date / reviewers: prepared 2026-11-16 by the implementing agent; **reviewers: owner (pending)**.
+- All acceptance rows PASS or listed below as BLOCKED/NOT VERIFIED with owner: see [M01-report.md §H](M01-report.md). Rows that are **NOT DONE** and need an owner decision (DEFER with a change-log entry, or build before M02): audit partitioning; admin operations monitor (UI-M01-28) and roles viewer (UI-M01-29); standalone MFA challenge page (UI-M01-04); operations detail drawer (UI-M01-19); audit integrity badge (needs PA-17); notification preferences screen (PA-18); E2E for invitation-by-mail accept and impersonation start; keyboard-only walkthrough; header-scan test; load smoke; DB-failover test.
+- BLOCKED (owner): HG-01-01 repo/CI (no remote; CI never run); HG-01-02/D-04 real IdP (a client + redirect URI per console); D-12 vault/KMS (dev stand-ins for seal key, audit keys, TOTP secrets); D-13 observability backend; D-08 mail provider (M08).
+- Open critical/high defects: none known. Known limitations: CSP keeps `'unsafe-inline'` scripts (nonce CSP planned M12); OIDC callback failures render the raw problem+json page; both consoles share one OIDC redirect URI in dev.
+- Migration + rollback notes reviewed: migrations 0001–0010 each have `.down.sql` (dev/staging only); production is forward-only, rollback = restore snapshot (runbook written, NOT VERIFIED). **Reviewer action:** read the audit down-migration warning (drops the schema; never in production).
+- `spec/` in sync (drift check output): `spec drift OK: 55 implemented route(s) all declared (55 declared)`; `sdk schema is up to date`; spectral lint clean.
+- Compliance hooks checklist: audit for every mutation (atomic, fail-closed) ✔; `data_region` placeholder `sa-pending` and `ResidencyPolicy` allow-all stub **NOT VERIFIED — M04**; PII: audit stores hashed IP/UA and no invited-email addresses; classification annotations for `identity.users` fields: **not yet written into `spec/db/ownership.yaml`** (M01 §9.4, to do or defer); no metering emitted (none required in M01).
+- Owner decisions requested: (1) additive contract changes listed in M01-report §A; (2) PA-12, PA-17, PA-18; (3) `POST /v1/admin/organizations` semantics; (4) impersonation approval model; (5) audit partitioning change-log entry; (6) per-console OIDC clients.
+- Decision: proceed / hold — **pending owner**
+- Owner sign-off (name, date): _______________

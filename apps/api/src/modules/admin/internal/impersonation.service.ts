@@ -55,14 +55,6 @@ export class ImpersonationService {
     if (target.is_platform_user)
       throw new ProblemException('forbidden', 'platform users cannot be impersonated');
 
-    const s = await this.sessions.create(target.id, 'web', meta, {
-      byUserId: admin.userId,
-      reason,
-      ref: ref || undefined,
-      ttlSeconds: ttl * 60,
-    });
-    const expiresAt = new Date(Date.now() + ttl * 60_000).toISOString();
-
     const detail = {
       reason,
       approvalRef: ref || null,
@@ -81,9 +73,18 @@ export class ImpersonationService {
       userAgent: meta.userAgent,
       detail,
     };
+    // Audit FIRST: if any audit write fails, no impersonation session exists (fail-closed).
     await this.audit.record(base); // platform chain
+    for (const o of target.orgs) await this.audit.record({ ...base, orgId: o.id });
+    const s = await this.sessions.create(target.id, 'web', meta, {
+      byUserId: admin.userId,
+      reason,
+      ref: ref || undefined,
+      ttlSeconds: ttl * 60,
+    });
+    const expiresAt = new Date(Date.now() + ttl * 60_000).toISOString();
+
     for (const o of target.orgs) {
-      await this.audit.record({ ...base, orgId: o.id });
       if (notifyOwners)
         for (const owner of await this.read.owners(o.id))
           await this.notifications.notify({

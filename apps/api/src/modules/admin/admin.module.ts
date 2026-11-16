@@ -17,8 +17,8 @@ import { ImpersonationService } from './internal/impersonation.service';
     { provide: AdminReadService, useFactory: (db: Db) => new AdminReadService(db), inject: [DB] },
     {
       provide: FeatureFlagService,
-      useFactory: (db: Db) => new FeatureFlagService(db),
-      inject: [DB],
+      useFactory: (db: Db, a: AuditSink) => new FeatureFlagService(db, a),
+      inject: [DB, AuditSink],
     },
     {
       provide: ImpersonationService,

@@ -78,6 +78,11 @@ paths:
           required: false
           schema: { type: string, maxLength: 2048 }
           description: Where to land after login.
+        - name: realm
+          in: query
+          required: false
+          schema: { type: string, enum: [web, admin], default: web }
+          description: Console signing in. `admin` sessions are only issued to platform (staff) users and always require MFA.
       responses:
         '302': { description: Redirect to the identity provider }
         '400': { $ref: '#/components/responses/Problem' }
@@ -355,7 +360,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/Organization' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -386,7 +391,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/Organization' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -417,7 +422,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/MemberPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -515,7 +520,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/Invitation' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -539,7 +544,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/InvitationPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -649,7 +654,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/Workspace' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -672,7 +677,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/WorkspacePage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -783,7 +788,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/Project' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -806,7 +811,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/ProjectPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -924,7 +929,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/Environment' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -952,7 +957,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/EnvironmentPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -1050,7 +1055,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/ApiKeyCreated' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -1070,7 +1075,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/ApiKeyPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -1115,7 +1120,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/OperationPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -1225,7 +1230,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/AuditPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -1249,7 +1254,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/NotificationPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -1305,7 +1310,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/AdminOrganizationPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
@@ -1359,7 +1364,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/AdminUserPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
@@ -1466,7 +1471,7 @@ paths:
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Generic' }
+              schema: { $ref: '#/components/schemas/AuditPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
@@ -1525,6 +1530,253 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    Organization:
+      type: object
+      required:
+        [id, name, slug, type, country, defaultLocale, status, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        type: { type: string, enum: [customer, agency, reseller] }
+        country: { type: string }
+        defaultLocale: { type: string, enum: [ar, en] }
+        status: { type: string, enum: [active, suspended] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer }
+    Invitation:
+      type: object
+      required: [id, email, role, expiresAt, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        role: { type: string }
+        expiresAt: { type: string, format: date-time }
+        status: { type: string, enum: [pending, accepted, revoked, expired] }
+        createdAt: { type: string, format: date-time }
+    InvitationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Invitation' } }
+        nextCursor: { type: [string, 'null'] }
+    ApiKey:
+      type: object
+      required: [id, name, prefix, scopes]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix: { type: string }
+        scopes: { type: array, items: { type: string } }
+        ipAllowList: { type: [array, 'null'], items: { type: string } }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        lastUsedAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+    ApiKeyPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ApiKey' } }
+    ApiKeyCreated:
+      type: object
+      required: [id, prefix, key]
+      description: The secret `key` is returned exactly once.
+      properties:
+        id: { type: string, format: uuid }
+        prefix: { type: string }
+        key: { type: string }
+        note: { type: string }
+    Workspace:
+      type: object
+      required: [id, name, slug, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer }
+    WorkspacePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Workspace' } }
+        nextCursor: { type: [string, 'null'] }
+    Project:
+      type: object
+      required: [id, workspaceId, name, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid }
+        name: { type: string }
+        defaultRegionPolicy: {}
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer }
+    ProjectPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Project' } }
+        nextCursor: { type: [string, 'null'] }
+    Environment:
+      type: object
+      required: [id, projectId, name, kind, dataRegion, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        name: { type: string }
+        kind: { type: string, enum: [dev, staging, prod] }
+        dataRegion: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer }
+    EnvironmentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Environment' } }
+        nextCursor: { type: [string, 'null'] }
+    Operation:
+      type: object
+      required: [id, kind, state, attempts, cancelRequested, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        state: { type: string }
+        resourceKind: { type: [string, 'null'] }
+        resourceId: { type: [string, 'null'] }
+        attempts: { type: integer }
+        cancelRequested: { type: boolean }
+        traceId: { type: [string, 'null'] }
+        result: {}
+        error: {}
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    OperationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Operation' } }
+        nextCursor: { type: [string, 'null'] }
+    AuditItem:
+      type: object
+      required: [id, occurredAt, action, outcome, actor, resource, chainSeq, hash]
+      properties:
+        id: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        action: { type: string }
+        outcome: { type: string, enum: [success, failure] }
+        orgId: { type: [string, 'null'], format: uuid }
+        actor:
+          type: object
+          properties:
+            type: { type: string, enum: [user, api_key, system, impersonator] }
+            userId: { type: [string, 'null'] }
+            apiKeyId: { type: [string, 'null'] }
+            impersonatorUserId: { type: [string, 'null'] }
+        resource:
+          type: object
+          properties:
+            type: { type: [string, 'null'] }
+            id: { type: [string, 'null'] }
+        traceId: { type: [string, 'null'] }
+        before: {}
+        after: {}
+        detail: {}
+        chainSeq: { type: integer }
+        hash: { type: string }
+    AuditPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AuditItem' } }
+        nextCursor: { type: [string, 'null'] }
+    NotificationItem:
+      type: object
+      required: [id, kind, params, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        params: { type: object, additionalProperties: true }
+        readAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    NotificationPage:
+      type: object
+      required: [items, nextCursor, unreadCount]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/NotificationItem' } }
+        nextCursor: { type: [string, 'null'] }
+        unreadCount: { type: integer }
+    Member:
+      type: object
+      required: [id, userId, email, role, joinedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: [string, 'null'] }
+        role: { type: string }
+        joinedAt: { type: string, format: date-time }
+        version: { type: integer }
+    MemberPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Member' } }
+        nextCursor: { type: [string, 'null'] }
+    AdminOrganization:
+      type: object
+      required: [id, name, slug, type, country, status, memberCount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        type: { type: string, enum: [customer, agency, reseller] }
+        country: { type: string }
+        status: { type: string, enum: [active, suspended] }
+        suspendedReason: { type: [string, 'null'] }
+        memberCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    AdminOrganizationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminOrganization' } }
+        nextCursor: { type: [string, 'null'] }
+    AdminUser:
+      type: object
+      required:
+        [
+          id,
+          email,
+          emailVerified,
+          status,
+          isPlatformUser,
+          mfaEnrolled,
+          activeSessions,
+          orgCount,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        emailVerified: { type: boolean }
+        displayName: { type: [string, 'null'] }
+        status: { type: string }
+        isPlatformUser: { type: boolean }
+        mfaEnrolled: { type: boolean }
+        activeSessions: { type: integer }
+        orgCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: [string, 'null'], format: date-time }
+    AdminUserPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
+        nextCursor: { type: [string, 'null'] }
     Generic:
       type: object
       description: Resource or page. Concrete shapes are tightened per resource as clients are generated.
@@ -1628,6 +1880,17 @@ components:
         locale: { type: string, enum: [ar, en] }
         isPlatformUser: { type: boolean }
         mfaLevel: { type: string, enum: [none, totp, recovery] }
+        mfaFactorId:
+          type: [string, 'null']
+          format: uuid
+          description: The caller's active MFA factor (used to answer step-up challenges).
+        impersonation:
+          type: [object, 'null']
+          description: Present only for a support impersonation session.
+          properties:
+            byUserId: { type: string, format: uuid }
+            reason: { type: string }
+            expiresAt: { type: [string, 'null'], format: date-time }
         memberships:
           type: array
           items:
@@ -1641,6 +1904,12 @@ components:
               status: { type: string, enum: [active, suspended] }
               role: { type: string }
         permissions: { type: array, items: { type: string } }
+        platform:
+          type: [object, 'null']
+          description: Platform roles and permissions; only for admin-realm sessions of staff.
+          properties:
+            roles: { type: array, items: { type: string } }
+            permissions: { type: array, items: { type: string } }
         featureFlags: { type: object }
     Health:
       type: object
@@ -1669,6 +1938,9 @@ components:
           type: string
         traceId:
           type: string
+        mfaFactorId:
+          type: [string, 'null']
+          description: Only on `mfa_required` — the caller's active factor to challenge, or null when none is enrolled yet.
         errors:
           type: array
           items:

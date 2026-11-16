@@ -75,6 +75,16 @@ describe('access control', () => {
     expect((await as(web.alice!, 'GET', '/v1/admin/organizations')).statusCode).toBe(401); // web realm cookie on admin realm route
   });
 
+  it('/v1/me tells an MFA-verified staff session its platform roles and permissions (web sessions get null)', async () => {
+    const me = (await as(adm.support!, 'GET', '/v1/me')).json();
+    expect(me.platform.roles).toEqual(['support']);
+    expect(me.platform.permissions).toEqual(
+      expect.arrayContaining(['admin:org:read', 'admin:impersonate']),
+    );
+    expect(me.platform.permissions).not.toContain('admin:flags:manage');
+    expect((await as(web.alice!, 'GET', '/v1/me')).json().platform).toBeNull();
+  });
+
   it('refuses an admin-realm session without MFA (403 mfa_required) and a staff-flagged user without a role (403)', async () => {
     const id = await h.createUser('norole');
     await h.env.sql(`UPDATE identity.users SET is_platform_user = true WHERE id=$1`, [id]);
@@ -110,6 +120,58 @@ describe('access control', () => {
       headers: { cookie: cookieHeader(adm.root!), 'x-nuzm-org': orgA },
     });
     expect([401, 404]).toContain(r.statusCode); // admin cookie is not a web session; never a tenant credential
+  });
+});
+
+describe('admin-realm sign-in (OIDC realm=admin)', () => {
+  it('issues an admin-realm session (admin cookies only) to a platform user, who still needs MFA', async () => {
+    h.idp.user = { sub: 'staff-login', email: 'staff-login@example.test' };
+    await h.login(app); // JIT-provision the user through a normal web login first
+    await h.env.sql(
+      `UPDATE identity.users SET is_platform_user = true WHERE subject = 'staff-login'`,
+    );
+    const r = await h.login(app, '/', {}, 'admin');
+    expect(r.r2.statusCode).toBe(302);
+    const cookieNames = Object.keys(jarFrom(r.r2));
+    expect(cookieNames.filter((k) => k.startsWith('nuzm_admin')).sort()).toEqual([
+      'nuzm_admin_csrf',
+      'nuzm_admin_session',
+    ]);
+    expect(cookieNames).not.toContain('nuzm_session'); // never a web session for an admin sign-in
+    const me = await as(r.jar, 'GET', '/v1/me');
+    expect(me.statusCode).toBe(403);
+    expect(me.json().code).toBe('mfa_required');
+    expect(
+      (await auditRows(`action='auth.login.succeeded' AND detail->>'realm'='admin'`)).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('refuses a non-staff user (403, no session, failure audited) and an unknown realm (422)', async () => {
+    h.idp.user = { sub: 'not-staff', email: 'not-staff@example.test' };
+    const r = await h.login(app, '/', {}, 'admin');
+    expect(r.r2.statusCode).toBe(403);
+    expect(Object.keys(jarFrom(r.r2)).filter((k) => k.startsWith('nuzm_admin'))).toEqual([]);
+    expect(
+      (await auditRows(`action='auth.login.failed' AND detail->>'reason'='not_platform_user'`))
+        .length,
+    ).toBe(1);
+    const bad = await app.inject({ method: 'GET', url: '/v1/auth/oidc/login?realm=root' });
+    expect(bad.statusCode).toBe(422);
+  });
+});
+
+describe('two consoles on one cookie host', () => {
+  it('with both realm cookies present, X-Nuzm-Realm picks the session (and the default stays admin-first)', async () => {
+    const both = { ...web.alice!, ...adm.support! };
+    const call = (realm?: string) =>
+      app.inject({
+        method: 'GET',
+        url: '/v1/me',
+        headers: { cookie: cookieHeader(both), ...(realm ? { 'x-nuzm-realm': realm } : {}) },
+      });
+    expect((await call('web')).json().email).toBe('alice@example.test');
+    expect((await call('admin')).json().email).toBe('staff-support@example.test');
+    expect((await call()).json().email).toBe('staff-support@example.test');
   });
 });
 

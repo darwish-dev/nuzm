@@ -3,10 +3,16 @@
 export const tokens = {
   color: {
     bg: '#ffffff',
+    surface: '#f9fafb',
+    hover: '#f3f4f6',
     fg: '#111827',
-    muted: '#6b7280',
+    muted: '#4b5563',
     border: '#e5e7eb',
+    'border-strong': '#6b7280',
     accent: '#2563eb',
+    'accent-strong': '#1d4ed8',
+    'accent-soft': '#eff6ff',
+    focus: '#1d4ed8',
     danger: '#b91c1c',
   },
   space: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 6: '24px', 8: '32px' },
@@ -23,3 +29,15 @@ export function cssVariables(): string {
   }
   return `:root {\n${lines.join('\n')}\n}\n`;
 }
+
+export { baseCss } from './styles';
+export * from './components';
+export {
+  LocaleSwitch,
+  MfaChallenge,
+  MfaEnrol,
+  useStepUp,
+  type StepUpLabels,
+  type MfaChallengeProps,
+  type MfaEnrolProps,
+} from './client';

@@ -22,5 +22,6 @@ export {
   ipAllowed,
 } from './internal/api-key.service';
 export type { ApiKeyPrincipal } from './internal/api-key.service';
+export { MfaService } from './internal/mfa.service';
 export { UserService } from './internal/user.service';
 export type { UserRow } from './internal/user.service';

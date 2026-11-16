@@ -6,6 +6,7 @@ import {
   OutboxRelay,
   eventId,
 } from '@nuzm/platform';
+import { initTelemetry, withSpan } from '@nuzm/telemetry';
 import { makeAuditJob } from './audit-job';
 import { runLoop } from './loop';
 
@@ -21,6 +22,7 @@ if (!url) {
   process.exit(2);
 }
 
+initTelemetry({ serviceName: 'nuzm-worker' });
 const db = new Db(url);
 const relay = new OutboxRelay(db, { batch: 50, lockSeconds: 60 });
 const operations = new OperationsService(db);
@@ -47,17 +49,18 @@ const auditJob = process.env.AUDIT_CHECKPOINT_KEY
   : (log('audit_job_disabled', { reason: 'AUDIT_CHECKPOINT_KEY not set' }), null);
 
 void runLoop(
-  async () => {
-    await auditJob?.();
-    const r = await relay.runOnce(async (row) => {
-      const handler = subscribers.get(row.topic);
-      // Unknown topic: acknowledge after logging so the outbox does not grow unbounded before
-      // subscribers exist. Once a topic has a subscriber, failures retry (at-least-once).
-      if (handler) await handler(row.payload, { eventId: eventId(row), orgId: row.org_id });
-      else log('no_subscriber', { topic: row.topic, id: row.id });
-    });
-    if (r.delivered || r.failed) log('outbox_batch', r);
-  },
+  () =>
+    withSpan('worker.tick', async () => {
+      await auditJob?.();
+      const r = await relay.runOnce(async (row) => {
+        const handler = subscribers.get(row.topic);
+        // Unknown topic: acknowledge after logging so the outbox does not grow unbounded before
+        // subscribers exist. Once a topic has a subscriber, failures retry (at-least-once).
+        if (handler) await handler(row.payload, { eventId: eventId(row), orgId: row.org_id });
+        else log('no_subscriber', { topic: row.topic, id: row.id });
+      });
+      if (r.delivered || r.failed) log('outbox_batch', r);
+    }),
   { intervalMs: 1000, signal: ac.signal, onError: (e) => console.error('worker tick failed', e) },
 ).then(async () => {
   await db.close();

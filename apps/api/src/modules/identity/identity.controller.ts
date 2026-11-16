@@ -72,10 +72,13 @@ export class IdentityController {
   @Get('auth/oidc/login')
   async login(
     @Query('returnTo') returnTo: string | undefined,
+    @Query('realm') realm: string | undefined,
     @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
   ) {
     this.limit(req);
+    if (realm !== undefined && realm !== 'web' && realm !== 'admin')
+      throw new ProblemException('validation_failed', 'realm must be web or admin');
     const dest = safeReturnTo(returnTo, this.cfg.returnToOrigins, this.cfg.defaultReturnTo);
     if (!dest) {
       await this.audit.record({
@@ -90,7 +93,10 @@ export class IdentityController {
     const { url, login } = await this.oidc.authorizationRequest(dest);
     void reply.setCookie(
       LOGIN_COOKIE,
-      await sealLoginState(login, this.cfg.sealKey),
+      await sealLoginState(
+        { ...login, realm: realm === 'admin' ? 'admin' : 'web' },
+        this.cfg.sealKey,
+      ),
       this.cookieOpts(true, 600),
     );
     return reply.status(302).header('location', url).send();
@@ -139,26 +145,35 @@ export class IdentityController {
     if (user.status !== 'active')
       return fail('user_disabled', new ProblemException('idp_user_disabled'));
 
+    // Admin console sign-in is only for staff; everyone else is refused (and audited) before any session exists.
+    const realm = ctx.realm;
+    if (realm === 'admin' && !user.is_platform_user)
+      return fail('not_platform_user', new ProblemException('forbidden', 'not a platform user'));
     // Session fixation defence: a pre-existing session cookie is revoked; login always mints new tokens.
-    const old = cookies[SESSION_COOKIE.web];
+    const old = cookies[SESSION_COOKIE[realm]];
     if (old) await this.sessions.revokeByToken(old);
-    const s = await this.sessions.create(user.id, 'web', {
+    const s = await this.sessions.create(user.id, realm, {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });
     void reply.clearCookie(LOGIN_COOKIE, { path: '/' });
     void reply.setCookie(
-      SESSION_COOKIE.web,
+      SESSION_COOKIE[realm],
       s.token,
       this.cookieOpts(true, this.cfg.absoluteSeconds),
     );
-    void reply.setCookie(CSRF_COOKIE.web, s.csrf, this.cookieOpts(false, this.cfg.absoluteSeconds));
+    void reply.setCookie(
+      CSRF_COOKIE[realm],
+      s.csrf,
+      this.cookieOpts(false, this.cfg.absoluteSeconds),
+    );
     await this.audit.record({
       action: 'auth.login.succeeded',
       actorUserId: user.id,
       outcome: 'success',
       traceId: req.traceId,
       ip: req.ip,
+      detail: { realm },
     });
     return reply.status(302).header('location', ctx.returnTo).send();
   }

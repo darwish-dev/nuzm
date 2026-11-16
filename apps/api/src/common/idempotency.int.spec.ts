@@ -5,6 +5,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { createEnv, ORG_A, ORG_B, type TestEnv } from '@nuzm/platform/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { configureApp } from '../app.setup';
+import { AuditModule } from '../modules/audit';
 import { PlatformModule } from '../modules/platform';
 import { Idempotent } from './idempotency';
 
@@ -28,7 +29,7 @@ beforeAll(async () => {
   env = await createEnv();
   process.env.DATABASE_URL = env.appUrl;
   const moduleRef = await Test.createTestingModule({
-    imports: [PlatformModule],
+    imports: [PlatformModule, AuditModule],
     controllers: [ThingsController],
   }).compile();
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());

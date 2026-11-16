@@ -43,6 +43,8 @@ export class ProblemException extends HttpException {
     readonly code: ErrorCode,
     readonly detail?: string,
     readonly errors?: unknown[],
+    /** RFC 9457 extension members merged into the problem body (e.g. `mfaFactorId` on mfa_required). */
+    readonly extra?: Record<string, unknown>,
   ) {
     super(ERROR_REGISTRY[code].title, ERROR_REGISTRY[code].status);
   }

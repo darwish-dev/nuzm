@@ -7,8 +7,9 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "dev": "tsx watch src/main.ts",
-    "test:integration": "vitest run --config vitest.integration.config.mts"
+    "dev": "tsc -p tsconfig.build.json && node dist/main.js",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
@@ -18,6 +19,7 @@
     "@node-rs/argon2": "^2.2.2",
     "@nuzm/domain": "workspace:*",
     "@nuzm/platform": "workspace:*",
+    "@nuzm/telemetry": "workspace:*",
     "fastify": "5.12.8",
     "jose": "^6.2.17",
     "otpauth": "^9.6.0",

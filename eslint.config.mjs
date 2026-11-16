@@ -11,11 +11,16 @@ export default tseslint.config(
       '**/coverage/**',
       '**/next-env.d.ts',
       '.dev-vault/**',
+      'packages/sdk/src/schema.ts',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
+  {
+    files: ['**/*.mjs'],
+    languageOptions: { globals: { process: 'readonly' } },
+  },
   {
     // Module boundaries (docs/02 §3, ADR-001): import only a module's public index and
     // a package's public entry, never internals. Violations must fail lint (bootstrap B6).

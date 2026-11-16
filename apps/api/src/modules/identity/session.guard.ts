@@ -10,6 +10,7 @@ import type { FastifyRequest } from 'fastify';
 import { IDENTITY_CONFIG } from '../../common/tokens';
 import { ProblemException } from '../../common/errors';
 import type { IdentityConfig } from './internal/config';
+import { MfaService } from './internal/mfa.service';
 import { SessionService, type Principal, type Realm } from './internal/session.service';
 
 declare module 'fastify' {
@@ -51,6 +52,7 @@ export class SessionAuthenticator {
   constructor(
     private readonly reflector: Reflector,
     private readonly sessions: SessionService,
+    private readonly mfa: MfaService,
     @Inject(IDENTITY_CONFIG) private readonly cfg: IdentityConfig,
   ) {}
 
@@ -62,7 +64,15 @@ export class SessionAuthenticator {
     const jar = (req.cookies ?? {}) as Record<string, string | undefined>;
 
     // `any` routes (MFA enrol/verify, sessions, logout, /me) accept whichever realm's cookie is present.
-    const candidates: Realm[] = routeRealm === 'any' ? ['admin', 'web'] : [routeRealm];
+    // A console may name its realm (X-Nuzm-Realm) so that two consoles sharing one cookie host never pick each
+    // other's session; without the hint the admin cookie is tried first.
+    const hint = req.headers['x-nuzm-realm'];
+    const candidates: Realm[] =
+      routeRealm !== 'any'
+        ? [routeRealm]
+        : hint === 'web' || hint === 'admin'
+          ? [hint]
+          : ['admin', 'web'];
     let p: Awaited<ReturnType<SessionService['authenticate']>> = null;
     for (const r of candidates) {
       const token = jar[SESSION_COOKIE[r]];
@@ -87,7 +97,13 @@ export class SessionAuthenticator {
       principal.mfaLevel === 'none' &&
       !this.reflector.getAllAndOverride<boolean>(PRE_MFA, targets)
     ) {
-      throw new ProblemException('mfa_required', 'admin sessions require MFA');
+      // Tell the console which factor to challenge (the caller's own factor id; null = enrol first).
+      const factor = (await this.mfa.listFactors(principal.userId)).find(
+        (f) => f.status === 'active',
+      );
+      throw new ProblemException('mfa_required', 'admin sessions require MFA', undefined, {
+        mfaFactorId: factor?.id ?? null,
+      });
     }
     if (
       principal.impersonatorUserId &&

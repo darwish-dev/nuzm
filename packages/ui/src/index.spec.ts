@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cssVariables, tokens } from './index';
+import { baseCss, cssVariables, tokens } from './index';
 
 describe('ui tokens', () => {
   it('emits css variables for every token', () => {
@@ -12,5 +12,10 @@ describe('ui tokens', () => {
   });
   it('contains no physical left/right properties', () => {
     expect(cssVariables()).not.toMatch(/left|right/);
+  });
+  it('base stylesheet uses logical properties only (RTL by dir, not by overrides)', () => {
+    expect(baseCss).not.toMatch(
+      /(?<![a-z-])(left|right)\s*:|margin-(left|right)|padding-(left|right)|border-(left|right)|text-align:\s*(left|right)/,
+    );
   });
 });

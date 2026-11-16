@@ -40,12 +40,15 @@ export class TestIdp {
   readonly clientId = 'nuzm-test-client';
   readonly clientSecret = 'test-client-secret-not-real';
 
-  async start(): Promise<void> {
+  /** Dev picker: when set, /authorize shows these users and signs in whoever is clicked (dev stack only). */
+  pickable: IdpUser[] | null = null;
+
+  async start(port = 0): Promise<void> {
     const { privateKey, publicKey } = await generateKeyPair('RS256');
     this.priv = privateKey;
     this.jwk = { ...(await exportJWK(publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' };
     this.server = createServer((req, res) => void this.handle(req, res));
-    await new Promise<void>((r) => this.server.listen(0, '127.0.0.1', r));
+    await new Promise<void>((r) => this.server.listen(port, '127.0.0.1', r));
     this.issuer = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
   }
 
@@ -84,12 +87,32 @@ export class TestIdp {
       ) {
         return json(400, { error: 'invalid_request' });
       }
+      let user = this.user;
+      if (this.pickable) {
+        const sub = q.get('pick');
+        const chosen = this.pickable.find((u) => u.sub === sub);
+        if (!chosen) {
+          const esc = (v: string) => v.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+          const items = this.pickable
+            .map((u) => {
+              const next = new URL(url);
+              next.searchParams.set('pick', u.sub);
+              return `<li><a href="${esc(next.pathname + next.search)}">${esc(u.name ?? u.sub)} &lt;${esc(u.email)}&gt;</a></li>`;
+            })
+            .join('');
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+          return void res.end(
+            `<!doctype html><meta charset="utf-8"><title>Dev IdP</title><h1>Dev identity provider</h1><p>Local development only. Pick a user:</p><ul>${items}</ul>`,
+          );
+        }
+        user = chosen;
+      }
       const code = randomBytes(16).toString('hex');
       this.codes.set(code, {
         challenge: q.get('code_challenge')!,
         nonce: q.get('nonce')!,
         redirectUri: q.get('redirect_uri')!,
-        user: this.user,
+        user,
       });
       const back = new URL(q.get('redirect_uri')!);
       back.searchParams.set('code', code);

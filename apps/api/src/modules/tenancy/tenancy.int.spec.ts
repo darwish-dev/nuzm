@@ -20,6 +20,7 @@ class AnyController {
 
 const h = new Harness();
 let app: App;
+let built: Awaited<ReturnType<Harness['buildApp']>>;
 let mailer: Awaited<ReturnType<Harness['buildApp']>>['mailer'];
 const jars: Record<string, Record<string, string>> = {};
 const ids: Record<string, string> = {};
@@ -58,7 +59,7 @@ async function addMember(org: string, user: string, role: string) {
 
 beforeAll(async () => {
   await h.init();
-  const built = await h.buildApp({}, undefined, [UndeclaredController, AnyController]);
+  built = await h.buildApp({}, undefined, [UndeclaredController, AnyController]);
   app = built.app;
   mailer = built.mailer;
   for (const n of ['alice', 'bob', 'carol', 'dave', 'eve', 'frank', 'gina']) {
@@ -879,6 +880,14 @@ describe('suspension, me, operations', () => {
     const c = await call('dave', 'POST', `/v1/operations/${op.id}/cancellation`, { org: orgA });
     expect(c.statusCode).toBe(200);
     expect(c.json()).toEqual({ state: 'cancelled', accepted: 'cancelled' });
+    expect(
+      built.sink.events.some(
+        (e) =>
+          e.action === 'platform.operation.cancel_requested' &&
+          e.orgId === orgA &&
+          e.resource?.id === op.id,
+      ),
+    ).toBe(true);
     const again = await call('dave', 'POST', `/v1/operations/${op.id}/cancellation`, { org: orgA });
     expect(again.statusCode).toBe(409);
     expect(again.json().code).toBe('operation_not_cancellable');

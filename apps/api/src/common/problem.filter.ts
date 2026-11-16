@@ -24,11 +24,13 @@ export class ProblemFilter implements ExceptionFilter {
     let code: ErrorCode = 'internal_error';
     let detail: string | undefined;
     let errors: unknown[] | undefined;
+    let extra: Record<string, unknown> | undefined;
 
     if (exception instanceof ProblemException) {
       code = exception.code;
       detail = exception.detail;
       errors = exception.errors;
+      extra = exception.extra;
     } else if (exception instanceof PlatformError) {
       code = isErrorCode(exception.code) ? exception.code : 'internal_error';
       detail = code === 'internal_error' ? undefined : exception.message;
@@ -66,6 +68,7 @@ export class ProblemFilter implements ExceptionFilter {
         ...(detail ? { detail } : {}),
         traceId: req.traceId,
         ...(errors ? { errors } : {}),
+        ...(extra ?? {}),
       });
   }
 }

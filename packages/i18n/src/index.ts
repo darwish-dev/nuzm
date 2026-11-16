@@ -1,3 +1,5 @@
+import { messages } from './messages';
+
 export type Locale = 'ar' | 'en';
 export const locales: readonly Locale[] = ['ar', 'en'];
 // D-32 (decided 2026-11-15): Arabic default, English supported.
@@ -11,25 +13,47 @@ export function dir(locale: Locale): 'rtl' | 'ltr' {
   return locale === 'ar' ? 'rtl' : 'ltr';
 }
 
-const messages = {
-  ar: {
-    'app.web.title': 'نظم — لوحة العميل',
-    'app.admin.title': 'نظم — لوحة الإدارة',
-    'app.shell.placeholder': 'هيكل أولي فقط. لا توجد ميزات بعد.',
-    'app.locale.switch': 'English',
-  },
-  en: {
-    'app.web.title': 'Nuzm — Customer Console',
-    'app.admin.title': 'Nuzm — Admin Console',
-    'app.shell.placeholder': 'Shell only. No features yet.',
-    'app.locale.switch': 'العربية',
-  },
-} as const satisfies Record<Locale, Record<string, string>>;
-
 export type MessageKey = keyof (typeof messages)['en'];
 
-export function t(locale: Locale, key: MessageKey): string {
-  return messages[locale][key];
+export type MessageParams = Record<string, string | number>;
+
+/** Look up a message and fill `{param}` placeholders (no string concatenation in components). */
+export function t(locale: Locale, key: MessageKey, params: MessageParams = {}): string {
+  return messages[locale][key].replace(/\{(\w+)\}/g, (m, name: string) =>
+    name in params ? String(params[name]) : m,
+  );
+}
+
+/** Same lookup for dynamic keys (e.g. `role.${role}`); falls back to the raw value when untranslated. */
+export function tDynamic(
+  locale: Locale,
+  key: string,
+  fallback: string,
+  params: MessageParams = {},
+): string {
+  return key in messages.en ? t(locale, key as MessageKey, params) : fallback;
+}
+
+/** `{param}` names used by a message; both locales must use the same set. */
+export function placeholders(text: string): string[] {
+  return [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
+}
+
+/** Mismatched placeholders between locales (guards translation drift). */
+export function placeholderMismatches(): string[] {
+  return (Object.keys(messages.en) as MessageKey[]).filter(
+    (k) => placeholders(messages.en[k]).join() !== placeholders(messages.ar[k]).join(),
+  );
+}
+
+const TZ = 'Asia/Riyadh'; // docs/13 §5 default; user override arrives with profile settings
+/** Display a UTC ISO timestamp in the user's locale (Gregorian; Hijri is an optional later flag, D-32). */
+export function formatDateTime(iso: string, locale: Locale, timeZone = TZ): string {
+  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone,
+  }).format(new Date(iso));
 }
 
 /** Message keys must exist in every locale (guards translation drift). */

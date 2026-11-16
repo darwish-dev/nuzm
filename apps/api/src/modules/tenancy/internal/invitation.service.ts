@@ -103,6 +103,7 @@ export class InvitationService {
         template: 'invitation',
         locale,
         data: {
+          invitationId: id,
           orgName,
           role: input.role,
           inviterEmail: actor.email,

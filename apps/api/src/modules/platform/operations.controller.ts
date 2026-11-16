@@ -1,7 +1,8 @@
-import { Controller, Get, HttpCode, Param, Post, Query, Res } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
+import { Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { OperationsService, type Operation } from '@nuzm/platform';
 import { Org, RequirePermission } from '../../common/access';
+import { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,7 +24,10 @@ const shape = (o: Operation) => ({
 
 @Controller('v1')
 export class OperationsController {
-  constructor(private readonly ops: OperationsService) {}
+  constructor(
+    private readonly ops: OperationsService,
+    private readonly audit: AuditSink,
+  ) {}
 
   @RequirePermission('operation:read')
   @Get('operations')
@@ -58,10 +62,20 @@ export class OperationsController {
   async cancel(
     @Org() orgId: string,
     @Param('id') id: string,
+    @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
     if (!UUID.test(id)) throw new ProblemException('not_found');
     const r = await this.ops.requestCancel(orgId, id);
+    await this.audit.record({
+      action: 'platform.operation.cancel_requested',
+      orgId,
+      resource: { type: 'operation', id },
+      outcome: 'success',
+      traceId: req.traceId,
+      ip: req.ip,
+      detail: { result: r.accepted },
+    });
     if (r.accepted === 'cancelled') void reply.status(200);
     return r;
   }

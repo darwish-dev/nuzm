@@ -1,0 +1,9 @@
+import { NextResponse, type NextRequest } from 'next/server';
+
+/** Exposes the request path to server layouts (for aria-current) without client JS. */
+export function proxy(req: NextRequest) {
+  const headers = new Headers(req.headers);
+  headers.set('x-pathname', req.nextUrl.pathname);
+  return NextResponse.next({ request: { headers } });
+}
+export const config = { matcher: ['/((?!v1|_next|favicon.ico).*)'] };

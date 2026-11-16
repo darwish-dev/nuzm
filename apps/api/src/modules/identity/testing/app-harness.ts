@@ -87,10 +87,15 @@ export class Harness {
   }
 
   /** login → IdP authorize → callback; returns the cookie jar. */
-  async login(app: App, returnTo = '/dashboard', jar: Record<string, string> = {}) {
+  async login(
+    app: App,
+    returnTo = '/dashboard',
+    jar: Record<string, string> = {},
+    realm?: 'web' | 'admin',
+  ) {
     const r1 = await app.inject({
       method: 'GET',
-      url: `/v1/auth/oidc/login?returnTo=${encodeURIComponent(returnTo)}`,
+      url: `/v1/auth/oidc/login?returnTo=${encodeURIComponent(returnTo)}${realm ? `&realm=${realm}` : ''}`,
       headers: { cookie: cookieHeader(jar) },
     });
     if (r1.statusCode !== 302) return { r1, r2: r1, back: new URL('http://x'), jar };

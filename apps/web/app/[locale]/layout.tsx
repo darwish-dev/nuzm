@@ -1,10 +1,20 @@
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cssVariables } from '@nuzm/ui';
-import { dir, isLocale, locales } from '@nuzm/i18n';
+import { baseCss, cssVariables } from '@nuzm/ui';
+import { dir, isLocale, locales, t } from '@nuzm/i18n';
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return { title: isLocale(locale) ? t(locale, 'app.web.title') : 'Nuzm' };
 }
 
 export default async function LocaleLayout({
@@ -19,18 +29,9 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} dir={dir(locale)}>
       <head>
-        <style>{cssVariables()}</style>
+        <style>{cssVariables() + baseCss}</style>
       </head>
-      <body
-        style={{
-          margin: 0,
-          fontFamily: 'var(--nuzm-font-sans)',
-          color: 'var(--nuzm-color-fg)',
-          background: 'var(--nuzm-color-bg)',
-        }}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

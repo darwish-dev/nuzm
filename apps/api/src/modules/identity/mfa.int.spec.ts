@@ -231,6 +231,7 @@ describe('admin realm requires MFA', () => {
     const me = await h.authed(app, jar, 'GET', '/v1/me');
     expect(me.statusCode).toBe(403);
     expect(me.json().code).toBe('mfa_required');
+    expect(me.json().mfaFactorId).toBeNull(); // nothing enrolled yet: the console must offer enrolment
 
     const e = await post(jar, '/v1/auth/mfa/factors', { type: 'totp' });
     expect(e.statusCode).toBe(201);
@@ -239,7 +240,15 @@ describe('admin realm requires MFA', () => {
     expect(v.statusCode).toBe(200);
     jar = jarFrom(v, jar);
     expect(jar.nuzm_admin_session).not.toBe(s.token);
-    expect((await h.authed(app, jar, 'GET', '/v1/me')).statusCode).toBe(200);
+    const me2 = await h.authed(app, jar, 'GET', '/v1/me');
+    expect(me2.statusCode).toBe(200);
+    expect(me2.json().mfaFactorId).toBe(id);
+    // a brand-new admin session (no MFA yet) is told WHICH factor to challenge
+    const s2 = await app.get(SessionService).create(uid, 'admin', {});
+    const cold = { nuzm_admin_session: s2.token, nuzm_admin_csrf: s2.csrf };
+    const challenge = await h.authed(app, cold, 'GET', '/v1/me');
+    expect(challenge.statusCode).toBe(403);
+    expect(challenge.json()).toMatchObject({ code: 'mfa_required', mfaFactorId: id });
   });
 });
 

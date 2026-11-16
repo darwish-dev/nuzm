@@ -4,7 +4,7 @@ import { Db } from '@nuzm/platform';
 import { AnyAuthenticated } from '../../common/access';
 import { ProblemException } from '../../common/errors';
 import { DB } from '../../common/tokens';
-import { CurrentPrincipal, RealmOnly, UserService, type Principal } from '../identity';
+import { CurrentPrincipal, MfaService, RealmOnly, UserService, type Principal } from '../identity';
 import { PolicyService } from './policy.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,6 +16,7 @@ export class MeController {
   constructor(
     private readonly users: UserService,
     private readonly policy: PolicyService,
+    private readonly mfa: MfaService,
     @Inject(DB) private readonly db: Db,
   ) {}
 
@@ -57,6 +58,8 @@ export class MeController {
         ),
       );
     }
+    // Admin console: which platform roles/permissions this staff member holds (drives nav; routes still enforce).
+    const platform = p.realm === 'admin' ? await this.policy.platformAccess(p.userId) : null;
     return {
       id: u.id,
       email: u.email,
@@ -65,6 +68,8 @@ export class MeController {
       locale: u.locale,
       isPlatformUser: u.is_platform_user,
       mfaLevel: p.mfaLevel,
+      mfaFactorId:
+        (await this.mfa.listFactors(p.userId)).find((f) => f.status === 'active')?.id ?? null,
       impersonation: p.impersonatorUserId
         ? {
             byUserId: p.impersonatorUserId,
@@ -81,6 +86,9 @@ export class MeController {
         role: r.role,
       })),
       permissions,
+      platform: platform
+        ? { roles: platform.roles, permissions: [...platform.permissions].sort() }
+        : null,
       featureFlags: flags,
     };
   }

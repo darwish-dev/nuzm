@@ -10,6 +10,7 @@ export type MailMessage =
   | (MailBase & {
       template: 'invitation';
       data: {
+        invitationId: string;
         orgName: string;
         role: string;
         inviterEmail: string;

@@ -63,6 +63,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
       'api-keys': A.apiKey,
       operations: A.operation,
       notifications: A.notification,
+      billing: A.approval, // the only id-bearing billing route is POST /v1/billing/spend-approvals/{id}/decision
     } as Record<string, string>
   )[root];
 };
@@ -72,6 +73,7 @@ const bodyFor = (o: Op): unknown => {
     if (o.path.startsWith('/v1/notifications/')) return { read: true };
     return o.path.includes('/members/') ? { role: 'viewer' } : { name: 'hijack' };
   }
+  if (o.method === 'POST' && o.path.endsWith('/decision')) return { decision: 'approve' }; // a VALID body: only the id may differ
   if (o.method === 'POST')
     return o.path.endsWith('/environments') ? { name: 'x', kind: 'dev' } : undefined;
   return undefined;
@@ -128,6 +130,14 @@ beforeAll(async () => {
     await a('POST', '/v1/api-keys', { name: 'A-key', scopes: ['project:read'] })
   ).json().id;
   A.operation = (await app.get(OperationsService).create(orgA, { kind: 'ct.op' })).id;
+  A.approval = (
+    await a('POST', '/v1/billing/spend-approvals', {
+      quoteId: crypto.randomUUID(),
+      amount: '100',
+      currency: 'SAR',
+      reason: 'fixture',
+    })
+  ).json().id;
   await app
     .get(NotificationService)
     .notify({ orgId: orgA, userId: aliceId, kind: 'test.fixture', params: {} });
@@ -206,7 +216,9 @@ describe('org B owner (session) vs org A ids → 404 on every id-bearing route',
 describe('org B API key (every owner permission) vs org A ids → 404', () => {
   it.each(
     withIds
+      // session-only routes (an API key is refused up front, which confirms nothing about the id)
       .filter((o) => !o.path.startsWith('/v1/api-keys') || o.method !== 'POST')
+      .filter((o) => !o.path.startsWith('/v1/billing/spend-approvals/'))
       .map((o) => [`${o.method} ${o.path}`, o] as const),
   )('%s', async (_n, o) => {
     const r = await app.inject({

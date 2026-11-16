@@ -1148,10 +1148,325 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Aggregated usage
+         * @description Usage aggregates of the active organization by meter and resource over a time window (default: the current UTC month; at most 366 days). granularity=hour|day|month rolls up the stored buckets: month follows the billing period, day and hour follow the bucket (a meter stored per day is never split into hours). Every point carries its dataRegion. Requires permission `usage:read`.
+         */
+        get: operations["listUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage summary for one month
+         * @description Per meter for one UTC month (period=YYYY-MM, default current): quantity, allowance applied and the rated amount when rated. A total is given only when all rated lines share one currency. Requires permission `usage:read`.
+         */
+        get: operations["getUsageSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/usage/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Raw usage events
+         * @description Raw metering events of the active organization, newest window first. Requires permission `usage:events:read` (owner, admin, billing_admin). Rate limited per organization. (The platform-wide view for finance/support is not implemented yet.)
+         */
+        get: operations["listUsageEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/quotas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quotas and consumption
+         * @description Consumption against the effective limits per meter group for the current UTC month. state is ok, soft or hard; a hard state blocks NEW consumption of that group only. Groups with no measuring meter are reported with measured=false, never as ok. Reading refreshes the projection and announces a newly crossed 80/100 percent threshold once. Requires permission `usage:read`.
+         */
+        get: operations["getQuotas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/spending-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spending limits
+         * @description Monthly caps of the organization and its projects. Requires permission `billing:read`.
+         */
+        get: operations["listSpendingLimits"];
+        /**
+         * Create or replace a spending limit
+         * @description Identified by scope (org|project) and projectId. Creating needs no precondition; replacing needs If-Match with the limit ETag (428 when missing, 412 when stale). A cap below the month spend (rated usage plus approved spend) is refused with 422 spend_approval_required. Project caps are evaluated against approved spend only until rated usage carries a project (M05). Requires permission `billing:manage`.
+         */
+        put: operations["putSpendingLimit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/spend-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List spend approvals
+         * @description Approvers (permission `billing:manage`) see every request of the organization; other callers see their own. status filters pending, approved, denied or expired. Requires permission `spend:request`.
+         */
+        get: operations["listSpendApprovals"];
+        put?: never;
+        /**
+         * Request a spend approval
+         * @description Asks approvers to allow spend above the limit for one quote or operation. Four-eyes applies above the organization threshold (always when none is set): the requester can never decide such a request. The request expires (default 24 h). One open request per subject. Requires permission `spend:request` (developer and above).
+         */
+        post: operations["requestSpendApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/spend-approvals/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide a spend approval
+         * @description Approve or deny a pending request. Session only, requires a recent MFA verification (step-up) and is refused while impersonating. Under four-eyes the requester cannot decide (403). 409 when already decided or expired. Requires permission `billing:manage`.
+         */
+        post: operations["decideSpendApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        UsagePoint: {
+            meterId: string;
+            unit: string;
+            resourceId: string | null;
+            /** @enum {string} */
+            granularity: "hour" | "day" | "month";
+            /** Format: date-time */
+            bucketStart: string;
+            /** Format: date */
+            billingPeriodStart: string;
+            /** @description Decimal string in the meter unit. */
+            quantity: string;
+            eventCount: number;
+            dataRegion: string;
+        };
+        UsagePage: {
+            items: components["schemas"]["UsagePoint"][];
+            nextCursor: string | null;
+        };
+        UsageSummaryItem: {
+            meterId: string;
+            unit: string;
+            quantity: string;
+            eventCount: number;
+            dataRegions: string[];
+            rated: boolean;
+            allowanceApplied: string | null;
+            billableQuantity: string | null;
+            /** @description Integer minor units. */
+            amountMinor: string | null;
+            currency: string | null;
+        };
+        UsageSummary: {
+            /** Format: date */
+            periodStart: string;
+            items: components["schemas"]["UsageSummaryItem"][];
+            totalMinor: string | null;
+            currency: string | null;
+        };
+        UsageEvent: {
+            /** Format: uuid */
+            eventId: string;
+            meterId: string;
+            quantity: string;
+            unit: string;
+            /** Format: uuid */
+            resourceId: string | null;
+            /** Format: date-time */
+            windowStart: string;
+            /** Format: date-time */
+            windowEnd: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** Format: date-time */
+            receivedAt: string;
+            source: string;
+            dimensions: {
+                [key: string]: unknown;
+            };
+            dataRegion: string;
+            late: boolean;
+            skewFlag: boolean;
+            /** Format: uuid */
+            adjustsEventId: string | null;
+        };
+        UsageEventPage: {
+            items: components["schemas"]["UsageEvent"][];
+            nextCursor: string | null;
+        };
+        QuotaItem: {
+            meterGroup: string;
+            meterId: string | null;
+            unit: string | null;
+            /** @description Null = unlimited. */
+            limit: string | null;
+            used: string;
+            /** @enum {string} */
+            mode: "soft" | "hard";
+            /** @enum {string} */
+            state: "ok" | "soft" | "hard";
+            percent: number | null;
+            measured: boolean;
+        };
+        QuotaReport: {
+            /** Format: date */
+            periodStart: string;
+            items: components["schemas"]["QuotaItem"][];
+            restricted: boolean;
+        };
+        SpendingLimit: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "org" | "project";
+            /** Format: uuid */
+            projectId: string | null;
+            monthlyCapMinor: string;
+            currency: string;
+            alertThresholds: number[];
+            /** @description Approvals above this amount need a second person; null = always. */
+            fourEyesAboveMinor: string | null;
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SpendingLimitList: {
+            items: components["schemas"]["SpendingLimit"][];
+        };
+        PutSpendingLimit: {
+            /** @enum {string} */
+            scope: "org" | "project";
+            /** Format: uuid */
+            projectId?: string | null;
+            monthlyCapMinor: string;
+            currency: string;
+            alertThresholds?: number[];
+            fourEyesAboveMinor?: string | null;
+        };
+        /** @description Exactly one of quoteId or operationId. */
+        SpendApprovalRequest: {
+            /** Format: uuid */
+            quoteId?: string;
+            /** Format: uuid */
+            operationId?: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** @description Integer minor units. */
+            amount: string;
+            currency: string;
+            reason: string;
+        };
+        SpendApproval: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            requesterUserId: string;
+            /** @enum {string} */
+            subjectKind: "quote" | "operation";
+            /** Format: uuid */
+            subjectId: string;
+            /** Format: uuid */
+            projectId: string | null;
+            amountMinor: string;
+            currency: string;
+            reason: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "denied" | "expired";
+            fourEyes: boolean;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: uuid */
+            decidedBy: string | null;
+            /** Format: date-time */
+            decidedAt: string | null;
+            decisionNote: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SpendApprovalPage: {
+            items: components["schemas"]["SpendApproval"][];
+            nextCursor: string | null;
+        };
+        SpendApprovalDecision: {
+            /** @enum {string} */
+            decision: "approve" | "deny";
+            note?: string;
+        };
         /** @description See spec/events/usage.recorded.json. `quantity` is a decimal string in the meter unit (negative only with adjustsEventId). */
         UsageEventInput: {
             /** Format: uuid */
@@ -3962,6 +4277,298 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listUsage: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                meter?: string;
+                resource?: string;
+                from?: string;
+                to?: string;
+                granularity?: "hour" | "day" | "month";
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsagePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getUsageSummary: {
+        parameters: {
+            query?: {
+                period?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSummary"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listUsageEvents: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                meter?: string;
+                resource?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageEventPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getQuotas: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuotaReport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listSpendingLimits: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendingLimitList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    putSpendingLimit: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the limit being replaced. */
+                "If-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutSpendingLimit"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendingLimit"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listSpendApprovals: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendApprovalPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    requestSpendApproval: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpendApprovalRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendApproval"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    decideSpendApproval: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpendApprovalDecision"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendApproval"];
                 };
             };
             401: components["responses"]["Problem"];

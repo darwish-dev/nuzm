@@ -29,7 +29,7 @@ schemas:
     owner_module: billing
     created_by: M02
     extended_by: [M03, M11]
-    tables: [dunning_cases, entitlements, ledger_accounts, ledger_postings, ledger_transactions, plan_versions, plans, price_book_versions, price_books, price_items, quotas, reseller_price_rules, spend_approvals, spending_limits, subscriptions, wallet_balances]
+    tables: [dunning_cases, entitlements, ledger_accounts, ledger_postings, ledger_transactions, plan_versions, plans, price_book_versions, price_books, price_items, quota_meters, quotas, reseller_price_rules, spend_approvals, spending_limits, subscriptions, wallet_balances]
   commerce:
     owner_module: commerce
     created_by: M02
@@ -146,6 +146,7 @@ tenant_less:
   - metering.meters
   # price books: global reference data (public price list), written only from the admin console scope
   - billing.price_books
+  - billing.quota_meters
   - billing.price_book_versions
   - billing.price_items
   # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)

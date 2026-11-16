@@ -4,12 +4,30 @@ import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
 import { AdminBillingController } from './admin-billing.controller';
 import { AdminPriceBooksController } from './admin-price-books.controller';
+import { BillingSpendController } from './billing-spend.controller';
+import { QuotasController } from './quotas.controller';
 import { BillingController } from './billing.controller';
 import { BillingReadService } from './internal/billing-read.service';
 import { EntitlementService } from './internal/entitlement.service';
 import { LedgerPostingService } from './internal/ledger.service';
 import { PlanService } from './internal/plan.service';
 import { PriceBookService } from './internal/price-book.service';
+import { QuotaService } from './internal/quota.service';
+import { SpendService } from './internal/spend.service';
+import { NotificationService } from '../notifications';
+
+/** Users who can manage billing in the organization (owners, admins, billing admins): the audience of quota notices. */
+const approverIds = (db: Db, orgId: string) =>
+  db.withOrg(orgId, async (c) =>
+    (
+      await c.query<{ user_id: string }>(
+        `SELECT DISTINCT m.user_id FROM tenancy.memberships m
+           JOIN tenancy.role_permissions rp ON rp.role = m.role AND rp.permission = 'billing:manage'
+          WHERE m.org_id = $1`,
+        [orgId],
+      )
+    ).rows.map((r) => r.user_id),
+  );
 
 /**
  * Ledger, plans and entitlements (M02). `LedgerPostingService` is the only writer of postings and is exported for the
@@ -17,7 +35,13 @@ import { PriceBookService } from './internal/price-book.service';
  */
 @Global()
 @Module({
-  controllers: [BillingController, AdminBillingController, AdminPriceBooksController],
+  controllers: [
+    BillingController,
+    AdminBillingController,
+    AdminPriceBooksController,
+    BillingSpendController,
+    QuotasController,
+  ],
   providers: [
     {
       provide: LedgerPostingService,
@@ -40,6 +64,43 @@ import { PriceBookService } from './internal/price-book.service';
       inject: [DB, AuditSink],
     },
     {
+      provide: QuotaService,
+      useFactory: (db: Db, a: AuditSink, n: NotificationService) =>
+        new QuotaService(db, a, async (x) => {
+          const recipients = await approverIds(db, x.orgId);
+          for (const userId of recipients)
+            await n.notify({
+              orgId: x.orgId,
+              userId,
+              kind: 'billing.quota_threshold',
+              params: { meterGroup: x.meterGroup, threshold: x.threshold, state: x.state },
+            });
+        }),
+      inject: [DB, AuditSink, NotificationService],
+    },
+    {
+      provide: SpendService,
+      useFactory: (db: Db, a: AuditSink, n: NotificationService) =>
+        new SpendService(
+          db,
+          a,
+          async (x) => {
+            for (const userId of x.recipients)
+              await n.notify({
+                orgId: x.orgId,
+                userId,
+                kind:
+                  x.kind === 'requested'
+                    ? 'billing.spend_approval_requested'
+                    : 'billing.spend_approval_decided',
+                params: x.params,
+              });
+          },
+          { approvalTtlHours: Number(process.env.SPEND_APPROVAL_TTL_HOURS ?? 24) },
+        ),
+      inject: [DB, AuditSink, NotificationService],
+    },
+    {
       provide: BillingReadService,
       useFactory: (db: Db) => new BillingReadService(db),
       inject: [DB],
@@ -51,6 +112,8 @@ import { PriceBookService } from './internal/price-book.service';
     PlanService,
     PriceBookService,
     BillingReadService,
+    QuotaService,
+    SpendService,
   ],
 })
 export class BillingModule {}

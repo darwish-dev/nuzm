@@ -7,3 +7,7 @@ export type { EffectiveEntitlements } from './internal/entitlement.service';
 export * as recipes from './internal/recipes';
 export { PriceBookService } from './internal/price-book.service';
 export type { PriceItemDto, PriceVersionDto } from './internal/price-book.service';
+export { QuotaService } from './internal/quota.service';
+export type { QuotaItem, QuotaReport, QuotaCheck } from './internal/quota.service';
+export { SpendService } from './internal/spend.service';
+export type { SpendDecision, SpendApprovalDto, SpendingLimitDto } from './internal/spend.service';

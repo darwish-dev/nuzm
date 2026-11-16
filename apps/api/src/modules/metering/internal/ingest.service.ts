@@ -17,7 +17,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * the aggregation of the buckets that the accepted events touch.
  */
 export class MeteringIngestService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    /** Runs after an organization's events were stored and aggregated (best effort; must not throw). */
+    private readonly afterAggregate: (orgId: string) => Promise<void> = async () => undefined,
+  ) {}
 
   async ingest(
     events: unknown,
@@ -70,6 +74,7 @@ export class MeteringIngestService {
           await c.query('SELECT metering.aggregate_events($1, $2::uuid[])', [org, accepted]);
         return r;
       });
+      if (rows.some((r) => r.result === 'accepted')) await this.afterAggregate(org);
       for (const r of rows) {
         const slot = results[idxs[r.idx]!]!;
         slot.result = r.result;

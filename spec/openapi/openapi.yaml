@@ -12,6 +12,8 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: usage
+    description: Usage, quotas and raw events
   - name: platform
     description: Platform health
   - name: auth
@@ -1856,6 +1858,247 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/usage:
+    get:
+      operationId: listUsage
+      tags: [usage]
+      summary: Aggregated usage
+      description: 'Usage aggregates of the active organization by meter and resource over a time window (default: the current UTC month; at most 366 days). granularity=hour|day|month rolls up the stored buckets: month follows the billing period, day and hour follow the bucket (a meter stored per day is never split into hours). Every point carries its dataRegion. Requires permission `usage:read`.'
+      x-nuzm-permission: usage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: meter, in: query, schema: { type: string } }
+        - { name: resource, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - {
+            name: granularity,
+            in: query,
+            schema: { type: string, enum: [hour, day, month], default: day },
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsagePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/usage/summary:
+    get:
+      operationId: getUsageSummary
+      tags: [usage]
+      summary: Usage summary for one month
+      description: 'Per meter for one UTC month (period=YYYY-MM, default current): quantity, allowance applied and the rated amount when rated. A total is given only when all rated lines share one currency. Requires permission `usage:read`.'
+      x-nuzm-permission: usage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: period, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageSummary' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/usage/events:
+    get:
+      operationId: listUsageEvents
+      tags: [usage]
+      summary: Raw usage events
+      description: 'Raw metering events of the active organization, newest window first. Requires permission `usage:events:read` (owner, admin, billing_admin). Rate limited per organization. (The platform-wide view for finance/support is not implemented yet.)'
+      x-nuzm-permission: usage:events:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: meter, in: query, schema: { type: string } }
+        - { name: resource, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageEventPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/quotas:
+    get:
+      operationId: getQuotas
+      tags: [usage]
+      summary: Quotas and consumption
+      description: 'Consumption against the effective limits per meter group for the current UTC month. state is ok, soft or hard; a hard state blocks NEW consumption of that group only. Groups with no measuring meter are reported with measured=false, never as ok. Reading refreshes the projection and announces a newly crossed 80/100 percent threshold once. Requires permission `usage:read`.'
+      x-nuzm-permission: usage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuotaReport' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/spending-limits:
+    get:
+      operationId: listSpendingLimits
+      tags: [billing]
+      summary: Spending limits
+      description: 'Monthly caps of the organization and its projects. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendingLimitList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putSpendingLimit
+      tags: [billing]
+      summary: Create or replace a spending limit
+      description: 'Identified by scope (org|project) and projectId. Creating needs no precondition; replacing needs If-Match with the limit ETag (428 when missing, 412 when stale). A cap below the month spend (rated usage plus approved spend) is refused with 422 spend_approval_required. Project caps are evaluated against approved spend only until rated usage carries a project (M05). Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: If-Match,
+            in: header,
+            required: false,
+            schema: { type: string },
+            description: ETag of the limit being replaced.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutSpendingLimit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendingLimit' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/spend-approvals:
+    post:
+      operationId: requestSpendApproval
+      tags: [billing]
+      summary: Request a spend approval
+      description: 'Asks approvers to allow spend above the limit for one quote or operation. Four-eyes applies above the organization threshold (always when none is set): the requester can never decide such a request. The request expires (default 24 h). One open request per subject. Requires permission `spend:request` (developer and above).'
+      x-nuzm-permission: spend:request
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SpendApprovalRequest' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendApproval' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listSpendApprovals
+      tags: [billing]
+      summary: List spend approvals
+      description: 'Approvers (permission `billing:manage`) see every request of the organization; other callers see their own. status filters pending, approved, denied or expired. Requires permission `spend:request`.'
+      x-nuzm-permission: spend:request
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendApprovalPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/spend-approvals/{id}/decision:
+    post:
+      operationId: decideSpendApproval
+      tags: [billing]
+      summary: Decide a spend approval
+      description: 'Approve or deny a pending request. Session only, requires a recent MFA verification (step-up) and is refused while impersonating. Under four-eyes the requester cannot decide (403). 409 when already decided or expired. Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SpendApprovalDecision' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendApproval' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -1915,6 +2158,235 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    UsagePoint:
+      type: object
+      required:
+        [
+          meterId,
+          unit,
+          resourceId,
+          granularity,
+          bucketStart,
+          billingPeriodStart,
+          quantity,
+          eventCount,
+          dataRegion,
+        ]
+      properties:
+        meterId: { type: string }
+        unit: { type: string }
+        resourceId: { type: [string, 'null'] }
+        granularity: { type: string, enum: [hour, day, month] }
+        bucketStart: { type: string, format: date-time }
+        billingPeriodStart: { type: string, format: date }
+        quantity: { type: string, description: Decimal string in the meter unit. }
+        eventCount: { type: integer }
+        dataRegion: { type: string }
+    UsagePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/UsagePoint' } }
+        nextCursor: { type: [string, 'null'] }
+    UsageSummaryItem:
+      type: object
+      required:
+        [
+          meterId,
+          unit,
+          quantity,
+          eventCount,
+          dataRegions,
+          rated,
+          allowanceApplied,
+          billableQuantity,
+          amountMinor,
+          currency,
+        ]
+      properties:
+        meterId: { type: string }
+        unit: { type: string }
+        quantity: { type: string }
+        eventCount: { type: integer }
+        dataRegions: { type: array, items: { type: string } }
+        rated: { type: boolean }
+        allowanceApplied: { type: [string, 'null'] }
+        billableQuantity: { type: [string, 'null'] }
+        amountMinor: { type: [string, 'null'], description: Integer minor units. }
+        currency: { type: [string, 'null'] }
+    UsageSummary:
+      type: object
+      required: [periodStart, items, totalMinor, currency]
+      properties:
+        periodStart: { type: string, format: date }
+        items: { type: array, items: { $ref: '#/components/schemas/UsageSummaryItem' } }
+        totalMinor: { type: [string, 'null'] }
+        currency: { type: [string, 'null'] }
+    UsageEvent:
+      type: object
+      required:
+        [
+          eventId,
+          meterId,
+          quantity,
+          unit,
+          resourceId,
+          windowStart,
+          windowEnd,
+          occurredAt,
+          receivedAt,
+          source,
+          dimensions,
+          dataRegion,
+          late,
+          skewFlag,
+          adjustsEventId,
+        ]
+      properties:
+        eventId: { type: string, format: uuid }
+        meterId: { type: string }
+        quantity: { type: string }
+        unit: { type: string }
+        resourceId: { type: [string, 'null'], format: uuid }
+        windowStart: { type: string, format: date-time }
+        windowEnd: { type: string, format: date-time }
+        occurredAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        source: { type: string }
+        dimensions: { type: object, additionalProperties: true }
+        dataRegion: { type: string }
+        late: { type: boolean }
+        skewFlag: { type: boolean }
+        adjustsEventId: { type: [string, 'null'], format: uuid }
+    UsageEventPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/UsageEvent' } }
+        nextCursor: { type: [string, 'null'] }
+    QuotaItem:
+      type: object
+      required: [meterGroup, meterId, unit, limit, used, mode, state, percent, measured]
+      properties:
+        meterGroup: { type: string }
+        meterId: { type: [string, 'null'] }
+        unit: { type: [string, 'null'] }
+        limit: { type: [string, 'null'], description: Null = unlimited. }
+        used: { type: string }
+        mode: { type: string, enum: [soft, hard] }
+        state: { type: string, enum: [ok, soft, hard] }
+        percent: { type: [integer, 'null'] }
+        measured: { type: boolean }
+    QuotaReport:
+      type: object
+      required: [periodStart, items, restricted]
+      properties:
+        periodStart: { type: string, format: date }
+        items: { type: array, items: { $ref: '#/components/schemas/QuotaItem' } }
+        restricted: { type: boolean }
+    SpendingLimit:
+      type: object
+      required:
+        [
+          id,
+          scope,
+          projectId,
+          monthlyCapMinor,
+          currency,
+          alertThresholds,
+          fourEyesAboveMinor,
+          version,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        scope: { type: string, enum: [org, project] }
+        projectId: { type: [string, 'null'], format: uuid }
+        monthlyCapMinor: { type: string }
+        currency: { type: string }
+        alertThresholds: { type: array, items: { type: integer, minimum: 1, maximum: 100 } }
+        fourEyesAboveMinor:
+          {
+            type: [string, 'null'],
+            description: Approvals above this amount need a second person; null = always.,
+          }
+        version: { type: integer }
+        updatedAt: { type: string, format: date-time }
+    SpendingLimitList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SpendingLimit' } }
+    PutSpendingLimit:
+      type: object
+      required: [scope, monthlyCapMinor, currency]
+      properties:
+        scope: { type: string, enum: [org, project] }
+        projectId: { type: [string, 'null'], format: uuid }
+        monthlyCapMinor: { type: string, pattern: '^[1-9][0-9]{0,17}$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        alertThresholds:
+          { type: array, maxItems: 8, items: { type: integer, minimum: 1, maximum: 100 } }
+        fourEyesAboveMinor: { type: [string, 'null'] }
+    SpendApprovalRequest:
+      type: object
+      required: [amount, currency, reason]
+      description: Exactly one of quoteId or operationId.
+      properties:
+        quoteId: { type: string, format: uuid }
+        operationId: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        amount: { type: string, pattern: '^[1-9][0-9]{0,17}$', description: Integer minor units. }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    SpendApproval:
+      type: object
+      required:
+        [
+          id,
+          requesterUserId,
+          subjectKind,
+          subjectId,
+          projectId,
+          amountMinor,
+          currency,
+          reason,
+          status,
+          fourEyes,
+          expiresAt,
+          decidedBy,
+          decidedAt,
+          decisionNote,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        requesterUserId: { type: string, format: uuid }
+        subjectKind: { type: string, enum: [quote, operation] }
+        subjectId: { type: string, format: uuid }
+        projectId: { type: [string, 'null'], format: uuid }
+        amountMinor: { type: string }
+        currency: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [pending, approved, denied, expired] }
+        fourEyes: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        decisionNote: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    SpendApprovalPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SpendApproval' } }
+        nextCursor: { type: [string, 'null'] }
+    SpendApprovalDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, deny] }
+        note: { type: string, maxLength: 500 }
     UsageEventInput:
       type: object
       required:

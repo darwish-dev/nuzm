@@ -3,10 +3,12 @@ import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
 import { AdminBillingController } from './admin-billing.controller';
+import { AdminAdjustmentsController } from './admin-adjustments.controller';
 import { AdminPriceBooksController } from './admin-price-books.controller';
 import { BillingSpendController } from './billing-spend.controller';
 import { QuotasController } from './quotas.controller';
 import { BillingController } from './billing.controller';
+import { AdjustmentService } from './internal/adjustment.service';
 import { BillingReadService } from './internal/billing-read.service';
 import { EntitlementService } from './internal/entitlement.service';
 import { LedgerPostingService } from './internal/ledger.service';
@@ -39,6 +41,7 @@ const approverIds = (db: Db, orgId: string) =>
     BillingController,
     AdminBillingController,
     AdminPriceBooksController,
+    AdminAdjustmentsController,
     BillingSpendController,
     QuotasController,
   ],
@@ -62,6 +65,12 @@ const approverIds = (db: Db, orgId: string) =>
       provide: PriceBookService,
       useFactory: (db: Db, a: AuditSink) => new PriceBookService(db, a),
       inject: [DB, AuditSink],
+    },
+    {
+      provide: AdjustmentService,
+      useFactory: (db: Db, l: LedgerPostingService, a: AuditSink) =>
+        new AdjustmentService(db, l, a),
+      inject: [DB, LedgerPostingService, AuditSink],
     },
     {
       provide: QuotaService,
@@ -114,6 +123,7 @@ const approverIds = (db: Db, orgId: string) =>
     BillingReadService,
     QuotaService,
     SpendService,
+    AdjustmentService,
   ],
 })
 export class BillingModule {}

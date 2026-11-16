@@ -63,6 +63,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
       'api-keys': A.apiKey,
       operations: A.operation,
       notifications: A.notification,
+      quotes: A.quote,
       billing: A.approval, // the only id-bearing billing route is POST /v1/billing/spend-approvals/{id}/decision
     } as Record<string, string>
   )[root];
@@ -130,6 +131,9 @@ beforeAll(async () => {
     await a('POST', '/v1/api-keys', { name: 'A-key', scopes: ['project:read'] })
   ).json().id;
   A.operation = (await app.get(OperationsService).create(orgA, { kind: 'ct.op' })).id;
+  A.quote = (
+    await a('POST', '/v1/quotes', { kind: 'ai-credit', items: [{ credits: '10' }] })
+  ).json().id;
   A.approval = (
     await a('POST', '/v1/billing/spend-approvals', {
       quoteId: crypto.randomUUID(),

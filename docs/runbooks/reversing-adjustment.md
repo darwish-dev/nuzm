@@ -1,18 +1,20 @@
 # Runbook: reversing / adjusting a ledger entry
 
-Status: the **ledger service** (`LedgerService.reverse`, recipe `adminAdjustment`) is implemented and tested in S05. The HTTP endpoint `POST /v1/admin/billing/adjustments` (finance request + second approver) is **not built yet** (planned S07), so today a reversal can only be run by an engineer through the service with a ticket. This runbook describes the target process and what is verifiable now.
+Status: implemented in S07b (`POST /v1/admin/billing/adjustments`, `AdjustmentService`), exercised in `commerce.int.spec.ts`. Not run on production data (none exists).
 
 ## Rules
-- Never edit or delete ledger rows. A reversal posts the mirror image of the original and references it.
-- A transaction can be reversed once (unique index). A repeat with the same idempotency key returns the first result.
-- Every reversal needs a reason, an actor, and (once the endpoint exists) a second approver. It writes an audit event in the same database transaction.
-- Customer-visible credits are `credit grant` recipes, not reversals.
+- The ledger is never edited. An approved adjustment posts a **new** transaction: either the mirror image of one original transaction (`reverses`) or explicit balanced lines.
+- Two people: finance files the request (`admin:billing:manage`), a **different** person with `admin:billing:approve` (finance or platform_admin) approves or rejects. The same person can never do both (service check and a table constraint). Both need an admin-realm session with recent MFA.
+- A transaction can be reversed once (ledger unique index). The request must name a transaction that belongs to the stated organization.
+- Customers never see adjustment requests (platform-scope RLS only).
 
-## Procedure (target, S07)
-1. Finance raises an adjustment request with the original transaction id, reason and amount (full reversal only in v1).
-2. A second finance/platform admin approves. The system posts the reversal with key `reverse:<originalId>`.
-3. Verify with `ledger-inspection.md` (transaction balanced; wallet projection updated by the `ledger.posted` consumer).
-4. Tell the customer through the normal channel; no silent changes.
+## Procedure
+1. Finance files the request: `POST /v1/admin/billing/adjustments` with `Idempotency-Key` and body `{orgId, reason, reverses}` or `{orgId, reason, lines:[{account:{code,org,subledger?}, direction, amountMinor, currency}, ...]}`. The response is the pending request (`status: pending`); nothing is posted yet. Re-sending with the same key returns the same request; the same key with a different body is `idempotency_key_reuse`.
+2. A second person reviews and decides: `POST` the same path with `{adjustmentId, decision: "approve"|"reject", note?}`. Approval posts through `billing.post` with idempotency key `adjustment:<requestId>`, then marks the request approved with `transactionId`. A rejection posts nothing. A decision is final (409 afterwards).
+3. Verify with `ledger-inspection.md` (balanced transaction, wallet projection refreshed by the `ledger.posted` consumer when the wallet account 2100 is touched). Audit has `billing.adjustment.requested` and `billing.adjustment.approved|rejected`.
 
-## Today
-Engineers use `LedgerService.reverse(originalId, reason, idempotencyKey, actorUserId)` from a script run under the admin scope, with the approving ticket recorded in the incident note. Do not run it against production without the owner's explicit approval.
+## If an approval was interrupted
+Approve again. The posting is idempotent: if the first attempt reached the ledger but died before updating the request, the retry finds the same transaction and only records the decision. Never post the lines by hand.
+
+## Gaps
+There is no list/read endpoint for requests yet (docs/04 defines only the POST); finance finds pending requests by id from the response or by SQL under break-glass. Proposed additions for the owner: `GET /v1/admin/billing/adjustments` and a separate `.../{id}/approvals` sub-resource.

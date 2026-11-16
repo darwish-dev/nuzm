@@ -12,6 +12,8 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: commerce
+    description: Quotes and orders
   - name: usage
     description: Usage, quotas and raw events
   - name: platform
@@ -2099,6 +2101,99 @@ paths:
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/quotes:
+    post:
+      operationId: createQuote
+      tags: [commerce]
+      summary: Create a quote (one endpoint for every kind)
+      description: 'Priced by the pricer registered for the kind from the price book version effective now (ai-credit today; plan answers kind_not_available until subscriptions exist in M03; other kinds until their milestone registers a pricer). The quote carries a provisional tax estimate, a not_evaluated residency block, and requiresApproval when the monthly spend cap would be exceeded. It is immutable once issued and valid until expiresAt (default 15 minutes). A hard quota the quote would exceed refuses it (quota_exceeded). Requires permission `quote:create`.'
+      x-nuzm-permission: quote:create
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateQuote' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/quotes/{id}:
+    get:
+      operationId: getQuote
+      tags: [commerce]
+      summary: Get a quote
+      description: 'status is issued, or expired once expiresAt has passed (the stored quote never changes). Requires permission `quote:read` (owner, admin, billing_admin, developer).'
+      x-nuzm-permission: quote:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/adjustments:
+    post:
+      operationId: adminBillingAdjustment
+      tags: [billing]
+      summary: Request or decide a manual ledger adjustment
+      description: 'Body {orgId, reason, reverses | lines[]} files a request (permission admin:billing:manage; needs Idempotency-Key; a replay with the same key returns the same request). Body {adjustmentId, decision: approve|reject, note?} decides it (permission admin:billing:approve, a DIFFERENT person than the requester; approval posts a reversing or balanced entry through the ledger exactly once). Admin-realm session with MFA and step-up. The ledger is never edited.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: Idempotency-Key,
+            in: header,
+            required: false,
+            schema: { type: string, minLength: 1, maxLength: 255 },
+            description: Required when filing a request.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdjustmentWrite' }
+      responses:
+        '200':
+          description: Decision recorded, or an idempotent replay of a request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Adjustment' }
+        '201':
+          description: Request filed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Adjustment' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -2158,6 +2253,143 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    CreateQuote:
+      type: object
+      required: [kind, items]
+      properties:
+        kind:
+          {
+            type: string,
+            enum:
+              [compute, hosting, domain, database, storage, email, ai-credit, plan, marketplace],
+          }
+        items:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 50,
+            items: { type: object, additionalProperties: true },
+            description: 'Kind specific; ai-credit takes exactly one item {credits: "1000"}.',
+          }
+        projectId: { type: string, format: uuid }
+        currency: { type: string, pattern: '^[A-Z]{3}$', default: SAR }
+        preferences: { type: object, additionalProperties: true }
+    QuoteItem:
+      type: object
+      required: [position, description, meterId, quantity, unit, unitPriceMinor, amountMinor]
+      properties:
+        position: { type: integer }
+        description: { type: string }
+        meterId: { type: [string, 'null'] }
+        quantity: { type: string }
+        unit: { type: string }
+        unitPriceMinor: { type: [string, 'null'] }
+        amountMinor: { type: string }
+    Quote:
+      type: object
+      required:
+        [
+          id,
+          kind,
+          status,
+          expiresAt,
+          currency,
+          items,
+          subtotalMinor,
+          taxEstimate,
+          totalMinor,
+          requiresApproval,
+          approvalDetail,
+          residency,
+          priceBookVersionId,
+          projectId,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        status: { type: string, enum: [issued, expired] }
+        expiresAt: { type: string, format: date-time }
+        currency: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/QuoteItem' } }
+        subtotalMinor: { type: string }
+        taxEstimate:
+          type: object
+          required: [status, rateBps, taxMinor, source, note]
+          properties:
+            status: { type: string, enum: [provisional] }
+            rateBps: { type: integer }
+            taxMinor: { type: string }
+            source: { type: string }
+            note: { type: string }
+        totalMinor: { type: string }
+        requiresApproval: { type: boolean }
+        approvalDetail: { type: array, items: { type: object, additionalProperties: true } }
+        residency:
+          type: object
+          required: [status]
+          properties:
+            status: { type: string, enum: [not_evaluated] }
+        priceBookVersionId: { type: [string, 'null'], format: uuid }
+        projectId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+    AdjustmentWrite:
+      type: object
+      description: 'Either a request {orgId, reason, reverses | lines} or a decision {adjustmentId, decision, note?}.'
+      properties:
+        orgId: { type: string, format: uuid }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        reverses:
+          { type: string, format: uuid, description: Ledger transaction to reverse in full. }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [account, direction, amountMinor, currency]
+            properties:
+              account:
+                type: object
+                required: [code, org]
+                properties:
+                  code: { type: string }
+                  org: { type: boolean }
+                  subledger: { type: string }
+              direction: { type: string, enum: [debit, credit] }
+              amountMinor: { type: string }
+              currency: { type: string }
+        adjustmentId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, reject] }
+        note: { type: string, maxLength: 500 }
+    Adjustment:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          reversesTransactionId,
+          lines,
+          reason,
+          status,
+          requestedBy,
+          decidedBy,
+          decidedAt,
+          decisionNote,
+          transactionId,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        reversesTransactionId: { type: [string, 'null'], format: uuid }
+        lines: { type: [array, 'null'], items: { type: object, additionalProperties: true } }
+        reason: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        requestedBy: { type: string, format: uuid }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        decisionNote: { type: [string, 'null'] }
+        transactionId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
     UsagePoint:
       type: object
       required:

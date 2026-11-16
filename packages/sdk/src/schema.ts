@@ -1296,10 +1296,181 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a quote (one endpoint for every kind)
+         * @description Priced by the pricer registered for the kind from the price book version effective now (ai-credit today; plan answers kind_not_available until subscriptions exist in M03; other kinds until their milestone registers a pricer). The quote carries a provisional tax estimate, a not_evaluated residency block, and requiresApproval when the monthly spend cap would be exceeded. It is immutable once issued and valid until expiresAt (default 15 minutes). A hard quota the quote would exceed refuses it (quota_exceeded). Requires permission `quote:create`.
+         */
+        post: operations["createQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/quotes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a quote
+         * @description status is issued, or expired once expiresAt has passed (the stored quote never changes). Requires permission `quote:read` (owner, admin, billing_admin, developer).
+         */
+        get: operations["getQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request or decide a manual ledger adjustment
+         * @description Body {orgId, reason, reverses | lines[]} files a request (permission admin:billing:manage; needs Idempotency-Key; a replay with the same key returns the same request). Body {adjustmentId, decision: approve|reject, note?} decides it (permission admin:billing:approve, a DIFFERENT person than the requester; approval posts a reversing or balanced entry through the ledger exactly once). Admin-realm session with MFA and step-up. The ledger is never edited.
+         */
+        post: operations["adminBillingAdjustment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CreateQuote: {
+            /** @enum {string} */
+            kind: "compute" | "hosting" | "domain" | "database" | "storage" | "email" | "ai-credit" | "plan" | "marketplace";
+            /** @description Kind specific; ai-credit takes exactly one item {credits: "1000"}. */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Format: uuid */
+            projectId?: string;
+            /** @default SAR */
+            currency?: string;
+            preferences?: {
+                [key: string]: unknown;
+            };
+        };
+        QuoteItem: {
+            position: number;
+            description: string;
+            meterId: string | null;
+            quantity: string;
+            unit: string;
+            unitPriceMinor: string | null;
+            amountMinor: string;
+        };
+        Quote: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            /** @enum {string} */
+            status: "issued" | "expired";
+            /** Format: date-time */
+            expiresAt: string;
+            currency: string;
+            items: components["schemas"]["QuoteItem"][];
+            subtotalMinor: string;
+            taxEstimate: {
+                /** @enum {string} */
+                status: "provisional";
+                rateBps: number;
+                taxMinor: string;
+                source: string;
+                note: string;
+            };
+            totalMinor: string;
+            requiresApproval: boolean;
+            approvalDetail: {
+                [key: string]: unknown;
+            }[];
+            residency: {
+                /** @enum {string} */
+                status: "not_evaluated";
+            };
+            /** Format: uuid */
+            priceBookVersionId: string | null;
+            /** Format: uuid */
+            projectId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Either a request {orgId, reason, reverses | lines} or a decision {adjustmentId, decision, note?}. */
+        AdjustmentWrite: {
+            /** Format: uuid */
+            orgId?: string;
+            reason?: string;
+            /**
+             * Format: uuid
+             * @description Ledger transaction to reverse in full.
+             */
+            reverses?: string;
+            lines?: {
+                account: {
+                    code: string;
+                    org: boolean;
+                    subledger?: string;
+                };
+                /** @enum {string} */
+                direction: "debit" | "credit";
+                amountMinor: string;
+                currency: string;
+            }[];
+            /** Format: uuid */
+            adjustmentId?: string;
+            /** @enum {string} */
+            decision?: "approve" | "reject";
+            note?: string;
+        };
+        Adjustment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            /** Format: uuid */
+            reversesTransactionId: string | null;
+            lines: {
+                [key: string]: unknown;
+            }[] | null;
+            reason: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            /** Format: uuid */
+            requestedBy: string;
+            /** Format: uuid */
+            decidedBy: string | null;
+            /** Format: date-time */
+            decidedAt: string | null;
+            decisionNote: string | null;
+            /** Format: uuid */
+            transactionId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
         UsagePoint: {
             meterId: string;
             unit: string;
@@ -4571,6 +4742,110 @@ export interface operations {
                     "application/json": components["schemas"]["SpendApproval"];
                 };
             };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateQuote"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getQuote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminBillingAdjustment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when filing a request. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentWrite"];
+            };
+        };
+        responses: {
+            /** @description Decision recorded, or an idempotent replay of a request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adjustment"];
+                };
+            };
+            /** @description Request filed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adjustment"];
+                };
+            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];

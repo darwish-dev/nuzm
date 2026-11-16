@@ -79,8 +79,6 @@ export class QuotaService {
           [orgId, now],
         )
       ).rows;
-      const period =
-        rows[0]?.period_start ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
       for (const r of rows) {
         if (r.crossed === 80 || r.crossed === 100) {
           crossings.push({
@@ -126,9 +124,8 @@ export class QuotaService {
         };
       });
       return {
-        periodStart: (period instanceof Date ? period : new Date(period))
-          .toISOString()
-          .slice(0, 10),
+        // the SQL month is the UTC month of `now` (a pg date column would come back as local midnight; see common/dates.ts)
+        periodStart: `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`,
         items,
         restricted: items.some((i) => i.state === 'hard'),
       };

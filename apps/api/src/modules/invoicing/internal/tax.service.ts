@@ -26,7 +26,15 @@ export class TaxService {
   constructor(
     private readonly db: Db,
     private readonly rounding: RoundingMode = 'half_up',
+    /** Baseline scope of the platform's own services (`TAX_DEFAULT_SCOPE`, default `domestic`: services supplied in the Kingdom). null = unconfigured, every estimate is flagged. [VERIFY HG-03-04] */
+    private readonly defaultScope: TaxScope | null = 'domestic',
   ) {}
+
+  static defaultScopeFromEnv(env: NodeJS.ProcessEnv = process.env): TaxScope | null {
+    const v = env.TAX_DEFAULT_SCOPE;
+    if (v === undefined) return 'domestic';
+    return v === 'domestic' || v === 'export' || v === 'exempt' || v === 'zero' ? v : null;
+  }
 
   static roundingFromEnv(env: NodeJS.ProcessEnv = process.env): RoundingMode {
     return env.TAX_ROUNDING === 'half_even' ? 'half_even' : 'half_up';
@@ -36,7 +44,7 @@ export class TaxService {
     orgId: string,
     netMinor: readonly bigint[],
     on: Date = new Date(),
-    scope: TaxScope | null = null,
+    scope: TaxScope | null | undefined = undefined,
   ): Promise<TaxEstimate> {
     const { profile, rates } = await this.db.withOrg(orgId, async (c) => ({
       profile: (
@@ -71,7 +79,7 @@ export class TaxService {
       on,
       buyerType: profile?.buyer_type ?? 'b2c',
       buyerCountry: profile?.address?.country ?? null,
-      scope,
+      scope: scope === undefined ? this.defaultScope : scope,
     });
     const t = computeTax(netMinor, res.rate.rateBps, this.rounding);
     return {

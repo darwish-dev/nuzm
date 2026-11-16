@@ -54,6 +54,10 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'orgId') return orgA;
   if (p === 'userId') return aliceId;
   if (p === 'envId') return A.env;
+  // billing routes carry three kinds of ids: choose by the path segment that precedes `{id}`
+  if (o.path.includes('/invoices/')) return A.invoice;
+  if (o.path.includes('/credit-notes/')) return A.creditNote;
+  if (o.path.includes('/spend-approvals/')) return A.approval;
   const root = o.path.split('/')[2]!; // /v1/<root>/...
   return (
     {
@@ -64,7 +68,6 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
       operations: A.operation,
       notifications: A.notification,
       quotes: A.quote,
-      billing: A.approval, // the only id-bearing billing route is POST /v1/billing/spend-approvals/{id}/decision
     } as Record<string, string>
   )[root];
 };
@@ -148,6 +151,19 @@ beforeAll(async () => {
   A.notification = (
     await h.env.sql(`SELECT id FROM platform.notifications WHERE user_id=$1`, [aliceId])
   )[0]!.id as string;
+  // an issued invoice and a credit note of org A (rows written directly: the services need rated usage, the isolation check does not)
+  A.invoice = crypto.randomUUID();
+  A.creditNote = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO invoicing.invoices (id, org_id, entity_id, series, number, number_text, environment, currency, period_start, period_end, issued_at, due_at, source_key, subtotal_minor, tax_minor, total_minor, buyer, seller)
+     SELECT $1, $2, id, 'CT', 1, 'CT-00000001', 'sandbox', 'SAR', '2026-01-01', '2026-01-31', now(), now(), 'ct-fixture', 100, 15, 115, '{"legalName":{"ar":"x","en":"x"},"vatNumber":null,"buyerType":"b2c"}', '{"legalName":{"ar":"x","en":"x"},"vatNumber":null,"placeholder":true}' FROM invoicing.billing_entities LIMIT 1`,
+    [A.invoice, orgA],
+  );
+  await h.env.sql(
+    `INSERT INTO invoicing.credit_notes (id, org_id, invoice_id, entity_id, series, number, number_text, environment, currency, reason_code, reason, lines, net_minor, tax_minor, total_minor, issued_at, source_key)
+     SELECT $1, $2, $3, entity_id, 'CTC', 1, 'CTC-00000001', 'sandbox', 'SAR', 'fixture', 'fixture', '[]', 10, 0, 10, now(), 'ct-cn-fixture' FROM invoicing.invoices WHERE id = $3`,
+    [A.creditNote, orgA, A.invoice],
+  );
   // org B's API key carries EVERY org permission an owner has: the strongest key org B can hold
   const ownerPerms = (
     await h.env.sql(`SELECT permission FROM tenancy.role_permissions WHERE role='owner'`)
@@ -339,7 +355,9 @@ describe("after all the hostile calls, org A's data is untouched", () => {
         url: urlFor(o),
         headers: { cookie: cookieHeader(alice), 'x-nuzm-org': orgA },
       });
-      expect(r.statusCode, `${o.path} → ${r.body.slice(0, 100)}`).toBe(200);
+      // the e-invoice XML is 409 by design until the ZATCA module exists; that still proves the id resolved (not a 404)
+      const expected = o.path.endsWith('/invoices/{id}/xml') ? 409 : 200;
+      expect(r.statusCode, `${o.path} → ${r.body.slice(0, 100)}`).toBe(expected);
     }
   });
 });

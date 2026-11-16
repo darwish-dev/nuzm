@@ -256,7 +256,7 @@ describe('TaxService (profile + effective-dated rates)', () => {
     expect(r.reasons).toEqual(['rate_unverified']);
   });
   it('an unknown scope is standard-rated AND flagged; a foreign buyer is flagged', async () => {
-    const unknown = await tax().estimate(orgB, [100n], new Date('2026-11-17T10:00:00Z'));
+    const unknown = await tax().estimate(orgB, [100n], new Date('2026-11-17T10:00:00Z'), null);
     expect(unknown).toMatchObject({ rateBps: 1500, reviewRequired: true });
     expect(unknown.reasons).toContain('scope_not_configured');
     await app

@@ -1380,10 +1380,238 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List invoices
+         * @description Issued invoices of the active organization, newest first (drafts are never stored). Filters status (open, partially_paid, paid, void, uncollectible), from and to (issue time). Requires permission `billing:read`.
+         */
+        get: operations["listInvoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an invoice
+         * @description Invoice with lines, tax breakdown, buyer and seller snapshots and the ZATCA status (not generated until the ZATCA module exists). An issued invoice never changes except its payment status. Requires permission `billing:read`.
+         */
+        get: operations["getInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/invoices/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invoice PDF
+         * @description The invoice as a PDF (A4), rendered from the immutable snapshot in Arabic (default, right-to-left) or English with ?lang=ar|en. Sandbox invoices carry a visible watermark. 503 when the PDF renderer is unavailable. Requires permission `billing:read`.
+         */
+        get: operations["getInvoicePdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/invoices/{id}/xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invoice e-invoice XML
+         * @description The stored issued/cleared e-invoice XML. 409 until the ZATCA module has generated it for this invoice. Requires permission `billing:read`.
+         */
+        get: operations["getInvoiceXml"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List credit notes
+         * @description Credit notes of the active organization, newest first; ?invoice= filters by the original invoice. Requires permission `billing:read`.
+         */
+        get: operations["listCreditNotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/credit-notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a credit note
+         * @description Credit note with the credited lines and its original invoice. Requires permission `billing:read`.
+         */
+        get: operations["getCreditNote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        InvoiceLine: {
+            position: number;
+            /** @enum {string} */
+            kind: "usage" | "order" | "subscription";
+            description: string;
+            meterId: string | null;
+            quantity: string;
+            unit: string;
+            netMinor: string;
+            taxMinor: string;
+            rateCode: string;
+            rateBps: number;
+        };
+        Invoice: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            /** @enum {string} */
+            status: "open" | "partially_paid" | "paid" | "void" | "uncollectible";
+            /** @enum {string} */
+            environment: "sandbox" | "live";
+            currency: string;
+            /** Format: date */
+            periodStart: string;
+            /** Format: date */
+            periodEnd: string;
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            dueAt: string;
+            subtotalMinor: string;
+            taxMinor: string;
+            totalMinor: string;
+            paidMinor: string;
+            lines: components["schemas"]["InvoiceLine"][];
+            taxBreakdown: {
+                rateCode: string;
+                rateBps: number;
+                netMinor: string;
+                taxMinor: string;
+            }[];
+            taxReview: {
+                required: boolean;
+                reasons: string[];
+            };
+            seller: {
+                legalName: {
+                    ar?: string;
+                    en?: string;
+                };
+                vatNumber: string | null;
+                placeholder: boolean;
+            };
+            buyer: {
+                legalName: {
+                    ar?: string;
+                    en?: string;
+                };
+                vatNumber: string | null;
+                /** @enum {string} */
+                buyerType: "b2b" | "b2c";
+            };
+            dataRegion: string;
+            zatca: {
+                /** @enum {string} */
+                state: "not_generated";
+                uuid: string | null;
+                qr: string | null;
+            };
+            ledgerPosted: boolean;
+        };
+        InvoicePage: {
+            items: components["schemas"]["Invoice"][];
+            nextCursor: string | null;
+        };
+        CreditNote: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            /** Format: uuid */
+            invoiceId: string;
+            invoiceNumber: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "applied" | "refunded";
+            /** @enum {string} */
+            environment: "sandbox" | "live";
+            currency: string;
+            reasonCode: string;
+            reason: string;
+            lines: {
+                /** Format: uuid */
+                invoiceLineId: string;
+                position: number;
+                netMinor: string;
+                taxMinor: string;
+            }[];
+            netMinor: string;
+            taxMinor: string;
+            totalMinor: string;
+            /** Format: date-time */
+            issuedAt: string;
+            dataRegion: string;
+            ledgerPosted: boolean;
+        };
+        CreditNotePage: {
+            items: components["schemas"]["CreditNote"][];
+            nextCursor: string | null;
+        };
         TaxProfileWrite: {
             /** @enum {string} */
             buyerType: "b2b" | "b2c";
@@ -4976,6 +5204,195 @@ export interface operations {
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             428: components["responses"]["Problem"];
+        };
+    };
+    listInvoices: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getInvoicePdf: {
+        parameters: {
+            query?: {
+                lang?: "ar" | "en";
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceXml: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/xml": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listCreditNotes: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                invoice?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNotePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getCreditNote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNote"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
 }

@@ -2252,6 +2252,168 @@ paths:
         '412': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
         '428': { $ref: '#/components/responses/Problem' }
+  /v1/billing/invoices:
+    get:
+      operationId: listInvoices
+      tags: [billing]
+      summary: List invoices
+      description: 'Issued invoices of the active organization, newest first (drafts are never stored). Filters status (open, partially_paid, paid, void, uncollectible), from and to (issue time). Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvoicePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/billing/invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [billing]
+      summary: Get an invoice
+      description: 'Invoice with lines, tax breakdown, buyer and seller snapshots and the ZATCA status (not generated until the ZATCA module exists). An issued invoice never changes except its payment status. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/invoices/{id}/pdf:
+    get:
+      operationId: getInvoicePdf
+      tags: [billing]
+      summary: Invoice PDF
+      description: 'The invoice as a PDF (A4), rendered from the immutable snapshot in Arabic (default, right-to-left) or English with ?lang=ar|en. Sandbox invoices carry a visible watermark. 503 when the PDF renderer is unavailable. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { name: lang, in: query, schema: { type: string, enum: [ar, en], default: ar } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/billing/invoices/{id}/xml:
+    get:
+      operationId: getInvoiceXml
+      tags: [billing]
+      summary: Invoice e-invoice XML
+      description: 'The stored issued/cleared e-invoice XML. 409 until the ZATCA module has generated it for this invoice. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/xml:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/billing/credit-notes:
+    get:
+      operationId: listCreditNotes
+      tags: [billing]
+      summary: List credit notes
+      description: 'Credit notes of the active organization, newest first; ?invoice= filters by the original invoice. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: invoice, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreditNotePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/billing/credit-notes/{id}:
+    get:
+      operationId: getCreditNote
+      tags: [billing]
+      summary: Get a credit note
+      description: 'Credit note with the credited lines and its original invoice. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreditNote' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -2311,6 +2473,171 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    InvoiceLine:
+      type: object
+      required:
+        [
+          position,
+          kind,
+          description,
+          meterId,
+          quantity,
+          unit,
+          netMinor,
+          taxMinor,
+          rateCode,
+          rateBps,
+        ]
+      properties:
+        position: { type: integer }
+        kind: { type: string, enum: [usage, order, subscription] }
+        description: { type: string }
+        meterId: { type: [string, 'null'] }
+        quantity: { type: string }
+        unit: { type: string }
+        netMinor: { type: string }
+        taxMinor: { type: string }
+        rateCode: { type: string }
+        rateBps: { type: integer }
+    Invoice:
+      type: object
+      required:
+        [
+          id,
+          number,
+          status,
+          environment,
+          currency,
+          periodStart,
+          periodEnd,
+          issuedAt,
+          dueAt,
+          subtotalMinor,
+          taxMinor,
+          totalMinor,
+          paidMinor,
+          lines,
+          taxBreakdown,
+          taxReview,
+          seller,
+          buyer,
+          dataRegion,
+          zatca,
+          ledgerPosted,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string }
+        status: { type: string, enum: [open, partially_paid, paid, void, uncollectible] }
+        environment: { type: string, enum: [sandbox, live] }
+        currency: { type: string }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        issuedAt: { type: string, format: date-time }
+        dueAt: { type: string, format: date-time }
+        subtotalMinor: { type: string }
+        taxMinor: { type: string }
+        totalMinor: { type: string }
+        paidMinor: { type: string }
+        lines: { type: array, items: { $ref: '#/components/schemas/InvoiceLine' } }
+        taxBreakdown:
+          type: array
+          items:
+            type: object
+            required: [rateCode, rateBps, netMinor, taxMinor]
+            properties:
+              rateCode: { type: string }
+              rateBps: { type: integer }
+              netMinor: { type: string }
+              taxMinor: { type: string }
+        taxReview:
+          type: object
+          required: [required, reasons]
+          properties:
+            required: { type: boolean }
+            reasons: { type: array, items: { type: string } }
+        seller:
+          type: object
+          required: [legalName, vatNumber, placeholder]
+          properties:
+            legalName: { type: object, properties: { ar: { type: string }, en: { type: string } } }
+            vatNumber: { type: [string, 'null'] }
+            placeholder: { type: boolean }
+        buyer:
+          type: object
+          required: [legalName, vatNumber, buyerType]
+          properties:
+            legalName: { type: object, properties: { ar: { type: string }, en: { type: string } } }
+            vatNumber: { type: [string, 'null'] }
+            buyerType: { type: string, enum: [b2b, b2c] }
+        dataRegion: { type: string }
+        zatca:
+          type: object
+          required: [state, uuid, qr]
+          properties:
+            state: { type: string, enum: [not_generated] }
+            uuid: { type: [string, 'null'] }
+            qr: { type: [string, 'null'] }
+        ledgerPosted: { type: boolean }
+    InvoicePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Invoice' } }
+        nextCursor: { type: [string, 'null'] }
+    CreditNote:
+      type: object
+      required:
+        [
+          id,
+          number,
+          invoiceId,
+          invoiceNumber,
+          status,
+          environment,
+          currency,
+          reasonCode,
+          reason,
+          lines,
+          netMinor,
+          taxMinor,
+          totalMinor,
+          issuedAt,
+          dataRegion,
+          ledgerPosted,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string }
+        invoiceId: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        status: { type: string, enum: [draft, issued, applied, refunded] }
+        environment: { type: string, enum: [sandbox, live] }
+        currency: { type: string }
+        reasonCode: { type: string }
+        reason: { type: string }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [invoiceLineId, position, netMinor, taxMinor]
+            properties:
+              invoiceLineId: { type: string, format: uuid }
+              position: { type: integer }
+              netMinor: { type: string }
+              taxMinor: { type: string }
+        netMinor: { type: string }
+        taxMinor: { type: string }
+        totalMinor: { type: string }
+        issuedAt: { type: string, format: date-time }
+        dataRegion: { type: string }
+        ledgerPosted: { type: boolean }
+    CreditNotePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CreditNote' } }
+        nextCursor: { type: [string, 'null'] }
     TaxProfileWrite:
       type: object
       required: [buyerType, legalName]

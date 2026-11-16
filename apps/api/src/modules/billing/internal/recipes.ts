@@ -300,8 +300,138 @@ const m03 = (name: string) => (): never => {
     `${name} is implemented in M03 (payments & invoicing)`,
   );
 };
-export const invoiceIssued = m03('invoice issued');
 export const paymentCaptured = m03('payment captured');
 export const refund = m03('refund');
-export const creditNote = m03('credit note');
 export const walletTopUp = m03('wallet top-up');
+
+export type RevenueAccount = '4100' | '4200' | '4300' | '4400';
+export interface DocumentRecipeLine {
+  revenueAccount: RevenueAccount;
+  netMinor: Minor;
+  taxMinor: Minor;
+}
+interface DocumentRecipe {
+  orgId: string;
+  documentId: string;
+  invoiceId: string;
+  entityId: string;
+  currency: string;
+  /** Human document number, for the description only. */
+  number: string;
+  lines: DocumentRecipeLine[];
+}
+
+function totals(lines: DocumentRecipeLine[]) {
+  if (!Array.isArray(lines) || lines.length < 1)
+    throw new ProblemException('validation_failed', 'a document needs at least one line');
+  const byAccount = new Map<RevenueAccount, bigint>();
+  let tax = 0n;
+  for (const l of lines) {
+    if (!['4100', '4200', '4300', '4400'].includes(l.revenueAccount))
+      throw new ProblemException(
+        'validation_failed',
+        `unknown revenue account ${String(l.revenueAccount)}`,
+      );
+    const net = BigInt(nonNegativeMinor(l.netMinor, 'line net'));
+    byAccount.set(l.revenueAccount, (byAccount.get(l.revenueAccount) ?? 0n) + net);
+    tax += BigInt(nonNegativeMinor(l.taxMinor, 'line tax'));
+  }
+  const net = [...byAccount.values()].reduce((a, b) => a + b, 0n);
+  if (net + tax <= 0n)
+    throw new ProblemException('validation_failed', 'a document must have a positive total');
+  return { byAccount, net, tax, gross: net + tax };
+}
+
+/**
+ * Invoice issued (docs/11 §3.1): Dr 1200 receivable (net + VAT) → Cr 4xxx revenue (net, per revenue account) + Cr 2300 VAT output.
+ * One transaction per invoice, idempotent on the invoice id; "rated usage itself posts nothing until invoiced".
+ */
+export function invoiceIssued(p: DocumentRecipe): Built {
+  const t = totals(p.lines);
+  const currency = parseCurrency(p.currency);
+  const dimensions = { invoice_id: p.invoiceId, billing_entity_id: p.entityId };
+  const postings: PostingLine[] = [
+    {
+      account: { code: '1200', org: true },
+      direction: 'debit',
+      amountMinor: t.gross.toString(),
+      currency,
+      dimensions,
+    },
+    ...[...t.byAccount.entries()]
+      .filter(([, n]) => n > 0n)
+      .map(([code, n]): PostingLine => ({
+        account: { code, org: false },
+        direction: 'credit',
+        amountMinor: n.toString(),
+        currency,
+        dimensions,
+      })),
+  ];
+  if (t.tax > 0n)
+    postings.push({
+      account: { code: '2300', org: false },
+      direction: 'credit',
+      amountMinor: t.tax.toString(),
+      currency,
+      dimensions,
+    });
+  assertBalanced(postings);
+  return {
+    kind: 'invoice_issued',
+    orgId: p.orgId,
+    description: text(`Invoice ${p.number}`, 'description'),
+    sourceEventId: p.invoiceId,
+    affectsWallet: false,
+    postings,
+  };
+}
+
+/**
+ * Credit note (docs/11 §3.1): Dr 4xxx revenue (net) + Dr 2300 VAT output → Cr 1200 receivable (net + VAT). Never edits the invoice
+ * postings: it reverses their effect with its own transaction, referencing the invoice in the dimensions.
+ */
+export function creditNote(p: DocumentRecipe): Built {
+  const t = totals(p.lines);
+  const currency = parseCurrency(p.currency);
+  const dimensions = {
+    invoice_id: p.invoiceId,
+    credit_note_id: p.documentId,
+    billing_entity_id: p.entityId,
+  };
+  const postings: PostingLine[] = [
+    ...[...t.byAccount.entries()]
+      .filter(([, n]) => n > 0n)
+      .map(([code, n]): PostingLine => ({
+        account: { code, org: false },
+        direction: 'debit',
+        amountMinor: n.toString(),
+        currency,
+        dimensions,
+      })),
+  ];
+  if (t.tax > 0n)
+    postings.push({
+      account: { code: '2300', org: false },
+      direction: 'debit',
+      amountMinor: t.tax.toString(),
+      currency,
+      dimensions,
+    });
+  postings.push({
+    account: { code: '1200', org: true },
+    direction: 'credit',
+    amountMinor: t.gross.toString(),
+    currency,
+    dimensions,
+  });
+  assertBalanced(postings);
+  return {
+    kind: 'credit_note',
+    orgId: p.orgId,
+    description: text(`Credit note ${p.number}`, 'description'),
+    sourceEventId: p.documentId,
+    affectsWallet: false,
+    postings,
+  };
+}

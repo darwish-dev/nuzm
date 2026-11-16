@@ -229,7 +229,103 @@ describe('recipe specifics (docs/11 §3.1)', () => {
   });
 
   it('M03-owned recipes fail loudly instead of improvising', () => {
-    for (const r of [invoiceIssued, paymentCaptured, refund, creditNote, walletTopUp])
+    for (const r of [paymentCaptured, refund, walletTopUp])
       problem(r, 'recipe_not_implemented', /M03/);
+  });
+});
+
+const ACCOUNTS = ['4100', '4200', '4300', '4400'] as const;
+const docLine = fc.record({
+  revenueAccount: fc.constantFrom(...ACCOUNTS),
+  netMinor: fc.bigInt({ min: 0n, max: 10n ** 12n }),
+  taxMinor: fc.bigInt({ min: 0n, max: 10n ** 11n }),
+});
+const lines = fc
+  .array(docLine, { minLength: 1, maxLength: 10 })
+  .filter((ls) => ls.some((l) => l.netMinor + l.taxMinor > 0n));
+const doc = (
+  ls: { revenueAccount: (typeof ACCOUNTS)[number]; netMinor: bigint; taxMinor: bigint }[],
+  cur = 'SAR',
+) => ({
+  orgId: ORG,
+  documentId: 'doc-1',
+  invoiceId: 'inv-1',
+  entityId: 'ent-1',
+  currency: cur,
+  number: 'NZM-00000001',
+  lines: ls,
+});
+
+describe('invoice and credit-note recipes (docs/11 §3.1)', () => {
+  it('invoice issued balances for any lines: Dr 1200 = Σ(net+tax) = Σ revenue + VAT (10,000 runs)', () =>
+    fc.assert(
+      fc.property(lines, currency, (ls, c) => {
+        const b = invoiceIssued(doc(ls, c));
+        expect(net(b, c)).toBe(0n);
+        const gross = ls.reduce((s, l) => s + l.netMinor + l.taxMinor, 0n);
+        const ar = b.postings.find((p) => p.account.code === '1200')!;
+        expect(ar).toMatchObject({ direction: 'debit', account: { org: true } });
+        expect(BigInt(ar.amountMinor)).toBe(gross);
+        const vat = ls.reduce((s, l) => s + l.taxMinor, 0n);
+        expect(b.postings.some((p) => p.account.code === '2300')).toBe(vat > 0n);
+        for (const p of b.postings) expect(BigInt(p.amountMinor) > 0n).toBe(true); // no zero postings
+        expect(b).toMatchObject({
+          kind: 'invoice_issued',
+          affectsWallet: false,
+          sourceEventId: 'inv-1',
+        });
+      }),
+      { numRuns: 10_000 },
+    ));
+
+  it('credit note is the mirror: Dr revenue + VAT → Cr 1200, balanced, never touches the wallet (10,000 runs)', () =>
+    fc.assert(
+      fc.property(lines, currency, (ls, c) => {
+        const b = creditNote(doc(ls, c));
+        expect(net(b, c)).toBe(0n);
+        const ar = b.postings.find((p) => p.account.code === '1200')!;
+        expect(ar.direction).toBe('credit');
+        expect(
+          b.postings.filter((p) => p.account.code !== '1200').every((p) => p.direction === 'debit'),
+        ).toBe(true);
+        expect(b.postings.some((p) => p.account.code === '2100')).toBe(false);
+        expect(b.kind).toBe('credit_note');
+      }),
+      { numRuns: 10_000 },
+    ));
+
+  it('an invoice and its full credit note cancel on every account', () =>
+    fc.assert(
+      fc.property(lines, (ls) => {
+        const sum = new Map<string, bigint>();
+        for (const b of [invoiceIssued(doc(ls)), creditNote(doc(ls))])
+          for (const p of b.postings)
+            sum.set(
+              p.account.code,
+              (sum.get(p.account.code) ?? 0n) +
+                (p.direction === 'debit' ? 1n : -1n) * BigInt(p.amountMinor),
+            );
+        for (const v of sum.values()) expect(v).toBe(0n);
+      }),
+      { numRuns: 2_000 },
+    ));
+
+  it('rejects empty, all-zero, unknown-account and negative documents', () => {
+    problem(() => invoiceIssued(doc([])), 'validation_failed', /at least one line/);
+    problem(
+      () => invoiceIssued(doc([{ revenueAccount: '4100', netMinor: 0n, taxMinor: 0n }])),
+      'validation_failed',
+      /positive total/,
+    );
+    problem(
+      () => invoiceIssued(doc([{ revenueAccount: '9999' as never, netMinor: 5n, taxMinor: 0n }])),
+      'validation_failed',
+      /unknown revenue account/,
+    );
+    problem(
+      () => creditNote(doc([{ revenueAccount: '4100', netMinor: -5n as never, taxMinor: 0n }])),
+      'validation_failed',
+      /./,
+    );
   });
 });

@@ -51,8 +51,7 @@ const iso = (v: unknown, name: string): Date | null => {
 };
 
 /**
- * Cross-organization invoice search for finance (S12d, UI-M03-13). READ-ONLY: it reads through the platform scope (`app.platform_scope =
- * admin`, SELECT only) and every read is audited. Nothing here can change an invoice; corrections are credit notes.
+ * Cross-organization invoice search for finance (S12d, UI-M03-13). READ-ONLY: it reads through the Db platform scope helper (SELECT only) and every read is audited. Nothing here can change an invoice; corrections are credit notes.
  */
 export class AdminInvoiceReadService {
   constructor(

@@ -17,6 +17,8 @@ export function BillingAdminTabs({
     { key: 'plans', href: `${base}/plans`, show: read },
     { key: 'meters', href: `${base}/meters`, show: read },
     { key: 'adjustments', href: `${base}/adjustments`, show: read },
+    { key: 'invoices', href: `${base}/invoices`, show: read },
+    { key: 'payments', href: `${base}/payments`, show: read },
     { key: 'refunds', href: `${base}/refunds`, show: read },
     { key: 'reconciliations', href: `${base}/reconciliations`, show: read },
     { key: 'zatca', href: `${base}/zatca`, show: read },

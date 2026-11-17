@@ -20,9 +20,14 @@ interface RefundDto {
   failureCode: string | null;
 }
 
-export function RefundForm(p: { locale: Locale; mfaFactorId: string | null }) {
+export function RefundForm(p: {
+  locale: Locale;
+  mfaFactorId: string | null;
+  /** Pre-fills the payment id (a link from the payment screen); the person still has to enter the amount and the reason. */
+  defaultPaymentId?: string | undefined;
+}) {
   const a = useStaffAction(p.locale, p.mfaFactorId);
-  const [paymentId, setPaymentId] = useState('');
+  const [paymentId, setPaymentId] = useState(p.defaultPaymentId ?? '');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [creditNote, setCreditNote] = useState('');

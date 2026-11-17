@@ -23,10 +23,10 @@ async function elevate(email: string) {
 }
 
 /**
- * Admin finance screens (UI-M03-15..21). Runs after 04-payments: it uses that test's organization, subscription and paid invoice.
- * UI-M03-13/14 (cross-organization invoice and payment search) have no API in the specification yet and are not built.
+ * Admin finance screens (UI-M03-13..21). Runs after 04-payments: it uses that test's organization, subscription and paid invoice.
+ * UI-M03-13/14/15 read the S12d admin list APIs (invoices, payments + PSP events, refunds).
  */
-test('admin finance: refund, reconciliation, e-invoicing onboarding and queue, dunning, reports', async ({
+test('admin finance: invoices, payments, refunds, reconciliation, e-invoicing onboarding and queue, dunning, reports', async ({
   page,
   browser,
 }, info) => {
@@ -50,8 +50,8 @@ test('admin finance: refund, reconciliation, e-invoicing onboarding and queue, d
     )
   )[0];
   const paid = (
-    await sql<{ id: string }>(
-      `SELECT p.id FROM payments.payment_intents p JOIN invoicing.invoices i ON i.id = p.invoice_id
+    await sql<{ id: string; invoice_id: string; number_text: string }>(
+      `SELECT p.id, p.invoice_id, i.number_text FROM payments.payment_intents p JOIN invoicing.invoices i ON i.id = p.invoice_id
         WHERE p.org_id = $1 AND p.status = 'succeeded' AND i.series = 'EE' ORDER BY p.created_at LIMIT 1`,
       [org.id],
     )
@@ -60,6 +60,64 @@ test('admin finance: refund, reconciliation, e-invoicing onboarding and queue, d
 
   await signIn(page, info, staff, ADMIN);
   await elevate(staff);
+
+  // --- UI-M03-13: invoices across organizations: search by number, e-invoice state, correction guidance
+  await adm('/invoices');
+  await expect(page.getByRole('heading', { name: T(info, 'af.inv.title') })).toBeVisible();
+  await expect(page.getByText(T(info, 'af.inv.guide.title'))).toBeVisible();
+  await audit(page, info, 'adminfin-invoices');
+  await page.getByLabel(T(info, 'af.inv.f.number')).fill(paid.number_text.slice(0, 4));
+  await page.getByRole('button', { name: T(info, 'action.search') }).click();
+  const invRow = page.getByRole('row', { name: new RegExp(paid.number_text) });
+  await expect(invRow).toBeVisible();
+  await expect(invRow.getByText(T(info, 'af.inv.status.paid'), { exact: true })).toBeVisible();
+  await expect(invRow.getByText(T(info, 'af.inv.ei.not_generated'), { exact: true })).toBeVisible();
+  await audit(page, info, 'adminfin-invoices-search');
+  await adm('/invoices?number=NO-SUCH-NUMBER');
+  await expect(page.getByText(T(info, 'af.inv.none'))).toBeVisible();
+  await audit(page, info, 'adminfin-invoices-empty');
+  await adm('/invoices?org=not-a-uuid');
+  await expect(
+    page.getByRole('alert').filter({ hasText: T(info, 'af.inv.f.invalid') }),
+  ).toBeVisible();
+
+  // --- UI-M03-14: payments across organizations and the redacted PSP events with the duplicate indicator
+  await sql(
+    `INSERT INTO payments.psp_events (id, psp, event_id, type, org_id, intent_id, event_at, payload, status, duplicate_count, last_duplicate_at, processed_at)
+     VALUES (gen_random_uuid(), 'mock', $1, 'payment.succeeded', $2, $3, now(), $4::jsonb, 'processed', 2, now(), now())`,
+    [
+      `e2e-evt-${L}`,
+      org.id,
+      paid.id,
+      JSON.stringify({
+        id: `e2e-evt-${L}`,
+        type: 'payment.succeeded',
+        merchantReference: 'nuzm_pi_e2e',
+        pspPaymentRef: 'mock_pay_1234567890abcd',
+        amountMinor: '11500',
+        currency: 'SAR',
+        failureCode: null,
+      }),
+    ],
+  );
+  await adm(`/payments?invoiceId=${paid.invoice_id}`);
+  await expect(page.getByRole('heading', { name: T(info, 'af.pay.title') })).toBeVisible();
+  await expect(
+    page.getByRole('row').filter({ hasText: T(info, 'af.pay.status.succeeded') }),
+  ).toHaveCount(1);
+  await audit(page, info, 'adminfin-payments');
+  await page
+    .getByRole('link', { name: new RegExp(paid.id.slice(0, 8)) })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { name: T(info, 'af.pay.detail.title') })).toBeVisible();
+  await expect(page.getByText(T(info, 'af.pay.ev.dup', { count: 2 }))).toBeVisible();
+  await expect(page.getByText(T(info, 'af.pay.detail.redaction'))).toBeVisible();
+  await expect(page.getByText('mock_pay_1234567890abcd')).toHaveCount(0); // the provider reference is masked
+  await expect(page.getByText('…abcd')).toBeVisible();
+  await audit(page, info, 'adminfin-payment-events');
+  await adm('/payments?status=refunded&org=' + org.id);
+  await audit(page, info, 'adminfin-payments-filtered');
 
   // --- UI-M03-15: refund a captured payment (integer minor units, idempotent, step-up already satisfied)
   await adm('/refunds');
@@ -80,6 +138,14 @@ test('admin finance: refund, reconciliation, e-invoicing onboarding and queue, d
   ]);
   expect(refunds.map((r) => String(r.amount_minor))).toEqual(['100']);
   await audit(page, info, 'adminfin-refund-result');
+  // the history lists it with its status (read from the API after a reload)
+  await adm(`/refunds?paymentId=${paid.id}`);
+  const histRow = page.getByRole('row', { name: new RegExp(paid.id.slice(0, 8)) });
+  await expect(
+    histRow.getByText(T(info, 'af.ref.status.succeeded'), { exact: true }),
+  ).toBeVisible();
+  await expect(histRow.getByText('duplicate charge')).toBeVisible();
+  await audit(page, info, 'adminfin-refund-history');
 
   // --- UI-M03-16/17: reconciliation runs: run one from the screen, then work a completed run with two breaks
   await adm('/reconciliations');

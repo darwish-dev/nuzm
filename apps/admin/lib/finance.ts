@@ -166,3 +166,90 @@ export function barRows(
 /** "days1to30Minor" → "days1to30 Minor": a readable fallback when a report key has no translation. */
 export const humanize = (key: string) =>
   key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+
+// ---- S12d: invoice, payment, PSP-event and refund list screens (UI-M03-13/14/15) ----
+
+/** Start / end of a calendar day (UTC) as an ISO date-time for the `from` / `to` filters, or `undefined` when the input is empty or not a date. */
+export const dayStartIso = (v: string | undefined) =>
+  v && isDateOnly(v) ? `${v}T00:00:00.000Z` : undefined;
+export const dayEndIso = (v: string | undefined) =>
+  v && isDateOnly(v) ? `${v}T23:59:59.999Z` : undefined;
+
+/** A filter value is acceptable when empty (not set) or a valid uuid / date. Returns the problems so the page can say so instead of calling the API. */
+export function filterProblems(f: {
+  org?: string | undefined;
+  invoiceId?: string | undefined;
+  paymentId?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+}): boolean {
+  const bad = (v: string | undefined, ok: (x: string) => boolean) => !!v && !ok(v);
+  return (
+    bad(f.org, isUuid) ||
+    bad(f.invoiceId, isUuid) ||
+    bad(f.paymentId, isUuid) ||
+    bad(f.from, isDateOnly) ||
+    bad(f.to, isDateOnly) ||
+    (!!f.from && !!f.to && isDateOnly(f.from) && isDateOnly(f.to) && f.from > f.to)
+  );
+}
+
+export function invoiceTone(status: string): Tone {
+  return status === 'paid'
+    ? 'success'
+    : status === 'void' || status === 'uncollectible'
+      ? 'danger'
+      : 'warn';
+}
+export function paymentTone(status: string): Tone {
+  if (status === 'succeeded') return 'success';
+  if (status === 'failed' || status === 'cancelled') return 'danger';
+  return 'warn';
+}
+export function refundTone(status: string): Tone {
+  return status === 'succeeded' ? 'success' : status === 'failed' ? 'danger' : 'warn';
+}
+export function eventTone(status: string): Tone {
+  return status === 'processed' ? 'success' : status === 'failed' ? 'danger' : 'warn';
+}
+
+/** Cursor-page link that keeps the active filters. Empty values are dropped. */
+export function pageQuery(filters: Record<string, string | undefined>, cursor: string): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) if (v) p.set(k, v);
+  p.set('cursor', cursor);
+  return `?${p.toString()}`;
+}
+
+/** Show a uuid compactly (first 8 characters); the full value stays in the title attribute. */
+export const shortId = (id: string) => id.slice(0, 8);
+
+export const INVOICE_STATUSES = [
+  'open',
+  'partially_paid',
+  'paid',
+  'void',
+  'uncollectible',
+] as const;
+export const EINVOICE_STATES = [
+  'not_generated',
+  'generated',
+  'stamped',
+  'queued',
+  'submitted',
+  'cleared',
+  'reported',
+  'rejected',
+  'error',
+] as const;
+export const PAYMENT_STATUSES = [
+  'requires_method',
+  'requires_action',
+  'processing',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'partially_refunded',
+  'refunded',
+] as const;
+export const REFUND_STATUSES = ['pending', 'succeeded', 'failed'] as const;

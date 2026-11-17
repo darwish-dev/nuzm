@@ -3026,6 +3026,40 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/revenue-reports:
+    get:
+      operationId: adminGetRevenueReport
+      tags: [billing]
+      summary: Revenue and finance reports
+      description: 'report = revenue (ledger revenue by month, product and billing entity), mrr (MRR/ARR of active and past-due subscriptions by plan, as of now), ar_aging (receivables per invoice from the ledger, bucketed as of `to`), vat (output tax by month and rate, compared with the ledger VAT account), margin (revenue vs provider cost accruals), refunds (refunds and credit notes with their ledger ties), dunning (funnel of cases opened in the period) or wallet (prepaid liability, opening, flows, closing). Amounts are integer minor units as strings. Every figure that has a ledger counterpart says whether it matches it. `from`/`to` default to the current month (at most 400 days; ar_aging and wallet closing use `to`). format=csv downloads a CSV file (text cells that look like formulas are neutralised). Reads span organizations and are audited. Platform permission `admin:reports:read` (finance, platform admin); admin-realm session.'
+      x-nuzm-platform-permission: admin:reports:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: report,
+            in: query,
+            required: true,
+            schema:
+              {
+                type: string,
+                enum: [revenue, mrr, ar_aging, vat, margin, refunds, dunning, wallet],
+              },
+          }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FinanceReport' }
+            text/csv:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/billing/wallet-topups:
     post:
       operationId: createWalletTopup
@@ -3586,6 +3620,27 @@ components:
         action: { type: string, enum: [assign, adjustment, accept] }
         adjustmentId: { type: string, format: uuid }
         note: { type: string, minLength: 1, maxLength: 500 }
+    FinanceReport:
+      type: object
+      required: [report, from, to, generatedAt, columns, rows, totals, notes]
+      properties:
+        report:
+          { type: string, enum: [revenue, mrr, ar_aging, vat, margin, refunds, dunning, wallet] }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        generatedAt: { type: string, format: date-time }
+        columns:
+          type: array
+          items:
+            type: object
+            required: [key, label, kind]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              kind: { type: string, enum: [text, money, int] }
+        rows: { type: array, items: { type: object, additionalProperties: true } }
+        totals: { type: object, additionalProperties: true }
+        notes: { type: array, items: { type: string } }
     CreateSubscription:
       type: object
       required: [planVersionId, paymentMethodId]

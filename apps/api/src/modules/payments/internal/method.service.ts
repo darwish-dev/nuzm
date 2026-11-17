@@ -211,6 +211,57 @@ export class PaymentMethodService {
     });
   }
 
+  /**
+   * Tell the billing managers that a saved card expires within `days` (or already expired): once per method, recorded on the method. The notice
+   * says which card (last four digits and expiry month/year), never more. Returns how many methods were announced.
+   */
+  async notifyExpiring(
+    notify: (orgId: string, kind: string, params: Record<string, unknown>) => Promise<void>,
+    now = new Date(),
+    days = 30,
+    limit = 200,
+  ): Promise<number> {
+    const today = now.toISOString().slice(0, 10);
+    const due = await this.db.withoutScope(
+      async (c) =>
+        (
+          await c.query<{
+            org_id: string;
+            method_id: string;
+            last4: string;
+            exp_month: number;
+            exp_year: number;
+          }>(
+            `SELECT org_id, method_id, last4, exp_month, exp_year FROM payments.methods_expiring($1::date, $2, $3)`,
+            [today, days, limit],
+          )
+        ).rows,
+    );
+    let n = 0;
+    for (const m of due) {
+      // claim first (once), then tell: a crash in between loses one notice, never repeats it
+      const claimed = await this.db.withOrg(
+        m.org_id,
+        async (c) =>
+          (
+            await c.query(
+              `UPDATE payments.payment_methods SET expiry_notified_at = $2::date WHERE id = $1 AND expiry_notified_at IS NULL AND status = 'active'`,
+              [m.method_id, today],
+            )
+          ).rowCount,
+      );
+      if (!claimed) continue;
+      await notify(m.org_id, 'billing.card_expiring', {
+        methodId: m.method_id,
+        last4: m.last4,
+        month: m.exp_month,
+        year: m.exp_year,
+      }).catch(() => undefined);
+      n++;
+    }
+    return n;
+  }
+
   private readonly usageGuards: ((orgId: string, methodId: string) => Promise<boolean>)[] = [];
   /** Other modules (subscriptions) register a check that says whether a method is still needed; such a method cannot be removed (409). */
   registerUsageGuard(fn: (orgId: string, methodId: string) => Promise<boolean>): void {

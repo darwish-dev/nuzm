@@ -1,22 +1,27 @@
-# Runbook: invoice correction (credit note path) and period close
+# Runbook — Correcting an invoice (credit-note path), M03
 
-Status: implemented in S08b and exercised in `invoices.int.spec.ts`. Sandbox only: the seller entity is `PLACEHOLDER-NOT-REGISTERED` (HG-03-01) and every document is stamped `sandbox`. Tax treatment is [VERIFY] with the tax advisor (HG-03-04); ZATCA submission arrives in S11.
+An **issued invoice is a legal document and never changes** (database trigger). A mistake is corrected with a **credit note** and, when the customer still owes something, a **new invoice**. Never edit invoice, ledger, payment or e-invoice rows.
 
-## Rules
-- An issued invoice is a legal document. Nothing but `status`, `paid_minor` and the ledger link can change, and the database refuses every other edit (also for the table owner). A correction is **always** a credit note (or, later, a debit note), never an edit, a delete or a renumbering.
-- Numbers are gapless per entity and series (credit notes use the invoice series plus `C`). A number is taken inside the issuing transaction, so a failed issue gives it back.
-- A rated meter, an order item or a subscription charge is billed once, ever (unique source id on the line). Corrections to an already invoiced period go through credit notes, not through re-issuing the period.
+## 1. Decide what went wrong
+| Situation | Correction |
+|---|---|
+| Wrong amount, wrong quantity, a charge that should not have been made | Credit note for the affected lines (all or part), then a new correct invoice if something is still owed |
+| The customer paid and is owed money back | Credit note **and** a refund (`zatca-queue-stuck.md` and `refund-procedure.md`); link the credit note on the refund so it becomes `refunded` |
+| The buyer's tax data was wrong (VAT number, legal name) | Credit note for the whole invoice, fix the tax profile, new invoice: the issued document keeps the data it was issued with |
+| Usage was rated wrong | Re-rating adds correction deltas (never edits); the next period's invoice carries them, or credit the invoice (RC-03 shows the difference) |
+| The e-invoice was **rejected** | A rejected document is final: credit note and a new invoice, never a resubmission of an altered document (`zatca-queue-stuck.md`) |
+| Provider/ledger posting is wrong but the invoice is right | Manual adjustment with two-person approval (`reversing-adjustment.md`); never touch the invoice |
 
-## Period close (one idempotent operation per organization, period and entity)
-`InvoiceService.periodClose(orgId, 'YYYY-MM-01')`: rating run → lines (rated usage grouped by meter; order items not yet invoiced; zero-priced usage stays on the usage statement) → per-line tax → issue (number, rows, audit, `invoice.issued` event) → ledger posting (`invoice:<id>`). Running it again returns the same invoice and creates nothing (tested: no invoice, line, ledger row, event or rating run). Unpriced usage is reported in the result, never dropped. There is no HTTP trigger and no scheduler yet (the renewal worker of S10 will own the schedule).
+## 2. How
+1. **Credit note:** issue it against the invoice and its lines (it can never exceed what is left on a line or on the invoice; it gets its own gapless number and its own ledger entry that reverses the effect, never editing the invoice's postings).
+2. **Refund** (if money goes back): finance requests it with the payment and the credit note id (`refund-procedure.md`).
+3. **New invoice** (if the customer still owes the corrected amount): it is issued through the normal flows (period close, subscription charge); there is no manual "re-issue".
+4. **Check:** the next reconciliation (RC-02 invoices and credit notes vs the ledger, RC-05 e-invoices) must show no new break for these documents.
 
-If the process died between the commit and the ledger posting, `ledgerPosted` is `false` on the invoice; call the close again and it posts exactly once (idempotent key) and links it. RC-02 (S12) reports any invoice without a ledger link.
+## 3. Things that look like fixes and are not
+- Voiding a paid invoice: not possible; use credit note and refund.
+- Changing a customer's invoice PDF: the PDF is rendered from the immutable snapshot, so a reprint is identical.
+- Deleting the e-invoice or its submission rows: refused by the database; a dead letter is retried, a rejected document is replaced by the credit-note path.
 
-## Issuing a credit note
-`CreditNoteService.issue(orgId, actor, {invoiceId, reasonCode, reason, sourceKey, lines?})`. Omit `lines` to credit everything still creditable. A part of a line is taxed at the line's rate; crediting what is left of a line takes its exact remaining tax (no rounding drift). It can never exceed what is left on any line or the invoice total (a trigger under the invoice row lock backs this up against races). `sourceKey` makes a repeat return the same credit note. Void invoices cannot be credited.
-
-## Where a correction shows
-Customer: `GET /v1/billing/credit-notes?invoice=<id>`; the credit note posts its own ledger transaction (Dr revenue + VAT, Cr receivable) and never touches the invoice postings. Refunds (S10) will call this service.
-
-## Not yet
-Debit notes, voiding an invoice through an endpoint, payment application (S09/S10), ZATCA XML/QR/stamp (S11).
+## 4. Tax-advisor items
+Credit-note treatment of VAT, partial credits, the line mapping used for credit-note e-invoices, and wallet VAT are on the HG-03-04 question list (the M03 report).

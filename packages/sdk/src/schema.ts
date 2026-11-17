@@ -1844,6 +1844,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/billing/revenue-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Revenue and finance reports
+         * @description report = revenue (ledger revenue by month, product and billing entity), mrr (MRR/ARR of active and past-due subscriptions by plan, as of now), ar_aging (receivables per invoice from the ledger, bucketed as of `to`), vat (output tax by month and rate, compared with the ledger VAT account), margin (revenue vs provider cost accruals), refunds (refunds and credit notes with their ledger ties), dunning (funnel of cases opened in the period) or wallet (prepaid liability, opening, flows, closing). Amounts are integer minor units as strings. Every figure that has a ledger counterpart says whether it matches it. `from`/`to` default to the current month (at most 400 days; ar_aging and wallet closing use `to`). format=csv downloads a CSV file (text cells that look like formulas are neutralised). Reads span organizations and are audited. Platform permission `admin:reports:read` (finance, platform admin); admin-realm session.
+         */
+        get: operations["adminGetRevenueReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/billing/wallet-topups": {
         parameters: {
             query?: never;
@@ -2190,6 +2210,29 @@ export interface components {
             /** Format: uuid */
             adjustmentId?: string;
             note?: string;
+        };
+        FinanceReport: {
+            /** @enum {string} */
+            report: "revenue" | "mrr" | "ar_aging" | "vat" | "margin" | "refunds" | "dunning" | "wallet";
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** Format: date-time */
+            generatedAt: string;
+            columns: {
+                key: string;
+                label: string;
+                /** @enum {string} */
+                kind: "text" | "money" | "int";
+            }[];
+            rows: {
+                [key: string]: unknown;
+            }[];
+            totals: {
+                [key: string]: unknown;
+            };
+            notes: string[];
         };
         CreateSubscription: {
             /** Format: uuid */
@@ -6932,6 +6975,35 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminGetRevenueReport: {
+        parameters: {
+            query: {
+                report: "revenue" | "mrr" | "ar_aging" | "vat" | "margin" | "refunds" | "dunning" | "wallet";
+                from?: string;
+                to?: string;
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceReport"];
+                    "text/csv": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

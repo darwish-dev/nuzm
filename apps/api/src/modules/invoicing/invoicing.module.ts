@@ -22,7 +22,9 @@ import { AdminZatcaController } from './admin-zatca.controller';
 import { CreditNotesController } from './credit-notes.controller';
 import { InvoicesController } from './invoices.controller';
 import { TaxProfileController } from './tax-profile.controller';
+import { billingManagerIds } from '../../common/billing-managers';
 import { LedgerPostingService } from '../billing';
+import { NotificationService } from '../notifications';
 import { RatingService } from '../metering';
 
 /** Invoicing foundations (M03 S08a): tax engine, buyer tax profiles, gapless invoice sequences. Invoices follow in S08b. */
@@ -59,7 +61,23 @@ import { RatingService } from '../metering';
         s: SequenceService,
         p: PdfRenderer,
         z: ZatcaSubmissionService,
-      ) => new InvoiceService(db, a, l, t, r, s, p, InvoiceService.optsFromEnv(), z),
+        n: NotificationService,
+      ) =>
+        new InvoiceService(
+          db,
+          a,
+          l,
+          t,
+          r,
+          s,
+          p,
+          InvoiceService.optsFromEnv(),
+          z,
+          async (orgId, kind, params) => {
+            for (const userId of await billingManagerIds(db, orgId))
+              await n.notify({ orgId, userId, kind, params });
+          },
+        ),
       inject: [
         DB,
         AuditSink,
@@ -69,6 +87,7 @@ import { RatingService } from '../metering';
         SequenceService,
         ChromePdfRenderer,
         ZatcaSubmissionService,
+        NotificationService,
       ],
     },
     {

@@ -187,6 +187,12 @@ export class InvoiceService {
       ZatcaSubmissionService,
       'statusOf' | 'statusOfMany' | 'assertDeliverable'
     >,
+    /** Tells the organization's billing managers that an invoice was issued (best effort, after the commit). */
+    private readonly notify?: (
+      orgId: string,
+      kind: string,
+      params: Record<string, unknown>,
+    ) => Promise<void>,
   ) {}
 
   static optsFromEnv(env: NodeJS.ProcessEnv = process.env) {
@@ -423,6 +429,7 @@ export class InvoiceService {
     const subtotal = d.lines.reduce((s, l) => s + l.netMinor, 0n);
     const id = uuidv7();
     try {
+      let numberText = '';
       await this.db.withOrg(orgId, async (c) => {
         const buyer = await this.buyerSnapshot(c, orgId);
         const num = await this.sequences.next(
@@ -430,6 +437,7 @@ export class InvoiceService {
           entity.id as string,
           entity.invoice_series as string,
         );
+        numberText = num.formatted;
         await c.query(
           `INSERT INTO invoicing.invoices (id, org_id, entity_id, series, number, number_text, status, environment, currency, period_start, period_end, issued_at, due_at,
              source_key, subtotal_minor, tax_minor, total_minor, tax_review, buyer, seller, created_by)
@@ -507,6 +515,14 @@ export class InvoiceService {
           currency: d.currency,
         });
       });
+      // tell the billing managers (best effort: a failing notice never fails an issued invoice)
+      if (this.notify)
+        await this.notify(orgId, 'billing.invoice_issued', {
+          invoiceId: id,
+          number: numberText,
+          totalMinor: (subtotal + est.taxMinor).toString(),
+          currency: d.currency,
+        }).catch(() => undefined);
       return { id, created: true };
     } catch (e) {
       if ((e as { code?: string }).code === '23505') {

@@ -133,6 +133,9 @@ export const messages = {
       'الفاتورة المتأخرة قيد مراجعة المالك. لن يُحذف أي شيء دون قرار بشري.',
     'notif.kind.billing.payment_recovered':
       'تم سداد الفاتورة المتأخرة وعاد الاشتراك إلى وضعه الطبيعي.',
+    'notif.kind.billing.invoice_issued': 'صدرت فاتورة جديدة برقم {number}.',
+    'notif.kind.billing.card_expiring':
+      'تنتهي صلاحية البطاقة المنتهية بالأرقام {last4} في {month}/{year}. يرجى تحديث وسيلة الدفع.',
     'notif.kind.unknown': 'إشعار جديد ({kind})',
 
     'members.title': 'الأعضاء',
@@ -576,6 +579,9 @@ export const messages = {
       'The overdue invoice is under owner review. Nothing is deleted without a human decision.',
     'notif.kind.billing.payment_recovered':
       'The overdue invoice was paid and your subscription is back to normal.',
+    'notif.kind.billing.invoice_issued': 'A new invoice {number} was issued.',
+    'notif.kind.billing.card_expiring':
+      'The card ending in {last4} expires {month}/{year}. Please update your payment method.',
     'notif.kind.unknown': 'New notification ({kind})',
 
     'members.title': 'Members',

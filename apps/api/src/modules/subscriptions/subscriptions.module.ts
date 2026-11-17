@@ -18,7 +18,9 @@ import {
   subscriptionPolicyFromEnv,
   type SubscriptionPorts,
 } from '../billing';
+import { billingManagerIds } from '../../common/billing-managers';
 import { FinrecService } from '../finrec';
+import { NotificationService } from '../notifications';
 import { InvoiceService, ZatcaPipelineService } from '../invoicing';
 import { PaymentMethodService, PaymentService, RefundService } from '../payments';
 import { BillingScheduler } from './billing-scheduler';
@@ -108,7 +110,13 @@ const returnUrl = () => `${PaymentService.allowlistFromEnv()[0]!}/billing/paymen
         r: RefundService,
         z: ZatcaPipelineService,
         f: FinrecService,
-      ) => new BillingScheduler(db, s, d, p, r, z, f),
+        m: PaymentMethodService,
+        n: NotificationService,
+      ) =>
+        new BillingScheduler(db, s, d, p, r, z, f, m, async (orgId, kind, params) => {
+          for (const userId of await billingManagerIds(db, orgId))
+            await n.notify({ orgId, userId, kind, params });
+        }),
       inject: [
         DB,
         SubscriptionService,
@@ -117,6 +125,8 @@ const returnUrl = () => `${PaymentService.allowlistFromEnv()[0]!}/billing/paymen
         RefundService,
         ZatcaPipelineService,
         FinrecService,
+        PaymentMethodService,
+        NotificationService,
       ],
     },
   ],

@@ -525,6 +525,8 @@ describe('billing scheduler', () => {
         processQueued: async () => 0,
         slaSweep: async () => 0,
       },
+      { notifyExpiring: async () => 0 },
+      async () => undefined,
       () => undefined,
     );
     const first = slow.tick();

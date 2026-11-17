@@ -6,6 +6,8 @@ import { ZatcaDocumentService } from '../invoicing';
 import { PspRegistry } from '../payments';
 import { AdminReconciliationsController } from './admin-reconciliations.controller';
 import { FinrecService, finrecOptsFromEnv } from './internal/finrec.service';
+import { ReportService } from './internal/reports.service';
+import { AdminRevenueReportsController } from './admin-revenue-reports.controller';
 import type { Sources } from './internal/reconcilers';
 
 /**
@@ -14,7 +16,7 @@ import type { Sources } from './internal/reconcilers';
  */
 @Global()
 @Module({
-  controllers: [AdminReconciliationsController],
+  controllers: [AdminReconciliationsController, AdminRevenueReportsController],
   providers: [
     {
       provide: FinrecService,
@@ -40,7 +42,12 @@ import type { Sources } from './internal/reconcilers';
       },
       inject: [DB, AuditSink, PspRegistry, ZatcaDocumentService],
     },
+    {
+      provide: ReportService,
+      useFactory: (db: Db, a: AuditSink) => new ReportService(db, a),
+      inject: [DB, AuditSink],
+    },
   ],
-  exports: [FinrecService],
+  exports: [FinrecService, ReportService],
 })
 export class FinrecModule {}

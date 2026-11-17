@@ -22,19 +22,7 @@ import { loadDunningPolicy } from './internal/dunning-policy';
 import { SubscriptionService } from './internal/subscription.service';
 import { AdminDunningController } from './admin-dunning.controller';
 import { NotificationService } from '../notifications';
-
-/** Users who can manage billing in the organization (owners, admins, billing admins): the audience of quota notices. */
-const approverIds = (db: Db, orgId: string) =>
-  db.withOrg(orgId, async (c) =>
-    (
-      await c.query<{ user_id: string }>(
-        `SELECT DISTINCT m.user_id FROM tenancy.memberships m
-           JOIN tenancy.role_permissions rp ON rp.role = m.role AND rp.permission = 'billing:manage'
-          WHERE m.org_id = $1`,
-        [orgId],
-      )
-    ).rows.map((r) => r.user_id),
-  );
+import { billingManagerIds as approverIds } from '../../common/billing-managers';
 
 /**
  * Ledger, plans and entitlements (M02). `LedgerPostingService` is the only writer of postings and is exported for the

@@ -2,7 +2,7 @@ import type { Db } from '@nuzm/platform';
 import type { DunningRunResult, DunningService, SubscriptionService } from '../billing';
 import type { FinrecService } from '../finrec';
 import type { ZatcaPipelineService } from '../invoicing';
-import type { PaymentService, RefundService } from '../payments';
+import type { PaymentMethodService, PaymentService, RefundService } from '../payments';
 import type { PipelineResult } from '../invoicing';
 
 /** Arbitrary but fixed: only one instance runs a billing tick at a time (everything is idempotent anyway; the lock avoids wasted work). */
@@ -15,6 +15,7 @@ export interface TickResult {
   refunds: number | { error: string };
   einvoicing: PipelineResult | { error: string };
   finrec: { scheduled: number; processed: number; slaAlerts: number } | { error: string };
+  cardNotices: number | { error: string };
 }
 
 /**
@@ -34,6 +35,12 @@ export class BillingScheduler {
     private readonly refunds: Pick<RefundService, 'processPending'>,
     private readonly zatca: Pick<ZatcaPipelineService, 'run'>,
     private readonly finrec: Pick<FinrecService, 'scheduleDaily' | 'processQueued' | 'slaSweep'>,
+    private readonly cards: Pick<PaymentMethodService, 'notifyExpiring'>,
+    private readonly notify: (
+      orgId: string,
+      kind: string,
+      params: Record<string, unknown>,
+    ) => Promise<void>,
     private readonly log: (m: string, extra?: Record<string, unknown>) => void = (m, extra) =>
       console.log(JSON.stringify({ scheduler: m, ...extra })),
   ) {}
@@ -77,7 +84,10 @@ export class BillingScheduler {
         processed: await this.finrec.processQueued(10, now),
         slaAlerts: await this.finrec.slaSweep(now),
       }));
-      return { subscriptions, dunning, paymentEvents, refunds, einvoicing, finrec };
+      const cardNotices = await step('card_notices', () =>
+        this.cards.notifyExpiring(this.notify, now),
+      );
+      return { subscriptions, dunning, paymentEvents, refunds, einvoicing, finrec, cardNotices };
     });
   }
 

@@ -13,3 +13,15 @@ export { SpendService } from './internal/spend.service';
 export type { SpendDecision, SpendApprovalDto, SpendingLimitDto } from './internal/spend.service';
 export { WalletTopupService, walletPolicyFromEnv } from './internal/wallet-topup.service';
 export type { WalletTopupDto, WalletPolicy } from './internal/wallet-topup.service';
+export {
+  SubscriptionService,
+  subscriptionPolicyFromEnv,
+  planFeeMeter,
+  amountOf,
+} from './internal/subscription.service';
+export type {
+  SubscriptionDto,
+  SubscriptionPorts,
+  SubscriptionItem,
+  ChangePreview,
+} from './internal/subscription.service';

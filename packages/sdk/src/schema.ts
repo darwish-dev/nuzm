@@ -1608,6 +1608,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List subscriptions
+         * @description Newest first; filter by status. Requires permission `billing:read`.
+         */
+        get: operations["listSubscriptions"];
+        put?: never;
+        /**
+         * Subscribe to a plan
+         * @description Body {planVersionId, paymentMethodId, quantity?}. The plan fee is read from the price book and frozen on the subscription; a plan with no flat fee configured cannot be subscribed to (422). A payment method is required (422 payment_method_required). The first charge is invoiced and paid at once (status active), or a trial starts when a trial period is configured (once per organization); if the first payment does not succeed the subscription is past_due and the plan is not assigned until it is paid. One live subscription per organization (409). Requires permission `billing:manage`.
+         */
+        post: operations["createSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/subscriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a subscription
+         * @description Requires permission `billing:read`.
+         */
+        get: operations["getSubscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Preview or apply a plan, quantity or payment-method change
+         * @description Body {planVersionId?, quantity?, paymentMethodId?, prorationMode?: prorate|none, preview?: boolean}. preview=true returns the proration (days left, unused credit, new charge, net) without changing anything and needs no If-Match. Applying needs If-Match with the subscription ETag (428 without, 412 when stale). prorate (default) switches now: a positive net is invoiced and paid at once, a negative net becomes a credit applied to the next renewal; none switches now with no charge or credit. A trialing subscription changes without proration. Only trialing or active subscriptions can change (409). Requires permission `billing:manage`.
+         */
+        patch: operations["updateSubscription"];
+        trace?: never;
+    };
+    "/v1/billing/subscriptions/{id}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel at the end of the paid period
+         * @description Body {reason?}. The plan stays until the current period ends, then the subscription is cancelled and the organization returns to the default plan; nothing further is invoiced. Repeating the request changes nothing. 409 when already cancelled. Requires permission `billing:manage`.
+         */
+        post: operations["cancelSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/billing/wallet-topups": {
         parameters: {
             query?: never;
@@ -1731,6 +1799,86 @@ export interface components {
             refundedMinor: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        CreateSubscription: {
+            /** Format: uuid */
+            planVersionId: string;
+            /** Format: uuid */
+            paymentMethodId: string;
+            quantity?: number;
+        };
+        UpdateSubscription: {
+            /** Format: uuid */
+            planVersionId?: string;
+            quantity?: number;
+            /** Format: uuid */
+            paymentMethodId?: string;
+            /** @enum {string} */
+            prorationMode?: "prorate" | "none";
+            preview?: boolean;
+        };
+        CancelSubscription: {
+            reason?: string;
+        };
+        Subscription: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            planVersionId: string;
+            planKey: string;
+            /** @enum {string} */
+            status: "trialing" | "active" | "past_due" | "unpaid" | "cancelled";
+            currency: string;
+            quantity: number;
+            /** Format: uuid */
+            paymentMethodId: string;
+            /** @description One full period, before tax. */
+            amountPerPeriodMinor: string;
+            /** Format: date */
+            currentPeriodStart: string;
+            /**
+             * Format: date
+             * @description Exclusive: the next period starts here.
+             */
+            currentPeriodEnd: string;
+            /** Format: date */
+            trialEnd: string | null;
+            cancelAtPeriodEnd: boolean;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /** @description Credit applied to the next renewal. */
+            pendingCreditMinor: string;
+            /** Format: uuid */
+            latestInvoiceId: string | null;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SubscriptionPage: {
+            items: components["schemas"]["Subscription"][];
+            nextCursor: string | null;
+        };
+        SubscriptionChange: {
+            /** @description False for a preview. */
+            applied: boolean;
+            subscription: components["schemas"]["Subscription"];
+            proration: {
+                /** @enum {string} */
+                effect: "charge" | "credit" | "none";
+                /** @enum {string} */
+                prorationMode: "prorate" | "none";
+                currency: string;
+                oldAmountPerPeriodMinor: string;
+                newAmountPerPeriodMinor: string;
+                daysLeft: number | null;
+                daysTotal: number | null;
+                unusedCreditMinor: string;
+                newChargeMinor: string;
+                /** @description Positive: invoiced now (tax added on the invoice). Negative: credited against the next renewal. */
+                netMinor: string;
+                /** Format: date */
+                effectiveDate: string;
+            };
         };
         CreateWalletTopup: {
             amount: {
@@ -5912,6 +6060,179 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    listSubscriptions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createSubscription: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubscription"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getSubscription: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateSubscription: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                "If-Match"?: string;
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSubscription"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionChange"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    cancelSubscription: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CancelSubscription"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     createWalletTopup: {

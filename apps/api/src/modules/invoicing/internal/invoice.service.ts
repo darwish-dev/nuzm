@@ -233,6 +233,68 @@ export class InvoiceService {
     };
   }
 
+  /**
+   * Issue the invoice for a subscription charge (a billing period, or a proration). Idempotent on `sourceKey`: the same key returns the
+   * invoice that already exists, so a retry after a crash never issues a second legal document. `periodEnd` is inclusive.
+   */
+  async issueSubscriptionCharge(
+    orgId: string,
+    input: {
+      sourceKey: string;
+      currency: string;
+      periodStart: string;
+      periodEnd: string;
+      lines: {
+        description: string;
+        quantity: string;
+        unit: string;
+        netMinor: string;
+        meterId: string | null;
+        sourceId: string;
+      }[];
+    },
+    actorUserId: string | null = null,
+    now = new Date(),
+  ): Promise<{ invoice: InvoiceDto; created: boolean }> {
+    if (!CURRENCY.test(input.currency))
+      throw new ProblemException('validation_failed', 'currency must be an ISO 4217 code');
+    if (input.lines.length < 1 || input.lines.some((l) => !/^[1-9]\d{0,17}$/.test(l.netMinor)))
+      throw new ProblemException(
+        'validation_failed',
+        'a subscription invoice needs positive lines',
+      );
+    const entity = await this.entity();
+    const existing = await this.findByKey(orgId, entity.id as string, input.sourceKey);
+    if (existing)
+      return {
+        invoice: await this.ensureLedger(orgId, existing.id as string, actorUserId),
+        created: false,
+      };
+    const { id, created } = await this.issue(
+      orgId,
+      entity,
+      {
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        sourceKey: input.sourceKey,
+        currency: input.currency,
+        lines: input.lines.map((l) => ({
+          kind: 'subscription' as const,
+          description: l.description,
+          meterId: l.meterId,
+          quantity: l.quantity,
+          unit: l.unit,
+          netMinor: BigInt(l.netMinor),
+          revenueAccount: '4200' as const,
+          sourceId: l.sourceId,
+        })),
+      },
+      actorUserId,
+      now,
+    );
+    return { invoice: await this.ensureLedger(orgId, id, actorUserId), created };
+  }
+
   /** Rated usage (grouped by meter) plus order items not yet invoiced; zero-priced usage stays on the usage statement. */
   private async collect(
     orgId: string,
@@ -337,7 +399,13 @@ export class InvoiceService {
   private async issue(
     orgId: string,
     entity: Row,
-    d: { periodStart: string; sourceKey: string; currency: string; lines: DraftLine[] },
+    d: {
+      periodStart: string;
+      periodEnd?: string;
+      sourceKey: string;
+      currency: string;
+      lines: DraftLine[];
+    },
     actorUserId: string | null,
     now: Date,
   ): Promise<{ id: string; created: boolean }> {
@@ -370,7 +438,7 @@ export class InvoiceService {
             this.opts.mode,
             d.currency,
             d.periodStart,
-            monthEnd(d.periodStart),
+            d.periodEnd ?? monthEnd(d.periodStart),
             now,
             new Date(now.getTime() + this.opts.dueDays * 86_400_000),
             d.sourceKey,

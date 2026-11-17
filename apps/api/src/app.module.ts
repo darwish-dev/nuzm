@@ -10,6 +10,7 @@ import { CommerceModule } from './modules/commerce';
 import { InvoicingModule } from './modules/invoicing';
 import { MeteringModule } from './modules/metering';
 import { PaymentsModule } from './modules/payments';
+import { SubscriptionsModule } from './modules/subscriptions';
 import { PlatformModule } from './modules/platform';
 import { TenancyModule } from './modules/tenancy';
 
@@ -22,6 +23,7 @@ import { TenancyModule } from './modules/tenancy';
     InvoicingModule,
     CommerceModule,
     PaymentsModule,
+    SubscriptionsModule,
     IdentityModule,
     NotificationsModule,
     AccessModule,

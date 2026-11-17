@@ -57,6 +57,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   // billing routes carry three kinds of ids: choose by the path segment that precedes `{id}`
   if (o.path.includes('/payment-methods/')) return A.paymentMethod;
   if (o.path.includes('/payments/')) return A.payment;
+  if (o.path.includes('/subscriptions/')) return A.subscription;
   if (o.path.includes('/invoices/')) return A.invoice;
   if (o.path.includes('/credit-notes/')) return A.creditNote;
   if (o.path.includes('/spend-approvals/')) return A.approval;
@@ -77,6 +78,7 @@ const urlFor = (o: Op) => o.path.replace(/\{(\w+)\}/g, (_m, p) => fixtureFor(o, 
 const bodyFor = (o: Op): unknown => {
   if (o.method === 'PATCH') {
     if (o.path.startsWith('/v1/notifications/')) return { read: true };
+    if (o.path.startsWith('/v1/billing/subscriptions/')) return { quantity: 2 }; // a VALID change: only the id may differ
     return o.path.includes('/members/') ? { role: 'viewer' } : { name: 'hijack' };
   }
   if (o.method === 'POST' && o.path.endsWith('/decision')) return { decision: 'approve' }; // a VALID body: only the id may differ
@@ -178,6 +180,14 @@ beforeAll(async () => {
     `INSERT INTO payments.payment_intents (id, org_id, psp_account_id, invoice_id, payment_method_id, amount_minor, currency, status, merchant_reference, failure_code)
      SELECT $1::uuid, $2, id, $3, $4, 115, 'SAR', 'failed', 'nuzm_pi_' || ($1::uuid)::text, 'card_declined' FROM payments.psp_accounts LIMIT 1`,
     [A.payment, orgA, A.invoice, A.paymentMethod],
+  );
+  // a live subscription of org A (written directly; the service has its own tests)
+  A.subscription = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO billing.subscriptions (id, org_id, plan_version_id, currency, status, items, quantity, payment_method_id, anchor_day, period_start, period_end)
+     SELECT $1, $2, v.id, 'SAR', 'active', '[{"kind":"plan_fee","planKey":"starter","meterId":"plan.starter_months","unitPriceMinor":"100","rounding":"half_up","priceBookVersionId":"x"}]', 1, $3, 1, '2026-01-01', '2026-02-01'
+       FROM billing.plan_versions v JOIN billing.plans p ON p.id = v.plan_id WHERE p.key = 'starter' AND v.status = 'published' LIMIT 1`,
+    [A.subscription, orgA, A.paymentMethod],
   );
   // org B's API key carries EVERY org permission an owner has: the strongest key org B can hold
   const ownerPerms = (

@@ -211,6 +211,27 @@ export class PaymentMethodService {
     });
   }
 
+  private readonly usageGuards: ((orgId: string, methodId: string) => Promise<boolean>)[] = [];
+  /** Other modules (subscriptions) register a check that says whether a method is still needed; such a method cannot be removed (409). */
+  registerUsageGuard(fn: (orgId: string, methodId: string) => Promise<boolean>): void {
+    this.usageGuards.push(fn);
+  }
+
+  /** The method exists, belongs to the organization and is active (404 otherwise). */
+  async assertUsable(orgId: string, id: string): Promise<void> {
+    const ok = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `SELECT 1 FROM payments.payment_methods WHERE id = $1 AND org_id = $2 AND status = 'active'`,
+            [id, orgId],
+          )
+        ).rowCount,
+    );
+    if (!ok) throw new ProblemException('not_found', 'payment method not found');
+  }
+
   /** Remove (detach at the PSP, mark removed). A method with an open payment cannot be removed. The default passes to the newest other one. */
   async remove(orgId: string, id: string, actorUserId: string): Promise<void> {
     if (!UUID.test(id)) throw new ProblemException('not_found');
@@ -225,6 +246,12 @@ export class PaymentMethodService {
         ).rows[0],
     );
     if (!m || m.status !== 'active') throw new ProblemException('not_found');
+    for (const guard of this.usageGuards)
+      if (await guard(orgId, id))
+        throw new ProblemException(
+          'conflict',
+          'this payment method is used by an active subscription; change the subscription first',
+        );
     await this.db.withOrg(orgId, async (c) => {
       if (
         (

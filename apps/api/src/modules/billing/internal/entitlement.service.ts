@@ -123,6 +123,26 @@ export class EntitlementService {
     });
   }
 
+  /** Put the organization back on the default (free) plan: what a cancelled subscription ends with. A no-op when it already is. */
+  async assignDefaultPlan(orgId: string, actorUserId?: string): Promise<void> {
+    const cur = await this.resolve(orgId);
+    if (cur.plan.source === 'default') return;
+    const def = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query<{ id: string }>(
+            `SELECT v.id FROM billing.plans p JOIN billing.plan_versions v ON v.plan_id = p.id
+              WHERE p.key = $1 AND v.status = 'published' ORDER BY v.version DESC LIMIT 1`,
+            [DEFAULT_PLAN_KEY],
+          )
+        ).rows[0],
+    );
+    if (!def)
+      throw new ProblemException('service_unavailable', 'the default plan is not configured');
+    await this.assignPlan(orgId, def.id, actorUserId);
+  }
+
   /** Per-organization override (admin DB tooling per M02 §4.5: docs/04 defines no endpoint for it). */
   async setOverride(
     orgId: string,

@@ -2604,6 +2604,162 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/subscriptions:
+    post:
+      operationId: createSubscription
+      tags: [billing]
+      summary: Subscribe to a plan
+      description: 'Body {planVersionId, paymentMethodId, quantity?}. The plan fee is read from the price book and frozen on the subscription; a plan with no flat fee configured cannot be subscribed to (422). A payment method is required (422 payment_method_required). The first charge is invoiced and paid at once (status active), or a trial starts when a trial period is configured (once per organization); if the first payment does not succeed the subscription is past_due and the plan is not assigned until it is paid. One live subscription per organization (409). Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSubscription' }
+      responses:
+        '201':
+          description: Created
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listSubscriptions
+      tags: [billing]
+      summary: List subscriptions
+      description: 'Newest first; filter by status. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/billing/subscriptions/{id}:
+    get:
+      operationId: getSubscription
+      tags: [billing]
+      summary: Get a subscription
+      description: 'Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '200':
+          description: Success
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateSubscription
+      tags: [billing]
+      summary: Preview or apply a plan, quantity or payment-method change
+      description: 'Body {planVersionId?, quantity?, paymentMethodId?, prorationMode?: prorate|none, preview?: boolean}. preview=true returns the proration (days left, unused credit, new charge, net) without changing anything and needs no If-Match. Applying needs If-Match with the subscription ETag (428 without, 412 when stale). prorate (default) switches now: a positive net is invoiced and paid at once, a negative net becomes a credit applied to the next renewal; none switches now with no charge or credit. A trialing subscription changes without proration. Only trialing or active subscriptions can change (409). Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { name: If-Match, in: header, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSubscription' }
+      responses:
+        '200':
+          description: Success
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionChange' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/billing/subscriptions/{id}/cancellation:
+    post:
+      operationId: cancelSubscription
+      tags: [billing]
+      summary: Cancel at the end of the paid period
+      description: 'Body {reason?}. The plan stays until the current period ends, then the subscription is cancelled and the organization returns to the default plan; nothing further is invoiced. Repeating the request changes nothing. 409 when already cancelled. Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CancelSubscription' }
+      responses:
+        '200':
+          description: Success
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/billing/wallet-topups:
     post:
       operationId: createWalletTopup
@@ -2864,6 +3020,110 @@ components:
         capturedMinor: { type: string }
         refundedMinor: { type: string }
         createdAt: { type: string, format: date-time }
+    CreateSubscription:
+      type: object
+      required: [planVersionId, paymentMethodId]
+      properties:
+        planVersionId: { type: string, format: uuid }
+        paymentMethodId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, maximum: 1000 }
+    UpdateSubscription:
+      type: object
+      properties:
+        planVersionId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, maximum: 1000 }
+        paymentMethodId: { type: string, format: uuid }
+        prorationMode: { type: string, enum: [prorate, none] }
+        preview: { type: boolean }
+    CancelSubscription:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 500 }
+    Subscription:
+      type: object
+      required:
+        [
+          id,
+          planVersionId,
+          planKey,
+          status,
+          currency,
+          quantity,
+          paymentMethodId,
+          amountPerPeriodMinor,
+          currentPeriodStart,
+          currentPeriodEnd,
+          trialEnd,
+          cancelAtPeriodEnd,
+          cancelledAt,
+          pendingCreditMinor,
+          latestInvoiceId,
+          version,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        planVersionId: { type: string, format: uuid }
+        planKey: { type: string }
+        status: { type: string, enum: [trialing, active, past_due, unpaid, cancelled] }
+        currency: { type: string }
+        quantity: { type: integer }
+        paymentMethodId: { type: string, format: uuid }
+        amountPerPeriodMinor: { type: string, description: 'One full period, before tax.' }
+        currentPeriodStart: { type: string, format: date }
+        currentPeriodEnd:
+          { type: string, format: date, description: 'Exclusive: the next period starts here.' }
+        trialEnd: { type: [string, 'null'], format: date }
+        cancelAtPeriodEnd: { type: boolean }
+        cancelledAt: { type: [string, 'null'], format: date-time }
+        pendingCreditMinor: { type: string, description: Credit applied to the next renewal. }
+        latestInvoiceId: { type: [string, 'null'], format: uuid }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+    SubscriptionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Subscription' } }
+        nextCursor: { type: [string, 'null'] }
+    SubscriptionChange:
+      type: object
+      required: [applied, subscription, proration]
+      properties:
+        applied: { type: boolean, description: False for a preview. }
+        subscription: { $ref: '#/components/schemas/Subscription' }
+        proration:
+          type: object
+          required:
+            [
+              effect,
+              prorationMode,
+              currency,
+              oldAmountPerPeriodMinor,
+              newAmountPerPeriodMinor,
+              daysLeft,
+              daysTotal,
+              unusedCreditMinor,
+              newChargeMinor,
+              netMinor,
+              effectiveDate,
+            ]
+          properties:
+            effect: { type: string, enum: [charge, credit, none] }
+            prorationMode: { type: string, enum: [prorate, none] }
+            currency: { type: string }
+            oldAmountPerPeriodMinor: { type: string }
+            newAmountPerPeriodMinor: { type: string }
+            daysLeft: { type: [integer, 'null'] }
+            daysTotal: { type: [integer, 'null'] }
+            unusedCreditMinor: { type: string }
+            newChargeMinor: { type: string }
+            netMinor:
+              {
+                type: string,
+                description: 'Positive: invoiced now (tax added on the invoice). Negative: credited against the next renewal.',
+              }
+            effectiveDate: { type: string, format: date }
     CreateWalletTopup:
       type: object
       required: [amount, returnUrl]

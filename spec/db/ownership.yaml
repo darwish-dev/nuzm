@@ -19,7 +19,7 @@ schemas:
     owner_module: audit
     created_by: M01
     extended_by: [M04, M12]
-    tables: [access_reviews, audit_checkpoints, audit_logs, chain_heads, legal_holds, retention_policies]
+    tables: [access_reviews, archivable_tables, audit_checkpoints, audit_logs, chain_heads, legal_holds, retention_policies]
   metering:
     owner_module: metering
     created_by: M02
@@ -43,7 +43,7 @@ schemas:
   invoicing:
     owner_module: invoicing
     created_by: M03
-    extended_by: [M11]
+    extended_by: [M04, M11]
     tables: [billing_entities, credit_notes, invoice_lines, invoice_payment_applications, invoice_sequences, invoices, tax_profiles, tax_rates, zatca_credentials_refs, zatca_documents, zatca_onboarding, zatca_submissions]
   finrec:
     owner_module: finrec
@@ -165,6 +165,18 @@ tenant_less:
   - billing.price_items
   # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)
   - audit.chain_heads
+  # classification catalogue: global reference data seeded by migration, read-only to runtime roles (M04 S13a)
+  - compliance.data_classes
+  # archival registry: platform configuration, written by migration only (M04 S13c)
+  - audit.archivable_tables
+  # retention policies: platform configuration, versioned, admin scope only (M04 S13c)
+  - audit.retention_policies
+  # control register, evidence, validations and breach cases: platform registers, admin scope only (M04 S15)
+  - compliance.control_catalog
+  - compliance.control_mappings
+  - compliance.evidence_items
+  - compliance.regulatory_validations
+  - compliance.breach_cases
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations
@@ -181,3 +193,1162 @@ migration_ranges:
   M10: "1400-1599"
   M11: "1600-1699"
   M12: "1700-1799"
+# Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
+# (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
+# financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
+classification:
+  classes: [public, internal, customer-content, personal, financial, credentials]
+  # Columns whose NAME looks sensitive but whose content is not; each needs a reason (10+ characters).
+  exceptions:
+    audit.audit_logs.actor_api_key_id: the opaque id of the API key that acted, never the key or its secret
+    billing.price_items.unit_price_minor: an entry of the public price list, not a customer's money
+    identity.users.email_verified: a boolean flag; the address itself is identity.users.email (personal)
+    invoicing.billing_entities.legal_name_ar: the seller's own registered company name, printed on every invoice
+    invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
+    invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
+  # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
+  # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
+  #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
+  #   lookup    = the NON-secret lookup prefix of a key                    encrypted = field-level AES-256-GCM (apps/api/src/common/field-crypto.ts)
+  protection:
+    audit.audit_checkpoints.key_ref: vault_ref
+    identity.api_keys.prefix: lookup
+    identity.api_keys.secret_hash: hash
+    identity.mfa_factors.secret_ref: vault_ref
+    identity.recovery_codes.code_hash: hash
+    identity.sessions.token_hash: hash
+    identity.sessions.csrf_hash: hash
+    invoicing.zatca_credentials_refs.key_ref: vault_ref
+    invoicing.zatca_credentials_refs.token_ref: vault_ref
+    invoicing.zatca_credentials_refs.secret_ref: vault_ref
+    payments.payment_methods.token_ref: vault_ref
+    tenancy.invitations.token_hash: hash
+    invoicing.tax_profiles.pii_enc: encrypted
+    compliance.dsr_requests.details_enc: encrypted
+  columns:
+    audit.audit_checkpoints:
+      id: internal
+      org_id: internal
+      chain_key: internal
+      upto_seq: financial
+      head_hash: internal
+      key_ref: credentials
+      signature: internal
+      created_at: internal
+    audit.audit_logs:
+      id: internal
+      chain_key: internal
+      chain_seq: internal
+      occurred_at: internal
+      org_id: internal
+      acting_org_id: internal
+      actor_type: internal
+      actor_user_id: internal
+      actor_api_key_id: internal
+      impersonator_user_id: internal
+      action: internal
+      resource_type: internal
+      resource_id: internal
+      outcome: internal
+      trace_id: internal
+      ip_hash: personal
+      ua_hash: personal
+      before: personal
+      after: personal
+      detail: personal
+      prev_hash: internal
+      hash: internal
+    audit.chain_heads:
+      chain_key: internal
+      last_seq: internal
+      last_hash: internal
+    billing.adjustment_requests:
+      id: internal
+      org_id: internal
+      reverses_transaction_id: internal
+      lines: financial
+      reason: internal
+      status: internal
+      requested_by: internal
+      idempotency_key: internal
+      request_hash: internal
+      decided_by: internal
+      decided_at: internal
+      decision_note: internal
+      transaction_id: internal
+      created_at: internal
+    billing.dunning_cases:
+      id: internal
+      org_id: internal
+      subscription_id: internal
+      invoice_id: internal
+      stage: internal
+      policy_version: internal
+      opened_at: internal
+      stage_changed_at: internal
+      retries_done: internal
+      last_retry_at: internal
+      hold: internal
+      hold_reason: internal
+      held_by: internal
+      closed_at: internal
+      closed_reason: internal
+      version: internal
+      created_at: internal
+      updated_at: internal
+    billing.entitlements:
+      id: internal
+      scope: internal
+      source: internal
+      kind: internal
+      plan_version_id: internal
+      org_id: internal
+      meter_group: internal
+      feature_key: internal
+      limit_value: internal
+      allowance: internal
+      mode: internal
+      enabled: internal
+      note: internal
+      created_by: internal
+      created_at: internal
+    billing.ledger_accounts:
+      id: internal
+      code: internal
+      name: internal
+      type: internal
+      normal_side: internal
+      org_id: internal
+      subledger_key: financial
+      currency: financial
+      created_at: internal
+    billing.ledger_postings:
+      id: internal
+      transaction_id: internal
+      account_id: internal
+      account_org_id: internal
+      org_id: internal
+      direction: internal
+      amount_minor: financial
+      currency: financial
+      dimensions: internal
+      created_at: internal
+    billing.ledger_transactions:
+      id: internal
+      org_id: internal
+      idempotency_key: internal
+      request_hash: internal
+      kind: internal
+      description: financial
+      source_event_id: internal
+      reverses_id: internal
+      created_by: internal
+      occurred_at: internal
+    billing.plan_versions:
+      id: internal
+      plan_id: public
+      version: public
+      status: public
+      currency: public
+      published_at: public
+      published_by: internal
+      created_at: internal
+    billing.plans:
+      id: internal
+      key: public
+      name_ar: public
+      name_en: public
+      status: public
+      placeholder: public
+      created_at: internal
+      updated_at: internal
+    billing.price_book_versions:
+      id: internal
+      price_book_id: public
+      version: public
+      status: public
+      effective_from: public
+      effective_to: public
+      note: public
+      created_by: internal
+      published_by: internal
+      published_at: public
+      created_at: internal
+    billing.price_books:
+      id: internal
+      name: public
+      currency: public
+      status: public
+      placeholder: public
+      created_by: internal
+      created_at: internal
+    billing.price_items:
+      id: internal
+      version_id: public
+      meter_id: public
+      tier_model: public
+      unit_price_minor: public
+      tiers: public
+      included_allowance: public
+      rounding: public
+      created_at: internal
+    billing.quota_meters:
+      meter_group: public
+      meter_id: public
+      note: public
+    billing.quotas:
+      org_id: internal
+      meter_group: internal
+      period_start: internal
+      meter_id: internal
+      limit_value: internal
+      mode: internal
+      used: internal
+      state: internal
+      last_threshold: internal
+      updated_at: internal
+    billing.spend_approvals:
+      id: internal
+      org_id: internal
+      requester_user_id: internal
+      subject_kind: internal
+      subject_id: internal
+      project_id: internal
+      amount_minor: financial
+      currency: financial
+      reason: internal
+      status: internal
+      four_eyes: internal
+      expires_at: internal
+      decided_by: internal
+      decided_at: internal
+      decision_note: internal
+      created_at: internal
+    billing.spending_limits:
+      id: internal
+      org_id: internal
+      scope: internal
+      project_id: internal
+      monthly_cap_minor: financial
+      currency: financial
+      alert_thresholds: internal
+      four_eyes_above_minor: financial
+      version: internal
+      updated_by: internal
+      created_at: internal
+      updated_at: internal
+    billing.subscriptions:
+      id: internal
+      org_id: internal
+      plan_version_id: internal
+      currency: financial
+      status: internal
+      items: financial
+      quantity: internal
+      payment_method_id: internal
+      anchor_day: internal
+      period_start: internal
+      period_end: internal
+      trial_end: internal
+      cancel_at_period_end: internal
+      cancelled_at: internal
+      cancel_reason: internal
+      pending_credit_minor: financial
+      pending_invoice: internal
+      last_invoice_id: internal
+      assigned_plan_version_id: internal
+      version: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    billing.wallet_balances:
+      org_id: internal
+      currency: financial
+      balance_minor: financial
+      last_posting_id: internal
+      updated_at: internal
+    billing.wallet_topups:
+      id: internal
+      org_id: internal
+      amount_minor: financial
+      currency: financial
+      status: internal
+      ledger_transaction_id: internal
+      created_by: internal
+      created_at: internal
+      credited_at: internal
+    commerce.authorizations:
+      id: internal
+      org_id: internal
+      kind: internal
+      order_id: internal
+      spend_approval_id: internal
+      amount_minor: financial
+      currency: financial
+      created_at: internal
+    commerce.order_items:
+      id: internal
+      order_id: internal
+      org_id: internal
+      position: internal
+      description: customer-content
+      meter_id: internal
+      quantity: internal
+      unit: internal
+      amount_minor: financial
+    commerce.orders:
+      id: internal
+      org_id: internal
+      quote_id: internal
+      kind: internal
+      status: internal
+      currency: financial
+      total_minor: financial
+      created_by: internal
+      created_at: internal
+    commerce.quote_items:
+      id: internal
+      quote_id: internal
+      org_id: internal
+      position: internal
+      description: customer-content
+      meter_id: internal
+      meter_group: internal
+      quantity: internal
+      unit: internal
+      unit_price_minor: financial
+      amount_minor: financial
+      details: internal
+    commerce.quotes:
+      id: internal
+      org_id: internal
+      kind: internal
+      project_id: internal
+      currency: financial
+      subtotal_minor: financial
+      tax_minor: financial
+      total_minor: financial
+      tax_estimate: financial
+      residency: internal
+      requires_approval: internal
+      approval_detail: internal
+      price_book_version_id: internal
+      preferences: internal
+      expires_at: internal
+      created_by: internal
+      created_at: internal
+    compliance.consents:
+      id: internal
+      org_id: internal
+      subject_ref: personal
+      purpose_id: internal
+      state: internal
+      seq: internal
+      text_version: internal
+      locale: internal
+      source: internal
+      withdraws_id: internal
+      created_by: internal
+      created_at: internal
+    compliance.data_classes:
+      key: internal
+      label_ar: internal
+      label_en: internal
+      default_policy: internal
+      created_at: internal
+    finrec.reconciliation_items:
+      id: internal
+      run_id: internal
+      type: internal
+      match_key: internal
+      kind: internal
+      related_org: internal
+      details: internal
+      status: internal
+      assigned_to: internal
+      assigned_at: internal
+      resolved_at: internal
+      sla_alerted_at: internal
+      created_at: internal
+    finrec.reconciliation_resolutions:
+      id: internal
+      item_id: internal
+      action: internal
+      adjustment_id: internal
+      note: internal
+      created_by: internal
+      created_at: internal
+    finrec.reconciliation_runs:
+      id: internal
+      type: internal
+      period_from: internal
+      period_to: internal
+      status: internal
+      trigger: internal
+      requested_by: internal
+      tolerance: internal
+      items_checked: internal
+      breaks_count: internal
+      summary: internal
+      error: internal
+      created_at: internal
+      started_at: internal
+      completed_at: internal
+    identity.api_keys:
+      id: internal
+      org_id: internal
+      created_by: internal
+      name: customer-content
+      prefix: credentials
+      secret_hash: credentials
+      scopes: internal
+      ip_allow_list: customer-content
+      expires_at: internal
+      last_used_at: internal
+      revoked_at: internal
+      created_at: internal
+    identity.mfa_factors:
+      id: internal
+      user_id: internal
+      type: internal
+      secret_ref: credentials
+      status: internal
+      failed_attempts: internal
+      locked_until: internal
+      last_used_step: internal
+      created_at: internal
+      verified_at: internal
+    identity.recovery_codes:
+      id: internal
+      user_id: internal
+      batch_id: internal
+      code_hash: credentials
+      used_at: internal
+      created_at: internal
+    identity.sessions:
+      id: internal
+      user_id: internal
+      realm: internal
+      token_hash: credentials
+      csrf_hash: credentials
+      mfa_level: internal
+      mfa_verified_at: internal
+      created_at: internal
+      last_seen_at: personal
+      idle_expires_at: internal
+      absolute_expires_at: internal
+      revoked_at: internal
+      ip: personal
+      user_agent: personal
+      impersonator_user_id: internal
+      impersonation_reason: internal
+      impersonation_ref: internal
+    identity.users:
+      id: internal
+      issuer: internal
+      subject: personal
+      email: personal
+      email_verified: internal
+      display_name: personal
+      locale: internal
+      status: internal
+      is_platform_user: internal
+      created_at: internal
+      last_login_at: personal
+    invoicing.billing_entities:
+      id: internal
+      code: internal
+      legal_name_ar: public
+      legal_name_en: public
+      vat_number: public
+      cr_number: public
+      address: public
+      invoice_series: financial
+      placeholder: internal
+      status: internal
+      created_at: internal
+    invoicing.credit_notes:
+      id: internal
+      org_id: internal
+      invoice_id: internal
+      entity_id: internal
+      series: financial
+      number: financial
+      number_text: financial
+      status: internal
+      environment: internal
+      currency: financial
+      reason_code: internal
+      reason: financial
+      lines: financial
+      net_minor: financial
+      tax_minor: financial
+      total_minor: financial
+      issued_at: internal
+      data_region: internal
+      ledger_transaction_id: internal
+      source_key: internal
+      created_by: internal
+      created_at: internal
+    invoicing.invoice_lines:
+      id: internal
+      invoice_id: internal
+      org_id: internal
+      position: internal
+      kind: internal
+      description: financial
+      meter_id: internal
+      quantity: internal
+      unit: internal
+      net_minor: financial
+      tax_minor: financial
+      rate_code: internal
+      rate_bps: financial
+      revenue_account: financial
+      source_id: internal
+    invoicing.invoice_payment_applications:
+      invoice_id: internal
+      payment_id: internal
+      org_id: internal
+      amount_minor: financial
+      applied_at: internal
+    invoicing.invoice_sequences:
+      entity_id: internal
+      series: financial
+      next_value: internal
+      updated_at: internal
+    invoicing.invoices:
+      id: internal
+      org_id: internal
+      entity_id: internal
+      series: financial
+      number: financial
+      number_text: financial
+      status: internal
+      environment: internal
+      currency: financial
+      period_start: internal
+      period_end: internal
+      issued_at: internal
+      due_at: internal
+      source_key: internal
+      subtotal_minor: financial
+      tax_minor: financial
+      total_minor: financial
+      paid_minor: financial
+      tax_review: internal
+      buyer: personal
+      seller: financial
+      data_region: internal
+      ledger_transaction_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    invoicing.tax_profiles:
+      org_id: internal
+      buyer_type: internal
+      legal_name_ar: personal
+      legal_name_en: personal
+      vat_number: financial
+      cr_number: financial
+      address: personal
+      version: internal
+      updated_by: internal
+      pii_enc: personal
+      created_at: internal
+      updated_at: internal
+    invoicing.tax_rates:
+      id: internal
+      code: public
+      rate_bps: public
+      scope: public
+      jurisdiction: public
+      valid_from: public
+      valid_to: public
+      verify: public
+      note: public
+      created_at: internal
+    invoicing.zatca_credentials_refs:
+      id: internal
+      entity_id: internal
+      environment: internal
+      kind: internal
+      key_ref: credentials
+      token_ref: credentials
+      secret_ref: credentials
+      serial: internal
+      status: internal
+      onboarding_id: internal
+      issued_at: internal
+      expires_at: internal
+      created_at: internal
+    invoicing.zatca_documents:
+      id: internal
+      org_id: internal
+      entity_id: internal
+      environment: internal
+      source_type: internal
+      source_id: internal
+      document_type: internal
+      subtype: internal
+      uuid: internal
+      icv: internal
+      pih: internal
+      invoice_hash: internal
+      xml_body: financial
+      xml_final: financial
+      signature: internal
+      public_key: internal
+      qr: financial
+      stamped_at: internal
+      archive_ref: internal
+      archive_sha256: internal
+      archived_at: internal
+      data_region: internal
+      created_at: internal
+      cleared_xml: financial
+      cleared_at: internal
+      cleared_archive_ref: internal
+    invoicing.zatca_onboarding:
+      id: internal
+      entity_id: internal
+      environment: internal
+      step: internal
+      status: internal
+      requested_by: internal
+      decided_by: internal
+      decided_at: internal
+      result: internal
+      created_at: internal
+      updated_at: internal
+    invoicing.zatca_submissions:
+      id: internal
+      org_id: internal
+      document_id: internal
+      seq: internal
+      state: internal
+      attempt: internal
+      next_attempt_at: internal
+      dead_letter: internal
+      response: financial
+      created_at: internal
+    metering.meters:
+      id: internal
+      unit: public
+      aggregation_window: public
+      basis: public
+      dimensions_allowed: public
+      description: public
+      created_at: internal
+      created_by: internal
+    metering.provider_cost_records:
+      id: internal
+      provider_account_id: internal
+      resource_id: internal
+      org_id: internal
+      period_start: internal
+      period_end: internal
+      meter_or_sku: internal
+      quantity: internal
+      cost_minor: financial
+      currency: financial
+      source: internal
+      provider_line_ref: financial
+      evidence_ref: internal
+      captured_at: internal
+      captured_by: internal
+    metering.rated_usage:
+      id: internal
+      org_id: internal
+      rating_run_id: internal
+      meter_id: internal
+      resource_key: internal
+      period_start: internal
+      segment_start: internal
+      price_book_version_id: internal
+      price_item_id: internal
+      tier_model: internal
+      quantity: internal
+      allowance_applied: internal
+      billable_quantity: internal
+      amount_minor: financial
+      currency: financial
+      previous_amount_minor: financial
+      delta_minor: financial
+      created_at: internal
+    metering.usage_aggregates:
+      org_id: internal
+      meter_id: internal
+      resource_key: internal
+      granularity: internal
+      bucket_start: internal
+      billing_period_start: internal
+      quantity: internal
+      event_count: internal
+      content_hash: internal
+      data_region: internal
+      updated_at: internal
+    metering.usage_events:
+      id: internal
+      org_id: internal
+      event_id: internal
+      meter_id: internal
+      quantity: internal
+      unit: internal
+      resource_id: internal
+      project_id: internal
+      environment_id: internal
+      window_start: internal
+      window_end: internal
+      occurred_at: internal
+      received_at: internal
+      source: internal
+      dimensions: internal
+      data_region: internal
+      schema_version: internal
+      acting_org_id: internal
+      provider_event_id: internal
+      tags: internal
+      adjusts_event_id: internal
+      billing_period_start: internal
+      late: internal
+      skew_flag: internal
+      payload_hash: internal
+    payments.customers_psp:
+      org_id: internal
+      psp_account_id: internal
+      psp_customer_ref: financial
+      created_at: internal
+    payments.payment_attempts:
+      id: internal
+      intent_id: internal
+      org_id: internal
+      seq: internal
+      status: internal
+      psp_attempt_ref: financial
+      failure_code: internal
+      summary: internal
+      created_at: internal
+    payments.payment_intents:
+      id: internal
+      org_id: internal
+      psp_account_id: internal
+      invoice_id: internal
+      payment_method_id: internal
+      amount_minor: financial
+      currency: financial
+      status: internal
+      merchant_reference: financial
+      psp_payment_ref: financial
+      next_action: financial
+      failure_code: internal
+      return_url: financial
+      captured_minor: financial
+      refunded_minor: financial
+      ledger_transaction_id: internal
+      last_event_at: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      wallet_topup_id: internal
+    payments.payment_methods:
+      id: internal
+      org_id: internal
+      psp_account_id: internal
+      token_ref: credentials
+      brand: financial
+      last4: financial
+      exp_month: financial
+      exp_year: financial
+      fingerprint: financial
+      status: internal
+      is_default: internal
+      created_by: internal
+      created_at: internal
+      removed_at: internal
+      expiry_notified_at: internal
+    payments.psp_accounts:
+      id: internal
+      provider: internal
+      code: internal
+      environment: internal
+      status: internal
+      created_at: internal
+    payments.psp_events:
+      id: internal
+      psp: internal
+      event_id: internal
+      type: internal
+      org_id: internal
+      intent_id: internal
+      event_at: internal
+      payload: financial
+      status: internal
+      error: internal
+      received_at: internal
+      processed_at: internal
+    payments.refunds:
+      id: internal
+      org_id: internal
+      intent_id: internal
+      amount_minor: financial
+      unapplied_minor: financial
+      currency: financial
+      reason: financial
+      status: internal
+      merchant_reference: financial
+      psp_refund_ref: financial
+      failure_code: internal
+      credit_note_id: internal
+      requested_by: internal
+      idempotency_key: internal
+      request_hash: internal
+      ledger_transaction_id: internal
+      created_at: internal
+      updated_at: internal
+    platform.feature_flags:
+      id: internal
+      key: internal
+      org_id: internal
+      value: internal
+      updated_by: internal
+      updated_at: internal
+    platform.idempotency_keys:
+      org_id: internal
+      key: internal
+      request_hash: internal
+      state: internal
+      response_status: internal
+      response_body: personal
+      created_at: internal
+      expires_at: internal
+    platform.notification_preferences:
+      org_id: internal
+      user_id: internal
+      kind: internal
+      channel: internal
+      enabled: internal
+      updated_at: internal
+    platform.notifications:
+      id: internal
+      org_id: internal
+      user_id: internal
+      kind: internal
+      body: personal
+      read_at: internal
+      created_at: internal
+    platform.operation_steps:
+      id: internal
+      org_id: internal
+      operation_id: internal
+      seq: internal
+      name: internal
+      state: internal
+      detail: internal
+      started_at: internal
+      finished_at: internal
+    platform.operations:
+      id: internal
+      org_id: internal
+      kind: internal
+      state: internal
+      resource_kind: internal
+      resource_id: internal
+      input: personal
+      result: personal
+      error: internal
+      attempts: internal
+      max_attempts: internal
+      next_run_at: internal
+      lease_owner: internal
+      lease_expires_at: internal
+      cancel_requested: internal
+      idempotency_key: internal
+      trace_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    platform.outbox:
+      id: internal
+      org_id: internal
+      topic: internal
+      payload: personal
+      created_at: internal
+      attempts: internal
+      lock_until: internal
+      published_at: internal
+    platform.webhook_events_inbound:
+      id: internal
+      provider: internal
+      event_id: internal
+      signature_ok: internal
+      payload: financial
+      received_at: internal
+      processed_at: internal
+    tenancy.environments:
+      id: internal
+      org_id: internal
+      project_id: internal
+      name: customer-content
+      kind: internal
+      data_region: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+      deleted_at: internal
+    tenancy.invitations:
+      id: internal
+      org_id: internal
+      email: personal
+      role: internal
+      token_hash: credentials
+      invited_by: internal
+      expires_at: internal
+      accepted_at: internal
+      accepted_by: internal
+      revoked_at: internal
+      created_at: internal
+    tenancy.memberships:
+      id: internal
+      org_id: internal
+      user_id: internal
+      role: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    tenancy.organizations:
+      id: internal
+      name: customer-content
+      slug: customer-content
+      type: internal
+      country: internal
+      default_locale: internal
+      status: internal
+      suspended_reason: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+      deleted_at: internal
+    tenancy.permissions:
+      name: public
+      scope: public
+      description: public
+    tenancy.platform_roles:
+      user_id: internal
+      role: internal
+      granted_by: internal
+      created_at: internal
+    tenancy.projects:
+      id: internal
+      org_id: internal
+      workspace_id: internal
+      name: customer-content
+      default_region_policy: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+      deleted_at: internal
+    tenancy.role_permissions:
+      role: public
+      permission: public
+    tenancy.roles:
+      name: public
+      scope: public
+      description: public
+    tenancy.workspaces:
+      id: internal
+      org_id: internal
+      name: customer-content
+      slug: customer-content
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+      deleted_at: internal
+    compliance.control_catalog:
+      control_id: internal
+      title: internal
+      description: internal
+      frameworks: internal
+      applicability: internal
+      owner_role: internal
+      implementation: internal
+      evidence_spec: internal
+      review_cadence_days: internal
+      claims_compliance: internal
+      source_digest: internal
+      loaded_at: internal
+    compliance.control_mappings:
+      id: internal
+      control_id: internal
+      module: internal
+      feature: internal
+      evidence_requirement: internal
+      idempotency_key: internal
+      created_by: internal
+      created_at: internal
+    compliance.evidence_items:
+      id: internal
+      control_id: internal
+      type: internal
+      source: internal
+      content_hash: internal
+      collected_at: internal
+      collector: internal
+      collector_version: internal
+      document_ref: internal
+      attested_by: internal
+      note: internal
+      summary: internal
+      idempotency_key: internal
+    compliance.regulatory_validations:
+      id: internal
+      validation_key: internal
+      version: internal
+      regime: internal
+      question: internal
+      applicability: internal
+      status: internal
+      answer: internal
+      document_ref: internal
+      validated_by: internal
+      validated_at: internal
+      change_note: internal
+      idempotency_key: internal
+      created_by: internal
+      created_at: internal
+    compliance.breach_cases:
+      id: internal
+      severity: internal
+      state: internal
+      summary: internal
+      detected_at: internal
+      timeline: internal
+      assessment: internal
+      decision: internal
+      linked_incident_id: internal
+      created_by: internal
+      idempotency_key: internal
+      version: internal
+      created_at: internal
+      updated_at: internal
+      closed_at: internal
+    compliance.ropa_entries:
+      id: internal
+      entry_key: internal
+      version: internal
+      org_id: internal
+      kind: internal
+      adapter_kind: internal
+      activity: internal
+      purpose: internal
+      data_classes: internal
+      processors: internal
+      regions: internal
+      retention_ref: internal
+      status: internal
+      reviewed_by: internal
+      change_note: internal
+      idempotency_key: internal
+      created_by: internal
+      created_at: internal
+    audit.retention_policies:
+      id: internal
+      data_class: internal
+      dataset: internal
+      version: internal
+      retain_days: internal
+      archive_after_days: internal
+      basis: internal
+      status: internal
+      document_ref: internal
+      approved_by: internal
+      change_note: internal
+      created_by: internal
+      created_at: internal
+    audit.legal_holds:
+      id: internal
+      org_id: internal
+      dataset: internal
+      reason: internal
+      status: internal
+      requested_by: internal
+      approver_id: internal
+      decided_at: internal
+      decision_note: internal
+      released_by: internal
+      released_at: internal
+      release_reason: internal
+      idempotency_key: internal
+      created_at: internal
+    audit.archivable_tables:
+      parent: internal
+      org_column: internal
+      note: internal
+    compliance.residency_policies:
+      id: internal
+      org_id: internal
+      version: internal
+      mode: internal
+      allowed: internal
+      exceptions: internal
+      effective_from: internal
+      change_note: internal
+      created_by: internal
+      created_at: internal
+    compliance.transfer_assessments:
+      id: internal
+      org_id: internal
+      data_class: internal
+      region: internal
+      processor_id: internal
+      risk: internal
+      mitigations: internal
+      status: internal
+      requested_by: internal
+      decided_by: internal
+      decided_at: internal
+      decision_note: internal
+      expires_at: internal
+      idempotency_key: internal
+      created_at: internal
+    compliance.dsr_requests:
+      id: internal
+      org_id: internal
+      subject_ref: personal
+      type: internal
+      status: internal
+      requested_by: internal
+      identity_method: internal
+      identity_note: personal
+      identity_verified_at: internal
+      details_enc: personal
+      received_at: internal
+      due_at: internal
+      outcome: personal
+      reason_code: internal
+      operation_id: internal
+      sla_warned_at: internal
+      sla_escalated_at: internal
+      closed_at: internal
+      idempotency_key: internal
+      version: internal
+      created_at: internal
+      updated_at: internal
+    compliance.dsr_tasks:
+      id: internal
+      request_id: internal
+      org_id: internal
+      handler: internal
+      action: internal
+      status: internal
+      attempts: internal
+      reason_code: internal
+      result: personal
+      error: internal
+      started_at: internal
+      finished_at: internal
+      created_at: internal

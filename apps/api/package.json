@@ -9,7 +9,8 @@
     "test": "vitest run",
     "dev": "tsc -p tsconfig.build.json && node dist/main.js",
     "test:integration": "vitest run --config vitest.integration.config.mts",
-    "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js"
+    "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js",
+    "encrypt:backfill": "tsc -p tsconfig.build.json && node dist/ops/encrypt-backfill.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",

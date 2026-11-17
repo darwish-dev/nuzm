@@ -27,6 +27,17 @@ errors:
   recipe_not_implemented: { status: 501, title: Ledger recipe is not implemented in this milestone }
   idempotency_key_reuse: { status: 422, title: Idempotency-Key reused with a different request }
   idempotency_in_progress: { status: 409, title: Request with this Idempotency-Key is in progress }
+  consent_purpose_unknown: { status: 409, title: Unknown consent purpose }
+  dsr_identity_unverified: { status: 422, title: The identity of the data subject is not verified }
+  legal_hold_active: { status: 409, title: The data is under a legal hold }
+  retention_mandatory: { status: 409, title: The data must be retained }
+  no_export_sink: { status: 422, title: No export sink is configured }
+  validation_requires_evidence:
+    { status: 422, title: A validation needs a document and a named person }
+  residency_denied: { status: 403, title: Not allowed by the data residency policy }
+  policy_below_floor:
+    { status: 422, title: An organization policy cannot loosen the platform floor }
+  assessment_expired: { status: 422, title: The transfer assessment has expired }
   conflict: { status: 409, title: Conflict }
   precondition_failed: { status: 412, title: Precondition failed }
   rate_limited: { status: 429, title: Too many requests }

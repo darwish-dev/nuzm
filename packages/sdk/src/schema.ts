@@ -1924,10 +1924,934 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/compliance/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List consents
+         * @description The CURRENT consent per (subject, purpose), newest first; history=true returns every row. Filters purposeId, subject, status (granted|withdrawn: the current state). A caller without `privacy:consent:manage` sees only their own subject (403 when asking for another). Requires permission `privacy:consent:self`.
+         */
+        get: operations["listConsents"];
+        put?: never;
+        /**
+         * Record a consent
+         * @description Body {purposeId, granted: true, localeShown: ar|en, textVersion, subjectRef?}. APPEND-ONLY history: the grant is a new row. textVersion must be the CURRENT wording of the purpose (422 otherwise: show the current text first); an unknown purpose is 409 consent_purpose_unknown. Without subjectRef the subject is the caller (any member); subjectRef (an opaque id, never an email or name; "org" for the organization itself) needs `privacy:consent:manage` (owner, admin), else 403. Granting again with the same wording while already granted answers 200 with the existing record and writes nothing; 201 when a row was written. Idempotent per Idempotency-Key. Requires permission `privacy:consent:self`. Audited. The purposes and their wording come from spec/compliance/purposes.yaml; the wording is a COUNSEL-TEXT-REQUIRED placeholder until HG-04-01.
+         */
+        post: operations["grantConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compliance/consents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Withdraw a consent
+         * @description Records a `withdrawn` entry for the subject and purpose of the named record (the row is retained). Applies immediately: the next check sees it. Withdrawing something already withdrawn changes nothing. 404 for an unknown id, for another organization's, and for a member asking about someone else's record. Requires permission `privacy:consent:self` (acting for another subject needs `privacy:consent:manage`). Audited.
+         */
+        delete: operations["withdrawConsent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/ropa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the record of processing activities
+         * @description The CURRENT version of each platform-level entry; history=true with an entryKey returns every version. Filters entryKey, kind (activity|adapter), adapterKind, status (placeholder|draft|reviewed). Seeded PLACEHOLDER entries exist for every adapter kind of docs/09 and for every platform activity; they name no processor until a provider is chosen and need the DPO/counsel (HG-04-01). Platform permission `admin:compliance:read` (compliance officer, platform admin, security); admin-realm session.
+         */
+        get: operations["listRopaEntries"];
+        put?: never;
+        /**
+         * Create a ROPA entry or add a version
+         * @description Entries are VERSIONED and immutable. Without baseVersion the entry is created (kind required; adapterKind for kind adapter); with baseVersion (the current version, else 409) a new version is written. A version with status reviewed approves the previous content UNCHANGED and needs a different person than the author of that version (403 otherwise). Data classes must exist in the catalogue; processor regions are ISO country codes or in_kingdom|gcc|eu|other. Needs an Idempotency-Key (a replay with the same content returns the same version; other content is 422 idempotency_key_reuse). 201 when a version was written, 200 on a replay. Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited.
+         */
+        post: operations["saveRopaEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/retention-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List retention policies (optionally with a dry-run preview)
+         * @description The CURRENT version of each policy (one per data class, optionally overridden per dataset); history=true with a dataClass returns every version. Every seeded value is a PROPOSAL (D-34, HG-04-01). evaluate=true adds a DRY RUN preview (asOf optional): per known dataset the rows the policy WOULD archive or expire, minus anything under an active legal hold, and for partitioned append-only tables the partitions that could be detached; it changes nothing and is audited. execute is refused (422): archival is a break-glass procedure, never an API action. Platform permission `admin:compliance:read`; admin-realm session.
+         */
+        get: operations["listRetentionPolicies"];
+        /**
+         * Set a retention policy
+         * @description Creates version 1 of the policy for {dataClass, dataset?} or, with baseVersion (the current version, else 409), version n+1; versions are immutable. Same content as the current version changes nothing (200). archiveAfterDays <= retainDays. status approved needs documentRef (the approving document) and records the caller as the human approver; the default is proposal. Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited.
+         */
+        put: operations["putRetentionPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/legal-holds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request, decide or release a legal hold
+         * @description Three requests on one endpoint. CREATE {scope: {orgId?, dataset?}, reason, approvers: [two different staff ids]}: the caller must be one of the two; the other is the second approver (a compliance officer or platform admin); the hold is pending_approval and has NO effect yet (201). DECIDE {holdId, decision: approve|reject, note?}: only the named second approver (else 403); approve makes it active. RELEASE {holdId, action: release, reason}: only an active hold, by a DIFFERENT person than the requester (else 403). An open hold per scope is unique (409). A hold blocks archival of the data it covers: an organization hold blocks any partition that holds that organization's rows, a dataset hold blocks the dataset. Scope and people are immutable; nothing is deleted. Needs an Idempotency-Key (a create replay returns the same hold). Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited.
+         */
+        post: operations["handleLegalHold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/controls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the control register
+         * @description Our own paraphrased controls (spec/compliance/controls.yaml, loaded by the sync tool) with their mappings and evidence. status is what exists, never a verdict: not_mapped, mapped, evidence_collected, reviewed (a named person attested, with their role and whether the review cadence has lapsed). claims_compliance is always false and nothing here says that Nuzm meets any regime; framework references stay empty until the compliance owner supplies them (HG-04-02) and applicability is to_confirm. The catalog is small and not paginated. Filters status, applicability, ownerRole, framework, controlId. Platform permission `admin:compliance:read`; admin-realm session.
+         */
+        get: operations["listControls"];
+        put?: never;
+        /**
+         * Map a control to a module feature
+         * @description Body {controlId, module, feature, evidenceRequirement}. Mappings are append-only (never edited); the same control, module and feature again replays (200). 404 for an unknown control. Needs an Idempotency-Key. Permission admin:controls:manage (compliance officer, security, platform admin); admin-realm session with MFA and step-up. Audited (compliance.control.mapping_changed).
+         */
+        post: operations["mapControl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List evidence
+         * @description Evidence items, newest first: automated (collector output with its SHA-256; written only by the collectors) and manual (document, attestation, external-report). Items are immutable. Filters controlId, type, collector. Platform permission `admin:compliance:read`.
+         */
+        get: operations["listEvidence"];
+        put?: never;
+        /**
+         * Add manual evidence
+         * @description Body {controlId, type: document|attestation|external-report, documentRef?, note?, attestedBy?}. document and external-report need documentRef; an attestation needs a note. The caller IS the named human who attests: attestedBy, if sent, must be the caller (422 otherwise). type automated is refused (403): only the collectors write it, and the database refuses it for the runtime role. Items are immutable; an Idempotency-Key replay returns the same item (200). Permission admin:controls:manage; admin-realm session with MFA and step-up. Audited (compliance.evidence.added).
+         */
+        post: operations["addEvidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/regulatory-validations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the regulatory validation register
+         * @description The CURRENT version of each question; history=true with a validationKey returns every version. Open questions for every regime of docs/10 §1 are seeded with applicability to_confirm. Filters validationKey, status, applicability. Platform permission `admin:compliance:read`.
+         */
+        get: operations["listRegulatoryValidations"];
+        put?: never;
+        /**
+         * Create a question or add a version
+         * @description Versions are immutable. Without baseVersion the question is created (regime and question required); with baseVersion (the current one, else 409) a version is written; regime and question cannot change. answered needs an answer. validated is a HUMAN act: it needs documentRef and a decided applicability (applicable or not_applicable), else 422 validation_requires_evidence; the caller is recorded as the validator (validatedBy, if sent, must be the caller) and the database refuses validated without them. There is no automated path. Needs an Idempotency-Key (a replay with the same content returns the same version; other content is 422 idempotency_key_reuse). Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited (compliance.validation.changed).
+         */
+        post: operations["saveRegulatoryValidation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/breach-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List breach cases
+         * @description Newest first. Filters id, state, severity. With id and pack=true the case carries evidencePack: the timeline, assessment, decision and, for each organization named in the assessment, the audit activity from the lookback window before detection until now, with a SHA-256 digest. The pack reads across organizations, so it needs reason (10..300 characters, else 422) and is audited (compliance.breach.evidence_pack). Each case shows timers (placeholders; statutory deadlines are human-defined, HG-04-01) and the platform notifies nobody. Platform permission `admin:compliance:read` (compliance officer, security, platform admin).
+         */
+        get: operations["listBreachCases"];
+        put?: never;
+        /**
+         * Open a breach case or move it
+         * @description Two requests on one endpoint (PATCH is not in the spec: SI-M04-2). OPEN {summary, detectedAt, severity, linkedIncidentId?} (201). MOVE {caseId, transition: <target state>, baseVersion, note?, data?} (200): states detected, triaged, assessed, notification_decision, notified, remediation, closed; only the next state is allowed (409 otherwise); baseVersion must be current (409). triaged: data.severity optional. assessed: data {personalDataAffected, scope, dataClasses, regions, orgIds, tables}. notification_decision: data {notify, rationale, recipients}; made by a DIFFERENT person than the assessor (403); a decision not to notify goes to remediation, one to notify goes to notified. notified: data {notifiedAt, reference}: people record that they notified; the platform sends nothing to any regulator or party. remediation and closed need a note. The timeline is append-only (database guard); a closed case cannot change. Needs an Idempotency-Key (a replayed move returns the case). Permission admin:breach:manage (compliance officer, security, platform admin); admin-realm session with MFA and step-up. Audited (compliance.breach.opened|transition).
+         */
+        post: operations["handleBreachCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compliance/data-subject-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List data-subject requests
+         * @description Newest first. Filters status, type, subject. A caller without `privacy:dsr:manage` sees only the requests about themselves. Each item carries slaState (ok, warning from 70% of the time, escalated from 90%, overdue) and its tasks. Requires permission `privacy:dsr:self`.
+         */
+        get: operations["listDataSubjectRequests"];
+        put?: never;
+        /**
+         * Open a data-subject request
+         * @description Body {type: access|correction|deletion|portability, subjectRef?, details?: {text?, patch?}, identityAttestation?}. Without subjectRef the subject is the caller (verified by their session). A request about someone else (an end user of the organization) needs `privacy:dsr:manage` (owner, admin) and identityAttestation, how the identity was checked (10..500 characters), else 422 dsr_identity_unverified. A correction needs details.patch. Free-text details are SEALED (field encryption) and never returned (hasDetails only). 201 received with dueAt (calendar days per type, a PROPOSAL until counsel states the statutory deadlines, HG-04-01) and operationId; the request then runs as an operation: handlers export, rectify or erase per module, never bypassing a legal hold (legal_hold_active) or mandatory retention (retention_mandatory): those are refused with a recorded reason and the request is partially_fulfilled or rejected. Idempotent per Idempotency-Key (a replay returns the same request). Requires permission `privacy:dsr:self`. Audited.
+         */
+        post: operations["openDataSubjectRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compliance/data-subject-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a data-subject request
+         * @description The request with its tasks (handler, action, status, reasonCode with Arabic and English wording), outcome and reason. For an access or portability request that finished, downloadUrl is a signed, expiring link: `?download=<token>` returns the encrypted-at-rest archive (application/gzip) of THIS request only (a token from another request is 404; 410 when the link or the archive expired), so a member can fetch their own data without the export permission. 404 for an unknown id, for another organization and for a member asking about someone else. Requires permission `privacy:dsr:self`.
+         */
+        get: operations["getDataSubjectRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compliance/data-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List data exports or download one
+         * @description The exports (status, expiry, size, sha256, a signed downloadUrl while ready). With ?download=<token> returns the archive (application/gzip) of that link; 410 when the link or the archive has expired; the token is sealed and bound to the organization (a token of another organization is 404). Requires permission `privacy:export:manage`.
+         */
+        get: operations["listDataExports"];
+        put?: never;
+        /**
+         * Request a data export
+         * @description Body {scope: org|user, subjectRef?}. Asynchronous (an operation): 202 with the export pending; 200 on an Idempotency-Key replay. The archive is encrypted at rest in the export sink and downloaded through a signed, expiring link (archive 72 h, link 15 min by default). 422 no_export_sink when the deployment has no sink (production has none until M08, D-07); 422 quota_exceeded past 5 exports in progress. Requires permission `privacy:export:manage` (owner, admin). Audited.
+         */
+        post: operations["createDataExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compliance/residency-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the organization's data residency policy
+         * @description The effective policy: version 0 and isDefault true when the organization has set none (the default is in-Kingdom only), plus the platform FLOOR per data class (the loosest mode the platform ever allows; PROPOSAL, D-14/HG-04-01). Returns an ETag. Requires permission `privacy:residency:read` (every role).
+         */
+        get: operations["getResidencyPolicy"];
+        /**
+         * Set the organization's data residency policy (tighten only)
+         * @description Body {mode: in_kingdom_only|allow_listed|unrestricted_with_assessment, allowedCountriesByClass, exceptions (ids of approved transfer assessments), changeNote?}. Versions are immutable; the first policy needs no precondition, a replacement needs If-Match (428 without, 412 when stale). The engine always applies the STRICTER of the mode and the platform floor of each class, and an organization may only tighten the floor: countries for a class the floor keeps in the Kingdom, or an assessment for such a class, are 422 policy_below_floor. Every exception must be an approved assessment that applies to this organization (an expired one is 422 assessment_expired). Requires permission `privacy:residency:manage` (owner, admin). Audited.
+         */
+        put: operations["putResidencyPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compliance/transfer-assessments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List transfer assessments
+         * @description Newest first. Filters status (pending|approved|rejected), orgId, dataClass, expired (an approved assessment past its expiry). Platform permission `admin:compliance:read`; admin-realm session.
+         */
+        get: operations["listTransferAssessments"];
+        put?: never;
+        /**
+         * Request or decide a transfer assessment
+         * @description Two requests on one endpoint. CREATE {dataClass, region (an ISO country other than SA, or gcc|eu|other), processorId? (a processor named in the ROPA), risk, mitigations, expiresAt (at most 730 days), orgId?}: pending (201). DECIDE {assessmentId, decision: approve|reject, note?}: a DIFFERENT person than the requester (403; also a database check); an approved assessment expires and an expired request cannot be approved (422 assessment_expired). The scope and the people are immutable. An organization relies on an approved assessment by listing its id in its residency policy. Needs an Idempotency-Key (a create replay returns the same assessment). Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited.
+         */
+        post: operations["handleTransferAssessment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        ResidencyMode: "in_kingdom_only" | "allow_listed" | "unrestricted_with_assessment";
+        ResidencyPolicy: {
+            /** @description 0 = no policy of its own: the default applies. */
+            version: number;
+            isDefault: boolean;
+            mode: components["schemas"]["ResidencyMode"];
+            allowedCountriesByClass: {
+                [key: string]: string[];
+            };
+            exceptions: string[];
+            floor: {
+                version: number;
+                byClass: {
+                    [key: string]: components["schemas"]["ResidencyMode"];
+                };
+            };
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        PutResidencyPolicy: {
+            mode: components["schemas"]["ResidencyMode"];
+            allowedCountriesByClass?: {
+                [key: string]: string[];
+            };
+            exceptions?: string[];
+            changeNote?: string | null;
+        };
+        TransferAssessment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string | null;
+            dataClass: string;
+            region: string;
+            processorId: string | null;
+            /** @enum {string} */
+            risk: "low" | "medium" | "high";
+            mitigations: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            /** @description An approved assessment past its expiry. */
+            expired: boolean;
+            /** Format: uuid */
+            requestedBy: string;
+            /** Format: uuid */
+            decidedBy: string | null;
+            /** Format: date-time */
+            decidedAt: string | null;
+            decisionNote: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description One of: create {dataClass, region, processorId?, risk, mitigations, expiresAt, orgId?}; decide {assessmentId, decision, note?}. */
+        TransferAssessmentRequest: {
+            dataClass?: string;
+            region?: string;
+            processorId?: string | null;
+            /** @enum {string} */
+            risk?: "low" | "medium" | "high";
+            mitigations?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: uuid */
+            orgId?: string | null;
+            /** Format: uuid */
+            assessmentId?: string;
+            /** @enum {string} */
+            decision?: "approve" | "reject";
+            note?: string;
+        };
+        TransferAssessmentPage: {
+            items: components["schemas"]["TransferAssessment"][];
+            nextCursor: string | null;
+        };
+        RetentionPolicy: {
+            /** Format: uuid */
+            id: string;
+            dataClass: string;
+            dataset: string | null;
+            version: number;
+            retainDays: number;
+            archiveAfterDays: number;
+            basis: string;
+            /** @enum {string} */
+            status: "proposal" | "approved";
+            documentRef: string | null;
+            /** Format: uuid */
+            approvedBy: string | null;
+            changeNote: string | null;
+            /** Format: uuid */
+            createdBy: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PutRetentionPolicy: {
+            dataClass: string;
+            dataset?: string | null;
+            retainDays: number;
+            archiveAfterDays: number;
+            basis: string;
+            /**
+             * @default proposal
+             * @enum {string}
+             */
+            status?: "proposal" | "approved";
+            documentRef?: string | null;
+            changeNote?: string | null;
+            baseVersion?: number | null;
+        };
+        RetentionPartitionPreview: {
+            partition: string;
+            /** Format: date-time */
+            upperBound: string;
+            rows: number;
+            heldRows: number;
+            eligible: boolean;
+            /** @enum {string|null} */
+            blockedBy: "legal_hold" | null;
+        };
+        RetentionTargetPreview: {
+            dataset: string;
+            dataClass: string;
+            policy: {
+                version: number;
+                /** @enum {string} */
+                status: "proposal" | "approved";
+                retainDays: number;
+                archiveAfterDays: number;
+                dataset: string | null;
+            };
+            /** Format: date-time */
+            archiveCutoff: string;
+            /** Format: date-time */
+            expiryCutoff: string;
+            archiveCandidates: number;
+            expiryCandidates: number;
+            heldCandidates: number;
+            eligibleToArchive: number;
+            /** @enum {string} */
+            execution: "partition-detach" | "not-built";
+            partitions: components["schemas"]["RetentionPartitionPreview"][];
+            note: string;
+        };
+        RetentionPreview: {
+            /** @enum {boolean} */
+            dryRun: true;
+            /** Format: date-time */
+            asOf: string;
+            /** @description True while any policy used is still a proposal. */
+            proposalPolicies: boolean;
+            targets: components["schemas"]["RetentionTargetPreview"][];
+        };
+        RetentionPolicyList: {
+            items: components["schemas"]["RetentionPolicy"][];
+            nextCursor: string | null;
+            preview: components["schemas"]["RetentionPreview"] | null;
+        };
+        /** @description One of: create {scope, reason, approvers}; decide {holdId, decision, note?}; release {holdId, action: release, reason}. */
+        LegalHoldRequest: {
+            scope?: {
+                /** Format: uuid */
+                orgId?: string;
+                dataset?: string;
+            };
+            reason?: string;
+            approvers?: string[];
+            /** Format: uuid */
+            holdId?: string;
+            /** @enum {string} */
+            decision?: "approve" | "reject";
+            /** @enum {string} */
+            action?: "release";
+            note?: string;
+        };
+        LegalHold: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string | null;
+            dataset: string | null;
+            reason: string;
+            /** @enum {string} */
+            status: "pending_approval" | "active" | "rejected" | "released";
+            /** Format: uuid */
+            requestedBy: string;
+            /** Format: uuid */
+            approverId: string;
+            /** Format: date-time */
+            decidedAt: string | null;
+            decisionNote: string | null;
+            /** Format: uuid */
+            releasedBy: string | null;
+            /** Format: date-time */
+            releasedAt: string | null;
+            releaseReason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RopaProcessor: {
+            name: string;
+            /** @enum {string} */
+            role: "processor" | "sub-processor";
+            region: string;
+            dataClasses: string[];
+            contractRef?: string | null;
+        };
+        SaveRopaEntry: {
+            entryKey: string;
+            /**
+             * @description Required for a new entry; fixed afterwards.
+             * @enum {string}
+             */
+            kind?: "activity" | "adapter";
+            /** @description Required for kind adapter (a kind of docs/09 §1). */
+            adapterKind?: string;
+            activity: string;
+            purpose: string;
+            dataClasses: string[];
+            processors: components["schemas"]["RopaProcessor"][];
+            regions: string[];
+            retentionRef?: string | null;
+            /**
+             * @default draft
+             * @enum {string}
+             */
+            status?: "draft" | "reviewed";
+            changeNote?: string | null;
+            /** @description The current version; omit to create. */
+            baseVersion?: number | null;
+        };
+        RopaEntry: {
+            /** Format: uuid */
+            id: string;
+            entryKey: string;
+            version: number;
+            /** @enum {string} */
+            kind: "activity" | "adapter";
+            adapterKind: string | null;
+            activity: string;
+            purpose: string;
+            dataClasses: string[];
+            processors: components["schemas"]["RopaProcessor"][];
+            regions: string[];
+            retentionRef: string | null;
+            /** @enum {string} */
+            status: "placeholder" | "draft" | "reviewed";
+            /** Format: uuid */
+            reviewedBy: string | null;
+            changeNote: string | null;
+            /**
+             * Format: uuid
+             * @description null for a seeded placeholder
+             */
+            createdBy: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RopaPage: {
+            items: components["schemas"]["RopaEntry"][];
+            nextCursor: string | null;
+        };
+        GrantConsent: {
+            purposeId: string;
+            /** @enum {boolean} */
+            granted: true;
+            /** @enum {string} */
+            localeShown: "ar" | "en";
+            textVersion: string;
+            /** @description Opaque subject id; omitted = the caller; needs privacy:consent:manage for anyone else. */
+            subjectRef?: string;
+        };
+        Consent: {
+            /** Format: uuid */
+            id: string;
+            purposeId: string;
+            subjectRef: string;
+            /** @enum {string} */
+            state: "granted" | "withdrawn";
+            textVersion: string;
+            /** @enum {string} */
+            locale: "ar" | "en";
+            /** @enum {string} */
+            source: "api" | "ui";
+            /** Format: uuid */
+            withdrawsId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        OpenDsr: {
+            /** @enum {string} */
+            type: "access" | "correction" | "deletion" | "portability";
+            subjectRef?: string;
+            identityAttestation?: string;
+            details?: {
+                text?: string;
+                patch?: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        DsrTask: {
+            handler: string;
+            action: string;
+            status: string;
+            attempts: number;
+            reasonCode: string | null;
+            reason: null | components["schemas"]["LocalizedText"];
+        };
+        LocalizedText: {
+            ar: string;
+            en: string;
+        };
+        DsrRequest: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "access" | "correction" | "deletion" | "portability";
+            subjectRef: string;
+            status: string;
+            /** Format: date-time */
+            receivedAt: string;
+            /** Format: date-time */
+            dueAt: string;
+            /** @enum {string} */
+            slaState: "ok" | "warning" | "escalated" | "overdue";
+            /** @enum {string} */
+            identityMethod: "session" | "org_attestation";
+            /** Format: date-time */
+            identityVerifiedAt: string | null;
+            hasDetails: boolean;
+            reasonCode: string | null;
+            reason: null | components["schemas"]["LocalizedText"];
+            outcome: {
+                [key: string]: unknown;
+            } | null;
+            tasks: components["schemas"]["DsrTask"][];
+            /** Format: uuid */
+            operationId: string | null;
+            downloadUrl: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+        };
+        DsrRequestPage: {
+            items: components["schemas"]["DsrRequest"][];
+            nextCursor: string | null;
+        };
+        CreateDataExport: {
+            /** @enum {string} */
+            scope: "org" | "user";
+            subjectRef?: string;
+        };
+        DataExport: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "org" | "user";
+            subjectRef: string | null;
+            /** @enum {string} */
+            status: "pending" | "running" | "succeeded" | "failed" | "expired";
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            expiresAt: string | null;
+            bytes: number | null;
+            sha256: string | null;
+            downloadUrl: string | null;
+            /** Format: uuid */
+            dsrRequestId: string | null;
+        };
+        DataExportPage: {
+            items: components["schemas"]["DataExport"][];
+            nextCursor: string | null;
+        };
+        ControlPage: {
+            items: components["schemas"]["Control"][];
+            nextCursor: string | null;
+        };
+        Control: {
+            controlId: string;
+            title: string;
+            description: string;
+            frameworks: {
+                framework: string;
+                version: string;
+                ref: string;
+            }[];
+            /** @enum {string} */
+            applicability: "to_confirm" | "applicable" | "not_applicable";
+            ownerRole: string;
+            implementation: {
+                status: string;
+                modules: string[];
+                milestone: string;
+            };
+            evidenceSpec: {
+                [key: string]: unknown;
+            }[];
+            reviewCadenceDays: number;
+            /** @enum {boolean} */
+            claimsCompliance: false;
+            /** @enum {string} */
+            status: "not_mapped" | "mapped" | "evidence_collected" | "reviewed";
+            mappings: {
+                /** Format: uuid */
+                id: string;
+                module: string;
+                feature: string;
+                evidenceRequirement: string;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+            evidence: {
+                total: number;
+                automated: number;
+                latestAutomated: null | {
+                    collector: string;
+                    /** Format: date-time */
+                    collectedAt: string;
+                    ok: boolean | null;
+                };
+                latestReview: null | {
+                    reviewerRole: string | null;
+                    /** Format: uuid */
+                    attestedBy: string;
+                    /** Format: date-time */
+                    at: string;
+                    overdue: boolean;
+                };
+            };
+        };
+        CreateControlMapping: {
+            controlId: string;
+            module: string;
+            feature: string;
+            evidenceRequirement: string;
+        };
+        ControlMapping: {
+            /** Format: uuid */
+            id: string;
+            controlId: string;
+            module: string;
+            feature: string;
+            evidenceRequirement: string;
+            /** Format: uuid */
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AddEvidence: {
+            controlId: string;
+            /** @enum {string} */
+            type: "document" | "attestation" | "external-report";
+            documentRef?: string;
+            note?: string;
+            /** Format: uuid */
+            attestedBy?: string;
+        };
+        EvidenceItem: {
+            /** Format: uuid */
+            id: string;
+            controlId: string;
+            /** @enum {string} */
+            type: "automated" | "document" | "attestation" | "external-report";
+            source: string;
+            contentHash: string;
+            /** Format: date-time */
+            collectedAt: string;
+            collector: string | null;
+            collectorVersion: string | null;
+            documentRef: string | null;
+            /** Format: uuid */
+            attestedBy: string | null;
+            note: string | null;
+            summary: {
+                [key: string]: unknown;
+            };
+        };
+        EvidencePage: {
+            items: components["schemas"]["EvidenceItem"][];
+            nextCursor: string | null;
+        };
+        SaveValidation: {
+            validationKey: string;
+            regime?: string;
+            question?: string;
+            /** @enum {string} */
+            applicability?: "to_confirm" | "applicable" | "not_applicable";
+            /** @enum {string} */
+            status?: "open" | "answered" | "validated" | "rejected";
+            answer?: string;
+            documentRef?: string;
+            /** Format: uuid */
+            validatedBy?: string;
+            changeNote?: string;
+            baseVersion?: number;
+        };
+        RegulatoryValidation: {
+            /** Format: uuid */
+            id: string;
+            validationKey: string;
+            version: number;
+            regime: string;
+            question: string;
+            /** @enum {string} */
+            applicability: "to_confirm" | "applicable" | "not_applicable";
+            /** @enum {string} */
+            status: "open" | "answered" | "validated" | "rejected";
+            answer: string | null;
+            documentRef: string | null;
+            /** Format: uuid */
+            validatedBy: string | null;
+            /** Format: date-time */
+            validatedAt: string | null;
+            changeNote: string | null;
+            /** Format: uuid */
+            createdBy: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ValidationPage: {
+            items: components["schemas"]["RegulatoryValidation"][];
+            nextCursor: string | null;
+        };
+        /** @description OPEN carries summary, detectedAt and severity; MOVE carries caseId, transition and baseVersion. */
+        BreachCaseCommand: {
+            summary?: string;
+            /** Format: date-time */
+            detectedAt?: string;
+            /** @enum {string} */
+            severity?: "low" | "medium" | "high" | "critical";
+            linkedIncidentId?: string;
+            /** Format: uuid */
+            caseId?: string;
+            /** @enum {string} */
+            transition?: "triaged" | "assessed" | "notification_decision" | "notified" | "remediation" | "closed";
+            baseVersion?: number;
+            note?: string;
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        BreachCase: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            severity: "low" | "medium" | "high" | "critical";
+            /** @enum {string} */
+            state: "detected" | "triaged" | "assessed" | "notification_decision" | "notified" | "remediation" | "closed";
+            summary: string;
+            /** Format: date-time */
+            detectedAt: string;
+            linkedIncidentId: string | null;
+            assessment: {
+                [key: string]: unknown;
+            } | null;
+            decision: {
+                [key: string]: unknown;
+            } | null;
+            timeline: {
+                [key: string]: unknown;
+            }[];
+            timers: {
+                /** Format: date-time */
+                triageDueAt: string;
+                /** Format: date-time */
+                assessDueAt: string;
+                /** Format: date-time */
+                decisionDueAt: string;
+                current: null | {
+                    /** @enum {string} */
+                    step: "triage" | "assess" | "decision";
+                    /** Format: date-time */
+                    dueAt: string;
+                    overdue: boolean;
+                };
+            };
+            version: number;
+            /** Format: uuid */
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            closedAt: string | null;
+            evidencePack?: {
+                [key: string]: unknown;
+            };
+        };
+        BreachCasePage: {
+            items: components["schemas"]["BreachCase"][];
+            nextCursor: string | null;
+        };
+        ConsentPage: {
+            items: components["schemas"]["Consent"][];
+            nextCursor: string | null;
+        };
         CreatePaymentMethod: {
             provider: string;
             /** @description Token produced by the PSP hosted fields. Never a card number. */
@@ -7128,6 +8052,909 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listConsents: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                purposeId?: string;
+                subject?: string;
+                status?: "granted" | "withdrawn";
+                history?: boolean;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    grantConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantConsent"];
+            };
+        };
+        responses: {
+            /** @description Already granted with the same wording; existing record returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Consent"];
+                };
+            };
+            /** @description Recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Consent"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    withdrawConsent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listRopaEntries: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                entryKey?: string;
+                kind?: "activity" | "adapter";
+                adapterKind?: string;
+                status?: "placeholder" | "draft" | "reviewed";
+                history?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RopaPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    saveRopaEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRopaEntry"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RopaEntry"];
+                };
+            };
+            /** @description Version written */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RopaEntry"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listRetentionPolicies: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                dataClass?: string;
+                dataset?: string;
+                history?: boolean;
+                evaluate?: boolean;
+                asOf?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicyList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    putRetentionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutRetentionPolicy"];
+            };
+        };
+        responses: {
+            /** @description Unchanged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicy"];
+                };
+            };
+            /** @description Version written */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    handleLegalHold: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalHoldRequest"];
+            };
+        };
+        responses: {
+            /** @description Decision, release or replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+            /** @description Hold requested */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listControls: {
+        parameters: {
+            query?: {
+                status?: "not_mapped" | "mapped" | "evidence_collected" | "reviewed";
+                applicability?: "to_confirm" | "applicable" | "not_applicable";
+                ownerRole?: string;
+                framework?: string;
+                controlId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    mapControl: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlMapping"];
+            };
+        };
+        responses: {
+            /** @description Replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlMapping"];
+                };
+            };
+            /** @description Written */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlMapping"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listEvidence: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                controlId?: string;
+                type?: "automated" | "document" | "attestation" | "external-report";
+                collector?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidencePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    addEvidence: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddEvidence"];
+            };
+        };
+        responses: {
+            /** @description Replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceItem"];
+                };
+            };
+            /** @description Written */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceItem"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listRegulatoryValidations: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                validationKey?: string;
+                status?: "open" | "answered" | "validated" | "rejected";
+                applicability?: "to_confirm" | "applicable" | "not_applicable";
+                history?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidationPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    saveRegulatoryValidation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveValidation"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegulatoryValidation"];
+                };
+            };
+            /** @description Written */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegulatoryValidation"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listBreachCases: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                id?: string;
+                state?: "detected" | "triaged" | "assessed" | "notification_decision" | "notified" | "remediation" | "closed";
+                severity?: "low" | "medium" | "high" | "critical";
+                pack?: boolean;
+                reason?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreachCasePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    handleBreachCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreachCaseCommand"];
+            };
+        };
+        responses: {
+            /** @description Move or replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreachCase"];
+                };
+            };
+            /** @description Written */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreachCase"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDataSubjectRequests: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+                type?: string;
+                subject?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DsrRequestPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    openDataSubjectRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenDsr"];
+            };
+        };
+        responses: {
+            /** @description Received */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DsrRequest"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDataSubjectRequest: {
+        parameters: {
+            query?: {
+                download?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DsrRequest"];
+                    "application/gzip": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+        };
+    };
+    listDataExports: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                download?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportPage"];
+                    "application/gzip": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createDataExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDataExport"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getResidencyPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResidencyPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    putResidencyPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the current version; required when a policy already exists. */
+                "If-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutResidencyPolicy"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResidencyPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listTransferAssessments: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: "pending" | "approved" | "rejected";
+                orgId?: string;
+                dataClass?: string;
+                expired?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferAssessmentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    handleTransferAssessment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferAssessmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Decision or replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferAssessment"];
+                };
+            };
+            /** @description Requested */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferAssessment"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

@@ -1,0 +1,208 @@
+# Residency enforcement-hook registry (M04 S14a, docs/10 §3 "Enforcement points"; AC-M04-14).
+# Every module that places data, calls a vendor or a model MUST ask the residency service first (`assertResidency()` / `@RequiresResidency`, packages/domain).
+# This file lists EVERY required call site with its owner milestone. Status per hook:
+#   listed   = required, not built yet (the owner milestone builds it); NOT enforced, so nothing breaks before the feature exists
+#   enforced = built: `call_site` must name a source file that really calls assertResidency/RequiresResidency (the CI check reads the file)
+#   exempt   = regulator-mandated or internal: needs an `exempt_reason`; the decision is still LOGGED by the module
+# A hook is enabled for a feature only when its `flag` is on; an owner milestone must move its hooks to `enforced` before that flag goes on.
+# CI: `pnpm compliance:residency-hooks` (every table with a data_region column is listed; every adapter kind of docs/09 has a hook; M05..M12 each have hooks).
+version: 1
+status: PROPOSAL
+tables:
+  # every table with a data_region column and the milestone that must route writes through a hook
+  invoicing.invoices:
+    {
+      owner: M03,
+      hook: m03-invoice-archive,
+      note: 'issued invoices are tax documents: archive placement is decided with D-34/D-15',
+    }
+  invoicing.credit_notes: { owner: M03, hook: m03-invoice-archive, note: 'same as invoices' }
+  invoicing.zatca_documents:
+    { owner: M03, hook: m03-zatca-submission, note: 'regulator-mandated flow: exempt, logged' }
+  metering.usage_events:
+    {
+      owner: M05,
+      hook: m05-provisioning,
+      note: 'usage carries the placeholder tag sa-pending until M05 supplies verified regions',
+    }
+  metering.usage_aggregates:
+    { owner: M05, hook: m05-provisioning, note: 'derived from usage events' }
+  tenancy.environments:
+    { owner: M05, hook: m05-provisioning, note: 'an environment names where its resources run' }
+hooks:
+  - {
+      id: m03-psp-personal-data,
+      milestone: M03,
+      where: 'Before sending personal or financial data to the payment provider (PspAdapter calls)',
+      data_classes: [personal, financial],
+      processor_kind: psp,
+      enforcement: listed,
+      flag: residency.enforce.psp,
+      call_site: null,
+    }
+  - {
+      id: m03-zatca-submission,
+      milestone: M03,
+      where: 'ZATCA submissions are regulator-mandated: logged, not blocked',
+      data_classes: [financial, personal],
+      processor_kind: einvoice,
+      enforcement: exempt,
+      exempt_reason: 'regulator-mandated transfer (class regulatory); the decision is logged by the submission service',
+      flag: residency.enforce.zatca,
+      call_site: null,
+    }
+  - {
+      id: m03-invoice-archive,
+      milestone: M03,
+      where: 'Placement of issued invoice archives and PDFs',
+      data_classes: [financial, personal],
+      enforcement: listed,
+      flag: residency.enforce.invoice_archive,
+      call_site: null,
+    }
+  - {
+      id: m05-offers-quote,
+      milestone: M05,
+      where: 'Offer filtering and quotes: only regions the organization policy allows',
+      data_classes: [customer-content, personal],
+      processor_kind: compute,
+      enforcement: listed,
+      flag: residency.enforce.offers,
+      call_site: null,
+    }
+  - {
+      id: m05-provisioning,
+      milestone: M05,
+      where: 'Routing and provisioning: dataRegion of every resource',
+      data_classes: [customer-content, personal, credentials],
+      processor_kind: compute,
+      enforcement: listed,
+      flag: residency.enforce.provisioning,
+      call_site: null,
+    }
+  - {
+      id: m05-backups,
+      milestone: M05,
+      where: 'Snapshot and backup destinations',
+      data_classes: [customer-content, credentials],
+      processor_kind: compute,
+      enforcement: listed,
+      flag: residency.enforce.backups,
+      call_site: null,
+    }
+  - {
+      id: m06-node-selection,
+      milestone: M06,
+      where: 'Hosting node selection by region; site backup destinations',
+      data_classes: [customer-content, personal],
+      processor_kind: hosting,
+      enforcement: listed,
+      flag: residency.enforce.hosting,
+      call_site: null,
+    }
+  - {
+      id: m07-registrant-contacts,
+      milestone: M07,
+      where: 'Registrant contact data sent to registrars (processor evaluation)',
+      data_classes: [personal],
+      processor_kind: registrar,
+      enforcement: listed,
+      flag: residency.enforce.registrar,
+      call_site: null,
+    }
+  - {
+      id: m08-data-placement,
+      milestone: M08,
+      where: 'Database, cache and bucket placement and backup region',
+      data_classes: [customer-content, credentials],
+      processor_kind: database,
+      enforcement: listed,
+      flag: residency.enforce.data,
+      call_site: null,
+    }
+  - {
+      id: m08-cache-placement,
+      milestone: M08,
+      where: 'Cache placement',
+      data_classes: [customer-content],
+      processor_kind: cache,
+      enforcement: listed,
+      flag: residency.enforce.cache,
+      call_site: null,
+    }
+  - {
+      id: m08-object-storage,
+      milestone: M08,
+      where: 'Object storage placement and signed-URL regions',
+      data_classes: [customer-content],
+      processor_kind: object-storage,
+      enforcement: listed,
+      flag: residency.enforce.storage,
+      call_site: null,
+    }
+  - {
+      id: m08-transactional-email,
+      milestone: M08,
+      where: 'Transactional email content and recipients sent to the email vendor',
+      data_classes: [personal],
+      processor_kind: transactional-email,
+      enforcement: listed,
+      flag: residency.enforce.email,
+      call_site: null,
+    }
+  - {
+      id: m08-mailbox,
+      milestone: M08,
+      where: 'Mailbox provisioning and mailbox data placement',
+      data_classes: [personal, customer-content],
+      processor_kind: mailbox,
+      enforcement: listed,
+      flag: residency.enforce.mailbox,
+      call_site: null,
+    }
+  - {
+      id: m09-model-gateway,
+      milestone: M09,
+      where: 'Model gateway: prompt and output class against the model region and processor',
+      data_classes: [customer-content, personal],
+      processor_kind: model,
+      enforcement: listed,
+      flag: residency.enforce.model,
+      call_site: null,
+    }
+  - {
+      id: m09-builder-assets,
+      milestone: M09,
+      where: 'Builder asset storage',
+      data_classes: [customer-content],
+      enforcement: listed,
+      flag: residency.enforce.builder,
+      call_site: null,
+    }
+  - {
+      id: m10-sandbox-builds,
+      milestone: M10,
+      where: 'Sandbox node region, exports, build workers (including a macOS build vendor) and Git remotes',
+      data_classes: [customer-content, credentials],
+      enforcement: listed,
+      flag: residency.enforce.builds,
+      call_site: null,
+    }
+  - {
+      id: m11-connectors,
+      milestone: M11,
+      where: 'Connectors to third-party systems and marketplace installs',
+      data_classes: [customer-content, personal],
+      enforcement: listed,
+      flag: residency.enforce.connectors,
+      call_site: null,
+    }
+  - {
+      id: m12-audit-archive,
+      milestone: M12,
+      where: 'Audit-log archive and backup placement (audit retention)',
+      data_classes: [personal, internal],
+      enforcement: listed,
+      flag: residency.enforce.audit_archive,
+      call_site: null,
+    }

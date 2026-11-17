@@ -146,7 +146,7 @@ export class OperationsService {
    */
   async claimDue(
     workerId: string,
-    opts: { batch?: number; leaseSeconds?: number } = {},
+    opts: { batch?: number; leaseSeconds?: number; kinds?: string[] } = {},
   ): Promise<ClaimedOperation[]> {
     const batch = opts.batch ?? 10;
     const lease = opts.leaseSeconds ?? 60;
@@ -161,10 +161,11 @@ export class OperationsService {
       }>(
         `SELECT id, org_id, kind, state, attempts, cancel_requested FROM platform.operations
           WHERE next_run_at <= now()
+            AND ($2::text[] IS NULL OR kind = ANY($2::text[]))
             AND ( state = 'pending'
                OR (state IN ('running','waiting_provider','needs_reconcile') AND (lease_expires_at IS NULL OR lease_expires_at < now())) )
           ORDER BY next_run_at LIMIT $1 FOR UPDATE SKIP LOCKED`,
-        [batch],
+        [batch, opts.kinds ?? null],
       );
       const claimed: ClaimedOperation[] = [];
       for (const r of rows) {
@@ -209,6 +210,50 @@ export class OperationsService {
         });
       }
       return claimed;
+    });
+  }
+
+  /**
+   * Claim ONE known operation under its organization's scope (no cross-organization role needed): `pending`, or `running` with an expired lease, becomes
+   * `running` with a lease. Returns null when it is not claimable (finished, leased by another worker, cancelled or not due). Used by in-process
+   * executors that already know the id (compliance requests, ADR-017); the cross-organization `claimDue` stays with the worker role.
+   */
+  async claimById(
+    orgId: string,
+    id: string,
+    workerId: string,
+    opts: { leaseSeconds?: number } = {},
+  ): Promise<ClaimedOperation | null> {
+    const lease = opts.leaseSeconds ?? 60;
+    return this.db.withOrg(orgId, async (c) => {
+      const { rows } = await c.query<{
+        id: string;
+        org_id: string;
+        kind: string;
+        state: OperationState;
+        attempts: number;
+      }>(
+        `UPDATE platform.operations
+            SET state='running', attempts=attempts+1, lease_owner=$2, lease_expires_at=now()+make_interval(secs=>$3), updated_at=now(), version=version+1
+          WHERE id=$1 AND next_run_at <= now() AND cancel_requested = false
+            AND (state='pending' OR (state='running' AND (lease_expires_at IS NULL OR lease_expires_at < now())))
+        RETURNING id, org_id, kind, attempts, (SELECT state FROM platform.operations o WHERE o.id=$1) AS state`,
+        [id, workerId, lease],
+      );
+      const r = rows[0];
+      if (!r) return null;
+      await enqueue(c, orgId, 'operation.state_changed', {
+        operationId: id,
+        from: r.state,
+        to: 'running',
+      });
+      return {
+        id: r.id,
+        orgId: r.org_id,
+        kind: r.kind,
+        previousState: r.state,
+        attempts: r.attempts,
+      };
     });
   }
 

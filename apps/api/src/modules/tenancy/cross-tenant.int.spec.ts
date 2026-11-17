@@ -60,6 +60,8 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (o.path.includes('/subscriptions/')) return A.subscription;
   if (o.path.includes('/invoices/')) return A.invoice;
   if (o.path.includes('/credit-notes/')) return A.creditNote;
+  if (o.path.includes('/compliance/consents/')) return A.consent;
+  if (o.path.includes('/compliance/data-subject-requests/')) return A.dsr;
   if (o.path.includes('/spend-approvals/')) return A.approval;
   const root = o.path.split('/')[2]!; // /v1/<root>/...
   return (
@@ -169,6 +171,18 @@ beforeAll(async () => {
     [A.creditNote, orgA, A.invoice],
   );
   // a saved payment method and a (finished) payment of org A: rows written directly, tokens only
+  A.consent = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO compliance.consents (id, org_id, subject_ref, purpose_id, state, seq, text_version, locale, source, created_by)
+     VALUES ($1, $2, 'org', 'marketing_email', 'granted', 1, 'placeholder-1', 'en', 'api', $3)`,
+    [A.consent, orgA, aliceId],
+  );
+  A.dsr = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO compliance.dsr_requests (id, org_id, subject_ref, type, requested_by, identity_method, due_at)
+     VALUES ($1, $2, $3, 'access', $4, 'session', now() + interval '30 days')`,
+    [A.dsr, orgA, `member:${aliceId}`, aliceId],
+  );
   A.paymentMethod = crypto.randomUUID();
   A.payment = crypto.randomUUID();
   await h.env.sql(

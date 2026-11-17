@@ -1,12 +1,18 @@
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { checkDatabase } from './checks';
+import { checkClassification } from './classification';
+import { collectEvidence } from './collectors';
+import { syncControls } from './controls';
+import { checkResidencyHooks } from './residency-hooks';
+import { adapterKindsFromDocs, checkRopaCoverage } from './ropa-coverage';
 import { loadManifest } from './migrations';
 import { migrate, rollback } from './runner';
 
 const root = join(__dirname, '..', '..', '..');
 const manifest = loadManifest(join(root, 'spec/db/ownership.yaml'));
 const migrationsDir = join(__dirname, '..', 'migrations');
+const controlsPath = join(root, 'spec/compliance/controls.yaml');
 const url = process.env.DATABASE_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev';
 
 async function ensureDatabase(target: string) {
@@ -34,6 +40,15 @@ async function main() {
         ? `applied: ${done.map((m) => `${m.ordinal}:${m.slug}`).join(', ')}`
         : 'no pending migrations',
     );
+    // the control catalog is loaded from spec/compliance/controls.yaml (idempotent; the runtime role cannot write it)
+    const synced = await syncControls(url, controlsPath).catch((e: Error) => {
+      if (/control_catalog|does not exist/.test(e.message)) return null; // before the M04 migration
+      throw e;
+    });
+    if (synced)
+      console.log(
+        `controls: ${synced.inserted.length} added, ${synced.updated.length} updated, ${synced.unchanged.length} unchanged, ${synced.orphaned.length} orphaned`,
+      );
   } else if (cmd === 'rollback') {
     const done = await rollback({ url, migrationsDir, manifest });
     console.log(`reverted: ${done.map((m) => `${m.ordinal}:${m.slug}`).join(', ') || 'nothing'}`);
@@ -95,8 +110,80 @@ async function main() {
       process.exit(1);
     }
     console.log('db check OK: ownership + RLS rules hold');
+  } else if (cmd === 'classification') {
+    // compliance:classification-coverage (M04 S13a): every column has a known data class; no stale entries; sensitive names are not weakly classed
+    const v = await checkClassification(url, manifest);
+    if (v.length) {
+      console.error(
+        'CLASSIFICATION COVERAGE FAILED:\n' +
+          v.map((x) => ` - [${x.kind}] ${x.object}: ${x.detail}`).join('\n'),
+      );
+      process.exit(1);
+    }
+    const cols = Object.values(manifest.classification.columns).reduce(
+      (n, t) => n + Object.keys(t).length,
+      0,
+    );
+    console.log(
+      `classification coverage OK: ${cols} columns in ${Object.keys(manifest.classification.columns).length} tables, all classified`,
+    );
+  } else if (cmd === 'ropa-coverage') {
+    // compliance:ropa-coverage (M04 S13b, AC-M04-04): an entry for every adapter kind of docs/09 and for every data class in use
+    const v = await checkRopaCoverage(
+      url,
+      manifest,
+      join(root, 'docs/09-provider-adapter-interfaces.md'),
+    );
+    if (v.length) {
+      console.error(
+        'ROPA COVERAGE FAILED:\n' +
+          v.map((x) => ` - [${x.kind}] ${x.object}: ${x.detail}`).join('\n'),
+      );
+      process.exit(1);
+    }
+    console.log(
+      'ropa coverage OK: every adapter kind of docs/09 and every data class in use has a ROPA entry',
+    );
+  } else if (cmd === 'residency-hooks') {
+    // compliance:residency-hooks (M04 S14a, AC-M04-14): every data_region table and adapter kind has a registered hook; M05..M12 list their call sites
+    const v = await checkResidencyHooks(
+      url,
+      join(root, 'spec/compliance/residency-hooks.yaml'),
+      join(root, 'docs/09-provider-adapter-interfaces.md'),
+      root,
+      adapterKindsFromDocs,
+    );
+    if (v.length) {
+      console.error(
+        'RESIDENCY HOOKS FAILED:\n' +
+          v.map((x) => ` - [${x.kind}] ${x.object}: ${x.detail}`).join('\n'),
+      );
+      process.exit(1);
+    }
+    console.log(
+      'residency hooks OK: every data_region table and adapter kind has a hook; M05..M12 list their call sites',
+    );
+  } else if (cmd === 'sync-controls') {
+    const r = await syncControls(url, controlsPath);
+    console.log(
+      `controls: ${r.inserted.length} added, ${r.updated.length} updated, ${r.unchanged.length} unchanged, ${r.orphaned.length} orphaned${r.orphaned.length ? ` (${r.orphaned.join(', ')})` : ''}`,
+    );
+  } else if (cmd === 'collect-evidence') {
+    // compliance:collect-evidence (M04 S15): run the collectors, record immutable hashed evidence; a failing collector exits 1 after recording
+    const only = process.argv.slice(3);
+    const reports = await collectEvidence(
+      { url, manifest, root, migrationsDir },
+      only.length ? only : undefined,
+    );
+    for (const r of reports)
+      console.log(
+        `${r.ok ? 'ok  ' : 'FAIL'} ${r.collector} ${r.hash.slice(0, 12)} new=${r.created.length} same=${r.unchanged.length} ${JSON.stringify(r.summary)}`,
+      );
+    if (reports.some((r) => !r.ok)) process.exit(1);
   } else {
-    console.error('usage: cli.ts migrate|rollback|dev-logins|grant-platform-role|check');
+    console.error(
+      'usage: cli.ts migrate|rollback|dev-logins|grant-platform-role|check|classification|ropa-coverage|residency-hooks|sync-controls|collect-evidence',
+    );
     process.exit(2);
   }
 }

@@ -12,6 +12,7 @@ const manifest: Manifest = {
   tenant_less: [],
   rls_keyed: [],
   migration_ranges: { M01: '0001-0199', M02: '0200-0299' },
+  classification: { classes: [], columns: {}, exceptions: {}, protection: {} },
 };
 
 function layout(files: Record<string, string>) {

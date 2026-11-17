@@ -1,22 +1,27 @@
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
+import type { FieldCipher } from '../../../common/field-crypto';
 import { parseTaxProfile, type ProfileRules, type TaxProfileInput } from './tax-profile.rules';
+import { openProfile, sealProfile } from './tax-profile.store';
 
 export interface TaxProfileDto extends TaxProfileInput {
   version: number;
   updatedAt: string;
 }
 type Row = Record<string, unknown>;
-const dto = (r: Row): TaxProfileDto => ({
-  buyerType: r.buyer_type as 'b2b' | 'b2c',
-  legalName: { ar: r.legal_name_ar as string, en: r.legal_name_en as string },
-  vatNumber: (r.vat_number as string | null) ?? null,
-  crNumber: (r.cr_number as string | null) ?? null,
-  address: r.address as TaxProfileDto['address'],
-  version: r.version as number,
-  updatedAt: (r.updated_at as Date).toISOString(),
-});
+const dto = async (r: Row, cipher: FieldCipher | undefined): Promise<TaxProfileDto> => {
+  const pii = await openProfile(cipher, r);
+  return {
+    buyerType: r.buyer_type as 'b2b' | 'b2c',
+    legalName: pii.legalName,
+    vatNumber: pii.vatNumber,
+    crNumber: pii.crNumber,
+    address: pii.address as TaxProfileDto['address'],
+    version: r.version as number,
+    updatedAt: (r.updated_at as Date).toISOString(),
+  };
+};
 
 /** The organization's invoicing identity (classified financial + personal). One row per organization; replace with If-Match. */
 export class TaxProfileService {
@@ -24,6 +29,8 @@ export class TaxProfileService {
     private readonly db: Db,
     private readonly audit: AuditSink,
     private readonly rules: ProfileRules,
+    /** Seals the personal part (M04 S13d). Optional only for unit contexts without a database. */
+    private readonly cipher?: FieldCipher,
   ) {}
 
   async get(orgId: string): Promise<TaxProfileDto> {
@@ -35,7 +42,7 @@ export class TaxProfileService {
           'not_found',
           'no tax profile has been set for this organization',
         );
-      return dto(r);
+      return dto(r, this.cipher);
     });
   }
 
@@ -57,35 +64,24 @@ export class TaxProfileService {
         if (existing.version !== expectedVersion)
           throw new ProblemException('precondition_failed', 'the tax profile changed; reload it');
       }
+      if (!this.cipher) throw new Error('the tax profile needs the field cipher to be written');
+      const sealed = await sealProfile(this.cipher, orgId, {
+        legalName: p.legalName,
+        vatNumber: p.vatNumber,
+        crNumber: p.crNumber,
+        address: p.address as Record<string, string>,
+      });
+      // the personal values exist only inside `pii_enc`: the plaintext columns are NULL (database check)
       const row = (
         existing
           ? await c.query(
-              `UPDATE invoicing.tax_profiles SET buyer_type=$2, legal_name_ar=$3, legal_name_en=$4, vat_number=$5, cr_number=$6, address=$7,
-                      version = version + 1, updated_by=$8, updated_at=now() WHERE org_id=$1 RETURNING *`,
-              [
-                orgId,
-                p.buyerType,
-                p.legalName.ar,
-                p.legalName.en,
-                p.vatNumber,
-                p.crNumber,
-                JSON.stringify(p.address),
-                actorUserId,
-              ],
+              `UPDATE invoicing.tax_profiles SET buyer_type=$2, pii_enc=$3, legal_name_ar=NULL, legal_name_en=NULL, vat_number=NULL, cr_number=NULL, address=NULL,
+                      version = version + 1, updated_by=$4, updated_at=now() WHERE org_id=$1 RETURNING *`,
+              [orgId, p.buyerType, sealed, actorUserId],
             )
           : await c.query(
-              `INSERT INTO invoicing.tax_profiles (org_id, buyer_type, legal_name_ar, legal_name_en, vat_number, cr_number, address, updated_by)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-              [
-                orgId,
-                p.buyerType,
-                p.legalName.ar,
-                p.legalName.en,
-                p.vatNumber,
-                p.crNumber,
-                JSON.stringify(p.address),
-                actorUserId,
-              ],
+              `INSERT INTO invoicing.tax_profiles (org_id, buyer_type, pii_enc, updated_by) VALUES ($1,$2,$3,$4) RETURNING *`,
+              [orgId, p.buyerType, sealed, actorUserId],
             )
       ).rows[0]!;
       // the audit row names WHICH fields changed, never the personal values themselves
@@ -102,7 +98,7 @@ export class TaxProfileService {
           version: row.version,
         },
       });
-      return dto(row);
+      return dto(row, this.cipher);
     });
   }
 }

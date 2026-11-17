@@ -3,6 +3,8 @@ import type { PoolClient } from 'pg';
 import { enqueue, type Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
+import type { FieldCipher } from '../../../common/field-crypto';
+import { openProfile } from './tax-profile.store';
 import { dateOnly } from '../../../common/dates';
 import { decodeCursor, pageOf, type Page } from '../../../common/pagination';
 import { formatDec, parseDec } from '../../../common/rating';
@@ -193,6 +195,8 @@ export class InvoiceService {
       kind: string,
       params: Record<string, unknown>,
     ) => Promise<void>,
+    /** Opens a sealed tax profile for the buyer snapshot (M04 S13d). */
+    private readonly cipher?: FieldCipher,
   ) {}
 
   static optsFromEnv(env: NodeJS.ProcessEnv = process.env) {
@@ -537,14 +541,16 @@ export class InvoiceService {
   private async buyerSnapshot(c: PoolClient, orgId: string) {
     const p = (await c.query(`SELECT * FROM invoicing.tax_profiles WHERE org_id = $1`, [orgId]))
       .rows[0];
-    if (p)
+    if (p) {
+      const pii = await openProfile(this.cipher, p);
       return {
         buyerType: p.buyer_type,
-        legalName: { ar: p.legal_name_ar, en: p.legal_name_en },
-        vatNumber: p.vat_number,
-        crNumber: p.cr_number,
-        address: p.address,
+        legalName: pii.legalName,
+        vatNumber: pii.vatNumber,
+        crNumber: pii.crNumber,
+        address: pii.address,
       };
+    }
     const org = (
       await c.query<{ name: string }>(`SELECT name FROM tenancy.organizations WHERE id = $1`, [
         orgId,

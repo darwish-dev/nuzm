@@ -1,11 +1,13 @@
 import { Global, Module } from '@nestjs/common';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
+import { FieldCipher } from '../../common/field-crypto';
 import { DB } from '../../common/tokens';
 import { CreditNoteService } from './internal/credit-note.service';
 import { InvoiceService } from './internal/invoice.service';
 import { ChromePdfRenderer, type PdfRenderer } from './internal/pdf.renderer';
 import { SequenceService } from './internal/sequence.service';
+import { TaxProfileSealer } from './internal/tax-profile.sealer';
 import { TaxProfileService } from './internal/tax-profile.service';
 import { rulesFromEnv } from './internal/tax-profile.rules';
 import { TaxService } from './internal/tax.service';
@@ -39,14 +41,20 @@ import { RatingService } from '../metering';
   providers: [
     {
       provide: TaxService,
-      useFactory: (db: Db) =>
-        new TaxService(db, TaxService.roundingFromEnv(), TaxService.defaultScopeFromEnv()),
-      inject: [DB],
+      useFactory: (db: Db, f: FieldCipher) =>
+        new TaxService(db, TaxService.roundingFromEnv(), TaxService.defaultScopeFromEnv(), f),
+      inject: [DB, FieldCipher],
     },
     {
       provide: TaxProfileService,
-      useFactory: (db: Db, a: AuditSink) => new TaxProfileService(db, a, rulesFromEnv()),
-      inject: [DB, AuditSink],
+      useFactory: (db: Db, a: AuditSink, f: FieldCipher) =>
+        new TaxProfileService(db, a, rulesFromEnv(), f),
+      inject: [DB, AuditSink, FieldCipher],
+    },
+    {
+      provide: TaxProfileSealer,
+      useFactory: (db: Db, f: FieldCipher, a: AuditSink) => new TaxProfileSealer(db, f, a),
+      inject: [DB, FieldCipher, AuditSink],
     },
     { provide: SequenceService, useFactory: () => new SequenceService() },
     { provide: ChromePdfRenderer, useFactory: () => new ChromePdfRenderer() },
@@ -62,6 +70,7 @@ import { RatingService } from '../metering';
         p: PdfRenderer,
         z: ZatcaSubmissionService,
         n: NotificationService,
+        f: FieldCipher,
       ) =>
         new InvoiceService(
           db,
@@ -77,6 +86,7 @@ import { RatingService } from '../metering';
             for (const userId of await billingManagerIds(db, orgId))
               await n.notify({ orgId, userId, kind, params });
           },
+          f,
         ),
       inject: [
         DB,
@@ -88,6 +98,7 @@ import { RatingService } from '../metering';
         ChromePdfRenderer,
         ZatcaSubmissionService,
         NotificationService,
+        FieldCipher,
       ],
     },
     {
@@ -186,6 +197,7 @@ import { RatingService } from '../metering';
   exports: [
     TaxService,
     TaxProfileService,
+    TaxProfileSealer,
     SequenceService,
     InvoiceService,
     CreditNoteService,

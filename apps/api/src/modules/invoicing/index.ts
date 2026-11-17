@@ -4,6 +4,8 @@ export { TaxService } from './internal/tax.service';
 export type { TaxEstimate } from './internal/tax.service';
 export { TaxProfileService } from './internal/tax-profile.service';
 export type { TaxProfileDto } from './internal/tax-profile.service';
+export { TaxProfileSealer } from './internal/tax-profile.sealer';
+export type { SealResult } from './internal/tax-profile.sealer';
 export { SequenceService } from './internal/sequence.service';
 export { computeTax, resolveRate, divRound } from './internal/tax-engine';
 export type { TaxRate, TaxScope, BuyerType, RoundingMode } from './internal/tax-engine';

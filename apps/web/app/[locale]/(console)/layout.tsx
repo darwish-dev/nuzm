@@ -35,6 +35,7 @@ export default async function ConsoleLayout({
           },
         ]
       : []),
+    ...gated('privacy:dsr:self', '/privacy/requests', 'nav.privacy'),
     ...gated('audit:read', '/audit-logs', 'nav.audit'),
     ...gated('member:read', '/settings/members', 'nav.members'),
     ...gated('member:invite', '/settings/invitations', 'nav.invitations'),
@@ -53,7 +54,11 @@ export default async function ConsoleLayout({
     ...i,
     // the Billing entry stays current on every billing sub-page
     current:
-      path === i.href || (i.href.endsWith('/billing') ? path.startsWith(`${i.href}/`) : false),
+      path === i.href ||
+      (i.href.endsWith('/billing') ? path.startsWith(`${i.href}/`) : false) ||
+      (i.href.endsWith('/privacy/requests')
+        ? path.includes('/privacy/') || path.endsWith('/settings/data-residency')
+        : false),
   }));
   const imp = s.me.impersonation;
   return (

@@ -1,0 +1,51 @@
+# Region groups (M04 S14a, docs/10 §3). A target region resolves to a COUNTRY and a GROUP: in_kingdom, gcc, eu, other.
+# PROPOSAL (D-14, HG-04-01): counsel decides what counts as which group (for example whether EEA states outside the EU belong to `eu`).
+# A region is `in_kingdom` ONLY if it is verified (probe evidence from the M05 provider registry), never by its name:
+# until M05 exists the regions below are MOCK FIXTURES (`MockRegionRegistry`) and `sa-pending` (the placeholder data_region tag of usage data)
+# is deliberately UNVERIFIED, so it is treated as `other`.
+version: 1
+status: PROPOSAL
+groups:
+  in_kingdom: [SA]
+  gcc: [AE, BH, KW, OM, QA]
+  eu:
+    [
+      AT,
+      BE,
+      BG,
+      HR,
+      CY,
+      CZ,
+      DK,
+      EE,
+      FI,
+      FR,
+      DE,
+      GR,
+      HU,
+      IE,
+      IT,
+      LV,
+      LT,
+      LU,
+      MT,
+      NL,
+      PL,
+      PT,
+      RO,
+      SK,
+      SI,
+      ES,
+      SE,
+    ]
+  # every other country is group `other`
+fixtures:
+  # MOCK regions (not provider data): id, country, verified
+  - { id: sa-central, country: SA, verified: true }
+  - { id: sa-west, country: SA, verified: true }
+  - { id: sa-pending, country: SA, verified: false }
+  - { id: ae-dubai, country: AE, verified: true }
+  - { id: de-frankfurt, country: DE, verified: true }
+  - { id: nl-amsterdam, country: NL, verified: true }
+  - { id: sg-singapore, country: SG, verified: true }
+  - { id: us-east, country: US, verified: true }

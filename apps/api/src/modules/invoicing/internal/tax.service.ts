@@ -1,4 +1,6 @@
 import type { Db } from '@nuzm/platform';
+import type { FieldCipher } from '../../../common/field-crypto';
+import { openProfile } from './tax-profile.store';
 import {
   computeTax,
   resolveRate,
@@ -28,6 +30,8 @@ export class TaxService {
     private readonly rounding: RoundingMode = 'half_up',
     /** Baseline scope of the platform's own services (`TAX_DEFAULT_SCOPE`, default `domestic`: services supplied in the Kingdom). null = unconfigured, every estimate is flagged. [VERIFY HG-03-04] */
     private readonly defaultScope: TaxScope | null = 'domestic',
+    /** Opens a sealed tax profile (M04 S13d). */
+    private readonly cipher?: FieldCipher,
   ) {}
 
   static defaultScopeFromEnv(env: NodeJS.ProcessEnv = process.env): TaxScope | null {
@@ -48,8 +52,8 @@ export class TaxService {
   ): Promise<TaxEstimate> {
     const { profile, rates } = await this.db.withOrg(orgId, async (c) => ({
       profile: (
-        await c.query<{ buyer_type: BuyerType; address: { country?: string } }>(
-          `SELECT buyer_type, address FROM invoicing.tax_profiles WHERE org_id = $1`,
+        await c.query<Record<string, unknown>>(
+          `SELECT org_id, buyer_type, address, pii_enc FROM invoicing.tax_profiles WHERE org_id = $1`,
           [orgId],
         )
       ).rows[0],
@@ -77,8 +81,10 @@ export class TaxService {
     }));
     const res = resolveRate(rates, {
       on,
-      buyerType: profile?.buyer_type ?? 'b2c',
-      buyerCountry: profile?.address?.country ?? null,
+      buyerType: (profile?.buyer_type as BuyerType | undefined) ?? 'b2c',
+      buyerCountry: profile
+        ? ((await openProfile(this.cipher, profile)).address.country ?? null)
+        : null,
       scope: scope === undefined ? this.defaultScope : scope,
     });
     const t = computeTax(netMinor, res.rate.rateBps, this.rounding);

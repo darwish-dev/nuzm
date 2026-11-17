@@ -1,0 +1,57 @@
+# Consent purposes (M04 S13a; docs/05 §4: purposes are catalogued here, not in a table).
+# EVERY text below is a PLACEHOLDER: the wording that a person sees and agrees to is legal text and needs counsel (HG-04-01, D-16).
+# Until then each text is flagged COUNSEL-TEXT-REQUIRED and `status: PROPOSAL`. `textVersion` changes whenever the wording changes, so a
+# consent always records WHICH text the person saw (a new version does not silently renew an old consent).
+version: 1
+status: PROPOSAL
+purposes:
+  - id: marketing_email
+    category: marketing
+    textVersion: placeholder-1
+    label: { ar: رسائل تسويقية بالبريد الإلكتروني, en: Marketing emails }
+    text:
+      ar: COUNSEL-TEXT-REQUIRED
+      en: COUNSEL-TEXT-REQUIRED
+  - id: product_analytics
+    category: analytics
+    textVersion: placeholder-1
+    label: { ar: تحليلات استخدام المنتج, en: Product usage analytics }
+    text:
+      ar: COUNSEL-TEXT-REQUIRED
+      en: COUNSEL-TEXT-REQUIRED
+  - id: ai_quality_improvement
+    category: ai
+    textVersion: placeholder-1
+    label:
+      {
+        ar: تحسين جودة خدمات الذكاء الاصطناعي بمحتوى العميل,
+        en: Improving AI quality with customer content,
+      }
+    text:
+      ar: COUNSEL-TEXT-REQUIRED
+      en: COUNSEL-TEXT-REQUIRED
+  - id: support_access
+    category: support
+    textVersion: placeholder-1
+    label:
+      {
+        ar: اطلاع فريق الدعم على بيانات المؤسسة لحل مشكلة,
+        en: Support staff access to organization data to resolve an issue,
+      }
+    text:
+      ar: COUNSEL-TEXT-REQUIRED
+      en: COUNSEL-TEXT-REQUIRED
+  - id: cross_border_transfer
+    category: transfer
+    textVersion: placeholder-1
+    label: { ar: نقل البيانات خارج المملكة, en: Transfer of data outside the Kingdom }
+    text:
+      ar: COUNSEL-TEXT-REQUIRED
+      en: COUNSEL-TEXT-REQUIRED
+  - id: beta_programs
+    category: product
+    textVersion: placeholder-1
+    label: { ar: المشاركة في البرامج التجريبية, en: Taking part in beta programs }
+    text:
+      ar: COUNSEL-TEXT-REQUIRED
+      en: COUNSEL-TEXT-REQUIRED

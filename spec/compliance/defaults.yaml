@@ -1,0 +1,39 @@
+# Residency and compliance defaults (M04 S14a). PROPOSAL: every value is a restrictive working default until counsel decides (D-14, HG-04-01).
+version: 1
+status: PROPOSAL
+residency:
+  # Strictness order of an organization's mode (strictest first): in_kingdom_only, allow_listed, unrestricted_with_assessment.
+  # The PLATFORM FLOOR is, per data class, the LOOSEST mode the platform ever allows. An organization may only choose a mode at or below it.
+  floor:
+    public: unrestricted_with_assessment # public data has no residency concern (always allowed)
+    internal: unrestricted_with_assessment
+    customer-content: unrestricted_with_assessment
+    personal: unrestricted_with_assessment
+    financial: unrestricted_with_assessment
+    credentials: in_kingdom_only # credential material never leaves the Kingdom: no mode and no exception can loosen it
+  # With no organization policy: in-Kingdom only (D-14 proposal for personal, financial and customer content; applied to every non-public class)
+  default_mode: in_kingdom_only
+  # An approved transfer assessment is valid at most this long
+  max_assessment_days: 730
+  # How long an organization's policy may be served from the in-process cache (the service also invalidates on its own writes)
+  cache_ttl_seconds: 5
+dsr:
+  # Data-subject-request timers (docs/10 §4). PROPOSAL until counsel states the statutory deadlines (HG-04-01).
+  # Fulfilment deadline in calendar days per type; a warning at warn_at and an escalation at escalate_at of the time from receipt to the deadline.
+  fulfil_days: { access: 30, correction: 30, deletion: 30, portability: 30 }
+  warn_at: 0.7
+  escalate_at: 0.9
+  # A failing handler is retried this many times in a run before the task is marked failed and the request is partially fulfilled or rejected.
+  task_max_attempts: 3
+exports:
+  # Data exports (docs/10 §4; M04 §10): at most this many in progress per organization; a finished archive and its link expire.
+  max_concurrent: 5
+  archive_ttl_hours: 72
+  link_ttl_seconds: 900
+breach:
+  # Breach-case timers (docs/10 §6). PLACEHOLDERS: statutory deadlines and recipients are human-defined (HG-04-01). Hours counted from detection.
+  triage_hours: 24
+  assess_hours: 48
+  decision_hours: 72
+  # How far before detection the evidence pack reads the audit trail of each affected organization.
+  evidence_lookback_hours: 24

@@ -1,0 +1,142 @@
+# Control register (docs/10 §2; M04 §4 task 12). OUR OWN paraphrased statements; official control text is never copied here.
+# `frameworks` stays EMPTY until the compliance owner supplies framework control references (HG-04-02, D-17).
+# applicability is always `to_confirm` here: only a human with counsel decides otherwise (regulatory validation register), never this file.
+# claims_compliance MUST be false (the loader, a database CHECK and `pnpm compliance:claims-guard` all refuse true). Nothing in this file says Nuzm meets any regime.
+version: 1
+status: PROPOSAL-NOT-REVIEWED
+controls:
+  - id: CTL-TEN-001
+    title: Tenant data is isolated by forced row-level security
+    description: Every table that holds an organization's rows carries org_id and a forced RLS policy; the check runs against the live schema.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: security
+    implementation: { status: implemented, modules: [platform, tenancy], milestone: M01 }
+    evidence:
+      - { type: automated, collector: db.ownership-rls-check }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-DAT-001
+    title: Every stored column carries a data class
+    description: Personal, financial and credential columns cannot be classed as internal or public, and credentials declare how they are protected.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: compliance_officer
+    implementation: { status: implemented, modules: [compliance], milestone: M04 }
+    evidence:
+      - { type: automated, collector: db.classification-coverage }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-LOG-001
+    title: Audit records are append-only and tamper-evident
+    description: Audit events form a hash chain per organization; verification re-derives every hash and the chain tip.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: security
+    implementation: { status: implemented, modules: [audit], milestone: M01 }
+    evidence:
+      - { type: automated, collector: audit.chain-verification }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-CHG-001
+    title: Database changes are forward-only, owned and checksummed
+    description: Migrations are numbered inside the owning milestone range, touch only schemas that milestone may extend, and are checksummed.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: security
+    implementation: { status: implemented, modules: [db], milestone: M01 }
+    evidence:
+      - { type: automated, collector: db.migration-lint }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-SEC-001
+    title: Secrets stay out of the repository and the dependency set is pinned
+    description: A pattern scan of tracked files and a digest of the lockfile. It does NOT query a vulnerability database.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: security
+    implementation: { status: partial, modules: [config], milestone: M01 }
+    evidence:
+      - { type: automated, collector: scan.secrets-and-lockfile }
+      - { type: manual, description: Dependency vulnerability review by the security owner }
+    review_cadence_days: 30
+    claims_compliance: false
+  - id: CTL-NET-001
+    title: Responses carry restrictive security headers
+    description: A snapshot of the header configuration in the application source. It is NOT a probe of a running deployment or of TLS termination.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: security
+    implementation: { status: partial, modules: [api, web, admin], milestone: M01 }
+    evidence:
+      - { type: automated, collector: config.security-snapshot }
+      - { type: manual, description: TLS configuration review of the real deployment }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-PRV-001
+    title: Processing activities are recorded for every adapter kind and data class
+    description: The record of processing activities has an entry for each provider adapter kind and each data class in use.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: compliance_officer
+    implementation: { status: partial, modules: [compliance], milestone: M04 }
+    evidence:
+      - { type: automated, collector: compliance.ropa-coverage }
+      - { type: manual, description: DPO review of each entry }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-RES-001
+    title: Residency decisions fail closed and every hook point is registered
+    description: Data placement is decided by one service that denies on any failure; the registry lists every call site later milestones must add.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: compliance_officer
+    implementation: { status: partial, modules: [compliance], milestone: M04 }
+    evidence:
+      - { type: automated, collector: compliance.residency-hooks }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-ACC-001
+    title: Privileged staff access needs a second factor and recent verification
+    description: The admin console requires MFA and a recent verification for changes; reviews of who holds privileged roles are done by people.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: security
+    implementation: { status: partial, modules: [identity], milestone: M01 }
+    evidence:
+      - { type: manual, description: Quarterly privileged-access review }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-PRV-002
+    title: Data-subject requests are tracked against configured deadlines
+    description: Requests run as operations with warnings and escalations; refusals carry a recorded reason.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: compliance_officer
+    implementation: { status: partial, modules: [compliance], milestone: M04 }
+    evidence:
+      - { type: manual, description: DPO review of closed requests }
+    review_cadence_days: 90
+    claims_compliance: false
+  - id: CTL-RET-001
+    title: Retention is policy-driven and legal holds stop archival
+    description: Archival detaches whole partitions under a break-glass role with two people; a hold on the data refuses it.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: compliance_officer
+    implementation: { status: partial, modules: [audit, compliance], milestone: M04 }
+    evidence:
+      - { type: manual, description: Counsel approval of retention periods }
+    review_cadence_days: 180
+    claims_compliance: false
+  - id: CTL-INC-001
+    title: Breach cases follow a staged workflow with a human notification decision
+    description: A case moves through fixed states with an append-only timeline; the decision to notify and any notification are recorded by people. The platform sends nothing.
+    frameworks: []
+    applicability: to_confirm
+    owner_role: security
+    implementation: { status: partial, modules: [compliance], milestone: M04 }
+    evidence:
+      - { type: manual, description: Tabletop exercise report }
+    review_cadence_days: 180
+    claims_compliance: false

@@ -54,6 +54,8 @@ tags:
     description: Plans, entitlements, ledger statement and wallet balance
   - name: admin
     description: Admin console (platform roles, admin realm, MFA-verified session)
+  - name: compliance
+    description: Consent, privacy requests, residency and compliance registers
 paths:
   /healthz:
     get:
@@ -3164,6 +3166,762 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/compliance/consents:
+    post:
+      operationId: grantConsent
+      tags: [compliance]
+      summary: Record a consent
+      description: 'Body {purposeId, granted: true, localeShown: ar|en, textVersion, subjectRef?}. APPEND-ONLY history: the grant is a new row. textVersion must be the CURRENT wording of the purpose (422 otherwise: show the current text first); an unknown purpose is 409 consent_purpose_unknown. Without subjectRef the subject is the caller (any member); subjectRef (an opaque id, never an email or name; "org" for the organization itself) needs `privacy:consent:manage` (owner, admin), else 403. Granting again with the same wording while already granted answers 200 with the existing record and writes nothing; 201 when a row was written. Idempotent per Idempotency-Key. Requires permission `privacy:consent:self`. Audited. The purposes and their wording come from spec/compliance/purposes.yaml; the wording is a COUNSEL-TEXT-REQUIRED placeholder until HG-04-01.'
+      x-nuzm-permission: privacy:consent:self
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GrantConsent' }
+      responses:
+        '200':
+          description: Already granted with the same wording; existing record returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Consent' }
+        '201':
+          description: Recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Consent' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listConsents
+      tags: [compliance]
+      summary: List consents
+      description: 'The CURRENT consent per (subject, purpose), newest first; history=true returns every row. Filters purposeId, subject, status (granted|withdrawn: the current state). A caller without `privacy:consent:manage` sees only their own subject (403 when asking for another). Requires permission `privacy:consent:self`.'
+      x-nuzm-permission: privacy:consent:self
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: purposeId, in: query, schema: { type: string } }
+        - { name: subject, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [granted, withdrawn] } }
+        - { name: history, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsentPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/compliance/consents/{id}:
+    delete:
+      operationId: withdrawConsent
+      tags: [compliance]
+      summary: Withdraw a consent
+      description: "Records a `withdrawn` entry for the subject and purpose of the named record (the row is retained). Applies immediately: the next check sees it. Withdrawing something already withdrawn changes nothing. 404 for an unknown id, for another organization's, and for a member asking about someone else's record. Requires permission `privacy:consent:self` (acting for another subject needs `privacy:consent:manage`). Audited."
+      x-nuzm-permission: privacy:consent:self
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '204': { description: Withdrawn }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/ropa:
+    get:
+      operationId: listRopaEntries
+      tags: [compliance]
+      summary: List the record of processing activities
+      description: 'The CURRENT version of each platform-level entry; history=true with an entryKey returns every version. Filters entryKey, kind (activity|adapter), adapterKind, status (placeholder|draft|reviewed). Seeded PLACEHOLDER entries exist for every adapter kind of docs/09 and for every platform activity; they name no processor until a provider is chosen and need the DPO/counsel (HG-04-01). Platform permission `admin:compliance:read` (compliance officer, platform admin, security); admin-realm session.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: entryKey, in: query, schema: { type: string } }
+        - { name: kind, in: query, schema: { type: string, enum: [activity, adapter] } }
+        - { name: adapterKind, in: query, schema: { type: string } }
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [placeholder, draft, reviewed] },
+          }
+        - { name: history, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RopaPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: saveRopaEntry
+      tags: [compliance]
+      summary: Create a ROPA entry or add a version
+      description: 'Entries are VERSIONED and immutable. Without baseVersion the entry is created (kind required; adapterKind for kind adapter); with baseVersion (the current version, else 409) a new version is written. A version with status reviewed approves the previous content UNCHANGED and needs a different person than the author of that version (403 otherwise). Data classes must exist in the catalogue; processor regions are ISO country codes or in_kingdom|gcc|eu|other. Needs an Idempotency-Key (a replay with the same content returns the same version; other content is 422 idempotency_key_reuse). 201 when a version was written, 200 on a replay. Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveRopaEntry' }
+      responses:
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RopaEntry' }
+        '201':
+          description: Version written
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RopaEntry' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/retention-policies:
+    get:
+      operationId: listRetentionPolicies
+      tags: [compliance]
+      summary: List retention policies (optionally with a dry-run preview)
+      description: 'The CURRENT version of each policy (one per data class, optionally overridden per dataset); history=true with a dataClass returns every version. Every seeded value is a PROPOSAL (D-34, HG-04-01). evaluate=true adds a DRY RUN preview (asOf optional): per known dataset the rows the policy WOULD archive or expire, minus anything under an active legal hold, and for partitioned append-only tables the partitions that could be detached; it changes nothing and is audited. execute is refused (422): archival is a break-glass procedure, never an API action. Platform permission `admin:compliance:read`; admin-realm session.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: dataClass, in: query, schema: { type: string } }
+        - { name: dataset, in: query, schema: { type: string } }
+        - { name: history, in: query, schema: { type: boolean } }
+        - { name: evaluate, in: query, schema: { type: boolean } }
+        - { name: asOf, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionPolicyList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putRetentionPolicy
+      tags: [compliance]
+      summary: Set a retention policy
+      description: 'Creates version 1 of the policy for {dataClass, dataset?} or, with baseVersion (the current version, else 409), version n+1; versions are immutable. Same content as the current version changes nothing (200). archiveAfterDays <= retainDays. status approved needs documentRef (the approving document) and records the caller as the human approver; the default is proposal. Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutRetentionPolicy' }
+      responses:
+        '200':
+          description: Unchanged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionPolicy' }
+        '201':
+          description: Version written
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/legal-holds:
+    post:
+      operationId: handleLegalHold
+      tags: [compliance]
+      summary: Request, decide or release a legal hold
+      description: "Three requests on one endpoint. CREATE {scope: {orgId?, dataset?}, reason, approvers: [two different staff ids]}: the caller must be one of the two; the other is the second approver (a compliance officer or platform admin); the hold is pending_approval and has NO effect yet (201). DECIDE {holdId, decision: approve|reject, note?}: only the named second approver (else 403); approve makes it active. RELEASE {holdId, action: release, reason}: only an active hold, by a DIFFERENT person than the requester (else 403). An open hold per scope is unique (409). A hold blocks archival of the data it covers: an organization hold blocks any partition that holds that organization's rows, a dataset hold blocks the dataset. Scope and people are immutable; nothing is deleted. Needs an Idempotency-Key (a create replay returns the same hold). Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited."
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LegalHoldRequest' }
+      responses:
+        '200':
+          description: Decision, release or replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalHold' }
+        '201':
+          description: Hold requested
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalHold' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/controls:
+    get:
+      operationId: listControls
+      tags: [compliance]
+      summary: List the control register
+      description: 'Our own paraphrased controls (spec/compliance/controls.yaml, loaded by the sync tool) with their mappings and evidence. status is what exists, never a verdict: not_mapped, mapped, evidence_collected, reviewed (a named person attested, with their role and whether the review cadence has lapsed). claims_compliance is always false and nothing here says that Nuzm meets any regime; framework references stay empty until the compliance owner supplies them (HG-04-02) and applicability is to_confirm. The catalog is small and not paginated. Filters status, applicability, ownerRole, framework, controlId. Platform permission `admin:compliance:read`; admin-realm session.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [not_mapped, mapped, evidence_collected, reviewed] },
+          }
+        - {
+            name: applicability,
+            in: query,
+            schema: { type: string, enum: [to_confirm, applicable, not_applicable] },
+          }
+        - { name: ownerRole, in: query, schema: { type: string } }
+        - { name: framework, in: query, schema: { type: string } }
+        - { name: controlId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ControlPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: mapControl
+      tags: [compliance]
+      summary: Map a control to a module feature
+      description: 'Body {controlId, module, feature, evidenceRequirement}. Mappings are append-only (never edited); the same control, module and feature again replays (200). 404 for an unknown control. Needs an Idempotency-Key. Permission admin:controls:manage (compliance officer, security, platform admin); admin-realm session with MFA and step-up. Audited (compliance.control.mapping_changed).'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateControlMapping' }
+      responses:
+        '200':
+          description: Replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ControlMapping' }
+        '201':
+          description: Written
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ControlMapping' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/evidence:
+    get:
+      operationId: listEvidence
+      tags: [compliance]
+      summary: List evidence
+      description: 'Evidence items, newest first: automated (collector output with its SHA-256; written only by the collectors) and manual (document, attestation, external-report). Items are immutable. Filters controlId, type, collector. Platform permission `admin:compliance:read`.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: controlId, in: query, schema: { type: string } }
+        - {
+            name: type,
+            in: query,
+            schema: { type: string, enum: [automated, document, attestation, external-report] },
+          }
+        - { name: collector, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvidencePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: addEvidence
+      tags: [compliance]
+      summary: Add manual evidence
+      description: 'Body {controlId, type: document|attestation|external-report, documentRef?, note?, attestedBy?}. document and external-report need documentRef; an attestation needs a note. The caller IS the named human who attests: attestedBy, if sent, must be the caller (422 otherwise). type automated is refused (403): only the collectors write it, and the database refuses it for the runtime role. Items are immutable; an Idempotency-Key replay returns the same item (200). Permission admin:controls:manage; admin-realm session with MFA and step-up. Audited (compliance.evidence.added).'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddEvidence' }
+      responses:
+        '200':
+          description: Replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvidenceItem' }
+        '201':
+          description: Written
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvidenceItem' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/regulatory-validations:
+    get:
+      operationId: listRegulatoryValidations
+      tags: [compliance]
+      summary: List the regulatory validation register
+      description: 'The CURRENT version of each question; history=true with a validationKey returns every version. Open questions for every regime of docs/10 §1 are seeded with applicability to_confirm. Filters validationKey, status, applicability. Platform permission `admin:compliance:read`.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: validationKey, in: query, schema: { type: string } }
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [open, answered, validated, rejected] },
+          }
+        - {
+            name: applicability,
+            in: query,
+            schema: { type: string, enum: [to_confirm, applicable, not_applicable] },
+          }
+        - { name: history, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: saveRegulatoryValidation
+      tags: [compliance]
+      summary: Create a question or add a version
+      description: 'Versions are immutable. Without baseVersion the question is created (regime and question required); with baseVersion (the current one, else 409) a version is written; regime and question cannot change. answered needs an answer. validated is a HUMAN act: it needs documentRef and a decided applicability (applicable or not_applicable), else 422 validation_requires_evidence; the caller is recorded as the validator (validatedBy, if sent, must be the caller) and the database refuses validated without them. There is no automated path. Needs an Idempotency-Key (a replay with the same content returns the same version; other content is 422 idempotency_key_reuse). Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited (compliance.validation.changed).'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveValidation' }
+      responses:
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegulatoryValidation' }
+        '201':
+          description: Written
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegulatoryValidation' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/breach-cases:
+    get:
+      operationId: listBreachCases
+      tags: [compliance]
+      summary: List breach cases
+      description: 'Newest first. Filters id, state, severity. With id and pack=true the case carries evidencePack: the timeline, assessment, decision and, for each organization named in the assessment, the audit activity from the lookback window before detection until now, with a SHA-256 digest. The pack reads across organizations, so it needs reason (10..300 characters, else 422) and is audited (compliance.breach.evidence_pack). Each case shows timers (placeholders; statutory deadlines are human-defined, HG-04-01) and the platform notifies nobody. Platform permission `admin:compliance:read` (compliance officer, security, platform admin).'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: id, in: query, schema: { type: string, format: uuid } }
+        - {
+            name: state,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum:
+                  [
+                    detected,
+                    triaged,
+                    assessed,
+                    notification_decision,
+                    notified,
+                    remediation,
+                    closed,
+                  ],
+              },
+          }
+        - {
+            name: severity,
+            in: query,
+            schema: { type: string, enum: [low, medium, high, critical] },
+          }
+        - { name: pack, in: query, schema: { type: boolean } }
+        - { name: reason, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BreachCasePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: handleBreachCase
+      tags: [compliance]
+      summary: Open a breach case or move it
+      description: 'Two requests on one endpoint (PATCH is not in the spec: SI-M04-2). OPEN {summary, detectedAt, severity, linkedIncidentId?} (201). MOVE {caseId, transition: <target state>, baseVersion, note?, data?} (200): states detected, triaged, assessed, notification_decision, notified, remediation, closed; only the next state is allowed (409 otherwise); baseVersion must be current (409). triaged: data.severity optional. assessed: data {personalDataAffected, scope, dataClasses, regions, orgIds, tables}. notification_decision: data {notify, rationale, recipients}; made by a DIFFERENT person than the assessor (403); a decision not to notify goes to remediation, one to notify goes to notified. notified: data {notifiedAt, reference}: people record that they notified; the platform sends nothing to any regulator or party. remediation and closed need a note. The timeline is append-only (database guard); a closed case cannot change. Needs an Idempotency-Key (a replayed move returns the case). Permission admin:breach:manage (compliance officer, security, platform admin); admin-realm session with MFA and step-up. Audited (compliance.breach.opened|transition).'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BreachCaseCommand' }
+      responses:
+        '200':
+          description: Move or replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BreachCase' }
+        '201':
+          description: Written
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BreachCase' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/compliance/data-subject-requests:
+    post:
+      operationId: openDataSubjectRequest
+      tags: [compliance]
+      summary: Open a data-subject request
+      description: 'Body {type: access|correction|deletion|portability, subjectRef?, details?: {text?, patch?}, identityAttestation?}. Without subjectRef the subject is the caller (verified by their session). A request about someone else (an end user of the organization) needs `privacy:dsr:manage` (owner, admin) and identityAttestation, how the identity was checked (10..500 characters), else 422 dsr_identity_unverified. A correction needs details.patch. Free-text details are SEALED (field encryption) and never returned (hasDetails only). 201 received with dueAt (calendar days per type, a PROPOSAL until counsel states the statutory deadlines, HG-04-01) and operationId; the request then runs as an operation: handlers export, rectify or erase per module, never bypassing a legal hold (legal_hold_active) or mandatory retention (retention_mandatory): those are refused with a recorded reason and the request is partially_fulfilled or rejected. Idempotent per Idempotency-Key (a replay returns the same request). Requires permission `privacy:dsr:self`. Audited.'
+      x-nuzm-permission: privacy:dsr:self
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenDsr' }
+      responses:
+        '201':
+          description: Received
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DsrRequest' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listDataSubjectRequests
+      tags: [compliance]
+      summary: List data-subject requests
+      description: 'Newest first. Filters status, type, subject. A caller without `privacy:dsr:manage` sees only the requests about themselves. Each item carries slaState (ok, warning from 70% of the time, escalated from 90%, overdue) and its tasks. Requires permission `privacy:dsr:self`.'
+      x-nuzm-permission: privacy:dsr:self
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: subject, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DsrRequestPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/compliance/data-subject-requests/{id}:
+    get:
+      operationId: getDataSubjectRequest
+      tags: [compliance]
+      summary: Get a data-subject request
+      description: 'The request with its tasks (handler, action, status, reasonCode with Arabic and English wording), outcome and reason. For an access or portability request that finished, downloadUrl is a signed, expiring link: `?download=<token>` returns the encrypted-at-rest archive (application/gzip) of THIS request only (a token from another request is 404; 410 when the link or the archive expired), so a member can fetch their own data without the export permission. 404 for an unknown id, for another organization and for a member asking about someone else. Requires permission `privacy:dsr:self`.'
+      x-nuzm-permission: privacy:dsr:self
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { name: download, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DsrRequest' }
+            application/gzip:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+  /v1/compliance/data-exports:
+    post:
+      operationId: createDataExport
+      tags: [compliance]
+      summary: Request a data export
+      description: 'Body {scope: org|user, subjectRef?}. Asynchronous (an operation): 202 with the export pending; 200 on an Idempotency-Key replay. The archive is encrypted at rest in the export sink and downloaded through a signed, expiring link (archive 72 h, link 15 min by default). 422 no_export_sink when the deployment has no sink (production has none until M08, D-07); 422 quota_exceeded past 5 exports in progress. Requires permission `privacy:export:manage` (owner, admin). Audited.'
+      x-nuzm-permission: privacy:export:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDataExport' }
+      responses:
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listDataExports
+      tags: [compliance]
+      summary: List data exports or download one
+      description: 'The exports (status, expiry, size, sha256, a signed downloadUrl while ready). With ?download=<token> returns the archive (application/gzip) of that link; 410 when the link or the archive has expired; the token is sealed and bound to the organization (a token of another organization is 404). Requires permission `privacy:export:manage`.'
+      x-nuzm-permission: privacy:export:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: download, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExportPage' }
+            application/gzip:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/compliance/residency-policy:
+    get:
+      operationId: getResidencyPolicy
+      tags: [compliance]
+      summary: Get the organization's data residency policy
+      description: 'The effective policy: version 0 and isDefault true when the organization has set none (the default is in-Kingdom only), plus the platform FLOOR per data class (the loosest mode the platform ever allows; PROPOSAL, D-14/HG-04-01). Returns an ETag. Requires permission `privacy:residency:read` (every role).'
+      x-nuzm-permission: privacy:residency:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResidencyPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putResidencyPolicy
+      tags: [compliance]
+      summary: Set the organization's data residency policy (tighten only)
+      description: 'Body {mode: in_kingdom_only|allow_listed|unrestricted_with_assessment, allowedCountriesByClass, exceptions (ids of approved transfer assessments), changeNote?}. Versions are immutable; the first policy needs no precondition, a replacement needs If-Match (428 without, 412 when stale). The engine always applies the STRICTER of the mode and the platform floor of each class, and an organization may only tighten the floor: countries for a class the floor keeps in the Kingdom, or an assessment for such a class, are 422 policy_below_floor. Every exception must be an approved assessment that applies to this organization (an expired one is 422 assessment_expired). Requires permission `privacy:residency:manage` (owner, admin). Audited.'
+      x-nuzm-permission: privacy:residency:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: If-Match,
+            in: header,
+            required: false,
+            schema: { type: string },
+            description: 'ETag of the current version; required when a policy already exists.',
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutResidencyPolicy' }
+      responses:
+        '200':
+          description: Success
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResidencyPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compliance/transfer-assessments:
+    get:
+      operationId: listTransferAssessments
+      tags: [compliance]
+      summary: List transfer assessments
+      description: 'Newest first. Filters status (pending|approved|rejected), orgId, dataClass, expired (an approved assessment past its expiry). Platform permission `admin:compliance:read`; admin-realm session.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected] } }
+        - { name: orgId, in: query, schema: { type: string, format: uuid } }
+        - { name: dataClass, in: query, schema: { type: string } }
+        - { name: expired, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferAssessmentPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: handleTransferAssessment
+      tags: [compliance]
+      summary: Request or decide a transfer assessment
+      description: 'Two requests on one endpoint. CREATE {dataClass, region (an ISO country other than SA, or gcc|eu|other), processorId? (a processor named in the ROPA), risk, mitigations, expiresAt (at most 730 days), orgId?}: pending (201). DECIDE {assessmentId, decision: approve|reject, note?}: a DIFFERENT person than the requester (403; also a database check); an approved assessment expires and an expired request cannot be approved (422 assessment_expired). The scope and the people are immutable. An organization relies on an approved assessment by listing its id in its residency policy. Needs an Idempotency-Key (a create replay returns the same assessment). Permission admin:compliance:manage; admin-realm session with MFA and step-up. Audited.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferAssessmentRequest' }
+      responses:
+        '200':
+          description: Decision or replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferAssessment' }
+        '201':
+          description: Requested
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferAssessment' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -3223,6 +3981,782 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    ResidencyMode:
+      type: string
+      enum: [in_kingdom_only, allow_listed, unrestricted_with_assessment]
+    ResidencyPolicy:
+      type: object
+      required: [version, isDefault, mode, allowedCountriesByClass, exceptions, floor, updatedAt]
+      properties:
+        version: { type: integer, description: '0 = no policy of its own: the default applies.' }
+        isDefault: { type: boolean }
+        mode: { $ref: '#/components/schemas/ResidencyMode' }
+        allowedCountriesByClass:
+          { type: object, additionalProperties: { type: array, items: { type: string } } }
+        exceptions: { type: array, items: { type: string, format: uuid } }
+        floor:
+          type: object
+          required: [version, byClass]
+          properties:
+            version: { type: integer }
+            byClass:
+              { type: object, additionalProperties: { $ref: '#/components/schemas/ResidencyMode' } }
+        updatedAt: { type: [string, 'null'], format: date-time }
+    PutResidencyPolicy:
+      type: object
+      required: [mode]
+      properties:
+        mode: { $ref: '#/components/schemas/ResidencyMode' }
+        allowedCountriesByClass:
+          {
+            type: object,
+            additionalProperties:
+              { type: array, maxItems: 60, items: { type: string, pattern: '^[A-Z]{2}$' } },
+          }
+        exceptions: { type: array, maxItems: 50, items: { type: string, format: uuid } }
+        changeNote: { type: [string, 'null'], maxLength: 500 }
+    TransferAssessment:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          dataClass,
+          region,
+          processorId,
+          risk,
+          mitigations,
+          status,
+          expired,
+          requestedBy,
+          decidedBy,
+          decidedAt,
+          decisionNote,
+          expiresAt,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: [string, 'null'], format: uuid }
+        dataClass: { type: string }
+        region: { type: string }
+        processorId: { type: [string, 'null'] }
+        risk: { type: string, enum: [low, medium, high] }
+        mitigations: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        expired: { type: boolean, description: 'An approved assessment past its expiry.' }
+        requestedBy: { type: string, format: uuid }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        decisionNote: { type: [string, 'null'] }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    TransferAssessmentRequest:
+      type: object
+      description: 'One of: create {dataClass, region, processorId?, risk, mitigations, expiresAt, orgId?}; decide {assessmentId, decision, note?}.'
+      properties:
+        dataClass: { type: string }
+        region: { type: string, pattern: '^([A-Z]{2}|gcc|eu|other)$' }
+        processorId: { type: [string, 'null'], maxLength: 120 }
+        risk: { type: string, enum: [low, medium, high] }
+        mitigations: { type: string, minLength: 10, maxLength: 2000 }
+        expiresAt: { type: string, format: date-time }
+        orgId: { type: [string, 'null'], format: uuid }
+        assessmentId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, reject] }
+        note: { type: string, maxLength: 500 }
+    TransferAssessmentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/TransferAssessment' } }
+        nextCursor: { type: [string, 'null'] }
+    RetentionPolicy:
+      type: object
+      required:
+        [
+          id,
+          dataClass,
+          dataset,
+          version,
+          retainDays,
+          archiveAfterDays,
+          basis,
+          status,
+          documentRef,
+          approvedBy,
+          changeNote,
+          createdBy,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        dataClass: { type: string }
+        dataset: { type: [string, 'null'] }
+        version: { type: integer }
+        retainDays: { type: integer }
+        archiveAfterDays: { type: integer }
+        basis: { type: string }
+        status: { type: string, enum: [proposal, approved] }
+        documentRef: { type: [string, 'null'] }
+        approvedBy: { type: [string, 'null'], format: uuid }
+        changeNote: { type: [string, 'null'] }
+        createdBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+    PutRetentionPolicy:
+      type: object
+      required: [dataClass, retainDays, archiveAfterDays, basis]
+      properties:
+        dataClass: { type: string }
+        dataset: { type: [string, 'null'], pattern: '^[a-z_]+\.[a-z_]+$' }
+        retainDays: { type: integer, minimum: 1, maximum: 36500 }
+        archiveAfterDays: { type: integer, minimum: 1, maximum: 36500 }
+        basis: { type: string, minLength: 3, maxLength: 500 }
+        status: { type: string, enum: [proposal, approved], default: proposal }
+        documentRef: { type: [string, 'null'], maxLength: 200 }
+        changeNote: { type: [string, 'null'], maxLength: 500 }
+        baseVersion: { type: [integer, 'null'], minimum: 1 }
+    RetentionPartitionPreview:
+      type: object
+      required: [partition, upperBound, rows, heldRows, eligible, blockedBy]
+      properties:
+        partition: { type: string }
+        upperBound: { type: string, format: date-time }
+        rows: { type: integer }
+        heldRows: { type: integer }
+        eligible: { type: boolean }
+        blockedBy: { type: [string, 'null'], enum: [legal_hold, null] }
+    RetentionTargetPreview:
+      type: object
+      required:
+        [
+          dataset,
+          dataClass,
+          policy,
+          archiveCutoff,
+          expiryCutoff,
+          archiveCandidates,
+          expiryCandidates,
+          heldCandidates,
+          eligibleToArchive,
+          execution,
+          partitions,
+          note,
+        ]
+      properties:
+        dataset: { type: string }
+        dataClass: { type: string }
+        policy:
+          type: object
+          required: [version, status, retainDays, archiveAfterDays, dataset]
+          properties:
+            version: { type: integer }
+            status: { type: string, enum: [proposal, approved] }
+            retainDays: { type: integer }
+            archiveAfterDays: { type: integer }
+            dataset: { type: [string, 'null'] }
+        archiveCutoff: { type: string, format: date-time }
+        expiryCutoff: { type: string, format: date-time }
+        archiveCandidates: { type: integer }
+        expiryCandidates: { type: integer }
+        heldCandidates: { type: integer }
+        eligibleToArchive: { type: integer }
+        execution: { type: string, enum: [partition-detach, not-built] }
+        partitions:
+          { type: array, items: { $ref: '#/components/schemas/RetentionPartitionPreview' } }
+        note: { type: string }
+    RetentionPreview:
+      type: object
+      required: [dryRun, asOf, proposalPolicies, targets]
+      properties:
+        dryRun: { type: boolean, enum: [true] }
+        asOf: { type: string, format: date-time }
+        proposalPolicies:
+          { type: boolean, description: 'True while any policy used is still a proposal.' }
+        targets: { type: array, items: { $ref: '#/components/schemas/RetentionTargetPreview' } }
+    RetentionPolicyList:
+      type: object
+      required: [items, nextCursor, preview]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/RetentionPolicy' } }
+        nextCursor: { type: [string, 'null'] }
+        preview: { oneOf: [{ $ref: '#/components/schemas/RetentionPreview' }, { type: 'null' }] }
+    LegalHoldRequest:
+      type: object
+      description: 'One of: create {scope, reason, approvers}; decide {holdId, decision, note?}; release {holdId, action: release, reason}.'
+      properties:
+        scope:
+          type: object
+          properties:
+            orgId: { type: string, format: uuid }
+            dataset: { type: string, pattern: '^[a-z_]+\.[a-z_]+$' }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+        approvers: { type: array, minItems: 2, maxItems: 2, items: { type: string, format: uuid } }
+        holdId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, reject] }
+        action: { type: string, enum: [release] }
+        note: { type: string, maxLength: 500 }
+    LegalHold:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          dataset,
+          reason,
+          status,
+          requestedBy,
+          approverId,
+          decidedAt,
+          decisionNote,
+          releasedBy,
+          releasedAt,
+          releaseReason,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: [string, 'null'], format: uuid }
+        dataset: { type: [string, 'null'] }
+        reason: { type: string }
+        status: { type: string, enum: [pending_approval, active, rejected, released] }
+        requestedBy: { type: string, format: uuid }
+        approverId: { type: string, format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        decisionNote: { type: [string, 'null'] }
+        releasedBy: { type: [string, 'null'], format: uuid }
+        releasedAt: { type: [string, 'null'], format: date-time }
+        releaseReason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    RopaProcessor:
+      type: object
+      required: [name, role, region, dataClasses]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        role: { type: string, enum: [processor, sub-processor] }
+        region: { type: string, pattern: '^([A-Z]{2}|in_kingdom|gcc|eu|other)$' }
+        dataClasses: { type: array, minItems: 1, maxItems: 6, items: { type: string } }
+        contractRef: { type: [string, 'null'], maxLength: 200 }
+    SaveRopaEntry:
+      type: object
+      required: [entryKey, activity, purpose, dataClasses, processors, regions]
+      properties:
+        entryKey:
+          {
+            type: string,
+            pattern: '^[a-z][a-z0-9-]*(:[a-z0-9][a-z0-9-]*)?$',
+            minLength: 3,
+            maxLength: 80,
+          }
+        kind:
+          {
+            type: string,
+            enum: [activity, adapter],
+            description: 'Required for a new entry; fixed afterwards.',
+          }
+        adapterKind:
+          { type: string, description: 'Required for kind adapter (a kind of docs/09 §1).' }
+        activity: { type: string, minLength: 1, maxLength: 200 }
+        purpose: { type: string, minLength: 1, maxLength: 500 }
+        dataClasses: { type: array, minItems: 1, maxItems: 6, items: { type: string } }
+        processors:
+          { type: array, maxItems: 50, items: { $ref: '#/components/schemas/RopaProcessor' } }
+        regions:
+          { type: array, items: { type: string, pattern: '^([A-Z]{2}|in_kingdom|gcc|eu|other)$' } }
+        retentionRef: { type: [string, 'null'], maxLength: 100 }
+        status: { type: string, enum: [draft, reviewed], default: draft }
+        changeNote: { type: [string, 'null'], maxLength: 500 }
+        baseVersion:
+          {
+            type: [integer, 'null'],
+            minimum: 1,
+            description: 'The current version; omit to create.',
+          }
+    RopaEntry:
+      type: object
+      required:
+        [
+          id,
+          entryKey,
+          version,
+          kind,
+          adapterKind,
+          activity,
+          purpose,
+          dataClasses,
+          processors,
+          regions,
+          retentionRef,
+          status,
+          reviewedBy,
+          changeNote,
+          createdBy,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        entryKey: { type: string }
+        version: { type: integer }
+        kind: { type: string, enum: [activity, adapter] }
+        adapterKind: { type: [string, 'null'] }
+        activity: { type: string }
+        purpose: { type: string }
+        dataClasses: { type: array, items: { type: string } }
+        processors: { type: array, items: { $ref: '#/components/schemas/RopaProcessor' } }
+        regions: { type: array, items: { type: string } }
+        retentionRef: { type: [string, 'null'] }
+        status: { type: string, enum: [placeholder, draft, reviewed] }
+        reviewedBy: { type: [string, 'null'], format: uuid }
+        changeNote: { type: [string, 'null'] }
+        createdBy:
+          { type: [string, 'null'], format: uuid, description: 'null for a seeded placeholder' }
+        createdAt: { type: string, format: date-time }
+    RopaPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/RopaEntry' } }
+        nextCursor: { type: [string, 'null'] }
+    GrantConsent:
+      type: object
+      required: [purposeId, granted, localeShown, textVersion]
+      properties:
+        purposeId: { type: string, pattern: '^[a-z][a-z0-9_]{2,60}$' }
+        granted: { type: boolean, enum: [true] }
+        localeShown: { type: string, enum: [ar, en] }
+        textVersion: { type: string, minLength: 1, maxLength: 40 }
+        subjectRef:
+          {
+            type: string,
+            pattern: '^[A-Za-z0-9:_.-]{1,128}$',
+            description: 'Opaque subject id; omitted = the caller; needs privacy:consent:manage for anyone else.',
+          }
+    Consent:
+      type: object
+      required:
+        [id, purposeId, subjectRef, state, textVersion, locale, source, withdrawsId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        purposeId: { type: string }
+        subjectRef: { type: string }
+        state: { type: string, enum: [granted, withdrawn] }
+        textVersion: { type: string }
+        locale: { type: string, enum: [ar, en] }
+        source: { type: string, enum: [api, ui] }
+        withdrawsId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+    OpenDsr:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [access, correction, deletion, portability] }
+        subjectRef: { type: string }
+        identityAttestation: { type: string, minLength: 10, maxLength: 500 }
+        details:
+          type: object
+          properties:
+            text: { type: string, maxLength: 2000 }
+            patch: { type: object, additionalProperties: true }
+    DsrTask:
+      type: object
+      required: [handler, action, status, attempts, reasonCode, reason]
+      properties:
+        handler: { type: string }
+        action: { type: string }
+        status: { type: string }
+        attempts: { type: integer }
+        reasonCode: { type: [string, 'null'] }
+        reason:
+          oneOf:
+            - { type: 'null' }
+            - { $ref: '#/components/schemas/LocalizedText' }
+    LocalizedText:
+      type: object
+      required: [ar, en]
+      properties:
+        ar: { type: string }
+        en: { type: string }
+    DsrRequest:
+      type: object
+      required:
+        [
+          id,
+          type,
+          subjectRef,
+          status,
+          receivedAt,
+          dueAt,
+          slaState,
+          identityMethod,
+          identityVerifiedAt,
+          hasDetails,
+          reasonCode,
+          reason,
+          outcome,
+          tasks,
+          operationId,
+          downloadUrl,
+          closedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [access, correction, deletion, portability] }
+        subjectRef: { type: string }
+        status: { type: string }
+        receivedAt: { type: string, format: date-time }
+        dueAt: { type: string, format: date-time }
+        slaState: { type: string, enum: [ok, warning, escalated, overdue] }
+        identityMethod: { type: string, enum: [session, org_attestation] }
+        identityVerifiedAt: { type: [string, 'null'], format: date-time }
+        hasDetails: { type: boolean }
+        reasonCode: { type: [string, 'null'] }
+        reason:
+          oneOf:
+            - { type: 'null' }
+            - { $ref: '#/components/schemas/LocalizedText' }
+        outcome: { type: [object, 'null'], additionalProperties: true }
+        tasks: { type: array, items: { $ref: '#/components/schemas/DsrTask' } }
+        operationId: { type: [string, 'null'], format: uuid }
+        downloadUrl: { type: [string, 'null'] }
+        closedAt: { type: [string, 'null'], format: date-time }
+    DsrRequestPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DsrRequest' } }
+        nextCursor: { type: [string, 'null'] }
+    CreateDataExport:
+      type: object
+      required: [scope]
+      properties:
+        scope: { type: string, enum: [org, user] }
+        subjectRef: { type: string }
+    DataExport:
+      type: object
+      required:
+        [
+          id,
+          scope,
+          subjectRef,
+          status,
+          requestedAt,
+          expiresAt,
+          bytes,
+          sha256,
+          downloadUrl,
+          dsrRequestId,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        scope: { type: string, enum: [org, user] }
+        subjectRef: { type: [string, 'null'] }
+        status: { type: string, enum: [pending, running, succeeded, failed, expired] }
+        requestedAt: { type: string, format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        bytes: { type: [integer, 'null'] }
+        sha256: { type: [string, 'null'] }
+        downloadUrl: { type: [string, 'null'] }
+        dsrRequestId: { type: [string, 'null'], format: uuid }
+    DataExportPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DataExport' } }
+        nextCursor: { type: [string, 'null'] }
+    ControlPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Control' } }
+        nextCursor: { type: [string, 'null'] }
+    Control:
+      type: object
+      required:
+        [
+          controlId,
+          title,
+          description,
+          frameworks,
+          applicability,
+          ownerRole,
+          implementation,
+          evidenceSpec,
+          reviewCadenceDays,
+          claimsCompliance,
+          status,
+          mappings,
+          evidence,
+        ]
+      properties:
+        controlId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        frameworks:
+          type: array
+          items:
+            type: object
+            required: [framework, version, ref]
+            properties:
+              { framework: { type: string }, version: { type: string }, ref: { type: string } }
+        applicability: { type: string, enum: [to_confirm, applicable, not_applicable] }
+        ownerRole: { type: string }
+        implementation:
+          type: object
+          required: [status, modules, milestone]
+          properties:
+            {
+              status: { type: string },
+              modules: { type: array, items: { type: string } },
+              milestone: { type: string },
+            }
+        evidenceSpec: { type: array, items: { type: object, additionalProperties: true } }
+        reviewCadenceDays: { type: integer }
+        claimsCompliance: { type: boolean, enum: [false] }
+        status: { type: string, enum: [not_mapped, mapped, evidence_collected, reviewed] }
+        mappings:
+          type: array
+          items:
+            type: object
+            required: [id, module, feature, evidenceRequirement, createdAt]
+            properties:
+              id: { type: string, format: uuid }
+              module: { type: string }
+              feature: { type: string }
+              evidenceRequirement: { type: string }
+              createdAt: { type: string, format: date-time }
+        evidence:
+          type: object
+          required: [total, automated, latestAutomated, latestReview]
+          properties:
+            total: { type: integer }
+            automated: { type: integer }
+            latestAutomated:
+              oneOf:
+                - { type: 'null' }
+                - type: object
+                  required: [collector, collectedAt, ok]
+                  properties:
+                    {
+                      collector: { type: string },
+                      collectedAt: { type: string, format: date-time },
+                      ok: { type: [boolean, 'null'] },
+                    }
+            latestReview:
+              oneOf:
+                - { type: 'null' }
+                - type: object
+                  required: [reviewerRole, attestedBy, at, overdue]
+                  properties:
+                    reviewerRole: { type: [string, 'null'] }
+                    attestedBy: { type: string, format: uuid }
+                    at: { type: string, format: date-time }
+                    overdue: { type: boolean }
+    CreateControlMapping:
+      type: object
+      required: [controlId, module, feature, evidenceRequirement]
+      properties:
+        controlId: { type: string }
+        module: { type: string }
+        feature: { type: string }
+        evidenceRequirement: { type: string }
+    ControlMapping:
+      type: object
+      required: [id, controlId, module, feature, evidenceRequirement, createdBy, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        controlId: { type: string }
+        module: { type: string }
+        feature: { type: string }
+        evidenceRequirement: { type: string }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+    AddEvidence:
+      type: object
+      required: [controlId, type]
+      properties:
+        controlId: { type: string }
+        type: { type: string, enum: [document, attestation, external-report] }
+        documentRef: { type: string }
+        note: { type: string }
+        attestedBy: { type: string, format: uuid }
+    EvidenceItem:
+      type: object
+      required:
+        [
+          id,
+          controlId,
+          type,
+          source,
+          contentHash,
+          collectedAt,
+          collector,
+          collectorVersion,
+          documentRef,
+          attestedBy,
+          note,
+          summary,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        controlId: { type: string }
+        type: { type: string, enum: [automated, document, attestation, external-report] }
+        source: { type: string }
+        contentHash: { type: string }
+        collectedAt: { type: string, format: date-time }
+        collector: { type: [string, 'null'] }
+        collectorVersion: { type: [string, 'null'] }
+        documentRef: { type: [string, 'null'] }
+        attestedBy: { type: [string, 'null'], format: uuid }
+        note: { type: [string, 'null'] }
+        summary: { type: object, additionalProperties: true }
+    EvidencePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/EvidenceItem' } }
+        nextCursor: { type: [string, 'null'] }
+    SaveValidation:
+      type: object
+      required: [validationKey]
+      properties:
+        validationKey: { type: string }
+        regime: { type: string }
+        question: { type: string }
+        applicability: { type: string, enum: [to_confirm, applicable, not_applicable] }
+        status: { type: string, enum: [open, answered, validated, rejected] }
+        answer: { type: string }
+        documentRef: { type: string }
+        validatedBy: { type: string, format: uuid }
+        changeNote: { type: string }
+        baseVersion: { type: integer }
+    RegulatoryValidation:
+      type: object
+      required:
+        [
+          id,
+          validationKey,
+          version,
+          regime,
+          question,
+          applicability,
+          status,
+          answer,
+          documentRef,
+          validatedBy,
+          validatedAt,
+          changeNote,
+          createdBy,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        validationKey: { type: string }
+        version: { type: integer }
+        regime: { type: string }
+        question: { type: string }
+        applicability: { type: string, enum: [to_confirm, applicable, not_applicable] }
+        status: { type: string, enum: [open, answered, validated, rejected] }
+        answer: { type: [string, 'null'] }
+        documentRef: { type: [string, 'null'] }
+        validatedBy: { type: [string, 'null'], format: uuid }
+        validatedAt: { type: [string, 'null'], format: date-time }
+        changeNote: { type: [string, 'null'] }
+        createdBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+    ValidationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/RegulatoryValidation' } }
+        nextCursor: { type: [string, 'null'] }
+    BreachCaseCommand:
+      type: object
+      description: OPEN carries summary, detectedAt and severity; MOVE carries caseId, transition and baseVersion.
+      properties:
+        summary: { type: string }
+        detectedAt: { type: string, format: date-time }
+        severity: { type: string, enum: [low, medium, high, critical] }
+        linkedIncidentId: { type: string }
+        caseId: { type: string, format: uuid }
+        transition:
+          {
+            type: string,
+            enum: [triaged, assessed, notification_decision, notified, remediation, closed],
+          }
+        baseVersion: { type: integer }
+        note: { type: string }
+        data: { type: object, additionalProperties: true }
+    BreachCase:
+      type: object
+      required:
+        [
+          id,
+          severity,
+          state,
+          summary,
+          detectedAt,
+          linkedIncidentId,
+          assessment,
+          decision,
+          timeline,
+          timers,
+          version,
+          createdBy,
+          createdAt,
+          updatedAt,
+          closedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        severity: { type: string, enum: [low, medium, high, critical] }
+        state:
+          {
+            type: string,
+            enum:
+              [detected, triaged, assessed, notification_decision, notified, remediation, closed],
+          }
+        summary: { type: string }
+        detectedAt: { type: string, format: date-time }
+        linkedIncidentId: { type: [string, 'null'] }
+        assessment: { type: [object, 'null'], additionalProperties: true }
+        decision: { type: [object, 'null'], additionalProperties: true }
+        timeline: { type: array, items: { type: object, additionalProperties: true } }
+        timers:
+          type: object
+          required: [triageDueAt, assessDueAt, decisionDueAt, current]
+          properties:
+            triageDueAt: { type: string, format: date-time }
+            assessDueAt: { type: string, format: date-time }
+            decisionDueAt: { type: string, format: date-time }
+            current:
+              oneOf:
+                - { type: 'null' }
+                - type: object
+                  required: [step, dueAt, overdue]
+                  properties:
+                    {
+                      step: { type: string, enum: [triage, assess, decision] },
+                      dueAt: { type: string, format: date-time },
+                      overdue: { type: boolean },
+                    }
+        version: { type: integer }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+        evidencePack: { type: object, additionalProperties: true }
+    BreachCasePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/BreachCase' } }
+        nextCursor: { type: [string, 'null'] }
+    ConsentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Consent' } }
+        nextCursor: { type: [string, 'null'] }
     CreatePaymentMethod:
       type: object
       required: [provider, setupToken]

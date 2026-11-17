@@ -65,7 +65,9 @@ export async function checkDatabase(url: string, manifest: Manifest): Promise<Vi
       }
       const owner = manifest.schemas[t.schema];
       if (!owner) continue; // already reported as unknown_schema
-      if (!owner.tables.includes(t.table)) {
+      // a partition detached by audit.detach_partition() lives on as `archived_<parent>_<yyyymm>`: governed by its parent's listing
+      const archivedOf = /^archived_(.+)_\d{6}$/.exec(t.table)?.[1];
+      if (!owner.tables.includes(t.table) && !(archivedOf && owner.tables.includes(archivedOf))) {
         out.push({
           kind: 'unknown_table',
           object: fq,

@@ -31,12 +31,18 @@ export default async function ConsoleLayout({
     ...(s.can('admin:billing:read')
       ? [{ href: `${base}/billing/ledger`, label: t(locale, 'nav.admin.billing') }]
       : []),
+    ...(s.can('admin:compliance:read')
+      ? [{ href: `${base}/compliance/controls`, label: t(locale, 'nav.admin.compliance') }]
+      : []),
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),
   ].map((i) => ({
     ...i,
-    current: path === i.href || (i.href.endsWith('/billing/ledger') && path.includes('/billing/')),
+    current:
+      path === i.href ||
+      (i.href.endsWith('/billing/ledger') && path.includes('/billing/')) ||
+      (i.href.endsWith('/compliance/controls') && path.includes('/compliance/')),
   }));
   return (
     <Shell

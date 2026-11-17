@@ -12,6 +12,14 @@ export interface Manifest {
   /** Tables isolated by RLS on their own key instead of an org_id column (e.g. tenancy.organizations by id). */
   rls_keyed: string[];
   migration_ranges: Record<string, string>;
+  /** Data classification of every column (M04 S13a): class names, `schema.table` → column → class, and justified exceptions to the name heuristics. */
+  classification: {
+    classes: string[];
+    columns: Record<string, Record<string, string>>;
+    exceptions: Record<string, string>;
+    /** How a credential-class (or sealed) column is protected: hash, vault_ref, lookup (a non-secret lookup prefix) or encrypted (field-level, M04 S13d). */
+    protection: Record<string, string>;
+  };
 }
 
 export interface MigrationFile {
@@ -34,6 +42,12 @@ export function loadManifest(path: string): Manifest {
     tenant_less: raw.tenant_less ?? [],
     rls_keyed: raw.rls_keyed ?? [],
     migration_ranges: raw.migration_ranges ?? {},
+    classification: {
+      classes: raw.classification?.classes ?? [],
+      columns: raw.classification?.columns ?? {},
+      exceptions: raw.classification?.exceptions ?? {},
+      protection: raw.classification?.protection ?? {},
+    },
   };
 }
 

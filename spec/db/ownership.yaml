@@ -59,7 +59,7 @@ schemas:
     owner_module: cloud
     created_by: M05
     extended_by: [M06, M08]
-    tables: [catalog_snapshots, provider_accounts, provider_capabilities, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
+    tables: [catalog_snapshots, evidence_items, provider_accounts, provider_capabilities, provider_jobs, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
   compute:
     owner_module: compute
     created_by: M05
@@ -177,6 +177,16 @@ tenant_less:
   - compliance.evidence_items
   - compliance.regulatory_validations
   - compliance.breach_cases
+  # provider registry, accounts (vault REFERENCES only), verified regions, plans, capability matrix, evidence, catalog snapshots, platform jobs (M05 S16):
+  # admin console scope only; customers see offers through the eligibility function, never these tables
+  - cloud.providers
+  - cloud.provider_accounts
+  - cloud.evidence_items
+  - cloud.provider_regions
+  - cloud.provider_plans
+  - cloud.provider_capabilities
+  - cloud.catalog_snapshots
+  - cloud.provider_jobs
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations
@@ -206,6 +216,9 @@ classification:
     invoicing.billing_entities.legal_name_ar: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
+    cloud.provider_accounts.spend_cap_minor: Nuzm's own spend cap on a provider account (an internal control), not a customer's money
+    cloud.provider_plans.provider_price_minor: the provider's list price for a plan (our cost input), not a customer's money
+    cloud.provider_regions.display_name: the provider's own name of a region, not a person's name
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
   #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
@@ -222,6 +235,7 @@ classification:
     invoicing.zatca_credentials_refs.token_ref: vault_ref
     invoicing.zatca_credentials_refs.secret_ref: vault_ref
     payments.payment_methods.token_ref: vault_ref
+    cloud.provider_accounts.vault_ref: vault_ref
     tenancy.invitations.token_hash: hash
     invoicing.tax_profiles.pii_enc: encrypted
     compliance.dsr_requests.details_enc: encrypted
@@ -1353,4 +1367,93 @@ classification:
       error: internal
       started_at: internal
       finished_at: internal
+      created_at: internal
+    # --- M05 cloud schema (S16)
+    cloud.catalog_snapshots:
+      id: internal
+      account_id: internal
+      taken_at: internal
+      content_hash: internal
+      payload_ref: internal
+      region_count: internal
+      plan_count: internal
+      job_id: internal
+    cloud.evidence_items:
+      id: internal
+      account_id: internal
+      kind: internal
+      operation: internal
+      captured_at: internal
+      content_hash: internal
+      redacted: internal
+      job_id: internal
+      created_at: internal
+    cloud.provider_accounts:
+      id: internal
+      provider_id: internal
+      name: internal
+      vault_ref: credentials
+      scope_note: internal
+      status: internal
+      health_state: internal
+      last_health_at: internal
+      breaker_state: internal
+      spend_cap_minor: internal
+      spend_cap_currency: internal
+      verified_at: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    cloud.provider_capabilities:
+      account_id: internal
+      capability_id: internal
+      state: internal
+      probed_at: internal
+      evidence_ref: internal
+    cloud.provider_jobs:
+      id: internal
+      account_id: internal
+      kind: internal
+      state: internal
+      result: internal
+      error: internal
+      attempts: internal
+      idempotency_key: internal
+      trace_id: internal
+      requested_by: internal
+      created_at: internal
+      updated_at: internal
+    cloud.provider_plans:
+      id: internal
+      account_id: internal
+      region_id: internal
+      plan_ref: internal
+      vcpu: internal
+      memory_mb: internal
+      disk_gb: internal
+      bandwidth: internal
+      provider_price_minor: internal
+      currency: internal
+      period: internal
+      availability: internal
+      last_seen_at: internal
+    cloud.provider_regions:
+      id: internal
+      account_id: internal
+      provider_region_id: internal
+      country_code: internal
+      display_name: internal
+      state: internal
+      verified_at: internal
+      evidence_ref: internal
+      evidence_kind: internal
+      last_seen_at: internal
+    cloud.providers:
+      id: internal
+      key: internal
+      kind: internal
+      adapter_id: internal
+      status: internal
+      environment_policy: internal
       created_at: internal

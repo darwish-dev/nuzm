@@ -62,6 +62,16 @@ export const ERROR_REGISTRY = {
   lease_lost: { status: 409, title: 'Operation lease lost' },
   internal_error: { status: 500, title: 'Internal error' },
   service_unavailable: { status: 503, title: 'Service unavailable' },
+  invalid_filter: { status: 422, title: 'A query filter is invalid' },
+  credential_value_rejected: {
+    status: 422,
+    title: 'Credential values are never accepted; send a vault reference',
+  },
+  unsupported_capability: {
+    status: 422,
+    title: 'The provider or instance does not support this capability',
+  },
+  no_eligible_offer: { status: 422, title: 'No eligible offer matches the request' },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

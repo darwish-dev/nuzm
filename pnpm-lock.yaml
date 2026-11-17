@@ -108,6 +108,15 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
+      '@nuzm/adapter-contracts':
+        specifier: workspace:*
+        version: link:../../packages/adapters/contracts
+      '@nuzm/adapter-mock-compute':
+        specifier: workspace:*
+        version: link:../../packages/adapters/mock-compute
+      '@nuzm/adapter-runtime':
+        specifier: workspace:*
+        version: link:../../packages/adapters/runtime
       '@nuzm/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -252,6 +261,75 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+
+  packages/adapters/conformance:
+    dependencies:
+      '@nuzm/adapter-contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@nuzm/adapter-runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/adapters/contracts:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/adapters/mock-compute:
+    dependencies:
+      '@nuzm/adapter-contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@nuzm/adapter-runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      '@nuzm/adapter-conformance':
+        specifier: workspace:*
+        version: link:../conformance
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/adapters/runtime:
+    dependencies:
+      '@nuzm/adapter-contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/db:
     dependencies:

@@ -56,6 +56,8 @@ tags:
     description: Admin console (platform roles, admin realm, MFA-verified session)
   - name: compliance
     description: Consent, privacy requests, residency and compliance registers
+  - name: cloud
+    description: Provider framework and compute - provider registry, accounts (vault references only), capability matrix, verified regions, plans, offers, routing, quotes, instances, reconciliation (M05; live provider checks are BLOCKED until HG-05-01..03)
 paths:
   /healthz:
     get:
@@ -4018,6 +4020,348 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/providers:
+    get:
+      operationId: adminListProviders
+      tags: [cloud]
+      summary: 'List providers'
+      description: 'Registered providers (alibaba, huawei, contabo, cloudpanel, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminCreateProvider
+      tags: [cloud]
+      summary: 'Register a provider'
+      description: 'Body {key, kind, adapterId, environmentPolicy?}. Permission admin:provider:manage.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderCreate' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Provider' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/providers/{id}:
+    get:
+      operationId: adminGetProvider
+      tags: [cloud]
+      summary: 'Get a provider'
+      description: 'One provider with its account count.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Provider' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts:
+    get:
+      operationId: adminListProviderAccounts
+      tags: [cloud]
+      summary: 'List provider accounts'
+      description: 'Accounts with health state, circuit-breaker state and verification time. Credential values are never returned: credentialRef is a vault reference.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: providerId,
+            in: query,
+            required: false,
+            schema: { type: string, format: uuid },
+            description: 'Filter by provider.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccountList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminCreateProviderAccount
+      tags: [cloud]
+      summary: 'Add a provider account'
+      description: 'Body {providerId, name, credentialRef: "vault://...", scopeNote?, spendCap?}. Credential VALUES (secret, password, token, accessKey, ...) are rejected with 422 credential_value_rejected: only vault references are accepted (D-12). Audited as provider.account.created.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderAccountCreate' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}:
+    get:
+      operationId: adminGetProviderAccount
+      tags: [cloud]
+      summary: 'Get a provider account'
+      description: 'Returns the ETag header used by PATCH If-Match.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: adminUpdateProviderAccount
+      tags: [cloud]
+      summary: 'Update a provider account'
+      description: 'Fields name, status (active|disabled), scopeNote, credentialRef (a new reference resets verification), spendCap. Requires If-Match. Credential values are rejected.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderAccountUpdate' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}/verification:
+    post:
+      operationId: adminVerifyProviderAccount
+      tags: [cloud]
+      summary: 'Verify a provider account'
+      description: 'Starts a platform job (202 + operationId) that resolves the vault reference, runs the capability probe, lists regions with evidence and plans, and records health. Capabilities and verified regions come only from the probe. Poll GET /v1/admin/provider-jobs/{id}. Optional Idempotency-Key header de-duplicates the request.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderJobAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}/capabilities:
+    get:
+      operationId: adminProviderAccountCapabilities
+      tags: [cloud]
+      summary: 'Capability matrix'
+      description: 'Every capability id with state supported|unsupported|unknown, probedAt and evidenceRef. unknown is shown as and treated as unsupported.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CapabilityMatrix' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}/catalog-syncs:
+    post:
+      operationId: adminSyncProviderCatalog
+      tags: [cloud]
+      summary: 'Sync the provider catalog'
+      description: 'Starts a platform job (202) that re-lists regions and plans. A region missing from the listing becomes withdrawn and its offers disappear.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderJobAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}/regions:
+    get:
+      operationId: adminProviderAccountRegions
+      tags: [cloud]
+      summary: 'Regions of an account'
+      description: 'Regions with state listed|verified|withdrawn; verified requires verifiedAt and evidenceRef.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderRegionList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}/plans:
+    get:
+      operationId: adminProviderAccountPlans
+      tags: [cloud]
+      summary: 'Plans of an account'
+      description: 'Plans from the last catalog sync with the provider cost (integer minor units) when the vendor exposed one.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+        - {
+            name: region,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Filter by provider region id.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderPlanList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-jobs/{id}:
+    get:
+      operationId: adminGetProviderJob
+      tags: [cloud]
+      summary: 'Provider job status'
+      description: 'Status of a verification or catalog-sync job (the operationId returned by the 202 responses).'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderJob' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+
 components:
   parameters:
     OrgHeader:
@@ -6963,3 +7307,163 @@ components:
           type: array
           items:
             type: object
+    ProviderCreate:
+      type: object
+      required: [key, kind, adapterId]
+      properties:
+        key: { type: string }
+        kind: { type: string }
+        adapterId: { type: string }
+        environmentPolicy: { type: string, enum: [any, non_production_only] }
+    Provider:
+      type: object
+      required:
+        [id, key, kind, adapterId, status, environmentPolicy, adapterAvailable, accountCount]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        kind: { type: string }
+        adapterId: { type: string }
+        status: { type: string }
+        environmentPolicy: { type: string }
+        adapterAvailable: { type: boolean }
+        accountCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    ProviderList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Provider' } }
+    ProviderAccountCreate:
+      type: object
+      required: [providerId, name, credentialRef]
+      properties:
+        providerId: { type: string, format: uuid }
+        name: { type: string }
+        credentialRef:
+          {
+            type: string,
+            description: 'A vault reference (vault://...). Never a credential value.',
+          }
+        scopeNote: { type: string }
+        spendCap: { $ref: '#/components/schemas/SpendCap' }
+    ProviderAccountUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        status: { type: string, enum: [active, disabled] }
+        scopeNote: { type: string, nullable: true }
+        credentialRef: { type: string }
+        spendCap: { $ref: '#/components/schemas/SpendCap' }
+    SpendCap:
+      type: object
+      required: [amountMinor, currency]
+      properties:
+        amountMinor: { type: string, description: 'Integer minor units.' }
+        currency: { type: string }
+    ProviderAccount:
+      type: object
+      required:
+        [id, providerId, providerKey, adapterId, name, credentialRef, status, health, version]
+      properties:
+        id: { type: string, format: uuid }
+        providerId: { type: string, format: uuid }
+        providerKey: { type: string }
+        adapterId: { type: string }
+        name: { type: string }
+        credentialRef: { type: string }
+        scopeNote: { type: string, nullable: true }
+        status: { type: string }
+        health:
+          type: object
+          properties:
+            state: { type: string, enum: [healthy, degraded, unhealthy, unknown] }
+            lastHealthAt: { type: string, format: date-time, nullable: true }
+            breaker: { type: object, additionalProperties: true }
+        spendCap: { allOf: [{ $ref: '#/components/schemas/SpendCap' }], nullable: true }
+        verifiedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+    ProviderAccountList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ProviderAccount' } }
+    ProviderJob:
+      type: object
+      required: [id, accountId, kind, state]
+      properties:
+        id: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        kind: { type: string, enum: [verification, catalog_sync] }
+        state: { type: string }
+        result: { type: object, additionalProperties: true, nullable: true }
+        error: { type: object, additionalProperties: true, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProviderJobAccepted:
+      type: object
+      required: [operationId, job]
+      properties:
+        operationId: { type: string, format: uuid }
+        job: { $ref: '#/components/schemas/ProviderJob' }
+    CapabilityMatrix:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [capabilityId, state, effective]
+            properties:
+              capabilityId: { type: string }
+              state: { type: string, enum: [supported, unsupported, unknown] }
+              effective: { type: string, enum: [supported, unsupported] }
+              probedAt: { type: string, format: date-time, nullable: true }
+              evidenceRef: { type: string, nullable: true }
+    ProviderRegionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, providerRegionId, countryCode, state]
+            properties:
+              id: { type: string, format: uuid }
+              providerRegionId: { type: string }
+              countryCode: { type: string }
+              displayName: { type: string, nullable: true }
+              state: { type: string, enum: [listed, verified, withdrawn] }
+              verifiedAt: { type: string, format: date-time, nullable: true }
+              evidenceRef: { type: string, nullable: true }
+              evidenceKind: { type: string, enum: [live, fixture, mock], nullable: true }
+              lastSeenAt: { type: string, format: date-time }
+    ProviderPlanList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, providerRegionId, planRef, vcpu, memoryMb, diskGb, availability]
+            properties:
+              id: { type: string, format: uuid }
+              providerRegionId: { type: string }
+              planRef: { type: string }
+              vcpu: { type: integer }
+              memoryMb: { type: integer }
+              diskGb: { type: integer }
+              bandwidth: { type: string, nullable: true }
+              providerPrice:
+                type: object
+                nullable: true
+                properties:
+                  amountMinor: { type: string }
+                  currency: { type: string }
+                  period: { type: string, enum: [hour, month] }
+              availability: { type: string, enum: [available, sold_out, unavailable] }
+              lastSeenAt: { type: string, format: date-time }

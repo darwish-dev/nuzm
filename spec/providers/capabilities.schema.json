@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuzm.invalid/spec/providers/capabilities.schema.json",
+  "title": "Nuzm provider capability report",
+  "description": "Capability ids a ComputeAdapter may declare (docs/09 §1-§2, M05 S16). The list below is OUR vocabulary, not a statement about any vendor API. A capability is `supported` only when a probe against the real account/sandbox (or, for tests, a mock/fixture) says so; absent or `unknown` is treated as unsupported. Mirrored by CAPABILITY_IDS in packages/adapters/contracts (a unit test keeps both in sync).",
+  "type": "object",
+  "required": ["capabilities", "evidence", "probedAt"],
+  "additionalProperties": false,
+  "properties": {
+    "capabilities": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/capabilityId" },
+      "additionalProperties": { "$ref": "#/$defs/capabilityState" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rawEvidence" }
+    },
+    "probedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "capabilityId": {
+      "enum": [
+        "compute.provision",
+        "compute.inspect",
+        "compute.delete",
+        "compute.action.start",
+        "compute.action.stop",
+        "compute.action.reboot",
+        "compute.action.resize",
+        "compute.action.snapshot",
+        "compute.metrics",
+        "compute.billing-export",
+        "compute.find-by-token",
+        "compute.quote-api"
+      ]
+    },
+    "capabilityState": { "enum": ["supported", "unsupported", "unknown"] },
+    "rawEvidence": {
+      "type": "object",
+      "required": ["kind", "capturedAt", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["live", "fixture", "mock"] },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "operation": { "type": "string" },
+        "summary": { "type": "string", "maxLength": 2000 },
+        "redactedRequest": {},
+        "redactedResponse": {}
+      }
+    }
+  }
+}

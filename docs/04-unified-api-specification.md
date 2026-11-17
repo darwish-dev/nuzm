@@ -115,6 +115,7 @@ Ingestion of metering events is an **internal** interface (`MeteringIngestServic
 | GET/POST `/v1/admin/providers` · GET `/v1/admin/providers/{id}` | X | Provider registry |
 | GET/POST `/v1/admin/provider-accounts` · GET/PATCH `…/{id}` · POST `…/{id}/verification` | X | Accounts, credential vault refs, health |
 | GET `/v1/admin/provider-accounts/{id}/capabilities` · POST `…/catalog-syncs` · GET `…/regions` · GET `…/plans` | X | Verified capability matrix and catalog |
+| GET `/v1/admin/provider-jobs/{id}` | X | Status of a verification / catalog-sync job (the `operationId` of the 202 answers; platform jobs live in `cloud.provider_jobs`, SI-M05-6) |
 | GET/POST `/v1/admin/routing-rules` | X | Explicit/automatic routing configuration |
 | GET `/v1/admin/resources` · POST `/v1/admin/resources/{id}/reconciliations` | X | Inventory and forced reconcile |
 | POST `/v1/webhooks/cloud/{provider}` | provider | Provider events (where supported) |

@@ -4,7 +4,7 @@ Status: **implemented and verified.** `pnpm verify:full` exited **0** on 2026-11
 
 ## A. Repository findings and assumptions
 - **Earlier S12d state:** commit `d201e20` built UI-M03-15..21 but could not run the E2E (ports held by another session) and left UI-M03-13/14 unbuilt and UI-M03-15 partial because docs/04 had no admin read API for invoices, payments or refunds.
-- **Decision for this session (instruction from the orchestrating session, not an owner decision):** add the minimum read-only API surface, **spec first** (CLAUDE.md §2 asks for owner approval of spec changes; that approval is still **pending** and is listed in §G and in the gate review). Four read operations, all `GET`, all `admin:billing:read`, admin realm, platform-scope SELECT, **every read audited**:
+- **Decision for this session (instruction from the orchestrating session, not an owner decision):** add the minimum read-only API surface, **spec first** (CLAUDE.md §2 asks for owner approval of spec changes; approved by the owner in chat on 2026-11-18, see §G). Four read operations, all `GET`, all `admin:billing:read`, admin realm, platform-scope SELECT, **every read audited**:
   - `GET /v1/admin/billing/invoices` (filters org, status, number prefix, einvoiceState, from/to, cursor) → `AdminInvoice` (number, org, buyer name and VAT, status, totals, paid, tax-review flag, e-invoice state/environment/uuid).
   - `GET /v1/admin/billing/payments` (filters org, invoiceId, status, from/to) → `AdminPayment` (provider account, amounts, captured, refunded, event count).
   - `GET /v1/admin/billing/payments/{id}/events` → stored PSP events, oldest first, **redacted** (whitelisted payload, provider payment reference masked to its last four characters, secret-looking keys dropped), with `duplicateCount` / `lastDuplicateAt`.
@@ -69,7 +69,7 @@ New API tests cover: access (finance, platform admin, compliance read; support, 
 - **Residency:** unchanged; PSP/ZATCA transfers are still stubs (M04).
 
 ## G. Human gates and live checks still needed
-- **Owner approval of the four new read operations and migration 0312** (spec precedence, CLAUDE.md §2); docs/04 lists them as "approval pending".
+- **Owner approval of the four new read operations and migration 0312** (spec precedence, CLAUDE.md §2): **APPROVED by the owner in chat on 2026-11-18** (docs/04 updated).
 - Classification of buyer name / VAT number exposure on the admin list (M04 data inventory).
 - **NOT VERIFIED:** any PSP event from a real provider, any ZATCA result, UI-M03-19 with a populated queue in a browser, Arabic copy review by a native speaker (new strings included).
 - D-23 dunning timings, D-31 tolerances, HG-03-03, HG-03-04, ADR-017 as in the M03 report.
@@ -78,6 +78,6 @@ New API tests cover: access (finance, platform admin, compliance read; support, 
 See §C. UI-M03-13/14/15/16/17/18/20/21 PASS in a browser on sandbox/simulated data; UI-M03-19 PARTIAL (empty queue only). No row is promoted by mocks beyond what the sandbox can show; nothing marked `LIVE-VERIFIED`.
 
 ## I. Next steps and open decisions
-- Owner: approve (or change) the new admin read APIs and 0312; decide the quote-payment and credit-note PDF operations raised in S12c.
+- Owner: decide the quote-payment and credit-note PDF operations raised in S12c.
 - M03 close: [M03 report](M03-report.md), [gate review](M03-gate-review.md) and [demo](../runbooks/demo-m03.md) are updated for this sprint; sign-off remains with the owner.
 - Optional follow-ups (not built): invoice detail and payment detail endpoints; an E2E that seeds a generated e-invoice so the queue/gauge are exercised in a browser.

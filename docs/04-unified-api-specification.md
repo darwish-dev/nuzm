@@ -84,8 +84,8 @@ Ingestion of metering events is an **internal** interface (`MeteringIngestServic
 | GET/PUT `/v1/billing/tax-profile` | C A R | VAT number, address, buyer data needed for invoicing |
 | POST `/v1/webhooks/payments/{provider}` | provider | PSP callbacks |
 | POST `/v1/admin/billing/refunds` · GET `…` | X | Refunds (idempotent create; GET = read-only list with status, added in M03 S12d) |
-| GET `/v1/admin/billing/invoices` | X | Cross-organization invoice search with e-invoice state (read-only, audited; added in M03 S12d, **owner approval pending**) |
-| GET `/v1/admin/billing/payments` · GET `…/{id}/events` | X | Cross-organization payment list and redacted PSP events with the resend counter (read-only, audited; added in M03 S12d, **owner approval pending**) |
+| GET `/v1/admin/billing/invoices` | X | Cross-organization invoice search with e-invoice state (read-only, audited; added in M03 S12d, owner-approved 2026-11-18) |
+| GET `/v1/admin/billing/payments` · GET `…/{id}/events` | X | Cross-organization payment list and redacted PSP events with the resend counter (read-only, audited; added in M03 S12d, owner-approved 2026-11-18) |
 | GET `/v1/admin/billing/reconciliations` · POST `…` (run) · GET `…/{id}` · POST `…/{id}/resolutions` | X | **All** financial reconciliation (payments vs PSP, ledger vs invoices, provider cost vs bills, usage vs invoice). Replaces v3 `GET /v1/billing/reconciliation`. |
 | GET `/v1/admin/billing/zatca/onboarding` · POST `…` · GET `/v1/admin/billing/zatca/submissions` · POST `…/{id}/retry` | X | ZATCA lifecycle |
 | GET `/v1/admin/billing/dunning` · PATCH `…/{id}` | X | Dunning cases |

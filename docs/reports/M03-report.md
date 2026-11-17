@@ -7,7 +7,7 @@ Status: **NOT SIGNED. Prepared 2026-11-17, updated 2026-11-18 after S12d was ver
 ## A. Repository findings and assumptions
 - Approved documentation (HG-00-01) governs; M01 and M02 are signed with deferrals ([M01](M01-deferrals.md), [M02](M02-deferrals.md)). Local-only git (D-01), one team sequential (D-02).
 - **Conflicts and gaps recorded (never silently reconciled):**
-  1. docs/04 had **no admin endpoint to search invoices across organizations, list payments with PSP events, or list refunds**. S12d added four read-only operations (spec first, migration 0312 for the duplicate-event counter) so UI-M03-13/14/15 could be built; **owner approval of these additions is pending** (CLAUDE.md §2). Details in [S12d §A](S12d-report.md).
+  1. docs/04 had **no admin endpoint to search invoices across organizations, list payments with PSP events, or list refunds**. S12d added four read-only operations (spec first, migration 0312 for the duplicate-event counter) so UI-M03-13/14/15 could be built; **owner approved these additions in chat on 2026-11-18** (CLAUDE.md §2). Details in [S12d §A](S12d-report.md).
   2. docs/04 has **no operation that pays a quote** → checkout (UI-M03-11) reviews the quote only.
   3. No credit-note PDF operation (customer screens have no PDF link for credit notes). No billing-entity / tax-rate administration endpoints (managed by migrations, as the M03 prompt says).
   4. The M03 prompt lists `payments.payment_reconciliations`; RC-01 lives in `finrec` (as the prompt itself notes). Reconciliation runs are their own resource instead of `platform.operations` records.
@@ -148,7 +148,7 @@ HG-03-01, HG-03-02, HG-03-03, HG-03-04, HG-02-01 (approved price book), HG-04-01
 | `pnpm lint` · `pnpm typecheck` · `pnpm spec:lint` · `pnpm spec:drift` · `pnpm sdk:check` | 0 | after S12d |
 
 ### Spec issues found / change requests
-1. Admin read APIs for invoices, payments + PSP events, and refunds (UI-M03-13/14/15): **added in S12d, owner approval pending**; invoice and payment detail endpoints not added.
+1. Admin read APIs for invoices, payments + PSP events, and refunds (UI-M03-13/14/15): **added in S12d, owner-approved 2026-11-18**; invoice and payment detail endpoints not added.
 2. An operation to pay a quote; a credit-note PDF operation.
 3. Billing entity and tax-rate administration endpoints (PA-11) if runtime management is wanted.
 4. Ledger dimension for meter group on revenue postings (revenue-by-meter-group report).
@@ -161,4 +161,4 @@ HG-03-01, HG-03-02, HG-03-03, HG-03-04, HG-02-01 (approved price book), HG-04-01
 - **M05:** `commerce.orders` → payment/authorization flow; RC-04 `fetchBilling` hook; consumers of dunning restrict/suspend/review requests (billing emits requests only).
 - **M07/M11:** domain-order charge flow; `billing_entities`/D-24 options, marketplace checkout and publisher payable account (2600).
 - **M12:** reconciliation and ZATCA queue SLO dashboards; production placement of the billing scheduler (ADR-017).
-- **Open decisions:** D-10, D-11, D-23, D-24, D-25, D-31, D-33, D-34, HG-02-01, HG-03-01..04, approval of the S12d admin read APIs and migration 0312, quote payment, ADR-017.
+- **Open decisions:** D-10, D-11, D-23, D-24, D-25, D-31, D-33, D-34, HG-02-01, HG-03-01..04, quote payment, ADR-017.

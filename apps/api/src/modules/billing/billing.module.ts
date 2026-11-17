@@ -16,6 +16,7 @@ import { PlanService } from './internal/plan.service';
 import { PriceBookService } from './internal/price-book.service';
 import { QuotaService } from './internal/quota.service';
 import { SpendService } from './internal/spend.service';
+import { WalletTopupService } from './internal/wallet-topup.service';
 import { NotificationService } from '../notifications';
 
 /** Users who can manage billing in the organization (owners, admins, billing admins): the audience of quota notices. */
@@ -110,6 +111,12 @@ const approverIds = (db: Db, orgId: string) =>
       inject: [DB, AuditSink, NotificationService],
     },
     {
+      provide: WalletTopupService,
+      useFactory: (db: Db, a: AuditSink, l: LedgerPostingService) =>
+        new WalletTopupService(db, a, l),
+      inject: [DB, AuditSink, LedgerPostingService],
+    },
+    {
       provide: BillingReadService,
       useFactory: (db: Db) => new BillingReadService(db),
       inject: [DB],
@@ -124,6 +131,7 @@ const approverIds = (db: Db, orgId: string) =>
     QuotaService,
     SpendService,
     AdjustmentService,
+    WalletTopupService,
   ],
 })
 export class BillingModule {}

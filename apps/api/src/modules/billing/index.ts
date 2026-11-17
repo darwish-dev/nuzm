@@ -11,3 +11,5 @@ export { QuotaService } from './internal/quota.service';
 export type { QuotaItem, QuotaReport, QuotaCheck } from './internal/quota.service';
 export { SpendService } from './internal/spend.service';
 export type { SpendDecision, SpendApprovalDto, SpendingLimitDto } from './internal/spend.service';
+export { WalletTopupService, walletPolicyFromEnv } from './internal/wallet-topup.service';
+export type { WalletTopupDto, WalletPolicy } from './internal/wallet-topup.service';

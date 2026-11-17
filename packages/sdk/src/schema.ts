@@ -1579,7 +1579,7 @@ export interface paths {
         put?: never;
         /**
          * Pay an invoice
-         * @description Starts a payment for an invoice with a saved method (default when paymentMethodId is omitted). An unfinished payment for the invoice is reconciled with the PSP first and returned: the PSP is never charged twice. 201 created, 202 while the outcome is not known yet, 200 when an existing payment is returned; status requires_action carries nextAction (3-D Secure redirect). Quotes and wallet top-ups are not payable yet. Requires permission `billing:manage`.
+         * @description Starts a payment for an invoice with a saved method (default when paymentMethodId is omitted). An unfinished payment for the invoice is reconciled with the PSP first and returned: the PSP is never charged twice. 201 created, 202 while the outcome is not known yet, 200 when an existing payment is returned; status requires_action carries nextAction (3-D Secure redirect). Pays an invoice (invoiceId) or a wallet top-up (walletTopupId); quotes are not payable yet. Requires permission `billing:manage`.
          */
         post: operations["createPayment"];
         delete?: never;
@@ -1602,6 +1602,46 @@ export interface paths {
         get: operations["getPayment"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/wallet-topups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Top up the prepaid wallet
+         * @description Creates a top-up request and starts its payment with a saved method (default when paymentMethodId is omitted). The wallet is credited only when the payment is captured (ledger: PSP clearing to customer wallet, once). amount is {amount, currency} in minor units within the configured minimum and maximum. 201 created, 202 while the outcome is not known yet; requires_action carries nextAction (3-D Secure). VAT on prepaid credit is booked at consumption (policy D-25, awaiting tax-advisor confirmation). Requires permission `billing:manage`.
+         */
+        post: operations["createWalletTopup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund a captured payment
+         * @description Body {paymentId, amount (minor units), reason, creditNoteId?}. Permission admin:billing:manage; admin-realm session with MFA and step-up; needs Idempotency-Key (a replay returns the same refund). The amount may not exceed what is still refundable (captured minus refunded minus pending refunds), else 422. 201 when the refund finished, 202 while the PSP has not finished it (the platform keeps asking, and never sends it twice). The ledger entry (receivable or unapplied payment to PSP clearing) is made once per refund. A linked credit note becomes `refunded` when the refunds against it cover its total. Wallet top-up payments cannot be refunded yet.
+         */
+        post: operations["adminCreateRefund"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1655,9 +1695,12 @@ export interface components {
         PaymentMethodList: {
             items: components["schemas"]["PaymentMethod"][];
         };
+        /** @description Send exactly one of invoiceId or walletTopupId. */
         CreatePayment: {
             /** Format: uuid */
-            invoiceId: string;
+            invoiceId?: string;
+            /** Format: uuid */
+            walletTopupId?: string;
             /** Format: uuid */
             paymentMethodId?: string;
             /** @description Minor units; default and maximum is what is still owed. */
@@ -1669,7 +1712,9 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
-            invoiceId: string;
+            invoiceId: string | null;
+            /** Format: uuid */
+            walletTopupId: string | null;
             amountMinor: string;
             currency: string;
             /** @enum {string} */
@@ -1684,6 +1729,55 @@ export interface components {
             failureCode: string | null;
             capturedMinor: string;
             refundedMinor: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreateWalletTopup: {
+            amount: {
+                /** @description Minor units. */
+                amount: string;
+                currency: string;
+            };
+            /** Format: uuid */
+            paymentMethodId?: string;
+            /** @description Where the customer returns after 3-D Secure; must be an allowed origin. */
+            returnUrl: string;
+        };
+        WalletTopup: {
+            /** Format: uuid */
+            id: string;
+            amountMinor: string;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "credited";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            creditedAt: string | null;
+            payment: components["schemas"]["Payment"];
+        };
+        CreateRefund: {
+            /** Format: uuid */
+            paymentId: string;
+            /** @description Minor units. */
+            amount: string;
+            reason: string;
+            /** Format: uuid */
+            creditNoteId?: string;
+        };
+        Refund: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            paymentId: string;
+            amountMinor: string;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed";
+            reason: string;
+            failureCode: string | null;
+            /** Format: uuid */
+            creditNoteId: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -5818,6 +5912,98 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    createWalletTopup: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWalletTopup"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletTopup"];
+                };
+            };
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletTopup"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminCreateRefund: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRefund"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"];
+                };
+            };
+            /** @description Refund finished */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"];
+                };
+            };
+            /** @description Refund accepted, the PSP has not finished it */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     receivePaymentWebhook: {

@@ -2520,7 +2520,7 @@ paths:
       operationId: createPayment
       tags: [payments]
       summary: Pay an invoice
-      description: 'Starts a payment for an invoice with a saved method (default when paymentMethodId is omitted). An unfinished payment for the invoice is reconciled with the PSP first and returned: the PSP is never charged twice. 201 created, 202 while the outcome is not known yet, 200 when an existing payment is returned; status requires_action carries nextAction (3-D Secure redirect). Quotes and wallet top-ups are not payable yet. Requires permission `billing:manage`.'
+      description: 'Starts a payment for an invoice with a saved method (default when paymentMethodId is omitted). An unfinished payment for the invoice is reconciled with the PSP first and returned: the PSP is never charged twice. 201 created, 202 while the outcome is not known yet, 200 when an existing payment is returned; status requires_action carries nextAction (3-D Secure redirect). Pays an invoice (invoiceId) or a wallet top-up (walletTopupId); quotes are not payable yet. Requires permission `billing:manage`.'
       x-nuzm-permission: billing:manage
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -2604,6 +2604,81 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/wallet-topups:
+    post:
+      operationId: createWalletTopup
+      tags: [payments]
+      summary: Top up the prepaid wallet
+      description: 'Creates a top-up request and starts its payment with a saved method (default when paymentMethodId is omitted). The wallet is credited only when the payment is captured (ledger: PSP clearing to customer wallet, once). amount is {amount, currency} in minor units within the configured minimum and maximum. 201 created, 202 while the outcome is not known yet; requires_action carries nextAction (3-D Secure). VAT on prepaid credit is booked at consumption (policy D-25, awaiting tax-advisor confirmation). Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWalletTopup' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletTopup' }
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletTopup' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/refunds:
+    post:
+      operationId: adminCreateRefund
+      tags: [payments]
+      summary: Refund a captured payment
+      description: 'Body {paymentId, amount (minor units), reason, creditNoteId?}. Permission admin:billing:manage; admin-realm session with MFA and step-up; needs Idempotency-Key (a replay returns the same refund). The amount may not exceed what is still refundable (captured minus refunded minus pending refunds), else 422. 201 when the refund finished, 202 while the PSP has not finished it (the platform keeps asking, and never sends it twice). The ledger entry (receivable or unapplied payment to PSP clearing) is made once per refund. A linked credit note becomes `refunded` when the refunds against it cover its total. Wallet top-up payments cannot be refunded yet.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: Idempotency-Key,
+            in: header,
+            required: true,
+            schema: { type: string, minLength: 1, maxLength: 255 },
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRefund' }
+      responses:
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '201':
+          description: Refund finished
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '202':
+          description: Refund accepted, the PSP has not finished it
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/webhooks/payments/{provider}:
     post:
       operationId: receivePaymentWebhook
@@ -2724,9 +2799,11 @@ components:
         items: { type: array, items: { $ref: '#/components/schemas/PaymentMethod' } }
     CreatePayment:
       type: object
-      required: [invoiceId, returnUrl]
+      required: [returnUrl]
+      description: Send exactly one of invoiceId or walletTopupId.
       properties:
         invoiceId: { type: string, format: uuid }
+        walletTopupId: { type: string, format: uuid }
         paymentMethodId: { type: string, format: uuid }
         amount:
           {
@@ -2745,6 +2822,7 @@ components:
         [
           id,
           invoiceId,
+          walletTopupId,
           amountMinor,
           currency,
           status,
@@ -2757,7 +2835,8 @@ components:
         ]
       properties:
         id: { type: string, format: uuid }
-        invoiceId: { type: string, format: uuid }
+        invoiceId: { type: [string, 'null'], format: uuid }
+        walletTopupId: { type: [string, 'null'], format: uuid }
         amountMinor: { type: string }
         currency: { type: string }
         status:
@@ -2784,6 +2863,55 @@ components:
         failureCode: { type: [string, 'null'] }
         capturedMinor: { type: string }
         refundedMinor: { type: string }
+        createdAt: { type: string, format: date-time }
+    CreateWalletTopup:
+      type: object
+      required: [amount, returnUrl]
+      properties:
+        amount:
+          type: object
+          required: [amount, currency]
+          properties:
+            amount: { type: string, pattern: '^[1-9][0-9]{0,17}$', description: Minor units. }
+            currency: { type: string, pattern: '^[A-Z]{3}$' }
+        paymentMethodId: { type: string, format: uuid }
+        returnUrl:
+          {
+            type: string,
+            description: 'Where the customer returns after 3-D Secure; must be an allowed origin.',
+          }
+    WalletTopup:
+      type: object
+      required: [id, amountMinor, currency, status, createdAt, creditedAt, payment]
+      properties:
+        id: { type: string, format: uuid }
+        amountMinor: { type: string }
+        currency: { type: string }
+        status: { type: string, enum: [pending, credited] }
+        createdAt: { type: string, format: date-time }
+        creditedAt: { type: [string, 'null'], format: date-time }
+        payment: { $ref: '#/components/schemas/Payment' }
+    CreateRefund:
+      type: object
+      required: [paymentId, amount, reason]
+      properties:
+        paymentId: { type: string, format: uuid }
+        amount: { type: string, pattern: '^[1-9][0-9]{0,17}$', description: Minor units. }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        creditNoteId: { type: string, format: uuid }
+    Refund:
+      type: object
+      required:
+        [id, paymentId, amountMinor, currency, status, reason, failureCode, creditNoteId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        paymentId: { type: string, format: uuid }
+        amountMinor: { type: string }
+        currency: { type: string }
+        status: { type: string, enum: [pending, succeeded, failed] }
+        reason: { type: string }
+        failureCode: { type: [string, 'null'] }
+        creditNoteId: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
     PaymentPage:
       type: object

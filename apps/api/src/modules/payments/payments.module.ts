@@ -2,12 +2,15 @@ import { Global, Module } from '@nestjs/common';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
-import { LedgerPostingService } from '../billing';
-import { InvoiceService } from '../invoicing';
+import { LedgerPostingService, WalletTopupService } from '../billing';
+import { CreditNoteService, InvoiceService } from '../invoicing';
 import { PaymentMethodService } from './internal/method.service';
 import { PaymentService } from './internal/payment.service';
+import { RefundService } from './internal/refund.service';
 import { MockPsp } from './internal/psp/mock-psp';
 import { PspRegistry } from './internal/psp/registry';
+import { AdminRefundsController } from './admin-refunds.controller';
+import { WalletTopupsController } from './wallet-topups.controller';
 import { PaymentMethodsController } from './payment-methods.controller';
 import { PaymentsController } from './payments.controller';
 import { PaymentWebhooksController } from './webhooks.controller';
@@ -19,7 +22,13 @@ import { PaymentWebhooksController } from './webhooks.controller';
  */
 @Global()
 @Module({
-  controllers: [PaymentMethodsController, PaymentsController, PaymentWebhooksController],
+  controllers: [
+    PaymentMethodsController,
+    PaymentsController,
+    PaymentWebhooksController,
+    WalletTopupsController,
+    AdminRefundsController,
+  ],
   providers: [
     {
       provide: MockPsp,
@@ -48,13 +57,33 @@ import { PaymentWebhooksController } from './webhooks.controller';
         l: LedgerPostingService,
         r: PspRegistry,
         i: InvoiceService,
+        t: WalletTopupService,
       ) =>
-        new PaymentService(db, a, l, r, i, {
+        new PaymentService(db, a, l, r, i, t, {
           returnUrlAllowlist: PaymentService.allowlistFromEnv(),
         }),
-      inject: [DB, AuditSink, LedgerPostingService, PspRegistry, InvoiceService],
+      inject: [
+        DB,
+        AuditSink,
+        LedgerPostingService,
+        PspRegistry,
+        InvoiceService,
+        WalletTopupService,
+      ],
+    },
+    {
+      provide: RefundService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        l: LedgerPostingService,
+        r: PspRegistry,
+        i: InvoiceService,
+        c: CreditNoteService,
+      ) => new RefundService(db, a, l, r, i, c),
+      inject: [DB, AuditSink, LedgerPostingService, PspRegistry, InvoiceService, CreditNoteService],
     },
   ],
-  exports: [PaymentService, PaymentMethodService, PspRegistry, MockPsp],
+  exports: [RefundService, PaymentService, PaymentMethodService, PspRegistry, MockPsp],
 })
 export class PaymentsModule {}

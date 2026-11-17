@@ -563,6 +563,20 @@ export class InvoiceService {
     });
   }
 
+  /** How much of a payment was applied to invoices (0 when it was never applied): refunds split their ledger entry on it. */
+  async appliedOf(orgId: string, paymentId: string): Promise<bigint> {
+    return this.db.withOrg(orgId, async (c) =>
+      BigInt(
+        (
+          await c.query<{ n: string }>(
+            `SELECT coalesce(sum(amount_minor), 0)::text n FROM invoicing.invoice_payment_applications WHERE org_id = $1 AND payment_id = $2`,
+            [orgId, paymentId],
+          )
+        ).rows[0]!.n,
+      ),
+    );
+  }
+
   // ---- reads ------------------------------------------------------------------------------------------------------
 
   private async load(orgId: string, id: string): Promise<{ inv: Row; lines: Row[] }> {

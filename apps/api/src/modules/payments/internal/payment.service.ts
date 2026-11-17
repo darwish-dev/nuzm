@@ -4,7 +4,7 @@ import { enqueue, type Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { decodeCursor, pageOf, type Page } from '../../../common/pagination';
-import { recipes, type LedgerPostingService } from '../../billing';
+import { recipes, type LedgerPostingService, type WalletTopupService } from '../../billing';
 import type { InvoiceService } from '../../invoicing';
 import { containsCardData } from './pan';
 import { isOpenIntent, type IntentStatus } from './payment-state';
@@ -33,7 +33,9 @@ const STATUSES: IntentStatus[] = [
 
 export interface PaymentDto {
   id: string;
-  invoiceId: string;
+  /** The invoice being paid, or null for a wallet top-up payment. */
+  invoiceId: string | null;
+  walletTopupId: string | null;
   amountMinor: string;
   currency: string;
   status: IntentStatus;
@@ -46,7 +48,8 @@ export interface PaymentDto {
 }
 const dto = (r: Row): PaymentDto => ({
   id: r.id as string,
-  invoiceId: r.invoice_id as string,
+  invoiceId: (r.invoice_id as string | null) ?? null,
+  walletTopupId: (r.wallet_topup_id as string | null) ?? null,
   amountMinor: String(r.amount_minor),
   currency: (r.currency as string).trim(),
   status: r.status as IntentStatus,
@@ -76,6 +79,7 @@ export class PaymentService {
     private readonly ledger: Pick<LedgerPostingService, 'post'>,
     private readonly psp: PspRegistry,
     private readonly invoices: Pick<InvoiceService, 'get' | 'applyPayment'>,
+    private readonly topups: Pick<WalletTopupService, 'get' | 'credit'>,
     private readonly opts: { returnUrlAllowlist: string[] } = {
       returnUrlAllowlist: ['http://127.0.0.1:3000', 'http://localhost:3000'],
     },
@@ -116,13 +120,22 @@ export class PaymentService {
         'pan_not_allowed',
         'card data is never accepted; pay with a saved payment method',
       );
-    if (input.quoteId !== undefined || input.walletTopupId !== undefined)
+    if (input.quoteId !== undefined)
       throw new ProblemException(
         'validation_failed',
-        'paying a quote or a wallet top-up is not available yet (S10 / M05); pay an invoice with invoiceId',
+        'paying a quote is not available yet (M05); pay an invoice with invoiceId or a wallet top-up with walletTopupId',
       );
-    if (typeof input.invoiceId !== 'string' || !UUID.test(input.invoiceId))
-      throw new ProblemException('validation_failed', 'invoiceId must be a uuid');
+    if ((input.invoiceId === undefined) === (input.walletTopupId === undefined))
+      throw new ProblemException(
+        'validation_failed',
+        'send exactly one of invoiceId or walletTopupId',
+      );
+    for (const k of ['invoiceId', 'walletTopupId'] as const)
+      if (
+        input[k] !== undefined &&
+        (typeof input[k] !== 'string' || !UUID.test(input[k] as string))
+      )
+        throw new ProblemException('validation_failed', `${k} must be a uuid`);
     const returnUrl = this.returnUrl(input.returnUrl);
     if (
       input.amount !== undefined &&
@@ -138,27 +151,49 @@ export class PaymentService {
     )
       throw new ProblemException('validation_failed', 'paymentMethodId must be a uuid');
 
-    const invoice = await this.invoices.get(orgId, input.invoiceId.toLowerCase()); // 404 for a foreign or unknown invoice
-    if (invoice.status === 'paid')
-      throw new ProblemException('conflict', 'this invoice is already paid');
-    if (invoice.status !== 'open' && invoice.status !== 'partially_paid')
-      throw new ProblemException('conflict', `a ${invoice.status} invoice cannot be paid`);
-    const remaining = BigInt(invoice.totalMinor) - BigInt(invoice.paidMinor);
-    const amount = input.amount === undefined ? remaining : BigInt(input.amount as string);
-    if (amount > remaining)
-      throw new ProblemException(
-        'validation_failed',
-        `the amount exceeds what is still owed (${remaining.toString()})`,
-      );
+    // what is being paid: an invoice (partial amounts allowed) or a wallet top-up (always the whole requested amount)
+    let target: {
+      invoiceId: string | null;
+      topupId: string | null;
+      amount: bigint;
+      currency: string;
+    };
+    if (typeof input.invoiceId === 'string') {
+      const invoice = await this.invoices.get(orgId, input.invoiceId.toLowerCase()); // 404 for a foreign or unknown invoice
+      if (invoice.status === 'paid')
+        throw new ProblemException('conflict', 'this invoice is already paid');
+      if (invoice.status !== 'open' && invoice.status !== 'partially_paid')
+        throw new ProblemException('conflict', `a ${invoice.status} invoice cannot be paid`);
+      const remaining = BigInt(invoice.totalMinor) - BigInt(invoice.paidMinor);
+      const amount = input.amount === undefined ? remaining : BigInt(input.amount as string);
+      if (amount > remaining)
+        throw new ProblemException(
+          'validation_failed',
+          `the amount exceeds what is still owed (${remaining.toString()})`,
+        );
+      target = { invoiceId: invoice.id, topupId: null, amount, currency: invoice.currency };
+    } else {
+      if (input.amount !== undefined)
+        throw new ProblemException('validation_failed', 'a top-up is paid in full; omit amount');
+      const topup = await this.topups.get(orgId, (input.walletTopupId as string).toLowerCase());
+      if (topup.status === 'credited')
+        throw new ProblemException('conflict', 'this top-up is already paid');
+      target = {
+        invoiceId: null,
+        topupId: topup.id,
+        amount: BigInt(topup.amountMinor),
+        currency: topup.currency,
+      };
+    }
 
-    // an unfinished payment for this invoice: reconcile with the PSP FIRST, then hand back whatever is true (never a second charge)
+    // an unfinished payment for this target: reconcile with the PSP FIRST, then hand back whatever is true (never a second charge)
     const open = await this.db.withOrg(
       orgId,
       async (c) =>
         (
           await c.query(
-            `SELECT * FROM payments.payment_intents WHERE org_id = $1 AND invoice_id = $2 AND status IN ('requires_action','processing') ORDER BY created_at DESC LIMIT 1`,
-            [orgId, invoice.id],
+            `SELECT * FROM payments.payment_intents WHERE org_id = $1 AND (invoice_id = $2::uuid OR wallet_topup_id = $3::uuid) AND status IN ('requires_action','processing') ORDER BY created_at DESC LIMIT 1`,
+            [orgId, target.invoiceId, target.topupId],
           )
         ).rows[0],
     );
@@ -176,16 +211,17 @@ export class PaymentService {
     const id = uuidv7();
     await this.db.withOrg(orgId, async (c) => {
       await c.query(
-        `INSERT INTO payments.payment_intents (id, org_id, psp_account_id, invoice_id, payment_method_id, amount_minor, currency, merchant_reference, return_url, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        `INSERT INTO payments.payment_intents (id, org_id, psp_account_id, invoice_id, wallet_topup_id, payment_method_id, amount_minor, currency, merchant_reference, return_url, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           id,
           orgId,
           method.psp_account_id,
-          invoice.id,
+          target.invoiceId,
+          target.topupId,
           method.id,
-          amount.toString(),
-          invoice.currency,
+          target.amount.toString(),
+          target.currency,
           `nuzm_pi_${id}`,
           returnUrl,
           actorUserId,
@@ -198,9 +234,10 @@ export class PaymentService {
         resource: { type: 'payment_intent', id },
         outcome: 'success',
         after: {
-          invoiceId: invoice.id,
-          amountMinor: amount.toString(),
-          currency: invoice.currency,
+          invoiceId: target.invoiceId,
+          walletTopupId: target.topupId,
+          amountMinor: target.amount.toString(),
+          currency: target.currency,
         },
       });
     });
@@ -385,6 +422,23 @@ export class PaymentService {
         ).rows[0],
     ))!;
     if (!['succeeded', 'partially_refunded', 'refunded'].includes(intent.status as string)) return;
+    if (intent.wallet_topup_id !== null) {
+      // a top-up payment: the wallet is credited once (ledger key payment:<id>:capture), then the top-up is marked credited
+      const r = await this.topups.credit(orgId, intent.wallet_topup_id as string, {
+        paymentId: intentId,
+        pspAccountCode: intent.psp_code as string,
+        amountMinor: String(intent.captured_minor),
+        currency: (intent.currency as string).trim(),
+      });
+      if (intent.ledger_transaction_id === null)
+        await this.db.withOrg(orgId, (c) =>
+          c.query(
+            `UPDATE payments.payment_intents SET ledger_transaction_id = $2, updated_at = now() WHERE id = $1 AND ledger_transaction_id IS NULL`,
+            [intentId, r.transactionId],
+          ),
+        );
+      return;
+    }
     const applied = await this.invoices.applyPayment(
       orgId,
       intent.invoice_id as string,

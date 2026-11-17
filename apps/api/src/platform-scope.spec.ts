@@ -16,10 +16,10 @@ const walk = (d: string): string[] =>
 /**
  * `Db.withPlatformScope` opens cross-tenant read access (RLS platform scope). It may only be used by the admin
  * console module, the audit read side, the billing module (finance reads, plan administration, platform-level
- * ledger postings) and the metering module (meter catalogue, provider cost capture and margin), all of which sit behind a verified platform permission or a service-level caller.
+ * ledger postings) and the metering module (meter catalogue, provider cost capture and margin) and the payments module (finance refunds resolve a payment's organization; pending-refund sweeper), all of which sit behind a verified platform permission or a service-level caller.
  */
 describe('platform scope usage', () => {
-  it('is only used from modules/admin, modules/audit, modules/billing and modules/metering', () => {
+  it('is only used from modules/admin, modules/audit, modules/billing, modules/metering and modules/payments', () => {
     const offenders = walk(src)
       .filter((f) => /withPlatformScope\(/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(src.length + 1))
@@ -28,7 +28,8 @@ describe('platform scope usage', () => {
           !f.startsWith('modules/admin/') &&
           !f.startsWith('modules/audit/') &&
           !f.startsWith('modules/billing/') &&
-          !f.startsWith('modules/metering/'),
+          !f.startsWith('modules/metering/') &&
+          !f.startsWith('modules/payments/'),
       );
     expect(offenders).toEqual([]);
   });

@@ -293,16 +293,6 @@ export function reversal(p: {
   };
 }
 
-/** Recipes owned by M03 (payments/invoicing): registered now so callers fail loudly instead of improvising postings. */
-const m03 = (name: string) => (): never => {
-  throw new ProblemException(
-    'recipe_not_implemented',
-    `${name} is implemented in M03 (payments & invoicing)`,
-  );
-};
-export const refund = m03('refund');
-export const walletTopUp = m03('wallet top-up');
-
 export type RevenueAccount = '4100' | '4200' | '4300' | '4400';
 export interface DocumentRecipeLine {
   revenueAccount: RevenueAccount;
@@ -487,5 +477,103 @@ export function paymentCaptured(p: {
     sourceEventId: p.paymentId,
     affectsWallet: false,
     postings,
+  };
+}
+
+/**
+ * Refund (docs/11 §3.1): Dr 1200 receivable (the part that was applied to an invoice) and/or Dr 2500 unapplied customer payments (the
+ * part that was never applied) → Cr 1100 PSP clearing. A refund never edits the capture: it is its own transaction, idempotent on
+ * `payment:<id>:refund:<refundId>`. The credit note (when there is one) already reduced the receivable; this entry moves the money.
+ */
+export function refund(p: {
+  orgId: string;
+  refundId: string;
+  paymentId: string;
+  pspAccountCode: string;
+  currency: string;
+  amountMinor: Minor;
+  unappliedMinor: Minor;
+}): Built {
+  const amount = BigInt(parseMinor(p.amountMinor, 'refund amount'));
+  const unapplied = BigInt(nonNegativeMinor(p.unappliedMinor, 'unapplied amount'));
+  if (unapplied > amount)
+    throw new ProblemException(
+      'validation_failed',
+      'the unapplied part cannot exceed the refund amount',
+    );
+  const currency = parseCurrency(p.currency);
+  const dimensions = { refund_id: p.refundId, payment_id: p.paymentId };
+  const postings: PostingLine[] = [];
+  if (amount > unapplied)
+    postings.push({
+      account: { code: '1200', org: true },
+      direction: 'debit',
+      amountMinor: (amount - unapplied).toString(),
+      currency,
+      dimensions,
+    });
+  if (unapplied > 0n)
+    postings.push({
+      account: { code: '2500', org: true },
+      direction: 'debit',
+      amountMinor: unapplied.toString(),
+      currency,
+      dimensions,
+    });
+  postings.push({
+    account: { code: '1100', org: false, subledger: p.pspAccountCode },
+    direction: 'credit',
+    amountMinor: amount.toString(),
+    currency,
+    dimensions,
+  });
+  assertBalanced(postings);
+  return {
+    kind: 'refund',
+    orgId: p.orgId,
+    description: text(`Refund ${p.refundId}`, 'description'),
+    sourceEventId: p.refundId,
+    affectsWallet: false,
+    postings,
+  };
+}
+
+/**
+ * Wallet top-up (docs/11 §3.1): Dr 1100 PSP clearing → Cr 2100 customer wallet, when the payment is captured. VAT on prepaid credit is
+ * NOT posted here: the policy is VAT at consumption (the default of D-25, [VERIFY HG-03-04]); `walletConsume` carries the VAT.
+ */
+export function walletTopUp(p: {
+  orgId: string;
+  topupId: string;
+  paymentId: string;
+  pspAccountCode: string;
+  currency: string;
+  amountMinor: Minor;
+}): Built {
+  const amount = parseMinor(p.amountMinor, 'top-up amount');
+  const currency = parseCurrency(p.currency);
+  const dimensions = { topup_id: p.topupId, payment_id: p.paymentId };
+  return {
+    kind: 'wallet_topup',
+    orgId: p.orgId,
+    description: text(`Wallet top-up ${p.topupId}`, 'description'),
+    sourceEventId: p.topupId,
+    affectsWallet: true,
+    postings: [
+      {
+        account: { code: '1100', org: false, subledger: p.pspAccountCode },
+        direction: 'debit',
+        amountMinor: amount,
+        currency,
+        dimensions,
+      },
+      {
+        account: { code: '2100', org: true },
+        direction: 'credit',
+        amountMinor: amount,
+        currency,
+        dimensions,
+      },
+    ],
   };
 }

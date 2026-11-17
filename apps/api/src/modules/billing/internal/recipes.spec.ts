@@ -228,8 +228,77 @@ describe('recipe specifics (docs/11 §3.1)', () => {
     });
   });
 
-  it('M03-owned recipes fail loudly instead of improvising', () => {
-    for (const r of [refund, walletTopUp]) problem(r, 'recipe_not_implemented', /M03/);
+  it('refund moves money out of receivables and unapplied payments into PSP clearing', () => {
+    const b = refund({
+      orgId: ORG,
+      refundId: 'r1',
+      paymentId: 'p1',
+      pspAccountCode: 'mock-sandbox',
+      currency: 'SAR',
+      amountMinor: '1000',
+      unappliedMinor: '300',
+    });
+    expect(b.kind).toBe('refund');
+    expect(b.postings.map((p) => [p.account.code, p.direction, p.amountMinor])).toEqual([
+      ['1200', 'debit', '700'],
+      ['2500', 'debit', '300'],
+      ['1100', 'credit', '1000'],
+    ]);
+    expect(b.postings[2]!.account.subledger).toBe('mock-sandbox');
+    const whole = refund({
+      orgId: ORG,
+      refundId: 'r2',
+      paymentId: 'p1',
+      pspAccountCode: 'x',
+      currency: 'SAR',
+      amountMinor: '5',
+      unappliedMinor: '0',
+    });
+    expect(whole.postings.map((p) => p.account.code)).toEqual(['1200', '1100']);
+  });
+
+  it('refund rejects a bad unapplied part, zero and fractional amounts', () => {
+    const base = {
+      orgId: ORG,
+      refundId: 'r',
+      paymentId: 'p',
+      pspAccountCode: 'x',
+      currency: 'SAR',
+    };
+    problem(
+      () => refund({ ...base, amountMinor: '10', unappliedMinor: '11' }),
+      'validation_failed',
+      /unapplied/,
+    );
+    problem(
+      () => refund({ ...base, amountMinor: '0', unappliedMinor: '0' }),
+      'validation_failed',
+      /refund amount/,
+    );
+    problem(
+      () => refund({ ...base, amountMinor: '1.5', unappliedMinor: '0' }),
+      'validation_failed',
+      /integer/,
+    );
+  });
+
+  it('wallet top-up credits the wallet from PSP clearing and flags the projection refresh', () => {
+    const b = walletTopUp({
+      orgId: ORG,
+      topupId: 't1',
+      paymentId: 'p1',
+      pspAccountCode: 'mock-sandbox',
+      currency: 'SAR',
+      amountMinor: '50000',
+    });
+    expect(b.kind).toBe('wallet_topup');
+    expect(b.affectsWallet).toBe(true);
+    expect(b.postings.map((p) => [p.account.code, p.direction, p.amountMinor])).toEqual([
+      ['1100', 'debit', '50000'],
+      ['2100', 'credit', '50000'],
+    ]);
+    // no VAT here: VAT on prepaid credit is booked at consumption (D-25 default)
+    expect(b.postings.some((p) => p.account.code === '2300')).toBe(false);
   });
 });
 
@@ -367,4 +436,35 @@ describe('payment captured recipe (docs/11 §3.1)', () => {
     ));
   it('refuses to apply more than was paid', () =>
     problem(() => pay(100n, 101n), 'validation_failed', /cannot exceed/));
+});
+
+describe('refund property (10,000 runs)', () => {
+  it('always balances, never mixes currencies and sums to the refund amount', () => {
+    fc.assert(
+      fc.property(
+        fc.bigInt({ min: 1n, max: 10n ** 15n }),
+        fc.double({ min: 0, max: 1, noNaN: true }),
+        (amount, frac) => {
+          const unapplied = BigInt(Math.floor(Number(frac) * 1000)) * (amount / 1000n);
+          const b = refund({
+            orgId: ORG,
+            refundId: 'r',
+            paymentId: 'p',
+            pspAccountCode: 'x',
+            currency: 'SAR',
+            amountMinor: amount,
+            unappliedMinor: unapplied > amount ? amount : unapplied,
+          });
+          const dr = b.postings
+            .filter((p) => p.direction === 'debit')
+            .reduce((s, p) => s + BigInt(p.amountMinor), 0n);
+          const cr = b.postings
+            .filter((p) => p.direction === 'credit')
+            .reduce((s, p) => s + BigInt(p.amountMinor), 0n);
+          return dr === cr && cr === amount;
+        },
+      ),
+      { numRuns: 10_000 },
+    );
+  });
 });

@@ -8,3 +8,5 @@ export { MockPsp, MOCK_SIGNATURE_HEADER } from './internal/psp/mock-psp';
 export { PspRegistry } from './internal/psp/registry';
 export type { PspAdapter } from './internal/psp/psp';
 export { containsCardData, looksLikeCardNumber, luhnValid } from './internal/pan';
+export { RefundService } from './internal/refund.service';
+export type { RefundDto } from './internal/refund.service';

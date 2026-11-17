@@ -10,6 +10,12 @@ export interface PspPaymentResult {
   failureCode?: string;
   nextAction?: { type: 'redirect'; url: string };
 }
+export interface PspRefundResult {
+  /** `pending`: the PSP accepted the refund but has not finished it; the outcome is learned by asking again. */
+  status: 'succeeded' | 'failed' | 'pending';
+  pspRefundRef: string;
+  failureCode?: string;
+}
 export interface MethodDetails {
   /** The PSP's token for the stored method (opaque). */
   token: string;
@@ -70,6 +76,17 @@ export interface PspAdapter {
   }): Promise<PspPaymentResult>;
   /** What the PSP knows about this merchant reference (null = nothing): the reconcile-before-retry probe. */
   retrievePayment(merchantReference: string): Promise<PspPaymentResult | null>;
+  /** Start a refund of a captured payment. May throw PspTimeoutError (unknown outcome). `idempotencyKey` is per refund (not per call). */
+  createRefund(input: {
+    merchantReference: string;
+    paymentMerchantReference: string;
+    pspPaymentRef: string;
+    idempotencyKey: string;
+    amountMinor: string;
+    currency: string;
+  }): Promise<PspRefundResult>;
+  /** What the PSP knows about this refund merchant reference (null = nothing): the reconcile-before-retry probe for refunds. */
+  retrieveRefund(merchantReference: string): Promise<PspRefundResult | null>;
   /** Verify the signature over the RAW body and the replay window; returns the parsed event or throws WebhookRejectedError. */
   parseWebhook(
     rawBody: string,

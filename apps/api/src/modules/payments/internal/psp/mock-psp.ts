@@ -5,6 +5,7 @@ import {
   type MethodDetails,
   type PspAdapter,
   type PspPaymentResult,
+  type PspRefundResult,
   type WebhookEvent,
   type WebhookEventType,
 } from './psp';
@@ -28,6 +29,16 @@ interface Stored {
   charges: number;
 }
 
+export type MockRefundScenario = 'success' | 'fail' | 'pending' | 'timeout';
+interface StoredRefund {
+  status: PspRefundResult['status'];
+  pspRefundRef: string;
+  failureCode?: string;
+  amountMinor: string;
+  paymentMerchantReference: string;
+  calls: number;
+}
+
 export const MOCK_SIGNATURE_HEADER = 'x-mock-signature';
 export const MOCK_TOLERANCE_SECONDS = 300;
 
@@ -39,6 +50,10 @@ export class MockPsp implements PspAdapter {
   private readonly tokens = new Map<string, MockScenario>();
   private readonly usedSetupTokens = new Set<string>();
   private seq = 0;
+  private readonly refunds = new Map<string, StoredRefund>();
+  private readonly refundQueue: MockRefundScenario[] = [];
+  /** Refund calls that moved money for a reference that was already refunded (must stay 0 when the service reconciles first). */
+  duplicateRefunds = 0;
   /** Calls that created a charge for a reference that was already charged (must stay 0 when the service reconciles first). */
   duplicateCharges = 0;
 
@@ -139,6 +154,97 @@ export class MockPsp implements PspAdapter {
       pspPaymentRef: s.pspPaymentRef,
       ...(s.failureCode ? { failureCode: s.failureCode } : {}),
     };
+  }
+
+  /** Scenario of the NEXT refund call(s), in order (default success): fail, stay pending, or succeed but lose the answer. */
+  queueRefund(...scenarios: MockRefundScenario[]): void {
+    this.refundQueue.push(...scenarios);
+  }
+
+  async createRefund(i: {
+    merchantReference: string;
+    paymentMerchantReference: string;
+    amountMinor: string;
+  }): Promise<PspRefundResult> {
+    const pay = this.payments.get(i.paymentMerchantReference);
+    const scenario = this.refundQueue.shift() ?? 'success';
+    const prior = this.refunds.get(i.merchantReference);
+    if (prior && prior.status !== 'failed') this.duplicateRefunds++;
+    const refundedSoFar = [...this.refunds.values()]
+      .filter(
+        (r) =>
+          r.paymentMerchantReference === i.paymentMerchantReference && r.status === 'succeeded',
+      )
+      .reduce((s, r) => s + BigInt(r.amountMinor), 0n);
+    const put = (status: StoredRefund['status'], failureCode?: string): StoredRefund => {
+      const stored: StoredRefund = {
+        status,
+        pspRefundRef: prior?.pspRefundRef ?? `re_mock_${(++this.seq).toString().padStart(8, '0')}`,
+        ...(failureCode ? { failureCode } : {}),
+        amountMinor: i.amountMinor,
+        paymentMerchantReference: i.paymentMerchantReference,
+        calls: (prior?.calls ?? 0) + 1,
+      };
+      this.refunds.set(i.merchantReference, stored);
+      return stored;
+    };
+    // the PSP itself refuses to refund more than it captured
+    if (
+      !pay ||
+      pay.status !== 'succeeded' ||
+      refundedSoFar + BigInt(i.amountMinor) > BigInt(pay.amountMinor)
+    ) {
+      const s = put('failed', 'amount_exceeds_balance');
+      return {
+        status: 'failed',
+        pspRefundRef: s.pspRefundRef,
+        failureCode: 'amount_exceeds_balance',
+      };
+    }
+    switch (scenario) {
+      case 'fail': {
+        const s = put('failed', 'refund_declined');
+        return { status: 'failed', pspRefundRef: s.pspRefundRef, failureCode: 'refund_declined' };
+      }
+      case 'pending': {
+        const s = put('pending');
+        return { status: 'pending', pspRefundRef: s.pspRefundRef };
+      }
+      case 'timeout':
+        put('succeeded'); // the money moved; the answer is lost
+        throw new PspTimeoutError();
+      default: {
+        const s = put('succeeded');
+        return { status: 'succeeded', pspRefundRef: s.pspRefundRef };
+      }
+    }
+  }
+
+  async retrieveRefund(merchantReference: string): Promise<PspRefundResult | null> {
+    const r = this.refunds.get(merchantReference);
+    if (!r) return null;
+    return {
+      status: r.status,
+      pspRefundRef: r.pspRefundRef,
+      ...(r.failureCode ? { failureCode: r.failureCode } : {}),
+    };
+  }
+
+  /** The PSP finishes a pending refund (tests): the service learns it by asking again. */
+  finishRefund(merchantReference: string, outcome: 'succeeded' | 'failed' = 'succeeded'): void {
+    const r = this.refunds.get(merchantReference);
+    if (!r) throw new Error('no such refund at the PSP');
+    r.status = outcome;
+    if (outcome === 'failed') r.failureCode = 'refund_declined';
+  }
+
+  /** Total the PSP actually refunded for a payment reference (tests assert it equals the sum of succeeded refunds, once each). */
+  refundedTotal(paymentMerchantReference: string): bigint {
+    return [...this.refunds.values()]
+      .filter(
+        (r) => r.paymentMerchantReference === paymentMerchantReference && r.status === 'succeeded',
+      )
+      .reduce((s, r) => s + BigInt(r.amountMinor), 0n);
   }
 
   /** Number of charges the PSP made for a reference (tests assert it is exactly 1 after a timeout + reconcile). */

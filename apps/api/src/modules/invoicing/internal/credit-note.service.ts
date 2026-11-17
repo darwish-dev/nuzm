@@ -350,6 +350,33 @@ export class CreditNoteService {
     };
   }
 
+  /**
+   * A refund that returns the whole credit note's value moves the note issued -> refunded (the legal document itself never changes; only its
+   * status). Idempotent: a note that is already refunded is left alone. Returns false when the note cannot be refunded (not issued).
+   */
+  async markRefunded(orgId: string, id: string): Promise<boolean> {
+    return this.db.withOrg(orgId, async (c) => {
+      const cn = (
+        await c.query(
+          `SELECT status FROM invoicing.credit_notes WHERE id = $1 AND org_id = $2 FOR UPDATE`,
+          [id, orgId],
+        )
+      ).rows[0];
+      if (!cn) throw new ProblemException('not_found');
+      if (cn.status === 'refunded') return true;
+      if (cn.status !== 'issued') return false;
+      await c.query(`UPDATE invoicing.credit_notes SET status = 'refunded' WHERE id = $1`, [id]);
+      await this.audit.record({
+        action: 'invoicing.credit_note.refunded',
+        actorType: 'system',
+        orgId,
+        resource: { type: 'credit_note', id },
+        outcome: 'success',
+      });
+      return true;
+    });
+  }
+
   async get(orgId: string, id: string): Promise<CreditNoteDto> {
     const { cn, inv } = await this.load(orgId, id);
     return this.dto(cn, inv.number_text as string);

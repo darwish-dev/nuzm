@@ -1780,6 +1780,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/billing/reconciliations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List reconciliation runs
+         * @description Newest first; filters type (RC-01 payments vs PSP settlements, RC-02 ledger vs invoices and credit notes, RC-03 rated usage vs invoice lines, RC-04 provider cost vs ledger and bills, RC-05 e-invoices vs issued documents, RC-06 wallet projection vs ledger) and status. Platform permission `admin:billing:read` (finance, platform admin, compliance officer); admin-realm session.
+         */
+        get: operations["adminListReconciliations"];
+        put?: never;
+        /**
+         * Run reconciliations
+         * @description Body {types[] (1..6 of RC-01..RC-06), periodFrom, periodTo (dates, at most 400 days)}. Answers 202 with the queued runs (one per type); they run asynchronously and their results are immutable. 409 when a run of the same type and period is already in progress. Tolerances come from configuration (D-31 proposal: 0 minor units for RC-01/02/05/06, finance-set basis points for RC-03/04). RC-04 does not compare provider bills until the M05 adapters exist (reported as skipped). Permission admin:billing:manage; admin-realm session with MFA and step-up.
+         */
+        post: operations["adminRunReconciliations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/reconciliations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a reconciliation run with its breaks
+         * @description The run, its totals and its breaks (items, with their resolutions; at most 500, `itemsTruncated` says when there are more). Filter items by status (open, assigned, resolved). Platform permission `admin:billing:read`; admin-realm session.
+         */
+        get: operations["adminGetReconciliation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/reconciliations/{id}/resolutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign or resolve a break
+         * @description Body {itemId, action: assign|adjustment|accept, adjustmentId?, note?}. assign takes the break for the caller; adjustment links an APPROVED adjustment (the two-person flow of POST /v1/admin/billing/adjustments; reconciliation never edits the ledger) and resolves the break; accept resolves it as an accepted variance and needs a note. 409 when already resolved or when the adjustment is not approved. Permission admin:billing:manage; admin-realm session with MFA and step-up. Audited.
+         */
+        post: operations["adminResolveBreak"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/billing/wallet-topups": {
         parameters: {
             query?: never;
@@ -2031,6 +2095,101 @@ export interface components {
         ZatcaSubmissionPage: {
             items: components["schemas"]["ZatcaSubmission"][];
             nextCursor: string | null;
+        };
+        RunReconciliations: {
+            types: ("RC-01" | "RC-02" | "RC-03" | "RC-04" | "RC-05" | "RC-06")[];
+            /** Format: date */
+            periodFrom: string;
+            /** Format: date */
+            periodTo: string;
+        };
+        ReconciliationRun: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "RC-01" | "RC-02" | "RC-03" | "RC-04" | "RC-05" | "RC-06";
+            /** Format: date */
+            periodFrom: string;
+            /** Format: date */
+            periodTo: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "completed" | "failed";
+            /** @enum {string} */
+            trigger: "manual" | "scheduled";
+            itemsChecked: number;
+            breaksCount: number;
+            openBreaks: number;
+            summary: {
+                [key: string]: unknown;
+            };
+            error: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            completedAt: string | null;
+        };
+        ReconciliationRunPage: {
+            items: components["schemas"]["ReconciliationRun"][];
+            nextCursor: string | null;
+        };
+        RunReconciliationsAccepted: {
+            runs: components["schemas"]["ReconciliationRun"][];
+        };
+        ReconciliationItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            runId: string;
+            /** @enum {string} */
+            type: "RC-01" | "RC-02" | "RC-03" | "RC-04" | "RC-05" | "RC-06";
+            matchKey: string;
+            /** @description The kind of break, e.g. missing_settlement, receivable_mismatch, unbilled_usage, projection_drift, no_einvoice. */
+            kind: string;
+            /** Format: uuid */
+            relatedOrg: string | null;
+            details: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            status: "open" | "assigned" | "resolved";
+            /** Format: uuid */
+            assignedTo: string | null;
+            /** Format: date-time */
+            assignedAt: string | null;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            overSla: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            resolutions: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                action: "assign" | "adjustment" | "accept";
+                /** Format: uuid */
+                adjustmentId: string | null;
+                note: string | null;
+                /** Format: uuid */
+                createdBy: string;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        ReconciliationRunDetail: {
+            run: components["schemas"]["ReconciliationRun"];
+            items: components["schemas"]["ReconciliationItem"][];
+            itemsTruncated: boolean;
+        };
+        ResolveBreak: {
+            /** Format: uuid */
+            itemId: string;
+            /** @enum {string} */
+            action: "assign" | "adjustment" | "accept";
+            /** Format: uuid */
+            adjustmentId?: string;
+            note?: string;
         };
         CreateSubscription: {
             /** Format: uuid */
@@ -6654,6 +6813,126 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+        };
+    };
+    adminListReconciliations: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                type?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationRunPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminRunReconciliations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunReconciliations"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunReconciliationsAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminGetReconciliation: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationRunDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminResolveBreak: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveBreak"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationItem"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     createWalletTopup: {

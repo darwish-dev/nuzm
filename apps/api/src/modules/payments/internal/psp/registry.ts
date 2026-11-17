@@ -11,6 +11,10 @@ export class PspRegistry {
   find(provider: string): PspAdapter | undefined {
     return this.adapters.get(provider);
   }
+  /** Every registered adapter (reconciliation asks each one that has a settlement report). */
+  all(): PspAdapter[] {
+    return [...this.adapters.values()];
+  }
   /** The adapter new payment methods and payments use (one active PSP account until D-10 chooses). */
   primary(): PspAdapter {
     const a = [...this.adapters.values()][0];

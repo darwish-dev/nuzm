@@ -154,6 +154,10 @@ tenant_less:
   # e-invoicing onboarding and credential REFERENCES (vault refs only): per billing entity and environment, admin console scope only (S11b)
   - invoicing.zatca_onboarding
   - invoicing.zatca_credentials_refs
+  # financial reconciliation results span organizations: admin console scope only (S12a)
+  - finrec.reconciliation_runs
+  - finrec.reconciliation_items
+  - finrec.reconciliation_resolutions
   # payment service providers: configuration (psp_accounts) and the webhook intake (psp_events; only the psp_webhook scope can touch it)
   - payments.psp_accounts
   - payments.psp_events

@@ -9,6 +9,7 @@ import { NotificationsModule } from './modules/notifications';
 import { CommerceModule } from './modules/commerce';
 import { InvoicingModule } from './modules/invoicing';
 import { MeteringModule } from './modules/metering';
+import { FinrecModule } from './modules/finrec';
 import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
 import { PlatformModule } from './modules/platform';
@@ -24,6 +25,7 @@ import { TenancyModule } from './modules/tenancy';
     CommerceModule,
     PaymentsModule,
     SubscriptionsModule,
+    FinrecModule,
     IdentityModule,
     NotificationsModule,
     AccessModule,

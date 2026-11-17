@@ -6,6 +6,7 @@ import {
   type PspAdapter,
   type PspPaymentResult,
   type PspRefundResult,
+  type PspSettlement,
   type WebhookEvent,
   type WebhookEventType,
 } from './psp';
@@ -52,6 +53,7 @@ export class MockPsp implements PspAdapter {
   private seq = 0;
   private readonly refunds = new Map<string, StoredRefund>();
   private readonly refundQueue: MockRefundScenario[] = [];
+  private readonly settlementLog = new Map<string, PspSettlement>();
   /** Refund calls that moved money for a reference that was already refunded (must stay 0 when the service reconciles first). */
   duplicateRefunds = 0;
   /** Calls that created a charge for a reference that was already charged (must stay 0 when the service reconciles first). */
@@ -116,6 +118,7 @@ export class MockPsp implements PspAdapter {
     switch (scenario) {
       case 'success': {
         const s = result({ status: 'succeeded', pspPaymentRef: this.ref() }, true);
+        this.settle(s.pspPaymentRef, 'charge', i.amountMinor, i.currency);
         return { status: s.status, pspPaymentRef: s.pspPaymentRef };
       }
       case 'decline': {
@@ -140,9 +143,11 @@ export class MockPsp implements PspAdapter {
         const s = result({ status: 'processing', pspPaymentRef: this.ref() }, false);
         return { status: 'processing', pspPaymentRef: s.pspPaymentRef };
       }
-      case 'timeout':
-        result({ status: 'succeeded', pspPaymentRef: this.ref() }, true); // the money moved; the answer is lost
+      case 'timeout': {
+        const t = result({ status: 'succeeded', pspPaymentRef: this.ref() }, true); // the money moved; the answer is lost
+        this.settle(t.pspPaymentRef, 'charge', i.amountMinor, i.currency);
         throw new PspTimeoutError();
+      }
     }
   }
 
@@ -154,6 +159,26 @@ export class MockPsp implements PspAdapter {
       pspPaymentRef: s.pspPaymentRef,
       ...(s.failureCode ? { failureCode: s.failureCode } : {}),
     };
+  }
+
+  private settle(ref: string, kind: 'charge' | 'refund', amountMinor: string, currency: string) {
+    if (!this.settlementLog.has(ref))
+      this.settlementLog.set(ref, { ref, kind, amountMinor, currency, settledAt: new Date() });
+  }
+  /** The settlement (payout) report: every charge and refund the PSP settled in [from, to). */
+  async listSettlements(from: Date, to: Date): Promise<PspSettlement[]> {
+    return [...this.settlementLog.values()].filter((s) => s.settledAt >= from && s.settledAt < to);
+  }
+  /** Tests: make the settlement report disagree with what the platform recorded (RC-01 must notice). */
+  dropSettlement(ref: string): void {
+    this.settlementLog.delete(ref);
+  }
+  alterSettlement(ref: string, amountMinor: string): void {
+    const s = this.settlementLog.get(ref);
+    if (s) this.settlementLog.set(ref, { ...s, amountMinor });
+  }
+  addSettlement(s: PspSettlement): void {
+    this.settlementLog.set(s.ref, s);
   }
 
   /** Scenario of the NEXT refund call(s), in order (default success): fail, stay pending, or succeed but lose the answer. */
@@ -210,11 +235,14 @@ export class MockPsp implements PspAdapter {
         const s = put('pending');
         return { status: 'pending', pspRefundRef: s.pspRefundRef };
       }
-      case 'timeout':
-        put('succeeded'); // the money moved; the answer is lost
+      case 'timeout': {
+        const t = put('succeeded'); // the money moved; the answer is lost
+        this.settle(t.pspRefundRef, 'refund', i.amountMinor, pay.currency);
         throw new PspTimeoutError();
+      }
       default: {
         const s = put('succeeded');
+        this.settle(s.pspRefundRef, 'refund', i.amountMinor, pay.currency);
         return { status: 'succeeded', pspRefundRef: s.pspRefundRef };
       }
     }
@@ -236,6 +264,13 @@ export class MockPsp implements PspAdapter {
     if (!r) throw new Error('no such refund at the PSP');
     r.status = outcome;
     if (outcome === 'failed') r.failureCode = 'refund_declined';
+    else
+      this.settle(
+        r.pspRefundRef,
+        'refund',
+        r.amountMinor,
+        this.payments.get(r.paymentMerchantReference)?.currency ?? 'SAR',
+      );
   }
 
   /** Total the PSP actually refunded for a payment reference (tests assert it equals the sum of succeeded refunds, once each). */
@@ -263,6 +298,7 @@ export class MockPsp implements PspAdapter {
     if (outcome === 'succeeded' && s.status !== 'succeeded') {
       s.status = 'succeeded';
       s.charges += 1;
+      this.settle(s.pspPaymentRef, 'charge', s.amountMinor, s.currency);
     }
     if (outcome === 'failed') {
       s.status = 'failed';

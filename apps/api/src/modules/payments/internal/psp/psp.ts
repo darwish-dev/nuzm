@@ -16,6 +16,15 @@ export interface PspRefundResult {
   pspRefundRef: string;
   failureCode?: string;
 }
+/** One line of a PSP settlement (payout) report: a captured charge or a refund, by the PSP's own reference. */
+export interface PspSettlement {
+  /** The PSP's reference of the charge (`psp_payment_ref`) or of the refund (`psp_refund_ref`). */
+  ref: string;
+  kind: 'charge' | 'refund';
+  amountMinor: string;
+  currency: string;
+  settledAt: Date;
+}
 export interface MethodDetails {
   /** The PSP's token for the stored method (opaque). */
   token: string;
@@ -74,6 +83,8 @@ export interface PspAdapter {
     customerRef: string;
     returnUrl: string;
   }): Promise<PspPaymentResult>;
+  /** Settlement (payout) report lines in [from, to): what the PSP says it settled. Optional: only PSPs with a settlement report implement it (RC-01). */
+  listSettlements?(from: Date, to: Date): Promise<PspSettlement[]>;
   /** What the PSP knows about this merchant reference (null = nothing): the reconcile-before-retry probe. */
   retrievePayment(merchantReference: string): Promise<PspPaymentResult | null>;
   /** Start a refund of a captured payment. May throw PspTimeoutError (unknown outcome). `idempotencyKey` is per refund (not per call). */

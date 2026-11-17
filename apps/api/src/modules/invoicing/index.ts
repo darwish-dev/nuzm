@@ -21,3 +21,5 @@ export { ZatcaOnboardingService } from './internal/zatca/onboarding.service';
 export type { OnboardingView, OnboardingStepDto } from './internal/zatca/onboarding.service';
 export { ZatcaPipelineService } from './internal/zatca/pipeline.service';
 export type { PipelineResult } from './internal/zatca/pipeline.service';
+export { verifyChain } from './internal/zatca/hash-chain';
+export type { ZatcaProfile } from './internal/zatca/profile';

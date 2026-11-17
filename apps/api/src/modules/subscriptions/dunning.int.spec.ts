@@ -520,6 +520,11 @@ describe('billing scheduler', () => {
           return {} as never;
         },
       },
+      {
+        scheduleDaily: async () => 0,
+        processQueued: async () => 0,
+        slaSweep: async () => 0,
+      },
       () => undefined,
     );
     const first = slow.tick();

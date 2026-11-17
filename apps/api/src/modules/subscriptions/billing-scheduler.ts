@@ -1,5 +1,6 @@
 import type { Db } from '@nuzm/platform';
 import type { DunningRunResult, DunningService, SubscriptionService } from '../billing';
+import type { FinrecService } from '../finrec';
 import type { ZatcaPipelineService } from '../invoicing';
 import type { PaymentService, RefundService } from '../payments';
 import type { PipelineResult } from '../invoicing';
@@ -13,6 +14,7 @@ export interface TickResult {
   paymentEvents: number | { error: string };
   refunds: number | { error: string };
   einvoicing: PipelineResult | { error: string };
+  finrec: { scheduled: number; processed: number; slaAlerts: number } | { error: string };
 }
 
 /**
@@ -31,6 +33,7 @@ export class BillingScheduler {
     private readonly payments: Pick<PaymentService, 'processPending'>,
     private readonly refunds: Pick<RefundService, 'processPending'>,
     private readonly zatca: Pick<ZatcaPipelineService, 'run'>,
+    private readonly finrec: Pick<FinrecService, 'scheduleDaily' | 'processQueued' | 'slaSweep'>,
     private readonly log: (m: string, extra?: Record<string, unknown>) => void = (m, extra) =>
       console.log(JSON.stringify({ scheduler: m, ...extra })),
   ) {}
@@ -69,7 +72,12 @@ export class BillingScheduler {
       );
       const refunds = await step('refunds', () => this.refunds.processPending(50, 30, now));
       const einvoicing = await step('einvoicing', () => this.zatca.run(now));
-      return { subscriptions, dunning, paymentEvents, refunds, einvoicing };
+      const finrec = await step('finrec', async () => ({
+        scheduled: await this.finrec.scheduleDaily(now),
+        processed: await this.finrec.processQueued(10, now),
+        slaAlerts: await this.finrec.slaSweep(now),
+      }));
+      return { subscriptions, dunning, paymentEvents, refunds, einvoicing, finrec };
     });
   }
 

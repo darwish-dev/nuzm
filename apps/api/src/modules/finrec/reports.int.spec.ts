@@ -22,6 +22,7 @@ const jars: Record<string, Record<string, string>> = {};
 const staff: Record<string, Record<string, string>> = {};
 let seq = 0;
 
+// UTC day, like the report service: the database session may run in another time zone, so the helpers below bound the day in UTC explicitly
 const today = new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 const sql = (q: string, p: unknown[] = []) => h.env.sql(q, p) as Promise<Row[]>;
@@ -76,14 +77,14 @@ const mkInvoice = async (org: string, net: string, now = new Date()) => {
 const ledgerIn = (codes: string[], from = today, to = today) =>
   sql(
     `SELECT coalesce(sum(CASE WHEN p.direction = 'credit' THEN p.amount_minor ELSE -p.amount_minor END), 0)::text n FROM billing.ledger_postings p JOIN billing.ledger_accounts a ON a.id = p.account_id JOIN billing.ledger_transactions t ON t.id = p.transaction_id
-          WHERE a.code = ANY($1) AND t.occurred_at >= $2::date AND t.occurred_at < ($3::date + 1)`,
+          WHERE a.code = ANY($1) AND t.occurred_at >= ($2::date)::timestamp AT TIME ZONE 'UTC' AND t.occurred_at < (($3::date + 1)::timestamp AT TIME ZONE 'UTC')`,
     [codes, from, to],
   ).then((r) => BigInt(r[0]!.n));
 const REVENUE = ['4100', '4200', '4300', '4400'];
 const ledger = (codeLike: string, from = today, to = today) =>
   sql(
     `SELECT coalesce(sum(CASE WHEN p.direction = 'credit' THEN p.amount_minor ELSE -p.amount_minor END), 0)::text n FROM billing.ledger_postings p JOIN billing.ledger_accounts a ON a.id = p.account_id JOIN billing.ledger_transactions t ON t.id = p.transaction_id
-          WHERE a.code LIKE $1 AND t.occurred_at >= $2::date AND t.occurred_at < ($3::date + 1)`,
+          WHERE a.code LIKE $1 AND t.occurred_at >= ($2::date)::timestamp AT TIME ZONE 'UTC' AND t.occurred_at < (($3::date + 1)::timestamp AT TIME ZONE 'UTC')`,
     [codeLike, from, to],
   ).then((r) => BigInt(r[0]!.n));
 

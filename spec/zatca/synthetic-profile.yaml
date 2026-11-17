@@ -1,0 +1,56 @@
+# SYNTHETIC-NOT-OFFICIAL profile for the e-invoice pipeline (see README.md). Nothing here is verified against ZATCA.
+profile: SYNTHETIC-NOT-OFFICIAL
+specVersion: UNPINNED
+# Document kinds and their type codes (UBL InvoiceTypeCode values) and root elements.
+documents:
+  invoice:
+    {
+      typeCode: '388',
+      root: Invoice,
+      lineElement: InvoiceLine,
+      quantityElement: InvoicedQuantity,
+      namespace: 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2',
+    }
+  credit_note:
+    {
+      typeCode: '381',
+      root: CreditNote,
+      lineElement: CreditNoteLine,
+      quantityElement: CreditedQuantity,
+      namespace: 'urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2',
+    }
+  debit_note:
+    {
+      typeCode: '383',
+      root: DebitNote,
+      lineElement: DebitNoteLine,
+      quantityElement: DebitedQuantity,
+      namespace: 'urn:oasis:names:specification:ubl:schema:xsd:DebitNote-2',
+    }
+# Transaction subtype attribute (name="...") of the type code: standard tax invoice (B2B) vs simplified (B2C).
+subtypes:
+  standard: '0100000'
+  simplified: '0200000'
+profileId: 'reporting:1.0'
+# VAT number format check applied to the SELLER (and to a standard invoice's buyer): 15 digits, first and last digit 3.
+vatNumberPattern: '^3\d{13}3$'
+currency: SAR
+currencyDecimals: 2
+# Rate -> tax category code. Exemption and zero-rating decisions belong to the tax advisor (HG-03-04).
+taxCategories: { standard: S, zero: Z }
+# The previous-invoice-hash of the first document of a chain is base64(hex(sha256(seed))).
+firstPihSeed: '0'
+# QR TLV tags (value kinds): text, or bytes. Tag 9 (certificate signature) is not produced: no certificate exists without a real CSID.
+qrTags:
+  1: sellerName
+  2: vatNumber
+  3: timestamp
+  4: totalWithVat
+  5: vatTotal
+  6: documentHash
+  7: signature
+  8: publicKey
+# Simplified invoices must be reported within this window; the SLO alarm fires at 50% of it. [VERIFY]
+reportingWindowHours: 24
+# Local time of the issue date/time (UTC offset in hours). [VERIFY]
+issueTimeOffsetHours: 3

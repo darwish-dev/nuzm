@@ -1,0 +1,22 @@
+{
+  "specVersion": "UNPINNED",
+  "status": "BLOCKED: no official ZATCA documents supplied (HG-03-03). Synthetic profile only; every output is NOT VERIFIED vs ZATCA.",
+  "official": {
+    "dir": "spec/zatca/official",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "generator": {
+    "files": [
+      "apps/api/src/modules/invoicing/internal/zatca/profile.ts",
+      "apps/api/src/modules/invoicing/internal/zatca/build-document.ts",
+      "apps/api/src/modules/invoicing/internal/zatca/ubl.ts",
+      "apps/api/src/modules/invoicing/internal/zatca/hash-chain.ts",
+      "apps/api/src/modules/invoicing/internal/zatca/qr-tlv.ts",
+      "apps/api/src/modules/invoicing/internal/zatca/signing.ts",
+      "apps/api/src/modules/invoicing/internal/zatca/csr.ts",
+      "apps/api/src/modules/invoicing/internal/zatca/validator.ts",
+      "spec/zatca/synthetic-profile.yaml"
+    ],
+    "sha256": "1b8d7337cbfe8bc3bebd07ac315f1566aef9a9b7e0a44a95454eb2825e71b280"
+  }
+}

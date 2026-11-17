@@ -9,6 +9,9 @@ import { SequenceService } from './internal/sequence.service';
 import { TaxProfileService } from './internal/tax-profile.service';
 import { rulesFromEnv } from './internal/tax-profile.rules';
 import { TaxService } from './internal/tax.service';
+import { LocalWormArchive } from './internal/zatca/archive';
+import { loadProfile } from './internal/zatca/profile';
+import { ZatcaDocumentService } from './internal/zatca/zatca-document.service';
 import { CreditNotesController } from './credit-notes.controller';
 import { InvoicesController } from './invoices.controller';
 import { TaxProfileController } from './tax-profile.controller';
@@ -65,7 +68,27 @@ import { RatingService } from '../metering';
       ) => new CreditNoteService(db, a, l, s, p, TaxService.roundingFromEnv()),
       inject: [DB, AuditSink, LedgerPostingService, SequenceService, ChromePdfRenderer],
     },
+    {
+      // E-invoice documents (S11a, SYNTHETIC profile). ZATCA_MODE defaults to off: nothing is generated until it is switched on.
+      provide: ZatcaDocumentService,
+      useFactory: (db: Db, a: AuditSink) =>
+        new ZatcaDocumentService(
+          db,
+          a,
+          loadProfile(),
+          new LocalWormArchive(),
+          ZatcaDocumentService.modeFromEnv(),
+        ),
+      inject: [DB, AuditSink],
+    },
   ],
-  exports: [TaxService, TaxProfileService, SequenceService, InvoiceService, CreditNoteService],
+  exports: [
+    TaxService,
+    TaxProfileService,
+    SequenceService,
+    InvoiceService,
+    CreditNoteService,
+    ZatcaDocumentService,
+  ],
 })
 export class InvoicingModule {}

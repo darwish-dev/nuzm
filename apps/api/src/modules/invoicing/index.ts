@@ -13,3 +13,5 @@ export { CreditNoteService } from './internal/credit-note.service';
 export type { CreditNoteDto, CreditInput } from './internal/credit-note.service';
 export { ChromePdfRenderer } from './internal/pdf.renderer';
 export type { PdfRenderer } from './internal/pdf.renderer';
+export { ZatcaDocumentService } from './internal/zatca/zatca-document.service';
+export type { ZatcaDocumentDto, ZatcaMode } from './internal/zatca/zatca-document.service';

@@ -20,6 +20,34 @@ const rules: Array<[string, RegExp]> = [
   ['hardcoded password assignment', /\b(?:password|passwd|secret)\s*[:=]\s*['"][^'"\s]{8,}['"]/i],
 ];
 
+/**
+ * PCI scope reduction (M03 §9): a payment card number must never be committed, not even a "test" one. A hit is a 13-19 digit run
+ * (contiguous, or grouped by spaces/dashes in the card layout) that does not start with 0 and passes the Luhn check. Tests that
+ * need one build it at runtime from parts.
+ */
+function luhn(digits: string): boolean {
+  let sum = 0;
+  let dbl = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = digits.charCodeAt(i) - 48;
+    if (dbl && (n *= 2) > 9) n -= 9;
+    sum += n;
+    dbl = !dbl;
+  }
+  return sum % 10 === 0;
+}
+const CARD_RUNS = [
+  /(?<![0-9A-Za-z_.-])[1-9][0-9]{12,18}(?![0-9A-Za-z_.-])/g,
+  /(?<![0-9A-Za-z_.-])[1-9][0-9]{3}([ -])[0-9]{4}\1[0-9]{4}\1[0-9]{1,7}(?![0-9A-Za-z_.-])/g,
+];
+const hasCardNumber = (line: string) =>
+  CARD_RUNS.some((re) =>
+    [...line.matchAll(re)].some((m) => {
+      const d = m[0].replace(/[ -]/g, '');
+      return d.length >= 13 && d.length <= 19 && !/^(\d)\1+$/.test(d) && luhn(d);
+    }),
+  );
+
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
     if (skipDirs.has(f)) return [];
@@ -42,10 +70,12 @@ for (const f of walk(root)) {
   lines.forEach((line, i) => {
     for (const [name, re] of rules)
       if (re.test(line)) hits.push(`${relative(root, f)}:${i + 1} ${name}`);
+    if (hasCardNumber(line))
+      hits.push(`${relative(root, f)}:${i + 1} payment card number (Luhn-valid)`);
   });
 }
 if (hits.length) {
   console.error('POSSIBLE SECRETS:\n' + hits.map((h) => ' - ' + h).join('\n'));
   process.exit(1);
 }
-console.log(`secret scan OK: ${files} files, ${rules.length} rules, 0 hits.`);
+console.log(`secret scan OK: ${files} files, ${rules.length + 1} rules, 0 hits.`);

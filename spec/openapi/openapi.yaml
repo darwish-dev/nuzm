@@ -12,6 +12,8 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: payments
+    description: Payment methods, payments and PSP webhooks
   - name: commerce
     description: Quotes and orders
   - name: usage
@@ -2414,6 +2416,223 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/payment-methods:
+    post:
+      operationId: createPaymentMethod
+      tags: [payments]
+      summary: Save a payment method
+      description: 'Saves a method from the setup token produced by the PSP hosted fields (provider + setupToken). Card numbers or any card data in ANY field are refused with 422 pan_not_allowed: the platform never receives card data. The first method becomes the default. Requires permission `billing:manage` (owner, billing admin).'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentMethod' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentMethod' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listPaymentMethods
+      tags: [payments]
+      summary: List saved payment methods
+      description: 'Active methods of the organization, default first, with an expiring flag (expires within 60 days). Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentMethodList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/payment-methods/{id}:
+    delete:
+      operationId: deletePaymentMethod
+      tags: [payments]
+      summary: Remove a payment method
+      description: 'Detaches the method at the PSP and marks it removed (never deleted). 409 while a payment using it is in progress. The default passes to the newest other method. Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '204': { description: Success }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/billing/payment-methods/{id}/default:
+    post:
+      operationId: setDefaultPaymentMethod
+      tags: [payments]
+      summary: Make a method the default
+      description: 'Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentMethod' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/billing/payments:
+    post:
+      operationId: createPayment
+      tags: [payments]
+      summary: Pay an invoice
+      description: 'Starts a payment for an invoice with a saved method (default when paymentMethodId is omitted). An unfinished payment for the invoice is reconciled with the PSP first and returned: the PSP is never charged twice. 201 created, 202 while the outcome is not known yet, 200 when an existing payment is returned; status requires_action carries nextAction (3-D Secure redirect). Quotes and wallet top-ups are not payable yet. Requires permission `billing:manage`.'
+      x-nuzm-permission: billing:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePayment' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listPayments
+      tags: [payments]
+      summary: List payments
+      description: 'Newest first; filters status and invoice. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: invoice, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/billing/payments/{id}:
+    get:
+      operationId: getPayment
+      tags: [payments]
+      summary: Get a payment
+      description: 'An unfinished payment is refreshed from the PSP first, so a customer returning from 3-D Secure sees the truth even before the webhook arrives. Requires permission `billing:read`.'
+      x-nuzm-permission: billing:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/webhooks/payments/{provider}:
+    post:
+      operationId: receivePaymentWebhook
+      tags: [payments]
+      summary: PSP webhook
+      description: 'Provider callback, authenticated by the signature over the raw body and a replay window (no session). 200 once the event is durably stored (a duplicate event id is 200 with no effect), 401 invalid signature or replay, 404 unknown provider. Processing is transactional and idempotent: one ledger effect per business event.'
+      security: []
+      parameters:
+        - {
+            name: provider,
+            in: path,
+            required: true,
+            schema: { type: string },
+            description: Provider name.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -2473,6 +2692,110 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    CreatePaymentMethod:
+      type: object
+      required: [provider, setupToken]
+      properties:
+        provider: { type: string }
+        setupToken:
+          {
+            type: string,
+            description: 'Token produced by the PSP hosted fields. Never a card number.',
+          }
+    PaymentMethod:
+      type: object
+      required:
+        [id, provider, brand, last4, expMonth, expYear, status, isDefault, expiring, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        brand: { type: string }
+        last4: { type: string }
+        expMonth: { type: integer }
+        expYear: { type: integer }
+        status: { type: string, enum: [active, removed] }
+        isDefault: { type: boolean }
+        expiring: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    PaymentMethodList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PaymentMethod' } }
+    CreatePayment:
+      type: object
+      required: [invoiceId, returnUrl]
+      properties:
+        invoiceId: { type: string, format: uuid }
+        paymentMethodId: { type: string, format: uuid }
+        amount:
+          {
+            type: string,
+            pattern: '^[1-9][0-9]{0,17}$',
+            description: 'Minor units; default and maximum is what is still owed.',
+          }
+        returnUrl:
+          {
+            type: string,
+            description: 'Where the customer returns after 3-D Secure; must be an allowed origin.',
+          }
+    Payment:
+      type: object
+      required:
+        [
+          id,
+          invoiceId,
+          amountMinor,
+          currency,
+          status,
+          paymentMethodId,
+          nextAction,
+          failureCode,
+          capturedMinor,
+          refundedMinor,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        invoiceId: { type: string, format: uuid }
+        amountMinor: { type: string }
+        currency: { type: string }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                requires_method,
+                requires_action,
+                processing,
+                succeeded,
+                failed,
+                cancelled,
+                partially_refunded,
+                refunded,
+              ],
+          }
+        paymentMethodId: { type: [string, 'null'], format: uuid }
+        nextAction:
+          type: [object, 'null']
+          properties:
+            type: { type: string, enum: [redirect] }
+            url: { type: string }
+        failureCode: { type: [string, 'null'] }
+        capturedMinor: { type: string }
+        refundedMinor: { type: string }
+        createdAt: { type: string, format: date-time }
+    PaymentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+        nextCursor: { type: [string, 'null'] }
+    WebhookResult:
+      type: object
+      required: [outcome]
+      properties:
+        outcome: { type: string, enum: [processed, ignored, duplicate, failed] }
     InvoiceLine:
       type: object
       required:

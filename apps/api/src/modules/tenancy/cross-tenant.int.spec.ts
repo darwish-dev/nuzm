@@ -55,6 +55,8 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'userId') return aliceId;
   if (p === 'envId') return A.env;
   // billing routes carry three kinds of ids: choose by the path segment that precedes `{id}`
+  if (o.path.includes('/payment-methods/')) return A.paymentMethod;
+  if (o.path.includes('/payments/')) return A.payment;
   if (o.path.includes('/invoices/')) return A.invoice;
   if (o.path.includes('/credit-notes/')) return A.creditNote;
   if (o.path.includes('/spend-approvals/')) return A.approval;
@@ -163,6 +165,19 @@ beforeAll(async () => {
     `INSERT INTO invoicing.credit_notes (id, org_id, invoice_id, entity_id, series, number, number_text, environment, currency, reason_code, reason, lines, net_minor, tax_minor, total_minor, issued_at, source_key)
      SELECT $1, $2, $3, entity_id, 'CTC', 1, 'CTC-00000001', 'sandbox', 'SAR', 'fixture', 'fixture', '[]', 10, 0, 10, now(), 'ct-cn-fixture' FROM invoicing.invoices WHERE id = $3`,
     [A.creditNote, orgA, A.invoice],
+  );
+  // a saved payment method and a (finished) payment of org A: rows written directly, tokens only
+  A.paymentMethod = crypto.randomUUID();
+  A.payment = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO payments.payment_methods (id, org_id, psp_account_id, token_ref, brand, last4, exp_month, exp_year, fingerprint)
+     SELECT $1, $2, id, 'pm_ct_000001', 'visa', '4242', 12, 2035, 'fp_ct_00000001' FROM payments.psp_accounts LIMIT 1`,
+    [A.paymentMethod, orgA],
+  );
+  await h.env.sql(
+    `INSERT INTO payments.payment_intents (id, org_id, psp_account_id, invoice_id, payment_method_id, amount_minor, currency, status, merchant_reference, failure_code)
+     SELECT $1::uuid, $2, id, $3, $4, 115, 'SAR', 'failed', 'nuzm_pi_' || ($1::uuid)::text, 'card_declined' FROM payments.psp_accounts LIMIT 1`,
+    [A.payment, orgA, A.invoice, A.paymentMethod],
   );
   // org B's API key carries EVERY org permission an owner has: the strongest key org B can hold
   const ownerPerms = (

@@ -504,6 +504,65 @@ export class InvoiceService {
     return this.get(orgId, invoiceId);
   }
 
+  // ---- payments ---------------------------------------------------------------------------------------------------
+
+  /**
+   * Apply a captured payment to an invoice, once. The (invoice, payment) application row is the arbiter: a retry or a duplicate event
+   * finds it and changes nothing. The invoice must be payable and the payment must fit in what is still owed; otherwise nothing is
+   * applied (`applied: false`) and the caller books the money as an unapplied customer payment.
+   */
+  async applyPayment(
+    orgId: string,
+    invoiceId: string,
+    paymentId: string,
+    amountMinor: string,
+  ): Promise<{
+    applied: boolean;
+    reason: 'applied' | 'already_applied' | 'not_payable' | 'exceeds_remaining';
+  }> {
+    return this.db.withOrg(orgId, async (c) => {
+      const inv = (
+        await c.query(`SELECT * FROM invoicing.invoices WHERE id = $1 AND org_id = $2 FOR UPDATE`, [
+          invoiceId,
+          orgId,
+        ])
+      ).rows[0];
+      if (!inv) throw new ProblemException('not_found');
+      if (
+        (
+          await c.query(
+            `SELECT 1 FROM invoicing.invoice_payment_applications WHERE invoice_id = $1 AND payment_id = $2`,
+            [invoiceId, paymentId],
+          )
+        ).rowCount
+      )
+        return { applied: true, reason: 'already_applied' as const };
+      if (inv.status !== 'open' && inv.status !== 'partially_paid')
+        return { applied: false, reason: 'not_payable' as const };
+      const paid = BigInt(inv.paid_minor as string) + BigInt(amountMinor);
+      if (paid > BigInt(inv.total_minor as string))
+        return { applied: false, reason: 'exceeds_remaining' as const };
+      await c.query(
+        `INSERT INTO invoicing.invoice_payment_applications (invoice_id, payment_id, org_id, amount_minor) VALUES ($1,$2,$3,$4)`,
+        [invoiceId, paymentId, orgId, amountMinor],
+      );
+      const status = paid === BigInt(inv.total_minor as string) ? 'paid' : 'partially_paid';
+      await c.query(
+        `UPDATE invoicing.invoices SET paid_minor = $2, status = $3, updated_at = now() WHERE id = $1`,
+        [invoiceId, paid.toString(), status],
+      );
+      await this.audit.record({
+        action: 'invoicing.invoice.payment_applied',
+        actorType: 'system',
+        orgId,
+        resource: { type: 'invoice', id: invoiceId },
+        outcome: 'success',
+        after: { paymentId, amountMinor, status, paidMinor: paid.toString() },
+      });
+      return { applied: true, reason: 'applied' as const };
+    });
+  }
+
   // ---- reads ------------------------------------------------------------------------------------------------------
 
   private async load(orgId: string, id: string): Promise<{ inv: Row; lines: Row[] }> {

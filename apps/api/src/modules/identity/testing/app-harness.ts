@@ -78,7 +78,9 @@ export class Harness {
       .overrideProvider(Mailer)
       .useValue(mailer)
       .compile();
-    const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
+    const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
+      rawBody: true,
+    });
     await configureApp(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();

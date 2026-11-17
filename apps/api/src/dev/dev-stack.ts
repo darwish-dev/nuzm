@@ -55,6 +55,7 @@ async function main() {
   });
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
     logger: ['error', 'warn'],
+    rawBody: true, // webhook signatures are computed over the exact request bytes
   });
   await configureApp(app);
   await app.listen(Number(process.env.PORT ?? 4000), '127.0.0.1');

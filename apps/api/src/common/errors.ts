@@ -19,6 +19,9 @@ export const ERROR_REGISTRY = {
   idempotency_key_required: { status: 400, title: 'Idempotency-Key header required' },
   insufficient_funds: { status: 402, title: 'Insufficient wallet balance' },
   quota_exceeded: { status: 422, title: 'Quota exceeded' },
+  pan_not_allowed: { status: 422, title: 'Card data is not accepted' },
+  payment_method_required: { status: 422, title: 'A payment method is required' },
+  invalid_signature: { status: 401, title: 'Invalid webhook signature' },
   kind_not_available: { status: 422, title: 'This kind is not available yet' },
   spend_approval_required: { status: 422, title: 'Spend approval required' },
   recipe_not_implemented: {

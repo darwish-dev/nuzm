@@ -300,7 +300,6 @@ const m03 = (name: string) => (): never => {
     `${name} is implemented in M03 (payments & invoicing)`,
   );
 };
-export const paymentCaptured = m03('payment captured');
 export const refund = m03('refund');
 export const walletTopUp = m03('wallet top-up');
 
@@ -431,6 +430,61 @@ export function creditNote(p: DocumentRecipe): Built {
     orgId: p.orgId,
     description: text(`Credit note ${p.number}`, 'description'),
     sourceEventId: p.documentId,
+    affectsWallet: false,
+    postings,
+  };
+}
+
+/**
+ * Payment captured (docs/11 §3.1): Dr 1100 PSP clearing (the funds in transit, on the PSP account's sub-ledger) → Cr 1200 receivable
+ * for what was applied to the invoice, Cr 2500 unapplied customer payments for any excess. Idempotent on `payment:<id>:capture`.
+ */
+export function paymentCaptured(p: {
+  orgId: string;
+  paymentId: string;
+  invoiceId: string;
+  pspAccountCode: string;
+  currency: string;
+  amountMinor: Minor;
+  appliedMinor: Minor;
+}): Built {
+  const amount = BigInt(parseMinor(p.amountMinor, 'payment amount'));
+  const applied = BigInt(nonNegativeMinor(p.appliedMinor, 'applied amount'));
+  if (applied > amount)
+    throw new ProblemException('validation_failed', 'the applied amount cannot exceed the payment');
+  const currency = parseCurrency(p.currency);
+  const dimensions = { payment_id: p.paymentId, invoice_id: p.invoiceId };
+  const postings: PostingLine[] = [
+    {
+      account: { code: '1100', org: false, subledger: p.pspAccountCode },
+      direction: 'debit',
+      amountMinor: amount.toString(),
+      currency,
+      dimensions,
+    },
+  ];
+  if (applied > 0n)
+    postings.push({
+      account: { code: '1200', org: true },
+      direction: 'credit',
+      amountMinor: applied.toString(),
+      currency,
+      dimensions,
+    });
+  if (amount > applied)
+    postings.push({
+      account: { code: '2500', org: true },
+      direction: 'credit',
+      amountMinor: (amount - applied).toString(),
+      currency,
+      dimensions,
+    });
+  assertBalanced(postings);
+  return {
+    kind: 'payment_captured',
+    orgId: p.orgId,
+    description: text(`Payment ${p.paymentId}`, 'description'),
+    sourceEventId: p.paymentId,
     affectsWallet: false,
     postings,
   };

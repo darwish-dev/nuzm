@@ -1500,10 +1500,201 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/payment-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List saved payment methods
+         * @description Active methods of the organization, default first, with an expiring flag (expires within 60 days). Requires permission `billing:read`.
+         */
+        get: operations["listPaymentMethods"];
+        put?: never;
+        /**
+         * Save a payment method
+         * @description Saves a method from the setup token produced by the PSP hosted fields (provider + setupToken). Card numbers or any card data in ANY field are refused with 422 pan_not_allowed: the platform never receives card data. The first method becomes the default. Requires permission `billing:manage` (owner, billing admin).
+         */
+        post: operations["createPaymentMethod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payment-methods/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a payment method
+         * @description Detaches the method at the PSP and marks it removed (never deleted). 409 while a payment using it is in progress. The default passes to the newest other method. Requires permission `billing:manage`.
+         */
+        delete: operations["deletePaymentMethod"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payment-methods/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a method the default
+         * @description Requires permission `billing:manage`.
+         */
+        post: operations["setDefaultPaymentMethod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List payments
+         * @description Newest first; filters status and invoice. Requires permission `billing:read`.
+         */
+        get: operations["listPayments"];
+        put?: never;
+        /**
+         * Pay an invoice
+         * @description Starts a payment for an invoice with a saved method (default when paymentMethodId is omitted). An unfinished payment for the invoice is reconciled with the PSP first and returned: the PSP is never charged twice. 201 created, 202 while the outcome is not known yet, 200 when an existing payment is returned; status requires_action carries nextAction (3-D Secure redirect). Quotes and wallet top-ups are not payable yet. Requires permission `billing:manage`.
+         */
+        post: operations["createPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a payment
+         * @description An unfinished payment is refreshed from the PSP first, so a customer returning from 3-D Secure sees the truth even before the webhook arrives. Requires permission `billing:read`.
+         */
+        get: operations["getPayment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/payments/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * PSP webhook
+         * @description Provider callback, authenticated by the signature over the raw body and a replay window (no session). 200 once the event is durably stored (a duplicate event id is 200 with no effect), 401 invalid signature or replay, 404 unknown provider. Processing is transactional and idempotent: one ledger effect per business event.
+         */
+        post: operations["receivePaymentWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CreatePaymentMethod: {
+            provider: string;
+            /** @description Token produced by the PSP hosted fields. Never a card number. */
+            setupToken: string;
+        };
+        PaymentMethod: {
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            brand: string;
+            last4: string;
+            expMonth: number;
+            expYear: number;
+            /** @enum {string} */
+            status: "active" | "removed";
+            isDefault: boolean;
+            expiring: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PaymentMethodList: {
+            items: components["schemas"]["PaymentMethod"][];
+        };
+        CreatePayment: {
+            /** Format: uuid */
+            invoiceId: string;
+            /** Format: uuid */
+            paymentMethodId?: string;
+            /** @description Minor units; default and maximum is what is still owed. */
+            amount?: string;
+            /** @description Where the customer returns after 3-D Secure; must be an allowed origin. */
+            returnUrl: string;
+        };
+        Payment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoiceId: string;
+            amountMinor: string;
+            currency: string;
+            /** @enum {string} */
+            status: "requires_method" | "requires_action" | "processing" | "succeeded" | "failed" | "cancelled" | "partially_refunded" | "refunded";
+            /** Format: uuid */
+            paymentMethodId: string | null;
+            nextAction: {
+                /** @enum {string} */
+                type?: "redirect";
+                url?: string;
+            } | null;
+            failureCode: string | null;
+            capturedMinor: string;
+            refundedMinor: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PaymentPage: {
+            items: components["schemas"]["Payment"][];
+            nextCursor: string | null;
+        };
+        WebhookResult: {
+            /** @enum {string} */
+            outcome: "processed" | "ignored" | "duplicate" | "failed";
+        };
         InvoiceLine: {
             position: number;
             /** @enum {string} */
@@ -5393,6 +5584,272 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    listPaymentMethods: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethodList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createPaymentMethod: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePaymentMethod"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethod"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deletePaymentMethod: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    setDefaultPaymentMethod: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethod"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listPayments: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+                invoice?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePayment"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getPayment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    receivePaymentWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Provider name. */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }

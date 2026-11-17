@@ -44,7 +44,7 @@ schemas:
     owner_module: invoicing
     created_by: M03
     extended_by: [M11]
-    tables: [billing_entities, credit_notes, invoice_lines, invoice_sequences, invoices, tax_profiles, tax_rates, zatca_credentials_refs, zatca_documents, zatca_onboarding, zatca_submissions]
+    tables: [billing_entities, credit_notes, invoice_lines, invoice_payment_applications, invoice_sequences, invoices, tax_profiles, tax_rates, zatca_credentials_refs, zatca_documents, zatca_onboarding, zatca_submissions]
   finrec:
     owner_module: finrec
     created_by: M03
@@ -151,6 +151,9 @@ tenant_less:
   - invoicing.billing_entities
   - invoicing.tax_rates
   - invoicing.invoice_sequences
+  # payment service providers: configuration (psp_accounts) and the webhook intake (psp_events; only the psp_webhook scope can touch it)
+  - payments.psp_accounts
+  - payments.psp_events
   - billing.price_book_versions
   - billing.price_items
   # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)

@@ -229,8 +229,7 @@ describe('recipe specifics (docs/11 §3.1)', () => {
   });
 
   it('M03-owned recipes fail loudly instead of improvising', () => {
-    for (const r of [paymentCaptured, refund, walletTopUp])
-      problem(r, 'recipe_not_implemented', /M03/);
+    for (const r of [refund, walletTopUp]) problem(r, 'recipe_not_implemented', /M03/);
   });
 });
 
@@ -328,4 +327,44 @@ describe('invoice and credit-note recipes (docs/11 §3.1)', () => {
       /./,
     );
   });
+});
+
+describe('payment captured recipe (docs/11 §3.1)', () => {
+  const pay = (amount: bigint, applied: bigint) =>
+    paymentCaptured({
+      orgId: ORG,
+      paymentId: 'pay-1',
+      invoiceId: 'inv-1',
+      pspAccountCode: 'mock-sandbox',
+      currency: 'SAR',
+      amountMinor: amount,
+      appliedMinor: applied,
+    });
+  it('balances for any amount and any applied part, sending the excess to 2500 (10,000 runs)', () =>
+    fc.assert(
+      fc.property(
+        fc.bigInt({ min: 1n, max: 10n ** 13n }),
+        fc.bigInt({ min: 0n, max: 10n ** 13n }),
+        (amount, a) => {
+          const applied = a > amount ? amount : a;
+          const b = pay(amount, applied);
+          expect(net(b, 'SAR')).toBe(0n);
+          const sum = (code: string) =>
+            b.postings
+              .filter((p) => p.account.code === code)
+              .reduce((s, p) => s + BigInt(p.amountMinor), 0n);
+          expect(sum('1100')).toBe(amount);
+          expect(sum('1200')).toBe(applied);
+          expect(sum('2500')).toBe(amount - applied);
+          expect(b.postings.find((p) => p.account.code === '1100')).toMatchObject({
+            direction: 'debit',
+            account: { org: false, subledger: 'mock-sandbox' },
+          });
+          expect(b.kind).toBe('payment_captured');
+        },
+      ),
+      { numRuns: 10_000 },
+    ));
+  it('refuses to apply more than was paid', () =>
+    problem(() => pay(100n, 101n), 'validation_failed', /cannot exceed/));
 });

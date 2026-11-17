@@ -3896,7 +3896,18 @@ components:
     AdminRefund:
       type: object
       required:
-        [id, orgId, paymentId, amountMinor, currency, status, reason, failureCode, creditNoteId, createdAt]
+        [
+          id,
+          orgId,
+          paymentId,
+          amountMinor,
+          currency,
+          status,
+          reason,
+          failureCode,
+          creditNoteId,
+          createdAt,
+        ]
       properties:
         id: { type: string, format: uuid }
         orgId: { type: string, format: uuid }
@@ -3917,13 +3928,28 @@ components:
     AdminPayment:
       type: object
       required:
-        [id, orgId, invoiceId, walletTopupId, provider, amountMinor, currency, status, failureCode, capturedMinor, refundedMinor, eventCount, createdAt]
+        [
+          id,
+          orgId,
+          invoiceId,
+          walletTopupId,
+          provider,
+          amountMinor,
+          currency,
+          status,
+          failureCode,
+          capturedMinor,
+          refundedMinor,
+          eventCount,
+          createdAt,
+        ]
       properties:
         id: { type: string, format: uuid }
         orgId: { type: string, format: uuid }
         invoiceId: { type: [string, 'null'], format: uuid }
         walletTopupId: { type: [string, 'null'], format: uuid }
-        provider: { type: string, description: 'Provider account code (sandbox accounts are named so).' }
+        provider:
+          { type: string, description: 'Provider account code (sandbox accounts are named so).' }
         amountMinor: { type: string }
         currency: { type: string }
         status: { type: string }
@@ -3940,7 +3966,21 @@ components:
         nextCursor: { type: [string, 'null'] }
     AdminPspEvent:
       type: object
-      required: [id, provider, eventId, type, status, error, eventAt, receivedAt, processedAt, duplicateCount, lastDuplicateAt, payload]
+      required:
+        [
+          id,
+          provider,
+          eventId,
+          type,
+          status,
+          error,
+          eventAt,
+          receivedAt,
+          processedAt,
+          duplicateCount,
+          lastDuplicateAt,
+          payload,
+        ]
       properties:
         id: { type: string, format: uuid }
         provider: { type: string }
@@ -3953,7 +3993,12 @@ components:
         processedAt: { type: [string, 'null'], format: date-time }
         duplicateCount: { type: integer, minimum: 0 }
         lastDuplicateAt: { type: [string, 'null'], format: date-time }
-        payload: { type: object, additionalProperties: true, description: 'Sanitized whitelist; the provider payment reference is masked.' }
+        payload:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'Sanitized whitelist; the provider payment reference is masked.',
+          }
     AdminPspEventList:
       type: object
       required: [items]
@@ -3962,7 +4007,25 @@ components:
     AdminInvoice:
       type: object
       required:
-        [id, orgId, number, status, environment, currency, issuedAt, dueAt, subtotalMinor, taxMinor, totalMinor, paidMinor, buyerName, buyerVatNumber, taxReviewRequired, dataRegion, einvoice]
+        [
+          id,
+          orgId,
+          number,
+          status,
+          environment,
+          currency,
+          issuedAt,
+          dueAt,
+          subtotalMinor,
+          taxMinor,
+          totalMinor,
+          paidMinor,
+          buyerName,
+          buyerVatNumber,
+          taxReviewRequired,
+          dataRegion,
+          einvoice,
+        ]
       properties:
         id: { type: string, format: uuid }
         orgId: { type: string, format: uuid }
@@ -3976,7 +4039,12 @@ components:
         taxMinor: { type: string }
         totalMinor: { type: string }
         paidMinor: { type: string }
-        buyerName: { type: object, required: [ar, en], properties: { ar: { type: string }, en: { type: string } } }
+        buyerName:
+          {
+            type: object,
+            required: [ar, en],
+            properties: { ar: { type: string }, en: { type: string } },
+          }
         buyerVatNumber: { type: [string, 'null'] }
         taxReviewRequired: { type: boolean }
         dataRegion: { type: string }

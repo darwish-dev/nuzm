@@ -59,6 +59,7 @@ export default defineConfig({
       url: 'http://127.0.0.1:3000/ar/login',
       timeout: 120_000,
       reuseExistingServer: false,
+      env: { PSP_SANDBOX_UI: 'true' }, // the e2e API runs the sandbox PSP, so the sandbox card picker is shown
     },
     {
       command: 'pnpm --filter @nuzm/admin exec next start -p 3001 -H 127.0.0.1',

@@ -62,3 +62,27 @@ export async function requireSession(locale: Locale, returnTo?: string): Promise
   const permissions = new Set(scoped.permissions);
   return { me: scoped, org, permissions, can: (p) => permissions.has(p), api };
 }
+
+/** Stream a binary document (PDF/XML) from the API with the caller's customer-realm session, for the download route handlers. */
+export async function apiDownload(path: string, orgId: string | undefined): Promise<Response> {
+  const jar = await cookies();
+  const cookie = jar
+    .getAll()
+    .filter((c) => FORWARD.has(c.name))
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
+  const r = await fetch(`${API_ORIGIN}${path}`, {
+    headers: { cookie, 'x-nuzm-realm': 'web', ...(orgId ? { 'x-nuzm-org': orgId } : {}) },
+    cache: 'no-store',
+  });
+  const headers = new Headers();
+  for (const h of ['content-type', 'content-disposition'])
+    if (r.headers.get(h)) headers.set(h, r.headers.get(h)!);
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('cache-control', 'no-store');
+  // an API error (409 awaiting clearance, 404, 503 renderer) is passed through as a plain status, never as an HTML error page
+  return new Response(r.ok ? r.body : r.statusText || 'unavailable', {
+    status: r.status,
+    headers: r.ok ? headers : new Headers({ 'content-type': 'text/plain; charset=utf-8' }),
+  });
+}

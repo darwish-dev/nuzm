@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
 import { MockPsp } from './index';
@@ -46,7 +47,7 @@ const refund = (who: string, body: object) =>
     payload: body,
   });
 const invoice = async (org: string, total: number, status = 'open') => {
-  const id = crypto.randomUUID();
+  const id = uuidv7(); // ids are time-ordered like the product's, so 'newest first' is testable
   const n = ++invSeq;
   await sql(
     `INSERT INTO invoicing.invoices (id, org_id, entity_id, series, number, number_text, status, environment, currency, period_start, period_end, issued_at, due_at, source_key, subtotal_minor, tax_minor, total_minor, paid_minor, buyer, seller)

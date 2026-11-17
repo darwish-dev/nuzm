@@ -1,6 +1,8 @@
 import type { Db } from '@nuzm/platform';
 import type { DunningRunResult, DunningService, SubscriptionService } from '../billing';
+import type { ZatcaPipelineService } from '../invoicing';
 import type { PaymentService, RefundService } from '../payments';
+import type { PipelineResult } from '../invoicing';
 
 /** Arbitrary but fixed: only one instance runs a billing tick at a time (everything is idempotent anyway; the lock avoids wasted work). */
 export const BILLING_SCHEDULER_LOCK = 7300002;
@@ -10,6 +12,7 @@ export interface TickResult {
   dunning: DunningRunResult | { error: string };
   paymentEvents: number | { error: string };
   refunds: number | { error: string };
+  einvoicing: PipelineResult | { error: string };
 }
 
 /**
@@ -27,6 +30,7 @@ export class BillingScheduler {
     private readonly dunning: Pick<DunningService, 'run'>,
     private readonly payments: Pick<PaymentService, 'processPending'>,
     private readonly refunds: Pick<RefundService, 'processPending'>,
+    private readonly zatca: Pick<ZatcaPipelineService, 'run'>,
     private readonly log: (m: string, extra?: Record<string, unknown>) => void = (m, extra) =>
       console.log(JSON.stringify({ scheduler: m, ...extra })),
   ) {}
@@ -64,7 +68,8 @@ export class BillingScheduler {
         this.payments.processPending(50, now),
       );
       const refunds = await step('refunds', () => this.refunds.processPending(50, 30, now));
-      return { subscriptions, dunning, paymentEvents, refunds };
+      const einvoicing = await step('einvoicing', () => this.zatca.run(now));
+      return { subscriptions, dunning, paymentEvents, refunds, einvoicing };
     });
   }
 

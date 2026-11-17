@@ -4,6 +4,7 @@ import { ProblemException } from '../../common/errors';
 import { parseLimit } from '../../common/pagination';
 import type { DocLocale } from './internal/doc-labels';
 import { InvoiceService } from './internal/invoice.service';
+import { ZatcaSubmissionService } from './internal/zatca/submission.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const id = (v: string) => {
@@ -27,7 +28,10 @@ export const docLocale = (v: string | undefined): DocLocale => {
 /** Invoices of the active organization (docs/04 §2.3). Issued invoices only: drafts are never stored. */
 @Controller('v1/billing/invoices')
 export class InvoicesController {
-  constructor(private readonly invoices: InvoiceService) {}
+  constructor(
+    private readonly invoices: InvoiceService,
+    private readonly zatca: ZatcaSubmissionService,
+  ) {}
 
   @RequirePermission('billing:read')
   @Get()
@@ -61,14 +65,15 @@ export class InvoicesController {
     });
   }
 
-  /** The e-invoice XML exists only after the ZATCA module generates it (S11): until then 409, as docs/04 specifies. */
+  /**
+   * The stored e-invoice XML: the cleared XML of a standard invoice, the stamped XML of a simplified one (SIMULATED: not verified vs ZATCA).
+   * 409 until there is one to give (not enabled, not generated, not stamped, not cleared).
+   */
   @RequirePermission('billing:read')
   @Get(':id/xml')
   async xml(@Org() orgId: string, @Param('id') p: string) {
     await this.invoices.get(orgId, id(p)); // 404 for unknown / foreign ids first
-    throw new ProblemException(
-      'conflict',
-      'the e-invoice XML has not been generated for this invoice',
-    );
+    const xml = await this.zatca.xmlFor(orgId, id(p));
+    return new StreamableFile(Buffer.from(xml, 'utf8'), { type: 'application/xml' });
   }
 }

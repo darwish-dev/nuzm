@@ -12,6 +12,13 @@ import { TaxService } from './internal/tax.service';
 import { LocalWormArchive } from './internal/zatca/archive';
 import { loadProfile } from './internal/zatca/profile';
 import { ZatcaDocumentService } from './internal/zatca/zatca-document.service';
+import { ZatcaOnboardingService } from './internal/zatca/onboarding.service';
+import { ZatcaPipelineService } from './internal/zatca/pipeline.service';
+import { ZatcaSubmissionService } from './internal/zatca/submission.service';
+import { DevFileSecretStore } from './internal/zatca/secrets';
+import { DevFileVault } from './internal/zatca/signing';
+import { SimulatedZatca } from './internal/zatca/simulated-adapter';
+import { AdminZatcaController } from './admin-zatca.controller';
 import { CreditNotesController } from './credit-notes.controller';
 import { InvoicesController } from './invoices.controller';
 import { TaxProfileController } from './tax-profile.controller';
@@ -21,7 +28,12 @@ import { RatingService } from '../metering';
 /** Invoicing foundations (M03 S08a): tax engine, buyer tax profiles, gapless invoice sequences. Invoices follow in S08b. */
 @Global()
 @Module({
-  controllers: [TaxProfileController, InvoicesController, CreditNotesController],
+  controllers: [
+    TaxProfileController,
+    InvoicesController,
+    CreditNotesController,
+    AdminZatcaController,
+  ],
   providers: [
     {
       provide: TaxService,
@@ -46,7 +58,8 @@ import { RatingService } from '../metering';
         r: RatingService,
         s: SequenceService,
         p: PdfRenderer,
-      ) => new InvoiceService(db, a, l, t, r, s, p, InvoiceService.optsFromEnv()),
+        z: ZatcaSubmissionService,
+      ) => new InvoiceService(db, a, l, t, r, s, p, InvoiceService.optsFromEnv(), z),
       inject: [
         DB,
         AuditSink,
@@ -55,6 +68,7 @@ import { RatingService } from '../metering';
         RatingService,
         SequenceService,
         ChromePdfRenderer,
+        ZatcaSubmissionService,
       ],
     },
     {
@@ -68,18 +82,86 @@ import { RatingService } from '../metering';
       ) => new CreditNoteService(db, a, l, s, p, TaxService.roundingFromEnv()),
       inject: [DB, AuditSink, LedgerPostingService, SequenceService, ChromePdfRenderer],
     },
+    // ---- E-invoicing (S11; SYNTHETIC profile, SIMULATED server). ZATCA_MODE defaults to off: nothing runs until it is switched on. ----
+    { provide: LocalWormArchive, useFactory: () => new LocalWormArchive() },
+    // the development vault and secret store refuse a production profile, so they are built only when e-invoicing is on
     {
-      // E-invoice documents (S11a, SYNTHETIC profile). ZATCA_MODE defaults to off: nothing is generated until it is switched on.
+      provide: DevFileVault,
+      useFactory: () =>
+        ZatcaDocumentService.modeFromEnv() === 'off' ? (undefined as never) : new DevFileVault(),
+    },
+    {
+      provide: DevFileSecretStore,
+      useFactory: () =>
+        ZatcaDocumentService.modeFromEnv() === 'off'
+          ? (undefined as never)
+          : new DevFileSecretStore(),
+    },
+    {
+      provide: SimulatedZatca,
+      useFactory: () =>
+        new SimulatedZatca(
+          ZatcaDocumentService.modeFromEnv() === 'simulation' ? 'simulation' : 'sandbox',
+        ),
+    },
+    {
       provide: ZatcaDocumentService,
-      useFactory: (db: Db, a: AuditSink) =>
-        new ZatcaDocumentService(
+      useFactory: (db: Db, a: AuditSink, archive: LocalWormArchive) =>
+        new ZatcaDocumentService(db, a, loadProfile(), archive, ZatcaDocumentService.modeFromEnv()),
+      inject: [DB, AuditSink, LocalWormArchive],
+    },
+    {
+      provide: ZatcaSubmissionService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        d: ZatcaDocumentService,
+        adapter: SimulatedZatca,
+        s: DevFileSecretStore,
+        archive: LocalWormArchive,
+      ) =>
+        new ZatcaSubmissionService(
           db,
           a,
-          loadProfile(),
-          new LocalWormArchive(),
-          ZatcaDocumentService.modeFromEnv(),
+          d,
+          adapter,
+          s,
+          archive,
+          ZatcaSubmissionService.optsFromEnv(),
         ),
-      inject: [DB, AuditSink],
+      inject: [
+        DB,
+        AuditSink,
+        ZatcaDocumentService,
+        SimulatedZatca,
+        DevFileSecretStore,
+        LocalWormArchive,
+      ],
+    },
+    {
+      provide: ZatcaOnboardingService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        d: ZatcaDocumentService,
+        adapter: SimulatedZatca,
+        v: DevFileVault,
+        s: DevFileSecretStore,
+      ) => new ZatcaOnboardingService(db, a, d, adapter, v, s),
+      inject: [
+        DB,
+        AuditSink,
+        ZatcaDocumentService,
+        SimulatedZatca,
+        DevFileVault,
+        DevFileSecretStore,
+      ],
+    },
+    {
+      provide: ZatcaPipelineService,
+      useFactory: (db: Db, d: ZatcaDocumentService, s: ZatcaSubmissionService, v: DevFileVault) =>
+        new ZatcaPipelineService(db, d, s, v, ZatcaPipelineService.generateFromEnv()),
+      inject: [DB, ZatcaDocumentService, ZatcaSubmissionService, DevFileVault],
     },
   ],
   exports: [
@@ -89,6 +171,12 @@ import { RatingService } from '../metering';
     InvoiceService,
     CreditNoteService,
     ZatcaDocumentService,
+    ZatcaSubmissionService,
+    ZatcaOnboardingService,
+    ZatcaPipelineService,
+    SimulatedZatca,
+    DevFileVault,
+    DevFileSecretStore,
   ],
 })
 export class InvoicingModule {}

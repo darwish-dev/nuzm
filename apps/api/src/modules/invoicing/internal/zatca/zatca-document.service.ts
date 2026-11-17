@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { v7 as uuidv7 } from 'uuid';
 import type { PoolClient } from 'pg';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../../common/audit';
@@ -9,6 +10,7 @@ import { documentHash, firstPih, verifyChain, type ChainProblem } from './hash-c
 import type { ZatcaProfile } from './profile';
 import { encodeTlv } from './qr-tlv';
 import { signDocumentHash, type KeyVault } from './signing';
+import { appendSubmission } from './submission-log';
 import { assemble, buildBody, money, stripStamp } from './ubl';
 import { validateDocument, type ValidationResult } from './validator';
 
@@ -155,7 +157,7 @@ export class ZatcaDocumentService {
             `INSERT INTO invoicing.zatca_documents (id, org_id, entity_id, environment, source_type, source_id, document_type, subtype, uuid, icv, pih, invoice_hash, xml_body, data_region, created_at)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
             [
-              randomUUID(),
+              uuidv7(),
               orgId,
               src.entityId,
               env,
@@ -173,6 +175,7 @@ export class ZatcaDocumentService {
             ],
           )
         ).rows[0] as Row;
+        await appendSubmission(c, orgId, row.id as string, 'generated', { now });
         await this.audit.record({
           action: 'invoicing.zatca_document.generated',
           actorType: 'system',
@@ -337,6 +340,7 @@ export class ZatcaDocumentService {
         `UPDATE invoicing.zatca_documents SET xml_final = $2, signature = $3, public_key = $4, qr = $5, stamped_at = $6 WHERE id = $1 AND xml_final IS NULL`,
         [documentId, finalXml, signature, publicKey, qr, now],
       );
+      if (u.rowCount) await appendSubmission(c, orgId, documentId, 'stamped', { now });
       if (u.rowCount)
         await this.audit.record({
           action: 'invoicing.zatca_document.stamped',

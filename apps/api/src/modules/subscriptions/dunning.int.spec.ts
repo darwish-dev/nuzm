@@ -514,6 +514,12 @@ describe('billing scheduler', () => {
           return 0;
         },
       },
+      {
+        run: async () => {
+          calls.push('einvoicing');
+          return {} as never;
+        },
+      },
       () => undefined,
     );
     const first = slow.tick();
@@ -523,7 +529,7 @@ describe('billing scheduler', () => {
     release();
     const done = await first;
     expect(done!.dunning).toEqual({ error: 'boom' });
-    expect(calls).toEqual(['subs', 'dunning', 'events', 'refunds']);
+    expect(calls).toEqual(['subs', 'dunning', 'events', 'refunds', 'einvoicing']);
     expect(BILLING_SCHEDULER_LOCK).toBe(7300002);
     // the lock is free again afterwards
     expect(await slow.tick()).not.toBeNull();

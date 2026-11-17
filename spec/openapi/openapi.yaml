@@ -2342,7 +2342,7 @@ paths:
       operationId: getInvoiceXml
       tags: [billing]
       summary: Invoice e-invoice XML
-      description: 'The stored issued/cleared e-invoice XML. 409 until the ZATCA module has generated it for this invoice. Requires permission `billing:read`.'
+      description: 'The stored e-invoice XML: the cleared XML of a standard (B2B) invoice, the stamped XML of a simplified one. SIMULATED environments only, not verified against ZATCA. 409 until there is one to give (e-invoicing off, not generated, not stamped, not cleared). Requires permission `billing:read`.'
       x-nuzm-permission: billing:read
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -2817,6 +2817,106 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/zatca/onboarding:
+    get:
+      operationId: adminGetZatcaOnboarding
+      tags: [billing]
+      summary: E-invoicing onboarding state
+      description: 'Per enabled environment (sandbox or simulation; production is never enabled by the platform): the last completed step, the steps with their status, the ACTIVE credential references (never secrets). Every result is SIMULATED and NOT VERIFIED vs ZATCA. Platform permission `admin:billing:read`; admin-realm session.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: environment, in: query, schema: { type: string, enum: [sandbox, simulation] } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZatcaOnboardingList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminZatcaOnboardingStep
+      tags: [billing]
+      summary: Request or decide an onboarding step
+      description: 'Body {environment, step: csr|compliance_csid|compliance_checks|production_csid} requests a step (permission admin:zatca:manage). Credential steps (csr, compliance_csid, production_csid) wait for a DIFFERENT person: body {stepId, decision: approve|reject, otp?} (permission admin:zatca:approve); the compliance_csid step needs the one-time password from the portal in otp, which is used once and never stored. Steps run in order and a completed step cannot be redone (409); the compliance checks run immediately. 422 when the environment is not enabled; production is refused. Admin-realm session with MFA and step-up. Audited.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ZatcaOnboardingWrite' }
+      responses:
+        '200':
+          description: Decision performed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZatcaOnboardingStep' }
+        '201':
+          description: Step requested (or run, for the compliance checks)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZatcaOnboardingStep' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/zatca/submissions:
+    get:
+      operationId: adminListZatcaSubmissions
+      tags: [billing]
+      summary: E-invoice submission queue
+      description: 'One row per document with its CURRENT state (generated, stamped, queued, submitted, cleared, reported, rejected, error), attempts, backoff, dead letters, the last error and, for simplified invoices, the reporting-window clock with an alert at 50% of the window. Filters: state, org, deadLetter. Platform permission `admin:billing:read`; admin-realm session.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: org, in: query, schema: { type: string, format: uuid } }
+        - { name: deadLetter, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZatcaSubmissionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/zatca/submissions/{id}/retry:
+    post:
+      operationId: adminRetryZatcaSubmission
+      tags: [billing]
+      summary: Retry a dead-lettered submission
+      description: 'Idempotent per document: a document that stopped at error (dead letter) is queued again with a fresh attempt budget; a queued or submitted one is returned unchanged; a cleared or reported one, and a REJECTED one (it needs human review: credit note and new invoice, never resubmission), answer 409. The id is the id of any state row of the document (the list returns the latest). Permission admin:zatca:manage; admin-realm session with MFA and step-up. Audited.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZatcaSubmission' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
   /v1/billing/wallet-topups:
     post:
       operationId: createWalletTopup
@@ -3129,6 +3229,131 @@ components:
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/DunningCase' } }
         nextCursor: { type: [string, 'null'] }
+    ZatcaOnboardingWrite:
+      type: object
+      properties:
+        environment: { type: string, enum: [sandbox, simulation] }
+        step: { type: string, enum: [csr, compliance_csid, compliance_checks, production_csid] }
+        stepId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, reject] }
+        otp:
+          {
+            type: string,
+            maxLength: 20,
+            description: 'One-time password from the portal; used once, never stored or logged.',
+          }
+    ZatcaOnboardingStep:
+      type: object
+      required:
+        [id, environment, step, status, requestedBy, decidedBy, decidedAt, result, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        environment: { type: string, enum: [sandbox, simulation] }
+        step: { type: string, enum: [csr, compliance_csid, compliance_checks, production_csid] }
+        status: { type: string, enum: [pending_approval, completed, failed, rejected] }
+        requestedBy: { type: string, format: uuid }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        result:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'Public facts only (CSR, serial, check outcomes); never an OTP, secret or private key.',
+          }
+        createdAt: { type: string, format: date-time }
+    ZatcaOnboardingView:
+      type: object
+      required: [environment, state, onboarded, notVerifiedVsZatca, credentials, steps]
+      properties:
+        environment: { type: string, enum: [sandbox, simulation] }
+        state:
+          {
+            type: string,
+            enum: [not_started, csr, compliance_csid, compliance_checks, production_csid],
+          }
+        onboarded: { type: boolean }
+        notVerifiedVsZatca: { type: boolean }
+        credentials:
+          type: array
+          items:
+            type: object
+            required: [kind, serial, expiresAt]
+            properties:
+              kind: { type: string }
+              serial: { type: [string, 'null'] }
+              expiresAt: { type: [string, 'null'], format: date-time }
+        steps: { type: array, items: { $ref: '#/components/schemas/ZatcaOnboardingStep' } }
+    ZatcaOnboardingList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ZatcaOnboardingView' } }
+    ZatcaSubmission:
+      type: object
+      required:
+        [
+          id,
+          documentId,
+          orgId,
+          environment,
+          documentType,
+          subtype,
+          uuid,
+          icv,
+          state,
+          attempt,
+          deadLetter,
+          nextAttemptAt,
+          lastError,
+          warnings,
+          updatedAt,
+          createdAt,
+          windowRemainingSeconds,
+          windowAlert,
+          windowBreached,
+          notVerifiedVsZatca,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        environment: { type: string, enum: [sandbox, simulation] }
+        documentType: { type: string }
+        subtype: { type: string, enum: [standard, simplified] }
+        uuid: { type: string, format: uuid }
+        icv: { type: string }
+        state:
+          {
+            type: string,
+            enum: [generated, stamped, queued, submitted, cleared, reported, rejected, error],
+          }
+        attempt: { type: integer }
+        deadLetter: { type: boolean }
+        nextAttemptAt: { type: [string, 'null'], format: date-time }
+        lastError:
+          type: [object, 'null']
+          properties:
+            code: { type: string }
+            message: { type: string }
+        warnings:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              message: { type: string }
+        updatedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        windowRemainingSeconds: { type: [integer, 'null'] }
+        windowAlert: { type: boolean }
+        windowBreached: { type: boolean }
+        notVerifiedVsZatca: { type: boolean }
+    ZatcaSubmissionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ZatcaSubmission' } }
+        nextCursor: { type: [string, 'null'] }
     CreateSubscription:
       type: object
       required: [planVersionId, paymentMethodId]
@@ -3398,7 +3623,23 @@ components:
           type: object
           required: [state, uuid, qr]
           properties:
-            state: { type: string, enum: [not_generated] }
+            state:
+              {
+                type: string,
+                enum:
+                  [
+                    not_generated,
+                    generated,
+                    stamped,
+                    queued,
+                    submitted,
+                    cleared,
+                    reported,
+                    rejected,
+                    error,
+                  ],
+                description: 'E-invoice state (SIMULATED, not verified vs ZATCA). A standard invoice is delivered (PDF/XML) only when cleared.',
+              }
             uuid: { type: [string, 'null'] }
             qr: { type: [string, 'null'] }
         ledgerPosted: { type: boolean }

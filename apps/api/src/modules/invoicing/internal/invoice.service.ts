@@ -14,6 +14,7 @@ import { creditable, type InvoiceStatus } from './invoice-state';
 import type { PdfRenderer } from './pdf.renderer';
 import type { SequenceService } from './sequence.service';
 import type { TaxService } from './tax.service';
+import type { InvoiceZatcaStatus, ZatcaSubmissionService } from './zatca/submission.service';
 
 type Row = Record<string, unknown>;
 type RevenueAccount = recipes.RevenueAccount;
@@ -58,7 +59,7 @@ export interface InvoiceDto {
   };
   dataRegion: string;
   /** ZATCA e-invoice status: the module arrives in S11, until then nothing is generated. */
-  zatca: { state: 'not_generated'; uuid: null; qr: null };
+  zatca: InvoiceZatcaStatus;
   ledgerPosted: boolean;
 }
 export interface CloseResult {
@@ -181,6 +182,11 @@ export class InvoiceService {
       mode: 'sandbox',
       dueDays: 14,
     },
+    /** E-invoice status, delivery gate and XML (S11b); absent in unit contexts that do not need them. */
+    private readonly zatca?: Pick<
+      ZatcaSubmissionService,
+      'statusOf' | 'statusOfMany' | 'assertDeliverable'
+    >,
   ) {}
 
   static optsFromEnv(env: NodeJS.ProcessEnv = process.env) {
@@ -665,7 +671,9 @@ export class InvoiceService {
 
   async get(orgId: string, id: string): Promise<InvoiceDto> {
     const { inv, lines } = await this.load(orgId, id);
-    return invoiceDto(inv, lines);
+    const dto = invoiceDto(inv, lines);
+    if (this.zatca) dto.zatca = await this.zatca.statusOf(orgId, 'invoice', id);
+    return dto;
   }
 
   async list(
@@ -684,37 +692,48 @@ export class InvoiceService {
         `status must be one of ${STATUSES.join(', ')}`,
       );
     const after = decodeCursor(o.cursor);
-    return this.db.withOrg(orgId, async (c) => {
-      const rows = (
-        await c.query(
-          `SELECT * FROM invoicing.invoices WHERE org_id = $1 AND ($2::text IS NULL OR status = $2) AND ($3::timestamptz IS NULL OR issued_at >= $3) AND ($4::timestamptz IS NULL OR issued_at <= $4)
+    return this.db
+      .withOrg(orgId, async (c) => {
+        const rows = (
+          await c.query(
+            `SELECT * FROM invoicing.invoices WHERE org_id = $1 AND ($2::text IS NULL OR status = $2) AND ($3::timestamptz IS NULL OR issued_at >= $3) AND ($4::timestamptz IS NULL OR issued_at <= $4)
               AND ($5::uuid IS NULL OR id < $5::uuid) ORDER BY id DESC LIMIT $6`,
-          [orgId, o.status ?? null, o.from ?? null, o.to ?? null, after, o.limit + 1],
-        )
-      ).rows;
-      const page = pageOf(
-        rows.map((r) => ({ id: r.id as string, row: r })),
-        o.limit,
-      );
-      const ids = page.items.map((p) => p.id);
-      const lines = ids.length
-        ? (
-            await c.query(
-              `SELECT * FROM invoicing.invoice_lines WHERE invoice_id = ANY($1) ORDER BY invoice_id, position`,
-              [ids],
-            )
-          ).rows
-        : [];
-      return {
-        items: page.items.map((p) =>
-          invoiceDto(
-            p.row,
-            lines.filter((l) => l.invoice_id === p.id),
+            [orgId, o.status ?? null, o.from ?? null, o.to ?? null, after, o.limit + 1],
+          )
+        ).rows;
+        const page = pageOf(
+          rows.map((r) => ({ id: r.id as string, row: r })),
+          o.limit,
+        );
+        const ids = page.items.map((p) => p.id);
+        const lines = ids.length
+          ? (
+              await c.query(
+                `SELECT * FROM invoicing.invoice_lines WHERE invoice_id = ANY($1) ORDER BY invoice_id, position`,
+                [ids],
+              )
+            ).rows
+          : [];
+        return {
+          items: page.items.map((p) =>
+            invoiceDto(
+              p.row,
+              lines.filter((l) => l.invoice_id === p.id),
+            ),
           ),
-        ),
-        nextCursor: page.nextCursor,
-      };
-    });
+          nextCursor: page.nextCursor,
+        };
+      })
+      .then(async (res) => {
+        if (this.zatca) {
+          const st = await this.zatca.statusOfMany(
+            orgId,
+            res.items.map((i) => i.id),
+          );
+          for (const i of res.items) i.zatca = st.get(i.id) ?? i.zatca;
+        }
+        return res;
+      });
   }
 
   async pdf(
@@ -723,6 +742,12 @@ export class InvoiceService {
     locale: DocLocale,
   ): Promise<{ pdf: Buffer; filename: string }> {
     const { inv, lines } = await this.load(orgId, id);
+    // a standard tax invoice (B2B) is not delivered before clearance when e-invoicing is on
+    if (this.zatca)
+      await this.zatca.assertDeliverable(orgId, {
+        id,
+        buyer: inv.buyer as { buyerType?: unknown; vatNumber?: string | null },
+      });
     const dto = invoiceDto(inv, lines);
     const html = renderDocumentHtml(toRender(inv, lines, dto), locale);
     return { pdf: await this.renderer.render(html), filename: `${dto.number}.pdf` };

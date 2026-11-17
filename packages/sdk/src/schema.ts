@@ -1449,7 +1449,7 @@ export interface paths {
         };
         /**
          * Invoice e-invoice XML
-         * @description The stored issued/cleared e-invoice XML. 409 until the ZATCA module has generated it for this invoice. Requires permission `billing:read`.
+         * @description The stored e-invoice XML: the cleared XML of a standard (B2B) invoice, the stamped XML of a simplified one. SIMULATED environments only, not verified against ZATCA. 409 until there is one to give (e-invoicing off, not generated, not stamped, not cleared). Requires permission `billing:read`.
          */
         get: operations["getInvoiceXml"];
         put?: never;
@@ -1716,6 +1716,70 @@ export interface paths {
         patch: operations["adminUpdateDunningCase"];
         trace?: never;
     };
+    "/v1/admin/billing/zatca/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * E-invoicing onboarding state
+         * @description Per enabled environment (sandbox or simulation; production is never enabled by the platform): the last completed step, the steps with their status, the ACTIVE credential references (never secrets). Every result is SIMULATED and NOT VERIFIED vs ZATCA. Platform permission `admin:billing:read`; admin-realm session.
+         */
+        get: operations["adminGetZatcaOnboarding"];
+        put?: never;
+        /**
+         * Request or decide an onboarding step
+         * @description Body {environment, step: csr|compliance_csid|compliance_checks|production_csid} requests a step (permission admin:zatca:manage). Credential steps (csr, compliance_csid, production_csid) wait for a DIFFERENT person: body {stepId, decision: approve|reject, otp?} (permission admin:zatca:approve); the compliance_csid step needs the one-time password from the portal in otp, which is used once and never stored. Steps run in order and a completed step cannot be redone (409); the compliance checks run immediately. 422 when the environment is not enabled; production is refused. Admin-realm session with MFA and step-up. Audited.
+         */
+        post: operations["adminZatcaOnboardingStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/zatca/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * E-invoice submission queue
+         * @description One row per document with its CURRENT state (generated, stamped, queued, submitted, cleared, reported, rejected, error), attempts, backoff, dead letters, the last error and, for simplified invoices, the reporting-window clock with an alert at 50% of the window. Filters: state, org, deadLetter. Platform permission `admin:billing:read`; admin-realm session.
+         */
+        get: operations["adminListZatcaSubmissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/zatca/submissions/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a dead-lettered submission
+         * @description Idempotent per document: a document that stopped at error (dead letter) is queued again with a fresh attempt budget; a queued or submitted one is returned unchanged; a cleared or reported one, and a REJECTED one (it needs human review: credit note and new invoice, never resubmission), answer 409. The id is the id of any state row of the document (the list returns the latest). Permission admin:zatca:manage; admin-realm session with MFA and step-up. Audited.
+         */
+        post: operations["adminRetryZatcaSubmission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/billing/wallet-topups": {
         parameters: {
             query?: never;
@@ -1872,6 +1936,100 @@ export interface components {
         };
         DunningCasePage: {
             items: components["schemas"]["DunningCase"][];
+            nextCursor: string | null;
+        };
+        ZatcaOnboardingWrite: {
+            /** @enum {string} */
+            environment?: "sandbox" | "simulation";
+            /** @enum {string} */
+            step?: "csr" | "compliance_csid" | "compliance_checks" | "production_csid";
+            /** Format: uuid */
+            stepId?: string;
+            /** @enum {string} */
+            decision?: "approve" | "reject";
+            /** @description One-time password from the portal; used once, never stored or logged. */
+            otp?: string;
+        };
+        ZatcaOnboardingStep: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            environment: "sandbox" | "simulation";
+            /** @enum {string} */
+            step: "csr" | "compliance_csid" | "compliance_checks" | "production_csid";
+            /** @enum {string} */
+            status: "pending_approval" | "completed" | "failed" | "rejected";
+            /** Format: uuid */
+            requestedBy: string;
+            /** Format: uuid */
+            decidedBy: string | null;
+            /** Format: date-time */
+            decidedAt: string | null;
+            /** @description Public facts only (CSR, serial, check outcomes); never an OTP, secret or private key. */
+            result: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ZatcaOnboardingView: {
+            /** @enum {string} */
+            environment: "sandbox" | "simulation";
+            /** @enum {string} */
+            state: "not_started" | "csr" | "compliance_csid" | "compliance_checks" | "production_csid";
+            onboarded: boolean;
+            notVerifiedVsZatca: boolean;
+            credentials: {
+                kind: string;
+                serial: string | null;
+                /** Format: date-time */
+                expiresAt: string | null;
+            }[];
+            steps: components["schemas"]["ZatcaOnboardingStep"][];
+        };
+        ZatcaOnboardingList: {
+            items: components["schemas"]["ZatcaOnboardingView"][];
+        };
+        ZatcaSubmission: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            documentId: string;
+            /** Format: uuid */
+            orgId: string;
+            /** @enum {string} */
+            environment: "sandbox" | "simulation";
+            documentType: string;
+            /** @enum {string} */
+            subtype: "standard" | "simplified";
+            /** Format: uuid */
+            uuid: string;
+            icv: string;
+            /** @enum {string} */
+            state: "generated" | "stamped" | "queued" | "submitted" | "cleared" | "reported" | "rejected" | "error";
+            attempt: number;
+            deadLetter: boolean;
+            /** Format: date-time */
+            nextAttemptAt: string | null;
+            lastError: {
+                code?: string;
+                message?: string;
+            } | null;
+            warnings: {
+                code?: string;
+                message?: string;
+            }[];
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            windowRemainingSeconds: number | null;
+            windowAlert: boolean;
+            windowBreached: boolean;
+            notVerifiedVsZatca: boolean;
+        };
+        ZatcaSubmissionPage: {
+            items: components["schemas"]["ZatcaSubmission"][];
             nextCursor: string | null;
         };
         CreateSubscription: {
@@ -2077,8 +2235,11 @@ export interface components {
             };
             dataRegion: string;
             zatca: {
-                /** @enum {string} */
-                state: "not_generated";
+                /**
+                 * @description E-invoice state (SIMULATED, not verified vs ZATCA). A standard invoice is delivered (PDF/XML) only when cleared.
+                 * @enum {string}
+                 */
+                state: "not_generated" | "generated" | "stamped" | "queued" | "submitted" | "cleared" | "reported" | "rejected" | "error";
                 uuid: string | null;
                 qr: string | null;
             };
@@ -6372,6 +6533,127 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    adminGetZatcaOnboarding: {
+        parameters: {
+            query?: {
+                environment?: "sandbox" | "simulation";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZatcaOnboardingList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminZatcaOnboardingStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ZatcaOnboardingWrite"];
+            };
+        };
+        responses: {
+            /** @description Decision performed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZatcaOnboardingStep"];
+                };
+            };
+            /** @description Step requested (or run, for the compliance checks) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZatcaOnboardingStep"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListZatcaSubmissions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                state?: string;
+                org?: string;
+                deadLetter?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZatcaSubmissionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminRetryZatcaSubmission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZatcaSubmission"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
     createWalletTopup: {

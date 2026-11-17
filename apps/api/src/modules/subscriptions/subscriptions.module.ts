@@ -18,7 +18,7 @@ import {
   subscriptionPolicyFromEnv,
   type SubscriptionPorts,
 } from '../billing';
-import { InvoiceService } from '../invoicing';
+import { InvoiceService, ZatcaPipelineService } from '../invoicing';
 import { PaymentMethodService, PaymentService, RefundService } from '../payments';
 import { BillingScheduler } from './billing-scheduler';
 import { SubscriptionsController } from './subscriptions.controller';
@@ -105,8 +105,16 @@ const returnUrl = () => `${PaymentService.allowlistFromEnv()[0]!}/billing/paymen
         d: DunningService,
         p: PaymentService,
         r: RefundService,
-      ) => new BillingScheduler(db, s, d, p, r),
-      inject: [DB, SubscriptionService, DunningService, PaymentService, RefundService],
+        z: ZatcaPipelineService,
+      ) => new BillingScheduler(db, s, d, p, r, z),
+      inject: [
+        DB,
+        SubscriptionService,
+        DunningService,
+        PaymentService,
+        RefundService,
+        ZatcaPipelineService,
+      ],
     },
   ],
   exports: [SubscriptionService, BillingScheduler],

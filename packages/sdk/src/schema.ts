@@ -1891,13 +1891,77 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List refunds across organizations
+         * @description S12d (UI-M03-15). Refunds newest first with their status, so finance can follow a pending refund. Filters: org, status (pending, succeeded, failed), paymentId. Platform permission `admin:billing:read`; admin-realm session; the read is audited (`billing.admin.refunds.read`). Read-only: a refund is still created only by POST.
+         */
+        get: operations["adminListRefunds"];
         put?: never;
         /**
          * Refund a captured payment
          * @description Body {paymentId, amount (minor units), reason, creditNoteId?}. Permission admin:billing:manage; admin-realm session with MFA and step-up; needs Idempotency-Key (a replay returns the same refund). The amount may not exceed what is still refundable (captured minus refunded minus pending refunds), else 422. 201 when the refund finished, 202 while the PSP has not finished it (the platform keeps asking, and never sends it twice). The ledger entry (receivable or unapplied payment to PSP clearing) is made once per refund. A linked credit note becomes `refunded` when the refunds against it cover its total. Wallet top-up payments cannot be refunded yet.
          */
         post: operations["adminCreateRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search invoices across organizations
+         * @description S12d (UI-M03-13). Invoices newest first with the e-invoice state of each. Filters: org, status, number (prefix of the invoice number), einvoiceState (not_generated or a submission state), from/to (issue date). Platform permission `admin:billing:read`; admin-realm session; the read is audited (`billing.admin.invoices.read`). Read-only: a wrong invoice is corrected by a credit note, never edited.
+         */
+        get: operations["adminListInvoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List payments across organizations
+         * @description S12d (UI-M03-14). Payment attempts (intents) newest first. Filters: org, status, invoiceId, from/to (creation time). Platform permission `admin:billing:read`; admin-realm session; the read is audited (`billing.admin.payments.read`). No card data exists in the platform, so none is returned.
+         */
+        get: operations["adminListPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/payments/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * PSP events of a payment (redacted)
+         * @description S12d (UI-M03-14). The provider events stored for one payment, oldest first, with how each was handled and how many times the provider resent it (`duplicateCount`; a resend never has a second effect). The payload is the sanitized whitelist stored at intake with the provider payment reference masked to its last four characters. Platform permission `admin:billing:read`; the read is audited (`billing.admin.payment_events.read`). 404 for an unknown payment.
+         */
+        get: operations["adminListPaymentEvents"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2364,6 +2428,118 @@ export interface components {
             creditNoteId: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        AdminRefund: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            /** Format: uuid */
+            paymentId: string;
+            amountMinor: string;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed";
+            reason: string;
+            failureCode: string | null;
+            /** Format: uuid */
+            creditNoteId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminRefundPage: {
+            items: components["schemas"]["AdminRefund"][];
+            nextCursor: string | null;
+        };
+        AdminPayment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            /** Format: uuid */
+            invoiceId: string | null;
+            /** Format: uuid */
+            walletTopupId: string | null;
+            /** @description Provider account code (sandbox accounts are named so). */
+            provider: string;
+            amountMinor: string;
+            currency: string;
+            status: string;
+            failureCode: string | null;
+            capturedMinor: string;
+            refundedMinor: string;
+            eventCount: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminPaymentPage: {
+            items: components["schemas"]["AdminPayment"][];
+            nextCursor: string | null;
+        };
+        AdminPspEvent: {
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            /** @description The provider event id (unique per provider). */
+            eventId: string;
+            type: string;
+            /** @enum {string} */
+            status: "received" | "processed" | "ignored" | "failed";
+            error: string | null;
+            /** Format: date-time */
+            eventAt: string;
+            /** Format: date-time */
+            receivedAt: string;
+            /** Format: date-time */
+            processedAt: string | null;
+            duplicateCount: number;
+            /** Format: date-time */
+            lastDuplicateAt: string | null;
+            /** @description Sanitized whitelist; the provider payment reference is masked. */
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        AdminPspEventList: {
+            items: components["schemas"]["AdminPspEvent"][];
+        };
+        AdminInvoice: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            number: string;
+            status: string;
+            /** @enum {string} */
+            environment: "sandbox" | "live";
+            currency: string;
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            dueAt: string;
+            subtotalMinor: string;
+            taxMinor: string;
+            totalMinor: string;
+            paidMinor: string;
+            buyerName: {
+                ar: string;
+                en: string;
+            };
+            buyerVatNumber: string | null;
+            taxReviewRequired: boolean;
+            dataRegion: string;
+            einvoice: {
+                /** @description not_generated or the latest submission state. */
+                state: string;
+                /** @enum {string|null} */
+                environment: "sandbox" | "simulation" | "production" | null;
+                /** Format: uuid */
+                uuid: string | null;
+            };
+        };
+        AdminInvoicePage: {
+            items: components["schemas"]["AdminInvoice"][];
+            nextCursor: string | null;
         };
         PaymentPage: {
             items: components["schemas"]["Payment"][];
@@ -7049,6 +7225,37 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
+    adminListRefunds: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                org?: string;
+                paymentId?: string;
+                status?: "pending" | "succeeded" | "failed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefundPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
     adminCreateRefund: {
         parameters: {
             query?: never;
@@ -7097,6 +7304,98 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    adminListInvoices: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                org?: string;
+                status?: string;
+                number?: string;
+                einvoiceState?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInvoicePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListPayments: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                org?: string;
+                invoiceId?: string;
+                status?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPaymentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListPaymentEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPspEventList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
     receivePaymentWebhook: {

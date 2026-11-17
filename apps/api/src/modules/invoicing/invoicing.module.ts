@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
+import { AdminInvoiceReadService } from './internal/admin-invoice-read.service';
 import { CreditNoteService } from './internal/credit-note.service';
 import { InvoiceService } from './internal/invoice.service';
 import { ChromePdfRenderer, type PdfRenderer } from './internal/pdf.renderer';
@@ -18,6 +19,7 @@ import { ZatcaSubmissionService } from './internal/zatca/submission.service';
 import { DevFileSecretStore } from './internal/zatca/secrets';
 import { DevFileVault } from './internal/zatca/signing';
 import { SimulatedZatca } from './internal/zatca/simulated-adapter';
+import { AdminInvoicesController } from './admin-invoices.controller';
 import { AdminZatcaController } from './admin-zatca.controller';
 import { CreditNotesController } from './credit-notes.controller';
 import { InvoicesController } from './invoices.controller';
@@ -35,6 +37,7 @@ import { RatingService } from '../metering';
     InvoicesController,
     CreditNotesController,
     AdminZatcaController,
+    AdminInvoicesController,
   ],
   providers: [
     {
@@ -89,6 +92,11 @@ import { RatingService } from '../metering';
         ZatcaSubmissionService,
         NotificationService,
       ],
+    },
+    {
+      provide: AdminInvoiceReadService,
+      useFactory: (db: Db, a: AuditSink) => new AdminInvoiceReadService(db, a),
+      inject: [DB, AuditSink],
     },
     {
       provide: CreditNoteService,

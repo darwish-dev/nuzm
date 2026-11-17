@@ -46,3 +46,26 @@ export async function requireStaff(locale: Locale): Promise<Staff> {
   const perms = new Set(me.platform?.permissions ?? []);
   return { me, roles: me.platform?.roles ?? [], can: (p) => perms.has(p), api };
 }
+
+/** Stream a file (CSV) from the API with the admin-realm session, for the download route handlers. API errors pass through as plain text. */
+export async function apiDownload(path: string): Promise<Response> {
+  const jar = await cookies();
+  const cookie = jar
+    .getAll()
+    .filter((c) => FORWARD.has(c.name))
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
+  const r = await fetch(`${API_ORIGIN}${path}`, {
+    headers: { cookie, 'x-nuzm-realm': 'admin' },
+    cache: 'no-store',
+  });
+  const headers = new Headers();
+  for (const h of ['content-type', 'content-disposition'])
+    if (r.headers.get(h)) headers.set(h, r.headers.get(h)!);
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('cache-control', 'no-store');
+  return new Response(r.ok ? r.body : r.statusText || 'unavailable', {
+    status: r.status,
+    headers: r.ok ? headers : new Headers({ 'content-type': 'text/plain; charset=utf-8' }),
+  });
+}

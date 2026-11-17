@@ -6,8 +6,8 @@ import { Button, Field, Input, Select } from '@nuzm/ui';
 import { browserApi } from '../lib/client';
 import { useStepUp } from './StepUp';
 
-type Notice = { tone: 'error' | 'ok'; text: string } | null;
-const Note = ({ n }: { n: Notice }) =>
+export type Notice = { tone: 'error' | 'ok'; text: string } | null;
+export const Note = ({ n }: { n: Notice }) =>
   n ? (
     <p
       role={n.tone === 'error' ? 'alert' : 'status'}
@@ -19,24 +19,25 @@ const Note = ({ n }: { n: Notice }) =>
 
 interface Res {
   response: Response;
+  data?: unknown;
   error?: unknown;
 }
 
 /** Run a staff mutation: busy state, localized error text, and an MFA step-up prompt when the API asks for one. */
-function useStaffAction(locale: Locale, factorId: string | null) {
+export function useStaffAction(locale: Locale, factorId: string | null) {
   const step = useStepUp(locale, factorId);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   async function run(
     call: () => Promise<Res>,
-    onOk: () => void,
+    onOk: (data?: unknown) => void,
     overrides: Partial<Record<number, string>> = {},
   ) {
     setBusy(true);
     setNotice(null);
     const r = await call();
     setBusy(false);
-    if (r.response.ok) return onOk();
+    if (r.response.ok) return onOk(r.data);
     const code = (r.error as { code?: string } | undefined)?.code;
     if (code === 'step_up_required' && factorId)
       return step.ask(() => void run(call, onOk, overrides));

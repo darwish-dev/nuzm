@@ -17,6 +17,10 @@ import { PriceBookService } from './internal/price-book.service';
 import { QuotaService } from './internal/quota.service';
 import { SpendService } from './internal/spend.service';
 import { WalletTopupService } from './internal/wallet-topup.service';
+import { DunningService } from './internal/dunning.service';
+import { loadDunningPolicy } from './internal/dunning-policy';
+import { SubscriptionService } from './internal/subscription.service';
+import { AdminDunningController } from './admin-dunning.controller';
 import { NotificationService } from '../notifications';
 
 /** Users who can manage billing in the organization (owners, admins, billing admins): the audience of quota notices. */
@@ -45,6 +49,7 @@ const approverIds = (db: Db, orgId: string) =>
     AdminAdjustmentsController,
     BillingSpendController,
     QuotasController,
+    AdminDunningController,
   ],
   providers: [
     {
@@ -111,6 +116,16 @@ const approverIds = (db: Db, orgId: string) =>
       inject: [DB, AuditSink, NotificationService],
     },
     {
+      // SubscriptionService is provided by the subscriptions module (it needs invoicing and payments); billing reaches it by token only
+      provide: DunningService,
+      useFactory: (db: Db, a: AuditSink, subs: SubscriptionService, n: NotificationService) =>
+        new DunningService(db, a, subs, loadDunningPolicy(), async (orgId, kind, params) => {
+          for (const userId of await approverIds(db, orgId))
+            await n.notify({ orgId, userId, kind, params });
+        }),
+      inject: [DB, AuditSink, SubscriptionService, NotificationService],
+    },
+    {
       provide: WalletTopupService,
       useFactory: (db: Db, a: AuditSink, l: LedgerPostingService) =>
         new WalletTopupService(db, a, l),
@@ -132,6 +147,7 @@ const approverIds = (db: Db, orgId: string) =>
     SpendService,
     AdjustmentService,
     WalletTopupService,
+    DunningService,
   ],
 })
 export class BillingModule {}

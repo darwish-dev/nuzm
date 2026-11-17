@@ -1676,6 +1676,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/billing/dunning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List dunning cases
+         * @description Overdue-invoice cases across organizations, newest first. Filters: org, stage (overdue, reminder_1, reminder_2, restricted, suspended, terminated_pending), state (open default, closed, all). The timings come from spec/billing/dunning-policy.yaml (proposed, awaiting finance approval D-23). Platform permission `admin:billing:read`; admin-realm session.
+         */
+        get: operations["adminListDunningCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing/dunning/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Hold or resume a dunning case
+         * @description Body {action: hold|resume, reason (1..500)}. A held case gets no retries and no new stage until resumed; days keep counting. Repeating the same action changes nothing. 409 when the case is closed. Permission admin:billing:manage; admin-realm session with MFA and step-up. Audited.
+         */
+        patch: operations["adminUpdateDunningCase"];
+        trace?: never;
+    };
     "/v1/billing/wallet-topups": {
         parameters: {
             query?: never;
@@ -1800,6 +1840,40 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        UpdateDunningCase: {
+            /** @enum {string} */
+            action: "hold" | "resume";
+            reason: string;
+        };
+        DunningCase: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            /** Format: uuid */
+            subscriptionId: string;
+            /** Format: uuid */
+            invoiceId: string;
+            /** @enum {string} */
+            stage: "overdue" | "reminder_1" | "reminder_2" | "restricted" | "suspended" | "terminated_pending";
+            /** Format: date-time */
+            openedAt: string;
+            daysOverdue: number;
+            retriesDone: number;
+            nextRetryInDays: number | null;
+            hold: boolean;
+            holdReason: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            /** @enum {string|null} */
+            closedReason: "paid" | "subscription_cancelled" | null;
+            policyVersion: number;
+            version: number;
+        };
+        DunningCasePage: {
+            items: components["schemas"]["DunningCase"][];
+            nextCursor: string | null;
+        };
         CreateSubscription: {
             /** Format: uuid */
             planVersionId: string;
@@ -1850,6 +1924,8 @@ export interface components {
             pendingCreditMinor: string;
             /** Format: uuid */
             latestInvoiceId: string | null;
+            /** @description Stage of the open dunning case (overdue, reminder_1, reminder_2, restricted, suspended, terminated_pending); null when nothing is overdue. */
+            dunningStage?: string | null;
             version: number;
             /** Format: date-time */
             createdAt: string;
@@ -6226,6 +6302,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListDunningCases: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                org?: string;
+                stage?: string;
+                state?: "open" | "closed" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DunningCasePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminUpdateDunningCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDunningCase"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DunningCase"];
                 };
             };
             401: components["responses"]["Problem"];

@@ -2,7 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
-import { PriceBookService, QuotaService, SpendService } from '../billing';
+import { DunningService, PriceBookService, QuotaService, SpendService } from '../billing';
 import { TaxService } from '../invoicing';
 import { OrderService } from './internal/order.service';
 import { AiCreditPricer, PlanPricer, QuotePricerRegistry } from './internal/pricers';
@@ -44,9 +44,9 @@ import { QuotesController } from './quotes.controller';
     },
     {
       provide: OrderService,
-      useFactory: (db: Db, a: AuditSink, q: QuotaService, s: SpendService) =>
-        new OrderService(db, a, q, s),
-      inject: [DB, AuditSink, QuotaService, SpendService],
+      useFactory: (db: Db, a: AuditSink, q: QuotaService, s: SpendService, d: DunningService) =>
+        new OrderService(db, a, q, s, d),
+      inject: [DB, AuditSink, QuotaService, SpendService, DunningService],
     },
   ],
   exports: [QuoteService, OrderService, QuotePricerRegistry],

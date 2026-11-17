@@ -2760,6 +2760,63 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/dunning:
+    get:
+      operationId: adminListDunningCases
+      tags: [billing]
+      summary: List dunning cases
+      description: 'Overdue-invoice cases across organizations, newest first. Filters: org, stage (overdue, reminder_1, reminder_2, restricted, suspended, terminated_pending), state (open default, closed, all). The timings come from spec/billing/dunning-policy.yaml (proposed, awaiting finance approval D-23). Platform permission `admin:billing:read`; admin-realm session.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: org, in: query, schema: { type: string, format: uuid } }
+        - { name: stage, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string, enum: [open, closed, all] } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DunningCasePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/dunning/{id}:
+    patch:
+      operationId: adminUpdateDunningCase
+      tags: [billing]
+      summary: Hold or resume a dunning case
+      description: 'Body {action: hold|resume, reason (1..500)}. A held case gets no retries and no new stage until resumed; days keep counting. Repeating the same action changes nothing. 409 when the case is closed. Permission admin:billing:manage; admin-realm session with MFA and step-up. Audited.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Resource id.,
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDunningCase' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DunningCase' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/billing/wallet-topups:
     post:
       operationId: createWalletTopup
@@ -3020,6 +3077,58 @@ components:
         capturedMinor: { type: string }
         refundedMinor: { type: string }
         createdAt: { type: string, format: date-time }
+    UpdateDunningCase:
+      type: object
+      required: [action, reason]
+      properties:
+        action: { type: string, enum: [hold, resume] }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    DunningCase:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          subscriptionId,
+          invoiceId,
+          stage,
+          openedAt,
+          daysOverdue,
+          retriesDone,
+          nextRetryInDays,
+          hold,
+          holdReason,
+          closedAt,
+          closedReason,
+          policyVersion,
+          version,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        subscriptionId: { type: string, format: uuid }
+        invoiceId: { type: string, format: uuid }
+        stage:
+          {
+            type: string,
+            enum: [overdue, reminder_1, reminder_2, restricted, suspended, terminated_pending],
+          }
+        openedAt: { type: string, format: date-time }
+        daysOverdue: { type: integer }
+        retriesDone: { type: integer }
+        nextRetryInDays: { type: [integer, 'null'] }
+        hold: { type: boolean }
+        holdReason: { type: [string, 'null'] }
+        closedAt: { type: [string, 'null'], format: date-time }
+        closedReason: { type: [string, 'null'], enum: [paid, subscription_cancelled, null] }
+        policyVersion: { type: integer }
+        version: { type: integer }
+    DunningCasePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DunningCase' } }
+        nextCursor: { type: [string, 'null'] }
     CreateSubscription:
       type: object
       required: [planVersionId, paymentMethodId]
@@ -3078,6 +3187,9 @@ components:
         cancelledAt: { type: [string, 'null'], format: date-time }
         pendingCreditMinor: { type: string, description: Credit applied to the next renewal. }
         latestInvoiceId: { type: [string, 'null'], format: uuid }
+        dunningStage:
+          type: [string, 'null']
+          description: 'Stage of the open dunning case (overdue, reminder_1, reminder_2, restricted, suspended, terminated_pending); null when nothing is overdue.'
         version: { type: integer }
         createdAt: { type: string, format: date-time }
     SubscriptionPage:

@@ -121,6 +121,18 @@ export const messages = {
       'بدأ فريق الدعم جلسة دعم بصلاحية أحد مستخدميكم لمدة {ttlMinutes} دقيقة.',
     'notif.kind.security.org_suspended': 'تم إيقاف مؤسستكم من قِبل إدارة المنصة.',
     'notif.kind.security.org_reinstated': 'أُعيد تفعيل مؤسستكم.',
+    'notif.kind.billing.payment_failed':
+      'تعذّر تحصيل دفعة الاشتراك. يرجى سداد الفاتورة أو تحديث وسيلة الدفع.',
+    'notif.kind.billing.dunning_reminder':
+      'تذكير: لديكم فاتورة متأخرة السداد. يرجى سدادها لتجنب تقييد المشتريات الجديدة.',
+    'notif.kind.billing.dunning_restricted':
+      'تم تقييد المشتريات الجديدة بسبب فاتورة متأخرة. الخدمات الحالية تعمل ولم يُحذف أي شيء.',
+    'notif.kind.billing.dunning_suspended':
+      'طُلب إيقاف الخدمات بسبب فاتورة متأخرة. لن تُحذف بياناتكم.',
+    'notif.kind.billing.dunning_review':
+      'الفاتورة المتأخرة قيد مراجعة المالك. لن يُحذف أي شيء دون قرار بشري.',
+    'notif.kind.billing.payment_recovered':
+      'تم سداد الفاتورة المتأخرة وعاد الاشتراك إلى وضعه الطبيعي.',
     'notif.kind.unknown': 'إشعار جديد ({kind})',
 
     'members.title': 'الأعضاء',
@@ -552,6 +564,18 @@ export const messages = {
     'notif.kind.security.org_suspended':
       'Your organization was suspended by platform administration.',
     'notif.kind.security.org_reinstated': 'Your organization was reinstated.',
+    'notif.kind.billing.payment_failed':
+      'We could not collect the subscription payment. Please pay the invoice or update your payment method.',
+    'notif.kind.billing.dunning_reminder':
+      'Reminder: you have an overdue invoice. Please pay it to avoid new purchases being restricted.',
+    'notif.kind.billing.dunning_restricted':
+      'New purchases are restricted because of an overdue invoice. Existing services keep running and nothing is deleted.',
+    'notif.kind.billing.dunning_suspended':
+      'Suspension of services was requested because of an overdue invoice. Your data is not deleted.',
+    'notif.kind.billing.dunning_review':
+      'The overdue invoice is under owner review. Nothing is deleted without a human decision.',
+    'notif.kind.billing.payment_recovered':
+      'The overdue invoice was paid and your subscription is back to normal.',
     'notif.kind.unknown': 'New notification ({kind})',
 
     'members.title': 'Members',

@@ -3,7 +3,7 @@ import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { formatDec, parseDec } from '../../../common/rating';
-import type { QuotaService, SpendService } from '../../billing';
+import type { DunningService, QuotaService, SpendService } from '../../billing';
 
 export interface OrderDto {
   id: string;
@@ -28,6 +28,7 @@ export class OrderService {
     private readonly audit: AuditSink,
     private readonly quotas: Pick<QuotaService, 'assertAllowed'>,
     private readonly spend: Pick<SpendService, 'evaluate'>,
+    private readonly dunning: Pick<DunningService, 'assertNotRestricted'>,
   ) {}
 
   async createFromQuote(
@@ -36,6 +37,8 @@ export class OrderService {
     actorUserId: string,
     now = new Date(),
   ): Promise<OrderDto> {
+    // an organization with an overdue invoice at the restriction stage cannot start NEW purchases (everything it already has keeps working)
+    await this.dunning.assertNotRestricted(orgId);
     // 1. read (short transaction): the quote, its items, and whether it was already ordered
     const { q, items, ordered } = await this.db.withOrg(orgId, async (c) => {
       const quote = (

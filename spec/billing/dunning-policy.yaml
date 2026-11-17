@@ -1,0 +1,18 @@
+# Dunning policy (docs/11 §8, M03 prompt item 10). Versioned CONFIGURATION: docs/05 defines no policy table, only billing.dunning_cases.
+#
+# STATUS: PROPOSED-NOT-APPROVED. The timings below are the proposal of docs/11 (retries D+1, D+3, D+5; notices D+3 and D+7; restrict D+14;
+# suspend D+21). Finance approval is decision D-23; the owner-review day for terminated_pending is not in docs/11 and is my proposal (D+45).
+# Legal notice periods before any deletion are decisions for counsel (HG-04-01). Nothing in this file can delete data: billing only EMITS
+# requests (events) that the owning modules (M05+) may act on, and a case never goes beyond owner review.
+#
+# Days count from the day the case opened (the first run after a charge failed), in UTC.
+version: 1
+status: PROPOSED-NOT-APPROVED
+retries:
+  afterDays: [1, 3, 5] # payment retries with the stored method; each is reconcile-before-retry
+stages:
+  - { stage: reminder_1, afterDays: 3 } # notice to billing managers
+  - { stage: reminder_2, afterDays: 7 } # second notice
+  - { stage: restricted, afterDays: 14 } # new purchases blocked; subscription becomes unpaid; emits dunning.restrict_requested
+  - { stage: suspended, afterDays: 21 } # emits dunning.suspend_requested (owning modules decide how; no data is touched)
+  - { stage: terminated_pending, afterDays: 45 } # emits dunning.review_requested: a HUMAN (owner) decides; never automatic

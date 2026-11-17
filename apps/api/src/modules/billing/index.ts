@@ -25,3 +25,11 @@ export type {
   SubscriptionItem,
   ChangePreview,
 } from './internal/subscription.service';
+export { DunningService } from './internal/dunning.service';
+export type { DunningDto, DunningRunResult } from './internal/dunning.service';
+export {
+  loadDunningPolicy,
+  parseDunningPolicy,
+  STAGES as DUNNING_STAGES,
+} from './internal/dunning-policy';
+export type { DunningPolicy, DunningStage } from './internal/dunning-policy';

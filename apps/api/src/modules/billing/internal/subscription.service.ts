@@ -94,6 +94,8 @@ export interface SubscriptionDto {
   cancelledAt: string | null;
   pendingCreditMinor: string;
   latestInvoiceId: string | null;
+  /** Stage of the open dunning case (overdue ... terminated_pending), or null when nothing is overdue. */
+  dunningStage: string | null;
   version: number;
   createdAt: string;
 }
@@ -112,7 +114,7 @@ export interface ChangePreview {
   effectiveDate: string;
 }
 
-const toDto = (r: Row, planKey: string): SubscriptionDto => ({
+const toDto = (r: Row, planKey: string, dunningStage: string | null = null): SubscriptionDto => ({
   id: r.id as string,
   planVersionId: r.plan_version_id as string,
   planKey,
@@ -128,6 +130,7 @@ const toDto = (r: Row, planKey: string): SubscriptionDto => ({
   cancelledAt: r.cancelled_at ? (r.cancelled_at as Date).toISOString() : null,
   pendingCreditMinor: String(r.pending_credit_minor),
   latestInvoiceId: (r.last_invoice_id as string | null) ?? null,
+  dunningStage,
   version: r.version as number,
   createdAt: (r.created_at as Date).toISOString(),
 });
@@ -445,15 +448,16 @@ export class SubscriptionService {
     if (outcome === 'succeeded') await this.ensureEntitlement(orgId, id);
   }
 
-  /** past_due → active once the invoice that failed has been paid (by the customer, the PSP webhook or a retry). */
+  /** past_due or unpaid → active once the invoice that failed has been paid (by the customer, the PSP webhook or a retry). */
   async settle(orgId: string, id: string): Promise<boolean> {
     const sub = await this.load(orgId, id);
-    if (sub.status !== 'past_due' || !sub.last_invoice_id) return false;
+    if ((sub.status !== 'past_due' && sub.status !== 'unpaid') || !sub.last_invoice_id)
+      return false;
     if ((await this.ports.invoices.status(orgId, sub.last_invoice_id as string)) !== 'paid')
       return false;
     const done = await this.db.withOrg(orgId, async (c) => {
       const r = await c.query(
-        `UPDATE billing.subscriptions SET status = 'active', updated_at = now() WHERE id = $1 AND status = 'past_due'`,
+        `UPDATE billing.subscriptions SET status = 'active', updated_at = now() WHERE id = $1 AND status IN ('past_due','unpaid')`,
         [id],
       );
       if (r.rowCount) {
@@ -473,6 +477,110 @@ export class SubscriptionService {
     });
     if (done) await this.ensureEntitlement(orgId, id);
     return Boolean(done);
+  }
+
+  /** past_due → unpaid (dunning's restriction stage). Idempotent. */
+  async markUnpaid(orgId: string, id: string): Promise<boolean> {
+    return this.db.withOrg(orgId, async (c) => {
+      const r = await c.query(
+        `UPDATE billing.subscriptions SET status = 'unpaid', updated_at = now() WHERE id = $1 AND status = 'past_due'`,
+        [id],
+      );
+      if (r.rowCount) {
+        await enqueue(c, orgId, 'subscription.unpaid', { subscriptionId: id });
+        await this.audit.record({
+          action: 'billing.subscription.unpaid',
+          actorType: 'system',
+          orgId,
+          resource: { type: 'subscription', id },
+          outcome: 'failure',
+        });
+      }
+      return Boolean(r.rowCount);
+    });
+  }
+
+  /**
+   * One payment retry of the invoice that failed (dunning). Reconcile-before-retry is the payment service's own rule; this never creates a
+   * second invoice. Returns the outcome, or `recovered` when the invoice was already paid.
+   */
+  async retryPayment(
+    orgId: string,
+    id: string,
+    now = new Date(),
+  ): Promise<'recovered' | 'succeeded' | 'failed' | 'requires_action' | 'processing' | 'skipped'> {
+    const sub = await this.load(orgId, id);
+    if ((sub.status !== 'past_due' && sub.status !== 'unpaid') || !sub.last_invoice_id)
+      return 'skipped';
+    if (await this.settle(orgId, id)) return 'recovered';
+    const invoiceId = sub.last_invoice_id as string;
+    let outcome: 'succeeded' | 'failed' | 'requires_action' | 'processing';
+    try {
+      outcome = (
+        await this.ports.payments.pay(
+          orgId,
+          (sub.created_by as string | null) ?? '',
+          { invoiceId, paymentMethodId: sub.payment_method_id as string },
+          now,
+        )
+      ).status;
+    } catch (e) {
+      if (!(e instanceof ProblemException)) throw e;
+      outcome = 'failed'; // the method is gone or the invoice cannot be paid this way
+    }
+    if (outcome === 'succeeded') await this.settle(orgId, id);
+    return outcome;
+  }
+
+  /** A customer who asked to cancel while unpaid is cancelled now: there is no paid period left to keep. */
+  async cancelNow(orgId: string, id: string, now = new Date()): Promise<boolean> {
+    const done = await this.db.withOrg(orgId, async (c) => {
+      const r = await c.query(
+        `UPDATE billing.subscriptions SET status = 'cancelled', cancelled_at = $2, cancel_reason = coalesce(cancel_reason, 'cancelled_while_unpaid'), updated_at = now()
+          WHERE id = $1 AND status IN ('past_due','unpaid') AND cancel_at_period_end`,
+        [id, now],
+      );
+      if (r.rowCount) {
+        await enqueue(c, orgId, 'subscription.cancelled', { subscriptionId: id });
+        await this.audit.record({
+          action: 'billing.subscription.cancelled',
+          actorType: 'system',
+          orgId,
+          resource: { type: 'subscription', id },
+          outcome: 'success',
+          detail: { reason: 'cancelled_while_unpaid' },
+        });
+      }
+      return r.rowCount;
+    });
+    if (done) await this.entitlements.assignDefaultPlan(orgId);
+    return Boolean(done);
+  }
+
+  /** Subscriptions that are past_due or unpaid, across organizations (the dunning run's work list). */
+  async delinquent(limit = 500): Promise<
+    {
+      id: string;
+      orgId: string;
+      status: string;
+      invoiceId: string | null;
+      cancelRequested: boolean;
+    }[]
+  > {
+    return this.db.withPlatformScope(async (c) =>
+      (
+        await c.query(
+          `SELECT id, org_id, status, last_invoice_id, cancel_at_period_end FROM billing.subscriptions WHERE status IN ('past_due','unpaid') ORDER BY updated_at, id LIMIT $1`,
+          [limit],
+        )
+      ).rows.map((r) => ({
+        id: r.id as string,
+        orgId: r.org_id as string,
+        status: r.status as string,
+        invoiceId: (r.last_invoice_id as string | null) ?? null,
+        cancelRequested: r.cancel_at_period_end as boolean,
+      })),
+    );
   }
 
   private async ensureEntitlement(orgId: string, id: string): Promise<void> {
@@ -608,7 +716,7 @@ export class SubscriptionService {
         (
           await c.query<{ id: string; org_id: string; status: string }>(
             `SELECT id, org_id, status FROM billing.subscriptions
-              WHERE (status IN ('trialing','active') AND (period_end <= $1::date OR pending_invoice IS NOT NULL)) OR status = 'past_due'
+              WHERE (status IN ('trialing','active') AND (period_end <= $1::date OR pending_invoice IS NOT NULL)) OR status IN ('past_due','unpaid')
               ORDER BY period_end, id LIMIT $2`,
             [today, limit],
           )
@@ -619,7 +727,7 @@ export class SubscriptionService {
     let failed = 0;
     for (const r of rows) {
       try {
-        if (r.status === 'past_due') {
+        if (r.status === 'past_due' || r.status === 'unpaid') {
           if (await this.settle(r.org_id, r.id)) settled++;
         } else {
           const x = await this.renew(r.org_id, r.id, now);
@@ -746,7 +854,10 @@ export class SubscriptionService {
       effectiveDate: today,
     };
     const planKey = async () => await this.snapshotKey(orgId, newPlanVersion);
-    if (preview) return { applied: false, subscription: toDto(sub, await planKey()), proration };
+    if (preview) {
+      const stage = (await this.stages(orgId, [id])).get(id) ?? null;
+      return { applied: false, subscription: toDto(sub, await planKey(), stage), proration };
+    }
 
     const pending: PendingInvoice | null =
       net > 0n
@@ -874,7 +985,24 @@ export class SubscriptionService {
 
   async get(orgId: string, id: string): Promise<SubscriptionDto> {
     const r = await this.load(orgId, id);
-    return toDto(r, (r.items as SubscriptionItem[])[0]!.planKey);
+    const stage = (await this.stages(orgId, [id])).get(id) ?? null;
+    return toDto(r, (r.items as SubscriptionItem[])[0]!.planKey, stage);
+  }
+
+  /** Stage of the open dunning case of each subscription (absent = nothing overdue). */
+  private async stages(orgId: string, ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    return this.db.withOrg(orgId, async (c) => {
+      const m = new Map<string, string>();
+      for (const r of (
+        await c.query<{ subscription_id: string; stage: string }>(
+          `SELECT subscription_id, stage FROM billing.dunning_cases WHERE org_id = $1 AND subscription_id = ANY($2::uuid[]) AND closed_at IS NULL`,
+          [orgId, ids],
+        )
+      ).rows)
+        m.set(r.subscription_id, r.stage);
+      return m;
+    });
   }
 
   async list(
@@ -898,8 +1026,19 @@ export class SubscriptionService {
         rows.map((r) => ({ id: r.id as string, r })),
         o.limit,
       );
+      const stages = new Map<string, string>();
+      if (p.items.length)
+        for (const r of (
+          await c.query<{ subscription_id: string; stage: string }>(
+            `SELECT subscription_id, stage FROM billing.dunning_cases WHERE org_id = $1 AND subscription_id = ANY($2::uuid[]) AND closed_at IS NULL`,
+            [orgId, p.items.map((x) => x.id)],
+          )
+        ).rows)
+          stages.set(r.subscription_id, r.stage);
       return {
-        items: p.items.map((x) => toDto(x.r, (x.r.items as SubscriptionItem[])[0]!.planKey)),
+        items: p.items.map((x) =>
+          toDto(x.r, (x.r.items as SubscriptionItem[])[0]!.planKey, stages.get(x.id) ?? null),
+        ),
         nextCursor: p.nextCursor,
       };
     });

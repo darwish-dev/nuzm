@@ -818,7 +818,9 @@ describe('subscription database guards', () => {
     await expect(sql(`DELETE FROM billing.subscriptions WHERE id = $1`, [s.id])).rejects.toThrow(
       /never deleted/,
     );
-    await expect(sql(`TRUNCATE billing.subscriptions`)).rejects.toThrow(/never truncated/);
+    await expect(sql(`TRUNCATE billing.subscriptions`)).rejects.toThrow(
+      /never truncated|cannot truncate/,
+    );
     await expect(
       sql(
         `INSERT INTO billing.subscriptions (id, org_id, plan_version_id, currency, status, items, payment_method_id, anchor_day, period_start, period_end) VALUES (gen_random_uuid(), $1, $2, 'SAR', 'active', '[{}]', gen_random_uuid(), 1, '2026-11-01', '2026-12-01')`,

@@ -1,10 +1,17 @@
-import { Global, Module, type OnModuleInit } from '@nestjs/common';
+import {
+  Global,
+  Module,
+  type OnApplicationBootstrap,
+  type OnApplicationShutdown,
+  type OnModuleInit,
+} from '@nestjs/common';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { productionPricing } from '../../common/pricing';
 import { ProblemException } from '../../common/errors';
 import { DB } from '../../common/tokens';
 import {
+  DunningService,
   EntitlementService,
   PriceBookService,
   SubscriptionService,
@@ -12,7 +19,8 @@ import {
   type SubscriptionPorts,
 } from '../billing';
 import { InvoiceService } from '../invoicing';
-import { PaymentMethodService, PaymentService } from '../payments';
+import { PaymentMethodService, PaymentService, RefundService } from '../payments';
+import { BillingScheduler } from './billing-scheduler';
 import { SubscriptionsController } from './subscriptions.controller';
 
 /**
@@ -89,14 +97,35 @@ const returnUrl = () => `${PaymentService.allowlistFromEnv()[0]!}/billing/paymen
         PaymentMethodService,
       ],
     },
+    {
+      provide: BillingScheduler,
+      useFactory: (
+        db: Db,
+        s: SubscriptionService,
+        d: DunningService,
+        p: PaymentService,
+        r: RefundService,
+      ) => new BillingScheduler(db, s, d, p, r),
+      inject: [DB, SubscriptionService, DunningService, PaymentService, RefundService],
+    },
   ],
-  exports: [SubscriptionService],
+  exports: [SubscriptionService, BillingScheduler],
 })
-export class SubscriptionsModule implements OnModuleInit {
+export class SubscriptionsModule
+  implements OnModuleInit, OnApplicationBootstrap, OnApplicationShutdown
+{
   constructor(
     private readonly subs: SubscriptionService,
     private readonly methods: PaymentMethodService,
+    private readonly scheduler: BillingScheduler,
   ) {}
+  /** Periodic jobs run only when BILLING_SCHEDULER_INTERVAL_SECONDS > 0 (off by default; ADR-017 proposes where they run). */
+  onApplicationBootstrap() {
+    this.scheduler.start(BillingScheduler.intervalFromEnv());
+  }
+  onApplicationShutdown() {
+    this.scheduler.stop();
+  }
   onModuleInit() {
     // a payment method that a live subscription charges cannot be removed
     this.methods.registerUsageGuard((orgId, id) => this.subs.methodInUse(orgId, id));

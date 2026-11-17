@@ -17,6 +17,7 @@ errors:
   validation_failed: { status: 422, title: Validation failed }
   idempotency_key_required: { status: 400, title: Idempotency-Key header required }
   insufficient_funds: { status: 402, title: Insufficient wallet balance }
+  account_restricted: { status: 402, title: New purchases are blocked while an invoice is overdue }
   quota_exceeded: { status: 422, title: Quota exceeded }
   pan_not_allowed: { status: 422, title: Card data is not accepted }
   payment_method_required: { status: 422, title: A payment method is required }

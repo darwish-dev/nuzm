@@ -16,7 +16,13 @@ export interface Quota {
   pids: number;
   buildTimeoutMinutes: number;
 }
-export const DEFAULT_QUOTA: Quota = { vcpu: SANDBOX_QUOTA.vcpu, memoryMb: SANDBOX_QUOTA.memoryMb, diskGb: SANDBOX_QUOTA.diskGb, pids: SANDBOX_QUOTA.pids, buildTimeoutMinutes: SANDBOX_QUOTA.buildTimeoutMinutes };
+export const DEFAULT_QUOTA: Quota = {
+  vcpu: SANDBOX_QUOTA.vcpu,
+  memoryMb: SANDBOX_QUOTA.memoryMb,
+  diskGb: SANDBOX_QUOTA.diskGb,
+  pids: SANDBOX_QUOTA.pids,
+  buildTimeoutMinutes: SANDBOX_QUOTA.buildTimeoutMinutes,
+};
 export interface RuntimeSpec {
   sandboxId: string;
   orgId: string;

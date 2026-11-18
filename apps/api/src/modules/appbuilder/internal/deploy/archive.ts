@@ -8,7 +8,8 @@ function header(name: string, size: number): Buffer {
   let nm = name;
   if (Buffer.byteLength(name) > 100) {
     const cut = name.lastIndexOf('/', 155);
-    if (cut <= 0 || Buffer.byteLength(name) - cut - 1 > 100) throw new Error(`path too long for tar: ${name}`);
+    if (cut <= 0 || Buffer.byteLength(name) - cut - 1 > 100)
+      throw new Error(`path too long for tar: ${name}`);
     prefix = name.slice(0, cut);
     nm = name.slice(cut + 1);
   }
@@ -51,7 +52,8 @@ export function untarGz(buf: Buffer): Map<string, string> {
     const size = parseInt(h.subarray(124, 135).toString('ascii'), 8);
     const type = String.fromCharCode(h[156]!);
     if (type !== '0' && type !== '\0') throw new Error(`unsupported tar entry type for ${full}`);
-    if (full.startsWith('/') || full.split('/').includes('..')) throw new Error(`unsafe path in archive: ${full}`);
+    if (full.startsWith('/') || full.split('/').includes('..'))
+      throw new Error(`unsafe path in archive: ${full}`);
     out.set(full, tar.subarray(off + 512, off + 512 + size).toString('utf8'));
     off += 512 + Math.ceil(size / 512) * 512;
   }

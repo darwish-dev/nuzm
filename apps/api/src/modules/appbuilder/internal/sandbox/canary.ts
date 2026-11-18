@@ -6,7 +6,12 @@ import { redactSecrets } from './paths';
  * well-known credential paths. A token appearing in ANY output, log, artifact, egress request or export is a security event and fails the escape suite.
  * Tokens carry no meaning and open nothing: they are random values whose only property is that they are unique and recognisable.
  */
-export type CanaryLocation = 'runner_host_env' | 'control_plane_net' | 'neighbour_sandbox' | 'well_known_path' | 'metadata_stub';
+export type CanaryLocation =
+  | 'runner_host_env'
+  | 'control_plane_net'
+  | 'neighbour_sandbox'
+  | 'well_known_path'
+  | 'metadata_stub';
 export interface Canary {
   id: string;
   location: CanaryLocation;
@@ -15,11 +20,22 @@ export interface Canary {
   where: string;
 }
 export abstract class SecurityAlertPort {
-  abstract alert(a: { kind: 'canary_triggered' | 'sandbox_escape_suspected'; sandboxId: string | null; canaryId?: string; where: string }): Promise<void>;
+  abstract alert(a: {
+    kind: 'canary_triggered' | 'sandbox_escape_suspected';
+    sandboxId: string | null;
+    canaryId?: string;
+    where: string;
+  }): Promise<void>;
 }
 export class MemorySecurityAlerts extends SecurityAlertPort {
-  readonly alerts: { kind: string; sandboxId: string | null; canaryId?: string; where: string }[] = [];
-  async alert(a: { kind: 'canary_triggered' | 'sandbox_escape_suspected'; sandboxId: string | null; canaryId?: string; where: string }) {
+  readonly alerts: { kind: string; sandboxId: string | null; canaryId?: string; where: string }[] =
+    [];
+  async alert(a: {
+    kind: 'canary_triggered' | 'sandbox_escape_suspected';
+    sandboxId: string | null;
+    canaryId?: string;
+    where: string;
+  }) {
     this.alerts.push(a);
   }
 }
@@ -49,7 +65,13 @@ export class CanaryRegistry {
   /** Scan any text (stdout, logs, a file, an egress URL or body) for a planted token; each hit raises an alert. Returns the canaries found. */
   async scan(text: string, ctx: { sandboxId: string | null; source: string }): Promise<Canary[]> {
     const hits = this.list().filter((c) => text.includes(c.value));
-    for (const c of hits) await this.alerts.alert({ kind: 'canary_triggered', sandboxId: ctx.sandboxId, canaryId: c.id, where: `${ctx.source} (${c.location})` });
+    for (const c of hits)
+      await this.alerts.alert({
+        kind: 'canary_triggered',
+        sandboxId: ctx.sandboxId,
+        canaryId: c.id,
+        where: `${ctx.source} (${c.location})`,
+      });
     return hits;
   }
   /** Log-safe: removes canary values (and any other secret pattern) from text that will be stored. */

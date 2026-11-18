@@ -20,6 +20,8 @@ import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
 import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
+// M10A (app builder): append-only block
+import { AppBuilderModule } from './modules/appbuilder';
 import { TenancyModule } from './modules/tenancy';
 
 @Module({
@@ -46,6 +48,7 @@ import { TenancyModule } from './modules/tenancy';
     TenancyModule,
     AdminModule,
     HealthModule,
+    AppBuilderModule, // M10A
   ],
 })
 export class AppModule {}

@@ -4368,6 +4368,534 @@ export interface paths {
         patch: operations["changeDnsRecords"];
         trace?: never;
     };
+    "/v1/builder/projects/{projectId}/sandboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the sandboxes of a project
+         * @description Newest first (50). A project of another organization is 404. Permission `sandbox:use`.
+         */
+        get: operations["listSandboxes"];
+        put?: never;
+        /**
+         * Create a sandbox for a web-app project
+         * @description Body {profile?: "standard", ttlMinutes?}. Starts an isolated runtime for untrusted generated code. 202 with the sandbox (`runtime.kind` and `runtime.isolation` say what really runs it: until D-21/HG-10-02 it is NEVER `verified`). Residency of the node region is evaluated first (403 `residency_denied`); 402 `budget_required` without credit; 409 `sandbox_quota_exceeded` (5 concurrent per organization); 503 `sandbox_no_capacity`; 422 `unsupported_capability` for a non-web-app project. Idempotent per Idempotency-Key. Permission `sandbox:use`. Audited (`sandbox.sandbox.created`). The terminal WebSocket and its ticket route need owner approval (PA-M10-01) and are not exposed.
+         */
+        post: operations["createSandbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{projectId}/sandboxes/{sid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a sandbox
+         * @description State, quotas, egress profile, runtime label and lifetime. Another organization's sandbox is 404. Permission `sandbox:use`.
+         */
+        get: operations["getSandbox"];
+        put?: never;
+        post?: never;
+        /**
+         * Terminate a sandbox
+         * @description Terminates the runtime (the record stays, state `terminated`). Idempotent. Permission `sandbox:use`. Audited (`sandbox.sandbox.terminated`).
+         */
+        delete: operations["deleteSandbox"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{projectId}/test-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List test runs
+         * @description Newest first. Permission `builder:read`.
+         */
+        get: operations["listTestRuns"];
+        put?: never;
+        /**
+         * Run the tests of a project version in a sandbox
+         * @description Body {suite: unit|typecheck|build|e2e|all, versionId?}. 202 `queued`; the run executes in a fresh sandbox with the commands the project declares in nuzm.app.json (argv, no shell) and returns structured junit-like results; the log is redacted of secret patterns. 422 `test_suite_unavailable`. Meters `builder.build_minutes`. Permission `builder:test`.
+         */
+        post: operations["createTestRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{projectId}/test-runs/{testRunId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a test run
+         * @description Status, summary (suites, cases, failures), log reference and the runtime that executed it. Permission `builder:read`.
+         */
+        get: operations["getTestRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{projectId}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List exports
+         * @description Newest first. Permission `builder:export`.
+         */
+        get: operations["listExports"];
+        put?: never;
+        /**
+         * Export the source of a project version
+         * @description Body {versionId?}. Source + lockfile + migrations + README + OpenAPI + SBOM as a deterministic archive with no Nuzm secret: every file is scanned first and a secret, a canary token, an unsafe path, a missing lockfile or a policy violation BLOCKS the export (422 `export_blocked`, rule and path only). Vendored third-party code needs the `export_third_party` approval (403 `approval_required`). 403 `residency_denied`. Permission `builder:export`. Audited (`builder.export.created`).
+         */
+        post: operations["createExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{projectId}/exports/{exportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an export
+         * @description Returns a freshly signed download URL valid at most 15 minutes for a ready export (never stored; issuing it is audited as `builder.export.downloaded`). Permission `builder:export`.
+         */
+        get: operations["getExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{projectId}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a safe change set to a web-app project
+         * @description Body {baseVersion, patches[{op: add|modify|delete|rename, path, content?, from?, expectedHash?}], source?: user|ai, message?}. Atomic: path traversal, secret patterns, canary tokens, size and dependency-policy checks run first; 409 `base_mismatch` for a stale baseVersion or file hash; 422 `change_rejected` / `dependency_blocked`. Creates a project version and one Git commit (agent changes on the work branch, user changes on main). M09 owns the path and handles website projects. Permission `builder:write`. Audited (`builder.change.applied`).
+         */
+        post: operations["applyChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deployments
+         * @description Newest first; filter projectId. Permission `deploy:read`.
+         */
+        get: operations["listDeployments"];
+        put?: never;
+        /**
+         * Deploy a web-app project version
+         * @description Body {projectId, versionId?, target: {type: site|instance, id}, env: production|staging}. Build in a sandbox, content-addressed release artifact, deploy to the hosting site or compute instance, HEALTH GATE (a failed gate restores the previous release and ends `failed`). Needs approvals first: production deploy, paid resource, destructive migration, dependencies outside the policy (403 `approval_required` lists the approvals to decide). 422 `dependency_blocked` (no lockfile, typosquat, high advisory). 403 `residency_denied`. A duplicate of an in-progress deployment returns it (200). Idempotent per Idempotency-Key. Permission `deploy:create`. M09 owns the path and the website half. Audited.
+         */
+        post: operations["createDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a deployment
+         * @description State, artifact hash, health-check attempts, migrations, rollback links. Another organization's deployment is 404. Permission `deploy:read`.
+         */
+        get: operations["getDeployment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read deployment logs
+         * @description Append-only, redacted. Permission `deploy:read`.
+         */
+        get: operations["getDeploymentLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll a deployment back
+         * @description Restores the release that was live before this live deployment and records a rollback deployment. Idempotent (a repeat returns the same record, 200). A production rollback needs the `production_rollback` approval and a deployment that applied data-affecting migrations needs `data_migration_rollback` (403 `approval_required`). 409 `invalid_state` when the deployment is not live or has no earlier release. Permission `deploy:rollback`. Audited (`deploy.deployment.rolled_back`).
+         */
+        post: operations["rollbackDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List approvals (inbox)
+         * @description Pending, decided and expired approvals across runs, deployments, exports and releases; pending ones past their 24 h expiry are marked expired first. Filters status, subjectType. Permission `ai:read`. PROPOSED ADDITION PA-M10-02 (not in docs/04; needs the owner's approval).
+         */
+        get: operations["listApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/approvals/{approvalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an approval
+         * @description The exact action and the scopeHash an approver must quote. Permission `ai:read`. PROPOSED ADDITION PA-M10-02 (not in docs/04; needs the owner's approval).
+         */
+        get: operations["getApproval"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/approvals/{approvalId}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide an approval
+         * @description Body {decision: approve|reject, scopeHash, note?}. Bound to the exact action: 409 `stale_approval_hash` for another hash, 410 `gone` after 24 h, 403 `forbidden` without the role of the approval type, 409 `conflict` for a different second decision; an identical repeat is idempotent. Permission `ai:approve` (`ai:budget` for budget increases). Audited (`ai.approval.decided`). PROPOSED ADDITION PA-M10-02 (not in docs/04; needs the owner's approval).
+         */
+        post: operations["decideApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read-only view of AI runs (support)
+         * @description METADATA only: kind, state, reason, budget, usage, region, flags (budget breach, denied approval, escalation); never prompts, outputs or files. Filters state, limit. Platform permission `admin:ai:read` (platform_admin, support, security); admin-realm session.
+         */
+        get: operations["adminListAiRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List builder projects
+         * @description Filter type. Permission `builder:read`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["listBuilderProjects"];
+        put?: never;
+        /**
+         * Create a web-app or mobile project
+         * @description Body {type: webapp|mobile, name, dataRegion?, referenceTemplate?}. Permission `builder:write`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        post: operations["createBuilderProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a builder project with its versions
+         * @description Another organization's project is 404. Permission `builder:read`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["getBuilderProject"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the files of the head version
+         * @description Path and size. Permission `builder:read`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["listBuilderFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one file
+         * @description Query path (a safe project path); up to 1 MB inline. Permission `builder:read`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["getBuilderFileContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List AI runs
+         * @description Newest first; filter projectId. Permission `ai:read`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["listAiRuns"];
+        put?: never;
+        /**
+         * Start an AI run
+         * @description Body {kind: webapp|test-fix, projectId, sessionId?, specRef?, budget{maxTokens,maxCostMinor,maxMinutes}, brief?}. 202 with the run; the budget is clamped to the ceilings (2,000,000 tokens, 60 minutes, 200 steps) and enforced BEFORE every model call. 402 `budget_required`, 422 `unsupported_capability` (mobile is M10B; other kinds are M09). Permission `ai:run`. Audited (`ai.run.started`). STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        post: operations["createAiRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an AI run
+         * @description Steps with REDACTED tool-call summaries, the live budget meter, pending approvals. Another organization's run is 404. Permission `ai:read`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["getAiRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events of an AI run (polling form)
+         * @description The steps as ordered events (the SSE stream is M09). Permission `ai:read`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["getAiRunEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an AI run
+         * @description Stops at the next checkpoint. 409 for a terminal run. Idempotent. Permission `ai:run`. Audited. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        post: operations["cancelAiRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide an approval of a run
+         * @description Body {approvalId, decision, scopeHash, note?}; the approval must belong to this run. Same error matrix as decideApproval. Permission `ai:approve`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        post: operations["decideRunApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the AI budget caps
+         * @description The organization credit left, the ceilings and the defaults of a run. Read only here (PUT is M09). Permission `ai:budget`. STAND-IN for an M09-owned route (x-nuzm-m09-stub): served only with the flag app_builder.m09_stubs, dev only; delete on M09 integration.
+         */
+        get: operations["getAiBudgets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8476,6 +9004,509 @@ export interface components {
                 [key: string]: unknown;
             }[];
             version: number;
+        };
+        CreateSandbox: {
+            /** @enum {string} */
+            profile?: "standard";
+            ttlMinutes?: number;
+        } & {
+            [key: string]: unknown;
+        };
+        Sandbox: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            profile?: string;
+            /** @enum {string} */
+            state: "starting" | "ready" | "terminating" | "terminated" | "failed" | "expired";
+            runtime: {
+                /** @enum {string} */
+                kind: "mock" | "local-dev" | "isolated";
+                /** @enum {string} */
+                isolation: "none" | "simulated" | "verified";
+            } & {
+                [key: string]: unknown;
+            };
+            egressProfile?: string;
+            quota?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            ttlAt?: string;
+            /** Format: date-time */
+            lastActivityAt?: string;
+            dataRegion?: string;
+            terminationReason?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            terminatedAt?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        SandboxList: {
+            items: components["schemas"]["Sandbox"][];
+        } & {
+            [key: string]: unknown;
+        };
+        CreateTestRun: {
+            /** @enum {string} */
+            suite?: "unit" | "typecheck" | "build" | "e2e" | "all";
+            /** Format: uuid */
+            versionId?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        TestRun: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** Format: uuid */
+            versionId?: string;
+            suite: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "passed" | "failed" | "errored" | "cancelled";
+            summary?: {
+                [key: string]: unknown;
+            };
+            logsRef?: string | null;
+            runtime?: {
+                kind?: string | null;
+            } & {
+                [key: string]: unknown;
+            };
+            durationMs?: number | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        TestRunList: {
+            items: components["schemas"]["TestRun"][];
+        } & {
+            [key: string]: unknown;
+        };
+        CreateExport: {
+            /** Format: uuid */
+            versionId?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        Export: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** Format: uuid */
+            versionId?: string;
+            /** @enum {string} */
+            status: "building" | "ready" | "blocked" | "expired";
+            sha256?: string | null;
+            sbomRef?: string | null;
+            sizeBytes?: number | null;
+            fileCount?: number | null;
+            blockedReasons?: ({
+                rule?: string;
+                path?: string;
+                line?: number;
+            } & {
+                [key: string]: unknown;
+            })[];
+            flags?: string[];
+            downloadUrl?: string | null;
+            /** Format: date-time */
+            downloadUrlExpiresAt?: string | null;
+            /** Format: date-time */
+            expiresAt?: string;
+            dataRegion?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        ExportList: {
+            items: components["schemas"]["Export"][];
+        } & {
+            [key: string]: unknown;
+        };
+        Patch: {
+            /** @enum {string} */
+            op: "add" | "modify" | "delete" | "rename";
+            path: string;
+            content?: string;
+            from?: string;
+            expectedHash?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ApplyChanges: {
+            /** Format: uuid */
+            baseVersion: string | null;
+            patches: components["schemas"]["Patch"][];
+            /** @enum {string} */
+            source?: "user" | "ai";
+            message?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ChangeResult: {
+            /** Format: uuid */
+            versionId: string;
+            commit: string;
+            branch: string;
+            diff: {
+                [key: string]: unknown;
+            };
+            risks: ({
+                code?: string;
+                message?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
+        CreateDeployment: {
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            versionId?: string;
+            target: {
+                /** @enum {string} */
+                type: "site" | "instance";
+                /** Format: uuid */
+                id: string;
+            } & {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            env?: "production" | "staging";
+        } & {
+            [key: string]: unknown;
+        };
+        Deployment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** Format: uuid */
+            versionId?: string;
+            /** @enum {string} */
+            environment: "production" | "staging";
+            target: {
+                type?: string;
+                /** Format: uuid */
+                id?: string;
+            } & {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            state: "queued" | "building" | "deploying" | "verifying" | "live" | "failed" | "rolled_back" | "superseded";
+            failureCode?: string | null;
+            url?: string | null;
+            artifactSha256?: string | null;
+            healthCheck?: {
+                [key: string]: unknown;
+            };
+            migrations?: ({
+                version?: number;
+                destructive?: boolean;
+            } & {
+                [key: string]: unknown;
+            })[];
+            /** Format: uuid */
+            previousDeploymentId?: string | null;
+            /** Format: uuid */
+            rollbackOf?: string | null;
+            approvalIds?: string[];
+            dataRegion?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            durationMs?: number | null;
+            /** Format: uuid */
+            operationId?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        DeploymentList: {
+            items: components["schemas"]["Deployment"][];
+        } & {
+            [key: string]: unknown;
+        };
+        DeploymentLogs: {
+            items: ({
+                seq?: number;
+                /** @enum {string} */
+                level?: "info" | "warn" | "error";
+                message?: string;
+                /** Format: date-time */
+                at?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
+        Approval: {
+            /** Format: uuid */
+            id: string;
+            subjectType?: string;
+            /** Format: uuid */
+            subjectId?: string;
+            /** Format: uuid */
+            runId?: string | null;
+            /** @enum {string} */
+            type: "production_deploy" | "production_rollback" | "data_migration_rollback" | "destructive_migration" | "paid_resource" | "egress_or_dependency" | "budget_increase" | "export_third_party" | "mobile_signing" | "release_owner";
+            action: {
+                [key: string]: unknown;
+            };
+            scopeHash: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "expired";
+            /** @enum {string} */
+            requestedByKind?: "ai" | "user" | "system";
+            /** Format: uuid */
+            requestedBy?: string | null;
+            requiredRoles?: string[];
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: uuid */
+            decidedBy?: string | null;
+            /** Format: date-time */
+            decidedAt?: string | null;
+            decisionNote?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ApprovalList: {
+            items: components["schemas"]["Approval"][];
+        } & {
+            [key: string]: unknown;
+        };
+        DecideApproval: {
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            scopeHash: string;
+            note?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        DecideRunApproval: {
+            /** Format: uuid */
+            approvalId: string;
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            scopeHash: string;
+            note?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        AdminAiRunList: {
+            items: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        CreateBuilderProject: {
+            /** @enum {string} */
+            type: "webapp" | "mobile";
+            name: string;
+            dataRegion?: string;
+            referenceTemplate?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        BuilderProject: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "website" | "webapp" | "mobile";
+            name: string;
+            dataRegion?: string;
+            /** Format: uuid */
+            headVersionId?: string | null;
+            version?: number;
+            referenceTemplate?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            versions?: ({
+                /** Format: uuid */
+                id?: string;
+                parentId?: string | null;
+                label?: string | null;
+                source?: string;
+                /** Format: date-time */
+                createdAt?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
+        BuilderProjectList: {
+            items: components["schemas"]["BuilderProject"][];
+        } & {
+            [key: string]: unknown;
+        };
+        BuilderFileList: {
+            /** Format: uuid */
+            versionId?: string | null;
+            items: ({
+                path?: string;
+                size?: number;
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
+        BuilderFileContent: {
+            path: string;
+            /** Format: uuid */
+            versionId?: string;
+            size?: number;
+            truncated?: boolean;
+            content: string;
+        } & {
+            [key: string]: unknown;
+        };
+        CreateAiRun: {
+            /** @enum {string} */
+            kind: "webapp" | "test-fix" | "mobile";
+            /** Format: uuid */
+            projectId: string;
+            sessionId?: string;
+            specRef?: string;
+            budget?: {
+                maxTokens: number;
+                maxCostMinor: number;
+                maxMinutes: number;
+            } & {
+                [key: string]: unknown;
+            };
+            brief?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        Run: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** @enum {string} */
+            state: "queued" | "running" | "waiting_approval" | "succeeded" | "failed" | "cancelled" | "budget_exceeded";
+            reason?: string | null;
+            budget: {
+                [key: string]: unknown;
+            };
+            usage: {
+                [key: string]: unknown;
+            };
+            budgetRemaining: {
+                tokens?: number;
+                costMinor?: number;
+                minutes?: number;
+                steps?: number;
+            } & {
+                [key: string]: unknown;
+            };
+            warn?: boolean;
+            steps: ({
+                seq?: number;
+                node?: string;
+                agent?: string;
+                status?: string;
+                attempt?: number;
+                tokensIn?: number;
+                tokensOut?: number;
+                costMinor?: number;
+                errorCode?: string | null;
+                toolCalls?: ({
+                    tool?: string;
+                    status?: string;
+                    args?: {
+                        [key: string]: unknown;
+                    };
+                    durationMs?: number | null;
+                } & {
+                    [key: string]: unknown;
+                })[];
+            } & {
+                [key: string]: unknown;
+            })[];
+            pendingApprovals?: ({
+                /** Format: uuid */
+                id?: string;
+                type?: string;
+                scopeHash?: string;
+                /** Format: date-time */
+                expiresAt?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            dataRegion?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            finishedAt?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        RunList: {
+            items: components["schemas"]["Run"][];
+        } & {
+            [key: string]: unknown;
+        };
+        RunEvents: {
+            /** Format: uuid */
+            runId?: string;
+            state?: string;
+            events: ({
+                seq?: number;
+                type?: string;
+                data?: {
+                    [key: string]: unknown;
+                };
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
+        AiBudgets: {
+            orgRemainingMinor: number;
+            ceilings?: {
+                [key: string]: unknown;
+            };
+            defaults?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
     };
     responses: {
@@ -17441,6 +18472,972 @@ export interface operations {
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             428: components["responses"]["Problem"];
+        };
+    };
+    listSandboxes: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createSandbox: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSandbox"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sandbox"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getSandbox: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sandbox"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteSandbox: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sandbox"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listTestRuns: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestRunList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createTestRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTestRun"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getTestRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+                testRunId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listExports: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExport"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Export"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getExport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+                exportId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Export"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    applyChanges: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyChanges"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDeployments: {
+        parameters: {
+            query?: {
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeployment"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDeployment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getDeploymentLogs: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentLogs"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    rollbackDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Problem"];
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listApprovals: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected" | "expired";
+                subjectType?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getApproval: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                approvalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    decideApproval: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                approvalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideApproval"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListAiRuns: {
+        parameters: {
+            query?: {
+                state?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAiRunList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listBuilderProjects: {
+        parameters: {
+            query?: {
+                type?: "webapp" | "mobile";
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createBuilderProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBuilderProject"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProject"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBuilderProject: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProject"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listBuilderFiles: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFileList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderFileContent: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFileContent"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listAiRuns: {
+        parameters: {
+            query?: {
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createAiRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAiRun"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getAiRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiRunEvents: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunEvents"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    cancelAiRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    decideRunApproval: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideRunApproval"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getAiBudgets: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiBudgets"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
 }

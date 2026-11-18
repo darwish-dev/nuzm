@@ -1,10 +1,27 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { checkPath, MAX_FILE_BYTES } from './paths';
-import { MAX_OUTPUT_BYTES, RuntimeNoCapacity, RuntimeQuotaError, SandboxRuntime, type ExecRequest, type ExecResult, type RuntimeSpec, type RuntimeStats } from './runtime';
+import {
+  MAX_OUTPUT_BYTES,
+  RuntimeNoCapacity,
+  RuntimeQuotaError,
+  SandboxRuntime,
+  type ExecRequest,
+  type ExecResult,
+  type RuntimeSpec,
+  type RuntimeStats,
+} from './runtime';
 
 /** Commands the local dev runner may start (argv[0]). Anything else is refused. */
 const ALLOWED = new Set(['node', 'npm', 'npx', 'tsc']);
@@ -22,7 +39,9 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
   constructor(private readonly maxSandboxes = 4) {
     super();
     if (process.env.SANDBOX_LOCAL_DEV !== 'true' || process.env.NODE_ENV === 'production')
-      throw new Error('the local dev sandbox runner is disabled (set SANDBOX_LOCAL_DEV=true outside production; it is NOT isolated)');
+      throw new Error(
+        'the local dev sandbox runner is disabled (set SANDBOX_LOCAL_DEV=true outside production; it is NOT isolated)',
+      );
   }
   async freeSlots() {
     return Math.max(0, this.maxSandboxes - this.dirs.size);
@@ -44,9 +63,11 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
     for (const [p, c] of files) {
       const err = checkPath(p);
       if (err) throw new RuntimeQuotaError('files', `${p}: ${err}`);
-      if (Buffer.byteLength(c) > MAX_FILE_BYTES) throw new RuntimeQuotaError('disk', `${p} is too large`);
+      if (Buffer.byteLength(c) > MAX_FILE_BYTES)
+        throw new RuntimeQuotaError('disk', `${p} is too large`);
       const full = join(root, p);
-      if (relative(root, full).startsWith('..')) throw new RuntimeQuotaError('files', `${p}: escapes the sandbox`);
+      if (relative(root, full).startsWith('..'))
+        throw new RuntimeQuotaError('files', `${p}: escapes the sandbox`);
       mkdirSync(dirname(full), { recursive: true });
       writeFileSync(full, c, { flag: 'w' });
     }
@@ -60,32 +81,59 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
         if (f.isSymbolicLink()) continue; // a symlink is never followed out of the sandbox
         if (f.isDirectory()) {
           if (f.name !== 'node_modules' && f.name !== 'dist') walk(p);
-        } else if (statSync(p).size <= MAX_FILE_BYTES) out.set(relative(root, p), readFileSync(p, 'utf8'));
+        } else if (statSync(p).size <= MAX_FILE_BYTES)
+          out.set(relative(root, p), readFileSync(p, 'utf8'));
       }
     };
-    if (paths) for (const p of paths) {
-      const err = checkPath(p);
-      if (err) throw new RuntimeQuotaError('files', `${p}: ${err}`);
-      try {
-        out.set(p, readFileSync(join(root, p), 'utf8'));
-      } catch {
-        /* missing file: not in the result */
+    if (paths)
+      for (const p of paths) {
+        const err = checkPath(p);
+        if (err) throw new RuntimeQuotaError('files', `${p}: ${err}`);
+        try {
+          out.set(p, readFileSync(join(root, p), 'utf8'));
+        } catch {
+          /* missing file: not in the result */
+        }
       }
-    } else walk(root);
+    else walk(root);
     return out;
   }
   async exec(handle: string, req: ExecRequest): Promise<ExecResult> {
     const root = this.dir(handle);
     const argv0 = req.argv[0] ?? '';
-    if (!ALLOWED.has(argv0)) return { exitCode: 126, signal: null, stdout: '', stderr: `${argv0}: not allowed in the local dev runner\n`, durationMs: 0, timedOut: false, truncated: false, cpuSeconds: 0 };
+    if (!ALLOWED.has(argv0))
+      return {
+        exitCode: 126,
+        signal: null,
+        stdout: '',
+        stderr: `${argv0}: not allowed in the local dev runner\n`,
+        durationMs: 0,
+        timedOut: false,
+        truncated: false,
+        cpuSeconds: 0,
+      };
     const cwd = req.cwd ? join(root, req.cwd) : root;
-    if (relative(root, cwd).startsWith('..')) throw new RuntimeQuotaError('files', 'cwd escapes the sandbox');
+    if (relative(root, cwd).startsWith('..'))
+      throw new RuntimeQuotaError('files', 'cwd escapes the sandbox');
     const started = Date.now();
     // scrubbed environment: only what the build needs; none of the platform's variables
-    const env: Record<string, string> = { PATH: process.env.PATH ?? '', HOME: root, TMPDIR: root, NODE_ENV: 'test', CI: 'true', ...(req.env ?? {}) };
+    const env: Record<string, string> = {
+      PATH: process.env.PATH ?? '',
+      HOME: root,
+      TMPDIR: root,
+      NODE_ENV: 'test',
+      CI: 'true',
+      ...(req.env ?? {}),
+    };
     const cpu0 = process.cpuUsage();
     return new Promise<ExecResult>((resolve) => {
-      const child = spawn(argv0, req.argv.slice(1), { cwd, env, shell: false, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(argv0, req.argv.slice(1), {
+        cwd,
+        env,
+        shell: false,
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       let out = '';
       let err = '';
       let truncated = false;
@@ -110,11 +158,29 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
       child.on('close', (code, signal) => {
         clearTimeout(timer);
         const u = process.cpuUsage(cpu0);
-        resolve({ exitCode: code, signal, stdout: out, stderr: err, durationMs: Date.now() - started, timedOut, truncated, cpuSeconds: (u.user + u.system) / 1e6 });
+        resolve({
+          exitCode: code,
+          signal,
+          stdout: out,
+          stderr: err,
+          durationMs: Date.now() - started,
+          timedOut,
+          truncated,
+          cpuSeconds: (u.user + u.system) / 1e6,
+        });
       });
       child.on('error', (e) => {
         clearTimeout(timer);
-        resolve({ exitCode: 127, signal: null, stdout: out, stderr: String(e.message), durationMs: Date.now() - started, timedOut: false, truncated, cpuSeconds: 0 });
+        resolve({
+          exitCode: 127,
+          signal: null,
+          stdout: out,
+          stderr: String(e.message),
+          durationMs: Date.now() - started,
+          timedOut: false,
+          truncated,
+          cpuSeconds: 0,
+        });
       });
     });
   }

@@ -5,7 +5,15 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 
 export const MAX_PATH_LENGTH = 240;
 export const MAX_FILE_BYTES = 1_000_000;
-const FORBIDDEN_TOP = new Set(['.git', '.nuzm', '.ssh', '.aws', '.gnupg', '.config', 'node_modules']);
+const FORBIDDEN_TOP = new Set([
+  '.git',
+  '.nuzm',
+  '.ssh',
+  '.aws',
+  '.gnupg',
+  '.config',
+  'node_modules',
+]);
 
 /** Returns the reason a project-relative path is refused, or null when it is a plain, safe, relative file path. */
 export function checkPath(p: unknown): string | null {
@@ -16,10 +24,11 @@ export function checkPath(p: unknown): string | null {
   if (p !== p.normalize('NFC')) return 'the path is not NFC-normalised';
   if (p.includes('\\')) return 'backslashes are not allowed';
   if (/%[0-9a-f]{2}/i.test(p)) return 'percent-encoded characters are not allowed';
-  if (p.startsWith('/') || /^[a-z]:/i.test(p) || p.startsWith('~')) return 'the path must be relative to the project';
+  if (p.startsWith('/') || /^[a-z]:/i.test(p) || p.startsWith('~'))
+    return 'the path must be relative to the project';
   const segs = p.split('/');
   for (const s of segs) {
-    if (s === '' ) return 'the path has an empty segment';
+    if (s === '') return 'the path has an empty segment';
     if (s === '.' || s === '..') return 'the path has a . or .. segment';
     if (/^\.+$/.test(s)) return 'the path has a dot-only segment';
     if (/[:*?"<>|]/.test(s)) return 'the path contains a reserved character';
@@ -37,7 +46,10 @@ export interface SecretFinding {
 }
 const RULES: [string, RegExp][] = [
   ['aws_access_key_id', /\b(AKIA|ASIA|AGPA|AIDA|AROA)[0-9A-Z]{16}\b/],
-  ['private_key_block', /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----/],
+  [
+    'private_key_block',
+    /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----/,
+  ],
   ['github_token', /\bgh[pousr]_[A-Za-z0-9]{36,}\b/],
   ['slack_token', /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/],
   ['stripe_live_key', /\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\b/],
@@ -45,8 +57,14 @@ const RULES: [string, RegExp][] = [
   ['anthropic_or_openai_key', /\bsk-(?:ant-)?[A-Za-z0-9_-]{32,}\b/],
   ['jwt', /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/],
   ['canary_token', /\bNZCANARY-[0-9a-f]{16,}\b/],
-  ['database_url_with_password', /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s@/]{3,}@/i],
-  ['generic_secret_assignment', /\b(?:api[_-]?key|secret|passw(?:or)?d|token|private[_-]?key)\b["']?\s*[:=]\s*["'][A-Za-z0-9+/_=-]{20,}["']/i],
+  [
+    'database_url_with_password',
+    /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s@/]{3,}@/i,
+  ],
+  [
+    'generic_secret_assignment',
+    /\b(?:api[_-]?key|secret|passw(?:or)?d|token|private[_-]?key)\b["']?\s*[:=]\s*["'][A-Za-z0-9+/_=-]{20,}["']/i,
+  ],
 ];
 /** Secret-pattern scan of a file body. Placeholders (`change-me`, `example`, `<...>`, `process.env`) are not findings. */
 export function scanSecrets(content: string): SecretFinding[] {
@@ -57,7 +75,12 @@ export function scanSecrets(content: string): SecretFinding[] {
     for (const [rule, re] of RULES) {
       const m = re.exec(line);
       if (!m) continue;
-      if (/change-me|example\.test|<[^>]+>|process\.env|YOUR_|xxxx/i.test(line) && rule !== 'private_key_block' && rule !== 'canary_token') continue;
+      if (
+        /change-me|example\.test|<[^>]+>|process\.env|YOUR_|xxxx/i.test(line) &&
+        rule !== 'private_key_block' &&
+        rule !== 'canary_token'
+      )
+        continue;
       out.push({ rule, line: i + 1 });
     }
   });
@@ -66,6 +89,10 @@ export function scanSecrets(content: string): SecretFinding[] {
 /** Redacts every secret-pattern match in free text (logs): the text is replaced, the rule name kept. */
 export function redactSecrets(text: string): string {
   let out = text;
-  for (const [rule, re] of RULES) out = out.replace(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'), `[redacted:${rule}]`);
+  for (const [rule, re] of RULES)
+    out = out.replace(
+      new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'),
+      `[redacted:${rule}]`,
+    );
   return out;
 }

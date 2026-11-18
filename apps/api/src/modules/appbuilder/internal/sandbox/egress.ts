@@ -69,7 +69,7 @@ export function parseIpv4Loose(s: string): number | null {
 const inV4 = (v: number, base: string, bits: number): boolean => {
   const b = parseIpv4Loose(base)!;
   const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
-  return ((v & mask) >>> 0) === ((b & mask) >>> 0);
+  return (v & mask) >>> 0 === (b & mask) >>> 0;
 };
 const V4_BLOCKED: [string, number, string][] = [
   ['0.0.0.0', 8, 'this-network'],
@@ -93,25 +93,42 @@ export function blockedV4(v: number): string | null {
   for (const [base, bits, why] of V4_BLOCKED) if (inV4(v, base, bits)) return why;
   return null;
 }
-const METADATA_V4 = new Set(['169.254.169.254', '169.254.170.2', '100.100.100.200', '168.63.129.16', '192.0.0.192', '169.254.169.123']);
-const METADATA_HOSTS = /^(metadata(\.google)?\.internal|instance-data(\.ec2\.internal)?|metadata\.tencentyun\.com|metadata\.packet\.net|kubernetes\.default(\.svc(\.cluster\.local)?)?)\.?$/i;
+const METADATA_V4 = new Set([
+  '169.254.169.254',
+  '169.254.170.2',
+  '100.100.100.200',
+  '168.63.129.16',
+  '192.0.0.192',
+  '169.254.169.123',
+]);
+const METADATA_HOSTS =
+  /^(metadata(\.google)?\.internal|instance-data(\.ec2\.internal)?|metadata\.tencentyun\.com|metadata\.packet\.net|kubernetes\.default(\.svc(\.cluster\.local)?)?)\.?$/i;
 
 /** Expands an IPv6 literal to eight 16-bit groups (supports ::, embedded IPv4 and zone ids). Returns null when invalid. */
 export function parseIpv6(s: string): number[] | null {
-  let x = s.replace(/^\[|\]$/g, '').split('%')[0]!.toLowerCase();
+  let x = s
+    .replace(/^\[|\]$/g, '')
+    .split('%')[0]!
+    .toLowerCase();
   if (isIP(x) !== 6) return null;
   const v4 = /(\d+\.\d+\.\d+\.\d+)$/.exec(x);
   if (v4) {
     const n = parseIpv4Loose(v4[1]!);
     if (n === null) return null;
-    x = x.slice(0, -v4[1]!.length) + ((n >>> 16) & 0xffff).toString(16) + ':' + (n & 0xffff).toString(16);
+    x =
+      x.slice(0, -v4[1]!.length) +
+      ((n >>> 16) & 0xffff).toString(16) +
+      ':' +
+      (n & 0xffff).toString(16);
   }
   const [head, tail] = x.split('::');
   const h = head ? head.split(':') : [];
   const t = tail !== undefined ? (tail ? tail.split(':') : []) : [];
   const missing = 8 - h.length - t.length;
   if (x.includes('::') ? missing < 0 : h.length !== 8) return null;
-  const groups = [...h, ...Array<string>(x.includes('::') ? missing : 0).fill('0'), ...t].map((g) => parseInt(g || '0', 16));
+  const groups = [...h, ...Array<string>(x.includes('::') ? missing : 0).fill('0'), ...t].map((g) =>
+    parseInt(g || '0', 16),
+  );
   return groups.length === 8 && groups.every((g) => g >= 0 && g <= 0xffff) ? groups : null;
 }
 /** Non-public IPv6? Also checks every embedded-IPv4 form (mapped, compatible, NAT64, 6to4, Teredo prefix). */
@@ -119,9 +136,12 @@ export function blockedV6(g: number[]): string | null {
   const embedded = (hi: number, lo: number) => blockedV4(((hi << 16) | lo) >>> 0);
   if (g.every((x) => x === 0)) return 'unspecified';
   if (g.slice(0, 7).every((x) => x === 0) && g[7] === 1) return 'loopback';
-  if (g.slice(0, 5).every((x) => x === 0) && (g[5] === 0xffff || g[5] === 0)) return embedded(g[6]!, g[7]!) ? `IPv4-embedded ${embedded(g[6]!, g[7]!)}` : null;
-  if (g[0] === 0x64 && g[1] === 0xff9b) return embedded(g[6]!, g[7]!) ? `NAT64-embedded ${embedded(g[6]!, g[7]!)}` : null;
-  if (g[0] === 0x2002) return embedded(g[1]!, g[2]!) ? `6to4-embedded ${embedded(g[1]!, g[2]!)}` : null;
+  if (g.slice(0, 5).every((x) => x === 0) && (g[5] === 0xffff || g[5] === 0))
+    return embedded(g[6]!, g[7]!) ? `IPv4-embedded ${embedded(g[6]!, g[7]!)}` : null;
+  if (g[0] === 0x64 && g[1] === 0xff9b)
+    return embedded(g[6]!, g[7]!) ? `NAT64-embedded ${embedded(g[6]!, g[7]!)}` : null;
+  if (g[0] === 0x2002)
+    return embedded(g[1]!, g[2]!) ? `6to4-embedded ${embedded(g[1]!, g[2]!)}` : null;
   if (g[0] === 0x2001 && g[1] === 0) return 'Teredo tunnelling';
   if ((g[0]! & 0xfe00) === 0xfc00) return 'unique-local (fc00::/7)';
   if ((g[0]! & 0xffc0) === 0xfe80) return 'link-local';
@@ -133,10 +153,13 @@ export function blockedV6(g: number[]): string | null {
 }
 
 /** If `host` is an IP literal in ANY spelling, returns its address family and the reason it is blocked (or null when public). */
-export function classifyIpLiteral(host: string): { literal: true; blocked: string | null; metadata: boolean } | { literal: false } {
+export function classifyIpLiteral(
+  host: string,
+): { literal: true; blocked: string | null; metadata: boolean } | { literal: false } {
   const h = host.replace(/^\[|\]$/g, '').replace(/\.$/, '');
   const g = parseIpv6(h);
-  if (g) return { literal: true, blocked: blockedV6(g), metadata: g[0] === 0xfd00 && g[1] === 0xec2 };
+  if (g)
+    return { literal: true, blocked: blockedV6(g), metadata: g[0] === 0xfd00 && g[1] === 0xec2 };
   const v = parseIpv4Loose(h);
   if (v !== null) {
     const dotted = [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255].join('.');
@@ -152,7 +175,11 @@ export class EgressPolicy {
     private readonly now: () => number = Date.now,
   ) {}
 
-  private matchAllow(host: string, port: number, approved: ApprovedEgress[]): AllowEntry | ApprovedEgress | null {
+  private matchAllow(
+    host: string,
+    port: number,
+    approved: ApprovedEgress[],
+  ): AllowEntry | ApprovedEgress | null {
     const a = this.allow.find((e) => e.host === host && e.ports.includes(port));
     if (a) return a;
     return approved.find((e) => e.host === host && e.port === port && e.until > this.now()) ?? null;
@@ -166,18 +193,49 @@ export class EgressPolicy {
     } catch {
       return { allow: false, control: 'default_deny', reason: 'not a valid absolute URL' };
     }
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return { allow: false, control: 'scheme_denied', reason: `scheme ${u.protocol} is not allowed` };
-    if (u.username || u.password) return { allow: false, control: 'userinfo_denied', reason: 'credentials in the URL are not allowed' };
+    if (u.protocol !== 'https:' && u.protocol !== 'http:')
+      return {
+        allow: false,
+        control: 'scheme_denied',
+        reason: `scheme ${u.protocol} is not allowed`,
+      };
+    if (u.username || u.password)
+      return {
+        allow: false,
+        control: 'userinfo_denied',
+        reason: 'credentials in the URL are not allowed',
+      };
     const port = u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
     const host = u.hostname.replace(/\.$/, '').toLowerCase(); // URL already punycodes IDN and lower-cases
     const ip = classifyIpLiteral(host);
     if (ip.literal) {
-      if (ip.metadata) return { allow: false, control: 'metadata_endpoint', reason: 'cloud metadata endpoints are blocked' };
-      return { allow: false, control: ip.blocked ? 'ip_literal_private' : 'default_deny', reason: ip.blocked ? `IP literal in a blocked range (${ip.blocked})` : 'IP literals are not allowed: use an allow-listed host name' };
+      if (ip.metadata)
+        return {
+          allow: false,
+          control: 'metadata_endpoint',
+          reason: 'cloud metadata endpoints are blocked',
+        };
+      return {
+        allow: false,
+        control: ip.blocked ? 'ip_literal_private' : 'default_deny',
+        reason: ip.blocked
+          ? `IP literal in a blocked range (${ip.blocked})`
+          : 'IP literals are not allowed: use an allow-listed host name',
+      };
     }
-    if (METADATA_HOSTS.test(host)) return { allow: false, control: 'metadata_endpoint', reason: 'cloud metadata host names are blocked' };
+    if (METADATA_HOSTS.test(host))
+      return {
+        allow: false,
+        control: 'metadata_endpoint',
+        reason: 'cloud metadata host names are blocked',
+      };
     const entry = this.matchAllow(host, port, approved);
-    if (!entry) return { allow: false, control: this.allow.some((e) => e.host === host) ? 'port_denied' : 'default_deny', reason: `${host}:${port} is not on the allow-list (default deny); an approval can allow it for a limited time` };
+    if (!entry)
+      return {
+        allow: false,
+        control: this.allow.some((e) => e.host === host) ? 'port_denied' : 'default_deny',
+        reason: `${host}:${port} is not on the allow-list (default deny); an approval can allow it for a limited time`,
+      };
     // resolve ONCE; every address must be public; the connection is pinned to the first (no second lookup)
     let addrs: string[];
     try {
@@ -185,24 +243,49 @@ export class EgressPolicy {
     } catch {
       return { allow: false, control: 'resolution_failed', reason: 'the name did not resolve' };
     }
-    if (addrs.length === 0) return { allow: false, control: 'resolution_failed', reason: 'the name did not resolve' };
+    if (addrs.length === 0)
+      return { allow: false, control: 'resolution_failed', reason: 'the name did not resolve' };
     for (const a of addrs) {
       const c = classifyIpLiteral(a);
-      if (!c.literal) return { allow: false, control: 'resolved_private', reason: 'the resolver returned a non-address' };
-      if (c.blocked || c.metadata) return { allow: false, control: c.metadata ? 'metadata_endpoint' : 'resolved_private', reason: `${host} resolves to a blocked address (${c.blocked ?? 'metadata'}): DNS rebinding refused` };
+      if (!c.literal)
+        return {
+          allow: false,
+          control: 'resolved_private',
+          reason: 'the resolver returned a non-address',
+        };
+      if (c.blocked || c.metadata)
+        return {
+          allow: false,
+          control: c.metadata ? 'metadata_endpoint' : 'resolved_private',
+          reason: `${host} resolves to a blocked address (${c.blocked ?? 'metadata'}): DNS rebinding refused`,
+        };
     }
-    return { allow: true, control: 'allowlist', reason: `allow-listed: ${'purpose' in entry ? entry.purpose : 'approved egress'}`, pinnedIp: addrs[0]! };
+    return {
+      allow: true,
+      control: 'allowlist',
+      reason: `allow-listed: ${'purpose' in entry ? entry.purpose : 'approved egress'}`,
+      pinnedIp: addrs[0]!,
+    };
   }
 
   /** Follows `Location` headers hop by hop: every hop is decided again (max 5). `hops` are the successive Location values the origin returned. */
-  async decideRedirectChain(first: string, hops: string[], approved: ApprovedEgress[] = []): Promise<EgressDecision> {
+  async decideRedirectChain(
+    first: string,
+    hops: string[],
+    approved: ApprovedEgress[] = [],
+  ): Promise<EgressDecision> {
     let cur = first;
     let d = await this.decide(cur, approved);
     for (let i = 0; d.allow && i < hops.length; i++) {
       if (i >= 5) return { allow: false, control: 'redirect_denied', reason: 'too many redirects' };
       cur = new URL(hops[i]!, cur).toString();
       d = await this.decide(cur, approved);
-      if (!d.allow) return { ...d, control: d.control, reason: `redirect to ${new URL(cur).hostname} refused: ${d.reason}` };
+      if (!d.allow)
+        return {
+          ...d,
+          control: d.control,
+          reason: `redirect to ${new URL(cur).hostname} refused: ${d.reason}`,
+        };
     }
     return d;
   }
@@ -213,8 +296,13 @@ export class EgressPolicy {
    */
   decideDns(name: string, approved: ApprovedEgress[] = []): { answer: boolean; reason: string } {
     const n = name.replace(/\.$/, '').toLowerCase();
-    if (n.length > 253 || n.split('.').some((l) => l.length > 63)) return { answer: false, reason: 'malformed name' };
-    const ok = this.allow.some((e) => e.host === n) || approved.some((e) => e.host === n && e.until > this.now());
-    return ok ? { answer: true, reason: 'allow-listed host' } : { answer: false, reason: 'NXDOMAIN: not an exact allow-listed host' };
+    if (n.length > 253 || n.split('.').some((l) => l.length > 63))
+      return { answer: false, reason: 'malformed name' };
+    const ok =
+      this.allow.some((e) => e.host === n) ||
+      approved.some((e) => e.host === n && e.until > this.now());
+    return ok
+      ? { answer: true, reason: 'allow-listed host' }
+      : { answer: false, reason: 'NXDOMAIN: not an exact allow-listed host' };
   }
 }

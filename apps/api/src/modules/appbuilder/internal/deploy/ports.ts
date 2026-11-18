@@ -25,9 +25,22 @@ export interface TargetDeployResult {
 }
 export abstract class DeployTargetPort {
   /** The target if it belongs to the organization (null otherwise: the caller answers 404, never revealing another org's target). */
-  abstract resolve(orgId: string, target: { type: 'site' | 'instance'; id: string }): Promise<DeployTarget | null>;
+  abstract resolve(
+    orgId: string,
+    target: { type: 'site' | 'instance'; id: string },
+  ): Promise<DeployTarget | null>;
   abstract appliedMigrations(orgId: string, targetId: string): Promise<number[]>;
-  abstract deploy(orgId: string, targetId: string, release: { artifactRef: string; sha256: string; deploymentId: string; environment: string; migrations: { version: number; up: string }[] }): Promise<TargetDeployResult>;
+  abstract deploy(
+    orgId: string,
+    targetId: string,
+    release: {
+      artifactRef: string;
+      sha256: string;
+      deploymentId: string;
+      environment: string;
+      migrations: { version: number; up: string }[];
+    },
+  ): Promise<TargetDeployResult>;
   /** Makes an earlier release the live one again (rollback and auto-rollback). */
   abstract activate(orgId: string, targetId: string, releaseRef: string): Promise<void>;
   abstract currentRelease(orgId: string, targetId: string): Promise<string | null>;
@@ -45,7 +58,10 @@ export abstract class HealthProbePort {
 
 export class DevStaticTarget extends DeployTargetPort {
   readonly targets = new Map<string, DeployTarget>();
-  readonly releases = new Map<string, { targetId: string; sha256: string; deploymentId: string; migrations: number[] }>();
+  readonly releases = new Map<
+    string,
+    { targetId: string; sha256: string; deploymentId: string; migrations: number[] }
+  >();
   private readonly live = new Map<string, string>();
   private readonly applied = new Map<string, Set<number>>();
   /** Test hooks: fail the next deploy call / make the health endpoint answer 503. */
@@ -68,7 +84,12 @@ export class DevStaticTarget extends DeployTargetPort {
       throw new Error('the target refused the release');
     }
     const releaseRef = `rel_${randomBytes(6).toString('hex')}`;
-    this.releases.set(releaseRef, { targetId, sha256: r.sha256, deploymentId: r.deploymentId, migrations: r.migrations.map((m) => m.version) });
+    this.releases.set(releaseRef, {
+      targetId,
+      sha256: r.sha256,
+      deploymentId: r.deploymentId,
+      migrations: r.migrations.map((m) => m.version),
+    });
     const set = this.applied.get(targetId) ?? new Set<number>();
     for (const m of r.migrations) set.add(m.version);
     this.applied.set(targetId, set);
@@ -101,19 +122,31 @@ export class MemoryReleaseStore extends ReleaseStorePort {
     return `https://exports.dev.invalid/${orgId}/${ref}?exp=${exp}&sig=${sig}`;
   }
   verify(url: string, now: Date) {
-    const m = /^https:\/\/exports\.dev\.invalid\/([^/]+)\/([^?]+)\?exp=(\d+)&sig=([\w-]+)$/.exec(url);
+    const m = /^https:\/\/exports\.dev\.invalid\/([^/]+)\/([^?]+)\?exp=(\d+)&sig=([\w-]+)$/.exec(
+      url,
+    );
     if (!m) return null;
-    const expected = createHmac('sha256', this.key).update(`${m[1]}|${m[2]}|${m[3]}`).digest('base64url');
-    return expected === m[4] && Number(m[3]) * 1000 > now.getTime() ? { orgId: m[1]!, ref: m[2]! } : null;
+    const expected = createHmac('sha256', this.key)
+      .update(`${m[1]}|${m[2]}|${m[3]}`)
+      .digest('base64url');
+    return expected === m[4] && Number(m[3]) * 1000 > now.getTime()
+      ? { orgId: m[1]!, ref: m[2]! }
+      : null;
   }
 }
 
 export class ScriptedHealthProbe extends HealthProbePort {
   /** url prefix -> answers in order (the last one repeats). */
-  private readonly script: { match: (url: string) => boolean; answers: { ok: boolean; status: number | null; detail: string }[] }[] = [];
+  private readonly script: {
+    match: (url: string) => boolean;
+    answers: { ok: boolean; status: number | null; detail: string }[];
+  }[] = [];
   readonly calls: string[] = [];
   healthyByDefault = true;
-  failWhen(match: (url: string) => boolean, answers = [{ ok: false, status: 503, detail: 'service unavailable' }]) {
+  failWhen(
+    match: (url: string) => boolean,
+    answers = [{ ok: false, status: 503, detail: 'service unavailable' }],
+  ) {
     this.script.unshift({ match, answers: [...answers] });
   }
   clear() {
@@ -123,13 +156,18 @@ export class ScriptedHealthProbe extends HealthProbePort {
     this.calls.push(url);
     const s = this.script.find((x) => x.match(url));
     if (s) return s.answers.length > 1 ? s.answers.shift()! : s.answers[0]!;
-    return this.healthyByDefault ? { ok: true, status: 200, detail: 'ok' } : { ok: false, status: 503, detail: 'unhealthy' };
+    return this.healthyByDefault
+      ? { ok: true, status: 200, detail: 'ok' }
+      : { ok: false, status: 503, detail: 'unhealthy' };
   }
 }
 
 /** Real HTTP health probe. The control plane fetches a URL the customer controls: IP literals in blocked ranges and metadata hosts are refused (SSRF), redirects are not followed, the body is capped, the time is bounded. NOT VERIFIED against a live target. */
 export class HttpHealthProbe extends HealthProbePort {
-  constructor(private readonly resolve: (host: string) => Promise<string[]>, private readonly timeoutMs = 5000) {
+  constructor(
+    private readonly resolve: (host: string) => Promise<string[]>,
+    private readonly timeoutMs = 5000,
+  ) {
     super();
   }
   async check(url: string) {
@@ -139,22 +177,32 @@ export class HttpHealthProbe extends HealthProbePort {
     } catch {
       return { ok: false, status: null, detail: 'invalid URL' };
     }
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return { ok: false, status: null, detail: 'scheme not allowed' };
+    if (u.protocol !== 'https:' && u.protocol !== 'http:')
+      return { ok: false, status: null, detail: 'scheme not allowed' };
     const host = u.hostname.replace(/^\[|\]$/g, '');
     const lit = classifyIpLiteral(host);
     const addrs = lit.literal ? [host] : await this.resolve(host).catch(() => []);
     if (addrs.length === 0) return { ok: false, status: null, detail: 'the name did not resolve' };
     for (const a of addrs) {
       const c = classifyIpLiteral(a);
-      if (!c.literal || c.blocked || c.metadata || !isIP(a.replace(/^\[|\]$/g, ''))) return { ok: false, status: null, detail: 'the target resolves to a non-public address' };
+      if (!c.literal || c.blocked || c.metadata || !isIP(a.replace(/^\[|\]$/g, '')))
+        return { ok: false, status: null, detail: 'the target resolves to a non-public address' };
     }
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), this.timeoutMs);
     try {
       const r = await fetch(url, { redirect: 'manual', signal: ctl.signal });
-      return { ok: r.status === 200, status: r.status, detail: r.status === 200 ? 'ok' : `HTTP ${r.status}` };
+      return {
+        ok: r.status === 200,
+        status: r.status,
+        detail: r.status === 200 ? 'ok' : `HTTP ${r.status}`,
+      };
     } catch (e) {
-      return { ok: false, status: null, detail: (e as Error).name === 'AbortError' ? 'timed out' : 'connection failed' };
+      return {
+        ok: false,
+        status: null,
+        detail: (e as Error).name === 'AbortError' ? 'timed out' : 'connection failed',
+      };
     } finally {
       clearTimeout(t);
     }

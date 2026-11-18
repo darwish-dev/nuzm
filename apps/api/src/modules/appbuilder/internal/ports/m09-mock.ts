@@ -31,6 +31,8 @@ export type ScriptedFault = 'timeout' | 'no_capacity' | 'malformed';
 
 /** Scripted model adapter: returns recorded/hand-written fixtures per `purpose`; deterministic usage (chars/4, +1 minimum). */
 export class ScriptedModelGateway extends ModelGatewayPort {
+  /** Marks an in-memory stand-in for an M09 service: the app builder refuses to serve in production while one is wired. */
+  readonly isMock = true;
   readonly calls: ModelRequest[] = [];
   private readonly faults: ScriptedFault[] = [];
   /** Minor units per 1,000 tokens (both directions) used for the reservation and for the reported cost. */
@@ -73,6 +75,8 @@ export class ScriptedModelGateway extends ModelGatewayPort {
 }
 
 export class MemoryRunStore extends RunStorePort {
+  /** Marks an in-memory stand-in for an M09 service: the app builder refuses to serve in production while one is wired. */
+  readonly isMock = true;
   readonly runs = new Map<string, RunRecord>();
   async create(orgId: string, i: Parameters<RunStorePort['create']>[1]): Promise<RunRecord> {
     const now = new Date().toISOString();
@@ -148,6 +152,8 @@ export class MemoryRunStore extends RunStorePort {
 }
 
 export class MemoryArtifactStore extends ArtifactStorePort {
+  /** Marks an in-memory stand-in for an M09 service: the app builder refuses to serve in production while one is wired. */
+  readonly isMock = true;
   private readonly items = new Map<string, { orgId: string; payload: string }>();
   async put(orgId: string, runId: string | null, kind: string, payload: unknown) {
     const ref = `art_${kind}_${uuidv7()}`;
@@ -162,6 +168,8 @@ export class MemoryArtifactStore extends ArtifactStorePort {
 }
 
 export class MemoryProjects extends ProjectsPort {
+  /** Marks an in-memory stand-in for an M09 service: the app builder refuses to serve in production while one is wired. */
+  readonly isMock = true;
   private readonly projects = new Map<string, ProjectRecord>();
   private readonly versions = new Map<string, { v: ProjectVersion; files: Map<string, string> }>();
   async get(orgId: string, id: string) {
@@ -232,6 +240,8 @@ export class MemoryProjects extends ProjectsPort {
 }
 
 export class StaticOrgBudget extends OrgBudgetPort {
+  /** Marks an in-memory stand-in for an M09 service: the app builder refuses to serve in production while one is wired. */
+  readonly isMock = true;
   constructor(public remaining = 1_000_000_00) {
     super();
   }

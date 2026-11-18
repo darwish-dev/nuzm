@@ -18,8 +18,10 @@ export class DebugLoopGuard {
     if (this.total >= DEBUG_LIMITS.perRun) return { proceed: false, reason: 'run_limit', group };
     const last = this.lastSignature.get(group);
     const same = last && last.sig === signature ? last.count + 1 : 1;
-    if (same >= DEBUG_LIMITS.identicalSignatures) return { proceed: false, reason: 'repeated_failure', group };
-    if ((this.perGroup.get(group) ?? 0) >= DEBUG_LIMITS.perGroup) return { proceed: false, reason: 'group_limit', group };
+    if (same >= DEBUG_LIMITS.identicalSignatures)
+      return { proceed: false, reason: 'repeated_failure', group };
+    if ((this.perGroup.get(group) ?? 0) >= DEBUG_LIMITS.perGroup)
+      return { proceed: false, reason: 'group_limit', group };
     this.lastSignature.set(group, { sig: signature, count: same });
     this.perGroup.set(group, (this.perGroup.get(group) ?? 0) + 1);
     this.total++;

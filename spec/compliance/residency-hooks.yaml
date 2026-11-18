@@ -122,6 +122,70 @@ tables:
       hook: m06-node-selection,
       note: 'a site is placed only on a node whose data_region the residency service allows',
     }
+  # >>> M10A tables (append-only block)
+  ai.run_steps:
+    {
+      owner: M10,
+      hook: m10-agent-runs,
+      note: 'run steps carry the data_region of their run; the model gateway of M09 evaluates residency before every call (hook m09-model-gateway); LISTED until M09 is integrated',
+    }
+  ai.tool_calls:
+    {
+      owner: M10,
+      hook: m10-agent-runs,
+      note: 'redacted tool-call summaries inherit the region of their run',
+    }
+  ai.approval_requests:
+    {
+      owner: M10,
+      hook: m10-agent-runs,
+      note: 'an approval names the region of the action it is bound to',
+    }
+  ai.evaluations:
+    {
+      owner: M10,
+      hook: m10-agent-runs,
+      note: 'evaluation scores inherit the region of the run they scored',
+    }
+  builder.app_specs:
+    {
+      owner: M10,
+      hook: m10-agent-runs,
+      note: 'a spec is customer content stored in the region of its project',
+    }
+  builder.sandboxes:
+    {
+      owner: M10,
+      hook: m10-sandbox-builds,
+      note: 'the node region of the sandbox pool is evaluated before placement (sandbox.service.ts create)',
+    }
+  builder.git_repos:
+    {
+      owner: M10,
+      hook: m10-sandbox-builds,
+      note: 'the repository stays in the region of its project; there is no Git remote',
+    }
+  builder.test_runs:
+    {
+      owner: M10,
+      hook: m10-sandbox-builds,
+      note: 'tests run in a sandbox placed under the sandbox hook',
+    }
+  builder.exports:
+    {
+      owner: M10,
+      hook: m10-source-export,
+      note: 'the export destination region is evaluated before the archive is built (export.service.ts)',
+    }
+  deploy.app_deployments:
+    {
+      owner: M10,
+      hook: m10-app-deployment,
+      note: 'the target region is evaluated before anything is built or deployed (deployment.service.ts create)',
+    }
+  deploy.app_deployment_logs:
+    { owner: M10, hook: m10-app-deployment, note: 'logs inherit the region of their deployment' }
+  # <<< M10A tables
 hooks:
   - {
       id: m03-psp-personal-data,
@@ -285,10 +349,38 @@ hooks:
   - {
       id: m10-sandbox-builds,
       milestone: M10,
-      where: 'Sandbox node region, exports, build workers (including a macOS build vendor) and Git remotes',
+      where: 'Sandbox node region, builds and test runs (Git has no remote); build workers of M10B (including a macOS build vendor) are listed there',
       data_classes: [customer-content, credentials],
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.builds,
+      call_site: apps/api/src/modules/appbuilder/internal/sandbox/sandbox.service.ts,
+    }
+  - {
+      id: m10-source-export,
+      milestone: M10,
+      where: 'Source exports: the destination region of the archive and its signed URL',
+      data_classes: [customer-content],
+      enforcement: enforced,
+      flag: residency.enforce.export,
+      call_site: apps/api/src/modules/appbuilder/internal/export/export.service.ts,
+    }
+  - {
+      id: m10-app-deployment,
+      milestone: M10,
+      where: 'Deployment of a generated app to a hosting site or compute instance in a region',
+      data_classes: [customer-content],
+      enforcement: enforced,
+      flag: residency.enforce.deployment,
+      call_site: apps/api/src/modules/appbuilder/internal/deploy/deployment.service.ts,
+    }
+  - {
+      id: m10-agent-runs,
+      milestone: M10,
+      where: 'Agent runs: prompts, structured outputs and run records in the project region; model routing is the M09 gateway hook',
+      data_classes: [customer-content],
+      processor_kind: model,
+      enforcement: listed,
+      flag: residency.enforce.agent_runs,
       call_site: null,
     }
   - {

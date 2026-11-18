@@ -14,7 +14,7 @@ import {
  * platform permissions; a staff member only sees what their roles allow. Routes are unchanged.
  */
 export type AdminCategoryId =
-  'orgs' | 'finance' | 'compliance' | 'infra' | 'ai' | 'ops' | 'gov' | 'platform';
+  'orgs' | 'finance' | 'compliance' | 'infra' | 'ai' | 'platform' | 'ops';
 type Category = NavCategory<MessageKey, AdminCategoryId>;
 
 const read = (perm: string) => ({ perm: [perm] });
@@ -366,94 +366,6 @@ export const ADMIN_CATEGORIES: Category[] = [
     ],
   },
   {
-    id: 'ops',
-    icon: 'pulse',
-    label: 'm12.nav.admin.ops',
-    title: 'm12.nav.admin.ops',
-    roots: [
-      '/operations',
-      '/incidents',
-      '/alerts',
-      '/provider-incidents',
-      '/recovery-exercises',
-      '/launch',
-      '/support',
-    ],
-    org: false,
-    groups: [
-      {
-        id: 'main',
-        items: [
-          {
-            id: 'health',
-            label: 'm12.tab.health',
-            href: '/operations/health',
-            ...read('admin:ops:read'),
-          },
-          {
-            id: 'incidents',
-            label: 'm12.tab.incidents',
-            href: '/incidents',
-            ...read('admin:ops:read'),
-          },
-          { id: 'alerts', label: 'm12.tab.alerts', href: '/alerts', ...read('admin:ops:read') },
-          {
-            id: 'providerIncidents',
-            label: 'm12.tab.providerIncidents',
-            href: '/provider-incidents',
-            ...read('admin:ops:read'),
-          },
-          {
-            id: 'exercises',
-            label: 'm12.tab.exercises',
-            href: '/recovery-exercises',
-            ...read('admin:ops:read'),
-          },
-          { id: 'launch', label: 'm12.tab.launch', href: '/launch', ...read('admin:ops:read') },
-          {
-            id: 'handbook',
-            label: 'm12.tab.handbook',
-            href: '/support/handbook',
-            ...read('admin:ops:read'),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'gov',
-    icon: 'lock',
-    label: 'm12.nav.admin.gov',
-    title: 'm12.nav.admin.gov',
-    roots: ['/access-reviews', '/policies', '/audit'],
-    org: false,
-    groups: [
-      {
-        id: 'main',
-        items: [
-          {
-            id: 'reviews',
-            label: 'm12.tab.reviews',
-            href: '/access-reviews',
-            ...read('admin:security:manage'),
-          },
-          {
-            id: 'policies',
-            label: 'm12.tab.policies',
-            href: '/policies',
-            ...read('admin:compliance:read'),
-          },
-          {
-            id: 'retention',
-            label: 'm12.tab.retention',
-            href: '/audit/retention',
-            ...read('admin:compliance:read'),
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: 'platform',
     icon: 'dashboard',
     label: 'anc.cat.platform',
@@ -500,6 +412,90 @@ export const ADMIN_CATEGORIES: Category[] = [
             label: 'm11.nav.admin.abuse',
             href: '/automation/abuse',
             perm: ['admin:automation', 'admin:ops'],
+          },
+        ],
+      },
+    ],
+  },
+  // M12: operations (health, incidents, alerts, DR) and governance (access reviews, policies, audit retention)
+  {
+    id: 'ops',
+    icon: 'dashboard',
+    label: 'm12.nav.admin.ops',
+    title: 'm12.nav.admin.ops',
+    roots: [
+      '/operations',
+      '/incidents',
+      '/alerts',
+      '/provider-incidents',
+      '/recovery-exercises',
+      '/launch',
+      '/support',
+      '/access-reviews',
+      '/policies',
+      '/audit',
+    ],
+    org: false,
+    groups: [
+      {
+        id: 'ops',
+        title: 'm12.nav.admin.ops',
+        items: [
+          {
+            id: 'health',
+            label: 'm12.tab.health',
+            href: '/operations/health',
+            ...read('admin:ops:read'),
+          },
+          {
+            id: 'incidents',
+            label: 'm12.tab.incidents',
+            href: '/incidents',
+            ...read('admin:ops:read'),
+          },
+          { id: 'alerts', label: 'm12.tab.alerts', href: '/alerts', ...read('admin:ops:read') },
+          {
+            id: 'providerIncidents',
+            label: 'm12.tab.providerIncidents',
+            href: '/provider-incidents',
+            ...read('admin:ops:read'),
+          },
+          {
+            id: 'exercises',
+            label: 'm12.tab.exercises',
+            href: '/recovery-exercises',
+            ...read('admin:ops:read'),
+          },
+          { id: 'launch', label: 'm12.tab.launch', href: '/launch', ...read('admin:ops:read') },
+          {
+            id: 'handbook',
+            label: 'm12.tab.handbook',
+            href: '/support/handbook',
+            ...read('admin:ops:read'),
+          },
+        ],
+      },
+      {
+        id: 'gov',
+        title: 'm12.nav.admin.gov',
+        items: [
+          {
+            id: 'reviews',
+            label: 'm12.tab.reviews',
+            href: '/access-reviews',
+            ...read('admin:security:manage'),
+          },
+          {
+            id: 'policies',
+            label: 'm12.tab.policies',
+            href: '/policies',
+            ...read('admin:compliance:read'),
+          },
+          {
+            id: 'retention',
+            label: 'm12.tab.retention',
+            href: '/audit/retention',
+            ...read('admin:compliance:read'),
           },
         ],
       },

@@ -18,17 +18,16 @@ describe('admin navigation', () => {
       'compliance',
       'infra',
       'ai',
-      'ops',
-      'gov',
       'platform',
+      'ops',
     ]);
   });
 
   it('shows only what the roles allow and drops empty categories', () => {
     const can = (p: string) => p === 'admin:compliance:read';
     const cats = buildAdminNav(can);
-    // governance (policies, audit retention) is readable with the same permission
-    expect(ids(cats)).toEqual(['compliance', 'gov']);
+    // admin:compliance:read also opens the M12 governance page (policy versions)
+    expect(ids(cats)).toEqual(['compliance', 'ops']);
     expect(cats[0]!.home).toBe('/compliance/controls');
     expect(cats[0]!.groups.flatMap((g) => g.items.map((i) => i.id))).toEqual([
       'controls',
@@ -70,8 +69,8 @@ describe('admin navigation', () => {
       ['/ai/runs', 'ai'],
       ['/incidents/9', 'ops'],
       ['/support/handbook', 'ops'],
-      ['/access-reviews/3', 'gov'],
-      ['/audit/retention', 'gov'],
+      ['/access-reviews/3', 'ops'],
+      ['/audit/retention', 'ops'],
       ['/audit-logs', 'platform'],
       ['/feature-flags', 'platform'],
     ];

@@ -450,6 +450,7 @@ export const CATEGORIES: Category[] = [
               'privacy:residency:read',
             ],
           },
+          // M12: enterprise SSO (flag `enterprise.sso`, default off; the API answers 404 while it is off)
           {
             id: 'sso',
             label: 'm12.nav.sso',

@@ -10,10 +10,10 @@ const kinds = adapterKindsFromDocs(
   readFileSync(join(root, 'docs/09-provider-adapter-interfaces.md'), 'utf8'),
 );
 const tables = Object.keys(reg.tables);
-/** Reads the real source of an enforced hook's call site (a hook is only enforced when its file really calls the residency service); other paths are unreadable. */
-const none = (p: string) => {
+/** Reads a call-site file from the repository (null when it does not exist): enforced hooks must name real files. */
+const none = (path: string) => {
   try {
-    return readFileSync(join(root, p), 'utf8');
+    return readFileSync(join(root, path), 'utf8');
   } catch {
     return null;
   }
@@ -39,8 +39,10 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
         k,
       ).toBe(true);
   });
-  it('enforces only the hooks whose milestone built them (M07 registrant contacts); the others are required and not yet built', () => {
+  it('enforces only what a milestone has built (M05 S17: offers/quotes and provisioning); the rest is required, owned by its milestone and not yet built', () => {
     expect(reg.hooks.filter((h) => h.enforcement === 'enforced').map((h) => h.id)).toEqual([
+      'm05-offers-quote',
+      'm05-provisioning',
       'm07-registrant-contacts',
     ]);
     expect(reg.hooks.filter((h) => h.enforcement === 'exempt').map((h) => h.id)).toEqual([
@@ -75,6 +77,7 @@ describe('hook registry rules', () => {
         (x) => x.kind === 'enforced_without_call_site',
       ),
     ).toEqual([]);
+    // a file without the marker fails too (only the hook under test is looked at: the real M05 hooks are enforced as well)
     expect(
       evaluateHooks(r, tables, kinds, () => 'export const x = 1')
         .filter((x) => x.object === r.hooks[0]!.id)

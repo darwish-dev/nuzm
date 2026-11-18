@@ -15,7 +15,8 @@ export interface Target {
 }
 
 export interface RegionRegistry {
-  resolve(targetRegion: string): Target;
+  /** May be async: the M05 provider registry reads `cloud.provider_regions`. A failure is a refusal (the service fails closed). */
+  resolve(targetRegion: string): Target | Promise<Target>;
 }
 
 export interface RegionData {

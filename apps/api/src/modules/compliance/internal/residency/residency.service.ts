@@ -67,11 +67,15 @@ export class ResidencyService implements ResidencyEvaluator {
   constructor(
     private readonly db: Db,
     private readonly audit: AuditSink,
-    private readonly regions: RegionRegistry,
+    private regions: RegionRegistry,
     private readonly opts: ResidencyOptions,
   ) {}
   private now() {
     return this.opts.clock ? this.opts.clock() : new Date();
+  }
+  /** M05: replace the region registry (the cloud module installs one backed by `cloud.provider_regions`, falling back to the mock fixtures). */
+  useRegionRegistry(r: RegionRegistry) {
+    this.regions = r;
   }
   invalidate(orgId?: string) {
     if (orgId) this.orgs.delete(orgId);
@@ -166,7 +170,7 @@ export class ResidencyService implements ResidencyEvaluator {
       result = evaluate({
         orgId: req.orgId,
         dataClass: req.dataClass,
-        target: this.regions.resolve(req.targetRegion),
+        target: await this.regions.resolve(req.targetRegion),
         ...(req.processorId !== undefined ? { processorId: req.processorId } : {}),
         policy,
         floor,

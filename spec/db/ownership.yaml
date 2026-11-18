@@ -34,7 +34,7 @@ schemas:
     owner_module: commerce
     created_by: M02
     extended_by: [M05, M08]
-    tables: [authorizations, order_items, orders, quote_items, quotes]
+    tables: [authorization_releases, authorizations, order_items, orders, quote_items, quotes]
   payments:
     owner_module: payments
     created_by: M03
@@ -59,12 +59,12 @@ schemas:
     owner_module: cloud
     created_by: M05
     extended_by: [M06, M08]
-    tables: [catalog_snapshots, provider_accounts, provider_capabilities, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
+    tables: [catalog_snapshots, evidence_items, live_verification_runs, provider_accounts, provider_capabilities, provider_jobs, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
   compute:
     owner_module: compute
     created_by: M05
     extended_by: []
-    tables: [images, instance_actions, instances, snapshots]
+    tables: [images, instance_actions, instance_intervals, instances, snapshots]
   hosting:
     owner_module: hosting
     created_by: M06
@@ -177,6 +177,21 @@ tenant_less:
   - compliance.evidence_items
   - compliance.regulatory_validations
   - compliance.breach_cases
+  # provider registry, accounts (vault REFERENCES only), verified regions, plans, capability matrix, evidence, catalog snapshots, platform jobs (M05 S16):
+  # admin console scope only; customers see offers through the eligibility function, never these tables
+  - cloud.providers
+  - cloud.provider_accounts
+  - cloud.evidence_items
+  - cloud.provider_regions
+  - cloud.provider_plans
+  - cloud.provider_capabilities
+  - cloud.catalog_snapshots
+  - cloud.provider_jobs
+  - cloud.live_verification_runs # M05 S23: results of human-triggered live verifications (append-only)
+  # M05 S17: routing rules, reconciliation history (admin console scope) and the image catalogue (written by catalog syncs, admin scope)
+  - cloud.routing_rules
+  - cloud.resource_reconciliations
+  - compute.images
   - domains.registrar_accounts
   - domains.registrars
 # isolated by RLS on their own key instead of an org_id column
@@ -208,6 +223,10 @@ classification:
     invoicing.billing_entities.legal_name_ar: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
+    cloud.provider_accounts.spend_cap_minor: Nuzm's own spend cap on a provider account (an internal control), not a customer's money
+    cloud.provider_plans.provider_price_minor: the provider's list price for a plan (our cost input), not a customer's money
+    cloud.provider_regions.display_name: the provider's own name of a region, not a person's name
+    cloud.resources.provision_token: a deterministic sha256 idempotency key for the provider call (orgId|operationId|stepId), not a credential
     domains.domain_orders.idempotency_token: a sha256 of org, operation and step ids, a deterministic business dedupe key sent to the registrar, not a credential
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
@@ -225,6 +244,7 @@ classification:
     invoicing.zatca_credentials_refs.token_ref: vault_ref
     invoicing.zatca_credentials_refs.secret_ref: vault_ref
     payments.payment_methods.token_ref: vault_ref
+    cloud.provider_accounts.vault_ref: vault_ref
     tenancy.invitations.token_hash: hash
     invoicing.tax_profiles.pii_enc: encrypted
     compliance.dsr_requests.details_enc: encrypted
@@ -1361,6 +1381,222 @@ classification:
       started_at: internal
       finished_at: internal
       created_at: internal
+    # --- M05 cloud / compute schemas and commerce.authorization_releases (S16-S17)
+    cloud.catalog_snapshots:
+      id: internal
+      account_id: internal
+      taken_at: internal
+      content_hash: internal
+      payload_ref: internal
+      region_count: internal
+      plan_count: internal
+      job_id: internal
+    cloud.evidence_items:
+      id: internal
+      account_id: internal
+      kind: internal
+      operation: internal
+      captured_at: internal
+      content_hash: internal
+      redacted: internal
+      job_id: internal
+      created_at: internal
+    cloud.provider_accounts:
+      id: internal
+      provider_id: internal
+      name: internal
+      vault_ref: credentials
+      scope_note: internal
+      status: internal
+      health_state: internal
+      last_health_at: internal
+      breaker_state: internal
+      spend_cap_minor: internal
+      spend_cap_currency: internal
+      verified_at: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    cloud.provider_capabilities:
+      account_id: internal
+      capability_id: internal
+      state: internal
+      probed_at: internal
+      evidence_ref: internal
+    cloud.provider_jobs:
+      id: internal
+      account_id: internal
+      kind: internal
+      state: internal
+      result: internal
+      error: internal
+      attempts: internal
+      idempotency_key: internal
+      trace_id: internal
+      requested_by: internal
+      created_at: internal
+      updated_at: internal
+      subject_id: internal
+    cloud.live_verification_runs:
+      id: internal
+      job_id: internal
+      provider_key: internal
+      gate: internal
+      gate_evidence_id: internal
+      status: internal
+      reason: internal
+      steps: internal
+      evidence_ids: internal
+      spend_cap_minor: financial
+      currency: internal
+      residual_resources: internal
+      recorded_by: internal
+      created_at: internal
+    cloud.provider_plans:
+      id: internal
+      account_id: internal
+      region_id: internal
+      plan_ref: internal
+      vcpu: internal
+      memory_mb: internal
+      disk_gb: internal
+      bandwidth: internal
+      provider_price_minor: internal
+      currency: internal
+      period: internal
+      availability: internal
+      last_seen_at: internal
+    cloud.provider_regions:
+      id: internal
+      account_id: internal
+      provider_region_id: internal
+      country_code: internal
+      display_name: internal
+      state: internal
+      verified_at: internal
+      evidence_ref: internal
+      evidence_kind: internal
+      last_seen_at: internal
+    cloud.providers:
+      id: internal
+      key: internal
+      kind: internal
+      adapter_id: internal
+      status: internal
+      environment_policy: internal
+      created_at: internal
+    cloud.resource_reconciliations:
+      id: internal
+      resource_id: internal
+      run_at: internal
+      trigger: internal
+      observed: internal
+      result: internal
+      action_taken: internal
+      actor_user_id: internal
+    cloud.resources:
+      id: internal
+      org_id: internal
+      kind: internal
+      provider_account_id: internal
+      provider_ref: internal
+      state: internal
+      data_region: internal
+      country: internal
+      provider_region_id: internal
+      created_by_operation_id: internal
+      provision_token: internal
+      last_seen_at: internal
+      drift_state: internal
+      observed: internal
+      case_opened_at: internal
+      case_detail: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    cloud.routing_rules:
+      id: internal
+      rule_key: internal
+      version: internal
+      priority: internal
+      match: internal
+      action: internal
+      enabled: internal
+      note: internal
+      created_by: internal
+      created_at: internal
+    commerce.authorization_releases:
+      id: financial
+      org_id: financial
+      authorization_id: financial
+      reason: financial
+      detail: financial
+      released_at: financial
+    compute.images:
+      id: internal
+      account_id: internal
+      provider_region_id: internal
+      image_ref: internal
+      name: internal
+      os_family: internal
+      last_seen_at: internal
+    compute.instance_actions:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      type: internal
+      params: internal
+      operation_id: internal
+      status: internal
+      idempotency_key: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    compute.instance_intervals:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      resource_id: internal
+      started_at: internal
+      ended_at: internal
+      vcpu: internal
+      memory_mb: internal
+      disk_gb: internal
+      data_region: internal
+      emitted_until: internal
+    compute.instances:
+      id: internal
+      org_id: internal
+      project_id: internal
+      environment_id: internal
+      resource_id: internal
+      name: customer-content
+      plan: internal
+      status: internal
+      capabilities: internal
+      quote_id: internal
+      order_id: internal
+      data_region: internal
+      country: internal
+      public_ips: personal
+      ssh_public_keys: internal
+      tags: customer-content
+      deletion_protected: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    compute.snapshots:
+      id: customer-content
+      org_id: customer-content
+      instance_id: customer-content
+      provider_ref: customer-content
+      size_gb: customer-content
+      data_region: customer-content
+      state: customer-content
+      created_at: customer-content
     domains.registrars:
       id: internal
       provider_code: internal

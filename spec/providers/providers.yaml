@@ -1,0 +1,36 @@
+# Provider registry seed + egress allow-list (M05 S16). Loaded by the cloud module; migration 0600 seeds the same keys.
+# NOTHING here asserts what a vendor offers: regions, plans, prices and capabilities come ONLY from probes (docs/09 §1, FR-CLD-02).
+# `egress.hosts` for real vendors is intentionally EMPTY until the adapter is implemented from the official documentation
+# (S18-S22, citing the page and the date read); an adapter with an empty allow-list cannot make any outbound call.
+status: PROPOSAL
+providers:
+  - key: mock
+    kind: compute
+    adapter: mock-compute
+    environment_policy: non_production_only # a fixture adapter: never offered, never resolved, in a production profile
+    egress: { hosts: [], allow_loopback: false }
+    note: 'In-process simulator (packages/adapters/mock-compute). Makes no network calls. Evidence kind is always `mock`.'
+  - key: alibaba
+    kind: compute
+    adapter: alibaba-ecs
+    environment_policy: any
+    egress: { hosts: ['*.aliyuncs.com'], allow_loopback: false } # ecs.<region>.aliyuncs.com, business.ap-southeast-1.aliyuncs.com (docs read 2026-11-18)
+    note: 'Adapter built from the official docs (S18/S19), NOT VERIFIED: needs HG-05-01 for any live call. No Saudi-region assumption: offers appear only if a live probe lists the region.'
+  - key: huawei
+    kind: compute
+    adapter: huawei-ecs
+    environment_policy: any
+    egress: { hosts: ['*.myhuaweicloud.com'], allow_loopback: false } # ecs|iam|evs|ces|ims.<region>.myhuaweicloud.com, bss-intl.myhuaweicloud.com (docs read 2026-11-18)
+    note: 'Adapter built from the official docs (S20/S21), NOT VERIFIED: needs HG-05-02 for any live call. me-east-1 is documented as ME-Riyadh; offers appear only if a live probe proves the region.'
+  - key: contabo
+    kind: compute
+    adapter: contabo-vps
+    environment_policy: any
+    egress: { hosts: ['api.contabo.com', 'auth.contabo.com'], allow_loopback: false } # docs read 2026-11-18
+    note: 'Adapter built from the official docs (S22), NOT VERIFIED: needs HG-05-03 for any live call. Per-account, per-plan capability detection; no price/availability API, so no offers until established elsewhere.'
+  - key: cloudpanel
+    kind: hosting
+    adapter: cloudpanel-node
+    environment_policy: any
+    egress: { hosts: [], allow_loopback: false }
+    note: 'Registered for M06; no adapter in M05.'

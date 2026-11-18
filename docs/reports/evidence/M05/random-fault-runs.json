@@ -1,0 +1,14 @@
+{
+  "seed": 20261118,
+  "vendorTokenDedupe": false,
+  "violations": 0,
+  "replaysAfterSideEffect": 0,
+  "maxBillablePerToken": 1,
+  "runs": 1000,
+  "parkedForReconcile": 461,
+  "retriedAfterBackoff": 1133,
+  "adopted": 146,
+  "absenceProvenRetries": 91,
+  "failedDefinitively": 0,
+  "succeeded": 1000
+}

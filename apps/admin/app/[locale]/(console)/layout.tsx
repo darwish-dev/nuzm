@@ -40,13 +40,21 @@ export default async function ConsoleLayout({
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),
+    // M05: providers, routing, cloud inventory and provider costs (the sections are reachable from the provider tabs)
+    ...(s.can('admin:provider:read')
+      ? [{ href: `${base}/providers`, label: t(locale, 'nav.admin.providers') }]
+      : []),
   ].map((i) => ({
     ...i,
     current:
       path === i.href ||
       (i.href.endsWith('/billing/ledger') && path.includes('/billing/')) ||
       (i.href.endsWith('/compliance/controls') && path.includes('/compliance/')) ||
-      (i.href.endsWith('/domains/registrars') && path.includes('/domains/')),
+      (i.href.endsWith('/domains/registrars') && path.includes('/domains/')) ||
+      (i.href.endsWith('/providers') &&
+        (path.startsWith(`${i.href}/`) ||
+          path.startsWith(`${base}/cloud/`) ||
+          path.startsWith(`${base}/finance/`))),
   }));
   return (
     <Shell

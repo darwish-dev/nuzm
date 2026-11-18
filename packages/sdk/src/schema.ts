@@ -2312,6 +2312,490 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List providers
+         * @description Registered providers (alibaba, huawei, contabo, cloudpanel, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.
+         */
+        get: operations["adminListProviders"];
+        put?: never;
+        /**
+         * Register a provider
+         * @description Body {key, kind, adapterId, environmentPolicy?}. Permission admin:provider:manage.
+         */
+        post: operations["adminCreateProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/providers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a provider
+         * @description One provider with its account count.
+         */
+        get: operations["adminGetProvider"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List provider accounts
+         * @description Accounts with health state, circuit-breaker state and verification time. Credential values are never returned: credentialRef is a vault reference.
+         */
+        get: operations["adminListProviderAccounts"];
+        put?: never;
+        /**
+         * Add a provider account
+         * @description Body {providerId, name, credentialRef: "vault://...", scopeNote?, spendCap?}. Credential VALUES (secret, password, token, accessKey, ...) are rejected with 422 credential_value_rejected: only vault references are accepted (D-12). Audited as provider.account.created.
+         */
+        post: operations["adminCreateProviderAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a provider account
+         * @description Returns the ETag header used by PATCH If-Match.
+         */
+        get: operations["adminGetProviderAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a provider account
+         * @description Fields name, status (active|disabled), scopeNote, credentialRef (a new reference resets verification), spendCap. Requires If-Match. Credential values are rejected.
+         */
+        patch: operations["adminUpdateProviderAccount"];
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a provider account
+         * @description Starts a platform job (202 + operationId) that resolves the vault reference, runs the capability probe, lists regions with evidence and plans, and records health. Capabilities and verified regions come only from the probe. Poll GET /v1/admin/provider-jobs/{id}. Optional Idempotency-Key header de-duplicates the request.
+         */
+        post: operations["adminVerifyProviderAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capability matrix
+         * @description Every capability id with state supported|unsupported|unknown, probedAt and evidenceRef. unknown is shown as and treated as unsupported.
+         */
+        get: operations["adminProviderAccountCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}/catalog-syncs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync the provider catalog
+         * @description Starts a platform job (202) that re-lists regions and plans. A region missing from the listing becomes withdrawn and its offers disappear.
+         */
+        post: operations["adminSyncProviderCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Regions of an account
+         * @description Regions with state listed|verified|withdrawn; verified requires verifiedAt and evidenceRef.
+         */
+        get: operations["adminProviderAccountRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plans of an account
+         * @description Plans from the last catalog sync with the provider cost (integer minor units) when the vendor exposed one.
+         */
+        get: operations["adminProviderAccountPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provider job status
+         * @description Status of a verification or catalog-sync job (the operationId returned by the 202 responses).
+         */
+        get: operations["adminGetProviderJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List compute offers
+         * @description ONLY eligible inventory: account healthy, region verified (fresh, with evidence), plan available, capability supported, residency allows, entitlement and quota allow, price present. Any false hides the offer. Provider identity, provider region ids and provider cost are never returned (admin view: GET /v1/admin/offers). Behind the feature flag cloud.provisioning (404 while off). A 422 invalid_filter answers an unknown or admin-only filter. Requires permission `offers:read`.
+         */
+        get: operations["listOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Offers as evaluated for one organization
+         * @description Admin view: adds provider identity, provider region id, provider cost, evidence kind and, with includeIneligible=true, the list of failing conditions of every plan (the data of the routing dry-run). orgId selects the organization whose residency, entitlement and quota are evaluated.
+         */
+        get: operations["adminListOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List compute instances
+         * @description Instances of the active organization with status, data region, plan, public IPs, capabilities and drift state. Requires permission `compute:instance:read`.
+         */
+        get: operations["listComputeInstances"];
+        put?: never;
+        /**
+         * Create a compute instance from a quote
+         * @description Consumes the compute quote (an M02 order: validity, quota group, spend limit or approved spend approval), records a cost-authorization hold for the first period, re-evaluates eligibility, residency, capability, quota and price at execution (TOCTOU) and starts a durable operation (202). Errors: 409 quote_expired|quote_consumed|price_changed, 422 spend_approval_required (with approvalId), 403 residency_denied, 422 quota_exceeded|unsupported_capability|no_eligible_offer. Requires permission `compute:instance:create` and an Idempotency-Key.
+         */
+        post: operations["createComputeInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a compute instance
+         * @description An id that belongs to another organization answers 404. Returns the ETag header used by DELETE If-Match. Requires permission `compute:instance:read`.
+         */
+        get: operations["getComputeInstance"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a compute instance
+         * @description Async (202 + operationId). Requires If-Match; 409 deletion_protected while protection is on; an instance whose state is uncertain is reconciled BEFORE the delete. Requires permission `compute:instance:delete`.
+         */
+        delete: operations["deleteComputeInstance"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start, stop, reboot, resize or snapshot an instance
+         * @description Body {type, params}. Only types in the instance capability set are accepted, otherwise 422 unsupported_capability (never a silent no-op); 409 invalid_state; idempotent per Idempotency-Key. resize takes params.offerId of an eligible plan in the same placement. Requires permission `compute:instance:act`.
+         */
+        post: operations["actComputeInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instance metrics
+         * @description Series for a window (default the last hour, at most 7 days). 422 unsupported_capability when the provider exposes no metrics. Requires permission `compute:instance:read`.
+         */
+        get: operations["getComputeInstanceMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/routing-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List routing rules
+         * @description Current version of every rule (history=true: every version). Rules are immutable rows; a change is a new version.
+         */
+        get: operations["adminListRoutingRules"];
+        put?: never;
+        /**
+         * Create or version a routing rule
+         * @description Body {ruleKey, priority, match{country[],geoGroup[],mode}, action{type: prefer|exclude|pin, providerKey|accountId|providerRegionId}, enabled?, note?}. Audited as routing.rule.changed. Permission admin:provider:manage.
+         */
+        post: operations["adminPutRoutingRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cross-organization resource inventory
+         * @description Resources with canonical state, drift state (in_sync|drift|orphan_suspected|missing) and any open admin case. The read is audited (admin.resources.listed).
+         */
+        get: operations["adminListCloudResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/resources/{id}/reconciliations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Force a reconciliation
+         * @description 202 with a platform job id (poll GET /v1/admin/provider-jobs/{id}). The reconciler never retries a provision unless the provider lookup proved absence and never deletes automatically.
+         */
+        post: operations["adminReconcileResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/cloud/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Provider webhook
+         * @description Unauthenticated by design (a verified signature over the raw body is the authentication). No provider adapter supports webhooks yet, so every provider answers 404; nothing is stored.
+         */
+        post: operations["receiveCloudWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provider cost records
+         * @description What the providers charge Nuzm (metering.provider_cost_records), in the provider currency as integer minor units, with totals per currency. Platform only; never shown to customers. Records are captured from closed billing periods (adapter fetchBilling) or the manual import. Keyset pagination (cursor).
+         */
+        get: operations["adminListProviderCosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/live-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live-verification jobs and recorded runs
+         * @description The three human-triggered live-verification jobs (alibaba, huawei, contabo) with their gate state (HG-05-01..03 PENDING|GRANTED) and label (NOT RUN | NOT VERIFIED | LIVE-VERIFIED | FAIL), plus recorded runs. READ-ONLY: no operation starts a run.
+         */
+        get: operations["adminListLiveVerification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/live-verification/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the result of a human-triggered live verification
+         * @description Stores what the owner-run job reported (append-only). LIVE-VERIFIED is accepted only with the owner gate evidence id, at least one evidence id and zero residual resources; fixtures and mocks are NOT VERIFIED. This does not start anything.
+         */
+        post: operations["adminRecordLiveVerificationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/domains/search": {
         parameters: {
             query?: never;
@@ -3966,11 +4450,12 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        /** @description Kind specific. ai-credit: {items:[{credits}]}. compute (M05): {offerId | routing{mode,country|geoGroup|region|provider}, spec{imageId, diskGb?, count}, term{period:"month"}} - requires compute:quote:create; the quote carries the residency decision and the routing decision is recorded internally. */
         CreateQuote: {
             /** @enum {string} */
             kind: "compute" | "hosting" | "domain" | "database" | "storage" | "email" | "ai-credit" | "plan" | "marketplace";
             /** @description Kind specific; ai-credit takes exactly one item {credits: "1000"}. */
-            items: {
+            items?: {
                 [key: string]: unknown;
             }[];
             /** Format: uuid */
@@ -3978,6 +4463,23 @@ export interface components {
             /** @default SAR */
             currency?: string;
             preferences?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: uuid
+             * @description compute: a specific eligible offer.
+             */
+            offerId?: string;
+            /** @description compute: explicit (provider+region) or automatic (country|geoGroup) routing. */
+            routing?: {
+                [key: string]: unknown;
+            };
+            /** @description compute: {imageId, diskGb?, count}. */
+            spec?: {
+                [key: string]: unknown;
+            };
+            /** @description compute: {period:"month"}. */
+            term?: {
                 [key: string]: unknown;
             };
         };
@@ -4929,6 +5431,431 @@ export interface components {
             /** @description Only on `mfa_required` — the caller's active factor to challenge, or null when none is enrolled yet. */
             mfaFactorId?: string | null;
             errors?: Record<string, never>[];
+        };
+        ProviderCreate: {
+            key: string;
+            kind: string;
+            adapterId: string;
+            /** @enum {string} */
+            environmentPolicy?: "any" | "non_production_only";
+        };
+        Provider: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            kind: string;
+            adapterId: string;
+            status: string;
+            environmentPolicy: string;
+            adapterAvailable: boolean;
+            accountCount: number;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ProviderList: {
+            items: components["schemas"]["Provider"][];
+        };
+        ProviderAccountCreate: {
+            /** Format: uuid */
+            providerId: string;
+            name: string;
+            /** @description A vault reference (vault://...). Never a credential value. */
+            credentialRef: string;
+            scopeNote?: string;
+            spendCap?: components["schemas"]["SpendCap"];
+        };
+        ProviderAccountUpdate: {
+            name?: string;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            scopeNote?: string | null;
+            credentialRef?: string;
+            spendCap?: components["schemas"]["SpendCap"];
+        };
+        SpendCap: {
+            /** @description Integer minor units. */
+            amountMinor: string;
+            currency: string;
+        };
+        ProviderAccount: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            providerId: string;
+            providerKey: string;
+            adapterId: string;
+            name: string;
+            credentialRef: string;
+            scopeNote?: string | null;
+            status: string;
+            health: {
+                /** @enum {string} */
+                state?: "healthy" | "degraded" | "unhealthy" | "unknown";
+                /** Format: date-time */
+                lastHealthAt?: string | null;
+                breaker?: {
+                    [key: string]: unknown;
+                };
+            };
+            spendCap?: components["schemas"]["SpendCap"] | null;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            version: number;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ProviderAccountList: {
+            items: components["schemas"]["ProviderAccount"][];
+        };
+        ProviderJob: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            accountId: string;
+            /** @enum {string} */
+            kind: "verification" | "catalog_sync";
+            state: string;
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            error?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ProviderJobAccepted: {
+            /** Format: uuid */
+            operationId: string;
+            job: components["schemas"]["ProviderJob"];
+        };
+        CapabilityMatrix: {
+            items: {
+                capabilityId: string;
+                /** @enum {string} */
+                state: "supported" | "unsupported" | "unknown";
+                /** @enum {string} */
+                effective: "supported" | "unsupported";
+                /** Format: date-time */
+                probedAt?: string | null;
+                evidenceRef?: string | null;
+            }[];
+        };
+        ProviderRegionList: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                providerRegionId: string;
+                countryCode: string;
+                displayName?: string | null;
+                /** @enum {string} */
+                state: "listed" | "verified" | "withdrawn";
+                /** Format: date-time */
+                verifiedAt?: string | null;
+                evidenceRef?: string | null;
+                /** @enum {string|null} */
+                evidenceKind?: "live" | "fixture" | "mock" | null;
+                /** Format: date-time */
+                lastSeenAt?: string;
+            }[];
+        };
+        ProviderPlanList: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                providerRegionId: string;
+                planRef: string;
+                vcpu: number;
+                memoryMb: number;
+                diskGb: number;
+                bandwidth?: string | null;
+                providerPrice?: {
+                    amountMinor?: string;
+                    currency?: string;
+                    /** @enum {string} */
+                    period?: "hour" | "month";
+                } | null;
+                /** @enum {string} */
+                availability: "available" | "sold_out" | "unavailable";
+                /** Format: date-time */
+                lastSeenAt?: string;
+            }[];
+        };
+        OfferList: {
+            items: components["schemas"]["Offer"][];
+            nextCursor: string | null;
+        };
+        Offer: {
+            /** Format: uuid */
+            offerId: string;
+            /** @enum {string} */
+            kind: "compute";
+            country: string;
+            dataRegion: string;
+            plan: components["schemas"]["ComputePlan"];
+            price: {
+                /** @description Integer minor units for one instance for one month. */
+                amount: string;
+                currency: string;
+                /** @enum {string} */
+                period: "month";
+            };
+            capabilities: string[];
+            /** Format: date-time */
+            verifiedAt: string | null;
+        };
+        ComputePlan: {
+            vcpu: number;
+            memoryMb: number;
+            diskGb: number;
+            bandwidth?: string;
+        };
+        AdminOfferList: {
+            items: (components["schemas"]["Offer"] & {
+                provider?: {
+                    [key: string]: unknown;
+                };
+                providerRegionId?: string;
+                planRef?: string;
+                providerPrice?: {
+                    [key: string]: unknown;
+                } | null;
+                evidenceKind?: string | null;
+                eligible?: boolean;
+                failures?: string[];
+            })[];
+            nextCursor: string | null;
+        };
+        CreateComputeInstance: {
+            /** Format: uuid */
+            quoteId: string;
+            name: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** Format: uuid */
+            environmentId?: string;
+            sshPublicKeys?: string[];
+            tags?: {
+                [key: string]: string;
+            };
+        };
+        ComputeInstanceAccepted: {
+            instance: {
+                /** Format: uuid */
+                id: string;
+                status: string;
+            };
+            /** Format: uuid */
+            operationId: string;
+        };
+        ComputeActionAccepted: {
+            instance: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            operationId: string;
+            /** Format: uuid */
+            actionId: string;
+        };
+        ComputeInstanceAction: {
+            /** @enum {string} */
+            type: "start" | "stop" | "reboot" | "resize" | "snapshot";
+            params?: {
+                [key: string]: unknown;
+            };
+        };
+        ComputeInstance: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "provisioning" | "running" | "stopped" | "failed" | "deleting" | "deleted" | "unknown";
+            dataRegion: string;
+            country: string;
+            plan: components["schemas"]["ComputePlan"];
+            publicIps: string[];
+            /** Format: date-time */
+            createdAt: string;
+            capabilities: string[];
+            /** Format: uuid */
+            operationId?: string | null;
+            /** Format: uuid */
+            projectId?: string | null;
+            /** Format: uuid */
+            environmentId?: string | null;
+            tags?: {
+                [key: string]: string;
+            };
+            deletionProtected?: boolean;
+            /** @enum {string} */
+            driftState: "in_sync" | "drift" | "orphan_suspected" | "missing";
+            version: number;
+        };
+        ComputeInstanceList: {
+            items: components["schemas"]["ComputeInstance"][];
+            nextCursor: string | null;
+        };
+        ComputeMetrics: {
+            window: {
+                [key: string]: unknown;
+            };
+            series: {
+                [key: string]: unknown;
+            }[];
+        };
+        RoutingRuleInput: {
+            ruleKey: string;
+            priority: number;
+            match?: {
+                [key: string]: unknown;
+            };
+            action: {
+                [key: string]: unknown;
+            };
+            enabled?: boolean;
+            note?: string;
+        };
+        RoutingRule: {
+            /** Format: uuid */
+            id: string;
+            ruleKey: string;
+            version: number;
+            priority: number;
+            match: {
+                [key: string]: unknown;
+            };
+            action: {
+                [key: string]: unknown;
+            };
+            enabled: boolean;
+            note?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        RoutingRuleList: {
+            items: components["schemas"]["RoutingRule"][];
+        };
+        CloudResource: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            kind: string;
+            /** Format: uuid */
+            providerAccountId: string;
+            providerKey?: string | null;
+            providerRef?: string | null;
+            /** @enum {string} */
+            state: "DRAFT" | "QUOTED" | "AWAITING_PAYMENT" | "PROVISIONING" | "ACTIVE" | "FAILED" | "DELETING" | "DELETED" | "UNKNOWN";
+            dataRegion: string;
+            country: string;
+            providerRegionId: string;
+            /** @enum {string} */
+            driftState: "in_sync" | "drift" | "orphan_suspected" | "missing";
+            /** Format: date-time */
+            lastSeenAt?: string | null;
+            /** Format: date-time */
+            caseOpenedAt?: string | null;
+            caseDetail?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        CloudResourceList: {
+            items: components["schemas"]["CloudResource"][];
+            nextCursor: string | null;
+        };
+        ProviderCostRecord: {
+            /** Format: uuid */
+            id: string;
+            providerAccountId: string;
+            providerKey?: string | null;
+            resourceId?: string | null;
+            /** Format: uuid */
+            orgId?: string | null;
+            /** Format: date */
+            periodStart: string;
+            /** Format: date */
+            periodEnd: string;
+            meterOrSku: string;
+            quantity: string;
+            /** @description Integer minor units of currency. */
+            costMinor: string;
+            currency: string;
+            /** @enum {string} */
+            source: "api" | "bill_import";
+            providerLineRef: string;
+            /** Format: date-time */
+            capturedAt: string;
+        };
+        ProviderCostList: {
+            items: components["schemas"]["ProviderCostRecord"][];
+            nextCursor: string | null;
+            totals: {
+                currency: string;
+                costMinor: string;
+                records: number;
+                unattributed: number;
+            }[];
+        };
+        LiveVerificationJob: {
+            /** @enum {string} */
+            jobId: "live-verify-alibaba" | "live-verify-huawei" | "live-verify-contabo";
+            provider: string;
+            /** @enum {string} */
+            gate: "HG-05-01" | "HG-05-02" | "HG-05-03";
+            /** @enum {string} */
+            gateStatus: "PENDING" | "GRANTED";
+            /** @enum {string} */
+            label: "NOT RUN" | "NOT VERIFIED" | "LIVE-VERIFIED" | "FAIL";
+            /** Format: date-time */
+            lastRunAt: string | null;
+        };
+        LiveVerificationRun: {
+            /** Format: uuid */
+            id: string;
+            jobId: string;
+            /** @enum {string} */
+            status: "NOT RUN" | "NOT VERIFIED" | "LIVE-VERIFIED" | "FAIL";
+            reason: string;
+            steps: {
+                [key: string]: unknown;
+            }[];
+            evidenceIds: string[];
+            gateEvidenceId?: string | null;
+            spendCapMinor?: string | null;
+            currency?: string | null;
+            residualResources: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LiveVerificationOverview: {
+            jobs: components["schemas"]["LiveVerificationJob"][];
+            runs: components["schemas"]["LiveVerificationRun"][];
+        };
+        RecordLiveVerificationRun: {
+            /** @enum {string} */
+            jobId: "live-verify-alibaba" | "live-verify-huawei" | "live-verify-contabo";
+            /** @enum {string} */
+            status: "NOT RUN" | "NOT VERIFIED" | "LIVE-VERIFIED" | "FAIL";
+            reason: string;
+            steps?: {
+                [key: string]: unknown;
+            }[];
+            evidenceIds?: string[];
+            gateEvidenceId?: string;
+            spendCapMinor?: string;
+            currency?: string;
+            residualResources?: number;
+        };
+        LiveVerificationRecorded: {
+            /** Format: uuid */
+            id: string;
+            jobId: string;
+            status: string;
         };
         DomainSearchItem: {
             name: string;
@@ -9914,6 +10841,866 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminCreateProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderCreate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Provider"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminGetProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Provider"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminListProviderAccounts: {
+        parameters: {
+            query?: {
+                /** @description Filter by provider. */
+                providerId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccountList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminCreateProviderAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderAccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminGetProviderAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminUpdateProviderAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderAccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    adminVerifyProviderAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderJobAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    adminProviderAccountCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapabilityMatrix"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminSyncProviderCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderJobAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    adminProviderAccountRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderRegionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminProviderAccountPlans: {
+        parameters: {
+            query?: {
+                /** @description Filter by provider region id. */
+                region?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderPlanList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminGetProviderJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderJob"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listOffers: {
+        parameters: {
+            query?: {
+                /** @description Only compute is available. */
+                kind?: "compute";
+                /** @description ISO 3166-1 alpha-2 country. */
+                country?: string;
+                /** @description Region group (in_kingdom, gcc, eu, ...). */
+                geoGroup?: string;
+                /** @description Minimum vCPU. */
+                minVcpu?: number;
+                /** @description Minimum memory in MB. */
+                minMemoryMb?: number;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListOffers: {
+        parameters: {
+            query: {
+                /** @description Organization to evaluate for. */
+                orgId: string;
+                /** @description Also return plans that fail a condition. */
+                includeIneligible?: boolean;
+                /** @description Provider key. */
+                provider?: string;
+                /** @description Provider region id. */
+                region?: string;
+                /** @description ISO 3166-1 alpha-2 country. */
+                country?: string;
+                /** @description Region group (in_kingdom, gcc, eu, ...). */
+                geoGroup?: string;
+                /** @description Minimum vCPU. */
+                minVcpu?: number;
+                /** @description Minimum memory in MB. */
+                minMemoryMb?: number;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOfferList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listComputeInstances: {
+        parameters: {
+            query?: {
+                /** @description Filter by status. */
+                status?: string;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstanceList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createComputeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateComputeInstance"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstanceAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getComputeInstance: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstance"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteComputeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstanceAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    actComputeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComputeInstanceAction"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeActionAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getComputeInstanceMetrics: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO). */
+                from?: string;
+                /** @description Window end (ISO). */
+                to?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeMetrics"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListRoutingRules: {
+        parameters: {
+            query?: {
+                /** @description Return every version. */
+                history?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutingRuleList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminPutRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoutingRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutingRule"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListCloudResources: {
+        parameters: {
+            query?: {
+                /** @description Filter by organization. */
+                orgId?: string;
+                /** @description Canonical resource state. */
+                state?: string;
+                /** @description Drift state. */
+                driftState?: string;
+                /** @description Provider account. */
+                accountId?: string;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloudResourceList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminReconcileResource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderJobAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    receiveCloudWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Provider key. */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminListProviderCosts: {
+        parameters: {
+            query?: {
+                /** @description Filter by provider account. */
+                providerAccountId?: string;
+                /** @description Billing month YYYY-MM. */
+                period?: string;
+                /** @description Page size (default 50). */
+                limit?: number;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderCostList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListLiveVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveVerificationOverview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminRecordLiveVerificationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordLiveVerificationRun"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveVerificationRecorded"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

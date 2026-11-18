@@ -86,3 +86,14 @@ export async function apiDownload(path: string, orgId: string | undefined): Prom
     headers: r.ok ? headers : new Headers({ 'content-type': 'text/plain; charset=utf-8' }),
   });
 }
+
+/** Headers for a hand-written server-side call to the API (customer-realm cookies only, realm and org selectors); see `lib/compute-server.ts`. */
+export async function forwardHeaders(orgId: string | undefined): Promise<Record<string, string>> {
+  const jar = await cookies();
+  const cookie = jar
+    .getAll()
+    .filter((c) => FORWARD.has(c.name))
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
+  return { cookie, 'x-nuzm-realm': 'web', ...(orgId ? { 'x-nuzm-org': orgId } : {}) };
+}

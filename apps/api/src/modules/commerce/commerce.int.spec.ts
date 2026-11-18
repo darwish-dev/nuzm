@@ -149,7 +149,8 @@ describe('quotes', () => {
   });
 
   it('kinds without a registered pricer answer kind_not_available (no invented prices); plan is refused honestly', async () => {
-    for (const kind of ['compute', 'hosting', 'database', 'storage', 'email', 'marketplace']) {
+    // `compute` has a pricer since M05 S17, `domain` since M07 S28 (see their integration specs)
+    for (const kind of ['hosting', 'database', 'storage', 'email', 'marketplace']) {
       const r = await call('erin', 'POST', '/v1/quotes', { kind, items: [{ x: 1 }] });
       expect(r.statusCode, kind).toBe(422);
       expect(r.json().code, kind).toBe('kind_not_available');

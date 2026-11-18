@@ -2,6 +2,8 @@
 
 M07 was started by **owner direction** before M05 exists on this branch's base (the milestone prompt says "stop if M05 is missing"; the owner overrode that for M06, M07 and M08). This file lists every interface M07 assumes, where the assumption lives in the code, and what to change when the real M05/M06 code is merged. Source of the M05 shapes: a **read-only** look at `claude/m05-provider-core-05b775` (commit `3a11e91`, S16 contracts, plus its uncommitted working tree on 2026-11-18). Nothing was copied blindly, merged or pushed.
 
+**Update (merge into main):** main has since gained M05 (ported onto main's M04). M07 was merged onto it with the conflicts resolved textually (errors, OpenAPI regenerated, i18n/ownership unions, residency-hooks spec, commerce pricer union) and the full suites re-run; the **semantic unification below is still NOT done** (contracts are still mirrored, no `cloud.provider_capabilities` rows are written, hold semantics are not unified, M05's bill source and M07's are both registered through `BillSourceRegistry`/`Sources`). Treat sections 1–9 as the integration backlog.
+
 Status of everything below: **NOT VERIFIED against the real M05/M06**. The mock-based tests prove M07's own logic, not integration.
 
 ## 1. `@nuzm/adapter-contracts` (M05 S16) → `@nuzm/registrar-contracts`

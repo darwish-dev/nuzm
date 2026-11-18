@@ -1,7 +1,14 @@
 # packages/adapters
 
-Provider adapter contracts (docs/09), conformance kit, adapters. Created in M05; contracts for other kinds in their milestones.
+Provider adapter framework (docs/09, M05). Four workspace packages (CommonJS, built with `tsc`):
 
-- Owner milestone: see `docs/03-milestone-dependency-matrix.md`.
-- Public API: none yet (nothing implemented in S01).
-- Status: **skeleton only**.
+| Package                                                     | Purpose                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`contracts`](contracts) `@nuzm/adapter-contracts`          | `AdapterBase`/`ComputeAdapter` types (contractVersion `1.0.0`), capability ids (mirrors `spec/providers/capabilities.schema.json`), normalized errors, `VaultClient` interface + `vault://` reference check, `Redactor` (key-name and value-based, canary-tested), egress allow-list / SSRF guard, idempotency token `sha256(orgId\|operationId\|stepId)` |
+| [`runtime`](runtime) `@nuzm/adapter-runtime`                | `FileVaultClient` (non-production stub; refuses `NODE_ENV=production`), `TokenBucket`, `CircuitBreaker`, `GuardedCompute` (per-account limiter + breaker + redaction; a timeout of a mutating call becomes `uncertain`), simulated clocks                                                                                                                 |
+| [`conformance`](conformance) `@nuzm/adapter-conformance`    | Shared conformance kit (15 cases C01-C15) every compute adapter must pass against mock and recorded fixtures. A pass is **never** live verification                                                                                                                                                                                                       |
+| [`mock-compute`](mock-compute) `@nuzm/adapter-mock-compute` | Deterministic simulator with fault injection (timeout before/after the side effect, duplicate create, eventual consistency, rate limit, outage, partial capability set, region/price changes). Evidence kind is always `mock`                                                                                                                             |
+
+Rules: adapters have no DB access and receive credentials by reference only; every mutating call carries a deterministic idempotency token; a timeout/ambiguous result is `uncertain` and the orchestrator reconciles (`findByToken`/`inspect`) before any retry; unknown capability = unsupported; `422 unsupported_capability` instead of a silent no-op. Real vendor adapters (S18-S22) are **not** implemented: they need sandbox credentials (HG-05-01/02/03).
+
+Run: `pnpm --filter "@nuzm/adapter-*" build && pnpm --filter "@nuzm/adapter-*" test`. Kit report for the evidence folder: `CONFORMANCE_REPORT_DIR=docs/reports/evidence/M05 pnpm --filter @nuzm/adapter-mock-compute test`.

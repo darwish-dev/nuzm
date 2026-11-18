@@ -19,6 +19,11 @@ export type { PolicyView, ResidencyOptions } from './internal/residency/residenc
 export { AssessmentService } from './internal/residency/assessment.service';
 export type { AssessmentDto } from './internal/residency/assessment.service';
 export { MockRegionRegistry } from './internal/residency/regions';
+export type {
+  RegionRegistry,
+  Target as RegionTarget,
+  RegionGroup,
+} from './internal/residency/regions';
 export { evaluate as evaluateResidency } from './internal/residency/evaluator';
 export { DsrService, DSR_KIND } from './internal/dsr/dsr.service';
 export type { DsrDto } from './internal/dsr/dsr.service';

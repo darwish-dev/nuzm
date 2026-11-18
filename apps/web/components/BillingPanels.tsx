@@ -6,6 +6,7 @@ import { Badge, Button, Field, Input, Ltr, Select, Table } from '@nuzm/ui';
 import { useAction } from '../lib/actions';
 import { browserApi } from '../lib/client';
 import { fromMinor, toMinor } from '../lib/billing';
+import { moneyText, type ProvisioningHint } from '../lib/compute';
 import { NoticeText } from './Feedback';
 
 export interface LimitDto {
@@ -145,13 +146,19 @@ export function ApprovalsPanel(p: {
   selfId: string;
   canDecide: boolean;
   mfaFactorId: string | null;
+  /** UI-M05-07: approvals whose quote is a compute quote (id → summary), so provisioning requests are recognisable */
+  provisioning?: Record<string, ProvisioningHint>;
+  /** UI-M05-07: opened from the create-instance wizard with the quote that needs approval */
+  prefill?: { quoteId: string; amountMinor: string };
 }) {
   const router = useRouter();
   const a = useAction(p.locale, p.mfaFactorId);
   const [kind, setKind] = useState<'quote' | 'operation'>('quote');
-  const [subject, setSubject] = useState('');
-  const [amount, setAmount] = useState('');
-  const [reason, setReason] = useState('');
+  const [subject, setSubject] = useState(p.prefill?.quoteId ?? '');
+  const [amount, setAmount] = useState(p.prefill ? fromMinor(p.prefill.amountMinor) : '');
+  const [reason, setReason] = useState(
+    p.prefill ? t(p.locale, 'm05.web.approvals.reasonPrefill') : '',
+  );
   const [local, setLocal] = useState<string | null>(null);
   const decide = (id: string, decision: 'approve' | 'deny') =>
     void a.run(
@@ -207,6 +214,23 @@ export function ApprovalsPanel(p: {
                 <>
                   <span>{tDynamic(p.locale, `bill.subject.${r.subjectKind}`, r.subjectKind)} </span>
                   <Ltr>{r.subjectId.slice(0, 8)}</Ltr>
+                  {p.provisioning?.[r.id] && (
+                    <>
+                      {' '}
+                      <Badge tone="warn">{t(p.locale, 'm05.web.approvals.provisioning')}</Badge>
+                      <br />
+                      <span className="nz-muted">
+                        {p.provisioning[r.id]!.summary}{' '}
+                        <Ltr>
+                          {moneyText(
+                            p.provisioning[r.id]!.totalMinor,
+                            p.provisioning[r.id]!.currency,
+                            p.locale,
+                          )}
+                        </Ltr>
+                      </span>
+                    </>
+                  )}
                 </>
               ),
             },

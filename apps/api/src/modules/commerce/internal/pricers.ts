@@ -49,6 +49,11 @@ export interface PricerResult {
 export interface QuotePricer {
   readonly kind: QuoteKind;
   price(ctx: PriceContext, items: unknown[]): Promise<PricerResult>;
+  /**
+   * Kinds whose request is not an `items` list (compute: `{offerId | routing, spec, term}`, docs/04) map the request body to the pricer's
+   * items here. Absent = the body must carry `items` (the M02 shape).
+   */
+  itemsFrom?(input: Record<string, unknown>): unknown[];
 }
 
 /** Registry of quote pricers: a kind with no registered pricer is `kind_not_available` (never invented prices). */

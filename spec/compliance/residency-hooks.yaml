@@ -41,6 +41,26 @@ tables:
     }
   tenancy.environments:
     { owner: M05, hook: m05-provisioning, note: 'an environment names where its resources run' }
+  cloud.resources:
+    {
+      owner: M05,
+      hook: m05-provisioning,
+      note: 'generic resource inventory; data_region of the verified region group',
+    }
+  compute.instances:
+    {
+      owner: M05,
+      hook: m05-provisioning,
+      note: 'placement is evaluated at the offer, the quote and again at provisioning',
+    }
+  compute.instance_intervals:
+    { owner: M05, hook: m05-provisioning, note: 'running intervals inherit the instance region' }
+  compute.snapshots:
+    {
+      owner: M05,
+      hook: m05-backups,
+      note: 'snapshots inherit the instance region; destination hook listed for S23',
+    }
 hooks:
   - {
       id: m03-psp-personal-data,
@@ -78,9 +98,9 @@ hooks:
       where: 'Offer filtering and quotes: only regions the organization policy allows',
       data_classes: [customer-content, personal],
       processor_kind: compute,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.offers,
-      call_site: null,
+      call_site: apps/api/src/modules/cloud/internal/compute-pricer.ts,
     }
   - {
       id: m05-provisioning,
@@ -88,9 +108,9 @@ hooks:
       where: 'Routing and provisioning: dataRegion of every resource',
       data_classes: [customer-content, personal, credentials],
       processor_kind: compute,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.provisioning,
-      call_site: null,
+      call_site: apps/api/src/modules/cloud/internal/provisioning.service.ts,
     }
   - {
       id: m05-backups,

@@ -1,0 +1,8 @@
+# Runbook — offboarding a hosting site (M06 S27)
+
+1. **Request** — the customer (`hosting:site:delete`) sends `DELETE /v1/hosting/sites/{id}` with `X-Confirm-Delete: <siteName>`. 409 `legal_hold_active` while an M04 legal hold covers `hosting.sites` / `hosting.site_backups` (or the whole organization): nothing is touched. The site becomes `deleting` and an **export window** opens (default 14 days, PROPOSAL, HG-04-01); the operation is scheduled for the end of the window.
+2. **Export** — during the window the customer can still create a backup and download it through an expiring link (the archive is the encrypted per-site archive; a decrypted export format is NOT BUILT).
+3. **Wipe** (automatic at the end of the window; re-checks the legal hold, a hold placed meanwhile defers the wipe): the agent deletes site, user, database, vhost, certificates, cron; the control plane then asks the node for the **residual check** (`site.wipe.verify`), releases the reservation, marks domains removed, deletes the site's vault secrets (credentials, custom certificate keys; the backup key stays while retained backups exist) and writes the **wipe report** (`hosting.wipe_reports`, append-only).
+4. **Verified?** `verified = (residual artifacts = 0)`. A node that leaves residue keeps the site in `deleting`, the operation retries and the report says `verified:false` — the site is never shown as deleted on a failed wipe.
+5. **Backups** are kept until their retention expires (default 30 days, PROPOSAL; M04 policies decide) and then removed from the sink by the retention sweep unless a legal hold applies; the report lists how many remain.
+Not covered: wiping at the registrar/DNS (M07), databases bound from M08 (M08), invoices/ledger (retained by law).

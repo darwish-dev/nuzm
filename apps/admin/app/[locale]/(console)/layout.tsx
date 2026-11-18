@@ -43,6 +43,16 @@ export default async function ConsoleLayout({
     ...(s.can('admin:domains:read')
       ? [{ href: `${base}/domains/registrars`, label: t(locale, 'nav.admin.domains') }]
       : []),
+    // M11: marketplace moderation, agencies and resellers, automation abuse (BLOCKED states where the list routes are not approved yet: SCR-M11-05)
+    ...(s.can('admin:marketplace')
+      ? [{ href: `${base}/marketplace/moderation`, label: t(locale, 'm11.nav.admin.moderation') }]
+      : []),
+    ...(s.can('admin:org:read') || s.can('admin:programs')
+      ? [{ href: `${base}/programs`, label: t(locale, 'm11.nav.admin.programs') }]
+      : []),
+    ...(s.can('admin:automation') || s.can('admin:ops')
+      ? [{ href: `${base}/automation/abuse`, label: t(locale, 'm11.nav.admin.abuse') }]
+      : []),
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),

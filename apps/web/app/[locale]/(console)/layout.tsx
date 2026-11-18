@@ -29,6 +29,9 @@ export default async function ConsoleLayout({
     ...gated('operation:read', '/operations', 'nav.operations'),
     ...gated('resource:read', '/resources', 'nav.resources'),
     ...gated('hosting:site:read', '/hosting/sites', 'nav.hosting'),
+    ...gated('data:db:read', '/databases', 'm8.nav.databases'),
+    ...gated('data:storage:read', '/storage/buckets', 'm8.nav.storage'),
+    ...gated('email:read', '/email/domains', 'm8.nav.email'),
     ...(s.org && (s.can('billing:read') || s.can('usage:read'))
       ? [
           {
@@ -68,7 +71,11 @@ export default async function ConsoleLayout({
       (i.href.endsWith('/billing') ? path.startsWith(`${i.href}/`) : false) ||
       (i.href.endsWith('/privacy/requests')
         ? path.includes('/privacy/') || path.endsWith('/settings/data-residency')
-        : false),
+        : false) ||
+      // managed data and email: every sub-page keeps its section entry current
+      (i.href.endsWith('/databases') ? path.startsWith(i.href) : false) ||
+      (i.href.endsWith('/storage/buckets') ? path.startsWith(`${base}/storage/`) : false) ||
+      (i.href.endsWith('/email/domains') ? path.startsWith(`${base}/email/`) : false),
   }));
   const imp = s.me.impersonation;
   return (

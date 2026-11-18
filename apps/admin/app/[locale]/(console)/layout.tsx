@@ -37,6 +37,9 @@ export default async function ConsoleLayout({
     ...(s.can('admin:hosting:read')
       ? [{ href: `${base}/hosting/nodes`, label: t(locale, 'nav.admin.hosting') }]
       : []),
+    ...(s.can('admin:data:read')
+      ? [{ href: `${base}/data/providers`, label: t(locale, 'm8.nav.admin.providers') }]
+      : []),
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),

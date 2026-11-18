@@ -177,6 +177,8 @@ tenant_less:
   - compliance.evidence_items
   - compliance.regulatory_validations
   - compliance.breach_cases
+  # provider selection config for managed data and email (M08 S32): platform register, admin scope only; nothing is seeded, nothing is enabled by default
+  - data.data_providers
   # provider registry, accounts (vault REFERENCES only), verified regions, plans, capability matrix, evidence, catalog snapshots, platform jobs (M05 S16):
   # admin console scope only; customers see offers through the eligibility function, never these tables
   - cloud.providers
@@ -225,6 +227,15 @@ classification:
   classes: [public, internal, customer-content, personal, financial, credentials]
   # Columns whose NAME looks sensitive but whose content is not; each needs a reason (10+ characters).
   exceptions:
+    data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.email_domains.ownership_token: the public DNS TXT value that proves ownership of a domain (published in DNS by design), not a secret
+    email.mailboxes.password_setup: holds only the kind of password setup and a vault REFERENCE to the reset link or one-time secret, never the secret itself
+    email.mailboxes.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.aliases.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.messages.send_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.messages.idempotency_key: the caller's Idempotency-Key header value (an opaque client-chosen id), not a credential
+    data.storage_buckets.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    data.database_backups.idempotency_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     audit.audit_logs.actor_api_key_id: the opaque id of the API key that acted, never the key or its secret
     billing.price_items.unit_price_minor: an entry of the public price list, not a customer's money
     identity.users.email_verified: a boolean flag; the address itself is identity.users.email (personal)
@@ -243,6 +254,11 @@ classification:
   #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
   #   lookup    = the NON-secret lookup prefix of a key                    encrypted = field-level AES-256-GCM (apps/api/src/common/field-crypto.ts)
   protection:
+    data.database_instances.vault_ref: vault_ref
+    data.storage_buckets.credential_vault_ref: vault_ref
+    email.messages.recipients_enc: encrypted
+    email.messages.body_enc: encrypted
+    email.suppressions.address_enc: encrypted
     audit.audit_checkpoints.key_ref: vault_ref
     identity.api_keys.prefix: lookup
     identity.api_keys.secret_hash: hash
@@ -1608,6 +1624,265 @@ classification:
       data_region: customer-content
       state: customer-content
       created_at: customer-content
+    data.data_providers:
+      id: internal
+      service: internal
+      family: internal
+      provider_code: internal
+      provider_account_id: internal
+      environment: internal
+      enabled: internal
+      verified_at: internal
+      evidence_ref: internal
+      adr_ref: internal
+      adr_accepted_at: internal
+      adr_accepted_by: internal
+      probe: internal
+      config: internal
+      requested_by: internal
+      approved_by: internal
+      enabled_at: internal
+      version: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    data.database_backups:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      type: internal
+      state: internal
+      size_bytes: internal
+      storage_ref: internal
+      checksum: internal
+      manifest: customer-content
+      provider_backup_ref: internal
+      idempotency_token: internal
+      expires_at: internal
+      data_region: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    data.database_instances:
+      id: internal
+      org_id: internal
+      project_id: internal
+      name: customer-content
+      engine: internal
+      version: internal
+      plan_ref: internal
+      storage_gb: internal
+      state: internal
+      host: internal
+      port: internal
+      tls_required: internal
+      network: customer-content
+      vault_ref: credentials
+      data_region: internal
+      provider_region_id: internal
+      provider_id: internal
+      provider_ref: internal
+      create_token: internal
+      resource_id: internal
+      quote_id: internal
+      order_id: internal
+      backup_policy: internal
+      rotation: internal
+      operation_id: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+      reveal: internal
+    data.database_restores:
+      id: internal
+      org_id: internal
+      source_instance_id: internal
+      source_backup_id: internal
+      target_instance_id: internal
+      mode: internal
+      state: internal
+      name: customer-content
+      confirm_in_place: internal
+      pre_restore_backup_id: internal
+      verification: internal
+      failure_code: internal
+      data_region: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      finished_at: internal
+    data.bucket_policies:
+      id: internal
+      org_id: internal
+      bucket_id: internal
+      policy: customer-content
+      etag: internal
+      updated_by: internal
+      created_at: internal
+      updated_at: internal
+    data.storage_buckets:
+      id: internal
+      org_id: internal
+      name: customer-content
+      name_global: customer-content
+      system: internal
+      state: internal
+      endpoint: internal
+      versioning: internal
+      public: internal
+      public_confirmed_by: internal
+      public_confirmed_at: internal
+      lifecycle: customer-content
+      quota_bytes: internal
+      credential_vault_ref: credentials
+      data_region: internal
+      provider_region_id: internal
+      provider_id: internal
+      provider_ref: internal
+      create_token: internal
+      quote_id: internal
+      order_id: internal
+      usage: internal
+      operation_id: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+    email.aliases:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      mailbox_id: internal
+      local_part: personal
+      state: internal
+      create_token: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    email.email_domains:
+      id: internal
+      org_id: internal
+      domain: customer-content
+      purposes: internal
+      verification_state: internal
+      ownership_token: internal
+      required_records: customer-content
+      dmarc: internal
+      tx_provider_id: internal
+      tx_provider_ref: internal
+      mailbox_provider_id: internal
+      dns_zone_id: internal
+      data_region: internal
+      verified_at: internal
+      last_checked_at: internal
+      next_check_at: internal
+      check_attempts: internal
+      throttle_override: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+    email.email_events:
+      id: internal
+      org_id: internal
+      message_id: internal
+      provider_code: internal
+      provider_event_id: internal
+      type: internal
+      payload: internal
+      occurred_at: internal
+      created_at: internal
+    email.mailboxes:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      local_part: personal
+      state: internal
+      provider_id: internal
+      provider_ref: internal
+      plan_ref: internal
+      quota_mb: internal
+      password_setup: internal
+      create_token: internal
+      quote_id: internal
+      order_id: internal
+      usage: internal
+      operation_id: internal
+      data_region: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+    email.messages:
+      id: internal
+      org_id: internal
+      sender_id: internal
+      template_id: internal
+      category: internal
+      state: internal
+      to_hashes: personal
+      recipients_enc: personal
+      body_hash: customer-content
+      body_enc: customer-content
+      subject_hash: customer-content
+      expires_at: internal
+      idempotency_key: internal
+      send_token: internal
+      provider_id: internal
+      provider_message_ref: internal
+      error_code: internal
+      operation_id: internal
+      data_region: internal
+      accepted_at: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    email.sender_identities:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      from_address: personal
+      state: internal
+      verified_at: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    email.suppressions:
+      id: internal
+      org_id: internal
+      address_hash: personal
+      address_enc: personal
+      reason: internal
+      source: internal
+      active: internal
+      event_id: internal
+      created_by: internal
+      created_at: internal
+      removed_at: internal
+      removed_by: internal
+    email.templates:
+      id: internal
+      org_id: internal
+      key: customer-content
+      version: internal
+      name: customer-content
+      locale: internal
+      direction: internal
+      subject: customer-content
+      html: customer-content
+      body_text: customer-content
+      variables: customer-content
+      created_by: internal
+      created_at: internal
     hosting.nodes:
       id: internal
       name: internal

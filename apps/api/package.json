@@ -27,6 +27,7 @@
     "@nuzm/adapter-live-verify": "workspace:*",
     "@nuzm/adapter-mock-compute": "workspace:*",
     "@nuzm/adapter-runtime": "workspace:*",
+    "@nuzm/adapter-data": "workspace:*",
     "@nuzm/domain": "workspace:*",
     "@nuzm/platform": "workspace:*",
     "@nuzm/telemetry": "workspace:*",

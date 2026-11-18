@@ -1,0 +1,13 @@
+# Gate Review — M08 (PREPARED for the owner; NOT SIGNED)
+
+- Date / reviewers: prepared 2026-11-18 by the implementing agent; **reviewer: owner**. Nothing below is a sign-off. The milestone is **NOT DONE**: M08's own completion rule forbids DONE while any provider-dependent row is open.
+- **Owner-directed exception recorded:** M08 was started before M05/M06/M07 reached the shared base (their "stop if missing" preconditions were overridden by the owner). Everything depending on them is a port with an in-memory fake; the assumed interfaces are in [M08-upstream-interface-assumptions.md](M08-upstream-interface-assumptions.md).
+- Acceptance rows: see [M08-report.md §H](M08-report.md). **PASS (dev-reference only):** AC-M08-01, -02, -04, -05, -06, -07, -08, -09, -15. **NOT VERIFIED:** AC-M08-03 (simulated data, no real engine), AC-M08-16 (E2E written, NOT RUN). **BLOCKED:** AC-M08-10, -11, -12, -13, -14 (HG-08-01, D-05..D-09, D-31, HG-05-01/02, M07).
+- Provider-selection ADRs: **ADR-050..054 are PROPOSED, none accepted.** The gate asks for "accepted ADRs for every service enabled in production": **no service is enabled in production** (nothing is seeded; the admin API refuses to enable a row without accepted ADR + live probe + evidence + second approver).
+- Open critical/high defects: none known. Known limitations: all results come from mocks; the self-operated family was run only against a fake compute port and a fake node agent; Redis is mock-only (not installed); no DSR export/erase handler for messages, suppressions or objects; consent capture for email processing not wired; provider-cost capture (finrec) not implemented; UI-M08-16/17 BLOCKED (PA-20/PA-19); in-place restore "approval" is step-up + typed name + pre-restore backup, not a second person (PA-21).
+- Migration + rollback notes reviewed: `1000–1003` each have a dev-only `.down.sql`; production is forward-fix and customer records are never dropped. **Reviewer action:** read the down scripts and confirm.
+- `spec/` in sync: drift OK, lint clean, SDK regenerated, classification and residency-hook checks clean (see the report §E for the exact counts).
+- Compliance hooks checklist (M08 §15): see the report §H. Retention (backups, message bodies, events) is parameterized (D-34 OPEN), not a legal period.
+- Owner decisions requested: (1) D-05..D-09 (accept, amend or reject ADR-050..054) and HG-08-01..04; (2) PA-15, PA-19, PA-20, PA-21; (3) whether the M05 reconciliation (U-01…U-12) happens by merging M08 onto M05 or the reverse; (4) retention periods D-34 and the usage tolerance D-31; (5) HG-04-01 counsel items for email content and backup residency.
+- Decision: **hold for owner.**
+- Owner sign-off (name, date): _pending_

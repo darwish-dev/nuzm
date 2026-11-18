@@ -19,7 +19,7 @@ const walk = (d: string): string[] =>
  * ledger postings) and the metering module (meter catalogue, provider cost capture and margin) the invoicing module (e-invoicing onboarding and the finance submissions console, S11b) the finrec module (cross-organization reconciliation runs and breaks, S12a) the compliance module (platform-level compliance registers such as the ROPA, M04 S13b) the cloud module (provider registry/accounts/catalog/health: admin-console register tables, M05) and the payments module (finance refunds resolve a payment's organization; pending-refund sweeper), all of which sit behind a verified platform permission or a service-level caller.
  */
 describe('platform scope usage', () => {
-  it('is only used from modules/admin, modules/audit, modules/billing, modules/metering, modules/payments, modules/invoicing, modules/finrec, modules/compliance, modules/cloud, modules/cloud-vendors and modules/hosting', () => {
+  it('is only used from modules/admin, modules/audit, modules/billing, modules/metering, modules/payments, modules/invoicing, modules/finrec, modules/compliance, modules/cloud, modules/cloud-vendors, modules/data modules/email and modules/hosting', () => {
     const offenders = walk(src)
       .filter((f) => /withPlatformScope\(/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(src.length + 1))
@@ -35,6 +35,8 @@ describe('platform scope usage', () => {
           !f.startsWith('modules/compliance/') &&
           !f.startsWith('modules/cloud/') &&
           !f.startsWith('modules/cloud-vendors/') &&
+          !f.startsWith('modules/data/') &&
+          !f.startsWith('modules/email/') &&
           !f.startsWith('modules/hosting/'),
       );
     expect(offenders).toEqual([]);

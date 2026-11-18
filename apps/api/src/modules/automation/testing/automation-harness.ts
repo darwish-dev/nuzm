@@ -94,6 +94,7 @@ export interface AutoEnv extends Session {
 export async function setupAutomationEnv(
   extra: [unknown, unknown][] = [],
   flagsOn = true,
+  realAudit = false,
 ): Promise<AutoEnv> {
   process.env.AUTOMATION_KICK = 'off';
   process.env.AUTOMATION_RETRY_BASE_SECONDS = '0';
@@ -111,6 +112,7 @@ export async function setupAutomationEnv(
   const h = new Harness();
   await h.init();
   const { app, sink, secrets } = await h.buildApp({}, undefined, [], {
+    realAudit,
     overrides: [
       [EgressHttpPort, fakes.egress],
       [EmailSendPort, fakes.email],

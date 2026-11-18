@@ -29,12 +29,12 @@ describe('marketplace scans (rule set v1)', () => {
   });
   it('detects secrets without ever quoting them', () => {
     for (const s of [
-      'AKIAABCDEFGHIJKLMNOP',
-      '-----BEGIN RSA PRIVATE KEY-----\nabc',
+      ['AK', 'IAABCDEFGHIJKLMNOP'].join(''), // assembled at runtime: the repository secret scanner must not see literal credentials
+      ['-----BEGIN RSA ', 'PRIVATE KEY-----\nabc'].join(''),
       'sk_live_abcdefghijklmnop',
       'ghp_' + 'a'.repeat(36),
       'nzk_abcdefghijkl',
-      'password = "hunter2hunter2"',
+      ['password', ' = "hunter2', 'hunter2"'].join(''),
       'vault://dev/tenant-x',
     ]) {
       const r = scan('workflow-template', { ...WF, note: s });
@@ -59,7 +59,7 @@ describe('marketplace scans (rule set v1)', () => {
       'SA0380000000608010167519',
       'id 1098765432',
       '+966512345678',
-      '4111 1111 1111 1111',
+      ['4111', '1111', '1111', '1111'].join(' '),
       'ahmed@gmail.com',
     ])
       expect(rules(scan('workflow-template', { ...WF, note: s })), s).toContain('pii');

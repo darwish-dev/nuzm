@@ -1,0 +1,10 @@
+# Demo script — M11 (local, mocks only; every external effect is a fake)
+
+Prerequisites: local services (`pnpm services:start`), migrations, API dev stack. Flags default OFF: turn on for the demo organization (`platform.feature_flags` rows `automation.enabled`, `webhooks.enabled`, `marketplace.enabled`, `agency.enabled`, `reseller.enabled`). **Do not demo agency delegation to customers until SCR-M11-01 (revocation routes) is approved.**
+
+1. **Workflow.** Create a workflow with `POST /v1/workflows` (transform → condition → delay → http_request to a public HTTPS echo URL through an authorized HTTP connector). Show the 422 for a cycle and for a literal bearer token. Start it with a `dedupeKey`; start it again with the same key (200, `duplicate: true`). `GET /v1/workflow-executions/{id}`: steps, attempts, redacted logs. Kill the API mid-step (SIGKILL) and restart: the execution resumes; the receiver (with `Idempotency-Key`) sees one effect.
+2. **Connectors and SSRF.** Create an OAuth2 connector with `tokenUrl: https://169.254.169.254/` → 422 `ssrf_denied`. Authorize with a vault reference of another organization → 422. Revoke the authorization while an execution is waiting → it fails at the next step with `connector_not_authorized`.
+3. **Webhooks.** Register an endpoint (secret shown once), emit an `invoice.issued` event, verify the `X-Nuzm-Signature` with the 5-minute window, rotate the secret with overlap, make the receiver fail and watch the retry schedule.
+4. **Marketplace.** Verify a publisher (service call), publish a workflow template, approve it (admin), buy it as another organization (quote kind `marketplace` → purchase → pay the invoice), install it: a workflow appears in the buyer's organization only. Refund the invoice (credit note): entitlement revoked, accrual reversed.
+5. **Reseller.** Link a sub-organization (it accepts), PUT price rules (below-cost refused), read the statement and CSV, point at the issuer banner (`disabled` / BLOCKED).
+6. **Evidence.** `pnpm test:integration` outputs in docs/reports/M11-report.md §E.

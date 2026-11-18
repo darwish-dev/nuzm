@@ -18,11 +18,11 @@ INSERT INTO tenancy.permissions (name, scope, description) VALUES
   ('admin:programs','platform','Oversee agencies and resellers (suspend, review)');
 INSERT INTO tenancy.role_permissions VALUES
   ('owner','agency:manage'),('admin','agency:manage'),
-  ('owner','agency:finance'),('billing_admin','agency:finance'),
+  ('owner','agency:finance'),('admin','agency:finance'),('billing_admin','agency:finance'),
   ('owner','partners:manage'),('admin','partners:manage'),
   ('owner','reseller:manage'),('admin','reseller:manage'),
   ('owner','reseller:pricing'),('admin','reseller:pricing'),
-  ('owner','reseller:finance'),('billing_admin','reseller:finance'),
+  ('owner','reseller:finance'),('admin','reseller:finance'),('billing_admin','reseller:finance'),
   ('platform_admin','admin:programs'),('support','admin:programs');
 
 CREATE TABLE programs.agencies (

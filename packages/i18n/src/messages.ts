@@ -167,6 +167,7 @@ export const messages = {
     'home.svc.members': 'أعضاء الفريق وأدوارهم ودعواتهم.',
     'home.svc.apikeys': 'مفاتيح API للأتمتة والتكامل.',
     'home.svc.audit': 'سجل كل ما جرى في مؤسستك.',
+    'home.svc.domains': 'ابحث عن نطاقات وسجّلها وأدِر سجلات DNS الخاصة بها.',
     'home.noOrg.title': 'أنشئ أول مؤسسة لك',
     'home.noOrg.body': 'لست عضوًا في أي مؤسسة بعد. أنشئ مؤسسة للبدء.',
 
@@ -3050,6 +3051,7 @@ export const messages = {
     'home.svc.members': 'Team members, their roles and invitations.',
     'home.svc.apikeys': 'API keys for automation and integrations.',
     'home.svc.audit': 'A record of everything that happened in your organization.',
+    'home.svc.domains': 'Search and register domains and manage their DNS records.',
     'home.noOrg.title': 'Create your first organization',
     'home.noOrg.body': 'You are not a member of any organization yet. Create one to get started.',
 

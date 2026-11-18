@@ -43,6 +43,14 @@ export const SERVICES: Service[] = [
     flag: 'hosting.enabled',
   },
   {
+    id: 'domains',
+    href: '/domains',
+    perm: ['domain:read'],
+    label: 'nav.domains',
+    desc: 'home.svc.domains',
+    flag: 'domains.enabled',
+  },
+  {
     id: 'databases',
     href: '/databases',
     perm: ['data:db:read'],

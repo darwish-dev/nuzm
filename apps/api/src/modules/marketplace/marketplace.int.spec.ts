@@ -305,7 +305,9 @@ describe('purchase, entitlement, installation (FR-MKT-03..05)', () => {
     await sql(`UPDATE marketplace.listings SET price_minor = 99999 WHERE id = $1`, [l.id]);
     expect((await callAs('alice', A(), 'POST', '/v1/marketplace/purchases', { listingId: l.id, quoteId: q.id })).json().code).toBe('price_changed');
     await sql(`UPDATE marketplace.listings SET price_minor = 10000 WHERE id = $1`, [l.id]);
-    await sql(`UPDATE commerce.quotes SET expires_at = now() - interval '1 minute' WHERE id = $1`, [q.id]);
+    await sql(`ALTER TABLE commerce.quotes DISABLE TRIGGER ALL`);
+    await sql(`UPDATE commerce.quotes SET created_at = now() - interval '2 hours', expires_at = now() - interval '1 minute' WHERE id = $1`, [q.id]);
+    await sql(`ALTER TABLE commerce.quotes ENABLE TRIGGER ALL`);
     expect((await callAs('alice', A(), 'POST', '/v1/marketplace/purchases', { listingId: l.id, quoteId: q.id })).json().code).toBe('quote_expired');
     const sar = await publishListing({ price: { amount: '500', currency: 'USD' } });
     expect((await quote(A(), 'alice', sar.id)).statusCode).toBe(422);
@@ -361,8 +363,9 @@ describe('AC-M11-04: a purchased template installs only for the entitled organiz
     const add = (label: string, org: string, who: string, version: string, expectCodes: number[] = [403]) => attempts.push({ label, org, who, version, expect: expectCodes });
     // every listing against organizations that never bought anything (C and the publisher B itself)
     for (const l of [...listings, suspended]) {
-      add(`C never bought ${l.id}`, orgC, 'dave', versionOf(l));
-      add(`publisher installs own ${l.id}`, B(), 'bob', versionOf(l));
+      const hidden = l === suspended ? [403, 404, 409] : [403]; // a suspended listing is not even visible to other organizations
+      add(`C never bought ${l.id}`, orgC, 'dave', versionOf(l), hidden);
+      add(`publisher installs own ${l.id}`, B(), 'bob', versionOf(l), l === suspended ? [403, 404, 409] : [403]);
     }
     // buyer A against listings it did not (successfully) buy
     add('pending purchase', A(), 'alice', versionOf(pendingL));
@@ -376,7 +379,7 @@ describe('AC-M11-04: a purchased template installs only for the entitled organiz
     // roles without marketplace:install
     add('viewer in the buying org', A(), 'carol', versionOf(bought), [403]);
     // multiply by repetition from different roles/orgs to pass 50 fixtures with distinct requests
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 20; i++) {
       add(`C retries ${i}`, orgC, 'dave', versionOf(bought));
       add(`pending retry ${i}`, A(), 'alice', versionOf(pendingL));
     }

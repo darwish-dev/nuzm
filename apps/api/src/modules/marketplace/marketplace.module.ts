@@ -9,8 +9,8 @@ import { OrderService, QuotePricerRegistry, QuoteService } from '../commerce';
 import { ResidencyService } from '../compliance';
 import { IdentityModule } from '../identity';
 import { InvoiceService, TaxService } from '../invoicing';
-import { PaymentService } from '../payments';
-import { AdminMarketplaceController, MarketplaceController } from './marketplace.controllers';
+import { AdminMarketplaceController } from './admin-marketplace.controller';
+import { MarketplaceController } from './marketplace.controller';
 import { InstallService } from './internal/install.service';
 import { ListingService } from './internal/listing.service';
 import { ModerationService } from './internal/moderation.service';
@@ -61,8 +61,8 @@ export class MarketplaceJobs {
     { provide: ModerationService, useFactory: (db: Db, a: AuditSink) => new ModerationService(db, a), inject: [DB, AuditSink] },
     {
       provide: PurchaseService,
-      useFactory: (db: Db, a: AuditSink, q: QuoteService, o: OrderService, i: InvoiceService, p: PaymentService, l: LedgerPostingService, f: FlagReader, c: MarketplaceConfig) => new PurchaseService(db, a, q, o, i, p, l, f, c),
-      inject: [DB, AuditSink, QuoteService, OrderService, InvoiceService, PaymentService, LedgerPostingService, FlagReader, MARKETPLACE_CONFIG],
+      useFactory: (db: Db, a: AuditSink, q: QuoteService, o: OrderService, i: InvoiceService, l: LedgerPostingService, f: FlagReader, c: MarketplaceConfig) => new PurchaseService(db, a, q, o, i, l, f, c),
+      inject: [DB, AuditSink, QuoteService, OrderService, InvoiceService, LedgerPostingService, FlagReader, MARKETPLACE_CONFIG],
     },
     {
       provide: InstallService,

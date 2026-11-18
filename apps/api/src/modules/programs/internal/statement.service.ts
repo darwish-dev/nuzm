@@ -151,6 +151,19 @@ export class StatementService {
     return [head, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
   }
 
+  /**
+   * Issue a (retail) invoice for a sub-organization. BLOCKED: the gate answers 409 `issuer_model_blocked` for every model while D-24 is open, BEFORE anything is created. Kept as the single entry point so
+   * that a future approved model plugs in behind the gate and nothing else can create such an invoice.
+   */
+  async issueSubOrgInvoice(orgId: string, perms: ReadonlySet<string>, resellerId: string, subOrgId: string, period: string): Promise<never> {
+    if (!perms.has('reseller:finance') && !perms.has('*')) throw new ProblemException('forbidden', 'requires reseller:finance');
+    await this.resellers.ownOnly(orgId, resellerId);
+    if (!PERIOD.test(period)) throw badRequest('period must be YYYY-MM');
+    this.gate.assertEnabled();
+    // unreachable until D-24 is decided and a model is approved in code review: there is intentionally no invoice-creating code here
+    throw new ProblemException('issuer_model_blocked', `invoice issuing for ${subOrgId} is not implemented for the approved model yet`);
+  }
+
   /** Scenario pack for the tax advisor (HG-03-04), from a statement's figures. A dry run: no document is created. */
   scenarios(s: StatementDto, vatRateBps = 1500) {
     return scenarioPack({ wholesaleMinor: BigInt(s.totals.wholesaleMinor), retailMinor: BigInt(s.totals.retailMinor), vatRateBps, currency: s.currency });

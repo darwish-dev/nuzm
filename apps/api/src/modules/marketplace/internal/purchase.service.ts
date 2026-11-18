@@ -5,7 +5,6 @@ import { ProblemException } from '../../../common/errors';
 import { recipes, type LedgerPostingService } from '../../billing';
 import type { OrderService, QuoteService } from '../../commerce';
 import type { InvoiceService } from '../../invoicing';
-import type { PaymentService } from '../../payments';
 import { MARKETPLACE_FLAG, badRequest, isUuid, iso, pgCode, shareOf, type MarketplaceConfig, type Row } from './model';
 
 const NS = '8c1b7f0e-5d2a-5b69-9f43-3a6d0e5c2b11';
@@ -36,7 +35,6 @@ export class PurchaseService {
     private readonly quotes: Pick<QuoteService, 'internal'>,
     private readonly orders: Pick<OrderService, 'createFromQuote' | 'findByQuote'>,
     private readonly invoices: Pick<InvoiceService, 'issueOrderCharge' | 'get' | 'creditedMinor'>,
-    private readonly payments: Pick<PaymentService, 'create'>,
     private readonly ledger: Pick<LedgerPostingService, 'post'>,
     private readonly flags: { enabled(orgId: string | null, key: string): Promise<boolean> },
     private readonly cfg: MarketplaceConfig,
@@ -120,17 +118,8 @@ export class PurchaseService {
     await this.audit.record({ action: 'purchase.purchase.created', actorUserId: actor, orgId, resource: { type: 'purchase', id: purchaseId }, outcome: 'success', after: { listingId: lst.id, versionId: ver.id, invoiceId, amountMinor: net.toString(), currency: q.currency } });
     if (net === 0n) await this.settle(orgId, purchaseId, actor);
 
-    // 4. pay at once with the default method when there is one; otherwise the buyer pays the invoice (POST /v1/billing/payments)
-    if (invoiceId && net > 0n) {
-      try {
-        const r = await this.payments.create(orgId, actor, { invoiceId });
-        if (r.payment.status === 'failed' || r.payment.status === 'cancelled') throw new ProblemException('payment_required', `the payment was not accepted (${r.payment.failureCode ?? r.payment.status}); the invoice stays open`);
-      } catch (e) {
-        if (!(e instanceof ProblemException)) throw e;
-        if (e.code === 'payment_required') throw e;
-        if (e.code !== 'payment_method_required') throw e;
-      }
-    }
+    // 4. the buyer pays the INVOICE through M03 (POST /v1/billing/payments with the invoiceId and a return URL): payment needs the buyer's own payment method and, for redirect methods,
+    //    the buyer's return URL, so it is a separate, idempotent M03 call, not hidden inside this endpoint. The purchase follows the invoice (see `sync`).
     return this.finish(orgId, purchaseId, actor);
   }
 

@@ -105,8 +105,11 @@ BEGIN
   IF NEW.id <> OLD.id OR NEW.org_id <> OLD.org_id OR NEW.client_org_id <> OLD.client_org_id OR NEW.created_at <> OLD.created_at THEN
     RAISE EXCEPTION 'the parties of a link are immutable' USING ERRCODE = 'check_violation', HINT = 'immutable';
   END IF;
-  IF TG_TABLE_NAME = 'delegated_access' AND (NEW.scopes <> OLD.scopes OR NEW.expires_at <> OLD.expires_at OR NEW.agency_id <> OLD.agency_id) THEN
-    RAISE EXCEPTION 'scopes and expiry of a grant never change; issue a new grant' USING ERRCODE = 'check_violation', HINT = 'immutable';
+  IF TG_TABLE_NAME = 'delegated_access' THEN
+    -- (a nested IF: the statement naming NEW.scopes is only planned when this table is the one being updated)
+    IF NEW.scopes <> OLD.scopes OR NEW.expires_at <> OLD.expires_at OR NEW.agency_id <> OLD.agency_id THEN
+      RAISE EXCEPTION 'scopes and expiry of a grant never change; issue a new grant' USING ERRCODE = 'check_violation', HINT = 'immutable';
+    END IF;
   END IF;
   side := CASE WHEN ctx = OLD.client_org_id THEN 'client' WHEN ctx = OLD.org_id THEN 'agency' WHEN plat THEN 'platform' ELSE 'system' END;
   IF NEW.status <> OLD.status THEN

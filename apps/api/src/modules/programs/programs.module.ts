@@ -9,8 +9,9 @@ import { ResellerPriceRuleService } from '../billing';
 import { IdentityModule } from '../identity';
 import { InvoiceService, TaxService } from '../invoicing';
 import { RatingService } from '../metering';
-import { OrgService } from '../tenancy';
-import { AgenciesController, ResellersController } from './programs.controllers';
+import { OrgService, TenancyModule } from '../tenancy';
+import { AgenciesController } from './agencies.controller';
+import { ResellersController } from './resellers.controller';
 import { ActingOrgService } from './internal/acting.service';
 import { AgencyService } from './internal/agency.service';
 import { IssuerModelGate } from './internal/issuer';
@@ -20,7 +21,7 @@ import { StatementService } from './internal/statement.service';
 /** Programs (M11 S54): agencies (delegated access) and resellers (sub-organizations, price rules, statements). Everything default OFF (`agency.enabled`, `reseller.enabled`). */
 @Global()
 @Module({
-  imports: [IdentityModule, AutomationModule],
+  imports: [IdentityModule, AutomationModule, TenancyModule],
   controllers: [AgenciesController, ResellersController],
   providers: [
     { provide: IssuerModelGate, useFactory: () => new IssuerModelGate() },

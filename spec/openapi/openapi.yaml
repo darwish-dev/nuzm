@@ -12,6 +12,12 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: automation
+    description: Workflows, executions, connectors and outbound webhooks (M11)
+  - name: marketplace
+    description: Template marketplace - listings, moderation, purchases, installations (M11)
+  - name: programs
+    description: Agency (delegated access) and reseller (sub-organizations, price rules, statements) programs (M11)
   - name: hosting
     description: Shared hosting sites, nodes and abuse cases
   - name: email
@@ -7581,6 +7587,921 @@ paths:
         '422': { $ref: '#/components/responses/Problem' }
         '428': { $ref: '#/components/responses/Problem' }
   # <<< M07 paths
+  # >>> M11 paths (automation, marketplace, programs)
+  /v1/workflows:
+    post:
+      operationId: createWorkflow
+      tags: [automation]
+      summary: 'Create a workflow (version 1)'
+      description: 'Body {name, definition, triggers[]}. The definition is a JSON DAG (steps http_request, nuzm_api, send_email, start_ai_run, create_deployment, delay, condition, bounded loop, transform) validated against the schema, with every expression parsed by the restricted expression language (no eval, no code), literal credentials refused, and every connector reference checked to be authorized in the organization: 422 `validation_failed` with errors[] (schema, cycle, unauthorized connector). Triggers: schedule (cron + IANA zone), webhook (the secret URL and HMAC secret are returned ONCE), platform_event (allow-listed outbox topics) and manual. The workflow starts as `draft`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.'
+      x-nuzm-permission: automation:write
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Workflow' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listWorkflows
+      tags: [automation]
+      summary: 'List workflows'
+      description: 'Newest first; filter status. Requires permission `automation:read`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.'
+      x-nuzm-permission: automation:read
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/workflows/{id}:
+    get:
+      operationId: getWorkflow
+      tags: [automation]
+      summary: 'Get a workflow with its active definition and versions'
+      description: 'Returns the active version''s definition and the version list; ETag header. Another organization''s workflow answers 404.'
+      x-nuzm-permission: automation:read
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Workflow' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: patchWorkflow
+      tags: [automation]
+      summary: 'Rename, activate, pause or disable a workflow'
+      description: 'PATCH changes `name` and `status` only (the definition changes through versions). `If-Match` is required (412 `etag_mismatch`). Activating needs a published version; an administrator pause cannot be lifted by the organization (403); a disabled workflow stays disabled.'
+      x-nuzm-permission: automation:write
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Workflow' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/workflows/{id}/versions:
+    post:
+      operationId: createWorkflowVersion
+      tags: [automation]
+      summary: 'Publish an immutable workflow version'
+      description: 'Body {definition, notes?}. Versions are immutable (a database trigger refuses UPDATE and DELETE); an identical definition returns the current version with `unchanged: true`. The new version becomes the active one; running executions keep the version they started with. 422 for an invalid definition or an unauthorized connector.'
+      x-nuzm-permission: automation:write
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/workflows/{id}/executions:
+    post:
+      operationId: startWorkflowExecution
+      tags: [automation]
+      summary: 'Start an execution'
+      description: 'Body {versionId?, input, dedupeKey}. 202 with the execution and its durable operation (`operationId`). A repeated dedupeKey answers 200 with the ORIGINAL execution and `duplicate: true` (never a second run). 429 `rate_limited` when the plan quota or the per-minute start rate is exhausted; 409 `invalid_state` for a paused or disabled workflow. Idempotency-Key is required. Requires permission `automation:run`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.'
+      x-nuzm-permission: automation:run
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Execution' }
+        '200':
+          description: 'Duplicate dedupeKey: the original execution'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Execution' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listWorkflowExecutions
+      tags: [automation]
+      summary: 'List the executions of a workflow'
+      description: 'Newest first; filter status.'
+      x-nuzm-permission: automation:read
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/workflow-executions/{id}:
+    get:
+      operationId: getWorkflowExecution
+      tags: [automation]
+      summary: 'Get an execution with its steps, attempts, redacted logs and dead letters'
+      description: 'Steps carry per-attempt status, idempotency flag, input and output (secrets removed before storage), errors; `deadLetters` lists failed steps with their replay state. Another organization''s execution answers 404.'
+      x-nuzm-permission: automation:read
+      x-nuzm-org-scoped: true
+      x-nuzm-delegable: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/ActingOrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Execution' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/connectors:
+    post:
+      operationId: createConnector
+      tags: [automation]
+      summary: 'Create a connector'
+      description: 'Body {type: nuzm|http|oauth2|email, name, scopes[], rateLimit?: {perMinute, burst}, config}. Only first-party, generic HTTP, generic OAuth2 (authorization code + PKCE) and email connectors exist; named third-party connectors are out of scope. URLs in the config are checked by the SSRF policy (422 `ssrf_denied`); a body that carries a credential value is refused (422 `credential_value_rejected`). Requires permission `connector:manage`.'
+      x-nuzm-permission: connector:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Connector' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listConnectors
+      tags: [automation]
+      summary: 'List connectors'
+      description: 'Newest first, with the authorization state (never a vault reference). Requires permission `connector:manage`.'
+      x-nuzm-permission: connector:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/connectors/{id}/authorization:
+    post:
+      operationId: authorizeConnector
+      tags: [automation]
+      summary: 'Authorize a connector'
+      description: 'Body {kind: credential, vaultRef, scopes?, expiresAt?} stores a reference to a secret of THIS organization (vault://…/tenant-<orgId>-…; any other reference or a raw value is 422 `credential_value_rejected`); {kind: oauth2_start, redirectUri} returns the authorization URL with PKCE (S256) and state; {kind: oauth2_complete, state, code} exchanges the code at the tenant-supplied token endpoint through the SSRF-guarded client. Granted scopes can never exceed the connector''s declared scopes (403 `connector_not_authorized`).'
+      x-nuzm-permission: connector:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/webhook-endpoints:
+    post:
+      operationId: createWebhookEndpoint
+      tags: [automation]
+      summary: 'Create an outbound webhook endpoint (or rotate its secret)'
+      description: 'Body {url, events[], description?, secretRotation?: {overlapHours}}. The URL must be https and public (422 `ssrf_denied` for private, loopback, link-local, metadata and rebinding targets). The signing secret (`whsec_…`) is shown ONCE. Deliveries carry `X-Nuzm-Signature: t=<unix>,v1=<hmac>` = HMAC-SHA256(secret, `<t>.<body>`) (receivers must reject timestamps older than 5 minutes and dedupe on `X-Nuzm-Event-Id`); failed deliveries retry on an exponential schedule for up to 24 hours, then are dead-lettered. Sending `secretRotation` for an existing URL rotates the secret: both secrets sign during the overlap. The delivery log read and the replay route are SCR-M11-02 (not exposed).'
+      x-nuzm-permission: webhook:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11WebhookEndpoint' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listWebhookEndpoints
+      tags: [automation]
+      summary: 'List outbound webhook endpoints'
+      description: 'Newest first; secrets are never returned.'
+      x-nuzm-permission: webhook:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/webhooks/workflows/{token}:
+    post:
+      operationId: receiveWorkflowWebhook
+      tags: [automation]
+      summary: 'Inbound workflow trigger'
+      description: 'Unauthenticated by design: the secret URL token, `X-Nuzm-Signature` (HMAC-SHA256 over `<t>.<raw body>` with the per-workflow secret, 5 minute timestamp window) and the mandatory `X-Nuzm-Event-Id` (dedupe) are the authentication. 202 with the execution; a repeated event id answers 200 with the original; 401 `invalid_signature`; 404 for an unknown token (no oracle). Convention: docs/04 §1 inbound webhooks.'
+      x-nuzm-access: public
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: X-Nuzm-Signature, in: header, required: true, schema: { type: string } }
+        - { name: X-Nuzm-Event-Id, in: header, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '200':
+          description: 'Duplicate event id: the original execution'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/marketplace/listings:
+    post:
+      operationId: createMarketplaceListing
+      tags: [marketplace]
+      summary: 'Create a listing (and its first version)'
+      description: 'Body {type: website-template|app-template|workflow-template, title: {ar, en}, description?: {ar, en}, price: {amount, currency}, licence: single_org|multi_seat, seats?, artifactRef?, sbomRef?, version?}. The organization must be a VERIFIED publisher (403 `publisher_not_verified`; an unverified account is registered for the ops verification step). A submitted version is hashed, scanned (secrets, malware signatures, dependencies, personal data, licence, SBOM, workflow schema) and enters moderation as `pending`: it is neither listed nor purchasable until a person approves it. The artifact reference must lie inside the publisher''s own namespace. Requires permission `marketplace:publish`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.'
+      x-nuzm-permission: marketplace:publish
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Listing' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listMarketplaceListings
+      tags: [marketplace]
+      summary: 'Browse listings (or the publisher''s own)'
+      description: 'Default: published listings with APPROVED versions only (artifact references and scan findings are never shown). `mine=true`: the publisher''s own listings in every state with all versions, scan findings and the revenue accrual summary (accrued, not paid out). `filter[id]` returns one listing (the detail view) with a provisional VAT estimate. Filters: type, q. Requires permission `marketplace:read`. The dedicated detail GET is SCR-M11-03 (not exposed).'
+      x-nuzm-permission: marketplace:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: mine, in: query, required: false, schema: { type: boolean } }
+        - { name: type, in: query, required: false, schema: { type: string } }
+        - { name: q, in: query, required: false, schema: { type: string } }
+        - { name: 'filter[id]', in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/marketplace/listings/{id}/versions:
+    post:
+      operationId: createMarketplaceListingVersion
+      tags: [marketplace]
+      summary: 'Submit a new listing version'
+      description: 'Body {version (semver), artifactRef, sbomRef?, changelog?}. Immutable once stored; hashed and scanned at submission; enters moderation as `pending`. 409 for a duplicate version string.'
+      x-nuzm-permission: marketplace:publish
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/marketplace/purchases:
+    post:
+      operationId: purchaseMarketplaceListing
+      tags: [marketplace]
+      summary: 'Purchase a listing from a quote'
+      description: 'Body {listingId, versionId?, quoteId} where the quote has kind `marketplace` (POST /v1/quotes). The quote becomes an order (spend limits and quotas apply) and an invoice through M03; the buyer pays the invoice with POST /v1/billing/payments (or at once with the default payment method). The entitlement is `pending` until the invoice is PAID, then `active`, and the publisher''s share is ACCRUED on the ledger (account 2600; never paid out: D-26 open). 202 while payment is pending, 200 when paid. 409 `already_entitled`, 409 `not_purchasable`, 409 `price_changed`, 409 `quote_expired`, 409 `quote_conflict`, 402 `payment_required` when the immediate payment is declined (the invoice stays open), 403 `residency_denied`. A repeated request (same quote) returns the same purchase: exactly one order, invoice, entitlement and accrual. Requires permission `marketplace:buy`.'
+      x-nuzm-permission: marketplace:buy
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Purchase' }
+        '200':
+          description: 'Paid'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Purchase' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/marketplace/purchases/{id}:
+    get:
+      operationId: getMarketplacePurchase
+      tags: [marketplace]
+      summary: 'Get a purchase'
+      description: 'Brings the purchase up to date with its invoice first (payment webhooks update the invoice; a refund shows as a credit note and revokes the entitlement). Another organization''s purchase answers 404.'
+      x-nuzm-permission: marketplace:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Purchase' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/marketplace/installations:
+    post:
+      operationId: installMarketplaceListing
+      tags: [marketplace]
+      summary: 'Install a purchased listing'
+      description: 'Body {listingVersionId, workspaceId?}. Requires an ACTIVE entitlement of the SAME organization whose version range covers the version (403 `not_entitled` otherwise, whatever the listing or version); the install is a COPY owned by the buyer (a new workflow or builder project with a new id). Website and app templates need the builder (M09/M10) and a workspace: 422 `unsupported_capability` where it is not wired. 403 `residency_denied`; 409 when already installed. Requires permission `marketplace:install`.'
+      x-nuzm-permission: marketplace:install
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Installation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listMarketplaceInstallations
+      tags: [marketplace]
+      summary: 'List installations'
+      description: 'The organization''s own installations, newest first.'
+      x-nuzm-permission: marketplace:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/marketplace/listings/{id}/moderation:
+    post:
+      operationId: moderateMarketplaceListing
+      tags: [marketplace]
+      summary: 'Decide a listing version (admin)'
+      description: 'Body {decision: approve|reject|suspend, reasonCode, notes?, versionId?}. `approve` makes a PENDING version purchasable and publishes the listing (a version flagged by the scans needs reasonCode `scan_override`); `reject` refuses a pending version; `suspend` takes an approved version down and suspends the listing. 409 stale when the version is no longer in the state the decision needs or `If-Match` (the case version) differs. Needs a recent MFA verification. Platform permission `admin:marketplace`. The moderation queue read is SCR-M11-05 (not exposed).'
+      x-nuzm-platform-permission: admin:marketplace
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/agencies:
+    post:
+      operationId: createAgency
+      tags: [programs]
+      summary: 'Create the agency profile of the current organization'
+      description: 'The organization must be of type `agency`. One profile per organization (409). Requires permission `agency:manage`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.'
+      x-nuzm-permission: agency:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listAgencies
+      tags: [programs]
+      summary: 'Get the agency profile of the organization and the agencies linked to it'
+      description: 'For an agency organization: its own profile (`role: agency`). For any other organization: the agencies that hold a link to it (`role: client`).'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/agencies/{id}/clients:
+    post:
+      operationId: postAgencyClient
+      tags: [programs]
+      summary: 'Invite a client (agency) or answer an invitation (client)'
+      description: 'Agency side (the agency''s own organization, `agency:manage`): body {clientOrgId} creates a link in `pending_acceptance` (status `pending`). Client side (a linked organization, `partners:manage`): body {linkId, decision: accept|decline}; ONLY the client can accept, and an unknown client id stays pending (no existence oracle). 409 for a duplicate live link. The caller''s organization decides the side; a stranger gets 404. Revocation is SCR-M11-01 (not exposed).'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listAgencyClients
+      tags: [programs]
+      summary: 'List client links'
+      description: 'The agency sees all its links; a client sees its own.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/agencies/{id}/delegated-access:
+    post:
+      operationId: postAgencyDelegatedAccess
+      tags: [programs]
+      summary: 'Propose a delegated-access grant (agency) or answer it (client)'
+      description: 'Agency side (`agency:manage`): body {clientOrgId, scopes[], expiresAt} needs an ACTIVE link; scopes come from the delegable catalogue (never billing, members, keys, privacy, audit, partner programs, deletion); `expiresAt` is MANDATORY and at most 365 days away (422 when missing or too far). Client side (`partners:manage`): {grantId, decision: accept|decline}; an accepted grant never exceeds the scopes the accepting administrator holds. Scopes and expiry never change after creation. Acting with a grant: `X-Nuzm-Acting-Org` on delegable routes; effective permissions = intersection(agency member role, grant scopes); every request is re-validated (no cache). Revocation is SCR-M11-01 (not exposed).'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listAgencyDelegatedAccess
+      tags: [programs]
+      summary: 'List delegated-access grants'
+      description: 'The agency sees all its grants; a client sees the grants made to it. A grant past its expiry shows as `expired`.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/resellers:
+    post:
+      operationId: createReseller
+      tags: [programs]
+      summary: 'Create the reseller profile of the current organization'
+      description: 'The organization must be of type `reseller`. Requires permission `reseller:manage`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.'
+      x-nuzm-permission: reseller:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listResellers
+      tags: [programs]
+      summary: 'Get the reseller profile (or the reseller of a linked sub-organization)'
+      description: 'For a reseller organization: its own profile (`role: reseller`); for a linked sub-organization: the reseller it belongs to (`role: sub_organization`), read only.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/resellers/{id}/sub-organizations:
+    post:
+      operationId: postResellerSubOrganization
+      tags: [programs]
+      summary: 'Link a sub-organization (reseller) or answer the link (sub-organization)'
+      description: 'Reseller side (`reseller:manage`): body {subOrgId, priceBookRef?} links an EXISTING organization (pending); the sub-organization''s administrator answers {linkId, decision: accept|decline}. Creating a brand-new sub-organization is NOT available (422 `unsupported_capability`): who owns it afterwards is an open product/legal decision. An organization belongs to one reseller at a time (409). A reseller sees aggregates and metadata only, never sub-organization content.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listResellerSubOrganizations
+      tags: [programs]
+      summary: 'List sub-organization links'
+      description: 'The reseller sees its links (with the organization name for active ones); a sub-organization sees its own link.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Page' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/resellers/{id}/price-rules:
+    get:
+      operationId: getResellerPriceRules
+      tags: [programs]
+      summary: 'Get the current price rule set and its history'
+      description: 'The rule set is versioned and append-only; the ETag is the current version (0 when none). Reseller only (a sub-organization gets 404). Requires permission `reseller:pricing`.'
+      x-nuzm-permission: reseller:pricing
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putResellerPriceRules
+      tags: [programs]
+      summary: 'Replace the price rule set with a new version'
+      description: 'Body {rules: [{scope: plan|meter, scopeKey, markup: {type: percent, bps} | {type: fixed, amountMinor, currency}, effectiveFrom}]}. `If-Match` = the current version (412 `etag_mismatch`, 428 when missing). effectiveFrom must be at least one day away (422); a negative markup would sell below the wholesale cost: 422 `below_cost`. Money is integer minor units. Requires permission `reseller:pricing`.'
+      x-nuzm-permission: reseller:pricing
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/M11Object' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/resellers/{id}/statements:
+    get:
+      operationId: getResellerStatement
+      tags: [programs]
+      summary: 'Get a reseller statement for a period (JSON or CSV)'
+      description: '?period=YYYY-MM (default: the previous month), ?format=csv. Per sub-organization and meter: wholesale cost (the platform''s own rating), retail (the price rule in force at the end of the period), margin, a provisional VAT estimate, and the ledger figure for the same organizations (variance). A closed period is stored once and never changes. The statement carries the invoice-issuer model: `disabled` / BLOCKED while D-24 is open (no retail invoice exists). Requires permission `reseller:finance`.'
+      x-nuzm-permission: reseller:finance
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: period, in: query, required: false, schema: { type: string } }
+        - { name: format, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            text/csv:
+              schema: { type: string }
+            application/json:
+              schema: { $ref: '#/components/schemas/M11Object' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  # <<< M11 paths
 components:
   parameters:
     OrgHeader:
@@ -7613,6 +8534,14 @@ components:
       required: false
       schema: { type: string }
       description: Opaque cursor from nextCursor.
+    # >>> M11 parameters
+    ActingOrgHeader:
+      name: X-Nuzm-Acting-Org
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+      description: A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403.
+    # <<< M11 parameters
   securitySchemes:
     sourceKey:
       type: http
@@ -13026,3 +13955,93 @@ components:
         results: { type: array, items: { type: object, additionalProperties: true } }
         version: { type: integer }
     # <<< M07 schemas
+    # >>> M11 schemas
+    M11Object:
+      type: object
+      additionalProperties: true
+      description: 'A JSON object; the fields are described in the operation.'
+    M11Page:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        nextCursor: { type: [string, 'null'] }
+    M11Workflow:
+      type: object
+      required: [id, name, status, triggers, etag]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [draft, active, paused, disabled] }
+        activeVersionId: { type: [string, 'null'] }
+        activeVersion: { type: [integer, 'null'] }
+        triggers: { type: array, items: { type: object, additionalProperties: true } }
+        definition: { type: object, additionalProperties: true }
+        versions: { type: array, items: { type: object, additionalProperties: true } }
+        webhook: { type: object, additionalProperties: true, description: 'Shown once at creation: {path, secret}.' }
+        nextRunAt: { type: [string, 'null'] }
+        lastRunAt: { type: [string, 'null'] }
+        pausedReason: { type: [string, 'null'] }
+        pausedByAdmin: { type: boolean }
+        etag: { type: integer }
+        createdAt: { type: string }
+    M11Execution:
+      type: object
+      required: [id, workflowId, status]
+      properties:
+        id: { type: string, format: uuid }
+        workflowId: { type: string, format: uuid }
+        versionId: { type: string, format: uuid }
+        trigger: { type: string, enum: [manual, schedule, webhook, platform_event, replay] }
+        status: { type: string, enum: [queued, running, waiting, succeeded, failed, cancelled] }
+        operationId: { type: [string, 'null'] }
+        duplicate: { type: boolean }
+        steps: { type: array, items: { type: object, additionalProperties: true } }
+        deadLetters: { type: array, items: { type: object, additionalProperties: true } }
+    M11Connector:
+      type: object
+      required: [id, type, name, status]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [nuzm, http, oauth2, email] }
+        name: { type: string }
+        scopes: { type: array, items: { type: string } }
+        status: { type: string, enum: [pending, active, revoked, disabled] }
+        authorization: { type: object, additionalProperties: true }
+    M11WebhookEndpoint:
+      type: object
+      required: [id, url, events, status]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string }
+        events: { type: array, items: { type: string } }
+        status: { type: string, enum: [active, paused, disabled] }
+        secret: { type: string, description: 'Shown once at creation or rotation.' }
+        rotated: { type: boolean }
+    M11Listing:
+      type: object
+      required: [id, type, status, price]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [website-template, app-template, workflow-template] }
+        status: { type: string, enum: [draft, published, suspended, archived] }
+        price: { type: object, additionalProperties: true }
+        versions: { type: array, items: { type: object, additionalProperties: true } }
+    M11Purchase:
+      type: object
+      required: [purchaseId, status, entitlementStatus]
+      properties:
+        purchaseId: { type: string, format: uuid }
+        invoiceId: { type: [string, 'null'] }
+        entitlementId: { type: string, format: uuid }
+        status: { type: string, enum: [pending_payment, paid, failed, refunded] }
+        entitlementStatus: { type: string, enum: [pending, active, revoked] }
+    M11Installation:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        targetType: { type: string, enum: [workflow, project] }
+        targetId: { type: [string, 'null'] }
+        status: { type: string, enum: [pending, succeeded, failed] }
+    # <<< M11 schemas

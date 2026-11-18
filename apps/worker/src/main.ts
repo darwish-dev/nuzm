@@ -8,6 +8,7 @@ import {
 } from '@nuzm/platform';
 import { initTelemetry, withSpan } from '@nuzm/telemetry';
 import { makeAuditJob } from './audit-job';
+import { automationConsumer, AUTOMATION_TOPICS } from './automation-consumers';
 import { walletProjector } from './billing-consumers';
 import { makePartitionJob, usageIngestor } from './metering-consumers';
 import { runLoop } from './loop';
@@ -40,6 +41,10 @@ subscribers.set(
   'usage.recorded',
   usageIngestor(db, (m, x) => console.log(JSON.stringify({ worker: m, ...x }))),
 ); // metering ingest (M02)
+// M11 (appended): platform-event workflow triggers and outbound webhook deliveries
+const automation = automationConsumer(db, (m, x) => console.log(JSON.stringify({ worker: m, ...x })));
+for (const t of AUTOMATION_TOPICS)
+  if (!subscribers.has(t)) subscribers.set(t, (payload, meta) => automation(t, payload, meta).then(() => undefined));
 void operations; // handlers arrive with the first operation kinds (M05+)
 
 const log = (m: string, extra: Record<string, unknown> = {}) =>

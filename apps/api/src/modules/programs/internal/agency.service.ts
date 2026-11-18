@@ -128,14 +128,12 @@ export class AgencyService {
     for (const k of Object.keys(body)) if (!['linkId', 'decision'].includes(k)) throw badRequest(`unknown field ${k}`);
     if (!isUuid(body.linkId) || !['accept', 'decline'].includes(body.decision as string)) throw badRequest('linkId and decision (accept|decline) are required');
     const accept = body.decision === 'accept';
+    const linkId = (body.linkId as string).toLowerCase();
     const r = (await this.db.withOrg(orgId, async (c) =>
       (
-        await c.query(
-          accept
-            ? `UPDATE programs.agency_clients SET status = 'active', accepted_by = $3, accepted_at = now() WHERE id = $1 AND agency_id = $2 AND client_org_id = $4 AND status = 'pending' RETURNING *`
-            : `UPDATE programs.agency_clients SET status = 'declined' WHERE id = $1 AND agency_id = $2 AND client_org_id = $4 AND status = 'pending' RETURNING *`,
-          [(body.linkId as string).toLowerCase(), agency.id, actor, orgId],
-        )
+        accept
+          ? await c.query(`UPDATE programs.agency_clients SET status = 'active', accepted_by = $3, accepted_at = now() WHERE id = $1 AND agency_id = $2 AND client_org_id = $4 AND status = 'pending' RETURNING *`, [linkId, agency.id, actor, orgId])
+          : await c.query(`UPDATE programs.agency_clients SET status = 'declined' WHERE id = $1 AND agency_id = $2 AND client_org_id = $3 AND status = 'pending' RETURNING *`, [linkId, agency.id, orgId])
       ).rows[0],
     )) as Row | undefined;
     if (!r) throw new ProblemException('conflict', 'no pending link with this id');
@@ -187,12 +185,9 @@ export class AgencyService {
     const accept = body.decision === 'accept';
     const r = (await this.db.withOrg(orgId, async (c) =>
       (
-        await c.query(
-          accept
-            ? `UPDATE programs.delegated_access SET status = 'active', granted_by = $2, granted_at = now() WHERE id = $1 AND status = 'pending' RETURNING *`
-            : `UPDATE programs.delegated_access SET status = 'declined' WHERE id = $1 AND status = 'pending' RETURNING *`,
-          [g.id, actor],
-        )
+        accept
+          ? await c.query(`UPDATE programs.delegated_access SET status = 'active', granted_by = $2, granted_at = now() WHERE id = $1 AND status = 'pending' RETURNING *`, [g.id, actor])
+          : await c.query(`UPDATE programs.delegated_access SET status = 'declined' WHERE id = $1 AND status = 'pending' RETURNING *`, [g.id])
       ).rows[0],
     )) as Row | undefined;
     if (!r) throw new ProblemException('conflict', 'the grant changed');

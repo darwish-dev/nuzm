@@ -120,14 +120,12 @@ export class ResellerService {
     for (const k of Object.keys(body)) if (!['linkId', 'decision'].includes(k)) throw badRequest(`unknown field ${k}`);
     if (!isUuid(body.linkId) || !['accept', 'decline'].includes(body.decision as string)) throw badRequest('linkId and decision (accept|decline) are required');
     const accept = body.decision === 'accept';
+    const linkId = (body.linkId as string).toLowerCase();
     const r = (await this.db.withOrg(orgId, async (c) =>
       (
-        await c.query(
-          accept
-            ? `UPDATE programs.reseller_sub_orgs SET status = 'active', accepted_by = $2, accepted_at = now() WHERE id = $1 AND sub_org_id = $3 AND status = 'pending' RETURNING *`
-            : `UPDATE programs.reseller_sub_orgs SET status = 'declined' WHERE id = $1 AND sub_org_id = $3 AND status = 'pending' RETURNING *`,
-          [(body.linkId as string).toLowerCase(), actor, orgId],
-        )
+        accept
+          ? await c.query(`UPDATE programs.reseller_sub_orgs SET status = 'active', accepted_by = $2, accepted_at = now() WHERE id = $1 AND sub_org_id = $3 AND status = 'pending' RETURNING *`, [linkId, actor, orgId])
+          : await c.query(`UPDATE programs.reseller_sub_orgs SET status = 'declined' WHERE id = $1 AND sub_org_id = $2 AND status = 'pending' RETURNING *`, [linkId, orgId])
       ).rows[0],
     )) as Row | undefined;
     if (!r) throw new ProblemException('conflict', 'no pending link with this id');

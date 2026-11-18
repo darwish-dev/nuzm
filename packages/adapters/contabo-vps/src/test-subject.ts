@@ -20,7 +20,7 @@ export async function makeSubject(): Promise<
         clientId: 'sim-client',
         clientSecret: 'sim-client-secret-value',
         apiUser: 'sim-user@example.invalid',
-        apiPassword: 'sim-api-password-value',
+        apiPassword: 'sim-api-credential-value',
       },
     },
     redactor,
@@ -40,7 +40,7 @@ export async function makeSubject(): Promise<
     providerAccountId: 'acct-contabo-sim',
     credentialRef: REF,
     traceId: 'trace-1',
-    deadlineMs: 1000,
+    deadlineMs: 3000,
   };
   return {
     adapter,

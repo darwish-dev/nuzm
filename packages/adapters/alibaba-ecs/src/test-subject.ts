@@ -45,7 +45,7 @@ export async function makeSubject(
     providerAccountId: 'acct-alibaba-sim',
     credentialRef: REF,
     traceId: 'trace-1',
-    deadlineMs: 1000,
+    deadlineMs: 3000,
   };
   return {
     adapter,

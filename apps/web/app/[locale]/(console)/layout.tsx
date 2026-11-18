@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { isLocale, locales, t, formatDateTime } from '@nuzm/i18n';
 import { Banner, Ltr, LocaleSwitch, NavList, Shell } from '@nuzm/ui';
 import { ActiveOrgCookie, OrgSwitcher, SignOut } from '../../../components/ConsoleChrome';
+import { CLOUD_FLAG, flagOn } from '../../../lib/compute';
 import { requireSession } from '../../../lib/server';
 
 export default async function ConsoleLayout({
@@ -36,6 +37,13 @@ export default async function ConsoleLayout({
         ]
       : []),
     ...gated('privacy:dsr:self', '/privacy/requests', 'nav.privacy'),
+    // M05: compute entries only while `cloud.provisioning` is on for the organization AND the member holds the permission
+    ...(flagOn(s.me.featureFlags, CLOUD_FLAG)
+      ? [
+          ...gated('offers:read', '/compute/offers', 'm05.web.nav.offers'),
+          ...gated('compute:instance:read', '/compute/instances', 'm05.web.nav.instances'),
+        ]
+      : []),
     ...gated('audit:read', '/audit-logs', 'nav.audit'),
     ...gated('member:read', '/settings/members', 'nav.members'),
     ...gated('member:invite', '/settings/invitations', 'nav.invitations'),
@@ -55,6 +63,7 @@ export default async function ConsoleLayout({
     // the Billing entry stays current on every billing sub-page
     current:
       path === i.href ||
+      (i.href.includes('/compute/') ? path.startsWith(`${i.href}/`) : false) ||
       (i.href.endsWith('/billing') ? path.startsWith(`${i.href}/`) : false) ||
       (i.href.endsWith('/privacy/requests')
         ? path.includes('/privacy/') || path.endsWith('/settings/data-residency')

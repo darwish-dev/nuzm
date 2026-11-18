@@ -4838,10 +4838,34 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: providerAccountId, in: query, required: false, schema: { type: string, format: uuid }, description: 'Filter by provider account.' }
-        - { name: period, in: query, required: false, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }, description: 'Billing month YYYY-MM.' }
-        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200 }, description: 'Page size (default 50).' }
-        - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from nextCursor.' }
+        - {
+            name: providerAccountId,
+            in: query,
+            required: false,
+            schema: { type: string, format: uuid },
+            description: 'Filter by provider account.',
+          }
+        - {
+            name: period,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' },
+            description: 'Billing month YYYY-MM.',
+          }
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 200 },
+            description: 'Page size (default 50).',
+          }
+        - {
+            name: cursor,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Opaque cursor from nextCursor.',
+          }
       responses:
         '200':
           description: Success
@@ -8229,7 +8253,20 @@ components:
         nextCursor: { type: string, nullable: true }
     ProviderCostRecord:
       type: object
-      required: [id, providerAccountId, periodStart, periodEnd, meterOrSku, quantity, costMinor, currency, source, providerLineRef, capturedAt]
+      required:
+        [
+          id,
+          providerAccountId,
+          periodStart,
+          periodEnd,
+          meterOrSku,
+          quantity,
+          costMinor,
+          currency,
+          source,
+          providerLineRef,
+          capturedAt,
+        ]
       properties:
         id: { type: string, format: uuid }
         providerAccountId: { type: string }
@@ -8265,7 +8302,8 @@ components:
       type: object
       required: [jobId, provider, gate, gateStatus, label, lastRunAt]
       properties:
-        jobId: { type: string, enum: [live-verify-alibaba, live-verify-huawei, live-verify-contabo] }
+        jobId:
+          { type: string, enum: [live-verify-alibaba, live-verify-huawei, live-verify-contabo] }
         provider: { type: string }
         gate: { type: string, enum: [HG-05-01, HG-05-02, HG-05-03] }
         gateStatus: { type: string, enum: [PENDING, GRANTED] }
@@ -8296,7 +8334,8 @@ components:
       type: object
       required: [jobId, status, reason]
       properties:
-        jobId: { type: string, enum: [live-verify-alibaba, live-verify-huawei, live-verify-contabo] }
+        jobId:
+          { type: string, enum: [live-verify-alibaba, live-verify-huawei, live-verify-contabo] }
         status: { type: string, enum: [NOT RUN, NOT VERIFIED, LIVE-VERIFIED, FAIL] }
         reason: { type: string, maxLength: 1000 }
         steps: { type: array, items: { type: object, additionalProperties: true } }

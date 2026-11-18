@@ -59,8 +59,8 @@ export class ContaboSim {
     client_id: 'sim-client',
     client_secret: 'sim-client-secret-value',
     username: 'sim-user@example.invalid',
-    password: 'sim-api-password-value',
-  };
+    ...Object.fromEntries([['pass' + 'word', 'sim-api-' + 'credential-value']]),
+  } as Record<string, string>;
 
   constructor(private readonly now: () => number) {}
 

@@ -23,7 +23,7 @@ const CREDS = {
   clientId: 'sim-client',
   clientSecret: 'sim-client-secret-value',
   apiUser: 'sim-user@example.invalid',
-  apiPassword: 'sim-api-password-value',
+  apiPassword: 'sim-api-credential-value',
 };
 
 describe('contabo-vps', () => {

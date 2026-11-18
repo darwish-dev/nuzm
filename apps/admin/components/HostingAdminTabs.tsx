@@ -10,7 +10,7 @@ export function HostingAdminTabs({ locale, current }: { locale: Locale; current:
     { key: 'agents', href: `${base}/agents` },
   ] as const;
   return (
-    <nav aria-label={t(locale, 'nav.admin.hosting')} className="nz-row">
+    <nav aria-label={t(locale, 'nav.admin.hosting')} className="nz-row nz-subnav">
       {tabs.map((x) => (
         <a
           key={x.key}

@@ -6,7 +6,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const root = join(import.meta.dirname, '..');
-const skipDirs = new Set(['node_modules', '.git', '.next', 'dist', 'coverage', '.turbo']);
+// `.claude` holds other sessions' separate checkouts (worktrees); each checkout is scanned from its own root
+const skipDirs = new Set([
+  'node_modules',
+  '.git',
+  '.next',
+  'dist',
+  'coverage',
+  '.turbo',
+  '.claude',
+]);
 const skipFiles = new Set(['pnpm-lock.yaml']);
 const textExt = /\.(ts|tsx|js|mjs|cjs|json|ya?ml|md|env|example|sh|css|html|sql|txt|toml)$/i;
 

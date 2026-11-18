@@ -111,7 +111,7 @@ export interface paths {
         put?: never;
         /**
          * Sign in with email and password
-         * @description Web realm only. An unknown email, a wrong password, a locked account, a disabled user and a platform (staff) user all answer the same 401 `invalid_credentials` (no account enumeration; an unknown email costs the same time). After 5 consecutive failures the account is locked for 15 minutes (proposal). Success mints a new session (a presented session cookie is revoked first) and sets the session and CSRF cookies. Audited (auth.login.succeeded, auth.login.failed).
+         * @description `realm: web` (default) is the customer sign-in; `realm: admin` is the staff sign-in (platform users only). An unknown email, a wrong password, a locked account, a disabled user and an account of the other kind (a customer at the admin sign-in, a staff user at the customer one) all answer the same 401 `invalid_credentials` (no account enumeration; an unknown email costs the same time). After 5 consecutive failures the account is locked for 15 minutes (proposal). Success mints a new session of that realm (a presented session cookie of the same realm is revoked first) and sets its session and CSRF cookies. An admin session is NOT yet usable: the admin console requires two-factor verification (403 `mfa_required` until it is done). Audited (auth.login.succeeded, auth.login.failed).
          */
         post: operations["passwordLogin"];
         delete?: never;
@@ -171,7 +171,7 @@ export interface paths {
         put?: never;
         /**
          * Change the signed-in user's password
-         * @description Needs the current password (a wrong one counts toward the lockout) and a CSRF header. Refused while impersonating. Revokes every OTHER session of the user. Audited (auth.password.changed).
+         * @description Needs the current password (a wrong one counts toward the lockout) and a CSRF header; works for a customer or a staff session. Refused while impersonating. Revokes every OTHER session of the user. Audited (auth.password.changed).
          */
         post: operations["changePassword"];
         delete?: never;
@@ -6606,6 +6606,11 @@ export interface components {
         PasswordLoginRequest: {
             email: string;
             password: string;
+            /**
+             * @default web
+             * @enum {string}
+             */
+            realm?: "web" | "admin";
         };
         ForgotPasswordRequest: {
             email: string;

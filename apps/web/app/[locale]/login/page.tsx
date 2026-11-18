@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
+import { AuthLogo } from '../../../components/BrandLogo';
 import { ButtonLink, Card, LocaleSwitch, PageTitle } from '@nuzm/ui';
 import { LoginForm } from '../../../components/AuthForms';
 import { safeNext } from '../../../lib/auth';
@@ -19,6 +20,7 @@ export default async function Login({
   const returnTo = encodeURIComponent(next);
   return (
     <main className="nz-main" style={{ maxInlineSize: 480, marginInline: 'auto' }}>
+      <AuthLogo href={`/${locale}`} />
       <PageTitle>{t(locale, 'login.title')}</PageTitle>
       <Card>
         <p>{t(locale, 'login.body')}</p>

@@ -32,8 +32,20 @@ export function cssVariables(): string {
 
 export { baseCss } from './styles';
 export * from './components';
+export { consoleCss } from './console-css';
+export { Icon, ICON_NAMES, type IconName } from './icons';
+export {
+  PrimaryRail,
+  ContextSidebar,
+  StatTile,
+  type RailItem,
+  type SideItem,
+  type SideGroup,
+} from './console-nav';
 export {
   LocaleSwitch,
+  ConsoleFrame,
+  ProfileMenu,
   MfaChallenge,
   MfaEnrol,
   useStepUp,
@@ -41,3 +53,16 @@ export {
   type MfaChallengeProps,
   type MfaEnrolProps,
 } from './client';
+export {
+  buildNavFrom,
+  currentCategoryOf,
+  currentItemId,
+  stripLocale,
+  type NavCategory,
+  type NavGroup,
+  type NavItem,
+  type NavContext,
+  type ResolvedCategory,
+  type ResolvedGroup,
+  type ResolvedItem,
+} from './nav-model';

@@ -144,7 +144,7 @@ export function SectionTabs({
 }) {
   void locale;
   return (
-    <nav aria-label={label} className="nz-row">
+    <nav aria-label={label} className="nz-row nzc-subtabs">
       {tabs.map((x) => (
         <a
           key={x.key}

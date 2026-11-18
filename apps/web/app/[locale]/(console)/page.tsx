@@ -1,108 +1,194 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
-import { formatDateTime, isLocale, t } from '@nuzm/i18n';
-import { ButtonLink, Card, EmptyState, Ltr, PageTitle, Table } from '@nuzm/ui';
+import { formatDateTime, formatMinor, isLocale, t } from '@nuzm/i18n';
+import { Badge, Bars, Icon, Ltr, StatTile } from '@nuzm/ui';
+import { OP_TERMINAL } from '../../../lib/compute';
 import { requireSession } from '../../../lib/server';
 import { flagEnabled, visibleServices } from '../../../lib/services';
-import { view } from '../../../lib/view';
+
+/** A figure this role may not see, or that fails to load, is simply left out of the dashboard: nothing here is ever invented. */
+const safe = async <T,>(p: Promise<T>): Promise<T | null> => {
+  try {
+    return await p;
+  } catch {
+    return null;
+  }
+};
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const s = await requireSession(locale);
   const name = s.me.displayName ?? s.me.email;
-  if (!s.org)
-    return (
-      <>
-        <PageTitle>{t(locale, 'home.title', { name })}</PageTitle>
-        <EmptyState
-          title={t(locale, 'home.noOrg.title')}
-          body={t(locale, 'home.noOrg.body')}
-          action={
-            <ButtonLink href={`/${locale}/orgs/new`}>{t(locale, 'action.create')}</ButtonLink>
-          }
-        />
-      </>
-    );
-  const unread = await view(
-    locale,
-    async () =>
-      (await unwrap(s.api.GET('/v1/notifications', { params: { query: { limit: 1 } } })))
-        .unreadCount,
-    (n) => (
-      <p>
-        <a href={`/${locale}/notifications`}>{t(locale, 'home.unread', { n })}</a>
-      </p>
-    ),
-  );
-  const recent = s.can('audit:read')
-    ? await view(
-        locale,
-        async () =>
-          (await unwrap(s.api.GET('/v1/audit-logs', { params: { query: { limit: 5 } } }))).items,
-        (items) =>
-          items.length === 0 ? (
-            <EmptyState
-              title={t(locale, 'state.empty.title')}
-              body={t(locale, 'state.empty.body')}
-            />
-          ) : (
-            <Table
-              caption={t(locale, 'home.recent')}
-              rows={items}
-              rowKey={(r) => r.id}
-              columns={[
-                {
-                  key: 'when',
-                  header: t(locale, 'field.when'),
-                  render: (r) => formatDateTime(r.occurredAt, locale),
-                },
-                {
-                  key: 'action',
-                  header: t(locale, 'field.action'),
-                  render: (r) => <Ltr>{r.action}</Ltr>,
-                },
-              ]}
-            />
-          ),
-      )
-    : null;
+  // finishing sign-up comes first: no organization yet means step 2, not an empty dashboard
+  if (!s.org) redirect(`/${locale}/orgs/new`);
+
+  const [balance, summary, limits, ops, notes, audit] = await Promise.all([
+    s.can('billing:read') ? safe(unwrap(s.api.GET('/v1/billing/balance', {}))) : null,
+    s.can('usage:read') ? safe(unwrap(s.api.GET('/v1/usage/summary', {}))) : null,
+    s.can('billing:read') ? safe(unwrap(s.api.GET('/v1/billing/spending-limits', {}))) : null,
+    s.can('operation:read')
+      ? safe(unwrap(s.api.GET('/v1/operations', { params: { query: { limit: 50 } } })))
+      : null,
+    safe(unwrap(s.api.GET('/v1/notifications', { params: { query: { limit: 1 } } }))),
+    s.can('audit:read')
+      ? safe(unwrap(s.api.GET('/v1/audit-logs', { params: { query: { limit: 6 } } })))
+      : null,
+  ]);
+
+  const base = `/${locale}`;
+  const wallet = balance?.balances[0] ?? null;
+  const activeOps = ops ? ops.items.filter((o) => !OP_TERMINAL.has(o.state)).length : null;
+  const cap = limits?.items.find((l) => l.scope === 'org') ?? null;
+  const spent =
+    summary?.totalMinor && cap && summary.currency === cap.currency
+      ? BigInt(summary.totalMinor)
+      : 0n;
+  const capPercent =
+    cap && BigInt(cap.monthlyCapMinor) > 0n
+      ? Number((spent * 100n) / BigInt(cap.monthlyCapMinor))
+      : null;
+
+  const meters = (summary?.items ?? [])
+    .filter((i) => i.amountMinor !== null && BigInt(i.amountMinor) > 0n)
+    .sort((a, b) => (BigInt(b.amountMinor!) > BigInt(a.amountMinor!) ? 1 : -1))
+    .slice(0, 6);
+  const top = meters[0] ? BigInt(meters[0].amountMinor!) : 1n;
   const services = visibleServices(s.can, (f) => flagEnabled(s.me.featureFlags, f));
+
   return (
     <>
-      <PageTitle>{t(locale, 'home.title', { name })}</PageTitle>
-      <div className="nz-grid">
-        <Card aria-labelledby="org-h">
-          <h2 id="org-h">{t(locale, 'field.org')}</h2>
-          <p>{t(locale, 'home.org', { org: s.org.name })}</p>
-          <p className="nz-muted">{t(locale, `org.type.${s.org.type}`)}</p>
-        </Card>
-        <Card aria-labelledby="notif-h">
-          <h2 id="notif-h">{t(locale, 'nav.notifications')}</h2>
-          {unread}
-        </Card>
+      <section className="nzc-hero" aria-labelledby="d-hero">
+        <h1 id="d-hero">{t(locale, 'home.title', { name })}</h1>
+        <p>
+          {s.org.name} · <Badge>{t(locale, `org.type.${s.org.type}`)}</Badge>
+        </p>
+      </section>
+
+      <div className="nzc-stats">
+        {balance && (
+          <StatTile
+            icon="wallet"
+            featured
+            label={t(locale, 'dash.stat.wallet')}
+            href={`${base}/billing/wallet`}
+            value={
+              wallet ? <Ltr>{formatMinor(wallet.balanceMinor, wallet.currency, locale)}</Ltr> : '—'
+            }
+            sub={wallet ? undefined : t(locale, 'dash.stat.wallet.none')}
+          />
+        )}
+        {summary && (
+          <StatTile
+            icon="finance"
+            label={t(locale, 'dash.stat.mtd')}
+            href={`${base}/billing/usage`}
+            value={
+              summary.totalMinor && summary.currency ? (
+                <Ltr>{formatMinor(summary.totalMinor, summary.currency, locale)}</Ltr>
+              ) : (
+                '—'
+              )
+            }
+            sub={t(locale, 'dash.stat.mtd.sub', { date: summary.periodStart })}
+          />
+        )}
+        {capPercent !== null && cap && (
+          <StatTile
+            icon="shield"
+            label={t(locale, 'dash.stat.cap')}
+            href={`${base}/billing/spending-limits`}
+            value={<Ltr>{`${Math.min(capPercent, 999)}%`}</Ltr>}
+            sub={t(locale, 'dash.stat.cap.sub', {
+              cap: formatMinor(cap.monthlyCapMinor, cap.currency, locale),
+            })}
+          />
+        )}
+        {activeOps !== null && ops && (
+          <StatTile
+            icon="cloud"
+            label={t(locale, 'dash.stat.ops')}
+            href={`${base}/operations`}
+            value={<Ltr>{String(activeOps)}</Ltr>}
+            sub={t(locale, 'dash.stat.ops.sub', { n: ops.items.length })}
+          />
+        )}
+        {notes && (
+          <StatTile
+            icon="bell"
+            label={t(locale, 'dash.stat.unread')}
+            href={`${base}/notifications`}
+            value={<Ltr>{String(notes.unreadCount)}</Ltr>}
+          />
+        )}
       </div>
+
+      {(summary || audit) && (
+        <div className="nzc-split">
+          {summary && (
+            <section className="nz-card" aria-labelledby="d-usage">
+              <div className="nzc-cardhead">
+                <h2 id="d-usage">{t(locale, 'dash.usage.title')}</h2>
+                <a href={`${base}/billing/usage`}>{t(locale, 'dash.activity.all')}</a>
+              </div>
+              {meters.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'dash.usage.empty')}</p>
+              ) : (
+                <Bars
+                  label={t(locale, 'dash.usage.title')}
+                  rows={meters.map((m) => ({
+                    key: m.meterId,
+                    label: <Ltr>{m.meterId}</Ltr>,
+                    value: <Ltr>{formatMinor(m.amountMinor!, m.currency ?? '', locale)}</Ltr>,
+                    ratio: Number((BigInt(m.amountMinor!) * 1000n) / top) / 1000,
+                  }))}
+                />
+              )}
+            </section>
+          )}
+          {audit && (
+            <section className="nz-card" aria-labelledby="d-activity">
+              <div className="nzc-cardhead">
+                <h2 id="d-activity">{t(locale, 'dash.activity.title')}</h2>
+                <a href={`${base}/audit-logs`}>{t(locale, 'dash.activity.all')}</a>
+              </div>
+              {audit.items.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'state.empty.body')}</p>
+              ) : (
+                <ul className="nzc-list">
+                  {audit.items.map((e) => (
+                    <li key={e.id}>
+                      <Ltr>{e.action}</Ltr>
+                      <span className="nz-muted">{formatDateTime(e.occurredAt, locale)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+
       {services.length > 0 && (
-        <section aria-labelledby="svc-h" style={{ marginBlockStart: 'var(--nuzm-space-6)' }}>
-          <h2 id="svc-h" className="nz-h2">
-            {t(locale, 'home.services')}
-          </h2>
-          <p className="nz-muted">{t(locale, 'home.services.sub')}</p>
-          <ul className="nz-grid" style={{ listStyle: 'none', padding: 0 }}>
+        <section aria-labelledby="d-services">
+          <div className="nzc-cardhead">
+            <h2 id="d-services">{t(locale, 'dash.services.title')}</h2>
+          </div>
+          <ul className="nzc-tiles">
             {services.map((svc) => (
               <li key={svc.id}>
-                <Card aria-labelledby={`svc-${svc.id}`}>
-                  <h3 id={`svc-${svc.id}`} className="nz-h3">
-                    <a href={`/${locale}${svc.href}`}>{t(locale, svc.label)}</a>
-                  </h3>
-                  <p className="nz-muted">{t(locale, svc.desc)}</p>
-                </Card>
+                <a className="nzc-tile" href={`${base}${svc.href}`}>
+                  <span className="nzc-tile-icon">
+                    <Icon name={svc.icon} size={18} />
+                  </span>
+                  <strong>{t(locale, svc.label)}</strong>
+                  <span className="nzc-tile-sub">{t(locale, svc.desc)}</span>
+                </a>
               </li>
             ))}
           </ul>
         </section>
       )}
-      {recent && <div style={{ marginBlockStart: 'var(--nuzm-space-6)' }}>{recent}</div>}
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AnyAuthenticated } from '../../common/access';
+import { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { SlidingWindowLimiter } from '../../common/rate-limit';
 import { IDENTITY_CONFIG } from '../../common/tokens';
@@ -38,6 +39,7 @@ export class CredentialsController {
     @Inject(IDENTITY_CONFIG) private readonly cfg: IdentityConfig,
     private readonly creds: CredentialsService,
     private readonly sessions: SessionService,
+    private readonly audit: AuditSink,
   ) {}
 
   private limit(req: FastifyRequest, bucket: string, perMinute = this.cfg.loginRatePerMinute) {
@@ -60,16 +62,21 @@ export class CredentialsController {
   }
 
   /** New session; a presented session cookie is revoked first (fixation defence), as in the OIDC callback. */
-  private async signIn(user: UserRow, req: FastifyRequest, reply: FastifyReply) {
+  private async signIn(
+    user: UserRow,
+    req: FastifyRequest,
+    reply: FastifyReply,
+    realm: 'web' | 'admin' = 'web',
+  ) {
     const jar = (req.cookies ?? {}) as Record<string, string | undefined>;
-    const old = jar[SESSION_COOKIE.web];
+    const old = jar[SESSION_COOKIE[realm]];
     if (old) await this.sessions.revokeByToken(old);
-    const s = await this.sessions.create(user.id, 'web', {
+    const s = await this.sessions.create(user.id, realm, {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });
-    void reply.setCookie(SESSION_COOKIE.web, s.token, this.cookieOpts(true));
-    void reply.setCookie(CSRF_COOKIE.web, s.csrf, this.cookieOpts(false));
+    void reply.setCookie(SESSION_COOKIE[realm], s.token, this.cookieOpts(true));
+    void reply.setCookie(CSRF_COOKIE[realm], s.csrf, this.cookieOpts(false));
   }
 
   @Public()
@@ -104,8 +111,23 @@ export class CredentialsController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
     this.limit(req, 'plogin');
-    const user = await this.creds.login(str(body?.email), str(body?.password), this.meta(req));
-    await this.signIn(user, req, reply);
+    // `realm: 'admin'` is the staff sign-in: platform users only, and the session still needs two-factor before it opens anything
+    const realm = body?.realm === 'admin' ? 'admin' : 'web';
+    const user = await this.creds.login(
+      str(body?.email),
+      str(body?.password),
+      this.meta(req),
+      realm,
+    );
+    await this.signIn(user, req, reply, realm);
+    await this.audit.record({
+      action: 'auth.login.succeeded',
+      actorUserId: user.id,
+      outcome: 'success',
+      traceId: req.traceId,
+      ip: req.ip,
+      detail: { method: 'password', realm },
+    });
     return authUser(user);
   }
 
@@ -126,6 +148,7 @@ export class CredentialsController {
   }
 
   @DenyImpersonation()
+  @RealmOnly('any') // staff change their own password from the admin console too
   @Post('password/change')
   @HttpCode(204)
   async change(@Body() body: Json, @CurrentPrincipal() p: Principal, @Req() req: FastifyRequest) {

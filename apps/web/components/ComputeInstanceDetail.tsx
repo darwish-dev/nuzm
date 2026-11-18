@@ -51,7 +51,7 @@ export function InstanceNav({
     { key: 'snapshots', href: `${base}/snapshots`, show: supportsSnapshot(instance.capabilities) },
   ] as const;
   return (
-    <nav aria-label={t(locale, 'm05.web.detail.nav')} className="nz-row">
+    <nav aria-label={t(locale, 'm05.web.detail.nav')} className="nz-row nzc-subtabs">
       {links
         .filter((l) => l.show || l.key === current)
         .map((l) => (

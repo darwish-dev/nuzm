@@ -26,6 +26,15 @@ const nextConfig = {
   // dev only: the local stack is opened at 127.0.0.1 (the OIDC redirect and cookies use it); without this Next blocks its
   // client scripts there, the pages never hydrate and the dev hot-reload socket fails.
   allowedDevOrigins: ['127.0.0.1'],
+  // Short, memorable entry points to the staff sign-in (the console itself stays on its own origin).
+  async redirects() {
+    return [
+      { source: '/admin', destination: '/ar/login', permanent: false },
+      { source: '/login', destination: '/ar/login', permanent: false },
+      { source: '/admin/:locale(ar|en)', destination: '/:locale/login', permanent: false },
+      { source: '/:locale(ar|en)/admin', destination: '/:locale/login', permanent: false },
+    ];
+  },
   // The browser talks to the API through this origin, so session cookies are first-party and no CORS is needed.
   async rewrites() {
     return [{ source: '/v1/:path*', destination: `${api}/v1/:path*` }];

@@ -1,10 +1,31 @@
 import type { ReactNode } from 'react';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { isLocale, locales, t } from '@nuzm/i18n';
-import { ForbiddenState, Ltr, LocaleSwitch, NavList, Shell } from '@nuzm/ui';
-import { SignOut } from '../../../components/SignOut';
+import {
+  ContextSidebar,
+  ForbiddenState,
+  PrimaryRail,
+  type RailItem,
+  type SideGroup,
+  type SideItem,
+} from '@nuzm/ui';
+import { BrandMark, BrandWordmark } from '../../../components/BrandLogo';
+import { ConsoleFrame, ProfileMenu } from '../../../components/ConsoleShell';
+import {
+  buildAdminNav,
+  currentAdminCategory,
+  currentItemId,
+  stripLocale,
+  type ResolvedAdminCategory,
+} from '../../../lib/nav';
 import { requireStaff } from '../../../lib/server';
+
+const initialsOf = (name: string | null | undefined, email: string) => {
+  const src = (name ?? '').trim() || email;
+  const parts = src.split(/[\s@._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? (parts[1]?.[0] ?? '') : '')).toUpperCase();
+};
 
 export default async function ConsoleLayout({
   children,
@@ -16,74 +37,83 @@ export default async function ConsoleLayout({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const s = await requireStaff(locale);
-  const path = (await headers()).get('x-pathname') ?? '';
   const base = `/${locale}`;
-  const items = [
-    ...(s.can('admin:org:read')
-      ? [{ href: `${base}/organizations`, label: t(locale, 'nav.admin.orgs') }]
-      : []),
-    ...(s.can('admin:user:read')
-      ? [{ href: `${base}/users`, label: t(locale, 'nav.admin.users') }]
-      : []),
-    ...(s.can('admin:audit:read')
-      ? [{ href: `${base}/audit-logs`, label: t(locale, 'nav.admin.audit') }]
-      : []),
-    ...(s.can('admin:billing:read')
-      ? [{ href: `${base}/billing/ledger`, label: t(locale, 'nav.admin.billing') }]
-      : []),
-    ...(s.can('admin:compliance:read')
-      ? [{ href: `${base}/compliance/controls`, label: t(locale, 'nav.admin.compliance') }]
-      : []),
-    ...(s.can('admin:hosting:read')
-      ? [{ href: `${base}/hosting/nodes`, label: t(locale, 'nav.admin.hosting') }]
-      : []),
-    ...(s.can('admin:data:read')
-      ? [{ href: `${base}/data/providers`, label: t(locale, 'm8.nav.admin.providers') }]
-      : []),
-    ...(s.can('admin:domains:read')
-      ? [{ href: `${base}/domains/registrars`, label: t(locale, 'nav.admin.domains') }]
-      : []),
-    ...(s.can('admin:flags:manage')
-      ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
-      : []),
-    // M05: providers, routing, cloud inventory and provider costs (the sections are reachable from the provider tabs)
-    ...(s.can('admin:provider:read')
-      ? [{ href: `${base}/providers`, label: t(locale, 'nav.admin.providers') }]
-      : []),
-  ].map((i) => ({
-    ...i,
-    current:
-      path === i.href ||
-      (i.href.endsWith('/billing/ledger') && path.includes('/billing/')) ||
-      (i.href.endsWith('/compliance/controls') && path.includes('/compliance/')) ||
-      (i.href.endsWith('/domains/registrars') && path.includes('/domains/')) ||
-      (i.href.endsWith('/providers') &&
-        (path.startsWith(`${i.href}/`) ||
-          path.startsWith(`${base}/cloud/`) ||
-          path.startsWith(`${base}/finance/`))) ||
-      (i.href.endsWith('/hosting/nodes') && path.includes('/hosting/')),
+  const path = stripLocale((await headers()).get('x-pathname') ?? base, locale);
+  const theme = (await cookies()).get('nuzm_theme')?.value === 'light' ? 'light' : 'dark';
+
+  const cats = buildAdminNav(s.can);
+  const active = cats.length > 0 ? currentAdminCategory(cats, path) : null;
+  const activeCat: ResolvedAdminCategory | undefined = cats.find((c) => c.id === active) ?? cats[0];
+
+  const railItems: RailItem[] = cats.map((c) => ({
+    id: c.id,
+    href: `${base}${c.home}`,
+    label: t(locale, c.label),
+    icon: c.icon,
+    current: c.id === active,
   }));
+  const toSide = (
+    i: ResolvedAdminCategory['groups'][number]['items'][number],
+    current: string | null,
+  ): SideItem => ({
+    id: i.id,
+    label: t(locale, i.label),
+    href: i.href ? `${base}${i.href}` : undefined,
+    current: i.id === current,
+    children: i.children?.map((c) => toSide(c, current)),
+  });
+  const currentId = activeCat ? currentItemId(activeCat, path) : null;
+  const groups: SideGroup[] = (activeCat?.groups ?? []).map((g) => ({
+    id: g.id,
+    title: g.title ? t(locale, g.title) : undefined,
+    items: g.items.map((i) => toSide(i, currentId)),
+  }));
+
+  const brand = (
+    <a className="nzc-brandlink" href={base} aria-label="Nuzm">
+      <BrandWordmark className="nzc-logo-full" />
+      <BrandMark className="nzc-logo-mark" />
+    </a>
+  );
   return (
-    <Shell
-      brand={
-        <a className="nz-brand" href={base}>
-          {t(locale, 'app.admin.title')}
-        </a>
+    <ConsoleFrame
+      labels={{
+        toggle: t(locale, 'nc.top.toggle'),
+        openMenu: t(locale, 'nc.top.menu'),
+        closeMenu: t(locale, 'nc.top.close'),
+      }}
+      brand={brand}
+      rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
+      side={
+        <ContextSidebar
+          title={activeCat ? t(locale, activeCat.title) : ''}
+          label={t(locale, 'nc.nav.side')}
+          groups={groups}
+        />
       }
       topbar={
         <>
-          <LocaleSwitch
-            current={locale}
-            locales={[...locales]}
-            labels={{ ar: 'العربية', en: 'English' }}
+          <span className="nzc-chip" aria-label={t(locale, 'anc.staff')}>
+            {t(locale, 'anc.staff')}
+          </span>
+          <span className="nzc-grow" />
+          <ProfileMenu
+            initials={initialsOf(s.me.displayName, s.me.email)}
+            name={s.me.displayName ?? s.me.email}
+            email={s.me.email}
+            locale={locale}
+            languages={locales.map((l) => ({ code: l, label: l === 'ar' ? 'العربية' : 'English' }))}
+            theme={theme}
+            labels={{
+              menu: t(locale, 'nc.profile.menu'),
+              language: t(locale, 'nc.menu.language'),
+              darkMode: t(locale, 'nc.menu.darkMode'),
+              signOut: t(locale, 'action.signout'),
+            }}
+            signedOutTo={`${base}/login`}
           />
-          <Ltr>{s.me.email}</Ltr>
-          <SignOut label={t(locale, 'action.signout')} to={`/${locale}/login`} />
         </>
       }
-      nav={<NavList items={items} />}
-      navLabel={t(locale, 'nav.primary')}
-      skipLabel={t(locale, 'app.skip')}
     >
       {s.roles.length === 0 ? (
         <ForbiddenState
@@ -93,6 +123,6 @@ export default async function ConsoleLayout({
       ) : (
         children
       )}
-    </Shell>
+    </ConsoleFrame>
   );
 }

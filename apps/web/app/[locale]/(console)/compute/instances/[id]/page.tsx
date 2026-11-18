@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
-import { EmptyState, ForbiddenState, PageTitle } from '@nuzm/ui';
+import { EmptyState, ForbiddenState, Icon, PageTitle } from '@nuzm/ui';
 import { ComputeTabs } from '../../../../../../components/ComputeBits';
-import { InstanceDetail, InstanceNav } from '../../../../../../components/ComputeInstanceDetail';
+import { InstanceDetail } from '../../../../../../components/ComputeInstanceDetail';
 import {
   unwrapCall,
   visibleActions,
@@ -27,7 +27,15 @@ export default async function InstancePage({
   const s = await requireSession(locale);
   if (!s.org)
     return <EmptyState title={t(locale, 'home.noOrg.title')} body={t(locale, 'home.noOrg.body')} />;
-  const title = <PageTitle>{t(locale, 'm05.web.detail.title')}</PageTitle>;
+  const title = (
+    <>
+      <a className="nzc-back" href={`/${locale}/compute/instances`}>
+        <Icon name="chevron" size={16} />
+        {t(locale, 'm05.web.instances.title')}
+      </a>
+      <PageTitle>{t(locale, 'm05.web.detail.title')}</PageTitle>
+    </>
+  );
   if (!s.can('compute:instance:read'))
     return (
       <>
@@ -63,7 +71,6 @@ export default async function InstancePage({
     },
     (d) => (
       <>
-        <InstanceNav locale={locale} instance={d.instance} current="overview" />
         <InstanceDetail
           locale={locale}
           instance={d.instance}

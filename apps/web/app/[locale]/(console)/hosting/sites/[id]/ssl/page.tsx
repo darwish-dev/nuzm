@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t, tDynamic } from '@nuzm/i18n';
-import { Badge, Banner, EmptyState, Ltr, PageTitle, Table } from '@nuzm/ui';
-import { HostingTabs } from '../../../../../../../components/HostingTabs';
+import { Badge, Banner, EmptyState, Ltr, PageTitle, Table, Icon } from '@nuzm/ui';
 import { requireSession } from '../../../../../../../lib/server';
 import { view } from '../../../../../../../lib/view';
 
@@ -35,12 +34,14 @@ export default async function Ssl({ params }: { params: Promise<{ locale: string
               {
                 key: 'd',
                 header: t(locale, 'host.col.domain'),
+                icon: 'globe',
                 render: (c) => <Ltr>{c.domains.join(', ')}</Ltr>,
               },
-              { key: 'm', header: t(locale, 'host.col.mode'), render: (c) => c.mode },
+              { key: 'm', icon: 'code', header: t(locale, 'host.col.mode'), render: (c) => c.mode },
               {
                 key: 's',
                 header: t(locale, 'host.col.status'),
+                icon: 'pulse',
                 render: (c) => (
                   <Badge
                     tone={
@@ -54,12 +55,18 @@ export default async function Ssl({ params }: { params: Promise<{ locale: string
               {
                 key: 'e',
                 header: t(locale, 'host.col.expires'),
+                icon: 'calendar',
                 render: (c) =>
                   c.expiresInDays === null || c.expiresInDays === undefined
                     ? '—'
                     : t(locale, 'host.ssl.expires', { days: c.expiresInDays }),
               },
-              { key: 'a', header: t(locale, 'host.col.attempts'), render: (c) => c.attempts },
+              {
+                key: 'a',
+                icon: 'globe',
+                header: t(locale, 'host.col.attempts'),
+                render: (c) => c.attempts,
+              },
             ]}
           />
         </>
@@ -68,7 +75,10 @@ export default async function Ssl({ params }: { params: Promise<{ locale: string
   return (
     <>
       <PageTitle>{t(locale, 'host.tab.ssl')}</PageTitle>
-      <HostingTabs locale={locale} siteId={id} current="ssl" />
+      <a className="nzc-back" href={`/${locale}/hosting/sites/${id}`}>
+        <Icon name="chevron" size={16} />
+        {t(locale, 'host.tab.overview')}
+      </a>
       {body}
     </>
   );

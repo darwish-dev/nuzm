@@ -34,21 +34,34 @@ export default async function Node({
         rows={cap.dimensions}
         rowKey={(d) => d.dim}
         columns={[
-          { key: 'd', header: t(locale, 'host.col.dim'), render: (d) => <Ltr>{d.dim}</Ltr> },
+          {
+            key: 'd',
+            icon: 'globe',
+            header: t(locale, 'host.col.dim'),
+            render: (d) => <Ltr>{d.dim}</Ltr>,
+          },
           {
             key: 's',
             header: t(locale, 'host.col.sellable'),
+            icon: 'globe',
             render: (d) => <Ltr>{d.sellable}</Ltr>,
           },
           {
             key: 'r',
             header: t(locale, 'host.col.reserved'),
+            icon: 'globe',
             render: (d) => <Ltr>{d.reserved}</Ltr>,
           },
-          { key: 'f', header: t(locale, 'host.col.free'), render: (d) => <Ltr>{d.free}</Ltr> },
+          {
+            key: 'f',
+            icon: 'globe',
+            header: t(locale, 'host.col.free'),
+            render: (d) => <Ltr>{d.free}</Ltr>,
+          },
           {
             key: 'm',
             header: t(locale, 'host.col.quota'),
+            icon: 'globe',
             render: (d) => (
               <Meter
                 label={t(locale, 'host.usage.meter', { dim: d.dim })}

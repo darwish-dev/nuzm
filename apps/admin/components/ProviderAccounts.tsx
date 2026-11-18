@@ -121,6 +121,7 @@ export function AccountsTable(p: {
         {
           key: 's',
           header: t(p.locale, 'm05.adm.col.status'),
+          icon: 'pulse',
           render: (r) => (
             <Badge tone={r.status === 'active' ? undefined : 'warn'}>
               {tDynamic(p.locale, `m05.adm.status.${r.status}`, r.status)}
@@ -130,6 +131,7 @@ export function AccountsTable(p: {
         {
           key: 'h',
           header: t(p.locale, 'm05.adm.col.health'),
+          icon: 'pulse',
           render: (r) => <HealthBadge locale={p.locale} state={r.health?.state} />,
         },
         {
@@ -153,6 +155,7 @@ export function AccountsTable(p: {
               {
                 key: 'x',
                 header: t(p.locale, 'field.action'),
+                icon: 'code',
                 render: (r: AccountDto) => (
                   <AccountActions
                     locale={p.locale}

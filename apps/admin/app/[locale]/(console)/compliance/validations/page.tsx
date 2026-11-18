@@ -52,6 +52,7 @@ export default async function Validations({ params }: { params: Promise<{ locale
               {
                 key: 's',
                 header: t(locale, 'cmp.val.col.status'),
+                icon: 'pulse',
                 render: (r) => (
                   <Badge tone={validationTone(r.status)}>
                     {tDynamic(locale, `cmp.val.status.${r.status}`, r.status)}
@@ -61,11 +62,13 @@ export default async function Validations({ params }: { params: Promise<{ locale
               {
                 key: 'v',
                 header: t(locale, 'cmp.val.col.version'),
+                icon: 'code',
                 render: (r) => <Ltr>{String(r.version)}</Ltr>,
               },
               {
                 key: 'b',
                 header: t(locale, 'cmp.val.col.by'),
+                icon: 'user',
                 render: (r) => (r.validatedBy ? <Ltr>{r.validatedBy.slice(0, 8)}</Ltr> : '—'),
               },
             ]}

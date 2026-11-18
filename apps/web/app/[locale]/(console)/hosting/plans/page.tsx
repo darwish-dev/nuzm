@@ -40,6 +40,7 @@ export default async function Plans({ params }: { params: Promise<{ locale: stri
             {
               key: 'q',
               header: t(locale, 'host.col.quota'),
+              icon: 'globe',
               render: (p) => (
                 <Ltr>{`${p.quotas.diskMb} MB · ${p.quotas.bandwidthGb} GB · ${p.quotas.dbCount} DB`}</Ltr>
               ),
@@ -47,16 +48,19 @@ export default async function Plans({ params }: { params: Promise<{ locale: stri
             {
               key: 'r',
               header: t(locale, 'host.col.runtime'),
+              icon: 'calendar',
               render: (p) => <Ltr>{p.runtimes.join(', ')}</Ltr>,
             },
             {
               key: 'g',
               header: t(locale, 'host.col.region'),
+              icon: 'pin',
               render: (p) => <Ltr>{p.regions.join(', ')}</Ltr>,
             },
             {
               key: 'p',
               header: t(locale, 'host.col.price'),
+              icon: 'tag',
               render: (p) =>
                 p.price ? (
                   <Ltr>{`${p.price.amountMinor} ${p.price.currency}${p.price.placeholder ? ' *' : ''}`}</Ltr>

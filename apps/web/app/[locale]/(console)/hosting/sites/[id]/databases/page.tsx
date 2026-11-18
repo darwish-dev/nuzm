@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
-import { EmptyState, PageTitle } from '@nuzm/ui';
-import { HostingTabs } from '../../../../../../../components/HostingTabs';
+import { EmptyState, PageTitle, Icon } from '@nuzm/ui';
 import { requireSession } from '../../../../../../../lib/server';
 import { view } from '../../../../../../../lib/view';
 
@@ -28,7 +27,10 @@ export default async function Databases({
   return (
     <>
       <PageTitle>{t(locale, 'host.tab.databases')}</PageTitle>
-      <HostingTabs locale={locale} siteId={id} current="databases" />
+      <a className="nzc-back" href={`/${locale}/hosting/sites/${id}`}>
+        <Icon name="chevron" size={16} />
+        {t(locale, 'host.tab.overview')}
+      </a>
       {body}
     </>
   );

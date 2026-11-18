@@ -36,11 +36,13 @@ export default async function Agents({ params }: { params: Promise<{ locale: str
             {
               key: 'n',
               header: t(locale, 'host.col.node'),
+              icon: 'globe',
               render: (a) => <Ltr>{a.nodeName}</Ltr>,
             },
             {
               key: 's',
               header: t(locale, 'host.col.status'),
+              icon: 'pulse',
               render: (a) => (
                 <Badge
                   tone={
@@ -54,11 +56,13 @@ export default async function Agents({ params }: { params: Promise<{ locale: str
             {
               key: 'v',
               header: t(locale, 'host.col.version'),
+              icon: 'code',
               render: (a) => <Ltr>{a.version ?? '—'}</Ltr>,
             },
             {
               key: 'l',
               header: t(locale, 'host.col.seen'),
+              icon: 'calendar',
               render: (a) => (a.lastSeenAt ? <Ltr>{a.lastSeenAt.slice(0, 16)}</Ltr> : '—'),
             },
           ]}

@@ -107,3 +107,17 @@ errors:
       status: 409,
       title: 'The reseller invoice-issuer model is not approved (D-24) and cannot be enabled',
     }
+  # >>> M09 error codes
+  insufficient_credits: { status: 402, title: 'Not enough AI credits for this request' }
+  budget_exceeded: { status: 402, title: 'An AI budget cap would be exceeded' }
+  unsupported_kind: { status: 422, title: 'This run kind is not available yet' }
+  run_active: { status: 409, title: 'A run is already active for this session or project' }
+  content_blocked: { status: 422, title: 'The content is blocked by the moderation policy' }
+  secret_detected:
+    { status: 422, title: 'The request contains what looks like a secret and was blocked' }
+  base_outdated: { status: 409, title: 'The project changed since the base version' }
+  op_invalid: { status: 422, title: 'An editor operation is not valid' }
+  approval_expired: { status: 409, title: 'The approval has expired' }
+  ai_unavailable: { status: 503, title: 'AI is switched off or no model provider is available' }
+  payload_too_large: { status: 413, title: 'The request body is too large' }
+  # <<< M09 error codes

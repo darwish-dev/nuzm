@@ -363,6 +363,7 @@ export function ComputeWizard(p: {
                 {
                   key: 'q',
                   header: t(locale, 'bill.f.quantity'),
+                  icon: 'data',
                   render: (l) => (
                     <Ltr>
                       {l.quantity} {l.unit}
@@ -372,6 +373,7 @@ export function ComputeWizard(p: {
                 {
                   key: 'a',
                   header: t(locale, 'bill.f.amount'),
+                  icon: 'tag',
                   render: (l) => <Ltr>{moneyText(l.amountMinor, quote.currency, locale)}</Ltr>,
                 },
               ]}

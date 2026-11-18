@@ -45,12 +45,14 @@ export default async function PriceBooks({ params }: { params: Promise<{ locale:
                       {
                         key: 'm',
                         header: t(locale, 'bill.f.meter'),
+                        icon: 'data',
                         render: (i) => <Ltr>{i.meterId}</Ltr>,
                       },
                       { key: 't', header: t(locale, 'abill.f.tier'), render: (i) => i.tierModel },
                       {
                         key: 'p',
                         header: t(locale, 'abill.f.unitPrice'),
+                        icon: 'tag',
                         render: (i) =>
                           i.unitPriceMinor ? (
                             <Ltr>{i.unitPriceMinor}</Ltr>

@@ -82,16 +82,19 @@ export default async function BreachCases({
                 {
                   key: 'at',
                   header: t(locale, 'cmp.col.date'),
+                  icon: 'calendar',
                   render: (r) => formatDateTime(r.at, locale),
                 },
                 {
                   key: 'to',
                   header: t(locale, 'cmp.br.col.state'),
+                  icon: 'pulse',
                   render: (r) => tDynamic(locale, `cmp.br.state.${r.to}`, r.to),
                 },
                 {
                   key: 'by',
                   header: t(locale, 'cmp.ev.col.by'),
+                  icon: 'user',
                   render: (r) => <Ltr>{String(r.by).slice(0, 8)}</Ltr>,
                 },
                 { key: 'no', header: t(locale, 'cmp.br.note'), render: (r) => r.note ?? '—' },
@@ -141,11 +144,13 @@ export default async function BreachCases({
                 {
                   key: 'st',
                   header: t(locale, 'cmp.br.col.state'),
+                  icon: 'pulse',
                   render: (r) => tDynamic(locale, `cmp.br.state.${r.state}`, r.state),
                 },
                 {
                   key: 'du',
                   header: t(locale, 'cmp.br.col.due'),
+                  icon: 'calendar',
                   render: (r) =>
                     r.timers.current ? (
                       <span className={r.timers.current.overdue ? 'nz-error-text' : undefined}>

@@ -1,0 +1,2 @@
+# Gate Review — M09 (PREPARED; NOT SIGNED)
+Milestone is **NOT DONE**: quality, usability, live-publish, custom-domain and provider-attestation rows are BLOCKED (HG-09-01, D-18, HG-05-01/02, HG-06-01, HG-07-01). Acceptance table: see `M09-report.md` §G. Owner decisions requested: D-18, HG-09-01, evaluation thresholds, moderation policy, imagery licensing, ADR-060/061. Preview-isolation report needs an independent reviewer. Decision: **hold for owner.** Owner sign-off: _pending_.

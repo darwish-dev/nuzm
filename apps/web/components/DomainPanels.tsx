@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { t, tDynamic, type Locale } from '@nuzm/i18n';
-import { Banner, Button, Field, Input, Select } from '@nuzm/ui';
+import { Badge, Banner, Button, Field, Input, Select } from '@nuzm/ui';
 import { errorText } from '../lib/actions';
 import { browserApi } from '../lib/client';
 import {
@@ -323,43 +323,61 @@ export function DomainSettings({
       onSubmit={save}
       className="nz-card"
       noValidate
-      aria-label={t(locale, 'dom.detail.title')}
-      style={{ maxInlineSize: 560 }}
+      aria-label={t(locale, 'dom.detail.settings')}
     >
-      <Field
-        id="dm-ns"
-        label={t(locale, 'dom.detail.nameservers')}
-        help={caps.nameservers ? undefined : t(locale, 'dom.detail.unsupported')}
-      >
-        {(x) => (
-          <textarea
-            {...x}
-            className="nz-input"
-            rows={3}
-            dir="ltr"
-            value={ns}
-            disabled={!caps.nameservers}
-            onChange={(e) => setNs(e.target.value)}
-          />
-        )}
-      </Field>
-      <label className="nz-row">
-        <input
-          type="checkbox"
-          checked={lock}
-          disabled={!caps.lock}
-          onChange={(e) => setLock(e.target.checked)}
-        />{' '}
-        {t(locale, 'dom.detail.lock')}
-        {!caps.lock && <span className="nz-muted"> — {t(locale, 'dom.detail.unsupported')}</span>}
-      </label>
-      <label className="nz-row">
-        <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />{' '}
-        {t(locale, 'dom.col.autoRenew')}
-      </label>
-      <Button type="submit" disabled={busy}>
-        {t(locale, 'dom.detail.save')}
-      </Button>
+      <div className="nzc-form-grid">
+        <Field
+          id="dm-ns"
+          label={t(locale, 'dom.detail.nameservers')}
+          help={caps.nameservers ? undefined : t(locale, 'dom.detail.unsupported')}
+        >
+          {(x) => (
+            <textarea
+              {...x}
+              className="nz-input"
+              rows={4}
+              dir="ltr"
+              value={ns}
+              disabled={!caps.nameservers}
+              onChange={(e) => setNs(e.target.value)}
+            />
+          )}
+        </Field>
+        <div style={{ display: 'grid', gap: 14, alignContent: 'start', paddingBlockStart: 30 }}>
+          <label className="nzc-switch-row">
+            <span>
+              {t(locale, 'dom.detail.lock')}
+              {!caps.lock && (
+                <span className="nz-muted"> — {t(locale, 'dom.detail.unsupported')}</span>
+              )}
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              className="nzc-switch-input"
+              checked={lock}
+              disabled={!caps.lock}
+              onChange={(e) => setLock(e.target.checked)}
+            />
+          </label>
+          <label className="nzc-switch-row">
+            <span>{t(locale, 'dom.col.autoRenew')}</span>
+            <input
+              type="checkbox"
+              role="switch"
+              className="nzc-switch-input"
+              checked={auto}
+              onChange={(e) => setAuto(e.target.checked)}
+            />
+          </label>
+        </div>
+      </div>
+      <div className="nzc-form-foot">
+        <span />
+        <Button type="submit" disabled={busy}>
+          {t(locale, 'dom.detail.save')}
+        </Button>
+      </div>
       <NoticeText notice={n} />
     </form>
   );
@@ -521,10 +539,115 @@ export function DnsEditor({
               : errorText(locale, r.response.status, e?.code),
     });
   }
+  const hint = (type: string) =>
+    (['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV', 'CAA'] as const).includes(type as 'A')
+      ? t(locale, `dom.dns.hint.${type as 'A'}`)
+      : '';
   return (
     <div className="nz-stack">
       {degraded && <Banner tone="danger">{t(locale, 'dom.dns.degraded')}</Banner>}
-      <table className="nz-table">
+      {pending.length > 0 && (
+        // the queued changes are not live until applied: say so where it cannot be missed
+        <section
+          className="nzc-dns-unsaved"
+          role="status"
+          aria-label={t(locale, 'dom.dns.pending')}
+        >
+          <div>
+            <strong>{t(locale, 'dom.dns.unsaved', { count: pending.length })}</strong>
+            <ul>
+              {pending.map((p, i) => (
+                <li key={i} dir="ltr">
+                  {p.op === 'create' ? '+' : '−'} {p.rec.name} {p.rec.type} {showValue(p.rec.value)}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="nzc-row-actions">
+            <Button type="button" variant="secondary" onClick={() => (setPending([]), setErrs([]))}>
+              {t(locale, 'dom.dns.discard')}
+            </Button>
+            <Button type="button" disabled={busy} onClick={() => void apply()}>
+              {t(locale, 'dom.dns.apply')}
+            </Button>
+          </div>
+        </section>
+      )}
+      {errs.length > 0 && (
+        <section role="alert" className="nz-card">
+          <h3>{t(locale, 'dom.dns.errors')}</h3>
+          <ul>
+            {errs.map((e, i) => (
+              <li key={i}>
+                {e.index >= 0 ? `#${e.index + 1}: ` : ''}
+                {e.message}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <NoticeText notice={n} />
+      {!off && (
+        <form onSubmit={add} className="nz-card" aria-labelledby="dn-add-h" noValidate>
+          <h3 className="nzc-section-title" id="dn-add-h" style={{ marginBlockStart: 0 }}>
+            {t(locale, 'dom.dns.addTitle')}
+          </h3>
+          <div className="nzc-dns-add">
+            <Field id="dn-name" label={t(locale, 'dom.dns.col.name')}>
+              {(x) => (
+                <Input
+                  {...x}
+                  dir="ltr"
+                  placeholder="@"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              )}
+            </Field>
+            <Field id="dn-type" label={t(locale, 'dom.dns.col.type')}>
+              {(x) => (
+                <Select
+                  {...x}
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                >
+                  {TYPES.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field id="dn-ttl" label={t(locale, 'dom.dns.col.ttl')}>
+              {(x) => (
+                <Input
+                  {...x}
+                  dir="ltr"
+                  inputMode="numeric"
+                  value={form.ttl}
+                  onChange={(e) => setForm({ ...form, ttl: e.target.value })}
+                />
+              )}
+            </Field>
+            <Field id="dn-val" label={t(locale, 'dom.dns.value')}>
+              {(x) => (
+                <Input
+                  {...x}
+                  dir="ltr"
+                  placeholder={hint(form.type)}
+                  value={form.value}
+                  onChange={(e) => setForm({ ...form, value: e.target.value })}
+                />
+              )}
+            </Field>
+            <Button type="submit" variant="secondary">
+              {t(locale, 'dom.dns.add')}
+            </Button>
+          </div>
+        </form>
+      )}
+      <table className="nz-table nzc-dns-table">
         <caption>{t(locale, 'dom.dns.title')}</caption>
         <thead>
           <tr>
@@ -542,11 +665,15 @@ export function DnsEditor({
               (p) => p.op === 'delete' && p.rec.name === r.name && p.rec.type === r.type,
             );
             return (
-              <tr key={i} style={gone ? { textDecoration: 'line-through' } : undefined}>
+              <tr key={i} data-gone={gone || undefined}>
                 <td dir="ltr">{r.name}</td>
-                <td dir="ltr">{r.type}</td>
+                <td dir="ltr">
+                  <Badge>{r.type}</Badge>
+                </td>
                 <td dir="ltr">{r.ttl}</td>
-                <td dir="ltr">{showValue(r.value)}</td>
+                <td dir="ltr" style={{ overflowWrap: 'anywhere' }}>
+                  {showValue(r.value)}
+                </td>
                 <td>
                   {tDynamic(
                     locale,
@@ -570,91 +697,6 @@ export function DnsEditor({
           })}
         </tbody>
       </table>
-      {!off && (
-        <form onSubmit={add} className="nz-card" aria-label={t(locale, 'dom.dns.add')} noValidate>
-          <Field id="dn-name" label={t(locale, 'dom.dns.col.name')}>
-            {(x) => (
-              <Input
-                {...x}
-                dir="ltr"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            )}
-          </Field>
-          <Field id="dn-type" label={t(locale, 'dom.dns.col.type')}>
-            {(x) => (
-              <Select
-                {...x}
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-              >
-                {TYPES.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-          <Field id="dn-ttl" label={t(locale, 'dom.dns.col.ttl')}>
-            {(x) => (
-              <Input
-                {...x}
-                dir="ltr"
-                inputMode="numeric"
-                value={form.ttl}
-                onChange={(e) => setForm({ ...form, ttl: e.target.value })}
-              />
-            )}
-          </Field>
-          <Field id="dn-val" label={t(locale, 'dom.dns.value')}>
-            {(x) => (
-              <Input
-                {...x}
-                dir="ltr"
-                value={form.value}
-                onChange={(e) => setForm({ ...form, value: e.target.value })}
-              />
-            )}
-          </Field>
-          <Button type="submit" variant="secondary">
-            {t(locale, 'dom.dns.add')}
-          </Button>
-        </form>
-      )}
-      {pending.length > 0 && (
-        <section className="nz-card" aria-label={t(locale, 'dom.dns.pending')}>
-          <h3>{t(locale, 'dom.dns.pending')}</h3>
-          <ul>
-            {pending.map((p, i) => (
-              <li key={i} dir="ltr">
-                {p.op === 'create' ? '+' : '−'} {p.rec.name} {p.rec.type} {showValue(p.rec.value)}
-              </li>
-            ))}
-          </ul>
-          <Button type="button" disabled={busy} onClick={() => void apply()}>
-            {t(locale, 'dom.dns.apply')}
-          </Button>{' '}
-          <Button type="button" variant="secondary" onClick={() => (setPending([]), setErrs([]))}>
-            {t(locale, 'dom.dns.discard')}
-          </Button>
-        </section>
-      )}
-      {errs.length > 0 && (
-        <section role="alert" className="nz-card">
-          <h3>{t(locale, 'dom.dns.errors')}</h3>
-          <ul>
-            {errs.map((e, i) => (
-              <li key={i}>
-                {e.index >= 0 ? `#${e.index + 1}: ` : ''}
-                {e.message}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <NoticeText notice={n} />
     </div>
   );
 }
@@ -719,7 +761,7 @@ export function ContactsForm({
       {canEdit && !privacyOn && (
         <p className="nz-muted">
           {t(locale, 'dom.contacts.public')}{' '}
-          <a href={`/${locale}/privacy/consents`}>{t(locale, 'dom.contacts.consentLink')}</a>
+          <a href={`/${locale}/privacy#consents`}>{t(locale, 'dom.contacts.consentLink')}</a>
         </p>
       )}
       <ContactFields locale={locale} value={c} onChange={setC} disabled={!canEdit} />
@@ -795,36 +837,56 @@ export function TransferForm({ locale }: { locale: Locale }) {
     router.refresh();
   }
   return (
-    <form
-      onSubmit={go}
-      noValidate
-      className="nz-card"
-      aria-label={t(locale, 'dom.tr.start')}
-      style={{ maxInlineSize: 560 }}
-    >
-      <Field id="tr-name" label={t(locale, 'dom.checkout.name')}>
-        {(x) => <Input {...x} dir="ltr" value={name} onChange={(e) => setName(e.target.value)} />}
-      </Field>
-      <Field id="tr-auth" label={t(locale, 'dom.tr.authCode')} help={t(locale, 'dom.tr.authHelp')}>
-        {(x) => (
-          <Input
-            {...x}
-            dir="ltr"
-            type="password"
-            autoComplete="off"
-            value={auth}
-            onChange={(e) => setAuth(e.target.value)}
-          />
-        )}
-      </Field>
-      <ContactFields locale={locale} value={contact} onChange={setContact} />
-      <label className="nz-row">
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />{' '}
-        {t(locale, 'dom.checkout.consent')}
-      </label>
-      <Button type="submit" disabled={busy || !consent || !name || !auth}>
-        {t(locale, 'dom.tr.go')}
-      </Button>
+    <form onSubmit={go} noValidate aria-label={t(locale, 'dom.tr.start')}>
+      <div className="nzc-form-part">
+        <h3>{t(locale, 'dom.tr.sec.domain')}</h3>
+        <div className="nzc-form-grid">
+          <Field id="tr-name" label={t(locale, 'dom.checkout.name')}>
+            {(x) => (
+              <Input
+                {...x}
+                dir="ltr"
+                placeholder="example.com"
+                autoComplete="off"
+                spellCheck={false}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field
+            id="tr-auth"
+            label={t(locale, 'dom.tr.authCode')}
+            help={t(locale, 'dom.tr.authHelp')}
+          >
+            {(x) => (
+              <Input
+                {...x}
+                dir="ltr"
+                type="password"
+                autoComplete="off"
+                value={auth}
+                onChange={(e) => setAuth(e.target.value)}
+              />
+            )}
+          </Field>
+        </div>
+      </div>
+      <div className="nzc-form-part">
+        <h3>{t(locale, 'dom.tr.sec.contact')}</h3>
+        <div className="nzc-form-grid">
+          <ContactFields locale={locale} value={contact} onChange={setContact} />
+        </div>
+      </div>
+      <div className="nzc-form-foot">
+        <label>
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+          {t(locale, 'dom.checkout.consent')}
+        </label>
+        <Button type="submit" disabled={busy || !consent || !name || !auth}>
+          {t(locale, 'dom.tr.go')}
+        </Button>
+      </div>
       <NoticeText notice={n} />
     </form>
   );

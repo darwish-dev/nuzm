@@ -91,6 +91,7 @@ export default async function Refunds({
                 {
                   key: 'o',
                   header: t(locale, 'af.ref.col.org'),
+                  icon: 'user',
                   render: (r) => (
                     <a
                       href={`?${new URLSearchParams({ org: r.orgId }).toString()}`}
@@ -112,11 +113,13 @@ export default async function Refunds({
                 {
                   key: 'a',
                   header: t(locale, 'af.ref.col.amount'),
+                  icon: 'tag',
                   render: (r) => <Ltr>{formatMinor(r.amountMinor, r.currency, locale)}</Ltr>,
                 },
                 {
                   key: 's',
                   header: t(locale, 'af.ref.col.status'),
+                  icon: 'pulse',
                   render: (r) => (
                     <>
                       <Badge tone={refundTone(r.status)}>
@@ -137,11 +140,13 @@ export default async function Refunds({
                 {
                   key: 'c',
                   header: t(locale, 'af.ref.col.credit'),
+                  icon: 'tag',
                   render: (r) => (r.creditNoteId ? <Ltr>{shortId(r.creditNoteId)}</Ltr> : '—'),
                 },
                 {
                   key: 't',
                   header: t(locale, 'af.ref.col.created'),
+                  icon: 'calendar',
                   render: (r) => formatDateTime(r.createdAt, locale),
                 },
               ]}

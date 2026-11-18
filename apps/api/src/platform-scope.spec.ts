@@ -41,7 +41,12 @@ describe('platform scope usage', () => {
           !f.startsWith('modules/automation/') &&
           !f.startsWith('modules/marketplace/') &&
           !f.startsWith('modules/programs/') &&
-          !f.startsWith('modules/domains/'),
+          !f.startsWith('modules/domains/') &&
+          // >>> M09: model provider registry, run oversight and sweepers (admin console register tables, service-level callers)
+          !f.startsWith('modules/ai/') &&
+          !f.startsWith('modules/builder/') &&
+          !f.startsWith('modules/deploy/'),
+        // <<< M09
       );
     expect(offenders).toEqual([]);
   });

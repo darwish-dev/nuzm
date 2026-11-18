@@ -161,15 +161,22 @@ export function InvitationsTable({
         rows={items}
         rowKey={(r) => r.id}
         columns={[
-          { key: 'e', header: t(locale, 'field.email'), render: (r) => <Ltr>{r.email}</Ltr> },
+          {
+            key: 'e',
+            icon: 'mail',
+            header: t(locale, 'field.email'),
+            render: (r) => <Ltr>{r.email}</Ltr>,
+          },
           {
             key: 'r',
             header: t(locale, 'field.role'),
+            icon: 'user',
             render: (r) => tDynamic(locale, `role.${r.role}`, r.role),
           },
           {
             key: 's',
             header: t(locale, 'field.status'),
+            icon: 'pulse',
             render: (r) => (
               <Badge
                 tone={
@@ -180,10 +187,16 @@ export function InvitationsTable({
               </Badge>
             ),
           },
-          { key: 'x', header: t(locale, 'field.expires'), render: (r) => fmt[r.id] ?? r.expiresAt },
+          {
+            key: 'x',
+            icon: 'calendar',
+            header: t(locale, 'field.expires'),
+            render: (r) => fmt[r.id] ?? r.expiresAt,
+          },
           {
             key: 'a',
             header: t(locale, 'field.action'),
+            icon: 'code',
             render: (r) =>
               r.status === 'pending' ? (
                 <Button

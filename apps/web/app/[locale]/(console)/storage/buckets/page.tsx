@@ -22,20 +22,31 @@ export default async function Buckets({ params }: { params: Promise<{ locale: st
           caption={t(locale, 'm8.st.title')}
           rows={data.items}
           rowKey={(r) => r.id}
+          cardIcon="data"
+          rowHref={(r) => `/${locale}/storage/buckets/${r.id}`}
+          manageLabel={t(locale, 'action.manage')}
           columns={[
             {
               key: 'n',
+              card: 'title',
               header: t(locale, 'field.name'),
               render: (r) => <a href={`/${locale}/storage/buckets/${r.id}`}>{r.name}</a>,
             },
             {
               key: 'b',
+              card: 'subtitle',
               header: t(locale, 'm8.st.col.bucketName'),
               render: (r) => <Ltr>{r.bucketName}</Ltr>,
             },
-            { key: 'r', header: t(locale, 'field.region'), render: (r) => r.dataRegion },
+            {
+              key: 'r',
+              card: 'chip',
+              header: t(locale, 'field.region'),
+              render: (r) => r.dataRegion,
+            },
             {
               key: 'p',
+              card: 'chip',
               header: t(locale, 'm8.st.col.access'),
               render: (r) => (
                 <Badge tone={r.public ? 'danger' : 'success'}>
@@ -45,7 +56,9 @@ export default async function Buckets({ params }: { params: Promise<{ locale: st
             },
             {
               key: 's',
+              card: 'badge',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (r) => (
                 <>
                   <StatusBadge
@@ -69,7 +82,9 @@ export default async function Buckets({ params }: { params: Promise<{ locale: st
             },
             {
               key: 'u',
+              card: 'footer',
               header: t(locale, 'm8.st.col.usage'),
+              icon: 'data',
               render: (r) => {
                 const used = bucketUsage(r.usage).bytes;
                 const f = formatBytes(used);

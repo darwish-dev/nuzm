@@ -42,59 +42,67 @@ test('customer console: onboarding, projects, security and team screens', async 
   await audit(page, info, 'environments');
 
   // --- two-factor enrolment (QR + manual key) → recovery codes and API keys (both need a fresh MFA)
-  await go('/account/security/mfa');
+  // the account is one page: profile, sessions, two-step, password and recovery codes are sections on it
+  await go('/account');
   await page.getByRole('button', { name: T(info, 'mfa.start') }).click();
   await expect(page.getByRole('img', { name: T(info, 'mfa.qr') })).toBeVisible();
   await audit(page, info, 'mfa-enrol', [
-    page.locator('main bdi'),
+    page.locator('#mfa bdi'),
     page.getByRole('img', { name: T(info, 'mfa.qr') }),
   ]);
-  const secret = (await page.locator('main bdi').first().innerText()).trim();
+  const secret = (await page.locator('#mfa bdi').first().innerText()).trim();
   await page.getByLabel(T(info, 'field.code')).fill(totp(secret));
   await page.getByRole('button', { name: T(info, 'action.verify') }).click();
   await expect(page.getByText(T(info, 'mfa.done'))).toBeVisible();
 
-  await go('/account/security/recovery-codes');
   await page.getByRole('button', { name: T(info, 'recovery.generate') }).click();
   await expect(page.getByText(T(info, 'recovery.done'))).toBeVisible();
   await expect(page.locator('section[role="status"] li')).toHaveCount(10);
   await audit(page, info, 'recovery-codes', [page.locator('section[role="status"] li')]);
 
-  await go('/settings/api-keys');
-  await page.getByLabel(T(info, 'field.keyName')).fill('ci-key');
-  await page.getByLabel('project:read').check();
-  await page.getByRole('button', { name: create }).click();
+  // team and access is one page: members, invitations and API keys are sections on it
+  await go('/settings/team');
+  const keys = page.locator('#apikeys');
+  await keys.getByLabel(T(info, 'field.keyName')).fill('ci-key');
+  await keys.getByLabel('project:read').check();
+  await keys.getByRole('button', { name: create }).click();
   await expect(page.getByRole('heading', { name: T(info, 'apikeys.secret.title') })).toBeVisible();
   const key = await page.locator('section[role="status"] code').innerText();
   expect(key).toMatch(/^nzk_/);
   await audit(page, info, 'api-keys-secret', [page.locator('section[role="status"] code')]);
-  await go('/settings/api-keys'); // the secret is shown once: a reload must not show it again
+  await go('/settings/api-keys'); // the old route lands on the section; the secret is shown once, so a reload must not show it again
+  await expect(page).toHaveURL(/\/settings\/team#apikeys$/);
   await expect(page.getByText(key)).toHaveCount(0);
-  await expect(page.getByRole('cell', { name: 'ci-key', exact: true })).toBeVisible();
+  await expect(
+    page.locator('#apikeys').getByRole('cell', { name: 'ci-key', exact: true }),
+  ).toBeVisible();
   await audit(page, info, 'api-keys');
 
   // --- team: members, invitations, organization settings
-  await go('/settings/members');
-  await expect(page.getByRole('cell', { name: email })).toBeVisible();
+  await go('/settings/team');
+  await expect(page.locator('#members').getByRole('cell', { name: email })).toBeVisible();
   await audit(page, info, 'members');
 
-  await go('/settings/invitations');
-  await page.getByLabel(T(info, 'field.email')).fill('new.hire@example.test');
-  await page.getByRole('button', { name: T(info, 'action.invite') }).click();
-  await expect(page.getByRole('cell', { name: 'new.hire@example.test' })).toBeVisible();
+  const inv = page.locator('#invitations');
+  await inv.getByLabel(T(info, 'field.email')).fill('new.hire@example.test');
+  await inv.getByRole('button', { name: T(info, 'action.invite') }).click();
+  await expect(inv.getByRole('cell', { name: 'new.hire@example.test' })).toBeVisible();
   await audit(page, info, 'invitations');
-  await page.getByRole('button', { name: T(info, 'action.revoke') }).click();
-  await expect(page.getByText(T(info, 'status.revoked'), { exact: true })).toBeVisible();
+  await inv.getByRole('button', { name: T(info, 'action.revoke') }).click();
+  await expect(inv.getByText(T(info, 'status.revoked'), { exact: true })).toBeVisible();
 
+  // the organization page stacks its settings and the audit log
   await go('/settings/organization');
-  await page.getByLabel(name).fill(`${orgName} 2`);
-  await page.getByRole('button', { name: T(info, 'action.save') }).click();
-  await expect(page.getByText(T(info, 'settings.saved'))).toBeVisible();
+  const org = page.locator('#settings');
+  await org.getByLabel(name).fill(`${orgName} 2`);
+  await org.getByRole('button', { name: T(info, 'action.save') }).click();
+  await expect(org.getByText(T(info, 'settings.saved'))).toBeVisible();
   await audit(page, info, 'org-settings');
 
   // --- read-only screens
-  await go('/account/sessions');
-  await expect(page.getByText(T(info, 'session.current'))).toBeVisible();
+  await go('/account/sessions'); // the old route lands on the account page's sessions section
+  await expect(page).toHaveURL(/\/account#sessions$/);
+  await expect(page.locator('#sessions').getByText(T(info, 'session.current'))).toBeVisible();
   await audit(page, info, 'sessions');
   await go('/notifications');
   await audit(page, info, 'notifications');
@@ -102,8 +110,9 @@ test('customer console: onboarding, projects, security and team screens', async 
   await audit(page, info, 'operations');
   await go('/resources');
   await audit(page, info, 'resources');
-  await go('/audit-logs');
-  await expect(page.getByText('tenancy.workspace.created')).toBeVisible();
+  await go('/audit-logs'); // the old route lands on the organization page's audit section
+  await expect(page).toHaveURL(/\/settings\/organization#audit$/);
+  await expect(page.locator('#audit').getByText('tenancy.workspace.created')).toBeVisible();
   await audit(page, info, 'audit-logs');
   await page.getByLabel(T(info, 'audit.filter.action')).fill('identity.*');
   await page.getByRole('button', { name: T(info, 'action.search') }).click();

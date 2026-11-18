@@ -79,6 +79,7 @@ export function CostsTable({ locale, rows }: { locale: Locale; rows: ProviderCos
         {
           key: 'per',
           header: t(locale, 'm05.adm.cost.col.period'),
+          icon: 'calendar',
           render: (r) => (
             <Ltr>
               {r.periodStart} → {r.periodEnd}
@@ -88,26 +89,31 @@ export function CostsTable({ locale, rows }: { locale: Locale; rows: ProviderCos
         {
           key: 'm',
           header: t(locale, 'm05.adm.cost.col.meter'),
+          icon: 'tag',
           render: (r) => <Ltr>{r.meterOrSku}</Ltr>,
         },
         {
           key: 'q',
           header: t(locale, 'm05.adm.cost.col.quantity'),
+          icon: 'tag',
           render: (r) => <Ltr>{r.quantity}</Ltr>,
         },
         {
           key: 'c',
           header: t(locale, 'm05.adm.cost.col.cost'),
+          icon: 'tag',
           render: (r) => <Ltr>{formatCost(r.costMinor, r.currency)}</Ltr>,
         },
         {
           key: 'src',
           header: t(locale, 'm05.adm.cost.col.source'),
+          icon: 'tag',
           render: (r) => t(locale, `m05.adm.cost.source.${r.source}`),
         },
         {
           key: 'a',
           header: t(locale, 'm05.adm.cost.col.attribution'),
+          icon: 'tag',
           render: (r) =>
             isUnattributed(r) ? (
               <Badge tone="danger">{t(locale, 'm05.adm.cost.unattributedShort')}</Badge>
@@ -120,6 +126,7 @@ export function CostsTable({ locale, rows }: { locale: Locale; rows: ProviderCos
         {
           key: 'w',
           header: t(locale, 'm05.adm.cost.col.captured'),
+          icon: 'tag',
           render: (r) => formatDateTime(r.capturedAt, locale),
         },
       ]}
@@ -157,6 +164,7 @@ export function Rc04Table(p: { locale: Locale; rows: Rc04Run[]; linkRuns: boolea
         {
           key: 'per',
           header: t(p.locale, 'm05.adm.cost.col.period'),
+          icon: 'calendar',
           render: (r) => {
             const label = (
               <Ltr>
@@ -173,6 +181,7 @@ export function Rc04Table(p: { locale: Locale; rows: Rc04Run[]; linkRuns: boolea
         {
           key: 's',
           header: t(p.locale, 'm05.adm.col.status'),
+          icon: 'pulse',
           render: (r) => (
             <span>
               <Badge
@@ -216,6 +225,7 @@ export function Rc04Table(p: { locale: Locale; rows: Rc04Run[]; linkRuns: boolea
         {
           key: 'w',
           header: t(p.locale, 'field.when'),
+          icon: 'calendar',
           render: (r) => formatDateTime(r.createdAt, p.locale),
         },
       ]}

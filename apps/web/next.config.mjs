@@ -1,5 +1,10 @@
 const api = process.env.API_ORIGIN ?? 'http://127.0.0.1:4000';
 const dev = process.env.NODE_ENV !== 'production';
+// The builder preview runs on an ISOLATED origin `<token>.<previewDomain>` (ADR-021; same variables as the API). Only that registrable domain may be framed.
+const previewDomain = (
+  process.env.BUILDER_PREVIEW_DOMAIN ?? 'preview.nuzm-preview.test'
+).toLowerCase();
+const previewScheme = process.env.BUILDER_PREVIEW_SCHEME === 'http' ? 'http' : 'https';
 
 /**
  * Security headers (M01 §9.7). The CSP keeps `'unsafe-inline'` for scripts because Next.js emits inline hydration
@@ -13,6 +18,7 @@ const csp = [
   "img-src 'self' data:",
   "font-src 'self'",
   "connect-src 'self'",
+  `frame-src 'self' ${previewScheme}://*.${previewDomain}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -26,6 +32,14 @@ const nextConfig = {
   // dev only: the local stack is opened at 127.0.0.1 (the OIDC redirect and cookies use it); without this Next blocks its
   // client scripts there, the pages never hydrate and the dev hot-reload socket fails.
   allowedDevOrigins: ['127.0.0.1'],
+  // The staff sign-in lives in the admin console on its own origin; these paths point there so nobody has to remember the port.
+  async redirects() {
+    const admin = process.env.ADMIN_ORIGIN ?? 'http://127.0.0.1:3001';
+    return [
+      { source: '/admin', destination: `${admin}/ar/login`, permanent: false },
+      { source: '/:locale(ar|en)/admin', destination: `${admin}/:locale/login`, permanent: false },
+    ];
+  },
   // The browser talks to the API through this origin, so session cookies are first-party and no CORS is needed.
   async rewrites() {
     return [{ source: '/v1/:path*', destination: `${api}/v1/:path*` }];

@@ -95,7 +95,7 @@ export default async function SubscriptionPage({
           />
         )}
         <p>
-          <ButtonLink variant="secondary" href={`/${locale}/billing/subscriptions`}>
+          <ButtonLink variant="secondary" href={`/${locale}/billing/plans#subscriptions`}>
             {t(locale, 'sub.title')}
           </ButtonLink>
         </p>

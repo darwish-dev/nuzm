@@ -7,11 +7,12 @@ import {
   ButtonLink,
   EmptyState,
   ForbiddenState,
+  OnOff,
+  Icon,
   Ltr,
   PageTitle,
   Table,
 } from '@nuzm/ui';
-import { DomainTabs } from '../../../../components/DomainTabs';
 import { domainTone, expiringSoon } from '../../../../lib/domains';
 import { requireSession } from '../../../../lib/server';
 import { view } from '../../../../lib/view';
@@ -53,19 +54,25 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
             caption={t(locale, 'dom.title')}
             rows={data.items}
             rowKey={(r) => r.id}
+            cardIcon="domains"
+            rowHref={(r) => `/${locale}/domains/${r.id}`}
+            manageLabel={t(locale, 'action.manage')}
             columns={[
               {
                 key: 'n',
+                card: 'title',
                 header: t(locale, 'dom.col.name'),
                 render: (r) => (
-                  <a href={`/${locale}/domains/${r.id}`}>
+                  <a className="nzc-dname-cell" href={`/${locale}/domains/${r.id}`}>
                     <Ltr>{r.name}</Ltr>
                   </a>
                 ),
               },
               {
                 key: 's',
+                card: 'badge',
                 header: t(locale, 'dom.col.state'),
+                icon: 'pulse',
                 render: (r) => (
                   <Badge tone={domainTone(r.state)}>
                     {tDynamic(locale, `dom.state.${r.state}`, r.state)}
@@ -74,23 +81,29 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
               },
               {
                 key: 'e',
+                card: 'footer',
                 header: t(locale, 'dom.col.expires'),
+                icon: 'calendar',
                 render: (r) => (r.expiresAt ? formatDateTime(r.expiresAt, locale) : '—'),
               },
               {
                 key: 'a',
+                card: 'meta',
                 header: t(locale, 'dom.col.autoRenew'),
-                render: (r) => t(locale, r.autoRenew ? 'dom.on' : 'dom.off'),
+                icon: 'refresh',
+                render: (r) => (
+                  <OnOff on={r.autoRenew}>{t(locale, r.autoRenew ? 'dom.on' : 'dom.off')}</OnOff>
+                ),
               },
               {
                 key: 'r',
+                card: 'chip',
                 header: t(locale, 'dom.col.risk'),
+                icon: 'shield',
                 render: (r) =>
                   r.renewalAtRisk ? (
                     <Badge tone="danger">{t(locale, 'dom.state.renewal_at_risk')}</Badge>
-                  ) : (
-                    '—'
-                  ),
+                  ) : null,
               },
             ]}
           />
@@ -98,10 +111,33 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
       );
     },
   );
+  const canBuy = s.can('domain:search');
+  const canTransfer = s.can('domain:write');
   return (
     <>
       <PageTitle>{t(locale, 'dom.title')}</PageTitle>
-      <DomainTabs locale={locale} current="list" can={s.can} />
+      {(canBuy || canTransfer) && (
+        <section className="nzc-hero" aria-labelledby="dom-hero">
+          <div className="nzc-hero-text">
+            <h2 id="dom-hero">{t(locale, 'dom.hero.title')}</h2>
+            <p>{t(locale, 'dom.hero.body')}</p>
+          </div>
+          <div className="nzc-hero-actions">
+            {canTransfer && (
+              <ButtonLink variant="secondary" href={`/${locale}/domains/transfers#start`}>
+                <Icon name="transfer" size={18} />
+                {t(locale, 'dom.action.transfer')}
+              </ButtonLink>
+            )}
+            {canBuy && (
+              <ButtonLink href={`/${locale}/domains/search`}>
+                <Icon name="search" size={18} />
+                {t(locale, 'dom.action.buy')}
+              </ButtonLink>
+            )}
+          </div>
+        </section>
+      )}
       {body}
     </>
   );

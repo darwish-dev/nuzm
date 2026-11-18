@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t, tDynamic } from '@nuzm/i18n';
-import { Badge, Ltr, Meter, PageTitle, Table } from '@nuzm/ui';
-import { HostingTabs } from '../../../../../../../components/HostingTabs';
+import { Badge, Ltr, Meter, PageTitle, Table, Icon } from '@nuzm/ui';
 import { requireSession } from '../../../../../../../lib/server';
 import { view } from '../../../../../../../lib/view';
 
@@ -28,15 +27,22 @@ export default async function Usage({
           rows={u.quotas}
           rowKey={(q) => q.dim}
           columns={[
-            { key: 'd', header: t(locale, 'host.col.dim'), render: (q) => <Ltr>{q.dim}</Ltr> },
+            {
+              key: 'd',
+              icon: 'globe',
+              header: t(locale, 'host.col.dim'),
+              render: (q) => <Ltr>{q.dim}</Ltr>,
+            },
             {
               key: 'u',
               header: t(locale, 'host.tab.usage'),
+              icon: 'globe',
               render: (q) => <Ltr>{`${q.used} / ${q.limit}`}</Ltr>,
             },
             {
               key: 'g',
               header: t(locale, 'host.col.quota'),
+              icon: 'globe',
               render: (q) => (
                 <Meter
                   label={t(locale, 'host.usage.meter', { dim: q.dim })}
@@ -47,6 +53,7 @@ export default async function Usage({
             {
               key: 's',
               header: t(locale, 'host.col.status'),
+              icon: 'pulse',
               render: (q) => (
                 <Badge tone={q.state === 'ok' ? 'success' : q.state === 'soft' ? 'warn' : 'danger'}>
                   {tDynamic(locale, `host.state.${q.state}`, q.state)}
@@ -61,7 +68,10 @@ export default async function Usage({
   return (
     <>
       <PageTitle>{t(locale, 'host.tab.usage')}</PageTitle>
-      <HostingTabs locale={locale} siteId={id} current="usage" />
+      <a className="nzc-back" href={`/${locale}/hosting/sites/${id}`}>
+        <Icon name="chevron" size={16} />
+        {t(locale, 'host.tab.overview')}
+      </a>
       {body}
     </>
   );

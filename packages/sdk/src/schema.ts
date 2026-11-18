@@ -111,7 +111,7 @@ export interface paths {
         put?: never;
         /**
          * Sign in with email and password
-         * @description Web realm only. An unknown email, a wrong password, a locked account, a disabled user and a platform (staff) user all answer the same 401 `invalid_credentials` (no account enumeration; an unknown email costs the same time). After 5 consecutive failures the account is locked for 15 minutes (proposal). Success mints a new session (a presented session cookie is revoked first) and sets the session and CSRF cookies. Audited (auth.login.succeeded, auth.login.failed).
+         * @description `realm: web` (default) is the customer sign-in; `realm: admin` is the staff sign-in (platform users only). An unknown email, a wrong password, a locked account, a disabled user and an account of the other kind (a customer at the admin sign-in, a staff user at the customer one) all answer the same 401 `invalid_credentials` (no account enumeration; an unknown email costs the same time). After 5 consecutive failures the account is locked for 15 minutes (proposal). Success mints a new session of that realm (a presented session cookie of the same realm is revoked first) and sets its session and CSRF cookies. An admin session is NOT yet usable: the admin console requires two-factor verification (403 `mfa_required` until it is done). Audited (auth.login.succeeded, auth.login.failed).
          */
         post: operations["passwordLogin"];
         delete?: never;
@@ -171,7 +171,7 @@ export interface paths {
         put?: never;
         /**
          * Change the signed-in user's password
-         * @description Needs the current password (a wrong one counts toward the lockout) and a CSRF header. Refused while impersonating. Revokes every OTHER session of the user. Audited (auth.password.changed).
+         * @description Needs the current password (a wrong one counts toward the lockout) and a CSRF header; works for a customer or a staff session. Refused while impersonating. Revokes every OTHER session of the user. Audited (auth.password.changed).
          */
         post: operations["changePassword"];
         delete?: never;
@@ -4368,6 +4368,694 @@ export interface paths {
         patch: operations["changeDnsRecords"];
         trace?: never;
     };
+    "/v1/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the AI models this organization may use
+         * @description Models of ENABLED providers that have a rate card, filtered by the organization residency policy (class `customer-content`): a provider outside the allowed regions is never listed. Empty until a provider is decided (D-18), attested (HG-09-01) and enabled. Requires permission `ai:read`; the whole surface answers 404 while the `ai.enabled` flag is off.
+         */
+        get: operations["listAiModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * AI credit balance and usage
+         * @description Credits are a projection of the wallet (ledger account 2100) minus open reservations: `availableCredits = floor(wallet / creditUnitMinor) - reserved`. Usage by model and by project for the last 30 days. Requires permission `ai:read`.
+         */
+        get: operations["getAiCredits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * AI budgets and caps
+         * @description Organization budget (daily credits, per-run credits/tokens, totals, alert thresholds, prompt-body logging, auto-apply) and project budgets. The ETag is the budget version (`"0"` = never set). Requires permission `ai:read`.
+         */
+        get: operations["getAiBudgets"];
+        /**
+         * Replace AI budgets and caps
+         * @description Needs `If-Match` (428 if absent, 412 if stale). Caps are non-negative integers or null (no cap). `logBodies=true` needs `bodyRetentionDays` (D-34). Enabling `autoApplyLowRisk` also needs `ai:write` (owner, admin, developer). Audited (`ai.budgets.updated`). Requires permission `ai:budgets:write`.
+         */
+        put: operations["putAiBudgets"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/model-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List model providers
+         * @description Provider rows with region, human-attested data terms, rate card, enable state and whether an adapter is registered. Only the vault REFERENCE of a credential is ever returned. Nothing is seeded. Platform permission `admin:ai:read`.
+         */
+        get: operations["listAiModelProviders"];
+        put?: never;
+        /**
+         * Configure, attest, enable or disable a model provider; kill switch
+         * @description Body {action: configure|attest|request_enable|enable|disable|kill_switch, ...}. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).
+         */
+        post: operations["actOnAiModelProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List AI sessions
+         * @description Newest first. Requires permission `ai:read`.
+         */
+        get: operations["listAiSessions"];
+        put?: never;
+        /**
+         * Create an AI session
+         * @description Body {title, projectId?}. A session holds the conversation and its runs; message bodies are stored sealed. Requires permission `ai:write`. Audited (`ai.session.created`).
+         */
+        post: operations["createAiSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/sessions/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the messages of a session
+         * @description Oldest first. Requires permission `ai:read`. 404 for another organization.
+         */
+        get: operations["listAiMessages"];
+        put?: never;
+        /**
+         * Add a user message
+         * @description Body {content, attachments?: [{kind:url,url}|{kind:text,name,text}]}. The content passes the moderation hook (422 `content_blocked`, placeholder deny-list: the policy is an owner decision) and the secret scan (422 `secret_detected`) BEFORE anything is stored. Attachments are references: URLs are fetched later by the SSRF-safe fetcher inside a run, and everything enters prompts only inside delimited data blocks. Requires permission `ai:write`.
+         */
+        post: operations["addAiMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List AI runs
+         * @description Newest first, optionally for one session or project. Requires permission `ai:read`.
+         */
+        get: operations["listAiRuns"];
+        put?: never;
+        /**
+         * Start an AI run
+         * @description Body {sessionId, kind: website|edit|chat, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. webapp|mobile|test-fix answer 422 `unsupported_kind` until M10. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).
+         */
+        post: operations["createAiRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an AI run
+         * @description State (queued, running, waiting_approval, succeeded, failed, cancelled, budget_exceeded), step, usage and cost, the pending approval if any, artifact ids. 404 for another organization.
+         */
+        get: operations["getAiRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/artifacts/{artifactId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an artifact of a run
+         * @description Artifact payloads (requirements, architecture, page, change_set, site_model) are immutable JSON validated against their schema.
+         */
+        get: operations["getAiRunArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream run events (SSE)
+         * @description Server-sent events `{seq,type,data,at}` with `id: <seq>`; persisted, so a dropped client resumes with `Last-Event-ID`. The stream ends when the run is finished or waits for an approval (reconnect after the decision), or after 120 s. Requires permission `ai:read`.
+         */
+        get: operations["streamAiRunEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a run
+         * @description A queued or waiting run is cancelled at once; a running run is flagged and stops at its next step (the model call in flight is aborted and its reservation released). 409 `invalid_state` when the run is already finished. Audited (`ai.run.cancelled`).
+         */
+        post: operations["cancelAiRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or deny a pending run approval
+         * @description Body {approvalId, decision: approve|deny, note?}. Approval kinds: plan, apply_changes, publish, delete, spend, auto_apply; each is bound to the run and to the SHA-256 of the exact action and expires (24 h proposal): 409 `approval_expired`. The approver is a human member with a write role (403 otherwise); there is no AI identity in this path. Approve starts the next run segment; deny cancels the run unless the kind has its own handler. Audited (`ai.approval.granted|denied`).
+         */
+        post: operations["decideAiRunApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run oversight (metadata only)
+         * @description Run metadata across organizations: state, kind, tokens, credits, model, region, error code. NEVER prompts, outputs, artifacts, checkpoints or inputs: content access would need break-glass with consent (not built). Every read is audited (`ai.admin.cross_org_read`). Platform permission `admin:ai:read`.
+         */
+        get: operations["listAdminAiRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List website projects
+         * @description Newest first, with the last deployment. Requires permission `builder:read`.
+         */
+        get: operations["listBuilderProjects"];
+        put?: never;
+        /**
+         * Create a website project
+         * @description Body {type: website, name, locale: [ar|en…], templateId?}. Starts from one of the bilingual templates or an empty site and creates version 1 with its rendered files. 422 `quota_exceeded` beyond the project limit, 403 `residency_denied`, 409 `name_taken`. Requires permission `builder:write`. Audited (`builder.project.created`). The whole builder surface answers 404 while the `ai.enabled` flag is off.
+         */
+        post: operations["createBuilderProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a project with its site model
+         * @description The project, the site model of the head (or `versionId`), the SEO score report of that model and, with `compareTo`, the diff between two versions. The ETag is the project version (If-Match for PATCH). 404 for another organization.
+         */
+        get: operations["getBuilderProject"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a project (soft, with retention)
+         * @description `confirmName` (query or body) must equal the project name: a human typed it, which is the approval of this destructive action. The project is soft-deleted for the retention window (30 days proposal), its previews stop working. 409 `in_use` while a deployment is in progress. Audited (`builder.project.deleted`).
+         */
+        delete: operations["deleteBuilderProject"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a project
+         * @description Only `name` can change (locales are fixed in v1). 412 `etag_mismatch`, 428, 409 `name_taken`. Audited.
+         */
+        patch: operations["updateBuilderProject"];
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the rendered files of a version
+         * @description Path, size, mime and SHA-256 of every generated file of the head (or `versionId`).
+         */
+        get: operations["listBuilderProjectFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one rendered file
+         * @description Text files as UTF-8, binary files as base64; 413 `payload_too_large` above 1 MiB.
+         */
+        get: operations["getBuilderProjectFileContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply an ordered set of editor operations
+         * @description Body {baseVersion, ops[], source: user, label?, assetData?}. Ops: insertComponent, updateProps, moveComponent, deleteComponent, setTokens, setText, addPage, deletePage, updatePage, setSeo, setNav, addAsset, removeAsset. Validated against the schema, applied atomically, answered with the SAFE DIFF (structural + rendered-text changes), risk flags (deletes_page, deletes_component, changes_seo, changes_slug, …), the new version and the INVERSE ops (undo). 409 `base_outdated` carries rebase info (head version, changed pages); 422 `op_invalid` lists the issues. Empty `ops` with a `label` names the current version. `source=ai` answers 403 `approval_required`: AI change sets are applied only through a run approval. Single writer per project (row lock, ETag). Audited (`builder.change.applied`).
+         */
+        post: operations["applyBuilderChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List versions
+         * @description Newest first; history is immutable. `isHead` marks the current head.
+         */
+        get: operations["listBuilderProjectVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/versions/{vid}/restoration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a version
+         * @description Creates a NEW head version from the chosen one; history is never rewritten. 409 `conflict` when the version already is the head. Audited (`builder.version.restored`).
+         */
+        post: operations["restoreBuilderProjectVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List previews
+         * @description Ids, versions and expiry; never a usable URL.
+         */
+        get: operations["listBuilderPreviews"];
+        put?: never;
+        /**
+         * Create a preview
+         * @description Body {viewport?: mobile|tablet|desktop, versionId?}. Returns an unguessable URL (160-bit token in the host name) on the ISOLATED preview origin, a different registrable domain from the console and the API, expiring (30 min proposal). The token is shown only here. 429 beyond the active-preview limit.
+         */
+        post: operations["createBuilderPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/forms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List forms
+         * @description Forms of the project (those of the site model are registered automatically) with submission and blocked-spam counts and the public endpoint.
+         */
+        get: operations["listBuilderForms"];
+        put?: never;
+        /**
+         * Register a form
+         * @description Body {formKey, name, fields: [{name, type: text|email|tel|textarea, required?}], notifyEmail?, retentionDays?}. The notification address is stored sealed. 409 `name_taken`.
+         */
+        post: operations["createBuilderForm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/form-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List form submissions
+         * @description Class `personal`, stored sealed. Roles without `builder:submissions:read` (viewer) get every value masked; unmasked reads are audited.
+         */
+        get: operations["listBuilderFormSubmissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/cms-collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List CMS collections and items
+         * @description Typed collections with their items and publish state.
+         */
+        get: operations["listBuilderCmsCollections"];
+        put?: never;
+        /**
+         * Create a collection and/or add items
+         * @description Body {collectionKey, name?, fields?, items?: [{data, state?: draft|published}]}. A new collection needs name and fields (text, number, boolean, date, localized_text); items are validated against them. Only PUBLISHED items are consumed by a build (sections with `props.collection`).
+         */
+        post: operations["upsertBuilderCmsCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deployments
+         * @description Newest first.
+         */
+        get: operations["listDeployments"];
+        put?: never;
+        /**
+         * Publish a project to a hosting site
+         * @description Body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). Audited (`deploy.deployment.*`).
+         */
+        post: operations["createDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a deployment
+         * @description State (queued, building, deploying, smoke_checking, succeeded, failed, rolled_back), artifact hash, smoke results, URL, error.
+         */
+        get: operations["getDeployment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deployment logs
+         * @description Append-only log lines `{seq, level, message, data, at}`.
+         */
+        get: operations["getDeploymentLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll back to the previous artifact
+         * @description Restores the artifact that served before this deployment (its artifact hash) and creates a new deployment with `rollbackOf`. 409 `invalid_state` unless the deployment succeeded and has a predecessor.
+         */
+        post: operations["rollbackDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/_preview/{token}/*": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve a preview file (isolated origin only)
+         * @description Served ONLY on the host `<token>.<previewDomain>`; any other host, a wrong or expired token, or a deleted project is a plain 404. Strict CSP (`default-src self`, frame-ancestors limited to the console origin), `nosniff`, no cookies, no CORS, no credentials. The edge maps `https://<token>.<previewDomain>/<path>` to this route.
+         */
+        get: operations["servePreviewFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/p/{projectId}/v1/public/forms/{formKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public form ingest of a published site
+         * @description Posted by the generated pages. A filled honeypot field `website_url` is accepted silently and counted as spam; per-IP rate limit (429), size limit (413), field validation (422). Stores a sealed `personal` submission. No authentication, no third-party trackers; the answer reveals nothing beyond `received`.
+         */
+        post: operations["submitPublicForm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/_preview/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve the preview entry page (isolated origin only)
+         * @description Same rules as the file route: only on the host `<token>.<previewDomain>`; the entry page redirects to the default locale.
+         */
+        get: operations["servePreviewRoot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evaluation reports vs thresholds
+         * @description Evaluation harness reports (40 prompts, 20 Arabic and 20 English, 8 site categories) with the PROPOSED thresholds (owner approval pending) and the breaches. Every report states `modelQuality`: reports from the scripted mock are `NOT VERIFIED` and prove plumbing only; the human rubric is a separate record and is never filled in by the harness. a11y, SEO and performance figures are proxies, not Lighthouse. Platform permission `admin:ai:read`.
+         */
+        get: operations["getAiQuality"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workflows": {
         parameters: {
             query?: never;
@@ -7098,6 +7786,11 @@ export interface components {
         PasswordLoginRequest: {
             email: string;
             password: string;
+            /**
+             * @default web
+             * @enum {string}
+             */
+            realm?: "web" | "admin";
         };
         ForgotPasswordRequest: {
             email: string;
@@ -8968,6 +9661,491 @@ export interface components {
                 [key: string]: unknown;
             }[];
             version: number;
+        };
+        AiModel: {
+            providerCode: string;
+            modelId: string;
+            region: string;
+            capabilities: ("chat" | "structured-output" | "long-context" | "embeddings" | "vision")[];
+            contextTokens: number;
+            maxOutputTokens: number;
+            /** @enum {string} */
+            latencyClass: "low" | "medium" | "high";
+            dataTermsAttested: boolean;
+            /** @description integer string */
+            creditsPerMillionInput: string;
+            /** @description integer string */
+            creditsPerMillionOutput: string;
+        };
+        AiModelList: {
+            items: components["schemas"]["AiModel"][];
+        };
+        AiCredits: {
+            currency: string;
+            creditUnitMinor: number;
+            walletCredits: string;
+            reservedCredits: string;
+            availableCredits: string;
+            last30DaysCredits: string;
+            lowCredit: boolean;
+            usage: {
+                byModel: {
+                    [key: string]: unknown;
+                }[];
+                byProject: {
+                    [key: string]: unknown;
+                }[];
+            };
+        };
+        AiBudgetDoc: {
+            dailyCredits?: number | null;
+            runMaxCredits?: number | null;
+            runMaxTokens?: number | null;
+            totalCredits?: number | null;
+            totalTokens?: number | null;
+            alertThresholds?: number[];
+            logBodies?: boolean;
+            bodyRetentionDays?: number | null;
+            autoApplyLowRisk?: boolean;
+        };
+        AiBudgets: {
+            org: components["schemas"]["AiBudgetDoc"];
+            projects: {
+                [key: string]: unknown;
+            }[];
+            version: number;
+        };
+        AiBudgetsInput: {
+            org?: components["schemas"]["AiBudgetDoc"];
+            projects?: {
+                /** Format: uuid */
+                projectId: string;
+                totalCredits?: number | null;
+                totalTokens?: number | null;
+            }[];
+        };
+        AiModelProvider: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            adapter: string;
+            displayName: string;
+            region: string;
+            dataTerms: {
+                [key: string]: unknown;
+            };
+            attestationRef?: string | null;
+            vaultRef?: string | null;
+            rateCardVersion?: string;
+            rateCard?: {
+                [key: string]: unknown;
+            };
+            enabled: boolean;
+            enableRequestedBy?: string | null;
+            enabledBy?: string | null;
+            adapterRegistered: boolean;
+            version: number;
+        };
+        AiModelProviderList: {
+            items: components["schemas"]["AiModelProvider"][];
+        };
+        AiModelProviderAction: {
+            /** @enum {string} */
+            action: "configure" | "attest" | "request_enable" | "enable" | "disable" | "kill_switch";
+            /** Format: uuid */
+            id?: string;
+            code?: string;
+            adapter?: string;
+            displayName?: string;
+            region?: string;
+            vaultRef?: string;
+            rateCard?: {
+                [key: string]: unknown;
+            };
+            rateCardVersion?: string;
+            egressAllow?: string[];
+            dataTerms?: {
+                [key: string]: unknown;
+            };
+            attestationRef?: string;
+            on?: boolean;
+            /** Format: uuid */
+            orgId?: string;
+        };
+        AiSessionInput: {
+            title: string;
+            /** Format: uuid */
+            projectId?: string;
+        };
+        AiSession: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            projectId?: string | null;
+            state: string;
+            dataRegion: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AiSessionPage: {
+            items: components["schemas"]["AiSession"][];
+            nextCursor: string | null;
+        };
+        AiMessageInput: {
+            content: string;
+            attachments?: {
+                [key: string]: unknown;
+            }[];
+        };
+        AiMessage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            sessionId: string;
+            runId?: string | null;
+            /** @enum {string} */
+            role: "user" | "assistant" | "system";
+            content: string;
+            classification: string;
+            attachments: {
+                [key: string]: unknown;
+            }[];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AiMessagePage: {
+            items: components["schemas"]["AiMessage"][];
+            nextCursor: string | null;
+        };
+        AiRunInput: {
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            kind: "website" | "edit" | "chat" | "webapp" | "mobile" | "test-fix";
+            /** Format: uuid */
+            projectId?: string;
+            input?: {
+                [key: string]: unknown;
+            };
+            budget?: {
+                maxTokens?: number;
+                maxCredits?: number;
+            };
+        };
+        AiRun: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            sessionId: string;
+            projectId?: string | null;
+            kind: string;
+            /** @enum {string} */
+            state: "queued" | "running" | "waiting_approval" | "succeeded" | "failed" | "cancelled" | "budget_exceeded";
+            operationId?: string | null;
+            step?: string | null;
+            budget?: {
+                [key: string]: unknown;
+            };
+            usage: {
+                [key: string]: unknown;
+            };
+            dataRegion: string;
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            error?: {
+                [key: string]: unknown;
+            } | null;
+            pendingApproval?: {
+                [key: string]: unknown;
+            } | null;
+            artifacts: {
+                [key: string]: unknown;
+            }[];
+            /** Format: date-time */
+            createdAt: string;
+            finishedAt?: string | null;
+        };
+        AiRunPage: {
+            items: components["schemas"]["AiRun"][];
+            nextCursor: string | null;
+        };
+        AiArtifact: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            payload: {
+                [key: string]: unknown;
+            };
+            approved: boolean;
+        };
+        AiCancellation: {
+            /** @enum {string} */
+            state: "cancelling" | "cancelled";
+        };
+        AiApprovalDecision: {
+            /** Format: uuid */
+            approvalId: string;
+            /** @enum {string} */
+            decision: "approve" | "deny";
+            note?: string;
+        };
+        AiAdminRunPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        BuilderProjectInput: {
+            /** @enum {string} */
+            type?: "website";
+            name: string;
+            locale?: ("ar" | "en")[];
+            templateId?: string;
+        };
+        BuilderProjectPatch: {
+            name: string;
+        };
+        BuilderProject: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            name: string;
+            locales: string[];
+            templateId?: string | null;
+            headVersionId?: string | null;
+            headSeq?: number | null;
+            dataRegion: string;
+            etag: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            lastDeployment?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        BuilderProjectDetail: components["schemas"]["BuilderProject"] & {
+            /** Format: uuid */
+            versionId?: string;
+            versionSeq?: number;
+            /** @description Site model v1 (packages/domain builder/site-model) */
+            siteModel?: {
+                [key: string]: unknown;
+            };
+            seo?: {
+                [key: string]: unknown;
+            };
+            diff?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        BuilderProjectPage: {
+            items: components["schemas"]["BuilderProject"][];
+            nextCursor: string | null;
+        };
+        BuilderProjectDeleted: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            purgeAfter: string;
+        };
+        BuilderFileList: {
+            /** Format: uuid */
+            versionId: string;
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderFileContent: {
+            path: string;
+            mime: string;
+            size: number;
+            /** @enum {string} */
+            encoding: "utf8" | "base64";
+            content: string;
+        };
+        BuilderChangeInput: {
+            /** Format: uuid */
+            baseVersion: string;
+            ops: ({
+                /** @enum {string} */
+                op: "insertComponent" | "updateProps" | "moveComponent" | "deleteComponent" | "setTokens" | "setText" | "addPage" | "deletePage" | "updatePage" | "setSeo" | "setNav" | "addAsset" | "removeAsset";
+            } & {
+                [key: string]: unknown;
+            })[];
+            /** @enum {string} */
+            source?: "user" | "ai";
+            label?: string;
+            /** @description base64 image bytes by SHA-256 (PNG, JPEG, WebP, up to 512 KiB) */
+            assetData?: {
+                [key: string]: string;
+            };
+        };
+        BuilderChangeResult: {
+            diff: {
+                [key: string]: unknown;
+            };
+            risks: {
+                [key: string]: unknown;
+            }[];
+            newVersion: {
+                [key: string]: unknown;
+            };
+            inverseOps: {
+                [key: string]: unknown;
+            }[];
+            etag?: number;
+            changeId?: string | null;
+        };
+        BuilderVersionPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        BuilderRestoration: {
+            /** Format: uuid */
+            versionId: string;
+            seq: number;
+            /** Format: uuid */
+            restoredFrom: string;
+            restoredSeq?: number;
+        };
+        BuilderPreviewInput: {
+            /** @enum {string} */
+            viewport?: "mobile" | "tablet" | "desktop";
+            /** Format: uuid */
+            versionId?: string;
+        };
+        BuilderPreview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            versionId: string;
+            viewport: string;
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+            revoked?: boolean;
+        };
+        BuilderPreviewList: {
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderFormInput: {
+            formKey: string;
+            name: string;
+            fields: {
+                [key: string]: unknown;
+            }[];
+            notifyEmail?: string;
+            retentionDays?: number;
+        };
+        BuilderForm: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            formKey: string;
+            name: string;
+            fields: {
+                [key: string]: unknown;
+            }[];
+            enabled: boolean;
+            retentionDays: number;
+            notifyEmailSet?: boolean;
+            submissions: number;
+            spamBlocked: number;
+            endpoint: string;
+        };
+        BuilderFormList: {
+            items: components["schemas"]["BuilderForm"][];
+        };
+        BuilderSubmissionPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        BuilderCmsInput: {
+            collectionKey: string;
+            name?: string;
+            fields?: {
+                [key: string]: unknown;
+            }[];
+            items?: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderCmsList: {
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        PublicFormInput: {
+            [key: string]: string;
+        };
+        DeploymentInput: {
+            /** Format: uuid */
+            projectId: string;
+            /**
+             * Format: uuid
+             * @description hosting site id
+             */
+            target: string;
+            /** @enum {string} */
+            environment?: "production" | "staging";
+            /** Format: uuid */
+            approvalId?: string;
+        };
+        Deployment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            versionId: string;
+            target: {
+                [key: string]: unknown;
+            };
+            environment: string;
+            /** @enum {string} */
+            state: "queued" | "building" | "deploying" | "smoke_checking" | "succeeded" | "failed" | "rolled_back";
+            operationId?: string | null;
+            artifactHash?: string | null;
+            previousDeploymentId?: string | null;
+            rollbackOf?: string | null;
+            url?: string | null;
+            smoke?: {
+                [key: string]: unknown;
+            } | null;
+            error?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            createdAt: string;
+            finishedAt?: string | null;
+        };
+        DeploymentPage: {
+            items: components["schemas"]["Deployment"][];
+            nextCursor: string | null;
+        };
+        DeploymentLogs: {
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        AiQuality: {
+            thresholds: {
+                [key: string]: number;
+            };
+            reports: {
+                [key: string]: unknown;
+            }[];
         };
         /** @description A JSON object; the fields are described in the operation. */
         M11Object: {
@@ -18051,6 +19229,1352 @@ export interface operations {
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             428: components["responses"]["Problem"];
+        };
+    };
+    listAiModels: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiCredits: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCredits"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiBudgets: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiBudgets"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    putAiBudgets: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiBudgetsInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiBudgets"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listAiModelProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelProviderList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    actOnAiModelProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiModelProviderAction"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelProvider"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAiSessions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSessionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createAiSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiSessionInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSession"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAiMessages: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMessagePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    addAiMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiMessageInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMessage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAiRuns: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                sessionId?: string;
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRunPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createAiRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiRunInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getAiRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiRunArtifact: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                artifactId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiArtifact"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    streamAiRunEvents: {
+        parameters: {
+            query?: {
+                lastEventId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Resume after this event sequence number */
+                "Last-Event-ID"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-sent events (text/event-stream) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    cancelAiRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCancellation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    decideAiRunApproval: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiApprovalDecision"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listAdminAiRuns: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                orgId?: string;
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAdminRunPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listBuilderProjects: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createBuilderProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderProjectInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBuilderProject: {
+        parameters: {
+            query?: {
+                versionId?: string;
+                compareTo?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteBuilderProject: {
+        parameters: {
+            query?: {
+                confirmName?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectDeleted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    updateBuilderProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderProjectPatch"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProject"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listBuilderProjectFiles: {
+        parameters: {
+            query?: {
+                versionId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFileList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderProjectFileContent: {
+        parameters: {
+            query?: {
+                path?: string;
+                versionId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFileContent"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    applyBuilderChanges: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderChangeInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderChangeResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listBuilderProjectVersions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderVersionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    restoreBuilderProjectVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderRestoration"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listBuilderPreviews: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderPreviewList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createBuilderPreview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BuilderPreviewInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderPreview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    listBuilderForms: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFormList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createBuilderForm: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderFormInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderForm"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listBuilderFormSubmissions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                formId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderSubmissionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listBuilderCmsCollections: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderCmsList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    upsertBuilderCmsCollection: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderCmsInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderCmsList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDeployments: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDeployment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getDeploymentLogs: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentLogs"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    rollbackDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    servePreviewFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    submitPublicForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                formKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicFormInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    servePreviewRoot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiQuality: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiQuality"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
     listWorkflows: {

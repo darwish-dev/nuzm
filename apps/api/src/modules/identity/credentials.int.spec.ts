@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setPassword } from '../../dev/set-password';
+import { hashPassword } from './internal/password';
 import { Harness, cookieHeader, jarFrom } from './testing/app-harness';
 
 const h = new Harness();
@@ -148,16 +150,127 @@ describe('password sign-in', () => {
     expect(wrong.headers['set-cookie']).toBeUndefined();
   });
 
-  it('a platform user can never have a password (database refuses it)', async () => {
+  it('staff sign in to the ADMIN realm with a password, never to the customer one; a customer cannot reach the admin one', async () => {
+    const staff = 'staff-pw@example.test';
     const [created] = await sql(
-      `INSERT INTO identity.users (id, issuer, subject, email, is_platform_user)
-       VALUES (gen_random_uuid(),'nuzm:local','staff-y','staff-y@example.test', true) RETURNING id`,
+      `INSERT INTO identity.users (id, issuer, subject, email, email_verified, is_platform_user)
+       VALUES (gen_random_uuid(),'https://idp.example.test','staff-pw',$1, true, true) RETURNING id`,
+      [staff],
     );
+    const hash = await hashPassword(PW, { logN: 12, r: 8, p: 1 });
+    await sql(`INSERT INTO identity.credentials (user_id, password_hash) VALUES ($1,$2)`, [
+      created?.id,
+      hash,
+    ]);
+    // the customer console refuses a staff account, with the same answer as any other failure
+    const web = await login(staff, PW);
+    expect(web.statusCode).toBe(401);
+    expect(web.headers['set-cookie']).toBeUndefined();
+    // the admin sign-in accepts it and sets only the ADMIN cookies
+    const adm = await post('/v1/auth/password/login', {
+      email: staff.toUpperCase(),
+      password: PW,
+      realm: 'admin',
+    });
+    expect(adm.statusCode).toBe(200);
+    const set = [adm.headers['set-cookie']].flat().join('\n');
+    expect(set).toMatch(/nuzm_admin_session=nzs_[^;]+; .*HttpOnly/);
+    expect(set).toMatch(/nuzm_admin_csrf=nzc_/);
+    expect(set).not.toMatch(/(^|\n)nuzm_session=/);
+    // ... but a password alone opens nothing: two-factor is still required
+    const jar = jarFrom(adm);
+    const me = await app.inject({
+      method: 'GET',
+      url: '/v1/me',
+      headers: { cookie: cookieHeader(jar), 'x-nuzm-realm': 'admin' },
+    });
+    expect(me.statusCode).toBe(403);
+    expect(me.json().code).toBe('mfa_required');
+    expect(
+      sink.events.some((e) => e.action === 'auth.login.succeeded' && e.detail?.realm === 'admin'),
+    ).toBe(true);
+    // wrong password and a customer at the admin sign-in answer exactly like an unknown email
+    const customer = fresh();
+    await register(customer);
+    const wrong = await post('/v1/auth/password/login', {
+      email: staff,
+      password: 'not the password xx',
+      realm: 'admin',
+    });
+    const cust = await post('/v1/auth/password/login', {
+      email: customer,
+      password: PW,
+      realm: 'admin',
+    });
+    const unknown = await post('/v1/auth/password/login', {
+      email: fresh(),
+      password: PW,
+      realm: 'admin',
+    });
+    for (const r of [wrong, cust, unknown]) expect(r.statusCode).toBe(401);
+    expect(shape(cust)).toEqual(shape(unknown));
+    expect(shape(wrong)).toEqual(shape(unknown));
+  });
+
+  it('a disabled staff account and a staff account with no password both fail the admin sign-in', async () => {
+    const email = 'staff-off@example.test';
+    const [u] = await sql(
+      `INSERT INTO identity.users (id, issuer, subject, email, is_platform_user, status)
+       VALUES (gen_random_uuid(),'https://idp.example.test','staff-off',$1, true, 'disabled') RETURNING id`,
+      [email],
+    );
+    await sql(`INSERT INTO identity.credentials (user_id, password_hash) VALUES ($1,$2)`, [
+      u?.id,
+      await hashPassword(PW, { logN: 12, r: 8, p: 1 }),
+    ]);
+    expect(
+      (await post('/v1/auth/password/login', { email, password: PW, realm: 'admin' })).statusCode,
+    ).toBe(401);
+    await sql(`INSERT INTO identity.users (id, issuer, subject, email, is_platform_user)
+               VALUES (gen_random_uuid(),'https://idp.example.test','staff-nopw','staff-nopw@example.test', true)`);
+    expect(
+      (
+        await post('/v1/auth/password/login', {
+          email: 'staff-nopw@example.test',
+          password: PW,
+          realm: 'admin',
+        })
+      ).statusCode,
+    ).toBe(401);
+  });
+
+  it('the operator script sets a staff password that then signs in to the admin console', async () => {
+    const email = 'staff-cli@example.test';
+    await sql(
+      `INSERT INTO identity.users (id, issuer, subject, email, is_platform_user)
+               VALUES (gen_random_uuid(),'https://idp.example.test','staff-cli',$1, true)`,
+      [email],
+    );
+    const client = {
+      query: async (q: string, p?: unknown[]) => {
+        const rows = await h.env.sql(q, p);
+        return { rows, rowCount: rows.length };
+      },
+    };
+    const r = await setPassword(client as never, email, 'operator chosen passphrase 88', {
+      logN: 12,
+      r: 8,
+      p: 1,
+    });
+    expect(r.platform).toBe(true);
+    // the script itself refuses a weak password
     await expect(
-      sql(`INSERT INTO identity.credentials (user_id, password_hash) VALUES ($1,'x')`, [
-        created?.id,
-      ]),
-    ).rejects.toThrow(/platform users cannot have a password/);
+      setPassword(client as never, email, 'short', { logN: 12, r: 8, p: 1 }),
+    ).rejects.toThrow(/policy/);
+    expect(
+      (
+        await post('/v1/auth/password/login', {
+          email,
+          password: 'operator chosen passphrase 88',
+          realm: 'admin',
+        })
+      ).statusCode,
+    ).toBe(200);
   });
 
   it('locks after 3 failures (configured), even for the right password, and unlocks when the lock ends', async () => {

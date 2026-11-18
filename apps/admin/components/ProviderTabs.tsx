@@ -23,7 +23,7 @@ export function ProviderTabs({
   const shown = tabs.filter((x) => x.show);
   if (shown.length === 0) return null;
   return (
-    <nav aria-label={t(locale, 'm05.adm.nav')} className="nz-row">
+    <nav aria-label={t(locale, 'm05.adm.nav')} className="nz-row nz-subnav">
       {shown.map((x) => (
         <a
           key={x.key}

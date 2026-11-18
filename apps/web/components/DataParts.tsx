@@ -89,11 +89,13 @@ export function QuoteSummary({ locale, quote }: { locale: Locale; quote: QuoteVi
           {
             key: 'q',
             header: t(locale, 'bill.f.quantity'),
+            icon: 'data',
             render: (i) => <Ltr>{`${trimDec(i.quantity)} ${i.unit}`}</Ltr>,
           },
           {
             key: 'a',
             header: t(locale, 'bill.f.amount'),
+            icon: 'tag',
             render: (i) => <Ltr>{formatMinor(i.amountMinor, quote.currency, locale)}</Ltr>,
           },
         ]}
@@ -144,7 +146,7 @@ export function SectionTabs({
 }) {
   void locale;
   return (
-    <nav aria-label={label} className="nz-row">
+    <nav aria-label={label} className="nz-row nzc-subtabs">
       {tabs.map((x) => (
         <a
           key={x.key}
@@ -197,25 +199,7 @@ export function DatabaseTabs({
 
 export type EmailSection =
   'domains' | 'mailboxes' | 'senders' | 'templates' | 'messages' | 'suppressions';
-export function EmailTabs({ locale, current }: { locale: Locale; current: EmailSection }) {
-  const keys: EmailSection[] = [
-    'domains',
-    'mailboxes',
-    'senders',
-    'templates',
-    'messages',
-    'suppressions',
-  ];
-  return (
-    <SectionTabs
-      locale={locale}
-      label={t(locale, 'm8.em.nav')}
-      current={current}
-      tabs={keys.map((k) => ({
-        key: k,
-        href: `/${locale}/email/${k}`,
-        label: t(locale, `m8.em.tab.${k}`),
-      }))}
-    />
-  );
+/** The email sections are already the console's section tabs above every email page, so no second row of tabs is drawn here. */
+export function EmailTabs(_props: { locale: Locale; current: EmailSection }) {
+  return null;
 }

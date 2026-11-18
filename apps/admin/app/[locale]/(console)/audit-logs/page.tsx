@@ -49,16 +49,19 @@ export default async function AuditLogs({
               {
                 key: 'when',
                 header: t(locale, 'field.when'),
+                icon: 'calendar',
                 render: (r) => formatDateTime(r.occurredAt, locale),
               },
               {
                 key: 'action',
                 header: t(locale, 'field.action'),
+                icon: 'code',
                 render: (r) => <Ltr>{r.action}</Ltr>,
               },
               {
                 key: 'actor',
                 header: t(locale, 'field.actor'),
+                icon: 'user',
                 render: (r) => tDynamic(locale, `actor.${r.actor.type ?? ''}`, r.actor.type ?? ''),
               },
               {
@@ -74,6 +77,7 @@ export default async function AuditLogs({
               {
                 key: 'outcome',
                 header: t(locale, 'field.outcome'),
+                icon: 'pulse',
                 render: (r) => (
                   <Badge tone={r.outcome === 'success' ? 'success' : 'danger'}>
                     {t(locale, `outcome.${r.outcome}`)}

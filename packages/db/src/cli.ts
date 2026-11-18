@@ -4,6 +4,7 @@ import { checkDatabase } from './checks';
 import { checkClassification } from './classification';
 import { collectEvidence } from './collectors';
 import { syncControls } from './controls';
+import { devSeed } from './dev-seed';
 import { checkResidencyHooks } from './residency-hooks';
 import { adapterKindsFromDocs, checkRopaCoverage } from './ropa-coverage';
 import { loadManifest } from './migrations';
@@ -67,6 +68,13 @@ async function main() {
       await c.end();
     }
     console.log('dev logins enabled for nuzm_app, nuzm_worker (dev password)');
+  } else if (cmd === 'dev-seed') {
+    // DEV ONLY: demo servers, websites, domains and databases for one organization (refuses non-local databases).
+    const [, org] = process.argv.slice(2);
+    if (!org) throw new Error('usage: dev-seed <organization id, name or slug>');
+    const r = await devSeed(url, org);
+    for (const [k, v] of Object.entries(r))
+      console.log(`${k}: ${v.length ? `added ${v.join(', ')}` : 'nothing new (already seeded)'}`);
   } else if (cmd === 'grant-platform-role') {
     // DEV/OPERATOR bootstrap for platform staff (the assignment API, PA-12, awaits owner approval).
     // Production use is a human-gated action (CLAUDE.md §5); this refuses non-local databases.
@@ -182,7 +190,7 @@ async function main() {
     if (reports.some((r) => !r.ok)) process.exit(1);
   } else {
     console.error(
-      'usage: cli.ts migrate|rollback|dev-logins|grant-platform-role|check|classification|ropa-coverage|residency-hooks|sync-controls|collect-evidence',
+      'usage: cli.ts migrate|rollback|dev-logins|dev-seed|grant-platform-role|check|classification|ropa-coverage|residency-hooks|sync-controls|collect-evidence',
     );
     process.exit(2);
   }

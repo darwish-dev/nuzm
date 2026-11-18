@@ -307,6 +307,11 @@ classification:
     domains.registrar_accounts.vault_ref: vault_ref
     # >>> M09 protection
     ai.model_providers.vault_ref: vault_ref
+    builder.previews.token_hash: hash
+    builder.form_submissions.payload_enc: encrypted
+    builder.forms.notify_email_enc: encrypted
+    ai.messages.content_enc: encrypted
+    ai.model_usage.body_enc: encrypted
     # <<< M09 protection
   columns:
     audit.audit_checkpoints:
@@ -2445,7 +2450,7 @@ classification:
       session_id: internal
       run_id: internal
       role: internal
-      content_encrypted: customer-content
+      content_enc: customer-content
       content_hash: internal
       classification: internal
       attachments: internal
@@ -2497,4 +2502,184 @@ classification:
       created_by: internal
       created_at: internal
       updated_at: internal
+      version: internal
+    builder.changes:
+      id: internal
+      org_id: internal
+      project_id: internal
+      base_version_id: internal
+      ops: customer-content
+      diff: customer-content
+      risks: internal
+      status: internal
+      result_version_id: internal
+      source: internal
+      run_id: internal
+      inverse_ops: internal
+      created_by: internal
+      created_at: internal
+      decided_at: internal
+    builder.cms_collections:
+      id: internal
+      org_id: internal
+      project_id: internal
+      collection_key: internal
+      name: customer-content
+      fields: customer-content
+      created_by: internal
+      created_at: internal
+    builder.cms_items:
+      id: internal
+      org_id: internal
+      collection_id: internal
+      data: customer-content
+      state: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      published_at: internal
+      version: internal
+    builder.form_submissions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      form_id: internal
+      payload_enc: personal
+      ip_hash: personal
+      classification: internal
+      data_region: internal
+      notified: internal
+      expires_at: internal
+      created_at: internal
+    builder.forms:
+      id: internal
+      org_id: internal
+      project_id: internal
+      form_key: internal
+      name: customer-content
+      fields: customer-content
+      enabled: internal
+      notify_email_enc: personal
+      retention_days: internal
+      spam_count: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    builder.pages:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      page_id: internal
+      locale: internal
+      slug: customer-content
+      path: internal
+      title: customer-content
+      seo: internal
+    builder.previews:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      token_hash: credentials
+      viewport: internal
+      origin: internal
+      expires_at: internal
+      revoked_at: internal
+      created_by: internal
+      created_at: internal
+    builder.project_files:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      path: internal
+      content_hash: internal
+      storage_ref: internal
+      size: internal
+      mime: internal
+      content: customer-content
+      created_at: internal
+    builder.project_versions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      parent_id: internal
+      seq: internal
+      site_model: customer-content
+      model_hash: internal
+      label: customer-content
+      named: internal
+      source: internal
+      run_id: internal
+      restored_from: internal
+      created_by: internal
+      created_at: internal
+    builder.projects:
+      id: internal
+      org_id: internal
+      workspace_id: internal
+      type: internal
+      name: customer-content
+      locales: internal
+      template_id: internal
+      head_version_id: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+      deleted_purge_after: internal
+      version: internal
+    deploy.builds:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      state: internal
+      base_url: internal
+      artifact_hash: internal
+      artifact: internal
+      file_count: internal
+      size_bytes: internal
+      issues: internal
+      build_ms: internal
+      error: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      finished_at: internal
+    deploy.deployment_logs:
+      id: internal
+      org_id: internal
+      deployment_id: internal
+      seq: internal
+      level: internal
+      message: customer-content
+      data: customer-content
+      created_at: internal
+    deploy.deployments:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      target_kind: internal
+      target_ref: internal
+      environment: internal
+      state: internal
+      operation_id: internal
+      build_id: internal
+      artifact_hash: internal
+      previous_deployment_id: internal
+      rollback_of: internal
+      url: internal
+      smoke: internal
+      error: internal
+      approval_id: internal
+      idempotency_key: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      finished_at: internal
       version: internal

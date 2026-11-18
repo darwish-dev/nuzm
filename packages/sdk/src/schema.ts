@@ -4456,6 +4456,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ai/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List AI sessions
+         * @description Newest first. Requires permission `ai:read`.
+         */
+        get: operations["listAiSessions"];
+        put?: never;
+        /**
+         * Create an AI session
+         * @description Body {title, projectId?}. A session holds the conversation and its runs; message bodies are stored sealed. Requires permission `ai:write`. Audited (`ai.session.created`).
+         */
+        post: operations["createAiSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/sessions/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the messages of a session
+         * @description Oldest first. Requires permission `ai:read`. 404 for another organization.
+         */
+        get: operations["listAiMessages"];
+        put?: never;
+        /**
+         * Add a user message
+         * @description Body {content, attachments?: [{kind:url,url}|{kind:text,name,text}]}. The content passes the moderation hook (422 `content_blocked`, placeholder deny-list: the policy is an owner decision) and the secret scan (422 `secret_detected`) BEFORE anything is stored. Attachments are references: URLs are fetched later by the SSRF-safe fetcher inside a run, and everything enters prompts only inside delimited data blocks. Requires permission `ai:write`.
+         */
+        post: operations["addAiMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List AI runs
+         * @description Newest first, optionally for one session or project. Requires permission `ai:read`.
+         */
+        get: operations["listAiRuns"];
+        put?: never;
+        /**
+         * Start an AI run
+         * @description Body {sessionId, kind: website|edit|chat, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. webapp|mobile|test-fix answer 422 `unsupported_kind` until M10. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).
+         */
+        post: operations["createAiRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an AI run
+         * @description State (queued, running, waiting_approval, succeeded, failed, cancelled, budget_exceeded), step, usage and cost, the pending approval if any, artifact ids. 404 for another organization.
+         */
+        get: operations["getAiRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/artifacts/{artifactId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an artifact of a run
+         * @description Artifact payloads (requirements, architecture, page, change_set, site_model) are immutable JSON validated against their schema.
+         */
+        get: operations["getAiRunArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream run events (SSE)
+         * @description Server-sent events `{seq,type,data,at}` with `id: <seq>`; persisted, so a dropped client resumes with `Last-Event-ID`. The stream ends when the run is finished or waits for an approval (reconnect after the decision), or after 120 s. Requires permission `ai:read`.
+         */
+        get: operations["streamAiRunEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a run
+         * @description A queued or waiting run is cancelled at once; a running run is flagged and stops at its next step (the model call in flight is aborted and its reservation released). 409 `invalid_state` when the run is already finished. Audited (`ai.run.cancelled`).
+         */
+        post: operations["cancelAiRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/runs/{id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or deny a pending run approval
+         * @description Body {approvalId, decision: approve|deny, note?}. Approval kinds: plan, apply_changes, publish, delete, spend, auto_apply; each is bound to the run and to the SHA-256 of the exact action and expires (24 h proposal): 409 `approval_expired`. The approver is a human member with a write role (403 otherwise); there is no AI identity in this path. Approve starts the next run segment; deny cancels the run unless the kind has its own handler. Audited (`ai.approval.granted|denied`).
+         */
+        post: operations["decideAiRunApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run oversight (metadata only)
+         * @description Run metadata across organizations: state, kind, tokens, credits, model, region, error code. NEVER prompts, outputs, artifacts, checkpoints or inputs: content access would need break-glass with consent (not built). Every read is audited (`ai.admin.cross_org_read`). Platform permission `admin:ai:read`.
+         */
+        get: operations["listAdminAiRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8674,6 +8866,130 @@ export interface components {
             on?: boolean;
             /** Format: uuid */
             orgId?: string;
+        };
+        AiSessionInput: {
+            title: string;
+            /** Format: uuid */
+            projectId?: string;
+        };
+        AiSession: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            projectId?: string | null;
+            state: string;
+            dataRegion: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AiSessionPage: {
+            items: components["schemas"]["AiSession"][];
+            nextCursor: string | null;
+        };
+        AiMessageInput: {
+            content: string;
+            attachments?: {
+                [key: string]: unknown;
+            }[];
+        };
+        AiMessage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            sessionId: string;
+            runId?: string | null;
+            /** @enum {string} */
+            role: "user" | "assistant" | "system";
+            content: string;
+            classification: string;
+            attachments: {
+                [key: string]: unknown;
+            }[];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AiMessagePage: {
+            items: components["schemas"]["AiMessage"][];
+            nextCursor: string | null;
+        };
+        AiRunInput: {
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            kind: "website" | "edit" | "chat" | "webapp" | "mobile" | "test-fix";
+            /** Format: uuid */
+            projectId?: string;
+            input?: {
+                [key: string]: unknown;
+            };
+            budget?: {
+                maxTokens?: number;
+                maxCredits?: number;
+            };
+        };
+        AiRun: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            sessionId: string;
+            projectId?: string | null;
+            kind: string;
+            /** @enum {string} */
+            state: "queued" | "running" | "waiting_approval" | "succeeded" | "failed" | "cancelled" | "budget_exceeded";
+            operationId?: string | null;
+            step?: string | null;
+            budget?: {
+                [key: string]: unknown;
+            };
+            usage: {
+                [key: string]: unknown;
+            };
+            dataRegion: string;
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            error?: {
+                [key: string]: unknown;
+            } | null;
+            pendingApproval?: {
+                [key: string]: unknown;
+            } | null;
+            artifacts: {
+                [key: string]: unknown;
+            }[];
+            /** Format: date-time */
+            createdAt: string;
+            finishedAt?: string | null;
+        };
+        AiRunPage: {
+            items: components["schemas"]["AiRun"][];
+            nextCursor: string | null;
+        };
+        AiArtifact: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            payload: {
+                [key: string]: unknown;
+            };
+            approved: boolean;
+        };
+        AiCancellation: {
+            /** @enum {string} */
+            state: "cancelling" | "cancelled";
+        };
+        AiApprovalDecision: {
+            /** Format: uuid */
+            approvalId: string;
+            /** @enum {string} */
+            decision: "approve" | "deny";
+            note?: string;
+        };
+        AiAdminRunPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
         };
     };
     responses: {
@@ -17802,6 +18118,390 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    listAiSessions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSessionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createAiSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiSessionInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSession"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAiMessages: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMessagePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    addAiMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiMessageInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMessage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAiRuns: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                sessionId?: string;
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRunPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createAiRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiRunInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getAiRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiRunArtifact: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                artifactId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiArtifact"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    streamAiRunEvents: {
+        parameters: {
+            query?: {
+                lastEventId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Resume after this event sequence number */
+                "Last-Event-ID"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-sent events (text/event-stream) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    cancelAiRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCancellation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    decideAiRunApproval: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiApprovalDecision"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listAdminAiRuns: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                orgId?: string;
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAdminRunPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
 }

@@ -6,3 +6,6 @@ export * from './schema';
 export * from './ai';
 export * from './builder/site-model';
 export * from './builder/artifacts';
+export * from './builder/templates';
+export * from './builder/mock-agents';
+export * from './builder/render';

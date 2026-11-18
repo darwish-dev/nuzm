@@ -5,6 +5,7 @@ import {
   ResidencyDenied,
   assertResidency,
   creditsFor,
+  dataTermsAllow,
   reservationFor,
   routeModels,
   scanForSecrets,
@@ -151,6 +152,42 @@ export class GatewayService {
           creditsPerMillionOutput: o.candidate.rate.creditsPerMillionOutput,
         })),
     };
+  }
+
+  /**
+   * Cheap pre-flight for creating a run (docs/04: 503 kill switch, 422 `unsupported_capability`, 403 `residency_denied`, 402 `insufficient_credits`): the run fails
+   * early instead of queueing work that the first model call would refuse.
+   */
+  async assertAvailable(orgId: string): Promise<void> {
+    if (await this.flags.killSwitch(orgId))
+      throw new ProblemException('ai_unavailable', 'AI is switched off by the kill switch');
+    const offers = await this.offers();
+    if (offers.length === 0)
+      throw new ProblemException(
+        'unsupported_capability',
+        'no model provider is enabled with a rate card (D-18, HG-09-01)',
+      );
+    const providers = [...new Map(offers.map((o) => [o.provider.code, o.provider])).values()];
+    const { map, evidence } = await this.verdicts(orgId, 'customer-content', providers);
+    const ok = offers.filter(
+      (o) =>
+        map[o.provider.code] === 'allow' &&
+        dataTermsAllow(
+          'customer-content',
+          o.candidate.dataTerms,
+          this.cfg.allowUnattestedForSensitive,
+        ),
+    );
+    if (ok.length === 0)
+      throw new ProblemException(
+        'residency_denied',
+        'no model provider is allowed for this organization under the residency policy',
+        undefined,
+        { evidenceRef: Object.values(evidence)[0] },
+      );
+    const bal = await this.budgets.credits(orgId);
+    if (BigInt(bal.availableCredits) < 1n)
+      throw new ProblemException('insufficient_credits', 'the credit balance is empty');
   }
 
   async invoke(call: GatewayCall): Promise<GatewayResult> {

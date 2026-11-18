@@ -23,6 +23,12 @@ export interface AiConfig {
   allowUnattestedForSensitive: boolean;
   /** run-event poll interval for SSE (ms) */
   ssePollMs: number;
+  /** region id stored prompts and artifacts are placed in (the platform database is in-Kingdom; D-34/HG-04-01 own retention) */
+  dataRegion: string;
+  /** concurrent active runs per organization */
+  maxConcurrentRuns: number;
+  /** how long a pending approval stays valid (hours; PROPOSAL 24) */
+  approvalTtlHours: number;
 }
 export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   const n = (k: string, d: number, min = 0) => {
@@ -42,6 +48,9 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
       .filter((s) => s.length >= 8),
     allowUnattestedForSensitive: env.AI_ALLOW_UNATTESTED_SENSITIVE === 'true',
     ssePollMs: n('AI_SSE_POLL_MS', 500, 10),
+    dataRegion: env.AI_DATA_REGION ?? 'sa-central',
+    maxConcurrentRuns: Math.max(1, Math.floor(n('AI_MAX_CONCURRENT_RUNS', 5, 1))),
+    approvalTtlHours: n('AI_APPROVAL_TTL_HOURS', 24, 0.0001),
   };
 }
 

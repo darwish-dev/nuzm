@@ -1,5 +1,12 @@
-import { Global, Module } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Module,
+  type OnApplicationBootstrap,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import { MockModelAdapter } from '@nuzm/adapter-model';
+import { mockModelHandler } from '@nuzm/domain';
 import { OperationsService, type Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { FieldCipher } from '../../common/field-crypto';
@@ -8,7 +15,16 @@ import { LedgerPostingService } from '../billing';
 import { ResidencyService } from '../compliance';
 import { IdentityModule } from '../identity';
 import { AdminAiProvidersController } from './admin-ai-providers.controller';
+import { AdminAiRunsController } from './admin-ai-runs.controller';
 import { AiModelsController } from './ai-models.controller';
+import { AiRunsController } from './ai-runs.controller';
+import { AiSessionsController } from './ai-sessions.controller';
+import { ChatRunHandler } from './handlers/chat.handler';
+import { AiJobs } from './internal/jobs';
+import { RunKindRegistry, StaticRunKindRegistry } from './internal/run-kinds';
+import { RunService } from './internal/run.service';
+import { SessionService } from './internal/session.service';
+import { SafeUrlFetcher, UrlFetchPort } from './internal/url-fetcher';
 import { AiEnabledGuard } from './internal/ai-enabled.guard';
 import { BudgetService } from './internal/budget.service';
 import { AiFlags } from './internal/flags';
@@ -16,8 +32,6 @@ import { GatewayService } from './internal/gateway.service';
 import { AI_CONFIG, loadAiConfig, type AiConfig } from './internal/model';
 import { ModelProviderService } from './internal/provider.service';
 import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/registry';
-
-void OperationsService;
 
 /**
  * AI core (M09): model gateway, budgets/credits, providers. No provider is chosen here (D-18 OPEN): the registry is EMPTY unless `AI_LOCAL_REFERENCE=true` outside
@@ -27,7 +41,13 @@ void OperationsService;
 @Global()
 @Module({
   imports: [IdentityModule],
-  controllers: [AiModelsController, AdminAiProvidersController],
+  controllers: [
+    AiModelsController,
+    AdminAiProvidersController,
+    AiSessionsController,
+    AiRunsController,
+    AdminAiRunsController,
+  ],
   providers: [
     { provide: AI_CONFIG, useFactory: () => loadAiConfig() },
     {
@@ -35,7 +55,10 @@ void OperationsService;
       useFactory: (cfg: AiConfig) => {
         const r = new StaticModelAdapterRegistry();
         if (cfg.localReference)
-          r.register('mock-model', new MockModelAdapter({ id: 'mock-model' }));
+          r.register(
+            'mock-model',
+            new MockModelAdapter({ id: 'mock-model', handler: (req) => mockModelHandler(req) }),
+          );
         return r;
       },
       inject: [AI_CONFIG],
@@ -80,6 +103,49 @@ void OperationsService;
         AI_CONFIG,
       ],
     },
+    { provide: UrlFetchPort, useFactory: () => new SafeUrlFetcher() },
+    {
+      provide: RunKindRegistry,
+      useFactory: () => {
+        const r = new StaticRunKindRegistry();
+        r.register(new ChatRunHandler());
+        return r;
+      },
+    },
+    {
+      provide: SessionService,
+      useFactory: (db: Db, a: AuditSink, ci: FieldCipher, cfg: AiConfig) =>
+        new SessionService(db, a, ci, cfg),
+      inject: [DB, AuditSink, FieldCipher, AI_CONFIG],
+    },
+    {
+      provide: RunService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        o: OperationsService,
+        r: RunKindRegistry,
+        g: GatewayService,
+        s: SessionService,
+        f: UrlFetchPort,
+        cfg: AiConfig,
+      ) => new RunService(db, a, o, r, g, s, f, cfg),
+      inject: [
+        DB,
+        AuditSink,
+        OperationsService,
+        RunKindRegistry,
+        GatewayService,
+        SessionService,
+        UrlFetchPort,
+        AI_CONFIG,
+      ],
+    },
+    {
+      provide: AiJobs,
+      useFactory: (db: Db, r: RunService, b: BudgetService) => new AiJobs(db, r, b),
+      inject: [DB, RunService, BudgetService],
+    },
   ],
   exports: [
     AI_CONFIG,
@@ -89,6 +155,19 @@ void OperationsService;
     ModelProviderService,
     BudgetService,
     GatewayService,
+    RunKindRegistry,
+    RunService,
+    SessionService,
+    AiJobs,
+    UrlFetchPort,
   ],
 })
-export class AiModule {}
+export class AiModule implements OnApplicationBootstrap, OnApplicationShutdown {
+  constructor(@Inject(AiJobs) private readonly jobs: AiJobs) {}
+  onApplicationBootstrap() {
+    this.jobs.start(AiJobs.intervalFromEnv());
+  }
+  onApplicationShutdown() {
+    this.jobs.stop();
+  }
+}

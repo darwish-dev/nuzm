@@ -25,7 +25,7 @@ CREATE TABLE ai.messages (
   session_id uuid NOT NULL REFERENCES ai.sessions (id),
   run_id uuid,
   role text NOT NULL CHECK (role IN ('user','assistant','system')),
-  content_encrypted text NOT NULL,
+  content_enc text NOT NULL,
   content_hash text NOT NULL CHECK (content_hash ~ '^[0-9a-f]{64}$'),
   classification text NOT NULL DEFAULT 'customer-content' CHECK (classification IN ('customer-content','personal','internal')),
   attachments jsonb NOT NULL DEFAULT '[]'::jsonb,

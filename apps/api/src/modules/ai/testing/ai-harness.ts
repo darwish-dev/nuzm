@@ -58,11 +58,13 @@ const ADMIN_ROPA_PROCESSORS = (codes: string[]) =>
     })),
   );
 
-export async function setupAiEnv(): Promise<AiEnv> {
+export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}): Promise<AiEnv> {
   applyAiTestEnv();
   const h = new Harness();
   await h.init();
-  const { app, sink } = await h.buildApp({}, undefined, [], {});
+  const { app, sink } = await h.buildApp({}, undefined, [], {
+    ...(opts.overrides ? { overrides: opts.overrides } : {}),
+  });
   const jars: AiEnv['jars'] = {};
   const ids: AiEnv['ids'] = {};
   const org: AiEnv['org'] = {};

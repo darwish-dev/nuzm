@@ -7718,6 +7718,302 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/ai/sessions:
+    post:
+      operationId: createAiSession
+      tags: [ai]
+      summary: 'Create an AI session'
+      description: 'Body {title, projectId?}. A session holds the conversation and its runs; message bodies are stored sealed. Requires permission `ai:write`. Audited (`ai.session.created`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiSessionInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiSession' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listAiSessions
+      tags: [ai]
+      summary: 'List AI sessions'
+      description: 'Newest first. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiSessionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/sessions/{id}/messages:
+    get:
+      operationId: listAiMessages
+      tags: [ai]
+      summary: 'List the messages of a session'
+      description: 'Oldest first. Requires permission `ai:read`. 404 for another organization.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiMessagePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: addAiMessage
+      tags: [ai]
+      summary: 'Add a user message'
+      description: 'Body {content, attachments?: [{kind:url,url}|{kind:text,name,text}]}. The content passes the moderation hook (422 `content_blocked`, placeholder deny-list: the policy is an owner decision) and the secret scan (422 `secret_detected`) BEFORE anything is stored. Attachments are references: URLs are fetched later by the SSRF-safe fetcher inside a run, and everything enters prompts only inside delimited data blocks. Requires permission `ai:write`.'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiMessageInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiMessage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs:
+    post:
+      operationId: createAiRun
+      tags: [ai]
+      summary: 'Start an AI run'
+      description: 'Body {sessionId, kind: website|edit|chat, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. webapp|mobile|test-fix answer 422 `unsupported_kind` until M10. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiRunInput' }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRun' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listAiRuns
+      tags: [ai]
+      summary: 'List AI runs'
+      description: 'Newest first, optionally for one session or project. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: sessionId, in: query, required: false, schema: { type: string } }
+        - { name: projectId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRunPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}:
+    get:
+      operationId: getAiRun
+      tags: [ai]
+      summary: 'Get an AI run'
+      description: 'State (queued, running, waiting_approval, succeeded, failed, cancelled, budget_exceeded), step, usage and cost, the pending approval if any, artifact ids. 404 for another organization.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRun' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/artifacts/{artifactId}:
+    get:
+      operationId: getAiRunArtifact
+      tags: [ai]
+      summary: 'Get an artifact of a run'
+      description: 'Artifact payloads (requirements, architecture, page, change_set, site_model) are immutable JSON validated against their schema.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: artifactId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiArtifact' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/events:
+    get:
+      operationId: streamAiRunEvents
+      tags: [ai]
+      summary: 'Stream run events (SSE)'
+      description: 'Server-sent events `{seq,type,data,at}` with `id: <seq>`; persisted, so a dropped client resumes with `Last-Event-ID`. The stream ends when the run is finished or waits for an approval (reconnect after the decision), or after 120 s. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: lastEventId, in: query, required: false, schema: { type: string } }
+        - {
+            name: Last-Event-ID,
+            in: header,
+            required: false,
+            schema: { type: string },
+            description: 'Resume after this event sequence number',
+          }
+      responses:
+        '200':
+          description: 'Server-sent events (text/event-stream)'
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/cancellation:
+    post:
+      operationId: cancelAiRun
+      tags: [ai]
+      summary: 'Cancel a run'
+      description: 'A queued or waiting run is cancelled at once; a running run is flagged and stops at its next step (the model call in flight is aborted and its reservation released). 409 `invalid_state` when the run is already finished. Audited (`ai.run.cancelled`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCancellation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/approvals:
+    post:
+      operationId: decideAiRunApproval
+      tags: [ai]
+      summary: 'Approve or deny a pending run approval'
+      description: 'Body {approvalId, decision: approve|deny, note?}. Approval kinds: plan, apply_changes, publish, delete, spend, auto_apply; each is bound to the run and to the SHA-256 of the exact action and expires (24 h proposal): 409 `approval_expired`. The approver is a human member with a write role (403 otherwise); there is no AI identity in this path. Approve starts the next run segment; deny cancels the run unless the kind has its own handler. Audited (`ai.approval.granted|denied`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiApprovalDecision' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRun' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/runs:
+    get:
+      operationId: listAdminAiRuns
+      tags: [ai]
+      summary: 'Run oversight (metadata only)'
+      description: 'Run metadata across organizations: state, kind, tokens, credits, model, region, error code. NEVER prompts, outputs, artifacts, checkpoints or inputs: content access would need break-glass with consent (not built). Every read is audited (`ai.admin.cross_org_read`). Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: orgId, in: query, required: false, schema: { type: string } }
+        - { name: state, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiAdminRunPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   # <<< M09 paths
 components:
   parameters:
@@ -13312,4 +13608,123 @@ components:
         on: { type: boolean }
         orgId: { type: string, format: uuid }
     # <<< S37 schemas
+    # >>> S38 schemas
+    AiSessionInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        projectId: { type: string, format: uuid }
+    AiSession:
+      type: object
+      required: [id, title, state, dataRegion, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        projectId: { type: [string, 'null'] }
+        state: { type: string }
+        dataRegion: { type: string }
+        createdAt: { type: string, format: date-time }
+    AiSessionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiSession' } }
+        nextCursor: { type: [string, 'null'] }
+    AiMessageInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 20000 }
+        attachments:
+          { type: array, maxItems: 10, items: { type: object, additionalProperties: true } }
+    AiMessage:
+      type: object
+      required: [id, sessionId, role, content, classification, attachments, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        runId: { type: [string, 'null'] }
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string }
+        classification: { type: string }
+        attachments: { type: array, items: { type: object, additionalProperties: true } }
+        createdAt: { type: string, format: date-time }
+    AiMessagePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiMessage' } }
+        nextCursor: { type: [string, 'null'] }
+    AiRunInput:
+      type: object
+      required: [sessionId, kind]
+      properties:
+        sessionId: { type: string, format: uuid }
+        kind: { type: string, enum: [website, edit, chat, webapp, mobile, test-fix] }
+        projectId: { type: string, format: uuid }
+        input: { type: object, additionalProperties: true }
+        budget:
+          type: object
+          properties:
+            maxTokens: { type: integer, minimum: 1 }
+            maxCredits: { type: integer, minimum: 1 }
+    AiRun:
+      type: object
+      required: [id, sessionId, kind, state, usage, dataRegion, artifacts, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        projectId: { type: [string, 'null'] }
+        kind: { type: string }
+        state:
+          {
+            type: string,
+            enum:
+              [queued, running, waiting_approval, succeeded, failed, cancelled, budget_exceeded],
+          }
+        operationId: { type: [string, 'null'] }
+        step: { type: [string, 'null'] }
+        budget: { type: object, additionalProperties: true }
+        usage: { type: object, additionalProperties: true }
+        dataRegion: { type: string }
+        result: { type: [object, 'null'], additionalProperties: true }
+        error: { type: [object, 'null'], additionalProperties: true }
+        pendingApproval: { type: [object, 'null'], additionalProperties: true }
+        artifacts: { type: array, items: { type: object, additionalProperties: true } }
+        createdAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'] }
+    AiRunPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiRun' } }
+        nextCursor: { type: [string, 'null'] }
+    AiArtifact:
+      type: object
+      required: [id, type, payload, approved]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        payload: { type: object, additionalProperties: true }
+        approved: { type: boolean }
+    AiCancellation:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [cancelling, cancelled] }
+    AiApprovalDecision:
+      type: object
+      required: [approvalId, decision]
+      properties:
+        approvalId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, deny] }
+        note: { type: string, maxLength: 500 }
+    AiAdminRunPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        nextCursor: { type: [string, 'null'] }
+    # <<< S38 schemas
     # <<< M09 schemas

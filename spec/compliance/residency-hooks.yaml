@@ -149,6 +149,26 @@ tables:
       hook: m09-model-gateway,
       note: 'every call records the provider region and the residency evidence reference',
     }
+  builder.projects:
+    {
+      owner: M09,
+      hook: m09-builder-assets,
+      note: 'a project carries the data_region its files and versions are stored in',
+    }
+  builder.form_submissions:
+    {
+      owner: M09,
+      hook: m09-builder-assets,
+      note: 'submissions (personal) are stored sealed in the project region',
+    }
+  deploy.builds:
+    { owner: M09, hook: m09-builder-assets, note: 'build artifacts stay in the project region' }
+  deploy.deployments:
+    {
+      owner: M09,
+      hook: m09-builder-assets,
+      note: 'a deployment publishes only to a hosting site in an allowed region (hosting placement is M06 m06-node-selection)',
+    }
   # <<< M09 tables
 hooks:
   - {

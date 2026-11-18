@@ -56,11 +56,13 @@ export default async function Mailboxes({ params }: { params: Promise<{ locale: 
               {
                 key: 'a',
                 header: t(locale, 'm8.mb.address'),
+                icon: 'globe',
                 render: (m) => <Ltr>{m.address}</Ltr>,
               },
               {
                 key: 's',
                 header: t(locale, 'field.status'),
+                icon: 'pulse',
                 render: (m) => (
                   <StatusBadge
                     locale={locale}
@@ -73,6 +75,7 @@ export default async function Mailboxes({ params }: { params: Promise<{ locale: 
               {
                 key: 'q',
                 header: t(locale, 'm8.mb.quota'),
+                icon: 'data',
                 render: (m) => <Ltr>{`${m.quotaMb} MB`}</Ltr>,
               },
               {
@@ -91,6 +94,7 @@ export default async function Mailboxes({ params }: { params: Promise<{ locale: 
               {
                 key: 'x',
                 header: t(locale, 'field.action'),
+                icon: 'code',
                 render: (m) => (
                   <MailboxActions
                     locale={locale}
@@ -117,11 +121,13 @@ export default async function Mailboxes({ params }: { params: Promise<{ locale: 
               {
                 key: 'a',
                 header: t(locale, 'm8.mb.address'),
+                icon: 'globe',
                 render: (a) => <Ltr>{a.address}</Ltr>,
               },
               {
                 key: 'm',
                 header: t(locale, 'm8.al.mailbox'),
+                icon: 'mail',
                 render: (a) => (
                   <Ltr>{mailboxes.items.find((m) => m.id === a.mailboxId)?.address ?? '—'}</Ltr>
                 ),
@@ -129,6 +135,7 @@ export default async function Mailboxes({ params }: { params: Promise<{ locale: 
               {
                 key: 's',
                 header: t(locale, 'field.status'),
+                icon: 'pulse',
                 render: (a) => tDynamic(locale, `m8.al.status.${a.status}`, a.status),
               },
             ]}

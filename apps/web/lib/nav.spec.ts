@@ -60,6 +60,25 @@ describe('categories', () => {
     expect(data.home).toBe('/databases');
   });
 
+  it('the organization and the account are account-menu categories, the organization as stacked pages', () => {
+    const nav = buildNav(all());
+    expect(nav.filter((c) => c.menu).map((c) => c.id)).toEqual(['organization', 'account']);
+    const org = nav.find((c) => c.id === 'organization')!;
+    expect(org.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
+      '/settings/team',
+      '/settings/organization',
+      '/privacy',
+    ]);
+    // any one permission of a stacked page's screens lists it
+    const only = (p: string) =>
+      buildNav(all({ can: (x) => x === p }))
+        .find((c) => c.id === 'organization')
+        ?.groups.flatMap((g) => g.items.map((i) => i.id));
+    expect(only('apikey:read')).toEqual(['team']);
+    expect(only('audit:read')).toEqual(['organization']);
+    expect(only('privacy:residency:read')).toEqual(['privacy']);
+  });
+
   it('the portals appear only for the matching organization type', () => {
     const items = (t: string) =>
       buildNav(all({ orgType: t }))
@@ -70,14 +89,16 @@ describe('categories', () => {
     expect(items('customer')).not.toContain('agency');
   });
 
-  it('finance nests credit notes, payment methods and the wallet under their parents', () => {
+  it('finance shows each former dropdown as one tab whose page stacks its screens', () => {
     const fin = buildNav(all()).find((c) => c.id === 'finance')!;
-    const parents = fin.groups[0]!.items.filter((i) => i.children);
-    expect(parents.map((p) => [p.id, p.children!.map((c) => c.id)])).toEqual([
-      ['plansSubs', ['plans', 'subscriptions']],
-      ['usageQuotas', ['usage', 'quotas']],
-      ['invoicesGroup', ['invoices', 'creditNotes']],
-      ['paymentsGroup', ['payments', 'methods', 'wallet']],
+    const items = fin.groups[0]!.items;
+    expect(items.some((i) => i.children)).toBe(false);
+    expect(items.map((i) => [i.id, i.href])).toEqual([
+      ['overview', '/billing'],
+      ['plansSubs', '/billing/plans'],
+      ['usageQuotas', '/billing/usage'],
+      ['invoices', '/billing/invoices'],
+      ['payments', '/billing/payments'],
     ]);
   });
 
@@ -144,7 +165,10 @@ describe('current page', () => {
     const fin = nav.find((c) => c.id === 'finance')!;
     expect(currentItemId(fin, '/billing')).toBe('overview');
     expect(currentItemId(fin, '/billing/invoices/5')).toBe('invoices');
-    expect(currentItemId(fin, '/billing/payment-methods/add')).toBe('methods');
+    // the detail pages of a stacked screen highlight the tab of the page it now lives on
+    expect(currentItemId(fin, '/billing/payment-methods/add')).toBe('payments');
+    expect(currentItemId(fin, '/billing/credit-notes/9')).toBe('invoices');
+    expect(currentItemId(fin, '/billing/subscriptions/3')).toBe('plansSubs');
     expect(currentItemId(fin, '/billing/checkout/q1')).toBeNull();
     const dom = nav.find((c) => c.id === 'domains')!;
     expect(currentItemId(dom, '/domains')).toBe('list');

@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import axe from 'axe-core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ContextSidebar, PrimaryRail, StatTile } from './console-nav';
+import { PrimaryRail, SectionTabs, StatTile } from './console-nav';
 import { ICON_NAMES } from './icons';
 
 afterEach(cleanup);
@@ -37,7 +37,7 @@ describe('primary rail', () => {
   });
 });
 
-describe('contextual sidebar', () => {
+describe('section tabs', () => {
   const groups = [
     {
       id: 'g',
@@ -60,16 +60,34 @@ describe('contextual sidebar', () => {
       ],
     },
   ];
-  it('opens the group that holds the current page and keeps the others closed', async () => {
-    const { container } = render(
-      <ContextSidebar title="Finance" label="Section" groups={groups} />,
-    );
-    const details = container.querySelectorAll('details');
-    expect(details[0]!.open).toBe(true);
-    expect(details[1]!.open).toBe(false);
-    expect(screen.getByRole('heading', { name: 'Finance' })).toBeTruthy();
+  it('renders the pages as tabs, marks the current one and its menu, and keeps menus closed', async () => {
+    const { container } = render(<SectionTabs label="Section" groups={groups} />);
+    expect(screen.getByRole('navigation', { name: 'Section' })).toBeTruthy();
+    // the group with several pages is a menu, closed by default but marked as holding the current page
+    const menus = container.querySelectorAll('details');
+    expect(menus).toHaveLength(1);
+    expect(menus[0]!.open).toBe(false);
+    expect(menus[0]!.querySelector('summary')!.getAttribute('data-current')).toBe('true');
     expect(container.querySelector('a[aria-current="page"]')?.textContent).toBe('Invoices');
+    // a group of one page is a plain tab
+    expect(screen.getByRole('link', { name: 'Payments' }).closest('details')).toBeNull();
     expect(await check(container)).toEqual([]);
+  });
+
+  it('renders nothing when the category has fewer than two pages', () => {
+    const { container, rerender } = render(
+      <SectionTabs label="Section" groups={[{ id: 'g', items: [] }]} />,
+    );
+    expect(container.innerHTML).toBe('');
+    rerender(
+      <SectionTabs
+        label="Section"
+        groups={[
+          { id: 'g', items: [{ id: 'p', href: '/account', label: 'Profile', current: true }] },
+        ]}
+      />,
+    );
+    expect(container.innerHTML).toBe('');
   });
 });
 

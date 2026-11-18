@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button, Field, Input, Ltr } from './components';
-import { Icon } from './icons';
+import { Icon, type IconName } from './icons';
 
 /** Client-side widgets. They receive strings and callbacks, never fetch on their own. */
 
@@ -224,55 +224,54 @@ export function useStepUp(
   return { panel, ask: (fn: () => void) => setRetry(() => fn), available: factorId !== null };
 }
 
-const COLLAPSED_KEY = 'nuzm.sidebar';
+/** Closes any open tab menu (a <details> dropdown in the section tabs) other than the one holding `keep`. */
+function closeTabMenus(keep?: Element | null) {
+  document.querySelectorAll<HTMLDetailsElement>('.nzc-tab-menu[open]').forEach((d) => {
+    if (d !== keep) d.open = false;
+  });
+}
 
 /**
- * The console frame: the two sidebars, the top bar and the page. The sidebars' content is rendered on the server (so the current page is
- * highlighted without script); this component only owns the interaction: collapsing the contextual sidebar (remembered per browser)
- * and the slide-in drawer on small screens. The primary rail never collapses.
+ * The console frame: the top bar, the icon rail and the page, with the selected category's section tabs at the top of the page. The
+ * rail and tabs are rendered on the server (so the current page is highlighted without script); this component only owns the
+ * interaction: the slide-in rail drawer on small screens and closing an open tab menu on an outside click or Escape.
  */
 export function ConsoleFrame(props: {
   brand: ReactNode;
   rail: ReactNode;
-  side: ReactNode;
+  /** Section tabs shown above the page content. */
+  tabs?: ReactNode;
   topbar: ReactNode;
   banner?: ReactNode;
   children: ReactNode;
-  labels: { toggle: string; openMenu: string; closeMenu: string };
+  labels: { openMenu: string; closeMenu: string };
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
   useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(COLLAPSED_KEY) === 'collapsed');
-    } catch {
-      /* storage can be blocked: the sidebar simply starts open */
-    }
-  }, []);
-  useEffect(() => {
-    if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDrawer(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setDrawer(false);
+      closeTabMenus();
+    };
+    const onDown = (e: PointerEvent) =>
+      closeTabMenus((e.target as Element | null)?.closest?.('.nzc-tab-menu'));
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [drawer]);
-  const toggle = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    try {
-      localStorage.setItem(COLLAPSED_KEY, next ? 'collapsed' : 'open');
-    } catch {
-      /* ignore */
-    }
-  };
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, []);
   return (
     <div
       className="nzc-app"
-      data-side={collapsed ? 'collapsed' : 'open'}
       data-drawer={drawer ? 'open' : 'closed'}
       onClick={(e) => {
-        // following a link inside a sidebar closes the drawer on small screens
-        if (drawer && (e.target as HTMLElement).closest('.nzc-rail a, .nzc-side a'))
-          setDrawer(false);
+        const link = (e.target as HTMLElement).closest('a');
+        if (!link) return;
+        // following a link closes the rail drawer on small screens and any open tab menu
+        if (drawer && link.closest('.nzc-rail')) setDrawer(false);
+        if (link.closest('.nzc-tab-menu')) closeTabMenus();
       }}
     >
       <div className="nzc-banner-slot">{props.banner}</div>
@@ -287,20 +286,10 @@ export function ConsoleFrame(props: {
           <Icon name="menu" />
         </button>
         {props.brand}
-        <button
-          type="button"
-          className="nzc-icon-btn nzc-only-desktop"
-          aria-label={props.labels.toggle}
-          aria-pressed={collapsed}
-          onClick={toggle}
-        >
-          <Icon name="panel" />
-        </button>
         {props.topbar}
       </header>
       <div className="nzc-frame">
         {props.rail}
-        {props.side}
         {drawer && (
           <button
             type="button"
@@ -310,6 +299,7 @@ export function ConsoleFrame(props: {
           />
         )}
         <main id="main" tabIndex={-1} className="nzc-body">
+          {props.tabs}
           {props.children}
         </main>
       </div>
@@ -331,6 +321,9 @@ export function ProfileMenu(props: {
   labels: { menu: string; profile?: string; language: string; darkMode: string; signOut: string };
   /** Omit for a console with no profile page. */
   profileHref?: string;
+  /** Extra pages listed under the profile (the organization's team, settings and privacy pages), headed by `linksTitle`. */
+  links?: { href: string; label: string; icon: IconName; current?: boolean }[];
+  linksTitle?: string;
   signedOutTo: string;
   /** Ends the session on the server (each console knows its own realm and CSRF cookie); the menu then goes to `signedOutTo`. */
   onSignOut: () => Promise<unknown>;
@@ -381,6 +374,22 @@ export function ProfileMenu(props: {
               <Icon name="user" size={18} />
               {props.labels.profile}
             </a>
+          )}
+          {props.links && props.links.length > 0 && (
+            <>
+              {props.linksTitle && <p className="nzc-menu-title">{props.linksTitle}</p>}
+              {props.links.map((l) => (
+                <a
+                  key={l.href}
+                  role="menuitem"
+                  href={l.href}
+                  aria-current={l.current ? 'page' : undefined}
+                >
+                  <Icon name={l.icon} size={18} />
+                  {l.label}
+                </a>
+              ))}
+            </>
           )}
           <p className="nzc-menu-title">{props.labels.language}</p>
           {props.languages.map((l) => (

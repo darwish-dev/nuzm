@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import '@fontsource-variable/cairo';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';

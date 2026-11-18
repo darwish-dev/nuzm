@@ -33,11 +33,17 @@ export default async function Users({
           rows={page.items}
           rowKey={(r) => r.id}
           columns={[
-            { key: 'email', header: t(locale, 'field.email'), render: (r) => <Ltr>{r.email}</Ltr> },
+            {
+              key: 'email',
+              icon: 'mail',
+              header: t(locale, 'field.email'),
+              render: (r) => <Ltr>{r.email}</Ltr>,
+            },
             { key: 'name', header: t(locale, 'field.name'), render: (r) => r.displayName ?? '—' },
             {
               key: 'mfa',
               header: t(locale, 'field.mfa'),
+              icon: 'shield',
               render: (r) => (
                 <Badge tone={r.mfaEnrolled ? 'success' : 'warn'}>{r.mfaEnrolled ? '✓' : '—'}</Badge>
               ),
@@ -50,11 +56,13 @@ export default async function Users({
             {
               key: 'last',
               header: t(locale, 'field.lastLogin'),
+              icon: 'calendar',
               render: (r) => (r.lastLoginAt ? formatDateTime(r.lastLoginAt, locale) : '—'),
             },
             {
               key: 'act',
               header: t(locale, 'field.action'),
+              icon: 'code',
               render: (r) =>
                 s.can('admin:impersonate') && !r.isPlatformUser ? (
                   <ImpersonateAction

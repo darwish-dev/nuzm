@@ -5,9 +5,10 @@ import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, formatMinor, isLocale, locales, t } from '@nuzm/i18n';
 import {
   Banner,
-  ContextSidebar,
+  SectionTabs,
   Icon,
   PrimaryRail,
+  type IconName,
   type RailItem,
   type SideGroup,
   type SideItem,
@@ -25,6 +26,14 @@ import {
 } from '../../../lib/nav';
 import { requireSession } from '../../../lib/server';
 import { flagEnabled } from '../../../lib/services';
+
+const MENU_ICONS: Record<string, IconName> = {
+  team: 'user',
+  organization: 'organization',
+  privacy: 'shield',
+  agency: 'globe',
+  reseller: 'globe',
+};
 
 const initialsOf = (name: string | null | undefined, email: string) => {
   const src = (name ?? '').trim() || email;
@@ -73,8 +82,9 @@ export default async function ConsoleLayout({
   ]);
   const wallet = balance?.balances[0] ?? null;
 
+  // categories reached from the account menu (the account, the organization) are not on the rail
   const railItems: RailItem[] = cats
-    .filter((c) => c.id !== 'account')
+    .filter((c) => !c.menu)
     .map((c) => ({
       id: c.id,
       href: `${base}${c.home === '/' ? '' : c.home}`,
@@ -90,11 +100,24 @@ export default async function ConsoleLayout({
     children: i.children?.map((c) => toSide(c, current)),
   });
   const currentId = currentItemId(activeCat, path);
-  const groups: SideGroup[] = activeCat.groups.map((g) => ({
-    id: g.id,
-    title: g.title ? t(locale, g.title) : undefined,
-    items: g.items.map((i) => toSide(i, currentId)),
-  }));
+  const groups: SideGroup[] = (activeCat.menu || activeCat.noTabs ? [] : activeCat.groups).map(
+    (g) => ({
+      id: g.id,
+      title: g.title ? t(locale, g.title) : undefined,
+      items: g.items.map((i) => toSide(i, currentId)),
+    }),
+  );
+
+  // the organization's pages, listed in the account menu
+  const menuLinks = (cats.find((c) => c.id === 'organization')?.groups ?? [])
+    .flatMap((g) => g.items)
+    .filter((i) => i.href)
+    .map((i) => ({
+      href: `${base}${i.href}`,
+      label: t(locale, i.label),
+      icon: MENU_ICONS[i.id] ?? ('organization' as const),
+      current: currentId === i.id && activeCat.id === 'organization',
+    }));
 
   const imp = s.me.impersonation;
   const brand = (
@@ -107,19 +130,12 @@ export default async function ConsoleLayout({
   return (
     <ConsoleFrame
       labels={{
-        toggle: t(locale, 'nc.top.toggle'),
         openMenu: t(locale, 'nc.top.menu'),
         closeMenu: t(locale, 'nc.top.close'),
       }}
       brand={brand}
       rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
-      side={
-        <ContextSidebar
-          title={t(locale, activeCat.title)}
-          label={t(locale, 'nc.nav.side')}
-          groups={groups}
-        />
-      }
+      tabs={<SectionTabs label={t(locale, 'nc.nav.side')} groups={groups} />}
       topbar={
         <>
           {s.org && (
@@ -135,7 +151,7 @@ export default async function ConsoleLayout({
           {s.org && s.can('billing:read') && (
             <a
               className="nzc-chip"
-              href={`${base}/billing/wallet`}
+              href={`${base}/billing/payments#wallet`}
               aria-label={
                 wallet
                   ? `${t(locale, 'nc.wallet')}: ${formatMinor(wallet.balanceMinor, wallet.currency, locale)}`
@@ -184,6 +200,8 @@ export default async function ConsoleLayout({
               signOut: t(locale, 'action.signout'),
             }}
             profileHref={`${base}/account`}
+            links={menuLinks}
+            linksTitle={s.org ? s.org.name : undefined}
             signedOutTo={`${base}/login`}
           />
         </>

@@ -5,6 +5,91 @@ import type { ReactNode } from 'react';
  * network. Icons are decoration: the control that holds one always carries its own accessible label.
  */
 const PATHS: Record<string, ReactNode> = {
+  search: (
+    <>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m20 20-4.2-4.2" />
+    </>
+  ),
+  transfer: (
+    <>
+      <path d="M4 8h14l-3.5-3.5" />
+      <path d="M20 16H6l3.5 3.5" />
+    </>
+  ),
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  calendar: (
+    <>
+      <rect x="4" y="5.5" width="16" height="14" rx="2.2" />
+      <path d="M4 10h16" />
+      <path d="M8.5 3.5v4M15.5 3.5v4" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0z" />
+      <circle cx="8" cy="8" r="1.4" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10" r="2.3" />
+    </>
+  ),
+  pulse: <path d="M3.5 12h4l2.2-5.5 4.6 11 2.2-5.5h4" />,
+  code: (
+    <>
+      <path d="m8.5 7-5 5 5 5" />
+      <path d="m15.5 7 5 5-5 5" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+      <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
+    </>
+  ),
+  external: (
+    <>
+      <path d="M14 4.5h5.5V10" />
+      <path d="M19.5 4.5 11 13" />
+      <path d="M18 14v4.5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H10" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2.2" />
+      <path d="m4 7 8 6 8-6" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect x="4" y="4" width="7" height="7" rx="1.6" />
+      <rect x="13" y="4" width="7" height="7" rx="1.6" />
+      <rect x="4" y="13" width="7" height="7" rx="1.6" />
+      <rect x="13" y="13" width="7" height="7" rx="1.6" />
+    </>
+  ),
+  list: (
+    <>
+      <path d="M4 6.5h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17.5h16" />
+    </>
+  ),
+  arrow: (
+    <>
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </>
+  ),
   dashboard: (
     <>
       <rect x="3.5" y="3.5" width="7" height="8" rx="1.8" />

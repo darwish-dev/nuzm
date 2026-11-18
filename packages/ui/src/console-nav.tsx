@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './icons';
 
-/** Presentational pieces of the dual-level navigation. The current page comes from the caller (server-computed), never from client state. */
+/** Presentational pieces of the two-level navigation (icon rail + in-page section tabs). The current page comes from the caller (server-computed), never from client state. */
 
 export interface RailItem {
   id: string;
@@ -70,7 +70,7 @@ export interface SideItem {
   href?: string;
   label: string;
   current?: boolean;
-  /** An item with children is an expandable group (native <details>: keyboard and screen-reader friendly, no script). */
+  /** An item with children is a dropdown tab (native <details>: keyboard and screen-reader friendly, no script needed to open it). */
   children?: SideItem[];
 }
 export interface SideGroup {
@@ -79,19 +79,24 @@ export interface SideGroup {
   items: SideItem[];
 }
 
-function SideLink({ item }: { item: SideItem }) {
-  if (item.children && item.children.length > 0) {
-    const open = item.children.some((c) => c.current);
+function TabLink({ item }: { item: SideItem }) {
+  const kids = item.children ?? [];
+  // a group of one is just a tab
+  if (kids.length === 1) return <TabLink item={kids[0]!} />;
+  if (kids.length > 1) {
+    const active = kids.find((c) => c.current);
     return (
-      <details open={open}>
-        <summary>
+      <details className="nzc-tab-menu">
+        <summary className="nzc-tab" data-current={active ? 'true' : undefined}>
           <span>{item.label}</span>
-          <Icon name="chevron" size={16} />
+          <Icon name="chevron" size={14} />
         </summary>
         <ul>
-          {item.children.map((c) => (
+          {kids.map((c) => (
             <li key={c.id}>
-              <SideLink item={c} />
+              <a href={c.href} aria-current={c.current ? 'page' : undefined}>
+                {c.label}
+              </a>
             </li>
           ))}
         </ul>
@@ -99,40 +104,33 @@ function SideLink({ item }: { item: SideItem }) {
     );
   }
   return (
-    <a href={item.href} aria-current={item.current ? 'page' : undefined}>
+    <a className="nzc-tab" href={item.href} aria-current={item.current ? 'page' : undefined}>
       {item.label}
     </a>
   );
 }
 
-/** Wide contextual sidebar for the selected category. */
-export function ContextSidebar({
-  title,
-  label,
-  groups,
-}: {
-  title: string;
-  label: string;
-  groups: SideGroup[];
-}) {
+/**
+ * The selected category's pages as tabs at the top of the page content. Groups are separated by a divider; an item with several
+ * children opens a small menu. Renders nothing when the category has no pages for this user.
+ */
+export function SectionTabs({ label, groups }: { label: string; groups: SideGroup[] }) {
+  const items = groups.flatMap((g) => g.items.map((i) => ({ group: g.id, item: i })));
+  // a single page needs no tabs
+  if (items.length === 0 || (items.length === 1 && !items[0]!.item.children?.length)) return null;
   return (
-    <aside className="nzc-side">
-      <nav aria-label={label}>
-        <h2>{title}</h2>
-        {groups.map((g) => (
-          <div className="nzc-group" key={g.id}>
-            {g.title && <p className="nzc-group-title">{g.title}</p>}
-            <ul>
-              {g.items.map((i) => (
-                <li key={i.id}>
-                  <SideLink item={i} />
-                </li>
-              ))}
-            </ul>
-          </div>
+    <nav className="nzc-tabs" aria-label={label}>
+      <ul>
+        {items.map(({ group, item }, n) => (
+          <li
+            key={`${group}:${item.id}`}
+            data-group-start={n > 0 && items[n - 1]!.group !== group ? 'true' : undefined}
+          >
+            <TabLink item={item} />
+          </li>
         ))}
-      </nav>
-    </aside>
+      </ul>
+    </nav>
   );
 }
 

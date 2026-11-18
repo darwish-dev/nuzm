@@ -20,6 +20,7 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
+    "@fontsource-variable/cairo": "^5.3.0",
     "@nuzm/i18n": "workspace:*",
     "@nuzm/sdk": "workspace:*",
     "@nuzm/ui": "workspace:*",

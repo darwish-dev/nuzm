@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
-import { ForbiddenState, PageTitle } from '@nuzm/ui';
+import { ForbiddenState, PageTitle, Icon } from '@nuzm/ui';
 import { ContactsForm } from '../../../../../../components/DomainPanels';
 import { requireSession } from '../../../../../../lib/server';
 import { view } from '../../../../../../lib/view';
@@ -56,6 +56,10 @@ export default async function Contacts({
   );
   return (
     <>
+      <a className="nzc-back" href={`/${locale}/domains/${id}`}>
+        <Icon name="chevron" size={16} />
+        {t(locale, 'dom.detail.title')}
+      </a>
       <PageTitle>{t(locale, 'dom.contacts.title')}</PageTitle>
       {body}
     </>

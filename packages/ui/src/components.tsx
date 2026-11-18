@@ -1,4 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
+import { Icon, type IconName } from './icons';
+import { ManageText, TableViewToggle } from './table-view';
 
 /** Presentational, server-safe components. Text always comes from the caller (packages/i18n); none hold state. */
 
@@ -126,20 +128,54 @@ export interface Column<T> {
   key: string;
   header: string;
   render: (row: T) => ReactNode;
+  /** Shown beside the label when the table is in card view. */
+  icon?: IconName;
+  /**
+   * Where the cell goes on a card (card view only; the table view is unchanged): the bold `title`, a small `subtitle` above it,
+   * the `badge` in the top corner, small `chip`s, `meta` lines, or the `footer` value beside the Manage button.
+   */
+  card?: 'title' | 'subtitle' | 'badge' | 'chip' | 'meta' | 'footer';
 }
+/**
+ * A data table that shows as CARDS by default (each row a card: the first column is its title, the others label/value pairs) with a
+ * switch to the classic table, remembered per browser. Both views are the same <table> restyled, so assistive technology and tests
+ * see one table either way. `rowHref` adds a Manage button to every row.
+ */
 export function Table<T>({
   caption,
   columns,
   rows,
   rowKey,
+  rowHref,
+  manageLabel,
+  cardIcon,
 }: {
   caption: string;
   columns: Column<T>[];
   rows: T[];
   rowKey: (r: T) => string;
+  /** Where a row's Manage button leads (omit for read-only tables). */
+  rowHref?: (r: T) => string | undefined;
+  /** The Manage button's text (defaults to the page language's word for "Manage"). */
+  manageLabel?: string;
+  /** The icon in each card's corner (cards with roles: see `Column.card`). */
+  cardIcon?: IconName;
 }) {
+  // a table whose columns say where they go on a card gets the richer card layout; others keep label/value cards
+  const rich = !!cardIcon || columns.some((c) => c.card);
+  const role = (c: Column<T>, i: number) =>
+    c.card ?? (rich ? (i === 0 ? 'title' : 'meta') : undefined);
   return (
-    <div className="nz-table-wrap" role="region" aria-label={caption} tabIndex={0}>
+    <div
+      className="nz-table-wrap"
+      data-view="cards"
+      data-manage={rowHref ? 'true' : undefined}
+      data-card={rich ? 'rich' : undefined}
+      role="region"
+      aria-label={caption}
+      tabIndex={0}
+    >
+      <TableViewToggle />
       <table className="nz-table">
         <caption>{caption}</caption>
         <thead>
@@ -149,19 +185,79 @@ export function Table<T>({
                 {c.header}
               </th>
             ))}
+            {rowHref && (
+              <th scope="col" className="nz-manage-col">
+                <span className="nz-sr-only">
+                  <ManageText label={manageLabel} />
+                </span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={rowKey(r)}>
-              {columns.map((c) => (
-                <td key={c.key}>{c.render(r)}</td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const href = rowHref?.(r);
+            return (
+              <tr key={rowKey(r)}>
+                {cardIcon && (
+                  // decorative: only drawn in card view
+                  <td className="nz-card-icon" aria-hidden="true">
+                    <span>
+                      <Icon name={cardIcon} size={22} />
+                    </span>
+                  </td>
+                )}
+                {columns.map((c, i) => (
+                  <td key={c.key} data-label={c.header || undefined} data-card={role(c, i)}>
+                    {/* the card view's label; the table view (and assistive tech, via the header row) uses <th> instead */}
+                    {c.header && (
+                      <span className="nz-cell-label" aria-hidden="true">
+                        {c.icon && <Icon name={c.icon} size={15} />}
+                        {c.header}
+                      </span>
+                    )}
+                    {(() => {
+                      const v = c.render(r);
+                      // an empty value stays empty (no lone icon), so the card can leave the chip out
+                      const has = v !== null && v !== undefined && v !== false && v !== '';
+                      return (
+                        <span className="nz-cell-value">
+                          {has &&
+                            rich &&
+                            c.icon &&
+                            (c.card === 'chip' || role(c, i) === 'meta') && (
+                              <Icon name={c.icon} size={14} />
+                            )}
+                          {v}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                ))}
+                {rowHref && (
+                  <td className="nz-manage-col">
+                    {href ? (
+                      <a className="nz-btn" data-variant="secondary" href={href}>
+                        <ManageText label={manageLabel} />
+                      </a>
+                    ) : null}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** A read-only on/off value drawn as a switch next to its text (the text keeps it readable for everyone). */
+export function OnOff({ on, children }: { on: boolean; children: ReactNode }) {
+  return (
+    <span className="nzc-onoff" data-on={on ? 'true' : 'false'}>
+      {children}
+    </span>
   );
 }
 

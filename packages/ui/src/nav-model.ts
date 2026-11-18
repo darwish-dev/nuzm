@@ -16,6 +16,8 @@ export interface NavItem<L extends string = string> {
   orgType?: string;
   /** The page itself only (the overview), not everything below the path. */
   exact?: boolean;
+  /** Other paths that belong to this item (the old routes and detail pages of screens stacked on its page). */
+  also?: string[];
   children?: NavItem<L>[];
 }
 export interface NavGroup<L extends string = string> {
@@ -33,6 +35,10 @@ export interface NavCategory<L extends string = string, C extends string = strin
   groups: NavGroup<L>[];
   /** Needs a current organization (customer console only). */
   org: boolean;
+  /** Reached from the account menu instead of the rail; its pages show no section tabs. */
+  menu?: boolean;
+  /** Its pages link to each other themselves (buttons, back links), so they show no section tabs. */
+  noTabs?: boolean;
 }
 
 export interface NavContext {
@@ -49,6 +55,7 @@ export interface ResolvedItem<L extends string = string> {
   /** Full path without the locale prefix; absent for a group. */
   href?: string;
   exact?: boolean;
+  also?: string[];
   children?: ResolvedItem<L>[];
 }
 export interface ResolvedGroup<L extends string = string> {
@@ -65,6 +72,8 @@ export interface ResolvedCategory<L extends string = string, C extends string = 
   /** Where clicking the category's icon goes: its first visible page. */
   home: string;
   groups: ResolvedGroup<L>[];
+  menu?: boolean;
+  noTabs?: boolean;
 }
 
 function visible<L extends string>(i: NavItem<L>, c: NavContext): boolean {
@@ -81,7 +90,13 @@ function resolveItem<L extends string>(i: NavItem<L>, c: NavContext): ResolvedIt
     return { id: i.id, label: i.label, children: kids };
   }
   if (!visible(i, c)) return null;
-  return { id: i.id, label: i.label, href: i.href, exact: i.exact };
+  return {
+    id: i.id,
+    label: i.label,
+    href: i.href,
+    exact: i.exact,
+    ...(i.also ? { also: i.also } : {}),
+  };
 }
 
 const firstHref = <L extends string>(items: ResolvedItem<L>[]): string | undefined => {
@@ -117,6 +132,8 @@ export function buildNavFrom<L extends string, C extends string>(
       roots: cat.roots,
       home,
       groups,
+      ...(cat.menu ? { menu: true } : {}),
+      ...(cat.noTabs ? { noTabs: true } : {}),
     });
   }
   return out;
@@ -152,6 +169,8 @@ export function currentItemId<L extends string, C extends string>(
     if (!l.href) continue;
     const ok = l.exact ? path === l.href : within(path, l.href);
     if (ok && (!best || l.href.length > best.len)) best = { id: l.id, len: l.href.length };
+    for (const a of l.also ?? [])
+      if (within(path, a) && (!best || a.length > best.len)) best = { id: l.id, len: a.length };
   }
   return best?.id ?? null;
 }
@@ -166,8 +185,8 @@ export function currentCategoryOf<L extends string, C extends string>(
   for (const cat of cats)
     for (const l of leaves(cat)) {
       if (!l.href || l.href === '/') continue;
-      if (within(path, l.href) && (!best || l.href.length > best.len))
-        best = { id: cat.id, len: l.href.length };
+      for (const h of [l.href, ...(l.also ?? [])])
+        if (within(path, h) && (!best || h.length > best.len)) best = { id: cat.id, len: h.length };
     }
   if (best) return best.id;
   for (const cat of cats)

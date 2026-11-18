@@ -54,11 +54,13 @@ export default async function Reconciliation({ params }: { params: Promise<{ loc
             {
               key: 'p',
               header: t(locale, 'dom.col.expires'),
+              icon: 'calendar',
               render: (r) => <Ltr>{`${r.periodFrom} → ${r.periodTo}`}</Ltr>,
             },
             {
               key: 's',
               header: t(locale, 'dom.col.state'),
+              icon: 'pulse',
               render: (r) => <Badge>{r.status}</Badge>,
             },
             { key: 'b', header: '#', render: (r) => <Ltr>{String(r.breakCount ?? 0)}</Ltr> },

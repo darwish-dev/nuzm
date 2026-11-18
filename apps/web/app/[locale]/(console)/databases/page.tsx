@@ -22,21 +22,34 @@ export default async function Databases({ params }: { params: Promise<{ locale: 
           caption={t(locale, 'm8.db.title')}
           rows={data.items}
           rowKey={(r) => r.id}
+          cardIcon="data"
+          rowHref={(r) => `/${locale}/databases/${r.id}`}
+          manageLabel={t(locale, 'action.manage')}
           columns={[
             {
               key: 'n',
+              card: 'title',
               header: t(locale, 'field.name'),
               render: (r) => <a href={`/${locale}/databases/${r.id}`}>{r.name}</a>,
             },
             {
               key: 'e',
+              card: 'subtitle',
               header: t(locale, 'm8.db.col.engine'),
+              icon: 'code',
               render: (r) => tDynamic(locale, `m8.engine.${r.engine}`, r.engine),
             },
-            { key: 'v', header: t(locale, 'm8.db.col.version'), render: (r) => r.version },
+            {
+              key: 'v',
+              card: 'chip',
+              header: t(locale, 'm8.db.col.version'),
+              render: (r) => r.version,
+            },
             {
               key: 's',
+              card: 'badge',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (r) => (
                 <>
                   <StatusBadge
@@ -54,7 +67,12 @@ export default async function Databases({ params }: { params: Promise<{ locale: 
                 </>
               ),
             },
-            { key: 'r', header: t(locale, 'field.region'), render: (r) => r.dataRegion },
+            {
+              key: 'r',
+              card: 'chip',
+              header: t(locale, 'field.region'),
+              render: (r) => r.dataRegion,
+            },
           ]}
         />
       ),

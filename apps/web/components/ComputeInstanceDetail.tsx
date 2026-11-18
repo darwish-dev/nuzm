@@ -1,8 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { formatDateTime, t, type Locale } from '@nuzm/i18n';
-import { Banner, Button, ButtonLink, Field, Ltr, Select } from '@nuzm/ui';
+import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
+import { Banner, Button, ButtonLink, Field, Icon, Ltr, Select, type IconName } from '@nuzm/ui';
 import { browserCompute } from '../lib/compute-client';
 import { useComputeAction } from '../lib/compute-actions';
 import {
@@ -22,6 +22,14 @@ import {
 import { CapabilityList, InstanceBadges, OperationTimeline, ProblemAlert } from './ComputeBits';
 import { regionLabel } from './ComputeOffers';
 import { NoticeText } from './Feedback';
+import {
+  ActionLink,
+  ActionPanel,
+  ActionRow,
+  OverviewLayout,
+  SidePanel,
+  SpecTiles,
+} from './Overview';
 
 /** Re-reads the server data while the instance is provisioning or deleting, so the page follows the operation without a manual reload. */
 function AutoRefresh({ active }: { active: boolean }) {
@@ -123,6 +131,14 @@ export function InstanceDetail(p: {
       },
     );
 
+  const base = `/${locale}/compute/instances/${i.id}`;
+  const ACT_ICON: Record<ActionType, IconName> = {
+    start: 'arrow',
+    stop: 'pulse',
+    reboot: 'refresh',
+    resize: 'data',
+    snapshot: 'cloud',
+  } as Record<ActionType, IconName>;
   return (
     <>
       <AutoRefresh active={isTransient(i.status)} />
@@ -132,170 +148,266 @@ export function InstanceDetail(p: {
           {t(locale, 'm05.web.uncertain.body')}
         </Banner>
       )}
-      <section className="nz-card" aria-labelledby="inst-overview">
-        <h2 className="nz-h2" id="inst-overview">
-          {t(locale, 'm05.web.detail.overview')}
-        </h2>
-        <dl style={{ display: 'grid', gap: 'var(--nuzm-space-2)', margin: 0 }}>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'field.name')}</dt>
-            <dd style={{ margin: 0 }}>
-              <Ltr>{i.name}</Ltr>
-            </dd>
-          </div>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'field.status')}</dt>
-            <dd style={{ margin: 0 }}>
-              <InstanceBadges locale={locale} status={i.status} driftState={i.driftState} />
-            </dd>
-          </div>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'm05.web.f.plan')}</dt>
-            <dd style={{ margin: 0 }}>
-              {t(locale, 'm05.web.plan.summary', {
-                vcpu: i.plan.vcpu,
-                memory: memoryLabel(i.plan.memoryMb),
-              })}
-              {' · '}
-              {t(locale, 'm05.web.plan.disk', { disk: i.plan.diskGb })}
-            </dd>
-          </div>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'field.region')}</dt>
-            <dd style={{ margin: 0 }}>
-              {regionLabel(locale, i.dataRegion)} <Ltr>{i.country}</Ltr>
-            </dd>
-          </div>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'm05.web.f.ips')}</dt>
-            <dd style={{ margin: 0 }}>
-              {i.publicIps.length ? <Ltr>{i.publicIps.join(', ')}</Ltr> : '—'}
-            </dd>
-          </div>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'm05.web.f.capabilities')}</dt>
-            <dd style={{ margin: 0 }}>
-              <CapabilityList locale={locale} caps={i.capabilities} />
-            </dd>
-          </div>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'field.created')}</dt>
-            <dd style={{ margin: 0 }}>{formatDateTime(i.createdAt, locale)}</dd>
-          </div>
-          <div className="nz-row">
-            <dt className="nz-muted">{t(locale, 'm05.web.f.id')}</dt>
-            <dd style={{ margin: 0 }}>
-              <Ltr>{i.id}</Ltr>
-            </dd>
-          </div>
-        </dl>
-      </section>
-
-      {p.canAct && !gone && (
-        <section className="nz-card" aria-labelledby="inst-actions">
-          <h2 className="nz-h2" id="inst-actions">
-            {t(locale, 'm05.web.actions.title')}
-          </h2>
-          {actions.length === 0 ? (
-            <p className="nz-muted">{t(locale, 'm05.web.actions.none')}</p>
-          ) : (
-            <>
-              <div className="nz-row" role="group" aria-label={t(locale, 'm05.web.actions.title')}>
-                {actions
-                  .filter((x) => x !== 'resize')
-                  .map((type) => (
-                    <Button
-                      key={type}
-                      variant="secondary"
-                      disabled={a.busy || uncertain || !actionAllowed(type, i.status)}
-                      aria-describedby="act-help"
-                      onClick={() => act(type)}
-                    >
-                      {t(locale, `m05.web.act.${type}`)}
-                    </Button>
-                  ))}
-              </div>
-              {actions.includes('resize') && (
-                <div className="nz-row" style={{ alignItems: 'flex-end' }}>
-                  <Field id="resize-to" label={t(locale, 'm05.web.resize.label')}>
-                    {(x) => (
-                      <Select {...x} value={resizeTo} onChange={(e) => setResizeTo(e.target.value)}>
-                        <option value="">{t(locale, 'm05.web.resize.choose')}</option>
-                        {sizes.map((o) => (
-                          <option key={o.offerId} value={o.offerId}>
-                            {t(locale, 'm05.web.resize.option', {
-                              vcpu: o.plan.vcpu,
-                              memory: memoryLabel(o.plan.memoryMb),
-                              price: moneyText(o.price.amount, o.price.currency, locale),
-                            })}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </Field>
-                  <Button
-                    variant="secondary"
-                    disabled={
-                      a.busy || uncertain || !resizeTo || !actionAllowed('resize', i.status)
-                    }
-                    onClick={() => act('resize', { offerId: resizeTo })}
+      <OverviewLayout
+        sideLabel={t(locale, 'm05.web.ov.summary')}
+        main={
+          <>
+            {p.canAct && !gone && (
+              <section className="nzc-panel" aria-labelledby="inst-actions">
+                <h2 id="inst-actions">{t(locale, 'm05.web.ov.title', { name: i.name })}</h2>
+                <p className="nzc-panel-sub">{t(locale, 'm05.web.ov.sub')}</p>
+                {actions.length === 0 ? (
+                  <p className="nz-muted">{t(locale, 'm05.web.actions.none')}</p>
+                ) : (
+                  <div
+                    className="nzc-actions"
+                    role="group"
+                    aria-label={t(locale, 'm05.web.actions.title')}
                   >
-                    {t(locale, 'm05.web.act.resize')}
-                  </Button>
-                </div>
-              )}
-              <p className="nz-help" id="act-help">
-                {t(locale, 'm05.web.actions.help')}
-              </p>
-            </>
-          )}
-        </section>
-      )}
+                    {actions
+                      .filter((x) => x !== 'resize')
+                      .map((type) => (
+                        <ActionRow
+                          key={type}
+                          icon={ACT_ICON[type] ?? 'cloud'}
+                          title={t(locale, `m05.web.act.${type}`)}
+                          desc={tDynamic(locale, `m05.web.ov.do.${type}`, '')}
+                          action={
+                            <Button
+                              variant="secondary"
+                              disabled={a.busy || uncertain || !actionAllowed(type, i.status)}
+                              aria-describedby="act-help"
+                              onClick={() => act(type)}
+                            >
+                              {t(locale, `m05.web.act.${type}`)}
+                            </Button>
+                          }
+                        />
+                      ))}
+                    {actions.includes('resize') && (
+                      <ActionRow
+                        icon="data"
+                        title={t(locale, 'm05.web.act.resize')}
+                        desc={
+                          <span style={{ display: 'grid', gap: 10 }}>
+                            {t(locale, 'm05.web.ov.do.resize')}
+                            <Field id="resize-to" label={t(locale, 'm05.web.resize.label')}>
+                              {(x) => (
+                                <Select
+                                  {...x}
+                                  value={resizeTo}
+                                  onChange={(e) => setResizeTo(e.target.value)}
+                                >
+                                  <option value="">{t(locale, 'm05.web.resize.choose')}</option>
+                                  {sizes.map((o) => (
+                                    <option key={o.offerId} value={o.offerId}>
+                                      {t(locale, 'm05.web.resize.option', {
+                                        vcpu: o.plan.vcpu,
+                                        memory: memoryLabel(o.plan.memoryMb),
+                                        price: moneyText(o.price.amount, o.price.currency, locale),
+                                      })}
+                                    </option>
+                                  ))}
+                                </Select>
+                              )}
+                            </Field>
+                          </span>
+                        }
+                        action={
+                          <Button
+                            variant="secondary"
+                            disabled={
+                              a.busy || uncertain || !resizeTo || !actionAllowed('resize', i.status)
+                            }
+                            onClick={() => act('resize', { offerId: resizeTo })}
+                          >
+                            {t(locale, 'm05.web.act.resize')}
+                          </Button>
+                        }
+                      />
+                    )}
+                    <p className="nz-help" id="act-help" style={{ margin: 0 }}>
+                      {t(locale, 'm05.web.actions.help')}
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
 
-      {p.canDelete && !gone && (
-        <section className="nz-card" aria-labelledby="inst-delete">
-          <h2 className="nz-h2" id="inst-delete">
-            {t(locale, 'm05.web.delete.title')}
-          </h2>
-          {i.deletionProtected && (
-            <p className="nz-muted">{t(locale, 'm05.web.delete.protected')}</p>
-          )}
-          {!confirming ? (
-            <Button
-              variant="danger"
-              disabled={a.busy || i.deletionProtected === true}
-              onClick={() => setConfirming(true)}
-            >
-              {t(locale, 'm05.web.delete.start')}
-            </Button>
-          ) : (
-            <div role="group" aria-label={t(locale, 'm05.web.delete.title')}>
-              <p>{t(locale, 'm05.web.delete.confirm', { name: i.name })}</p>
-              <div className="nz-row">
-                <Button variant="danger" disabled={a.busy} onClick={remove}>
-                  {t(locale, 'm05.web.delete.confirmBtn')}
-                </Button>
-                <Button variant="secondary" disabled={a.busy} onClick={() => setConfirming(false)}>
-                  {t(locale, 'action.cancel')}
-                </Button>
+            {(supportsMetrics(i.capabilities) || supportsSnapshot(i.capabilities)) && (
+              <ActionPanel id="inst-monitor" title={t(locale, 'm05.web.ov.monitor')}>
+                {supportsMetrics(i.capabilities) && (
+                  <ActionRow
+                    icon="pulse"
+                    title={t(locale, 'm05.web.detail.tab.metrics')}
+                    desc={t(locale, 'm05.web.ov.metrics')}
+                    action={
+                      <ActionLink
+                        href={`${base}/metrics`}
+                        label={t(locale, 'm05.web.detail.tab.metrics')}
+                      />
+                    }
+                  />
+                )}
+                {supportsSnapshot(i.capabilities) && (
+                  <ActionRow
+                    icon="cloud"
+                    title={t(locale, 'm05.web.detail.tab.snapshots')}
+                    desc={t(locale, 'm05.web.ov.snapshots')}
+                    action={
+                      <ActionLink
+                        href={`${base}/snapshots`}
+                        label={t(locale, 'm05.web.detail.tab.snapshots')}
+                      />
+                    }
+                  />
+                )}
+              </ActionPanel>
+            )}
+
+            {a.problem ? (
+              <ProblemAlert locale={locale} problem={a.problem} />
+            ) : (
+              <NoticeText notice={a.notice} />
+            )}
+            {a.panel}
+            {p.operation && <OperationTimeline locale={locale} op={p.operation} />}
+
+            {p.canDelete && !gone && (
+              <section className="nzc-panel" aria-labelledby="inst-delete">
+                <h2 id="inst-delete">{t(locale, 'm05.web.delete.title')}</h2>
+                {i.deletionProtected && (
+                  <p className="nz-muted">{t(locale, 'm05.web.delete.protected')}</p>
+                )}
+                {!confirming ? (
+                  <ActionRow
+                    icon="shield"
+                    tone="danger"
+                    title={t(locale, 'm05.web.ov.danger')}
+                    desc={t(locale, 'm05.web.delete.confirm', { name: i.name })}
+                    action={
+                      <Button
+                        variant="danger"
+                        disabled={a.busy || i.deletionProtected === true}
+                        onClick={() => setConfirming(true)}
+                      >
+                        {t(locale, 'm05.web.delete.start')}
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <div role="group" aria-label={t(locale, 'm05.web.delete.title')}>
+                    <p>{t(locale, 'm05.web.delete.confirm', { name: i.name })}</p>
+                    <div className="nz-row">
+                      <Button variant="danger" disabled={a.busy} onClick={remove}>
+                        {t(locale, 'm05.web.delete.confirmBtn')}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={a.busy}
+                        onClick={() => setConfirming(false)}
+                      >
+                        {t(locale, 'action.cancel')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+            {i.status === 'deleted' && (
+              <ButtonLink variant="secondary" href={`/${locale}/compute/instances`}>
+                {t(locale, 'm05.web.instances.title')}
+              </ButtonLink>
+            )}
+          </>
+        }
+        side={
+          <>
+            <section className="nzc-panel" aria-labelledby="inst-overview">
+              <h2 className="nz-sr-only" id="inst-overview">
+                {t(locale, 'm05.web.detail.overview')}
+              </h2>
+              <div className="nzc-side-name">
+                <strong>
+                  <Ltr>{i.name}</Ltr>
+                </strong>
+                <span className="nzc-side-badges">
+                  <InstanceBadges locale={locale} status={i.status} driftState={i.driftState} />
+                </span>
               </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {a.problem ? (
-        <ProblemAlert locale={locale} problem={a.problem} />
-      ) : (
-        <NoticeText notice={a.notice} />
-      )}
-      {a.panel}
-      {p.operation && <OperationTimeline locale={locale} op={p.operation} />}
-      {i.status === 'deleted' && (
-        <ButtonLink variant="secondary" href={`/${locale}/compute/instances`}>
-          {t(locale, 'm05.web.instances.title')}
-        </ButtonLink>
-      )}
+              <div className="nzc-expiry">
+                <SpecTiles
+                  items={[
+                    { value: i.plan.vcpu, caption: t(locale, 'm05.web.ov.vcpu') },
+                    {
+                      value: memoryLabel(i.plan.memoryMb),
+                      caption: t(locale, 'm05.web.ov.memory'),
+                    },
+                    { value: `${i.plan.diskGb} GB`, caption: t(locale, 'm05.web.ov.disk') },
+                  ]}
+                />
+              </div>
+              <dl className="nzc-side-rows">
+                <div>
+                  <dt>
+                    <Icon name="tag" size={16} />
+                    {t(locale, 'm05.web.f.plan')}
+                  </dt>
+                  <dd>
+                    {t(locale, 'm05.web.plan.summary', {
+                      vcpu: i.plan.vcpu,
+                      memory: memoryLabel(i.plan.memoryMb),
+                    })}
+                    {' · '}
+                    {t(locale, 'm05.web.plan.disk', { disk: i.plan.diskGb })}
+                  </dd>
+                </div>
+                <div>
+                  <dt>
+                    <Icon name="pin" size={16} />
+                    {t(locale, 'field.region')}
+                  </dt>
+                  <dd>
+                    {regionLabel(locale, i.dataRegion)} <Ltr>{i.country}</Ltr>
+                  </dd>
+                </div>
+                <div>
+                  <dt>
+                    <Icon name="calendar" size={16} />
+                    {t(locale, 'field.created')}
+                  </dt>
+                  <dd>{formatDateTime(i.createdAt, locale)}</dd>
+                </div>
+                <div>
+                  <dt>
+                    <Icon name="key" size={16} />
+                    {t(locale, 'm05.web.f.id')}
+                  </dt>
+                  <dd style={{ fontSize: 12.5 }}>
+                    <Ltr>{i.id}</Ltr>
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <SidePanel title={t(locale, 'm05.web.f.ips')}>
+              {i.publicIps.length ? (
+                <ul className="nzc-ns-list">
+                  {i.publicIps.map((ip) => (
+                    <li key={ip}>{ip}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="nz-muted" style={{ margin: 0 }}>
+                  {t(locale, 'm05.web.ov.noIps')}
+                </p>
+              )}
+            </SidePanel>
+            <SidePanel title={t(locale, 'm05.web.f.capabilities')}>
+              <CapabilityList locale={locale} caps={i.capabilities} />
+            </SidePanel>
+          </>
+        }
+      />
     </>
   );
 }

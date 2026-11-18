@@ -71,7 +71,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             icon="wallet"
             featured
             label={t(locale, 'dash.stat.wallet')}
-            href={`${base}/billing/wallet`}
+            href={`${base}/billing/payments#wallet`}
             value={
               wallet ? <Ltr>{formatMinor(wallet.balanceMinor, wallet.currency, locale)}</Ltr> : '—'
             }
@@ -150,7 +150,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             <section className="nz-card" aria-labelledby="d-activity">
               <div className="nzc-cardhead">
                 <h2 id="d-activity">{t(locale, 'dash.activity.title')}</h2>
-                <a href={`${base}/audit-logs`}>{t(locale, 'dash.activity.all')}</a>
+                <a href={`${base}/settings/organization#audit`}>{t(locale, 'dash.activity.all')}</a>
               </div>
               {audit.items.length === 0 ? (
                 <p className="nz-muted">{t(locale, 'state.empty.body')}</p>

@@ -75,6 +75,7 @@ export function LiveVerificationPanel({
             {
               key: 'r',
               header: t(locale, 'm05.adm.lv.col.lastRun'),
+              icon: 'calendar',
               render: (j) =>
                 j.lastRunAt
                   ? formatDateTime(j.lastRunAt, locale)
@@ -181,6 +182,7 @@ export function EvidenceIndex({ locale, runs }: { locale: Locale; runs: LvRun[] 
         {
           key: 'k',
           header: t(locale, 'field.kind'),
+          icon: 'code',
           render: (r) =>
             t(locale, r.kind === 'gate' ? 'm05.adm.lv.evidence.gate' : 'm05.adm.lv.evidence.run'),
         },
@@ -192,6 +194,7 @@ export function EvidenceIndex({ locale, runs }: { locale: Locale; runs: LvRun[] 
         {
           key: 'w',
           header: t(locale, 'field.when'),
+          icon: 'calendar',
           render: (r) => formatDateTime(r.run.createdAt, locale),
         },
       ]}

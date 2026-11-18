@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, isLocale, t, tDynamic } from '@nuzm/i18n';
-import { Badge, EmptyState, ForbiddenState, Ltr, PageTitle, Table } from '@nuzm/ui';
-import { DomainTabs } from '../../../../../components/DomainTabs';
+import { Badge, EmptyState, ForbiddenState, Icon, Ltr, PageTitle, Table } from '@nuzm/ui';
 import { TransferForm } from '../../../../../components/DomainPanels';
 import { domainTone } from '../../../../../lib/domains';
 import { requireSession } from '../../../../../lib/server';
@@ -39,6 +38,7 @@ export default async function Transfers({ params }: { params: Promise<{ locale: 
             {
               key: 's',
               header: t(locale, 'dom.col.state'),
+              icon: 'pulse',
               render: (r) => (
                 <Badge
                   tone={domainTone(
@@ -60,10 +60,37 @@ export default async function Transfers({ params }: { params: Promise<{ locale: 
   );
   return (
     <>
+      <a className="nzc-back" href={`/${locale}/domains`}>
+        <Icon name="chevron" size={16} />
+        {t(locale, 'dom.tab.list')}
+      </a>
       <PageTitle>{t(locale, 'dom.tr.title')}</PageTitle>
-      <DomainTabs locale={locale} current="transfers" can={s.can} />
-      {list}
-      {s.can('domain:write') ? <TransferForm locale={locale} /> : null}
+      {s.can('domain:write') && (
+        // the "Transfer a domain" button of the domains page lands here
+        <section
+          id="start"
+          className="nzc-dsearch"
+          aria-labelledby="tr-h"
+          style={{ scrollMarginBlockStart: 18 }}
+        >
+          <div className="nzc-dsearch-inner">
+            <h2 id="tr-h">{t(locale, 'dom.tr.start')}</h2>
+            <p className="nzc-dsearch-sub">{t(locale, 'dom.tr.hero.body')}</p>
+            <ol className="nzc-steps-row">
+              <li>{t(locale, 'dom.tr.step1')}</li>
+              <li>{t(locale, 'dom.tr.step2')}</li>
+              <li>{t(locale, 'dom.tr.step3')}</li>
+            </ol>
+            <TransferForm locale={locale} />
+          </div>
+        </section>
+      )}
+      <section aria-labelledby="tr-list">
+        <div className="nzc-dres-head">
+          <h2 id="tr-list">{t(locale, 'dom.tr.list')}</h2>
+        </div>
+        {list}
+      </section>
     </>
   );
 }

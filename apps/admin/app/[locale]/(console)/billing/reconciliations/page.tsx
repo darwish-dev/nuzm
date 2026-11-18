@@ -58,6 +58,7 @@ export default async function Reconciliations({
               {
                 key: 't',
                 header: t(locale, 'af.rc.col.type'),
+                icon: 'code',
                 render: (r) => (
                   <a href={`/${locale}/billing/reconciliations/${r.id}`}>
                     <Ltr>{r.type}</Ltr> {tDynamic(locale, `af.rc.type.${r.type}`, r.type)}
@@ -67,6 +68,7 @@ export default async function Reconciliations({
               {
                 key: 'p',
                 header: t(locale, 'af.rc.col.period'),
+                icon: 'calendar',
                 render: (r) => (
                   <Ltr>
                     {r.periodFrom} → {r.periodTo}
@@ -76,6 +78,7 @@ export default async function Reconciliations({
               {
                 key: 's',
                 header: t(locale, 'af.rc.col.status'),
+                icon: 'pulse',
                 render: (r) => (
                   <Badge tone={runTone(r.status)}>
                     {tDynamic(locale, `af.rc.status.${r.status}`, r.status)}
@@ -112,6 +115,7 @@ export default async function Reconciliations({
               {
                 key: 'w',
                 header: t(locale, 'field.when'),
+                icon: 'calendar',
                 render: (r) => formatDateTime(r.createdAt, locale),
               },
             ]}

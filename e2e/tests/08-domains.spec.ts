@@ -150,7 +150,8 @@ test('customer domains: list, search (Saudi TLD blocked with its reason), checko
     .getByRole('button', { name: T(info, 'dom.dns.add') })
     .first()
     .click();
-  await expect(page.getByText(T(info, 'dom.dns.pending'))).toBeVisible();
+  // queued changes are not live: the unsaved-changes bar says so until they are applied
+  await expect(page.getByText(T(info, 'dom.dns.unsaved', { count: 1 }))).toBeVisible();
   await audit(page, info, 'domain-dns-pending');
   await page.getByRole('button', { name: T(info, 'dom.dns.apply') }).click();
   await expect(page.getByText(T(info, 'dom.dns.applied'))).toBeVisible();

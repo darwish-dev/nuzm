@@ -46,16 +46,19 @@ export default async function QuotePage({
             {
               key: 'q',
               header: t(locale, 'bill.f.quantity'),
+              icon: 'data',
               render: (i) => <Ltr>{`${trimDec(i.quantity)} ${i.unit}`}</Ltr>,
             },
             {
               key: 'p',
               header: t(locale, 'bill.f.unitPrice'),
+              icon: 'tag',
               render: (i) => (i.unitPriceMinor ? <Ltr>{trimDec(i.unitPriceMinor)}</Ltr> : '—'),
             },
             {
               key: 'a',
               header: t(locale, 'bill.f.amount'),
+              icon: 'tag',
               render: (i) => <Ltr>{formatMinor(i.amountMinor, q.currency, locale)}</Ltr>,
             },
           ]}

@@ -98,6 +98,7 @@ export default async function Payments({
                 {
                   key: 'o',
                   header: t(locale, 'af.pay.col.org'),
+                  icon: 'user',
                   render: (p) => (
                     <a
                       href={`?${new URLSearchParams({ org: p.orgId }).toString()}`}
@@ -130,6 +131,7 @@ export default async function Payments({
                 {
                   key: 'a',
                   header: t(locale, 'af.pay.col.amount'),
+                  icon: 'tag',
                   render: (p) => <Ltr>{formatMinor(p.amountMinor, p.currency, locale)}</Ltr>,
                 },
                 {
@@ -145,6 +147,7 @@ export default async function Payments({
                 {
                   key: 's',
                   header: t(locale, 'af.pay.col.status'),
+                  icon: 'pulse',
                   render: (p) => (
                     <Badge tone={paymentTone(p.status)}>
                       {tDynamic(locale, `af.pay.status.${p.status}`, p.status)}
@@ -159,6 +162,7 @@ export default async function Payments({
                 {
                   key: 't',
                   header: t(locale, 'af.pay.col.created'),
+                  icon: 'calendar',
                   render: (p) => formatDateTime(p.createdAt, locale),
                 },
               ]}

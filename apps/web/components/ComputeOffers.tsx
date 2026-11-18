@@ -123,6 +123,7 @@ export function OffersPanel(p: {
             {
               key: 'plan',
               header: t(locale, 'm05.web.f.plan'),
+              icon: 'tag',
               render: (o) => (
                 <>
                   <strong>
@@ -141,6 +142,7 @@ export function OffersPanel(p: {
             {
               key: 'region',
               header: t(locale, 'field.region'),
+              icon: 'pin',
               render: (o) => (
                 <>
                   <Badge>{regionLabel(locale, o.dataRegion)}</Badge> <Ltr>{o.country}</Ltr>
@@ -150,6 +152,7 @@ export function OffersPanel(p: {
             {
               key: 'price',
               header: t(locale, 'm05.web.f.price'),
+              icon: 'tag',
               render: (o) => (
                 <>
                   <Ltr>{moneyText(o.price.amount, o.price.currency, locale)}</Ltr>{' '}
@@ -170,6 +173,7 @@ export function OffersPanel(p: {
             {
               key: 'act',
               header: t(locale, 'field.action'),
+              icon: 'code',
               render: (o) =>
                 p.canCreate ? (
                   <ButtonLink

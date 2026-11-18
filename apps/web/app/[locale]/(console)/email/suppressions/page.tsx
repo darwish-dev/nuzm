@@ -42,6 +42,7 @@ export default async function Suppressions({
               {
                 key: 'a',
                 header: t(locale, 'm8.su.address'),
+                icon: 'globe',
                 render: (x) => <Ltr>{x.address}</Ltr>,
               },
               {
@@ -61,16 +62,19 @@ export default async function Suppressions({
               {
                 key: 'c',
                 header: t(locale, 'field.created'),
+                icon: 'calendar',
                 render: (x) => formatDateTime(x.createdAt, locale),
               },
               {
                 key: 'st',
                 header: t(locale, 'field.status'),
+                icon: 'pulse',
                 render: (x) => (x.active ? t(locale, 'm8.su.active') : t(locale, 'm8.su.removed')),
               },
               {
                 key: 'x',
                 header: t(locale, 'field.action'),
+                icon: 'code',
                 render: (x) =>
                   manage && x.active ? (
                     <RemoveSuppression

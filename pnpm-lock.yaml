@@ -47,6 +47,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@fontsource-variable/cairo':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@nuzm/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -202,6 +205,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@fontsource-variable/cairo':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@nuzm/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -1090,6 +1096,9 @@ packages:
 
   '@fastify/proxy-addr@5.1.3':
     resolution: {integrity: sha512-ptgIgB+abBNTs5lsKNvFaKMCauPaTOE6ZIjxJr3FxCLehmYQQKYGg4srwwNICR9QQlFrYw59jWAo+i9GalVCaw==}
+
+  '@fontsource-variable/cairo@5.3.0':
+    resolution: {integrity: sha512-zkxIsVQ406AJXD1qaldeOj+CIsMzRMXRT2x6fkYjNJE2DFsqGMzNGFhdrZdZagq3qX9JwaMaZetMc7/oUlpfpg==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -4422,6 +4431,8 @@ snapshots:
     dependencies:
       '@fastify/forwarded': 3.1.2
       ipaddr.js: 2.5.0
+
+  '@fontsource-variable/cairo@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

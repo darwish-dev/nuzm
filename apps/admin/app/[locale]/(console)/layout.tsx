@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { isLocale, locales, t } from '@nuzm/i18n';
 import {
-  ContextSidebar,
+  SectionTabs,
   ForbiddenState,
   PrimaryRail,
   type RailItem,
@@ -78,19 +78,12 @@ export default async function ConsoleLayout({
   return (
     <ConsoleFrame
       labels={{
-        toggle: t(locale, 'nc.top.toggle'),
         openMenu: t(locale, 'nc.top.menu'),
         closeMenu: t(locale, 'nc.top.close'),
       }}
       brand={brand}
       rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
-      side={
-        <ContextSidebar
-          title={activeCat ? t(locale, activeCat.title) : ''}
-          label={t(locale, 'nc.nav.side')}
-          groups={groups}
-        />
-      }
+      tabs={<SectionTabs label={t(locale, 'nc.nav.side')} groups={groups} />}
       topbar={
         <>
           <span className="nzc-chip" aria-label={t(locale, 'anc.staff')}>

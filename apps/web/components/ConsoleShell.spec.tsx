@@ -7,7 +7,7 @@ vi.mock('../lib/client', () => ({ browserApi: () => ({ POST: post }) }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/en/billing/invoices' }));
 import { ConsoleFrame, ProfileMenu } from './ConsoleShell';
 
-const labels = { toggle: 'Toggle sidebar', openMenu: 'Open menu', closeMenu: 'Close menu' };
+const labels = { openMenu: 'Open menu', closeMenu: 'Close menu' };
 const frame = () =>
   render(
     <ConsoleFrame
@@ -18,10 +18,14 @@ const frame = () =>
           <a href="/x">X</a>
         </nav>
       }
-      side={
-        <aside className="nzc-side">
+      tabs={
+        <nav className="nzc-tabs">
           <a href="/y">Y</a>
-        </aside>
+          <details className="nzc-tab-menu">
+            <summary>More</summary>
+            <a href="/z">Z</a>
+          </details>
+        </nav>
       }
       topbar={<span>top</span>}
     >
@@ -49,22 +53,28 @@ describe('console frame', () => {
     );
   });
 
-  it('collapses the contextual sidebar and remembers it, without touching the rail', () => {
+  it('shows the section tabs at the top of the page content', () => {
     const { container } = frame();
-    const app = container.querySelector('.nzc-app')!;
-    expect(app.getAttribute('data-side')).toBe('open');
-    fireEvent.click(screen.getByRole('button', { name: labels.toggle }));
-    expect(app.getAttribute('data-side')).toBe('collapsed');
-    expect(localStorage.getItem('nuzm.sidebar')).toBe('collapsed');
-    expect(container.querySelector('.nzc-rail')).toBeTruthy();
+    const main = container.querySelector('main.nzc-body')!;
+    expect(main.firstElementChild!.classList.contains('nzc-tabs')).toBe(true);
+    expect(main.textContent).toContain('page');
+    expect(screen.queryByRole('button', { name: /sidebar/i })).toBeNull();
   });
 
-  it('restores a collapsed sidebar on load', async () => {
-    localStorage.setItem('nuzm.sidebar', 'collapsed');
+  it('closes an open tab menu on Escape, on an outside click and when a page in it is followed', () => {
     const { container } = frame();
-    await waitFor(() =>
-      expect(container.querySelector('.nzc-app')!.getAttribute('data-side')).toBe('collapsed'),
-    );
+    const menu = container.querySelector('details')!;
+    menu.open = true;
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(menu.open).toBe(false);
+    menu.open = true;
+    fireEvent.pointerDown(screen.getByText('page'));
+    expect(menu.open).toBe(false);
+    menu.open = true;
+    fireEvent.pointerDown(menu);
+    expect(menu.open).toBe(true);
+    fireEvent.click(screen.getByRole('link', { name: 'Z' }));
+    expect(menu.open).toBe(false);
   });
 
   it('opens the drawer on small screens, closes on Escape and when a link is followed', () => {
@@ -75,18 +85,20 @@ describe('console frame', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(app.getAttribute('data-drawer')).toBe('closed');
     fireEvent.click(screen.getByRole('button', { name: labels.openMenu }));
-    fireEvent.click(screen.getByRole('link', { name: 'Y' }));
+    fireEvent.click(screen.getByRole('link', { name: 'X' }));
     expect(app.getAttribute('data-drawer')).toBe('closed');
   });
 
   it('renders the page inside the main landmark', () => {
     frame();
-    expect(screen.getByRole('main').textContent).toBe('page');
+    const main = screen.getByRole('main');
+    expect(main.lastElementChild!.textContent).toBe('page');
+    expect(main.textContent).toMatch(/page$/);
   });
 });
 
 describe('account menu', () => {
-  const menu = (theme: 'dark' | 'light' = 'dark') =>
+  const menu = (theme: 'dark' | 'light' = 'dark', extra: Record<string, unknown> = {}) =>
     render(
       <ProfileMenu
         initials="SC"
@@ -107,9 +119,28 @@ describe('account menu', () => {
         }}
         profileHref="/en/account"
         signedOutTo="/en/login"
+        {...extra}
       />,
     );
   const open = () => fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+
+  it("lists the organization's pages under its name, marking the current one", () => {
+    menu('dark', {
+      linksTitle: 'codgoo',
+      links: [
+        { href: '/en/settings/team', label: 'Team', icon: 'user', current: true },
+        { href: '/en/privacy', label: 'Privacy and data', icon: 'shield' },
+      ],
+    });
+    open();
+    expect(screen.getByText('codgoo')).toBeTruthy();
+    const team = screen.getByRole('menuitem', { name: 'Team' });
+    expect(team.getAttribute('href')).toBe('/en/settings/team');
+    expect(team.getAttribute('aria-current')).toBe('page');
+    expect(
+      screen.getByRole('menuitem', { name: 'Privacy and data' }).getAttribute('aria-current'),
+    ).toBeNull();
+  });
 
   it('opens with the profile link, language, dark mode and sign out, and closes on Escape', () => {
     menu();

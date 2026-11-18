@@ -143,6 +143,8 @@ export const CATEGORIES: Category[] = [
     title: 'nc.cat.domains',
     roots: ['/domains'],
     org: true,
+    // no tabs: the domains page has "Get a new domain" and "Transfer a domain" buttons, the others a link back
+    noTabs: true,
     groups: [
       {
         id: 'main',
@@ -270,78 +272,34 @@ export const CATEGORIES: Category[] = [
             perm: ['billing:read'],
             exact: true,
           },
+          // each of these is one tab whose page stacks the screens below it (their old routes redirect to its sections)
           {
             id: 'plansSubs',
             label: 'nc.item.plansSubs',
-            children: [
-              { id: 'plans', label: 'bill.tab.plans', href: '/billing/plans', perm: ['org:read'] },
-              {
-                id: 'subscriptions',
-                label: 'bill.tab.subscriptions',
-                href: '/billing/subscriptions',
-                perm: ['billing:read'],
-              },
-            ],
+            href: '/billing/plans',
+            perm: ['org:read', 'billing:read'],
+            also: ['/billing/subscriptions'],
           },
           {
             id: 'usageQuotas',
             label: 'nc.item.usageQuotas',
-            children: [
-              {
-                id: 'usage',
-                label: 'bill.tab.usage',
-                href: '/billing/usage',
-                perm: ['usage:read'],
-              },
-              {
-                id: 'quotas',
-                label: 'bill.tab.quotas',
-                href: '/billing/quotas',
-                perm: ['usage:read'],
-              },
-            ],
+            href: '/billing/usage',
+            perm: ['usage:read'],
+            also: ['/billing/quotas'],
           },
           {
-            id: 'invoicesGroup',
+            id: 'invoices',
             label: 'bill.tab.invoices',
-            children: [
-              {
-                id: 'invoices',
-                label: 'bill.tab.invoices',
-                href: '/billing/invoices',
-                perm: ['billing:read'],
-              },
-              {
-                id: 'creditNotes',
-                label: 'bill.tab.creditNotes',
-                href: '/billing/credit-notes',
-                perm: ['billing:read'],
-              },
-            ],
+            href: '/billing/invoices',
+            perm: ['billing:read'],
+            also: ['/billing/credit-notes'],
           },
           {
-            id: 'paymentsGroup',
+            id: 'payments',
             label: 'bill.tab.payments',
-            children: [
-              {
-                id: 'payments',
-                label: 'bill.tab.payments',
-                href: '/billing/payments',
-                perm: ['billing:read'],
-              },
-              {
-                id: 'methods',
-                label: 'bill.tab.methods',
-                href: '/billing/payment-methods',
-                perm: ['billing:read'],
-              },
-              {
-                id: 'wallet',
-                label: 'bill.tab.wallet',
-                href: '/billing/wallet',
-                perm: ['billing:read'],
-              },
-            ],
+            href: '/billing/payments',
+            perm: ['billing:read'],
+            also: ['/billing/payment-methods', '/billing/wallet'],
           },
         ],
       },
@@ -384,78 +342,35 @@ export const CATEGORIES: Category[] = [
     title: 'nc.cat.organization',
     roots: ['/settings', '/audit-logs', '/privacy', '/agency', '/reseller', '/orgs'],
     org: true,
+    // not on the rail: these are pages of the account menu, each stacking a group's screens as sections (the old routes redirect)
+    menu: true,
     groups: [
       {
-        id: 'team',
-        title: 'nc.grp.team',
-        items: [
-          {
-            id: 'members',
-            label: 'nav.members',
-            href: '/settings/members',
-            perm: ['member:read'],
-          },
-          {
-            id: 'invitations',
-            label: 'nav.invitations',
-            href: '/settings/invitations',
-            perm: ['member:invite'],
-          },
-          {
-            id: 'apikeys',
-            label: 'nav.apiKeys',
-            href: '/settings/api-keys',
-            perm: ['apikey:read'],
-          },
-        ],
-      },
-      {
         id: 'organization',
-        title: 'nc.grp.organization',
         items: [
           {
-            id: 'settings',
-            label: 'nav.orgSettings',
+            id: 'team',
+            label: 'nc.grp.team',
+            href: '/settings/team',
+            perm: ['member:read', 'member:invite', 'apikey:read'],
+          },
+          {
+            id: 'organization',
+            label: 'nc.grp.organization',
             href: '/settings/organization',
-            perm: ['org:update'],
-          },
-          { id: 'audit', label: 'nav.audit', href: '/audit-logs', perm: ['audit:read'] },
-        ],
-      },
-      {
-        id: 'privacy',
-        title: 'nc.grp.privacy',
-        items: [
-          {
-            id: 'requests',
-            label: 'pv.tab.requests',
-            href: '/privacy/requests',
-            perm: ['privacy:dsr:self'],
+            perm: ['org:update', 'audit:read'],
           },
           {
-            id: 'consents',
-            label: 'pv.tab.consents',
-            href: '/privacy/consents',
-            perm: ['privacy:consent:self'],
+            id: 'privacy',
+            label: 'nc.grp.privacy',
+            href: '/privacy',
+            perm: [
+              'privacy:dsr:self',
+              'privacy:consent:self',
+              'privacy:export:manage',
+              'privacy:residency:read',
+            ],
           },
-          {
-            id: 'exports',
-            label: 'pv.tab.exports',
-            href: '/privacy/exports',
-            perm: ['privacy:export:manage'],
-          },
-          {
-            id: 'residency',
-            label: 'pv.tab.residency',
-            href: '/settings/data-residency',
-            perm: ['privacy:residency:read'],
-          },
-        ],
-      },
-      {
-        id: 'portals',
-        title: 'nc.grp.portals',
-        items: [
           { id: 'agency', label: 'nav.agency', href: '/agency', orgType: 'agency' },
           { id: 'reseller', label: 'nav.reseller', href: '/reseller', orgType: 'reseller' },
         ],
@@ -469,16 +384,14 @@ export const CATEGORIES: Category[] = [
     title: 'nc.cat.account',
     roots: ['/account'],
     org: false,
+    menu: true,
     groups: [
       {
         id: 'account',
         title: 'nc.grp.account',
         items: [
-          { id: 'profile', label: 'nc.item.profile', href: '/account', exact: true },
-          { id: 'sessions', label: 'nav.sessions', href: '/account/sessions' },
-          { id: 'mfa', label: 'nc.item.mfa', href: '/account/security/mfa' },
-          { id: 'password', label: 'nav.password', href: '/account/security/password' },
-          { id: 'recovery', label: 'nav.recovery', href: '/account/security/recovery-codes' },
+          // one page: profile, sessions and security are sections on it (the old routes redirect to their anchors)
+          { id: 'profile', label: 'nc.item.profile', href: '/account' },
         ],
       },
     ],

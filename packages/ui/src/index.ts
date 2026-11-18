@@ -18,7 +18,7 @@ export const tokens = {
   space: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 6: '24px', 8: '32px' },
   radius: { sm: '4px', md: '8px' },
   font: {
-    sans: "system-ui, -apple-system, 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif",
+    sans: "'Cairo Variable', 'Cairo', system-ui, -apple-system, 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif",
   },
 } as const;
 
@@ -36,7 +36,7 @@ export { consoleCss } from './console-css';
 export { Icon, ICON_NAMES, type IconName } from './icons';
 export {
   PrimaryRail,
-  ContextSidebar,
+  SectionTabs,
   StatTile,
   type RailItem,
   type SideItem,

@@ -101,6 +101,7 @@ export default async function InvoicePage({
               {
                 key: 'q',
                 header: t(locale, 'inv.col.quantity'),
+                icon: 'data',
                 render: (l) => <Ltr>{`${trimDec(l.quantity)} ${l.unit}`}</Ltr>,
               },
               { key: 'n', header: t(locale, 'inv.col.net'), render: (l) => money(l.netMinor) },
@@ -122,6 +123,7 @@ export default async function InvoicePage({
               {
                 key: 't',
                 header: t(locale, 'inv.col.taxAmount'),
+                icon: 'tag',
                 render: (r) => money(r.taxMinor),
               },
             ]}

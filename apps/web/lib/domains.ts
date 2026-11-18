@@ -101,3 +101,18 @@ export function parseRecordValue(type: string, text: string): unknown | null {
   return v === '' ? null : v;
 }
 export const showValue = (v: unknown): string => (typeof v === 'string' ? v : JSON.stringify(v));
+
+/**
+ * The extensions offered as cards on the search page: the TLDs `spec/providers/tld-policy.yaml` lists as enabled (a spec test keeps the
+ * two in sync). A card only starts a search; whether a name is sold and its price always come from the search answer, never from here.
+ */
+export const SOLD_TLDS = ['com', 'net', 'org'] as const;
+
+/** `?tlds=com&tlds=net` or `?tlds=com,net` → `com,net` (what the search API takes); unknown or empty → undefined. */
+export const tldsParam = (v: string | string[] | undefined): string | undefined => {
+  const list = (Array.isArray(v) ? v : v ? [v] : [])
+    .flatMap((x) => x.split(','))
+    .map((x) => x.trim().replace(/^\./, '').toLowerCase())
+    .filter((x) => /^[a-z0-9-]+(\.[a-z0-9-]+)*$/.test(x));
+  return list.length ? [...new Set(list)].join(',') : undefined;
+};

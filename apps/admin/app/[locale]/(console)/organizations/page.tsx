@@ -48,16 +48,19 @@ export default async function Organizations({
             {
               key: 'type',
               header: t(locale, 'field.type'),
+              icon: 'code',
               render: (r) => tDynamic(locale, `org.type.${r.type}`, r.type),
             },
             {
               key: 'members',
               header: t(locale, 'field.members'),
+              icon: 'user',
               render: (r) => <Ltr>{r.memberCount}</Ltr>,
             },
             {
               key: 'status',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (r) => (
                 <Badge tone={r.status === 'active' ? 'success' : 'danger'}>
                   {t(locale, `status.${r.status}`)}
@@ -67,11 +70,13 @@ export default async function Organizations({
             {
               key: 'created',
               header: t(locale, 'field.created'),
+              icon: 'calendar',
               render: (r) => formatDateTime(r.createdAt, locale),
             },
             {
               key: 'actions',
               header: t(locale, 'field.action'),
+              icon: 'code',
               render: (r) =>
                 s.can('admin:org:manage') ? (
                   <OrgStatusAction

@@ -86,6 +86,7 @@ export function CapabilityTable({ locale, rows }: { locale: Locale; rows: Capabi
         {
           key: 's',
           header: t(locale, 'm05.adm.cap.col.state'),
+          icon: 'pulse',
           render: (r) => (
             <span>
               <Badge tone={capabilityTone(r)}>
@@ -136,6 +137,7 @@ export function RegionsTable({ locale, rows }: { locale: Locale; rows: RegionRow
         {
           key: 'r',
           header: t(locale, 'm05.adm.reg2.col.region'),
+          icon: 'pin',
           render: (r) => (
             <span>
               <Ltr>{r.providerRegionId}</Ltr>
@@ -143,10 +145,16 @@ export function RegionsTable({ locale, rows }: { locale: Locale; rows: RegionRow
             </span>
           ),
         },
-        { key: 'c', header: t(locale, 'field.country'), render: (r) => <Ltr>{r.countryCode}</Ltr> },
+        {
+          key: 'c',
+          icon: 'pin',
+          header: t(locale, 'field.country'),
+          render: (r) => <Ltr>{r.countryCode}</Ltr>,
+        },
         {
           key: 's',
           header: t(locale, 'm05.adm.col.status'),
+          icon: 'pulse',
           render: (r) => {
             const v = regionVerification(r);
             return <Badge tone={regionTone(v)}>{t(locale, `m05.adm.reg2.v.${v}`)}</Badge>;
@@ -155,6 +163,7 @@ export function RegionsTable({ locale, rows }: { locale: Locale; rows: RegionRow
         {
           key: 'k',
           header: t(locale, 'm05.adm.reg2.col.kind'),
+          icon: 'code',
           render: (r) =>
             r.evidenceKind ? (
               <Badge tone={evidenceKindTone(r.evidenceKind)}>
@@ -197,31 +206,37 @@ export function PlansTable({ locale, rows }: { locale: Locale; rows: PlanRow[] }
         {
           key: 'p',
           header: t(locale, 'm05.adm.plan.col.plan'),
+          icon: 'tag',
           render: (r) => <Ltr>{r.planRef}</Ltr>,
         },
         {
           key: 'r',
           header: t(locale, 'm05.adm.reg2.col.region'),
+          icon: 'pin',
           render: (r) => <Ltr>{r.providerRegionId}</Ltr>,
         },
         {
           key: 'v',
           header: t(locale, 'm05.adm.plan.col.vcpu'),
+          icon: 'tag',
           render: (r) => <Ltr>{String(r.vcpu)}</Ltr>,
         },
         {
           key: 'm',
           header: t(locale, 'm05.adm.plan.col.memory'),
+          icon: 'tag',
           render: (r) => <Ltr>{String(r.memoryMb)}</Ltr>,
         },
         {
           key: 'd',
           header: t(locale, 'm05.adm.plan.col.disk'),
+          icon: 'tag',
           render: (r) => <Ltr>{String(r.diskGb)}</Ltr>,
         },
         {
           key: 'c',
           header: t(locale, 'm05.adm.plan.col.cost'),
+          icon: 'tag',
           render: (r) =>
             r.providerPrice?.amountMinor && r.providerPrice.currency ? (
               <Ltr>
@@ -237,6 +252,7 @@ export function PlansTable({ locale, rows }: { locale: Locale; rows: PlanRow[] }
         {
           key: 'a',
           header: t(locale, 'm05.adm.plan.col.availability'),
+          icon: 'tag',
           render: (r) => (
             <Badge tone={r.availability === 'available' ? undefined : 'warn'}>
               {tDynamic(locale, `m05.adm.plan.av.${r.availability}`, r.availability)}

@@ -50,6 +50,7 @@ export default async function Evidence({ params }: { params: Promise<{ locale: s
               {
                 key: 't',
                 header: t(locale, 'cmp.ev.col.type'),
+                icon: 'code',
                 render: (r) => tDynamic(locale, `cmp.ev.type.${r.type}`, r.type),
               },
               {
@@ -75,11 +76,13 @@ export default async function Evidence({ params }: { params: Promise<{ locale: s
               {
                 key: 'b',
                 header: t(locale, 'cmp.ev.col.by'),
+                icon: 'user',
                 render: (r) => (r.attestedBy ? <Ltr>{r.attestedBy.slice(0, 8)}</Ltr> : '—'),
               },
               {
                 key: 'd',
                 header: t(locale, 'cmp.col.date'),
+                icon: 'calendar',
                 render: (r) => formatDateTime(r.collectedAt, locale),
               },
             ]}

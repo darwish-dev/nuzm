@@ -210,6 +210,7 @@ export function ApprovalsPanel(p: {
             {
               key: 'subject',
               header: t(p.locale, 'bill.f.subjectKind'),
+              icon: 'code',
               render: (r) => (
                 <>
                   <span>{tDynamic(p.locale, `bill.subject.${r.subjectKind}`, r.subjectKind)} </span>
@@ -237,12 +238,14 @@ export function ApprovalsPanel(p: {
             {
               key: 'amount',
               header: t(p.locale, 'bill.f.amount'),
+              icon: 'tag',
               render: (r) => <Ltr>{formatMinor(r.amountMinor, r.currency, p.locale)}</Ltr>,
             },
             { key: 'reason', header: t(p.locale, 'bill.f.reason'), render: (r) => r.reason },
             {
               key: 'status',
               header: t(p.locale, 'field.status'),
+              icon: 'pulse',
               render: (r) => (
                 <>
                   <Badge
@@ -268,6 +271,7 @@ export function ApprovalsPanel(p: {
             {
               key: 'expires',
               header: t(p.locale, 'bill.f.expires'),
+              icon: 'calendar',
               render: (r) => p.fmt[r.id] ?? '',
             },
             {

@@ -56,6 +56,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {
               key: 's',
               header: t(locale, 'cmp.ret.col.status'),
+              icon: 'pulse',
               render: (r) => <Badge>{r.status}</Badge>,
             },
           ]}

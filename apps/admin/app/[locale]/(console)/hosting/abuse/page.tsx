@@ -36,11 +36,13 @@ export default async function Abuse({ params }: { params: Promise<{ locale: stri
             {
               key: 'r',
               header: t(locale, 'host.col.reason'),
+              icon: 'globe',
               render: (c) => <Ltr>{c.reasonCode}</Ltr>,
             },
             {
               key: 'v',
               header: t(locale, 'host.col.severity'),
+              icon: 'globe',
               render: (c) => (
                 <Badge
                   tone={c.severity === 'critical' || c.severity === 'high' ? 'danger' : 'warn'}
@@ -49,15 +51,22 @@ export default async function Abuse({ params }: { params: Promise<{ locale: stri
                 </Badge>
               ),
             },
-            { key: 's', header: t(locale, 'host.col.status'), render: (c) => c.state },
+            {
+              key: 's',
+              icon: 'pulse',
+              header: t(locale, 'host.col.status'),
+              render: (c) => c.state,
+            },
             {
               key: 'o',
               header: t(locale, 'host.col.org'),
+              icon: 'globe',
               render: (c) => <Ltr>{c.orgId ?? '—'}</Ltr>,
             },
             {
               key: 'c',
               header: t(locale, 'host.col.created'),
+              icon: 'calendar',
               render: (c) => <Ltr>{c.createdAt.slice(0, 16)}</Ltr>,
             },
           ]}

@@ -101,7 +101,7 @@ export const SERVICES: Service[] = [
   {
     id: 'privacy',
     icon: 'shield',
-    href: '/privacy/requests',
+    href: '/privacy#requests',
     perm: ['privacy:dsr:self'],
     label: 'nav.privacy',
     desc: 'home.svc.privacy',
@@ -109,7 +109,7 @@ export const SERVICES: Service[] = [
   {
     id: 'members',
     icon: 'organization',
-    href: '/settings/members',
+    href: '/settings/team#members',
     perm: ['member:read'],
     label: 'nav.members',
     desc: 'home.svc.members',
@@ -117,7 +117,7 @@ export const SERVICES: Service[] = [
   {
     id: 'apikeys',
     icon: 'key',
-    href: '/settings/api-keys',
+    href: '/settings/team#apikeys',
     perm: ['apikey:read'],
     label: 'nav.apiKeys',
     desc: 'home.svc.apikeys',
@@ -125,7 +125,7 @@ export const SERVICES: Service[] = [
   {
     id: 'audit',
     icon: 'organization',
-    href: '/audit-logs',
+    href: '/settings/organization#audit',
     perm: ['audit:read'],
     label: 'nav.audit',
     desc: 'home.svc.audit',

@@ -31,6 +31,7 @@ a { color: var(--nuzm-color-accent); }
 .nz-input { min-block-size: 44px; padding-inline: var(--nuzm-space-3); border: 1px solid var(--nuzm-color-border-strong); border-radius: var(--nuzm-radius-md); font: inherit; background: var(--nuzm-color-bg); color: var(--nuzm-color-fg); }
 .nz-help, .nz-muted { color: var(--nuzm-color-muted); }
 .nz-error-text { color: var(--nuzm-color-danger); }
+.nz-sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .nz-table-wrap { overflow-x: auto; border: 1px solid var(--nuzm-color-border); border-radius: var(--nuzm-radius-md); }
 .nz-table { inline-size: 100%; border-collapse: collapse; }
 .nz-table caption { text-align: start; padding: var(--nuzm-space-3); font-weight: 600; }

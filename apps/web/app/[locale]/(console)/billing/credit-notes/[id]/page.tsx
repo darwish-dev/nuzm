@@ -68,6 +68,7 @@ export default async function CreditNotePage({
             {
               key: 't',
               header: t(locale, 'inv.col.tax'),
+              icon: 'tag',
               render: (l) => <Ltr>{formatMinor(l.taxMinor, c.currency, locale)}</Ltr>,
             },
           ]}

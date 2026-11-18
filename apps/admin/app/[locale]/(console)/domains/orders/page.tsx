@@ -70,11 +70,13 @@ export default async function Orders({
             {
               key: 'o',
               header: t(locale, 'dom.admin.orders.col.org'),
+              icon: 'user',
               render: (r) => <Ltr>{r.orgId.slice(0, 8)}</Ltr>,
             },
             {
               key: 's',
               header: t(locale, 'dom.col.state'),
+              icon: 'pulse',
               render: (r) => <Badge>{tDynamic(locale, `dom.state.${r.state}`, r.state)}</Badge>,
             },
             {

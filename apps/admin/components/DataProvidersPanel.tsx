@@ -391,6 +391,7 @@ export function DataProvidersPanel(p: {
             {
               key: 's',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (r) => (
                 <>
                   <Badge tone={r.enabled ? 'success' : undefined}>
@@ -481,6 +482,7 @@ export function DataProvidersPanel(p: {
             {
               key: 'b',
               header: t(locale, 'm8.adm.blockers'),
+              icon: 'shield',
               render: (r) =>
                 r.enabled ? (
                   '—'
@@ -497,6 +499,7 @@ export function DataProvidersPanel(p: {
             {
               key: 'x',
               header: t(locale, 'field.action'),
+              icon: 'code',
               render: (r) => (
                 <RowActions
                   locale={locale}

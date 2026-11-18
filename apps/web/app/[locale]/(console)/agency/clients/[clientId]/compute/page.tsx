@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { Banner, EmptyState, PageTitle } from '@nuzm/ui';
 import { AGENCY_DELEGATION_FLAG, flagOn } from '../../../../../../../lib/compute';
-import { isUuid } from '../../../../../../../lib/privacy';
+import { isUuid } from '../../../../../../../lib/compute';
 import { requireSession } from '../../../../../../../lib/server';
 
 /**

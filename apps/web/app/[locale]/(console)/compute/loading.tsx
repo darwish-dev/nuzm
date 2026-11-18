@@ -1,5 +1,5 @@
-import { PrivacyLoading } from '../../../../components/PrivacyLoading';
+import { ComputeLoading } from '../../../../components/ComputeLoading';
 
 export default function Loading() {
-  return <PrivacyLoading />;
+  return <ComputeLoading />;
 }

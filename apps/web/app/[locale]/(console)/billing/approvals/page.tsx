@@ -12,7 +12,7 @@ import {
   type ProvisioningHint,
 } from '../../../../../lib/compute';
 import { serverCompute } from '../../../../../lib/compute-server';
-import { isUuid } from '../../../../../lib/privacy';
+import { isUuid } from '../../../../../lib/compute';
 import { requireSession } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
 

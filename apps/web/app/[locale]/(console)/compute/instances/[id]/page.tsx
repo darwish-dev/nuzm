@@ -13,7 +13,7 @@ import {
 } from '../../../../../../lib/compute';
 import { computeView } from '../../../../../../lib/compute-view';
 import { serverCompute } from '../../../../../../lib/compute-server';
-import { isUuid } from '../../../../../../lib/privacy';
+import { isUuid } from '../../../../../../lib/compute';
 import { requireSession } from '../../../../../../lib/server';
 
 /** UI-M05-04: instance overview, capability-based actions, operation timeline. */

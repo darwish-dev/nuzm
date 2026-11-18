@@ -7,7 +7,7 @@ import { SnapshotsPanel } from '../../../../../../../components/ComputeSnapshots
 import { supportsSnapshot, unwrapCall, type Instance } from '../../../../../../../lib/compute';
 import { computeView } from '../../../../../../../lib/compute-view';
 import { serverCompute } from '../../../../../../../lib/compute-server';
-import { isUuid } from '../../../../../../../lib/privacy';
+import { isUuid } from '../../../../../../../lib/compute';
 import { requireSession } from '../../../../../../../lib/server';
 
 /** UI-M05-06: snapshots, only when the instance supports them (otherwise an empty state). */

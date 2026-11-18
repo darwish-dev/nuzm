@@ -577,3 +577,7 @@ export async function unwrapCall<T>(p: Promise<CallResult<T>>): Promise<T> {
     (r.error ?? {}) as Record<string, unknown>,
   );
 }
+
+/** A UUID (any version), as it appears in route params. */
+export const isUuid = (v: string): boolean =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim());

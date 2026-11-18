@@ -177,6 +177,8 @@ tenant_less:
   - compliance.evidence_items
   - compliance.regulatory_validations
   - compliance.breach_cases
+  # provider selection config for managed data and email (M08 S32): platform register, admin scope only; nothing is seeded, nothing is enabled by default
+  - data.data_providers
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations
@@ -206,6 +208,8 @@ classification:
     invoicing.billing_entities.legal_name_ar: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
+    data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    data.database_backups.idempotency_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
   #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
@@ -225,6 +229,7 @@ classification:
     tenancy.invitations.token_hash: hash
     invoicing.tax_profiles.pii_enc: encrypted
     compliance.dsr_requests.details_enc: encrypted
+    data.database_instances.vault_ref: vault_ref
   columns:
     audit.audit_checkpoints:
       id: internal
@@ -1354,3 +1359,94 @@ classification:
       started_at: internal
       finished_at: internal
       created_at: internal
+    data.data_providers:
+      id: internal
+      service: internal
+      family: internal
+      provider_code: internal
+      provider_account_id: internal
+      environment: internal
+      enabled: internal
+      verified_at: internal
+      evidence_ref: internal
+      adr_ref: internal
+      adr_accepted_at: internal
+      adr_accepted_by: internal
+      probe: internal
+      config: internal
+      requested_by: internal
+      approved_by: internal
+      enabled_at: internal
+      version: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    data.database_backups:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      type: internal
+      state: internal
+      size_bytes: internal
+      storage_ref: internal
+      checksum: internal
+      manifest: customer-content
+      provider_backup_ref: internal
+      idempotency_token: internal
+      expires_at: internal
+      data_region: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    data.database_instances:
+      id: internal
+      org_id: internal
+      project_id: internal
+      name: customer-content
+      engine: internal
+      version: internal
+      plan_ref: internal
+      storage_gb: internal
+      state: internal
+      host: internal
+      port: internal
+      tls_required: internal
+      network: customer-content
+      vault_ref: credentials
+      data_region: internal
+      provider_region_id: internal
+      provider_id: internal
+      provider_ref: internal
+      create_token: internal
+      resource_id: internal
+      quote_id: internal
+      order_id: internal
+      backup_policy: internal
+      rotation: internal
+      operation_id: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+      reveal: internal
+    data.database_restores:
+      id: internal
+      org_id: internal
+      source_instance_id: internal
+      source_backup_id: internal
+      target_instance_id: internal
+      mode: internal
+      state: internal
+      name: customer-content
+      confirm_in_place: internal
+      pre_restore_backup_id: internal
+      verification: internal
+      failure_code: internal
+      data_region: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      finished_at: internal

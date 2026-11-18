@@ -62,6 +62,14 @@ export const ERROR_REGISTRY = {
   lease_lost: { status: 409, title: 'Operation lease lost' },
   internal_error: { status: 500, title: 'Internal error' },
   service_unavailable: { status: 503, title: 'Service unavailable' },
+  // M08 (managed data and email)
+  unsupported_capability: {
+    status: 422,
+    title: 'The provider or instance does not support this capability',
+  },
+  in_use: { status: 409, title: 'The resource is in use' },
+  rotation_in_progress: { status: 409, title: 'A credential rotation is already in progress' },
+  restore_not_supported: { status: 422, title: 'This restore is not supported' },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

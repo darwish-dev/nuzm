@@ -2312,6 +2312,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List managed databases
+         * @description Newest first; filters engine and status. Deleted databases are not listed. Requires permission `data:db:read`.
+         */
+        get: operations["listDatabases"];
+        put?: never;
+        /**
+         * Create a managed database or Redis instance
+         * @description Body {quoteId (a quote of kind `database`), engine: postgresql|mysql|redis, version, name, network?: {access: private|allowlist, allowCidrs?}, backupPolicy?}. 202 with status `provisioning` and `operationId`: the order is placed from the quote (spend, quota and dunning checks of M02), the offer is re-derived NOW (enabled provider, available plan, verified region, supported version) and residency is evaluated (403 `residency_denied`). 422 `unsupported_capability` when no provider is enabled for the engine or the probe does not report it supported (nothing is ever mocked in production). 409 when the name is taken or the quote was used. Idempotent per Idempotency-Key; the provider call carries a deterministic token and an uncertain outcome is reconciled before any retry. The response carries a vault REFERENCE only, never a secret. Requires permission `data:db:write`. Audited.
+         */
+        post: operations["createDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/databases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a managed database
+         * @description State, endpoint {host, port}, `tlsRequired` (always true), network posture, `dataRegion`, `providerRegionId`, the vault REFERENCE of the connection secret (never the secret), backup policy, rotation window and the ETag. The provider and its account are never shown to customers. 404 for another organization. Requires permission `data:db:read`.
+         */
+        get: operations["getDatabase"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a managed database
+         * @description The typed database name must be sent as `confirmName` (query or JSON body), else 422. 409 `in_use` while a site or app is bound to it (DatabaseBindingPort). 202 + operation: a final backup is taken per the backup policy (a failed final backup STOPS the deletion), then the instance is destroyed and its vault entry removed. Requires permission `data:db:admin`. Audited.
+         */
+        delete: operations["deleteDatabase"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a managed database
+         * @description Body {name?, backupPolicy?: {enabled?, retentionDays?, intervalHours?}, plan?}. Requires If-Match (428/412). `name` needs `data:db:write`; `backupPolicy` and `plan` need `data:db:admin`; the policy is bounded by the organization entitlements. `plan` (resize) answers 422 `unsupported_capability` unless the provider probe reports resize as supported: the action is disabled, never a silent no-op.
+         */
+        patch: operations["updateDatabase"];
+        trace?: never;
+    };
+    "/v1/databases/{id}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List backups with their restores and verification history
+         * @description Newest first. Each backup lists the restores (and verification drills) made from it and the last verification result, which is how the console shows verification history. Requires permission `data:db:read`.
+         */
+        get: operations["listDatabaseBackups"];
+        put?: never;
+        /**
+         * Take a manual backup
+         * @description Body {type?: manual}. 202 + operation; the backup is stored in a system bucket of the database's own data region and carries size, SHA-256 checksum and a manifest of sampled tables. 409 unless the database is running; 422 `unsupported_capability` when the provider cannot back it up (never faked). Idempotent per Idempotency-Key. Requires permission `data:db:write`.
+         */
+        post: operations["createDatabaseBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/databases/{id}/restores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a database from a backup
+         * @description Body {backupId, target?: new|inplace (default new), name?, confirmInPlace?, confirmName?, region?}. DEFAULT is restore-to-NEW in the same organization and provider region. `target=inplace` needs `confirmInPlace=true`, `confirmName` equal to the database name and a recent MFA verification (401 `step_up_required`), takes an automatic pre-restore backup first and answers 422 `restore_not_supported` when the provider cannot restore in place. A body that names another organization is 403; another organization's backup is 404; a region other than the source is checked against residency (403 `residency_denied`) and otherwise 422 `restore_not_supported`. The restored data is verified against the backup manifest: a mismatch fails the restore and raises an alert. 202 + operation. Requires permission `data:db:admin`. Audited.
+         */
+        post: operations["restoreDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/databases/{id}/credential-rotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate the database credential (dual-credential window)
+         * @description Body {role?}. 202 + operation. The NEW credential is issued while the old one keeps working, its secret goes to the vault, consumers are notified through DatabaseBindingPort and switch inside the window (proposal 24 h); at the window end the old credential is revoked. 409 `rotation_in_progress` while a rotation is pending or its window is open; 422 `unsupported_capability` when the provider has no dual-credential support (the action is disabled). Needs a recent MFA verification. The secret is never returned: the one-time reveal is PA-15 (not exposed until approved). Requires permission `data:db:admin`. Audited.
+         */
+        post: operations["rotateDatabaseCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List data provider selection config and probe evidence
+         * @description Provider rows (service, family, provider code, account reference, environment, enabled, verifiedAt, evidenceRef, adrRef, last probe) with `blockers`: why enabling is blocked right now (adapter_not_registered, not_probed, probe_failed, evidence_missing, adr_not_accepted, probe_not_live, enable_not_requested, second_approver_missing). Nothing is seeded: no provider is enabled by default. Platform permission `admin:data:read`.
+         */
+        get: operations["listDataProviders"];
+        put?: never;
+        /**
+         * Configure, probe, approve or enable a data provider
+         * @description Body {action: configure|probe|record_adr|request_enable|enable|disable, id?, ...}. configure (admin:data:manage) creates or updates the selection config (never `enabled`); credentials are vault references only. probe (admin:data:manage) runs the adapter's read-only probe and stores it. record_adr (admin:data:approve) records that a PERSON accepted the ADR. request_enable (admin:data:manage) names the evidence reference and verification time. enable (admin:data:approve) enables: 422 `unsupported_capability` unless the probe passed with every required capability supported, evidence exists and, outside environment=local, the ADR is accepted, the probe carries LIVE evidence and a DIFFERENT person than the requester approves (two-person rule); the database re-checks the same rules. Dev-reference providers (mock-*) are environment=local only and refused in production. Needs a recent MFA verification. Audited (`data.provider.*`).
+         */
+        post: operations["actOnDataProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4581,6 +4721,206 @@ export interface components {
             /** @description Only on `mfa_required` — the caller's active factor to challenge, or null when none is enrolled yet. */
             mfaFactorId?: string | null;
             errors?: Record<string, never>[];
+        };
+        CreateDatabase: {
+            /** Format: uuid */
+            quoteId: string;
+            /** @enum {string} */
+            engine: "postgresql" | "mysql" | "redis";
+            version: string;
+            name: string;
+            network?: components["schemas"]["DatabaseNetwork"];
+            backupPolicy?: components["schemas"]["BackupPolicy"];
+        };
+        DatabaseNetwork: {
+            /** @enum {string} */
+            access: "private" | "allowlist";
+            allowCidrs?: string[];
+        };
+        BackupPolicy: {
+            enabled: boolean;
+            retentionDays: number;
+            intervalHours: number;
+        };
+        UpdateDatabase: {
+            name?: string;
+            backupPolicy?: components["schemas"]["BackupPolicy"];
+            plan?: {
+                planRef?: string;
+            };
+        };
+        Database: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            engine: "postgresql" | "mysql" | "redis";
+            version: string;
+            planRef: string;
+            /** @enum {string} */
+            status: "provisioning" | "running" | "failed" | "deleting" | "deleted" | "unknown";
+            endpoint: {
+                host: string;
+                port: number;
+            } | null;
+            /** @constant */
+            tlsRequired: true;
+            network: components["schemas"]["DatabaseNetwork"];
+            dataRegion: string;
+            providerRegionId: string;
+            /** @description Metadata only: where the connection secret lives. The secret is never returned. */
+            vaultRef: string | null;
+            backupPolicy: components["schemas"]["BackupPolicy"];
+            rotation?: {
+                state?: string;
+                /** Format: date-time */
+                windowEndsAt?: string | null;
+            } | null;
+            /** Format: uuid */
+            operationId?: string | null;
+            etag: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        DatabasePage: {
+            items: components["schemas"]["Database"][];
+            nextCursor: string | null;
+        };
+        DatabaseDeletion: components["schemas"]["Database"] & {
+            /** Format: uuid */
+            operationId: string;
+        };
+        CreateDatabaseBackup: {
+            /** @enum {string} */
+            type?: "manual";
+        };
+        DatabaseBackup: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            databaseId: string;
+            /** @enum {string} */
+            type: "manual" | "scheduled" | "pre_restore" | "final";
+            /** @enum {string} */
+            state: "creating" | "available" | "failed" | "deleted" | "expired";
+            size?: number | null;
+            checksum?: string | null;
+            /** Format: date-time */
+            expiresAt?: string | null;
+            dataRegion: string;
+            /** Format: uuid */
+            operationId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DatabaseRestoreRecord: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            databaseId: string;
+            /** Format: uuid */
+            backupId: string;
+            /** @enum {string} */
+            mode: "new" | "inplace" | "verification";
+            /** @enum {string} */
+            state: "requested" | "running" | "needs_reconcile" | "succeeded" | "failed";
+            /** Format: uuid */
+            targetDatabaseId?: string | null;
+            verification?: {
+                [key: string]: unknown;
+            } | null;
+            failureCode?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt?: string | null;
+        };
+        DatabaseBackupWithRestores: components["schemas"]["DatabaseBackup"] & {
+            restores: components["schemas"]["DatabaseRestoreRecord"][];
+            lastVerification?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        DatabaseBackupPage: {
+            items: components["schemas"]["DatabaseBackupWithRestores"][];
+            nextCursor: string | null;
+        };
+        RestoreDatabase: {
+            /** Format: uuid */
+            backupId: string;
+            /** @enum {string} */
+            target?: "new" | "inplace";
+            name?: string;
+            confirmInPlace?: boolean;
+            confirmName?: string;
+            region?: string;
+        };
+        DatabaseRestore: components["schemas"]["DatabaseRestoreRecord"];
+        RotateDatabaseCredentials: {
+            role?: string;
+        };
+        DatabaseRotation: components["schemas"]["Database"] & {
+            /** Format: uuid */
+            operationId: string;
+        };
+        DataProviderAction: {
+            /** @enum {string} */
+            action: "configure" | "probe" | "record_adr" | "request_enable" | "enable" | "disable";
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            service?: "database" | "cache" | "object-storage" | "transactional-email" | "mailbox";
+            family?: string;
+            providerCode?: string;
+            providerAccountId?: string | null;
+            /** @enum {string} */
+            environment?: "local" | "staging" | "production";
+            adrRef?: string;
+            evidenceRef?: string;
+            /** Format: date-time */
+            verifiedAt?: string;
+            /** @description Selection config. Credentials are vault references (credentialRef: vault://...) only; any secret-looking key is refused. */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        DataProvider: {
+            /** Format: uuid */
+            id: string;
+            service: string;
+            family: string;
+            providerCode: string;
+            providerAccountId?: string | null;
+            /** @enum {string} */
+            environment: "local" | "staging" | "production";
+            enabled: boolean;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            evidenceRef?: string | null;
+            adrRef?: string | null;
+            /** Format: date-time */
+            adrAcceptedAt?: string | null;
+            probe?: {
+                [key: string]: unknown;
+            } | null;
+            config?: {
+                [key: string]: unknown;
+            };
+            requestedBy?: string | null;
+            approvedBy?: string | null;
+            /** Format: date-time */
+            enabledAt?: string | null;
+            blockers: string[];
+            version: number;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        DataProviderList: {
+            items: components["schemas"]["DataProvider"][];
         };
     };
     responses: {
@@ -9250,6 +9590,368 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDatabases: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                engine?: string;
+                status?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabasePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createDatabase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDatabase"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Database"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDatabase: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Database"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteDatabase: {
+        parameters: {
+            query?: {
+                confirmName?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseDeletion"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    updateDatabase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDatabase"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Database"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listDatabaseBackups: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseBackupPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createDatabaseBackup: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDatabaseBackup"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseBackup"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    restoreDatabase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreDatabase"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseRestore"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    rotateDatabaseCredentials: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateDatabaseCredentials"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseRotation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDataProviders: {
+        parameters: {
+            query?: {
+                service?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataProviderList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    actOnDataProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataProviderAction"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataProvider"];
+                };
+            };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];

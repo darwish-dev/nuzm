@@ -277,12 +277,10 @@ ${hasOpenApi ? '- `openapi.json` the REST contract\n' : ''}- \`SBOM.cdx.json\` C
       throw new ProblemException(
         'export_blocked',
         'the export was blocked by the safety checks',
-        blocked
-          .slice(0, 50)
-          .map((b) => ({
-            field: b.path,
-            message: `${b.rule}${b.line ? ` (line ${b.line})` : ''}`,
-          })),
+        blocked.slice(0, 50).map((b) => ({
+          field: b.path,
+          message: `${b.rule}${b.line ? ` (line ${b.line})` : ''}`,
+        })),
         { exportId: row0.id },
       );
     }

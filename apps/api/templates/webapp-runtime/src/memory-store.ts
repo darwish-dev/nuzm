@@ -2,7 +2,10 @@ import type { AppMeta, AuditEntry, ListQuery, Row, Scope, Store, UserRow } from 
 
 function inScope(r: Row, s: Scope): boolean {
   if (s.ownerId === null && s.teamId === null) return true;
-  return (s.ownerId !== null && r['ownerId'] === s.ownerId) || (s.teamId !== null && r['teamId'] === s.teamId);
+  return (
+    (s.ownerId !== null && r['ownerId'] === s.ownerId) ||
+    (s.teamId !== null && r['teamId'] === s.teamId)
+  );
 }
 function cmp(a: unknown, b: unknown): number {
   if (a === b) return 0;
@@ -36,9 +39,14 @@ export class MemoryStore implements Store {
     for (const f of em.fields) {
       if (f.unique && row[f.name] !== null && row[f.name] !== undefined) {
         for (const o of this.t(entity).values())
-          if (o[f.name] === row[f.name]) throw Object.assign(new Error('unique'), { code: 'unique', field: f.name });
+          if (o[f.name] === row[f.name])
+            throw Object.assign(new Error('unique'), { code: 'unique', field: f.name });
       }
-      if (f.type === 'reference' && row[f.name] && !this.t(f.references as string).has(row[f.name] as string))
+      if (
+        f.type === 'reference' &&
+        row[f.name] &&
+        !this.t(f.references as string).has(row[f.name] as string)
+      )
         throw Object.assign(new Error('reference'), { code: 'reference', field: f.name });
     }
     const copy = this.stripFiles(entity, row.id, { ...row }) as Row;
@@ -46,9 +54,14 @@ export class MemoryStore implements Store {
     return { ...copy };
   }
   /** File bytes live beside the row, never inside it (same as the bytea columns of the PostgreSQL store). */
-  private stripFiles(entity: string, id: string, data: Record<string, unknown>): Record<string, unknown> {
+  private stripFiles(
+    entity: string,
+    id: string,
+    data: Record<string, unknown>,
+  ): Record<string, unknown> {
     for (const f of this.meta.entities[entity]?.fields ?? []) {
-      const v = data[f.name] as { name: string; mime: string; size: number; data?: Uint8Array } | null | undefined;
+      const v = data[f.name] as
+        { name: string; mime: string; size: number; data?: Uint8Array } | null | undefined;
       if (f.type !== 'file' || !(f.name in data)) continue;
       if (v && v.data) this.files.set(entity + ':' + id + ':' + f.name, v.data);
       if (!v) this.files.delete(entity + ':' + id + ':' + f.name);
@@ -60,7 +73,12 @@ export class MemoryStore implements Store {
     const r = this.t(entity).get(id);
     return r ? { ...r } : null;
   }
-  async update(entity: string, id: string, patch: Record<string, unknown>, expectedVersion: number | null): Promise<Row | 'conflict' | null> {
+  async update(
+    entity: string,
+    id: string,
+    patch: Record<string, unknown>,
+    expectedVersion: number | null,
+  ): Promise<Row | 'conflict' | null> {
     const cur = this.t(entity).get(id);
     if (!cur) return null;
     if (expectedVersion !== null && cur['version'] !== expectedVersion) return 'conflict';
@@ -69,11 +87,19 @@ export class MemoryStore implements Store {
       if (!(f.name in patch)) continue;
       if (f.unique && patch[f.name] !== null)
         for (const o of this.t(entity).values())
-          if (o.id !== id && o[f.name] === patch[f.name]) throw Object.assign(new Error('unique'), { code: 'unique', field: f.name });
-      if (f.type === 'reference' && patch[f.name] && !this.t(f.references as string).has(patch[f.name] as string))
+          if (o.id !== id && o[f.name] === patch[f.name])
+            throw Object.assign(new Error('unique'), { code: 'unique', field: f.name });
+      if (
+        f.type === 'reference' &&
+        patch[f.name] &&
+        !this.t(f.references as string).has(patch[f.name] as string)
+      )
         throw Object.assign(new Error('reference'), { code: 'reference', field: f.name });
     }
-    Object.assign(cur, this.stripFiles(entity, id, { ...patch }), { version: (cur['version'] as number) + 1, updatedAt: new Date().toISOString() });
+    Object.assign(cur, this.stripFiles(entity, id, { ...patch }), {
+      version: (cur['version'] as number) + 1,
+      updatedAt: new Date().toISOString(),
+    });
     return { ...cur };
   }
   async remove(entity: string, id: string): Promise<boolean> {
@@ -86,7 +112,8 @@ export class MemoryStore implements Store {
               if (f.required) throw Object.assign(new Error('in_use'), { code: 'in_use' });
               o[f.name] = null;
             }
-    for (const k of [...this.files.keys()]) if (k.startsWith(entity + ':' + id + ':')) this.files.delete(k);
+    for (const k of [...this.files.keys()])
+      if (k.startsWith(entity + ':' + id + ':')) this.files.delete(k);
     return this.t(entity).delete(id);
   }
   async list(entity: string, q: ListQuery): Promise<{ rows: Row[]; total: number }> {
@@ -95,7 +122,10 @@ export class MemoryStore implements Store {
       rows = rows.filter((r) => {
         const v = r[f.field];
         if (f.op === 'eq') return String(v) === f.value;
-        if (f.op === 'contains') return String(v ?? '').toLowerCase().includes(f.value.toLowerCase());
+        if (f.op === 'contains')
+          return String(v ?? '')
+            .toLowerCase()
+            .includes(f.value.toLowerCase());
         const n = Number(f.value);
         const cmpTo = Number.isFinite(n) && typeof v === 'number' ? n : f.value;
         return f.op === 'gte' ? cmp(v, cmpTo) >= 0 : cmp(v, cmpTo) <= 0;
@@ -103,21 +133,32 @@ export class MemoryStore implements Store {
     }
     if (q.search) {
       const s = q.search.toLowerCase();
-      rows = rows.filter((r) => q.searchFields.some((k) => String(r[k] ?? '').toLowerCase().includes(s)));
+      rows = rows.filter((r) =>
+        q.searchFields.some((k) =>
+          String(r[k] ?? '')
+            .toLowerCase()
+            .includes(s),
+        ),
+      );
     }
     const total = rows.length;
     const sort = q.sort ?? { field: 'createdAt', dir: 'desc' as const };
-    rows.sort((a, b) => (sort.dir === 'asc' ? 1 : -1) * cmp(a[sort.field], b[sort.field]) || cmp(a.id, b.id));
+    rows.sort(
+      (a, b) =>
+        (sort.dir === 'asc' ? 1 : -1) * cmp(a[sort.field], b[sort.field]) || cmp(a.id, b.id),
+    );
     return { rows: rows.slice(q.offset, q.offset + q.limit).map((r) => ({ ...r })), total };
   }
   async groupCount(entity: string, field: string, scope: Scope): Promise<Record<string, number>> {
     const out: Record<string, number> = {};
-    for (const r of this.t(entity).values()) if (inScope(r, scope)) out[String(r[field])] = (out[String(r[field])] ?? 0) + 1;
+    for (const r of this.t(entity).values())
+      if (inScope(r, scope)) out[String(r[field])] = (out[String(r[field])] ?? 0) + 1;
     return out;
   }
   async sum(entity: string, field: string, scope: Scope): Promise<number> {
     let n = 0;
-    for (const r of this.t(entity).values()) if (inScope(r, scope) && typeof r[field] === 'number') n += r[field] as number;
+    for (const r of this.t(entity).values())
+      if (inScope(r, scope) && typeof r[field] === 'number') n += r[field] as number;
     return n;
   }
   async fileData(entity: string, id: string, field: string): Promise<Uint8Array | null> {
@@ -127,7 +168,9 @@ export class MemoryStore implements Store {
     this.audit.push(e);
   }
   async listAudit(entity: string, recordId: string): Promise<AuditEntry[]> {
-    return this.audit.filter((a) => a.entity === entity && a.recordId === recordId).sort((a, b) => a.at.localeCompare(b.at));
+    return this.audit
+      .filter((a) => a.entity === entity && a.recordId === recordId)
+      .sort((a, b) => a.at.localeCompare(b.at));
   }
   async findUserByEmail(email: string): Promise<UserRow | null> {
     for (const u of this.users.values()) if (u.email === email.toLowerCase()) return { ...u };
@@ -138,7 +181,8 @@ export class MemoryStore implements Store {
     return u ? { ...u } : null;
   }
   async insertUser(u: UserRow): Promise<UserRow> {
-    if (await this.findUserByEmail(u.email)) throw Object.assign(new Error('unique'), { code: 'unique', field: 'email' });
+    if (await this.findUserByEmail(u.email))
+      throw Object.assign(new Error('unique'), { code: 'unique', field: 'email' });
     this.users.set(u.id, { ...u });
     return { ...u };
   }

@@ -2,7 +2,9 @@ import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 
 function scryptAsync(password: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    scrypt(password, salt, 64, { N: 16384, r: 8, p: 1 }, (err, key) => (err ? reject(err) : resolve(key)));
+    scrypt(password, salt, 64, { N: 16384, r: 8, p: 1 }, (err, key) =>
+      err ? reject(err) : resolve(key),
+    );
   });
 }
 
@@ -27,7 +29,12 @@ function b64(buf: Buffer | string): string {
   return Buffer.from(buf).toString('base64url');
 }
 /** `<payload>.<hmac>`: a signed, expiring session token (no server-side state). */
-export function signToken(secret: string, userId: string, ttlSeconds: number, nowMs: number): string {
+export function signToken(
+  secret: string,
+  userId: string,
+  ttlSeconds: number,
+  nowMs: number,
+): string {
   const payload = b64(JSON.stringify({ uid: userId, exp: Math.floor(nowMs / 1000) + ttlSeconds }));
   const mac = createHmac('sha256', secret).update(payload).digest('base64url');
   return payload + '.' + mac;
@@ -39,7 +46,10 @@ export function verifyToken(secret: string, token: string, nowMs: number): strin
   const given = Buffer.from(mac, 'base64url');
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   try {
-    const p = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { uid?: unknown; exp?: unknown };
+    const p = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      uid?: unknown;
+      exp?: unknown;
+    };
     if (typeof p.uid !== 'string' || typeof p.exp !== 'number' || p.exp * 1000 < nowMs) return null;
     return p.uid;
   } catch {

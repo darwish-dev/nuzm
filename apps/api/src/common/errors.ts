@@ -122,7 +122,10 @@ export const ERROR_REGISTRY = {
   sandbox_no_capacity: { status: 503, title: 'No sandbox capacity is available' },
   base_mismatch: { status: 409, title: 'The change was made against an outdated version' },
   change_rejected: { status: 422, title: 'The change was rejected by the safety checks' },
-  test_suite_unavailable: { status: 422, title: 'This test suite is not available for the project' },
+  test_suite_unavailable: {
+    status: 422,
+    title: 'This test suite is not available for the project',
+  },
   health_gate_failed: { status: 409, title: 'The health check of the deployment failed' },
   export_blocked: { status: 422, title: 'The export was blocked by the safety checks' },
   dependency_blocked: { status: 422, title: 'A dependency was blocked by the supply-chain policy' },

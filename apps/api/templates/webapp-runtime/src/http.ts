@@ -121,13 +121,26 @@ export class Router {
         return {
           status: e.status,
           contentType: 'application/problem+json',
-          body: { type: 'about:blank', title: e.code, status: e.status, code: e.code, detail: e.message, errors: e.errors },
+          body: {
+            type: 'about:blank',
+            title: e.code,
+            status: e.status,
+            code: e.code,
+            detail: e.message,
+            errors: e.errors,
+          },
         };
       }
       return {
         status: 500,
         contentType: 'application/problem+json',
-        body: { type: 'about:blank', title: 'internal_error', status: 500, code: 'internal_error', detail: 'Unexpected error' },
+        body: {
+          type: 'about:blank',
+          title: 'internal_error',
+          status: 500,
+          code: 'internal_error',
+          detail: 'Unexpected error',
+        },
       };
     }
   }
@@ -137,7 +150,8 @@ const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
   'referrer-policy': 'no-referrer',
-  'content-security-policy': "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'",
+  'content-security-policy':
+    "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'",
   'cache-control': 'no-store',
 };
 
@@ -199,7 +213,11 @@ export function listen(
         send(res, await router.handle(method, url, headers, raw));
       } catch (e) {
         if (e instanceof HttpError)
-          send(res, { status: e.status, contentType: 'application/problem+json', body: { status: e.status, code: e.code, detail: e.message } });
+          send(res, {
+            status: e.status,
+            contentType: 'application/problem+json',
+            body: { status: e.status, code: e.code, detail: e.message },
+          });
         else send(res, { status: 500, body: { status: 500, code: 'internal_error' } });
       }
     })();

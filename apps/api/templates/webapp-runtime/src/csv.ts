@@ -1,6 +1,7 @@
 /** CSV (RFC 4180) writer and parser. The writer neutralises spreadsheet formula injection: a cell that starts with = + - @ TAB or CR is prefixed with an apostrophe. */
 export function csvCell(v: unknown): string {
-  let s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+  let s =
+    v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
   if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }

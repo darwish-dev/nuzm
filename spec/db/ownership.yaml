@@ -987,6 +987,8 @@ classification:
       error: internal
       received_at: internal
       processed_at: internal
+      duplicate_count: internal   # S12d migration 0312: counters of duplicate deliveries, no personal data
+      last_duplicate_at: internal
     payments.refunds:
       id: internal
       org_id: internal

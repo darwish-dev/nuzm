@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { Idempotent } from '../../common/idempotency';
 import { ApprovalService, type ApprovalDto } from './internal/approvals/approval.service';
@@ -33,6 +33,7 @@ export class ApprovalsController {
   @RequirePermission('ai:approve')
   @Idempotent()
   @Post(':approvalId/decisions')
+  @HttpCode(200)
   async decide(
     @Org() orgId: string,
     @Access() a: AccessContext,

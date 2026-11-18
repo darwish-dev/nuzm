@@ -147,6 +147,7 @@ export class M09StubsController {
   @RequirePermission('ai:approve')
   @Idempotent()
   @Post('ai/runs/:id/approvals')
+  @HttpCode(200)
   async decide(
     @Org() orgId: string,
     @Access() a: AccessContext,

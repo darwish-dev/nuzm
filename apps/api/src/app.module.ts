@@ -18,6 +18,7 @@ import { DomainsModule } from './modules/domains';
 import { FinrecModule } from './modules/finrec';
 import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
+import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
 import { TenancyModule } from './modules/tenancy';
 
@@ -38,6 +39,7 @@ import { TenancyModule } from './modules/tenancy';
     CloudVendorsModule,
     DataModule,
     EmailModule,
+    HostingModule,
     IdentityModule,
     NotificationsModule,
     AccessModule,

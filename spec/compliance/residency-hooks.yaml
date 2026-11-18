@@ -104,6 +104,24 @@ tables:
       note: 'a restore stays in the source region; evaluated at request and execution',
     }
 
+  hosting.nodes:
+    {
+      owner: M06,
+      hook: m06-node-selection,
+      note: 'a node carries the data_region of its compute instance; sites are placed only on nodes in an allowed region',
+    }
+  hosting.site_backups:
+    {
+      owner: M06,
+      hook: m06-backup-sink,
+      note: 'a backup stays in the region of its site; the sink region is evaluated before the archive is stored',
+    }
+  hosting.sites:
+    {
+      owner: M06,
+      hook: m06-node-selection,
+      note: 'a site is placed only on a node whose data_region the residency service allows',
+    }
 hooks:
   - {
       id: m03-psp-personal-data,
@@ -168,12 +186,22 @@ hooks:
   - {
       id: m06-node-selection,
       milestone: M06,
-      where: 'Hosting node selection by region; site backup destinations',
+      where: 'Hosting node selection by region (PlansService.eligibleRegions asks the residency service for every candidate region before a site is placed)',
       data_classes: [customer-content, personal],
       processor_kind: hosting,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.hosting,
-      call_site: null,
+      call_site: apps/api/src/modules/hosting/internal/plans.service.ts,
+    }
+  - {
+      id: m06-backup-sink,
+      milestone: M06,
+      where: 'Site backup destination (BackupService asks the residency service before a backup is stored; the sink region equals the site data_region)',
+      data_classes: [customer-content, personal, credentials],
+      processor_kind: hosting,
+      enforcement: enforced,
+      flag: residency.enforce.hosting_backup,
+      call_site: apps/api/src/modules/hosting/internal/backups.service.ts,
     }
   - {
       id: m07-registrant-contacts,

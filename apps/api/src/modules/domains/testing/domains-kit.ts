@@ -90,12 +90,10 @@ export async function startDomainsKit(): Promise<DomainsKit> {
   };
   const { app } = await h.buildApp({}, undefined, [], {
     realAudit: true,
-    override: (b) =>
-      b
-        .overrideProvider(ADAPTER_FACTORIES)
-        .useValue(factories)
-        .overrideProvider(DOMAINS_VAULT)
-        .useValue(vault),
+    overrides: [
+      [ADAPTER_FACTORIES, factories],
+      [DOMAINS_VAULT, vault],
+    ],
   });
   const ids: Record<string, string> = {};
   const jars: Record<string, Record<string, string>> = {};

@@ -59,13 +59,7 @@ export class Harness {
     overrides: Record<string, string> = {},
     issuer?: string,
     controllers: Type[] = [],
-    opts: {
-      realAudit?: boolean;
-      /** Extra provider overrides (e.g. M07 mock registrar adapters), applied before compile. */
-      override?: (
-        b: ReturnType<typeof Test.createTestingModule>,
-      ) => ReturnType<typeof Test.createTestingModule>;
-    } = {},
+    opts: { realAudit?: boolean; overrides?: [unknown, unknown][] } = {},
   ) {
     applyTestIdentityEnv(issuer ?? this.idp.issuer, {
       LOGIN_RATE_PER_MINUTE: '100000',
@@ -78,7 +72,9 @@ export class Harness {
     const builder = Test.createTestingModule({ imports: [AppModule], controllers });
     // Real audit = the hash-chained DB sink (audit/admin tests); default = in-memory sink for fast assertions.
     if (!opts.realAudit) builder.overrideProvider(AuditSink).useValue(sink);
-    const moduleRef = await (opts.override ? opts.override(builder) : builder)
+    for (const [token, value] of opts.overrides ?? [])
+      builder.overrideProvider(token as never).useValue(value);
+    const moduleRef = await builder
       .overrideProvider(SecretStore)
       .useValue(secrets)
       .overrideProvider(Mailer)

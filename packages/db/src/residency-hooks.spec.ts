@@ -39,16 +39,23 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
         k,
       ).toBe(true);
   });
-  it('enforces only what a milestone has built (M05 offers/provisioning, M07 registrant contacts, M08 data and email); the rest is required, owned by its milestone and not yet built', () => {
-    expect(reg.hooks.filter((h) => h.enforcement === 'enforced').map((h) => h.id)).toEqual([
+  it('enforces only what an owner milestone has built (M05 S17 offers/quotes and provisioning, M06 node selection and backup sink, M08 data/email placement); the rest is required, owned by its milestone and not yet built', () => {
+    expect(
+      reg.hooks
+        .filter((h) => h.enforcement === 'enforced')
+        .map((h) => h.id)
+        .sort(),
+    ).toEqual([
       'm05-offers-quote',
       'm05-provisioning',
+      'm06-backup-sink',
+      'm06-node-selection',
       'm07-registrant-contacts',
-      'm08-data-placement',
       'm08-cache-placement',
+      'm08-data-placement',
+      'm08-mailbox',
       'm08-object-storage',
       'm08-transactional-email',
-      'm08-mailbox',
     ]);
     expect(reg.hooks.filter((h) => h.enforcement === 'exempt').map((h) => h.id)).toEqual([
       'm03-zatca-submission',

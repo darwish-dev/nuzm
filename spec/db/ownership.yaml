@@ -69,7 +69,7 @@ schemas:
     owner_module: hosting
     created_by: M06
     extended_by: [M10]
-    tables: [abuse_cases, node_agents, node_capacity, nodes, site_allocations, site_backups, site_domain_bindings, site_quotas, sites, ssl_certificates]
+    tables: [abuse_cases, metering_marks, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, site_allocations, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports]
   domains:
     owner_module: domains
     created_by: M07
@@ -177,6 +177,8 @@ tenant_less:
   - compliance.evidence_items
   - compliance.regulatory_validations
   - compliance.breach_cases
+  - domains.registrar_accounts
+  - domains.registrars
   # provider selection config for managed data and email (M08 S32): platform register, admin scope only; nothing is seeded, nothing is enabled by default
   - data.data_providers
   # provider registry, accounts (vault REFERENCES only), verified regions, plans, capability matrix, evidence, catalog snapshots, platform jobs (M05 S16):
@@ -194,8 +196,16 @@ tenant_less:
   - cloud.routing_rules
   - cloud.resource_reconciliations
   - compute.images
-  - domains.registrar_accounts
-  - domains.registrars
+  # hosting platform tables (M06): nodes, agents, capacity, the agent command log and the plan catalogue; admin scope only (the plan catalogue is readable by every runtime role)
+  - hosting.nodes
+  - hosting.node_overcommit_changes
+  - hosting.node_agents
+  - hosting.node_enrolment_tokens
+  - hosting.node_capacity
+  - hosting.node_command_log
+  - hosting.plan_definitions
+  - hosting.site_allocations
+  - hosting.site_migrations
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations
@@ -234,11 +244,14 @@ classification:
     invoicing.billing_entities.legal_name_ar: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
+    domains.domain_orders.idempotency_token: a sha256 of org, operation and step ids, a deterministic business dedupe key sent to the registrar, not a credential
+    hosting.plan_definitions.price_minor: an entry of the public hosting price list (PLACEHOLDER until published), not a customer's money
+    hosting.site_domain_bindings.verification_token: a random domain-ownership challenge value that the customer publishes in their own DNS; proves nothing about us and grants no access
+    hosting.sites.token: the deterministic idempotency token sha256(orgId|operationId|stepId) that names the site on its node; derived from ids, grants no access
     cloud.provider_accounts.spend_cap_minor: Nuzm's own spend cap on a provider account (an internal control), not a customer's money
     cloud.provider_plans.provider_price_minor: the provider's list price for a plan (our cost input), not a customer's money
     cloud.provider_regions.display_name: the provider's own name of a region, not a person's name
     cloud.resources.provision_token: a deterministic sha256 idempotency key for the provider call (orgId|operationId|stepId), not a credential
-    domains.domain_orders.idempotency_token: a sha256 of org, operation and step ids, a deterministic business dedupe key sent to the registrar, not a credential
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
   #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
@@ -256,6 +269,11 @@ classification:
     identity.recovery_codes.code_hash: hash
     identity.sessions.token_hash: hash
     identity.sessions.csrf_hash: hash
+    hosting.node_enrolment_tokens.token_hash: hash
+    hosting.sites.credentials_ref: vault_ref
+    hosting.sites.backup_key_ref: vault_ref
+    hosting.ssl_certificates.secret_ref: vault_ref
+    hosting.site_backups.enc_key_ref: vault_ref
     invoicing.zatca_credentials_refs.key_ref: vault_ref
     invoicing.zatca_credentials_refs.token_ref: vault_ref
     invoicing.zatca_credentials_refs.secret_ref: vault_ref
@@ -1872,6 +1890,261 @@ classification:
       variables: customer-content
       created_by: internal
       created_at: internal
+    hosting.nodes:
+      id: internal
+      name: internal
+      compute_instance_id: internal
+      region: internal
+      data_region: internal
+      status: internal
+      agent_id: internal
+      cloudpanel_version: internal
+      runtimes: internal
+      overcommit_factor: internal
+      overcommit_change_id: internal
+      last_inventory: internal
+      last_inventory_at: internal
+      health: internal
+      version: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    hosting.node_overcommit_changes:
+      id: internal
+      node_id: internal
+      from_factor: internal
+      to_factor: internal
+      reason: internal
+      status: internal
+      requested_by: internal
+      approver_id: internal
+      decided_at: internal
+      decision_note: internal
+      created_at: internal
+    hosting.node_agents:
+      id: internal
+      node_id: internal
+      cert_fingerprint: internal
+      state: internal
+      version: internal
+      enrolled_at: internal
+      last_seen_at: internal
+      cert_rotated_at: internal
+      created_at: internal
+    hosting.node_enrolment_tokens:
+      id: internal
+      node_id: internal
+      agent_id: internal
+      token_hash: credentials
+      expires_at: internal
+      used_at: internal
+      created_by: internal
+      created_at: internal
+    hosting.node_capacity:
+      node_id: internal
+      dim: internal
+      physical: internal
+      sellable: internal
+      reserved: internal
+      updated_at: internal
+    hosting.node_command_log:
+      id: internal
+      node_id: internal
+      agent_seq: internal
+      operation_id: internal
+      command_id: internal
+      outcome: internal
+      reason: internal
+      envelope_hash: internal
+      prev_hash: internal
+      hash: internal
+      occurred_at: internal
+      received_at: internal
+    hosting.plan_definitions:
+      id: internal
+      key: public
+      name_ar: public
+      name_en: public
+      status: public
+      quotas: public
+      runtimes: public
+      reservation: internal
+      price_minor: public
+      currency: public
+      placeholder: public
+      created_at: internal
+    hosting.sites:
+      id: internal
+      org_id: internal
+      project_id: internal
+      environment_id: internal
+      name: customer-content
+      token: internal
+      node_name: internal
+      plan_id: internal
+      runtime: internal
+      status: internal
+      suspension_reason: internal
+      suspended_by: internal
+      data_region: internal
+      node_id: internal
+      site_user: internal
+      domain_primary: personal
+      credentials_ref: credentials
+      backup_key_ref: credentials
+      settings: customer-content
+      quote_id: internal
+      operation_id: internal
+      failure_reason: internal
+      deletion_requested_at: internal
+      deleted_at: internal
+      export_until: internal
+      version: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    hosting.site_allocations:
+      site_id: internal
+      node_id: internal
+      cpu_millicores: internal
+      memory_mb: internal
+      disk_mb: internal
+      sites: internal
+      created_at: internal
+      updated_at: internal
+    hosting.site_domain_bindings:
+      id: internal
+      site_id: internal
+      org_id: internal
+      domain: personal
+      state: internal
+      is_primary: internal
+      verification_method: internal
+      verification_token: internal
+      verified_at: internal
+      last_checked_at: internal
+      removed_at: internal
+      operation_id: internal
+      created_at: internal
+      updated_at: internal
+    hosting.ssl_certificates:
+      id: internal
+      site_id: internal
+      org_id: internal
+      domains: personal
+      mode: internal
+      status: internal
+      not_after: internal
+      issued_at: internal
+      renew_after: internal
+      secret_ref: credentials
+      node_cert_id: internal
+      attempts: internal
+      next_attempt_at: internal
+      last_error: internal
+      operation_id: internal
+      created_at: internal
+      updated_at: internal
+    hosting.site_quotas:
+      site_id: internal
+      org_id: internal
+      dim: internal
+      limit_value: internal
+      soft_limit: internal
+      state: internal
+      enforced_at: internal
+    hosting.quota_events:
+      id: internal
+      site_id: internal
+      org_id: internal
+      dim: internal
+      threshold: internal
+      period: internal
+      observed: internal
+      created_at: internal
+    hosting.site_usage_reports:
+      site_id: internal
+      org_id: internal
+      period_start: internal
+      disk_bytes: internal
+      inodes: internal
+      bandwidth_bytes_month: internal
+      backup_bytes: internal
+      processes: internal
+      cpu_seconds: internal
+      reported_at: internal
+    hosting.site_backups:
+      id: internal
+      site_id: internal
+      org_id: internal
+      kind: internal
+      label: customer-content
+      status: internal
+      size_bytes: internal
+      checksum: internal
+      manifest: customer-content
+      enc_key_ref: credentials
+      sink_kind: internal
+      sink_ref: internal
+      data_region: internal
+      failure_reason: internal
+      created_by: internal
+      created_at: internal
+      expires_at: internal
+      deleted_at: internal
+    hosting.site_migrations:
+      id: internal
+      site_id: internal
+      from_node_id: internal
+      to_node_id: internal
+      state: internal
+      backup_id: internal
+      operation_id: internal
+      error: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    hosting.abuse_cases:
+      id: internal
+      site_id: internal
+      org_id: internal
+      source: internal
+      detector: internal
+      severity: internal
+      state: internal
+      reason_code: internal
+      actions: internal
+      evidence_refs: internal
+      appeal_text: personal
+      appealed_at: internal
+      appeal_decision: internal
+      appeal_decided_by: internal
+      appeal_decided_at: internal
+      actioned_by: internal
+      created_by: internal
+      idempotency_key: internal
+      created_at: internal
+      updated_at: internal
+      closed_at: internal
+    hosting.wipe_reports:
+      id: internal
+      site_id: internal
+      org_id: internal
+      node_residual: internal
+      backups_remaining: internal
+      vault_refs_remaining: internal
+      verified: internal
+      residual_total: internal
+      note: internal
+      created_at: internal
+    hosting.metering_marks:
+      site_id: internal
+      org_id: internal
+      meter_id: internal
+      emitted_until: internal
+      last_value: internal
+      period: internal
+      updated_at: internal
     domains.registrars:
       id: internal
       provider_code: internal

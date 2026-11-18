@@ -34,6 +34,9 @@ export default async function ConsoleLayout({
     ...(s.can('admin:compliance:read')
       ? [{ href: `${base}/compliance/controls`, label: t(locale, 'nav.admin.compliance') }]
       : []),
+    ...(s.can('admin:hosting:read')
+      ? [{ href: `${base}/hosting/nodes`, label: t(locale, 'nav.admin.hosting') }]
+      : []),
     ...(s.can('admin:data:read')
       ? [{ href: `${base}/data/providers`, label: t(locale, 'm8.nav.admin.providers') }]
       : []),
@@ -57,7 +60,8 @@ export default async function ConsoleLayout({
       (i.href.endsWith('/providers') &&
         (path.startsWith(`${i.href}/`) ||
           path.startsWith(`${base}/cloud/`) ||
-          path.startsWith(`${base}/finance/`))),
+          path.startsWith(`${base}/finance/`))) ||
+      (i.href.endsWith('/hosting/nodes') && path.includes('/hosting/')),
   }));
   return (
     <Shell

@@ -28,6 +28,7 @@ export default async function ConsoleLayout({
     ...gated('project:read', '/projects', 'nav.projects'),
     ...gated('operation:read', '/operations', 'nav.operations'),
     ...gated('resource:read', '/resources', 'nav.resources'),
+    ...gated('hosting:site:read', '/hosting/sites', 'nav.hosting'),
     ...gated('data:db:read', '/databases', 'm8.nav.databases'),
     ...gated('data:storage:read', '/storage/buckets', 'm8.nav.storage'),
     ...gated('email:read', '/email/domains', 'm8.nav.email'),

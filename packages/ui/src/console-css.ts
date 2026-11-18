@@ -634,4 +634,34 @@ a.nzc-stat:hover { border-color: color-mix(in srgb, var(--nzc-accent) 45%, var(-
   .nzc-body { padding: 18px 14px 40px; }
   .nzc-pill button { padding-inline: 10px; }
 }
+
+/* prompt-first project start (the domain search hero, with a prompt box instead of a search field) */
+.nzc-orb { display: block; inline-size: 44px; block-size: 44px; margin: 0 auto 14px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #fff 0, color-mix(in srgb, var(--nzc-accent) 85%, #fff) 22%, var(--nzc-accent-strong) 70%); box-shadow: 0 0 0 6px color-mix(in srgb, var(--nzc-accent) 14%, transparent), 0 10px 36px -4px color-mix(in srgb, var(--nzc-accent) 70%, transparent); }
+.nzc-prompt-bar > .nzc-prompt-input, .nzc-prompt-bar > .nzc-prompt-foot { background-color: color-mix(in srgb, var(--nzc-bg) 88%, var(--nzc-card)); }
+.nzc .nzc-prompt-bar textarea.nzc-prompt-input { display: block; inline-size: 100%; min-block-size: 132px; resize: vertical; padding: 18px 20px 6px !important; border: 0 !important; border-radius: 14.5px 14.5px 0 0 !important; box-shadow: none !important; font-size: 16px; line-height: 1.6; color: var(--nzc-fg); }
+.nzc-prompt-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px 10px; padding-inline: 20px 10px; border-radius: 0 0 14.5px 14.5px; }
+.nzc-prompt-count { font-size: 12.5px; color: var(--nzc-muted); }
+.nzc .nzc-prompt-foot .nz-btn { min-block-size: 44px; padding-inline: 18px 16px; border-radius: 10px; gap: 8px; font-size: 15px; }
+[dir="rtl"] .nzc-prompt-foot .nz-btn .nzc-icon { transform: scaleX(-1); }
+.nzc-prompt-err { margin: 10px 0 0; text-align: center; }
+.nzc .nzc-tlds label.nzc-ptype input[type="radio"] { inline-size: 18px; block-size: 18px; accent-color: var(--nzc-accent); }
+.nzc .nzc-tlds label.nzc-ptype:has(input:checked) { border-color: var(--nzc-accent); background: color-mix(in srgb, var(--nzc-accent) 14%, var(--nzc-bg)); }
+.nzc .nzc-tlds label.nzc-ptype[data-soon="true"] { opacity: .8; }
+.nzc-ptype-name { direction: inherit; font-size: 19px; }
+.nzc-prompt-opts { margin-block-start: 18px; text-align: start; }
+.nzc-prompt-opts > summary { cursor: pointer; text-align: center; font-size: 13px; font-weight: 600; color: var(--nzc-muted); list-style: none; }
+.nzc-prompt-opts > summary::-webkit-details-marker { display: none; }
+.nzc-prompt-opts > summary:hover { color: var(--nzc-fg); }
+.nzc-prompt-opts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-block-start: 12px; padding: 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--nzc-fg) 8%, transparent); background: color-mix(in srgb, var(--nzc-bg) 72%, transparent); }
+.nzc-prompt-opts-grid fieldset { margin: 0; padding: 0; border: 0; }
+.nzc-prompt-opts-grid legend, .nzc-prompt-field > span { display: block; margin-block-end: 6px; font-size: 13px; font-weight: 600; }
+.nzc-prompt-field { display: grid; gap: 4px; align-content: start; }
+.nzc-prompt-check { display: block; padding-block: 3px; }
+.nzc-pex-wrap { margin-block: 26px 28px; }
+.nzc-pex-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.nzc .nzc-pex { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 14px; inline-size: 100%; min-block-size: 112px; padding: 16px; text-align: start; border-radius: 14px; border: 1px solid var(--nzc-border); background: color-mix(in srgb, var(--nzc-card) 92%, var(--nzc-bg)); color: var(--nzc-fg); font: inherit; font-size: 14px; line-height: 1.5; cursor: pointer; transition: border-color 120ms ease, transform 120ms ease, background-color 120ms ease; }
+.nzc .nzc-pex:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--nzc-accent) 50%, transparent); background: color-mix(in srgb, var(--nzc-accent) 8%, var(--nzc-card)); }
+.nzc .nzc-pex .nzc-icon { color: var(--nzc-accent); }
+.nzc-yp-head { margin-block: 8px 12px; font-size: 18px; font-weight: 650; }
+@media (max-width: 640px) { .nzc-prompt-foot { flex-wrap: wrap; } }
 `;

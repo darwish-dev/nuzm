@@ -4,7 +4,7 @@ import { t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
 import { BuilderTabs } from '../../../../../../../components/BuilderParts';
 import { Exports } from '../../../../../../../components/BuilderExports';
-import { isUuid } from '../../../../../../../lib/builder';
+import { isUuid } from '../../../../../../../lib/appbuilder';
 import { bgate, bview } from '../../../../../../../lib/builder-gate';
 
 /** UI-M10-10: request an export, see its checksum and SBOM reference, download while the signed URL is valid, and the reasons of a blocked export. */

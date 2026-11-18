@@ -77,38 +77,55 @@ export function AddDomainForm({
     );
   }
   return (
-    <form
-      onSubmit={submit}
-      noValidate
-      className="nz-card"
-      aria-label={t(locale, 'm8.emd.add')}
-      style={{ maxInlineSize: 560 }}
-    >
-      <h2 className="nz-h2">{t(locale, 'm8.emd.add')}</h2>
-      <Field
-        id="emd-domain"
-        label={t(locale, 'm8.emd.domain')}
-        help={t(locale, 'm8.emd.domainHelp')}
-        error={error}
-      >
-        {(x) => (
-          <Input {...x} dir="ltr" value={domain} onChange={(e) => setDomain(e.target.value)} />
-        )}
-      </Field>
-      <fieldset>
-        <legend>{t(locale, 'm8.emd.purposes')}</legend>
-        {(['transactional', 'mailbox'] as const).map((p) => (
-          <label key={p} className="nz-row">
-            <input type="checkbox" checked={purposes.includes(p)} onChange={() => toggle(p)} />
-            {t(locale, `m8.emd.purpose.${p}`)}
-          </label>
-        ))}
-      </fieldset>
-      <Button type="submit" disabled={call.busy}>
-        {t(locale, 'm8.emd.addAction')}
-      </Button>
-      <Note n={call.notice} />
-      {call.panel}
+    <form onSubmit={submit} noValidate className="nzc-dsearch" aria-labelledby="emd-add-h">
+      <div className="nzc-dsearch-inner">
+        <h2 id="emd-add-h">{t(locale, 'm8.emd.add')}</h2>
+        <p className="nzc-dsearch-sub">{t(locale, 'm8.emd.help')}</p>
+        <div className="nzc-emd-bar">
+          <Field
+            id="emd-domain"
+            label={t(locale, 'm8.emd.domain')}
+            help={t(locale, 'm8.emd.domainHelp')}
+            error={error}
+          >
+            {(x) => (
+              <Input
+                {...x}
+                dir="ltr"
+                placeholder="example.com"
+                autoComplete="off"
+                spellCheck={false}
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+              />
+            )}
+          </Field>
+          <Button type="submit" disabled={call.busy}>
+            {t(locale, 'm8.emd.addAction')}
+          </Button>
+        </div>
+        <div className="nzc-tlds" role="group" aria-labelledby="emd-purposes">
+          <p className="nzc-tlds-title" id="emd-purposes">
+            {t(locale, 'm8.emd.purposes')}
+          </p>
+          <div className="nzc-tlds-grid">
+            {(['transactional', 'mailbox'] as const).map((p) => (
+              <label key={p} className="nzc-tld nzc-purpose">
+                <span className="nzc-purpose-name">{t(locale, `m8.emd.purpose.${p}`)}</span>
+                <input
+                  type="checkbox"
+                  className="nzc-switch-input"
+                  checked={purposes.includes(p)}
+                  onChange={() => toggle(p)}
+                />
+                <span className="nzc-tld-hint">{t(locale, `m8.emd.purpose.${p}.desc`)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <Note n={call.notice} />
+        {call.panel}
+      </div>
     </form>
   );
 }
@@ -203,7 +220,12 @@ export function DomainPanel({
             header: t(locale, 'm8.emd.col.purpose'),
             render: (r) => tDynamic(locale, `m8.emd.rp.${r.purpose}`, r.purpose),
           },
-          { key: 't', header: t(locale, 'field.type'), render: (r) => <Ltr>{r.type}</Ltr> },
+          {
+            key: 't',
+            icon: 'code',
+            header: t(locale, 'field.type'),
+            render: (r) => <Ltr>{r.type}</Ltr>,
+          },
           { key: 'n', header: t(locale, 'field.name'), render: (r) => <Ltr>{r.name}</Ltr> },
           {
             key: 'v',
@@ -218,6 +240,7 @@ export function DomainPanel({
           {
             key: 's',
             header: t(locale, 'field.status'),
+            icon: 'pulse',
             render: (r) => (
               <>
                 <Badge tone={recordTone(r.status)}>
@@ -234,6 +257,7 @@ export function DomainPanel({
           {
             key: 'c',
             header: t(locale, 'field.action'),
+            icon: 'code',
             render: (r) => (
               <CopyButton
                 locale={locale}

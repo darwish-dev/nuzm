@@ -1,493 +1,484 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { formatDateTime, t, type Locale } from '@nuzm/i18n';
-import type { Schemas } from '@nuzm/sdk';
+import { t, tDynamic, type Locale } from '@nuzm/i18n';
+import { Badge, Banner, Button, EmptyState, Field, Ltr, Select, Table } from '@nuzm/ui';
 import {
-  Badge,
-  Banner,
-  Button,
-  Card,
-  EmptyState,
-  Field,
-  Input,
-  Ltr,
-  Select,
-  Skeleton,
-  Table,
-} from '@nuzm/ui';
-import { browserApi } from '../lib/client';
-import {
+  DEPLOY_ENVIRONMENTS,
   canRollback,
-  deploymentTone,
-  healthOf,
-  isLiveDeployment,
-  isUuid,
-  safeText,
-  safeHref,
-  settle,
-  type ApprovalRef,
+  isDeployActive,
+  isPreviewUrl,
+  type BuilderProblem,
+  type DeployLog,
   type Deployment,
+  type HostingSiteRef,
+  type Page_,
 } from '../lib/builder';
-import { newKey } from '../lib/data';
-import { Code, Word } from './BuilderParts';
-import { useBuilderCall } from './BuilderUi';
-import { ConfirmDialog, Note } from './DataUi';
+import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
+import { DeployBadge, ProblemNote, when } from './BuilderBits';
+import { ConfirmDialog } from './DataUi';
 
-const POLL_MS = 3000;
-type Log = NonNullable<Schemas['DeploymentLogs']['items']>[number];
-
-/** 403 `approval_required`: the approvals a deploy or rollback is waiting for, each with the hash it is bound to, and the way to decide them. */
-export function ApprovalNeeded({ locale, items }: { locale: Locale; items: ApprovalRef[] }) {
-  return (
-    <Banner tone="warn">
-      <p style={{ margin: 0 }}>
-        <strong>{t(locale, 'm10.dep.approvalNeeded')}</strong>{' '}
-        {t(locale, 'm10.dep.approvalNeededBody')}
-      </p>
-      <ul>
-        {items.map((a) => (
-          <li key={a.id}>
-            <Word locale={locale} prefix="m10.apr.type" value={a.type} /> —{' '}
-            {t(locale, 'm10.apr.scopeHash')}: <Ltr>{a.scopeHash}</Ltr>
-          </li>
-        ))}
-      </ul>
-      <a href={`/${locale}/approvals`}>{t(locale, 'm10.dep.openApprovals')}</a>
-    </Banner>
-  );
+interface Pending {
+  approvalId: string;
+  siteId: string;
+  environment: string;
+  costNote?: string;
+  newPlan: boolean;
 }
 
-/** The health gate of a deployment: attempts, and whether the previous release was restored automatically. */
-export function HealthGate({ locale, d }: { locale: Locale; d: Deployment }) {
-  const h = healthOf(d.healthCheck);
-  if (!h) return <p className="nz-muted">{t(locale, 'm10.dep.noHealth')}</p>;
+/** One deployment: state, URL, smoke results and the append-only log; both are re-read every 3 s while it is in flight. */
+function DeploymentDetail({
+  locale,
+  d,
+  siteName,
+  onChanged,
+}: {
+  locale: Locale;
+  d: Deployment;
+  siteName: string;
+  onChanged: (d: Deployment) => void;
+}) {
+  const [logs, setLogs] = useState<DeployLog[]>([]);
+  const active = isDeployActive(d.state);
+  const seq = useRef(0);
+  useEffect(() => {
+    seq.current = 0;
+    setLogs([]);
+  }, [d.id]);
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      const l = await bapi.get<{ items: DeployLog[] }>(`/v1/deployments/${d.id}/logs`, {
+        query: { after: seq.current },
+      });
+      if (!stop && l.response.ok && l.data && l.data.items.length > 0) {
+        seq.current = Math.max(seq.current, ...l.data.items.map((x) => x.seq));
+        setLogs((cur) => [...cur, ...l.data!.items]);
+      }
+      if (active) {
+        const r = await bapi.get<Deployment>(`/v1/deployments/${d.id}`);
+        if (!stop && r.response.ok && r.data && r.data.state !== d.state) onChanged(r.data);
+      }
+    };
+    void tick();
+    if (!active) return () => void (stop = true);
+    const h = setInterval(() => void tick(), 3000);
+    return () => {
+      stop = true;
+      clearInterval(h);
+    };
+  }, [d.id, d.state, active]);
+
+  const smoke = d.smoke;
   return (
-    <dl>
-      {h.attempts !== null && (
-        <>
-          <dt>{t(locale, 'm10.dep.attempts')}</dt>
-          <dd>
-            <Ltr>{String(h.attempts)}</Ltr>
-          </dd>
-        </>
-      )}
-      <dt>{t(locale, 'm10.dep.gate')}</dt>
-      <dd>
-        <Badge tone={d.state === 'failed' ? 'danger' : d.state === 'live' ? 'success' : 'warn'}>
-          {t(
-            locale,
-            d.state === 'failed'
-              ? 'm10.dep.gateFailed'
-              : d.state === 'live'
-                ? 'm10.dep.gatePassed'
-                : 'm10.dep.gatePending',
+    <section className="nz-card" aria-labelledby="bld-dep-h">
+      <h3 className="nz-h2" id="bld-dep-h">
+        {t(locale, 'bld.dep.detail', { site: siteName })}
+      </h3>
+      <p role="status" aria-live="polite" className="nz-row">
+        <DeployBadge locale={locale} state={d.state} />
+        <Badge>{tDynamic(locale, `bld.dep.env.${d.environment}`, d.environment)}</Badge>
+        {d.rollbackOf && <Badge tone="warn">{t(locale, 'bld.dep.isRollback')}</Badge>}
+      </p>
+      <dl>
+        <dt>{t(locale, 'bld.dep.url')}</dt>
+        <dd>
+          {d.url && isPreviewUrl(`${d.url}/`) ? (
+            <a href={d.url} rel="noopener noreferrer" target="_blank">
+              <Ltr>{d.url}</Ltr>
+            </a>
+          ) : (
+            '—'
           )}
-        </Badge>
-      </dd>
-      <dt>{t(locale, 'm10.dep.autoRollback')}</dt>
-      <dd>
-        {h.autoRolledBack
-          ? t(locale, 'm10.dep.restored', { id: (h.restoredDeploymentId ?? '').slice(0, 8) })
-          : t(locale, 'm10.dep.notRestored')}
-      </dd>
-    </dl>
+        </dd>
+        <dt>{t(locale, 'bld.dep.artifact')}</dt>
+        <dd>{d.artifactHash ? <Ltr>{d.artifactHash.slice(0, 12)}</Ltr> : '—'}</dd>
+        <dt>{t(locale, 'bld.dep.started')}</dt>
+        <dd>{when(d.createdAt, locale)}</dd>
+        <dt>{t(locale, 'bld.dep.finished')}</dt>
+        <dd>{when(d.finishedAt, locale)}</dd>
+      </dl>
+      {d.state === 'failed' && d.error?.code && (
+        <Banner tone="danger">{t(locale, 'bld.dep.failed', { code: d.error.code })}</Banner>
+      )}
+      {d.state === 'rolled_back' && (
+        <Banner tone="warn">{t(locale, 'bld.dep.rolledBackNote')}</Banner>
+      )}
+      <h4 className="nz-h2">{t(locale, 'bld.dep.smoke')}</h4>
+      {smoke && smoke.results ? (
+        <>
+          <p>
+            <Badge tone={smoke.ok ? 'success' : 'danger'}>
+              {t(locale, smoke.ok ? 'bld.dep.smoke.ok' : 'bld.dep.smoke.failed')}
+            </Badge>{' '}
+            {smoke.phase && (
+              <span className="nz-muted">
+                {tDynamic(locale, `bld.dep.phase.${smoke.phase}`, smoke.phase)}
+              </span>
+            )}
+            {smoke.tls !== null && smoke.tls !== undefined && (
+              <> · {t(locale, smoke.tls ? 'bld.dep.tls.ok' : 'bld.dep.tls.no')}</>
+            )}
+          </p>
+          <Table
+            caption={t(locale, 'bld.dep.smoke')}
+            rows={smoke.results}
+            rowKey={(r) => r.path}
+            columns={[
+              {
+                key: 'p',
+                header: t(locale, 'bld.dep.smoke.path'),
+                render: (r) => <Ltr>{r.path}</Ltr>,
+              },
+              {
+                key: 's',
+                header: t(locale, 'bld.dep.smoke.status'),
+                render: (r) => (
+                  <Badge tone={r.status === 200 ? 'success' : 'danger'}>
+                    <Ltr>{String(r.status)}</Ltr>
+                  </Badge>
+                ),
+              },
+            ]}
+          />
+        </>
+      ) : (
+        <p className="nz-muted">{t(locale, 'bld.dep.smoke.none')}</p>
+      )}
+      <h4 className="nz-h2">{t(locale, 'bld.dep.logs')}</h4>
+      {logs.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'bld.dep.logs.none')}</p>
+      ) : (
+        <pre className="bld-pre" tabIndex={0} aria-label={t(locale, 'bld.dep.logs')}>
+          {logs.map((l) => `${l.at} ${l.level.toUpperCase()} ${l.message}`).join('\n')}
+        </pre>
+      )}
+    </section>
   );
 }
 
 /**
- * UI-M10-09: deployments of a project: list, detail with the health-gate result and logs, create (target and environment; 403 `approval_required` lists the
- * approvals) and rollback behind a confirmation (approval_required and invalid_state handled).
+ * UI-M09-08: publish a project to a hosting site, with the human approval in TWO steps. The first request asks for the approval (403 `approval_required`
+ * with its id); a confirmation dialog shows what will be published and where, and only the explicit confirmation repeats the request with the approval id
+ * and a NEW Idempotency-Key. Without a publish path (no hosting node: HG-05-01/02, HG-06-01) the API says `unsupported_capability` and the screen explains that.
  */
-export function Deployments({
+export function DeploymentsPanel({
   locale,
   projectId,
+  projectName,
+  headSeq,
   initial,
-  versions,
-  headVersionId,
-  canCreate,
-  canRoll,
-  mfaFactorId,
+  sites,
+  canWrite,
 }: {
   locale: Locale;
   projectId: string;
+  projectName: string;
+  headSeq: number | null;
   initial: Deployment[];
-  versions: { id: string; label?: string | null }[];
-  headVersionId: string | null;
-  canCreate: boolean;
-  canRoll: boolean;
-  mfaFactorId: string | null;
+  sites: HostingSiteRef[];
+  canWrite: boolean;
 }) {
-  const create = useBuilderCall(locale, mfaFactorId);
-  const roll = useBuilderCall(locale, mfaFactorId);
-  const [items, setItems] = useState<Deployment[]>(initial);
+  const call = useBuilderCall();
+  const confirmCall = useBuilderCall();
+  const rollbackCall = useBuilderCall();
+  const [items, setItems] = useState(initial);
+  const [siteId, setSiteId] = useState(
+    sites.find((s) => s.status === 'active')?.id ?? sites[0]?.id ?? '',
+  );
+  const [env, setEnv] = useState<string>('production');
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [noPath, setNoPath] = useState(false);
   const [selected, setSelected] = useState<string | null>(initial[0]?.id ?? null);
-  const [logs, setLogs] = useState<Log[] | null>(null);
-  const [logsError, setLogsError] = useState(false);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [targetType, setTargetType] = useState<'site' | 'instance'>('site');
-  const [targetId, setTargetId] = useState('');
-  const [env, setEnv] = useState<'production' | 'staging'>('staging');
-  const [versionId, setVersionId] = useState(headVersionId ?? '');
-  const [errors, setErrors] = useState<{ target?: string }>({});
-  const [needed, setNeeded] = useState<ApprovalRef[]>([]);
-  const [rollNeeded, setRollNeeded] = useState<ApprovalRef[]>([]);
-  const [confirmRoll, setConfirmRoll] = useState(false);
-  const [createKey, setCreateKey] = useState(newKey());
-  const [rollKey, setRollKey] = useState(newKey());
-  const [offline, setOffline] = useState(false);
-  const [tick, setTick] = useState(0);
-  const alive = useRef(true);
+  const firstKey = useRef(newKey());
+  const confirmKey = useRef<{ approvalId: string; key: string } | null>(null);
+  const rollbackKeys = useRef<Record<string, string>>({});
+  const siteName = (id?: string) => sites.find((s) => s.id === id)?.name ?? '—';
+  const site = sites.find((s) => s.id === siteId);
 
-  const live = items.some((d) => isLiveDeployment(d.state));
+  // the list is re-read every 3 s while a deployment is in flight
+  const anyActive = items.some((d) => isDeployActive(d.state));
   useEffect(() => {
-    alive.current = true;
-    if (!live) return;
-    const id = setTimeout(async () => {
-      const r = await settle(() =>
-        browserApi().GET('/v1/deployments', { params: { query: { projectId } } }),
-      );
-      if (!alive.current) return;
-      if (r.response.ok && r.data) {
-        setOffline(false);
-        setItems((r.data as { items: Deployment[] }).items);
-      } else setOffline(true);
-      setTick((n) => n + 1);
-    }, POLL_MS);
-    return () => {
-      clearTimeout(id);
-      alive.current = false;
-    };
-  }, [live, tick]);
+    if (!anyActive) return;
+    const h = setInterval(() => {
+      void bapi
+        .get<Page_<Deployment>>('/v1/deployments', { query: { projectId, limit: 20 } })
+        .then((r) => {
+          if (r.response.ok && r.data) setItems(r.data.items);
+        });
+    }, 3000);
+    return () => clearInterval(h);
+  }, [anyActive, projectId]);
 
-  const current = items.find((d) => d.id === selected) ?? null;
-  const currentId = current?.id;
-  const currentState = current?.state;
-  useEffect(() => {
-    if (!currentId) return setLogs(null);
-    let on = true;
-    setLogsLoading(true);
-    setLogsError(false);
-    void settle(() =>
-      browserApi().GET('/v1/deployments/{id}/logs', { params: { path: { id: currentId } } }),
-    ).then((r) => {
-      if (!on) return;
-      setLogsLoading(false);
-      if (r.response.ok && r.data) setLogs((r.data as Schemas['DeploymentLogs']).items);
-      else {
-        setLogs(null);
-        setLogsError(true);
-      }
-    });
-    return () => {
-      on = false;
-    };
-  }, [currentId, currentState]);
+  const upsert = (d: Deployment) =>
+    setItems((l) =>
+      l.some((x) => x.id === d.id) ? l.map((x) => (x.id === d.id ? d : x)) : [d, ...l],
+    );
 
-  function submit(ev: FormEvent) {
-    ev.preventDefault();
-    if (!isUuid(targetId)) return setErrors({ target: t(locale, 'm10.dep.err.target') });
-    setErrors({});
-    setNeeded([]);
-    void create.run(
+  function requestApproval(e: FormEvent) {
+    e.preventDefault();
+    if (!siteId) return;
+    setNoPath(false);
+    void call.run(
       () =>
-        browserApi().POST('/v1/deployments', {
-          params: { header: { 'Idempotency-Key': createKey } },
+        bapi.post<Deployment>('/v1/deployments', {
+          body: { projectId, target: siteId, environment: env },
+          idempotencyKey: firstKey.current,
+        }),
+      (d) => {
+        // a site that needed no approval step (not expected): treat the answer as the deployment itself
+        upsert(d);
+        setSelected(d.id);
+        firstKey.current = newKey();
+      },
+      (p: BuilderProblem) => {
+        firstKey.current = newKey();
+        if (p.code === 'approval_required' && p.approvalId) {
+          setPending({
+            approvalId: p.approvalId,
+            siteId,
+            environment: env,
+            costNote: p.costDisclosure?.note,
+            newPlan: p.costDisclosure?.newHostingPlan === true,
+          });
+          return true;
+        }
+        if (p.code === 'unsupported_capability') {
+          setNoPath(true);
+          return true;
+        }
+        return false;
+      },
+    );
+  }
+  function confirm() {
+    if (!pending) return;
+    const p = pending;
+    if (confirmKey.current?.approvalId !== p.approvalId)
+      confirmKey.current = { approvalId: p.approvalId, key: newKey() }; // a NEW key for the second step
+    void confirmCall.run(
+      () =>
+        bapi.post<Deployment>('/v1/deployments', {
           body: {
             projectId,
-            ...(versionId ? { versionId } : {}),
-            target: { type: targetType, id: targetId.trim().toLowerCase() },
-            env,
+            target: p.siteId,
+            environment: p.environment,
+            approvalId: p.approvalId,
           },
+          idempotencyKey: confirmKey.current!.key,
         }),
       (d) => {
-        setCreateKey(newKey());
-        const x = d as Deployment;
-        setItems((cur) => [x, ...cur.filter((c) => c.id !== x.id)]);
-        setSelected(x.id);
+        setPending(null);
+        confirmKey.current = null;
+        upsert(d);
+        setSelected(d.id);
       },
-      (f) => {
-        setCreateKey(newKey());
-        if (f.problem.code === 'approval_required') {
-          setNeeded(f.approvals);
-          return true;
+      (pr) => {
+        if (pr.status !== 599) {
+          confirmKey.current = null; // a definite refusal ends this approval
+          if (pr.code === 'unsupported_capability') setNoPath(true);
         }
+        if (pr.status !== 599) setPending(null);
+        return pr.code === 'unsupported_capability';
       },
     );
   }
-
-  function rollback() {
-    if (!current) return;
-    setRollNeeded([]);
-    void roll.run(
+  function rollback(d: Deployment) {
+    rollbackKeys.current[d.id] ??= newKey();
+    void rollbackCall.run(
       () =>
-        browserApi().POST('/v1/deployments/{id}/rollback', {
-          params: { path: { id: current.id }, header: { 'Idempotency-Key': rollKey } },
+        bapi.post<Deployment>(`/v1/deployments/${d.id}/rollback`, {
+          idempotencyKey: rollbackKeys.current[d.id],
         }),
-      (d) => {
-        setConfirmRoll(false);
-        setRollKey(newKey());
-        const x = d as Deployment;
-        setItems((cur) => [x, ...cur.filter((c) => c.id !== x.id)]);
-        setSelected(x.id);
-        roll.setNotice({ tone: 'ok', text: t(locale, 'm10.dep.rollbackStarted') });
-      },
-      (f) => {
-        setRollKey(newKey());
-        if (f.problem.code === 'approval_required') {
-          setConfirmRoll(false);
-          setRollNeeded(f.approvals);
-          return true;
-        }
-        if (f.problem.code === 'invalid_state' || f.problem.status === 409) setConfirmRoll(false);
+      (nd) => {
+        delete rollbackKeys.current[d.id];
+        upsert(nd);
+        setSelected(nd.id);
       },
     );
   }
 
+  const sel = items.find((d) => d.id === selected) ?? null;
   return (
     <>
-      {canCreate ? (
-        <form
-          onSubmit={submit}
-          noValidate
-          className="nz-card"
-          aria-label={t(locale, 'm10.dep.new')}
-          style={{ maxInlineSize: 640 }}
-        >
-          <h2 className="nz-h2">{t(locale, 'm10.dep.new')}</h2>
-          <Field id="dep-type" label={t(locale, 'm10.dep.targetType')}>
-            {(x) => (
-              <Select
-                {...x}
-                value={targetType}
-                onChange={(e) => setTargetType(e.target.value as 'site' | 'instance')}
+      {noPath && (
+        <div role="alert">
+          <EmptyState
+            title={t(locale, 'bld.dep.noPath.title')}
+            body={t(locale, 'bld.dep.noPath.body')}
+          />
+        </div>
+      )}
+      {canWrite ? (
+        <form onSubmit={requestApproval} className="nz-card" aria-label={t(locale, 'bld.dep.form')}>
+          <h2 className="nz-h2">{t(locale, 'bld.dep.form')}</h2>
+          {sites.length === 0 ? (
+            <p>
+              {t(locale, 'bld.dep.noSites')}{' '}
+              <a href={`/${locale}/hosting/sites`}>{t(locale, 'bld.dep.toHosting')}</a>
+            </p>
+          ) : (
+            <>
+              <Field id="bld-dep-site" label={t(locale, 'bld.dep.site')}>
+                {(x) => (
+                  <Select {...x} value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.primaryDomain ? ` — ${s.primaryDomain}` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <Field id="bld-dep-env" label={t(locale, 'bld.dep.environment')}>
+                {(x) => (
+                  <Select {...x} value={env} onChange={(e) => setEnv(e.target.value)}>
+                    {DEPLOY_ENVIRONMENTS.map((v) => (
+                      <option key={v} value={v}>
+                        {tDynamic(locale, `bld.dep.env.${v}`, v)}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <p className="nz-muted">
+                {t(locale, 'bld.dep.willPublish', { name: projectName, seq: headSeq ?? 0 })}{' '}
+                <a href={`/${locale}/hosting/sites/${siteId}/domains`}>
+                  {t(locale, 'bld.dep.domainHint')}
+                </a>
+              </p>
+              {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
+              <Button
+                type="submit"
+                disabled={call.busy || !siteId || (site !== undefined && site.status !== 'active')}
               >
-                <option value="site">{t(locale, 'm10.dep.target.site')}</option>
-                <option value="instance">{t(locale, 'm10.dep.target.instance')}</option>
-              </Select>
-            )}
-          </Field>
-          <Field
-            id="dep-target"
-            label={t(locale, 'm10.dep.targetId')}
-            help={t(locale, 'm10.dep.targetHelp')}
-            error={errors.target}
-          >
-            {(x) => (
-              <Input
-                {...x}
-                dir="ltr"
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
-              />
-            )}
-          </Field>
-          <Field
-            id="dep-env"
-            label={t(locale, 'm10.dep.env')}
-            help={env === 'production' ? t(locale, 'm10.dep.prodHelp') : undefined}
-          >
-            {(x) => (
-              <Select
-                {...x}
-                value={env}
-                onChange={(e) => setEnv(e.target.value as 'production' | 'staging')}
-              >
-                <option value="staging">{t(locale, 'm10.dep.env.staging')}</option>
-                <option value="production">{t(locale, 'm10.dep.env.production')}</option>
-              </Select>
-            )}
-          </Field>
-          <Field id="dep-version" label={t(locale, 'm10.dep.version')}>
-            {(x) => (
-              <Select {...x} value={versionId} onChange={(e) => setVersionId(e.target.value)}>
-                <option value="">{t(locale, 'm10.dep.versionHead')}</option>
-                {versions.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.id.slice(0, 8)}
-                    {v.label ? ` · ${safeText(v.label, 40)}` : ''}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-          {needed.length > 0 && <ApprovalNeeded locale={locale} items={needed} />}
-          <Note n={create.notice} />
-          <Button type="submit" disabled={create.busy}>
-            {t(locale, 'm10.dep.create')}
-          </Button>
+                {t(locale, 'bld.dep.publish')}
+              </Button>
+              {site && site.status !== 'active' && (
+                <p className="nz-muted">{t(locale, 'bld.dep.siteNotActive')}</p>
+              )}
+            </>
+          )}
         </form>
       ) : (
-        <p className="nz-muted">{t(locale, 'm10.dep.noCreate')}</p>
+        <Banner tone="warn">{t(locale, 'bld.readonly')}</Banner>
       )}
-      {offline && <Banner tone="warn">{t(locale, 'm10.err.offline')}</Banner>}
-      <h2 className="nz-h2" style={{ marginBlockStart: 16 }}>
-        {t(locale, 'm10.dep.title')}
-      </h2>
+
+      <ConfirmDialog
+        open={pending !== null}
+        title={t(locale, 'bld.dep.confirm.title')}
+        onClose={() => setPending(null)}
+      >
+        {pending && (
+          <>
+            <dl>
+              <dt>{t(locale, 'bld.dep.confirm.project')}</dt>
+              <dd>
+                <bdi dir="auto">{projectName}</bdi> (
+                {t(locale, 'bld.ws.version', { seq: headSeq ?? 0 })})
+              </dd>
+              <dt>{t(locale, 'bld.dep.site')}</dt>
+              <dd>
+                <bdi dir="auto">{siteName(pending.siteId)}</bdi>
+              </dd>
+              <dt>{t(locale, 'bld.dep.environment')}</dt>
+              <dd>{tDynamic(locale, `bld.dep.env.${pending.environment}`, pending.environment)}</dd>
+              <dt>{t(locale, 'bld.dep.confirm.cost')}</dt>
+              <dd>
+                {t(locale, pending.newPlan ? 'bld.dep.cost.newPlan' : 'bld.dep.cost.none')}
+                {pending.costNote ? (
+                  <span className="nz-muted">
+                    {' '}
+                    <bdi dir="ltr" lang="en">
+                      {pending.costNote}
+                    </bdi>
+                  </span>
+                ) : null}
+              </dd>
+            </dl>
+            <p>{t(locale, 'bld.dep.confirm.body')}</p>
+            {confirmCall.problem && <ProblemNote locale={locale} problem={confirmCall.problem} />}
+            <div className="nz-row">
+              <Button disabled={confirmCall.busy} onClick={confirm}>
+                {t(locale, 'bld.dep.confirm.go')}
+              </Button>
+              <Button variant="secondary" onClick={() => setPending(null)}>
+                {t(locale, 'action.cancel')}
+              </Button>
+            </div>
+          </>
+        )}
+      </ConfirmDialog>
+
+      <h2 className="nz-h2">{t(locale, 'bld.dep.list')}</h2>
+      {rollbackCall.problem && <ProblemNote locale={locale} problem={rollbackCall.problem} />}
       {items.length === 0 ? (
-        <EmptyState title={t(locale, 'm10.dep.empty')} body={t(locale, 'm10.dep.emptyBody')} />
+        <EmptyState
+          title={t(locale, 'bld.dep.empty.title')}
+          body={t(locale, 'bld.dep.empty.body')}
+        />
       ) : (
         <Table
-          caption={t(locale, 'm10.dep.title')}
+          caption={t(locale, 'bld.dep.list')}
           rows={items}
           rowKey={(d) => d.id}
           columns={[
             {
-              key: 'id',
-              header: t(locale, 'm10.dep.col.id'),
-              render: (d) => (
-                <button
-                  type="button"
-                  className="nz-btn"
-                  data-variant={d.id === selected ? 'primary' : 'secondary'}
-                  aria-current={d.id === selected ? 'true' : undefined}
-                  onClick={() => setSelected(d.id)}
-                >
-                  <Ltr>{d.id.slice(0, 8)}</Ltr>
-                </button>
-              ),
+              key: 's',
+              header: t(locale, 'bld.dep.col.state'),
+              render: (d) => <DeployBadge locale={locale} state={d.state} />,
             },
             {
               key: 'e',
-              header: t(locale, 'm10.dep.env'),
-              render: (d) => t(locale, `m10.dep.env.${d.environment}`),
+              header: t(locale, 'bld.dep.environment'),
+              render: (d) => tDynamic(locale, `bld.dep.env.${d.environment}`, d.environment),
             },
             {
-              key: 'tg',
-              header: t(locale, 'm10.dep.col.target'),
+              key: 't',
+              header: t(locale, 'bld.dep.site'),
+              render: (d) => <bdi dir="auto">{siteName(d.target.hostingSiteId)}</bdi>,
+            },
+            {
+              key: 'c',
+              header: t(locale, 'bld.dep.started'),
+              render: (d) => when(d.createdAt, locale),
+            },
+            {
+              key: 'a',
+              header: t(locale, 'bld.dep.col.actions'),
               render: (d) => (
-                <>
-                  <Word locale={locale} prefix="m10.dep.target" value={d.target?.type ?? ''} />{' '}
-                  <Ltr>{(d.target?.id ?? '').slice(0, 8)}</Ltr>
-                </>
+                <span className="nz-row">
+                  <Button
+                    variant="secondary"
+                    aria-pressed={selected === d.id}
+                    onClick={() => setSelected(d.id)}
+                  >
+                    {t(locale, 'bld.dep.details')}
+                  </Button>
+                  {canWrite && canRollback(d) && (
+                    <Button
+                      variant="danger"
+                      disabled={rollbackCall.busy}
+                      onClick={() => rollback(d)}
+                    >
+                      {t(locale, 'bld.dep.rollback')}
+                    </Button>
+                  )}
+                </span>
               ),
-            },
-            {
-              key: 's',
-              header: t(locale, 'field.status'),
-              render: (d) => (
-                <Badge tone={deploymentTone(d.state)}>
-                  <Word locale={locale} prefix="m10.dep.state" value={d.state} />
-                </Badge>
-              ),
-            },
-            {
-              key: 'w',
-              header: t(locale, 'field.created'),
-              render: (d) => (d.createdAt ? formatDateTime(d.createdAt, locale) : '—'),
             },
           ]}
         />
       )}
-      {current && (
-        <Card aria-label={t(locale, 'm10.dep.detail')} style={{ marginBlockStart: 16 }}>
-          <h2 className="nz-h2">
-            {t(locale, 'm10.dep.detail')} <Ltr>{current.id.slice(0, 8)}</Ltr>
-          </h2>
-          <dl>
-            <dt>{t(locale, 'field.status')}</dt>
-            <dd>
-              <Badge tone={deploymentTone(current.state)}>
-                <Word locale={locale} prefix="m10.dep.state" value={current.state} />
-              </Badge>
-            </dd>
-            <dt>{t(locale, 'm10.dep.env')}</dt>
-            <dd>{t(locale, `m10.dep.env.${current.environment}`)}</dd>
-            {current.failureCode && (
-              <>
-                <dt>{t(locale, 'm10.dep.failure')}</dt>
-                <dd>
-                  <Ltr>{current.failureCode}</Ltr>
-                </dd>
-              </>
-            )}
-            {safeHref(current.url) && (
-              <>
-                <dt>URL</dt>
-                <dd>
-                  <a href={safeHref(current.url)} rel="noreferrer noopener">
-                    <Ltr>{current.url}</Ltr>
-                  </a>
-                </dd>
-              </>
-            )}
-            {current.artifactSha256 && (
-              <>
-                <dt>{t(locale, 'm10.dep.artifact')}</dt>
-                <dd>
-                  <Ltr>{current.artifactSha256}</Ltr>
-                </dd>
-              </>
-            )}
-            {current.rollbackOf && (
-              <>
-                <dt>{t(locale, 'm10.dep.rollbackOf')}</dt>
-                <dd>
-                  <Ltr>{current.rollbackOf.slice(0, 8)}</Ltr>
-                </dd>
-              </>
-            )}
-            {(current.migrations ?? []).length > 0 && (
-              <>
-                <dt>{t(locale, 'm10.dep.migrations')}</dt>
-                <dd>
-                  {(current.migrations ?? []).map((m, i) => (
-                    <Badge key={i} tone={m.destructive ? 'danger' : undefined}>
-                      <Ltr>{`#${m.version ?? '?'}`}</Ltr>{' '}
-                      {m.destructive ? t(locale, 'm10.dep.destructive') : ''}
-                    </Badge>
-                  ))}
-                </dd>
-              </>
-            )}
-          </dl>
-          <h3 className="nz-h3">{t(locale, 'm10.dep.health')}</h3>
-          <HealthGate locale={locale} d={current} />
-          <h3 className="nz-h3">{t(locale, 'm10.dep.logs')}</h3>
-          {logsLoading ? (
-            <Skeleton lines={3} label={t(locale, 'state.loading')} />
-          ) : logsError ? (
-            <p role="alert" className="nz-error-text">
-              {t(locale, 'state.error.title')}
-            </p>
-          ) : logs && logs.length > 0 ? (
-            <Code label={t(locale, 'm10.dep.logs')}>
-              {logs.map((l) => `${l.level ?? 'info'} ${safeText(l.message, 400)}`).join('\n')}
-            </Code>
-          ) : (
-            <p className="nz-muted">{t(locale, 'm10.dep.noLogs')}</p>
-          )}
-          {canRoll && canRollback(current) && (
-            <p>
-              <Button variant="danger" disabled={roll.busy} onClick={() => setConfirmRoll(true)}>
-                {t(locale, 'm10.dep.rollback')}
-              </Button>
-            </p>
-          )}
-          {rollNeeded.length > 0 && <ApprovalNeeded locale={locale} items={rollNeeded} />}
-          <Note n={roll.notice} />
-          <ConfirmDialog
-            open={confirmRoll}
-            title={t(locale, 'm10.dep.rollbackTitle')}
-            onClose={() => setConfirmRoll(false)}
-          >
-            <p>{t(locale, 'm10.dep.rollbackBody', { id: current.id.slice(0, 8) })}</p>
-            {current.environment === 'production' && (
-              <Banner tone="warn">{t(locale, 'm10.dep.rollbackProd')}</Banner>
-            )}
-            <Note n={roll.notice} />
-            <div className="nz-row">
-              <Button variant="danger" disabled={roll.busy} onClick={rollback}>
-                {t(locale, 'm10.dep.rollbackConfirm')}
-              </Button>
-              <Button variant="secondary" onClick={() => setConfirmRoll(false)}>
-                {t(locale, 'action.cancel')}
-              </Button>
-            </div>
-          </ConfirmDialog>
-        </Card>
+      {sel && (
+        <DeploymentDetail
+          key={sel.id}
+          locale={locale}
+          d={sel}
+          siteName={siteName(sel.target.hostingSiteId)}
+          onChanged={upsert}
+        />
       )}
-      {create.panel}
-      {roll.panel}
     </>
   );
 }

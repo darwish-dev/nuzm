@@ -11,11 +11,11 @@ import {
   settle,
   type ApprovalRef,
   type ExportRow,
-} from '../lib/builder';
+} from '../lib/appbuilder';
 import { newKey } from '../lib/data';
 import { Word } from './BuilderParts';
 import { useBuilderCall } from './BuilderUi';
-import { ApprovalNeeded } from './BuilderDeployments';
+import { ApprovalNeeded } from './ApprovalNeeded';
 import { Note } from './DataUi';
 
 const POLL_MS = 3000;

@@ -122,6 +122,54 @@ tables:
       hook: m06-node-selection,
       note: 'a site is placed only on a node whose data_region the residency service allows',
     }
+  # >>> M09 tables
+  ai.sessions:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'a session carries the data_region of the organization; prompts leave only through the gateway',
+    }
+  ai.messages:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'message content is stored sealed in the session region and sent to a model only after the residency check',
+    }
+  ai.runs:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'every run carries data_region; every model call of the run evaluates residency first',
+    }
+  ai.artifacts:
+    { owner: M09, hook: m09-model-gateway, note: 'generated artifacts stay in the run region' }
+  ai.model_usage:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'every call records the provider region and the residency evidence reference',
+    }
+  builder.projects:
+    {
+      owner: M09,
+      hook: m09-builder-assets,
+      note: 'a project carries the data_region its files and versions are stored in',
+    }
+  builder.form_submissions:
+    {
+      owner: M09,
+      hook: m09-builder-assets,
+      note: 'submissions (personal) are stored sealed in the project region',
+    }
+  deploy.builds:
+    { owner: M09, hook: m09-builder-assets, note: 'build artifacts stay in the project region' }
+  deploy.deployments:
+    {
+      owner: M09,
+      hook: m09-builder-assets,
+      note: 'a deployment publishes only to a hosting site in an allowed region (hosting placement is M06 m06-node-selection)',
+    }
+  # <<< M09 tables
   # >>> M10A tables (append-only block)
   ai.run_steps:
     {
@@ -333,18 +381,18 @@ hooks:
       where: 'Model gateway: prompt and output class against the model region and processor',
       data_classes: [customer-content, personal],
       processor_kind: model,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.model,
-      call_site: null,
+      call_site: apps/api/src/modules/ai/internal/gateway.service.ts,
     }
   - {
       id: m09-builder-assets,
       milestone: M09,
       where: 'Builder asset storage',
       data_classes: [customer-content],
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.builder,
-      call_site: null,
+      call_site: apps/api/src/modules/builder/internal/project.service.ts,
     }
   - {
       id: m10-sandbox-builds,

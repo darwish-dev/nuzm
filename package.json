@@ -34,6 +34,7 @@
     "services:status": "scripts/dev-services.sh status",
     "verify:full": "pnpm verify && pnpm services:status && pnpm db:migrate && pnpm db:test-rls && pnpm compliance:classification-coverage && pnpm compliance:ropa-coverage && pnpm compliance:residency-hooks && pnpm test:integration",
     "db:dev-logins": "pnpm --filter @nuzm/db run dev-logins",
+    "db:dev-seed": "pnpm --filter @nuzm/db exec tsx src/cli.ts dev-seed",
     "sdk:generate": "pnpm --filter @nuzm/sdk run generate",
     "sdk:check": "pnpm --filter @nuzm/sdk run check",
     "test:e2e": "pnpm --filter @nuzm/web build && pnpm --filter @nuzm/admin build && pnpm --filter @nuzm/e2e test"

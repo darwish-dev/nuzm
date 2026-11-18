@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import axe from 'axe-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -90,6 +90,42 @@ describe('accessible building blocks', () => {
     expect(getByRole('table', { name: 'Members' })).toBeTruthy();
     expect(container.querySelectorAll('th[scope="col"]')).toHaveLength(2);
     expect(container.querySelector('bdi')?.getAttribute('dir')).toBe('ltr'); // emails stay LTR inside RTL text
+    expect(await violations(container)).toEqual([]);
+  });
+
+  it('shows cards by default, with a Manage link per row, and switches to the table for every table', async () => {
+    const { container, getAllByRole, getByRole } = render(
+      <div>
+        <Table
+          caption="Sites"
+          columns={[{ key: 'n', header: 'Name', render: (r: { n: string }) => r.n }]}
+          rows={[{ n: 'shop' }, { n: 'blog' }]}
+          rowKey={(r) => r.n}
+          rowHref={(r) => `/en/sites/${r.n}`}
+          manageLabel="Manage"
+        />
+        <Table
+          caption="Plans"
+          columns={[{ key: 'n', header: 'Name', render: (r: { n: string }) => r.n }]}
+          rows={[{ n: 'starter' }]}
+          rowKey={(r) => r.n}
+        />
+      </div>,
+    );
+    const wraps = container.querySelectorAll('.nz-table-wrap');
+    expect(Array.from(wraps).map((w) => w.getAttribute('data-view'))).toEqual(['cards', 'cards']);
+    expect(getAllByRole('link', { name: 'Manage' }).map((a) => a.getAttribute('href'))).toEqual([
+      '/en/sites/shop',
+      '/en/sites/blog',
+    ]);
+    // a read-only table has no Manage column
+    expect(wraps[1]!.querySelector('.nz-manage-col')).toBeNull();
+    // one switch changes every table and is remembered
+    act(() => getAllByRole('button', { name: 'Show as a table' })[0]!.click());
+    expect(Array.from(wraps).map((w) => w.getAttribute('data-view'))).toEqual(['table', 'table']);
+    expect(localStorage.getItem('nuzm.tableView')).toBe('table');
+    expect(getByRole('table', { name: 'Sites' })).toBeTruthy();
+    localStorage.clear();
     expect(await violations(container)).toEqual([]);
   });
 

@@ -1,6 +1,6 @@
 import { t, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, ButtonLink, Ltr } from '@nuzm/ui';
-import { sandboxTone, type Sandbox } from '../lib/builder';
+import { sandboxTone, type Sandbox } from '../lib/appbuilder';
 import { SandboxRuntime, Word } from './BuilderParts';
 
 /**

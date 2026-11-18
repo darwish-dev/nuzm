@@ -45,6 +45,7 @@ export default async function Controls({ params }: { params: Promise<{ locale: s
               {
                 key: 'ow',
                 header: t(locale, 'cmp.ctl.col.owner'),
+                icon: 'user',
                 render: (r) => <Ltr>{r.ownerRole}</Ltr>,
               },
               {
@@ -60,6 +61,7 @@ export default async function Controls({ params }: { params: Promise<{ locale: s
               {
                 key: 'st',
                 header: t(locale, 'cmp.ctl.col.status'),
+                icon: 'pulse',
                 render: (r) => (
                   <>
                     <Badge tone={controlTone(r.status)}>

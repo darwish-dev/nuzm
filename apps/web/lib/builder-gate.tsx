@@ -3,7 +3,7 @@ import { ApiError } from '@nuzm/sdk';
 import { t, type Locale, type MessageKey } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
 import { NotEnabledState } from '../components/BuilderParts';
-import { APP_BUILDER_FLAG } from './builder';
+import { APP_BUILDER_FLAG } from './appbuilder';
 import { gate } from './gate';
 import type { Session } from './server';
 import { flagEnabled } from './services';

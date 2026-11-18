@@ -46,12 +46,14 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {
               key: 'r',
               header: t(locale, 'cmp.tr.col.region'),
+              icon: 'pin',
               render: (r) => <Ltr>{r.region}</Ltr>,
             },
             { key: 'k', header: t(locale, 'cmp.tr.col.risk'), render: (r) => r.risk },
             {
               key: 's',
               header: t(locale, 'cmp.tr.col.status'),
+              icon: 'pulse',
               render: (r) => (
                 <Badge
                   tone={
@@ -69,6 +71,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {
               key: 'e',
               header: t(locale, 'cmp.tr.col.expires'),
+              icon: 'calendar',
               render: (r) => (r.expiresAt ? formatDateTime(r.expiresAt, locale) : '—'),
             },
           ]}

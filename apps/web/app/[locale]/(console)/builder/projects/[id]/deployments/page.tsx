@@ -1,45 +1,71 @@
 import { notFound } from 'next/navigation';
-import { unwrap } from '@nuzm/sdk';
+import { isLocale, t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
-import { BuilderTabs } from '../../../../../../../components/BuilderParts';
-import { Deployments } from '../../../../../../../components/BuilderDeployments';
-import { isUuid } from '../../../../../../../lib/builder';
-import { bgate, bview } from '../../../../../../../lib/builder-gate';
+import { unwrap } from '@nuzm/sdk';
+import { BuilderTabs } from '../../../../../../../components/BuilderBits';
+import { DeploymentsPanel } from '../../../../../../../components/BuilderDeployments';
+import type {
+  Deployment,
+  HostingSiteRef,
+  Page_,
+  ProjectDetail,
+} from '../../../../../../../lib/builder';
+import { builderGuard, builderView } from '../../../../../../../lib/builder-view';
+import { isUuid, unwrapCall } from '../../../../../../../lib/compute';
 
-/** UI-M10-09: deployments: list, detail, logs, health gate, create (approvals listed on 403) and rollback behind a confirmation. */
-export default async function DeploymentsPage({
+/** UI-M09-08: publish to a hosting site (two-step human approval), deployments, logs, smoke results, rollback. */
+export default async function Deployments({
   params,
 }: {
   params: Promise<{ locale: string; id: string }>;
 }) {
-  const g = await bgate(params, 'deploy:read', 'm10.dep.title');
-  if (!g.ok) return g.node;
-  const { locale, s } = g;
-  const { id } = await params;
-  if (!isUuid(id)) notFound();
-  return bview(
+  const { locale, id } = await params;
+  if (!isLocale(locale) || !isUuid(id)) notFound();
+  const g = await builderGuard(locale, 'deploy:read', 'bld.tab.deployments');
+  if (!g.ok) return g.denied;
+  const body = await builderView(
     locale,
-    async () => ({
-      project: await unwrap(s.api.GET('/v1/builder/projects/{id}', { params: { path: { id } } })),
-      list: await unwrap(s.api.GET('/v1/deployments', { params: { query: { projectId: id } } })),
-    }),
-    ({ project, list }) => (
-      <>
-        <PageTitle>{project.name}</PageTitle>
-        <BuilderTabs locale={locale} id={id} current="deployments" />
-        <Deployments
-          locale={locale}
-          projectId={id}
-          initial={list.items}
-          versions={(project.versions ?? []).filter(
-            (v): v is typeof v & { id: string } => typeof v.id === 'string',
-          )}
-          headVersionId={project.headVersionId ?? null}
-          canCreate={s.can('deploy:create')}
-          canRoll={s.can('deploy:rollback')}
-          mfaFactorId={s.me.mfaFactorId ?? null}
-        />
-      </>
+    async () => {
+      const project = await unwrapCall(g.c.get<ProjectDetail>(`/v1/builder/projects/${id}`));
+      const deployments = await unwrapCall(
+        g.c.get<Page_<Deployment>>('/v1/deployments', { query: { projectId: id, limit: 20 } }),
+      );
+      // the hosting sites feed the target selector; hosting may be off or not readable for this member: the form then explains it
+      let sites: HostingSiteRef[] = [];
+      if (g.s.can('hosting:site:read')) {
+        try {
+          const r = await unwrap(
+            g.s.api.GET('/v1/hosting/sites', { params: { query: { limit: 100 } } }),
+          );
+          sites = r.items.map((x) => ({
+            id: x.id,
+            name: x.name,
+            status: x.status,
+            primaryDomain: x.primaryDomain ?? null,
+          }));
+        } catch {
+          sites = [];
+        }
+      }
+      return { project, deployments, sites };
+    },
+    (d) => (
+      <DeploymentsPanel
+        locale={locale}
+        projectId={id}
+        projectName={d.project.name}
+        headSeq={d.project.versionSeq}
+        initial={d.deployments.items}
+        sites={d.sites}
+        canWrite={g.s.can('deploy:write')}
+      />
     ),
+  );
+  return (
+    <>
+      <PageTitle>{t(locale, 'bld.tab.deployments')}</PageTitle>
+      <BuilderTabs locale={locale} projectId={id} current="deployments" can={g.s.can} />
+      {body}
+    </>
   );
 }

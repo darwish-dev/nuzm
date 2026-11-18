@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 import {
   contactBody,
   countdown,
@@ -10,6 +13,8 @@ import {
   parseRecordValue,
   reasonKey,
   showValue,
+  SOLD_TLDS,
+  tldsParam,
 } from './domains';
 
 describe('domain screen helpers', () => {
@@ -71,5 +76,28 @@ describe('domain screen helpers', () => {
     });
     expect(parseRecordValue('MX', 'not json')).toBeNull();
     expect(showValue({ a: 1 })).toBe('{"a":1}');
+  });
+});
+
+describe('search extensions', () => {
+  it('the extension cards are exactly the TLDs the sales policy enables', () => {
+    const policy = parse(
+      readFileSync(join(__dirname, '../../../spec/providers/tld-policy.yaml'), 'utf8'),
+    ) as { tlds: { tld: string; enabled: boolean }[] };
+    expect([...SOLD_TLDS].sort()).toEqual(
+      policy.tlds
+        .filter((x) => x.enabled)
+        .map((x) => x.tld)
+        .sort(),
+    );
+  });
+
+  it('reads the extensions from checkboxes or a comma list, and drops junk', () => {
+    expect(tldsParam(undefined)).toBeUndefined();
+    expect(tldsParam('')).toBeUndefined();
+    expect(tldsParam(['com', 'net'])).toBe('com,net');
+    expect(tldsParam('.COM, net,com')).toBe('com,net');
+    expect(tldsParam('com.sa')).toBe('com.sa');
+    expect(tldsParam('<x>')).toBeUndefined();
   });
 });

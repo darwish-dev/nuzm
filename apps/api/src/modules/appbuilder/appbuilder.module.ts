@@ -12,14 +12,10 @@ import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
 import { ResidencyService } from '../compliance';
 import { IdentityModule } from '../identity';
-import { AdminAiRunsController } from './admin-ai-runs.controller';
 import { ApprovalsController } from './approvals.controller';
-import { ChangesController } from './changes.controller';
-import { DeploymentsController } from './deployments.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
 import { TestRunsController } from './test-runs.controller';
-import { M09StubsController } from './m09-stubs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
 import { ChangeService } from './internal/changes/change.service';
@@ -123,16 +119,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
  */
 @Module({
   imports: [IdentityModule],
-  controllers: [
-    SandboxesController,
-    TestRunsController,
-    ExportsController,
-    ChangesController,
-    DeploymentsController,
-    ApprovalsController,
-    AdminAiRunsController,
-    M09StubsController,
-  ],
+  controllers: [SandboxesController, TestRunsController, ExportsController, ApprovalsController],
   providers: [
     ...M09_PORT_PROVIDERS,
     AppBuilderEnabledGuard,

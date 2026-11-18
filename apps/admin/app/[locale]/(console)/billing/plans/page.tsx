@@ -32,6 +32,7 @@ export default async function AdminPlans({ params }: { params: Promise<{ locale:
             {
               key: 's',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (p) => (
                 <>
                   {p.status}{' '}
@@ -44,6 +45,7 @@ export default async function AdminPlans({ params }: { params: Promise<{ locale:
             {
               key: 'v',
               header: t(locale, 'abill.f.versions'),
+              icon: 'code',
               render: (p) => (
                 <ul>
                   {p.versions.map((v) => (

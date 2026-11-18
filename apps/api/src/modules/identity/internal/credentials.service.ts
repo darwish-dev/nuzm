@@ -118,7 +118,12 @@ export class CredentialsService {
    * Checks the password. Unknown email, wrong password, locked account, disabled user and platform user all end in the same
    * `invalid_credentials` (and the unknown email still pays for one hash). Returns the user on success.
    */
-  async login(emailRaw: string, password: string, meta: Meta): Promise<UserRow> {
+  async login(
+    emailRaw: string,
+    password: string,
+    meta: Meta,
+    realm: 'web' | 'admin' = 'web',
+  ): Promise<UserRow> {
     const email = typeof emailRaw === 'string' ? normalizeEmail(emailRaw) : '';
     const fail = async (reason: string, userId?: string): Promise<never> => {
       await this.audit.record({
@@ -127,7 +132,7 @@ export class CredentialsService {
         outcome: 'failure',
         traceId: meta.traceId,
         ip: meta.ip,
-        detail: { method: 'password', reason },
+        detail: { method: 'password', realm, reason },
       });
       throw new ProblemException('invalid_credentials');
     };
@@ -142,8 +147,12 @@ export class CredentialsService {
         `SELECT u.id, u.email, u.email_verified, u.display_name, u.locale, u.status, u.is_platform_user,
                 k.password_hash, k.locked_until
            FROM identity.users u JOIN identity.credentials k ON k.user_id = u.id
-          WHERE u.issuer = $1 AND lower(u.email) = $2`,
-        [LOCAL_ISSUER, email],
+          WHERE lower(u.email) = $1 AND ${
+            realm === 'admin'
+              ? 'u.is_platform_user' // staff: any issuer, but only platform users
+              : `u.issuer = '${LOCAL_ISSUER}'`
+          }`,
+        [email],
       );
       return rows[0] ?? null;
     });
@@ -160,7 +169,8 @@ export class CredentialsService {
       return fail('wrong_password', row.id);
     }
     if (row.status !== 'active') return fail('user_disabled', row.id);
-    if (row.is_platform_user) return fail('platform_user', row.id);
+    // staff never sign in to the customer console with a password (and customers never reach the admin one: the query above)
+    if (realm === 'web' && row.is_platform_user) return fail('platform_user', row.id);
     await this.db.withoutScope((c) =>
       c.query(
         `UPDATE identity.credentials SET failed_attempts = 0, last_failed_at = NULL, locked_until = NULL WHERE user_id=$1`,

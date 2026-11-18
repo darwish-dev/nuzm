@@ -15,7 +15,7 @@ export function DomainTabs({
     { key: 'transfers', href: `/${locale}/domains/transfers`, perm: 'domain:read' },
   ] as const;
   return (
-    <nav aria-label={t(locale, 'dom.nav')} className="nz-row">
+    <nav aria-label={t(locale, 'dom.nav')} className="nz-row nz-subnav">
       {tabs
         .filter((x) => can(x.perm))
         .map((x) => (

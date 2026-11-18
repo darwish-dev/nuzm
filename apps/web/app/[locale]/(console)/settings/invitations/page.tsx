@@ -1,39 +1,19 @@
-import { notFound } from 'next/navigation';
-import { unwrap } from '@nuzm/sdk';
-import { formatDateTime, isLocale, t } from '@nuzm/i18n';
-import { EmptyState, PageTitle } from '@nuzm/ui';
-import { InvitationsTable, InviteForm } from '../../../../../components/TeamPanels';
-import { requireSession } from '../../../../../lib/server';
-import { view } from '../../../../../lib/view';
+import { notFound, redirect } from 'next/navigation';
+import { isLocale } from '@nuzm/i18n';
 
-export default async function Invitations({ params }: { params: Promise<{ locale: string }> }) {
+/** Kept so old links work: this is now the "invitations" section of /settings/team. */
+export default async function Moved({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const s = await requireSession(locale);
-  const body = await view(
-    locale,
-    async () => await unwrap(s.api.GET('/v1/invitations', { params: { query: { limit: 100 } } })),
-    (page) =>
-      page.items.length === 0 ? (
-        <EmptyState title={t(locale, 'state.empty.title')} body={t(locale, 'state.empty.body')} />
-      ) : (
-        <InvitationsTable
-          locale={locale}
-          items={page.items}
-          mfaFactorId={s.me.mfaFactorId ?? null}
-          fmt={Object.fromEntries(
-            page.items.map((i) => [i.id, formatDateTime(i.expiresAt, locale)]),
-          )}
-        />
-      ),
-  );
-  return (
-    <>
-      <PageTitle>{t(locale, 'invitations.title')}</PageTitle>
-      {s.can('member:invite') && (
-        <InviteForm locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
-      )}
-      {body}
-    </>
-  );
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(await searchParams))
+    for (const x of Array.isArray(v) ? v : v === undefined ? [] : [v]) q.append(k, x);
+  const qs = q.toString();
+  redirect(`/${locale}/settings/team${qs ? `?${qs}` : ''}#invitations`);
 }

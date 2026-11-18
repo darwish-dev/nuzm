@@ -1,0 +1,16 @@
+# EXAMPLE ONLY (ADR-060): not applied anywhere, not verified against a real edge. Maps https://<token>.<PREVIEW_DOMAIN>/<path> to the API route /_preview/<token>/<path>.
+# The serving process must run with NO egress and NO access to the vault or the internal network (network policy, HG-12-01).
+server {
+  listen 443 ssl;
+  server_name ~^(?<token>[a-z2-7]{32})\.nuzm-preview\.example$;
+  ssl_certificate     /etc/ssl/preview/wildcard.crt;   # wildcard for *.nuzm-preview.example (owner decision)
+  ssl_certificate_key /etc/ssl/preview/wildcard.key;
+  proxy_hide_header Set-Cookie;
+  proxy_set_header Cookie "";
+  proxy_set_header Authorization "";
+  location / {
+    # keep the Host header: the API accepts the request only when Host == <token>.<PREVIEW_DOMAIN>
+    proxy_set_header Host $host;
+    proxy_pass http://preview-api.internal:4000/_preview/$token$request_uri;
+  }
+}

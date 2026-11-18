@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import '@fontsource-variable/cairo';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { baseCss, cssVariables } from '@nuzm/ui';
+import { cookies } from 'next/headers';
+import { baseCss, consoleCss, cssVariables } from '@nuzm/ui';
 import { dir, isLocale, locales, t } from '@nuzm/i18n';
 
 export function generateStaticParams() {
@@ -26,12 +28,15 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
+  const theme = (await cookies()).get('nuzm_theme')?.value === 'light' ? 'light' : 'dark';
   return (
     <html lang={locale} dir={dir(locale)}>
       <head>
-        <style>{cssVariables() + baseCss}</style>
+        <style>{cssVariables() + baseCss + consoleCss}</style>
       </head>
-      <body>{children}</body>
+      <body className="nzc" data-theme={theme}>
+        {children}
+      </body>
     </html>
   );
 }

@@ -4,7 +4,7 @@ import { t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
 import { BuilderTabs } from '../../../../../../../components/BuilderParts';
 import { TestRuns } from '../../../../../../../components/BuilderTests';
-import { isUuid } from '../../../../../../../lib/builder';
+import { isUuid } from '../../../../../../../lib/appbuilder';
 import { bgate, bview } from '../../../../../../../lib/builder-gate';
 
 /** UI-M10-08: test runs, structured results, re-run and "Ask AI to fix" (a `test-fix` run). */

@@ -59,11 +59,13 @@ export default async function Ledger({
               {
                 key: 'w',
                 header: t(locale, 'field.when'),
+                icon: 'calendar',
                 render: (r) => formatDateTime(r.occurredAt, locale),
               },
               {
                 key: 'k',
                 header: t(locale, 'bill.ledger.kind'),
+                icon: 'code',
                 render: (r) => <Ltr>{r.kind}</Ltr>,
               },
               { key: 'd', header: t(locale, 'bill.f.description'), render: (r) => r.description },
@@ -79,11 +81,13 @@ export default async function Ledger({
               {
                 key: 'a',
                 header: t(locale, 'bill.f.amount'),
+                icon: 'tag',
                 render: (r) => <Ltr>{formatMinor(r.amountMinor, r.currency, locale)}</Ltr>,
               },
               {
                 key: 'b',
                 header: t(locale, 'bill.f.balance'),
+                icon: 'tag',
                 render: (r) => <Ltr>{formatMinor(r.balanceMinor, r.currency, locale)}</Ltr>,
               },
             ]}

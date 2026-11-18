@@ -52,11 +52,13 @@ export default async function Checkout({
             {
               key: 'q',
               header: t(locale, 'bill.f.quantity'),
+              icon: 'data',
               render: (i) => <Ltr>{`${trimDec(i.quantity)} ${i.unit}`}</Ltr>,
             },
             {
               key: 'a',
               header: t(locale, 'bill.f.amount'),
+              icon: 'tag',
               render: (i) => <Ltr>{formatMinor(i.amountMinor, q.currency, locale)}</Ltr>,
             },
           ]}

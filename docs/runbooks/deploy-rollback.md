@@ -1,6 +1,8 @@
-# Runbook — deploy and rollback of generated web apps (M10A)
-- Create: `POST /v1/deployments`; 403 `approval_required` lists approvals (production deploy, paid resource, destructive migration, dependencies); decide in the inbox; repeat.
-- Health gate fails → previous release restored automatically, deployment `failed` (`health_gate_failed`), audit `deploy.deployment.rolled_back` (automatic).
-- Manual rollback: `POST /v1/deployments/{id}/rollback` (idempotent). Production rollback needs `production_rollback`; a deployment that applied data-affecting (contract/destructive) migrations needs `data_migration_rollback`. Additive (expand) migrations are not reverted: the previous release works with the expanded schema; down scripts are applied only by a deliberate, approved forward fix.
-- Dependencies: no lockfile / typosquat / high advisory blocks before anything is built (422 `dependency_blocked`).
-- Targets are ports: only the in-memory dev target exists; real M06/M05 targets are not wired (NOT VERIFIED).
+# Runbook — deployment failure and rollback (M09; DRAFT)
+
+Pipeline: approval (human, bound to version + target + environment) → build → stage → smoke (staged: HTTP 200 on every page, TLS) → switch → smoke (live) → succeeded. A failed staged smoke leaves the previous artifact serving (`rolled_back`, no switch); a failed live smoke restores the previous artifact (`rolled_back`).
+- **Read the story:** `GET /v1/deployments/{id}` and `/logs` (append-only). `smoke.results` lists failing paths.
+- **Roll back a bad but "succeeded" deployment:** `POST /v1/deployments/{id}/rollback` (new Idempotency-Key). It restores the artifact of the previous succeeded deployment (by artifact hash) and creates a new deployment with `rollbackOf`.
+- **Stuck deployment:** `platform.operations` kind `deploy.run`; a dead worker's lease expires and `DeployService.tick` re-claims it; the engine asks the publisher what is live first (reconcile before retry).
+- **No publish path (422 `unsupported_capability`):** expected until M06 adds an artifact command to the node agent and a real node exists (HG-05-01/02, HG-06-01). Do not work around it by pushing files outside the pipeline.
+- **Custom domain:** bind through the hosting domains API (M07 linkage); the build uses the site's primary domain as canonical base URL.

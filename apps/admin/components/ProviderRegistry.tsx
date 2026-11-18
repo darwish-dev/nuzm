@@ -49,7 +49,12 @@ export function ProvidersTable(p: {
             </a>
           ),
         },
-        { key: 'kind', header: t(p.locale, 'field.kind'), render: (r) => <Ltr>{r.kind}</Ltr> },
+        {
+          key: 'kind',
+          icon: 'code',
+          header: t(p.locale, 'field.kind'),
+          render: (r) => <Ltr>{r.kind}</Ltr>,
+        },
         {
           key: 'ad',
           header: t(p.locale, 'm05.adm.col.adapter'),
@@ -73,6 +78,7 @@ export function ProvidersTable(p: {
         {
           key: 'st',
           header: t(p.locale, 'm05.adm.col.status'),
+          icon: 'pulse',
           render: (r) => (
             <Badge tone={r.status === 'active' ? undefined : 'warn'}>
               {tDynamic(p.locale, `m05.adm.status.${r.status}`, r.status)}
@@ -145,6 +151,7 @@ export function AccountHealthTable(p: { locale: Locale; accounts: AccountDto[] }
         {
           key: 'h',
           header: t(p.locale, 'm05.adm.col.health'),
+          icon: 'pulse',
           render: (a) => <HealthBadge locale={p.locale} state={a.health?.state} />,
         },
         {
@@ -155,6 +162,7 @@ export function AccountHealthTable(p: { locale: Locale; accounts: AccountDto[] }
         {
           key: 'l',
           header: t(p.locale, 'm05.adm.col.lastHealth'),
+          icon: 'pulse',
           render: (a) =>
             a.health?.lastHealthAt ? formatDateTime(a.health.lastHealthAt, p.locale) : '—',
         },

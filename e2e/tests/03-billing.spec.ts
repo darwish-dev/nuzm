@@ -89,10 +89,10 @@ async function elevate(email: string) {
 }
 
 async function enrolMfa(page: Page, info: TestInfo) {
-  await page.goto(`/${loc(info)}/account/security/mfa`);
+  await page.goto(`/${loc(info)}/account`);
   await page.getByRole('button', { name: T(info, 'mfa.start') }).click();
   await expect(page.getByRole('img', { name: T(info, 'mfa.qr') })).toBeVisible();
-  const secret = (await page.locator('main bdi').first().innerText()).trim();
+  const secret = (await page.locator('#mfa bdi').first().innerText()).trim();
   await page.getByLabel(T(info, 'field.code')).fill(totp(secret));
   await page.getByRole('button', { name: T(info, 'action.verify') }).click();
   await expect(page.getByText(T(info, 'mfa.done'))).toBeVisible();
@@ -152,16 +152,19 @@ test('billing: usage, quotas, statement, spending cap, quote and four-eyes appro
 
   // --- plans
   await go('/billing/plans');
-  await expect(page.getByRole('heading', { name: T(info, 'bill.plans.limits') })).toBeVisible();
-  await expect(page.getByText(T(info, 'bill.plans.placeholder')).first()).toBeVisible();
+  const plans = page.locator('#plans');
+  await expect(plans.getByRole('heading', { name: T(info, 'bill.plans.limits') })).toBeVisible();
+  await expect(plans.getByText(T(info, 'bill.plans.placeholder')).first()).toBeVisible();
   await audit(page, info, 'billing-plans');
 
   // --- usage explorer, drill-down and CSV
   await go('/billing/usage');
-  await expect(page.getByRole('cell', { name: 'network.egress_gb' }).first()).toBeVisible();
+  await expect(
+    page.locator('#usage').getByRole('cell', { name: 'network.egress_gb' }).first(),
+  ).toBeVisible();
   await expect(page.getByText('sa-pending').first()).toBeVisible();
   await audit(page, info, 'billing-usage');
-  await page.getByRole('link', { name: 'network.egress_gb' }).first().click();
+  await page.locator('#usage').getByRole('link', { name: 'network.egress_gb' }).first().click();
   await expect(
     page.getByRole('heading', {
       name: T(info, 'bill.usage.drill', { meter: 'network.egress_gb' }),
@@ -178,11 +181,13 @@ test('billing: usage, quotas, statement, spending cap, quote and four-eyes appro
   expect(text).toContain('network.egress_gb');
 
   // --- quotas: the hard quota is restricted, the soft one is near its limit
-  await go('/billing/quotas');
+  await go('/billing/quotas'); // lands on the usage page's quotas section
+  await expect(page).toHaveURL(/\/billing\/usage#quotas$/);
+  const quotas = page.locator('#quotas');
   await expect(
-    page.getByRole('alert').filter({ hasText: T(info, 'bill.quotas.restricted') }),
+    quotas.getByRole('alert').filter({ hasText: T(info, 'bill.quotas.restricted') }),
   ).toBeVisible();
-  await expect(page.getByText(T(info, 'bill.state.hard'), { exact: true }).first()).toBeVisible();
+  await expect(quotas.getByText(T(info, 'bill.state.hard'), { exact: true }).first()).toBeVisible();
   await audit(page, info, 'billing-quotas');
 
   // --- statement with running balance

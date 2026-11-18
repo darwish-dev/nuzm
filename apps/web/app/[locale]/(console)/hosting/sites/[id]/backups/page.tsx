@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
-import { Badge, EmptyState, Ltr, PageTitle, Table } from '@nuzm/ui';
-import { HostingTabs } from '../../../../../../../components/HostingTabs';
+import { Badge, EmptyState, Ltr, PageTitle, Table, Icon } from '@nuzm/ui';
 import { requireSession } from '../../../../../../../lib/server';
 import { view } from '../../../../../../../lib/view';
 
@@ -27,10 +26,16 @@ export default async function Backups({
           rows={data.items}
           rowKey={(b) => b.id}
           columns={[
-            { key: 'k', header: t(locale, 'host.col.kind'), render: (b) => <Ltr>{b.kind}</Ltr> },
+            {
+              key: 'k',
+              icon: 'code',
+              header: t(locale, 'host.col.kind'),
+              render: (b) => <Ltr>{b.kind}</Ltr>,
+            },
             {
               key: 's',
               header: t(locale, 'host.col.status'),
+              icon: 'pulse',
               render: (b) => (
                 <Badge
                   tone={
@@ -48,6 +53,7 @@ export default async function Backups({
             {
               key: 'z',
               header: t(locale, 'host.col.size'),
+              icon: 'globe',
               render: (b) =>
                 b.sizeBytes === null || b.sizeBytes === undefined ? (
                   '—'
@@ -58,11 +64,13 @@ export default async function Backups({
             {
               key: 'c',
               header: t(locale, 'host.col.checksum'),
+              icon: 'globe',
               render: (b) => (b.checksum ? <Ltr>{b.checksum.slice(0, 16)}…</Ltr> : '—'),
             },
             {
               key: 'e',
               header: t(locale, 'host.col.expires'),
+              icon: 'calendar',
               render: (b) => (b.expiresAt ? <Ltr>{b.expiresAt.slice(0, 10)}</Ltr> : '—'),
             },
           ]}
@@ -72,7 +80,10 @@ export default async function Backups({
   return (
     <>
       <PageTitle>{t(locale, 'host.tab.backups')}</PageTitle>
-      <HostingTabs locale={locale} siteId={id} current="backups" />
+      <a className="nzc-back" href={`/${locale}/hosting/sites/${id}`}>
+        <Icon name="chevron" size={16} />
+        {t(locale, 'host.tab.overview')}
+      </a>
       {body}
     </>
   );

@@ -437,16 +437,19 @@ export function BackupsPanel({
             {
               key: 'c',
               header: t(locale, 'field.created'),
+              icon: 'calendar',
               render: (b) => formatDateTime(b.createdAt, locale),
             },
             {
               key: 't',
               header: t(locale, 'field.type'),
+              icon: 'code',
               render: (b) => tDynamic(locale, `m8.bk.type.${b.type}`, b.type),
             },
             {
               key: 's',
               header: t(locale, 'm8.bk.col.size'),
+              icon: 'data',
               render: (b) => {
                 const s = formatBytes(b.size);
                 return s ? <Ltr>{s}</Ltr> : t(locale, 'm8.c.unavailable');
@@ -455,6 +458,7 @@ export function BackupsPanel({
             {
               key: 'st',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (b) => (
                 <StatusBadge
                   locale={locale}
@@ -467,6 +471,7 @@ export function BackupsPanel({
             {
               key: 'e',
               header: t(locale, 'm8.bk.col.expires'),
+              icon: 'calendar',
               render: (b) => (b.expiresAt ? formatDateTime(b.expiresAt, locale) : '—'),
             },
             {
@@ -484,6 +489,7 @@ export function BackupsPanel({
             {
               key: 'a',
               header: t(locale, 'field.action'),
+              icon: 'code',
               render: (b) =>
                 canAdmin && b.state === 'available' ? (
                   <Button variant="secondary" onClick={() => setTarget(b)}>
@@ -509,16 +515,19 @@ export function BackupsPanel({
             {
               key: 'c',
               header: t(locale, 'field.created'),
+              icon: 'calendar',
               render: (r) => formatDateTime(r.createdAt, locale),
             },
             {
               key: 'm',
               header: t(locale, 'field.type'),
+              icon: 'code',
               render: (r) => tDynamic(locale, `m8.rs.mode.${r.mode}`, r.mode),
             },
             {
               key: 's',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (r) => (
                 <>
                   <StatusBadge

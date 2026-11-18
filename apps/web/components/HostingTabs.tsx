@@ -20,7 +20,7 @@ export function HostingTabs({
     { key: 'usage', href: `${base}/usage` },
   ] as const;
   return (
-    <nav aria-label={t(locale, 'host.title.sites')} className="nz-row">
+    <nav aria-label={t(locale, 'host.title.sites')} className="nz-row nzc-subtabs">
       {tabs.map((x) => (
         <a
           key={x.key}

@@ -109,10 +109,16 @@ export function ApiKeysPanel(p: {
               header: t(p.locale, 'field.scopes'),
               render: (r) => <Ltr>{r.scopes.join(', ')}</Ltr>,
             },
-            { key: 'u', header: t(p.locale, 'field.lastUsed'), render: (r) => p.fmt[r.id] ?? '—' },
+            {
+              key: 'u',
+              icon: 'calendar',
+              header: t(p.locale, 'field.lastUsed'),
+              render: (r) => p.fmt[r.id] ?? '—',
+            },
             {
               key: 'st',
               header: t(p.locale, 'field.status'),
+              icon: 'pulse',
               render: (r) =>
                 r.revokedAt ? (
                   <Badge tone="danger">{t(p.locale, 'status.revoked')}</Badge>
@@ -123,6 +129,7 @@ export function ApiKeysPanel(p: {
             {
               key: 'a',
               header: t(p.locale, 'field.action'),
+              icon: 'code',
               render: (r) =>
                 r.revokedAt ? (
                   '—'
@@ -183,15 +190,22 @@ export function SessionsTable({
             header: t(locale, 'field.device'),
             render: (r) => <Ltr>{(r.userAgent ?? '—').slice(0, 60)}</Ltr>,
           },
-          { key: 'i', header: t(locale, 'field.ip'), render: (r) => <Ltr>{r.ip ?? '—'}</Ltr> },
+          {
+            key: 'i',
+            icon: 'globe',
+            header: t(locale, 'field.ip'),
+            render: (r) => <Ltr>{r.ip ?? '—'}</Ltr>,
+          },
           {
             key: 'l',
             header: t(locale, 'field.lastUsed'),
+            icon: 'calendar',
             render: (r) => fmt[r.id] ?? r.lastSeenAt,
           },
           {
             key: 'a',
             header: t(locale, 'field.action'),
+            icon: 'code',
             render: (r) =>
               r.current ? (
                 <Badge tone="success">{t(locale, 'session.current')}</Badge>

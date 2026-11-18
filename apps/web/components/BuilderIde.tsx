@@ -13,7 +13,7 @@ import {
   type Sandbox,
   type TestRun,
   type TreeNode,
-} from '../lib/builder';
+} from '../lib/appbuilder';
 import { newKey } from '../lib/data';
 import { Code, SandboxRuntime, Word } from './BuilderParts';
 import { useBuilderCall } from './BuilderUi';

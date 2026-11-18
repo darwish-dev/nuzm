@@ -52,6 +52,10 @@ const account = (o: Partial<AccountDto> = {}): AccountDto => ({
 const toneOf = (el: Element | null) => el?.closest('.nz-badge')?.getAttribute('data-tone');
 const badges = (c: HTMLElement) => [...c.querySelectorAll('.nz-badge')];
 
+/** Action controls only: the tables' Cards / Table view switch changes how a page looks, not what it does. */
+const actionButtons = () =>
+  screen.queryAllByRole('button').filter((b) => !b.closest('.nz-view-toggle'));
+
 describe('navigation (UI-M05-08..15)', () => {
   it('lists the sections only for a caller with admin:provider:read', () => {
     const { container, rerender } = render(
@@ -120,7 +124,7 @@ describe('accounts (UI-M05-09): a credential value is never shown or accepted', 
     const { rerender } = render(
       <AccountsTable locale="en" rows={[account()]} canManage={false} mfaFactorId={null} />,
     );
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(actionButtons()).toHaveLength(0);
     rerender(<AccountsTable locale="en" rows={[account()]} canManage mfaFactorId={null} />);
     expect(screen.getByRole('button', { name: /Run verification/ })).toBeTruthy();
   });
@@ -451,7 +455,7 @@ describe('resources and operations (UI-M05-12/13)', () => {
     );
     expect(container.textContent).toContain(t('en', 'm05.adm.res.audited'));
     expect(container.textContent).toContain(t('en', 'm05.adm.res.drift.orphan_suspected'));
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(actionButtons()).toHaveLength(0);
     rerender(
       <ResourcesTable locale="en" rows={[res()]} canManage mfaFactorId={null} caption="cap" />,
     );
@@ -617,8 +621,10 @@ describe('live verification (UI-M05-15): read-only, honest labels', () => {
         data={{ jobs: [job(), job({ jobId: 'live-verify-huawei', gate: 'HG-05-02' })], runs: [] }}
       />,
     );
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
-    expect(container.querySelector('form, input, button, select')).toBeNull();
+    expect(actionButtons()).toHaveLength(0);
+    expect(
+      container.querySelector('form, input, select, button:not(.nz-view-toggle button)'),
+    ).toBeNull();
     expect(container.textContent).toContain(t('en', 'm05.adm.lv.ownerOnly'));
     expect(container.textContent).toContain('HG-05-01');
     expect(container.textContent).toContain(t('en', 'm05.adm.lv.gate.pending'));

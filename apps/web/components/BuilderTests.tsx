@@ -12,7 +12,7 @@ import {
   settle,
   type TestRun,
   type TestSummaryView,
-} from '../lib/builder';
+} from '../lib/appbuilder';
 import { newKey } from '../lib/data';
 import { Word } from './BuilderParts';
 import { useBuilderCall } from './BuilderUi';
@@ -176,7 +176,7 @@ export function TestRuns({
       () =>
         browserApi().POST('/v1/ai/runs', {
           params: { header: { 'Idempotency-Key': fixKey } },
-          body: { kind: 'test-fix', projectId, brief: { testRunId: run.id } },
+          body: { kind: 'test-fix', projectId, brief: { testRunId: run.id } } as never,
         }),
       (r) => {
         setFixKey(newKey());

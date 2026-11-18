@@ -18,7 +18,7 @@ export const tokens = {
   space: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 6: '24px', 8: '32px' },
   radius: { sm: '4px', md: '8px' },
   font: {
-    sans: "system-ui, -apple-system, 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif",
+    sans: "'Cairo Variable', 'Cairo', system-ui, -apple-system, 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif",
   },
 } as const;
 
@@ -32,8 +32,20 @@ export function cssVariables(): string {
 
 export { baseCss } from './styles';
 export * from './components';
+export { consoleCss } from './console-css';
+export { Icon, ICON_NAMES, type IconName } from './icons';
+export {
+  PrimaryRail,
+  SectionTabs,
+  StatTile,
+  type RailItem,
+  type SideItem,
+  type SideGroup,
+} from './console-nav';
 export {
   LocaleSwitch,
+  ConsoleFrame,
+  ProfileMenu,
   MfaChallenge,
   MfaEnrol,
   useStepUp,
@@ -41,3 +53,16 @@ export {
   type MfaChallengeProps,
   type MfaEnrolProps,
 } from './client';
+export {
+  buildNavFrom,
+  currentCategoryOf,
+  currentItemId,
+  stripLocale,
+  type NavCategory,
+  type NavGroup,
+  type NavItem,
+  type NavContext,
+  type ResolvedCategory,
+  type ResolvedGroup,
+  type ResolvedItem,
+} from './nav-model';

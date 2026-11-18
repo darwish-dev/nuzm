@@ -3,7 +3,7 @@ import { unwrap } from '@nuzm/sdk';
 import { t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
 import { TerminalScreen } from '../../../../../../../../../components/BuilderTerminal';
-import { isUuid } from '../../../../../../../../../lib/builder';
+import { isUuid } from '../../../../../../../../../lib/appbuilder';
 import { bgate, bview } from '../../../../../../../../../lib/builder-gate';
 
 /** UI-M10-04: full-screen terminal layout. The terminal transport (WebSocket + ticket route) needs owner approval PA-M10-01 and is not enabled. */

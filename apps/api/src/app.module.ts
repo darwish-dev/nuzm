@@ -22,6 +22,11 @@ import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
 // M10A (app builder): append-only block
 import { AppBuilderModule } from './modules/appbuilder';
+// >>> M09 modules
+import { AiModule } from './modules/ai';
+import { BuilderModule } from './modules/builder';
+import { DeployModule } from './modules/deploy';
+// <<< M09 modules
 import { TenancyModule } from './modules/tenancy';
 
 @Module({
@@ -42,6 +47,11 @@ import { TenancyModule } from './modules/tenancy';
     DataModule,
     EmailModule,
     HostingModule,
+    // >>> M09 modules
+    AiModule,
+    BuilderModule,
+    DeployModule,
+    // <<< M09 modules
     IdentityModule,
     NotificationsModule,
     AccessModule,

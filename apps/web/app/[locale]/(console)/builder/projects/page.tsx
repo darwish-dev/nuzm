@@ -1,57 +1,49 @@
-import { unwrap } from '@nuzm/sdk';
-import { formatDateTime, t, tDynamic } from '@nuzm/i18n';
-import { ButtonLink, EmptyState, Ltr, PageTitle, Table } from '@nuzm/ui';
-import { bgate, bview } from '../../../../../lib/builder-gate';
+import { notFound } from 'next/navigation';
+import { isLocale, t } from '@nuzm/i18n';
+import { ButtonLink, PageTitle } from '@nuzm/ui';
+import { ProjectCards } from '../../../../../components/BuilderProjects';
+import { one, unwrapCall } from '../../../../../lib/compute';
+import type { Page_, Project } from '../../../../../lib/builder';
+import { builderGuard, builderView } from '../../../../../lib/builder-view';
 
-/** The web-app projects of the organization (entry of the sidebar item; the project overview is UI-M10-02). */
-export default async function BuilderProjects({ params }: { params: Promise<{ locale: string }> }) {
-  const g = await bgate(params, 'builder:read', 'm10.proj.title');
-  if (!g.ok) return g.node;
-  const { locale, s } = g;
-  const body = await bview(
+/** UI-M09-01: the organization's website projects. */
+export default async function Projects({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { locale } = await params;
+  const sp = await searchParams;
+  if (!isLocale(locale)) notFound();
+  const g = await builderGuard(locale, 'builder:read', 'bld.title.projects');
+  if (!g.ok) return g.denied;
+  const canCreate = g.s.can('builder:write');
+  const body = await builderView(
     locale,
-    () => unwrap(s.api.GET('/v1/builder/projects', { params: { query: { type: 'webapp' } } })),
-    (data) =>
-      data.items.length === 0 ? (
-        <EmptyState title={t(locale, 'm10.proj.empty')} body={t(locale, 'm10.proj.emptyBody')} />
-      ) : (
-        <Table
-          caption={t(locale, 'm10.proj.title')}
-          rows={data.items}
-          rowKey={(p) => p.id}
-          columns={[
-            {
-              key: 'n',
-              header: t(locale, 'field.name'),
-              render: (p) => <a href={`/${locale}/builder/projects/${p.id}`}>{p.name}</a>,
-            },
-            {
-              key: 't',
-              header: t(locale, 'field.type'),
-              render: (p) => tDynamic(locale, `m10.proj.type.${p.type}`, p.type),
-            },
-            {
-              key: 'r',
-              header: t(locale, 'field.region'),
-              render: (p) => <Ltr>{p.dataRegion ?? '—'}</Ltr>,
-            },
-            {
-              key: 'c',
-              header: t(locale, 'field.created'),
-              render: (p) => (p.createdAt ? formatDateTime(p.createdAt, locale) : '—'),
-            },
-          ]}
-        />
+    () =>
+      unwrapCall(
+        g.c.get<Page_<Project>>('/v1/builder/projects', {
+          query: { limit: 24, cursor: one(sp.cursor) || undefined },
+        }),
       ),
+    (page) => (
+      <ProjectCards
+        locale={locale}
+        items={page.items}
+        nextCursor={page.nextCursor}
+        canCreate={canCreate}
+      />
+    ),
   );
   return (
     <>
-      <PageTitle>{t(locale, 'm10.proj.title')}</PageTitle>
-      <p className="nz-muted">{t(locale, 'm10.proj.help')}</p>
-      {s.can('builder:write') && (
+      <PageTitle>{t(locale, 'bld.title.projects')}</PageTitle>
+      {canCreate && (
         <p>
-          <ButtonLink href={`/${locale}/builder/projects/new/app`}>
-            {t(locale, 'm10.proj.new')}
+          <ButtonLink href={`/${locale}/builder/new`}>
+            {t(locale, 'bld.projects.create')}
           </ButtonLink>
         </p>
       )}

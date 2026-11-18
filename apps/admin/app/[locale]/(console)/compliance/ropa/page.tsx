@@ -36,6 +36,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {
               key: 'k',
               header: t(locale, 'cmp.ropa.col.key'),
+              icon: 'shield',
               render: (r) => <Ltr>{r.entryKey}</Ltr>,
             },
             { key: 'a', header: t(locale, 'cmp.ropa.col.activity'), render: (r) => r.activity },
@@ -53,6 +54,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {
               key: 's',
               header: t(locale, 'cmp.ropa.col.status'),
+              icon: 'pulse',
               render: (r) => (
                 <Badge>{tDynamic(locale, `cmp.ropa.status.${r.status}`, r.status)}</Badge>
               ),

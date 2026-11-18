@@ -1,17 +1,9 @@
-import { notFound } from 'next/navigation';
-import { isLocale, t } from '@nuzm/i18n';
-import { PageTitle } from '@nuzm/ui';
-import { RecoveryCodes } from '../../../../../../components/AccountPanels';
-import { requireSession } from '../../../../../../lib/server';
+import { notFound, redirect } from 'next/navigation';
+import { isLocale } from '@nuzm/i18n';
 
+/** Kept so old links work: this is now the "recovery" section of the account page. */
 export default async function Recovery({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const s = await requireSession(locale);
-  return (
-    <>
-      <PageTitle>{t(locale, 'recovery.title')}</PageTitle>
-      <RecoveryCodes locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
-    </>
-  );
+  redirect(`/${locale}/account#recovery`);
 }

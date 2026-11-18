@@ -138,7 +138,7 @@ CREATE TABLE ai.approval_requests (
 CREATE UNIQUE INDEX approval_requests_open_idx ON ai.approval_requests (org_id, subject_type, subject_id, approval_type, action_hash) WHERE status = 'pending';
 CREATE INDEX approval_requests_org_idx ON ai.approval_requests (org_id, status, created_at DESC, id);
 CREATE INDEX approval_requests_run_idx ON ai.approval_requests (run_id) WHERE run_id IS NOT NULL;
-CREATE FUNCTION ai.approval_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION ai.approval_request_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'approvals are never deleted' USING ERRCODE = 'check_violation', HINT = 'immutable'; END IF;
   IF NEW.id <> OLD.id OR NEW.org_id <> OLD.org_id OR NEW.action <> OLD.action OR NEW.action_hash <> OLD.action_hash OR NEW.approval_type <> OLD.approval_type
@@ -150,7 +150,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-CREATE TRIGGER approval_guard BEFORE UPDATE OR DELETE ON ai.approval_requests FOR EACH ROW EXECUTE FUNCTION ai.approval_guard();
+CREATE TRIGGER approval_request_guard BEFORE UPDATE OR DELETE ON ai.approval_requests FOR EACH ROW EXECUTE FUNCTION ai.approval_request_guard();
 CREATE TRIGGER approval_no_truncate BEFORE TRUNCATE ON ai.approval_requests FOR EACH STATEMENT EXECUTE FUNCTION audit.deny_mutation();
 ALTER TABLE ai.approval_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai.approval_requests FORCE ROW LEVEL SECURITY;

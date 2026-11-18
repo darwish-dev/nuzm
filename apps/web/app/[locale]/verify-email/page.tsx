@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
+import { AuthLogo } from '../../../components/BrandLogo';
 import { Card, PageTitle } from '@nuzm/ui';
 import { VerifyEmail } from '../../../components/AuthForms';
 
@@ -15,6 +16,7 @@ export default async function VerifyEmailPage({
   if (!isLocale(locale)) notFound();
   return (
     <main className="nz-main" style={{ maxInlineSize: 480, marginInline: 'auto' }}>
+      <AuthLogo href={`/${locale}`} />
       <PageTitle>{t(locale, 'verify.title')}</PageTitle>
       <Card>
         {token ? (

@@ -32,9 +32,13 @@ export function InstancesPanel(p: {
         caption={t(locale, 'm05.web.instances.title')}
         rows={p.items}
         rowKey={(i) => i.id}
+        cardIcon="cloud"
+        rowHref={(i) => `/${locale}/compute/instances/${i.id}`}
+        manageLabel={t(locale, 'action.manage')}
         columns={[
           {
             key: 'name',
+            card: 'title',
             header: t(locale, 'field.name'),
             render: (i) => (
               <a href={`/${locale}/compute/instances/${i.id}`}>
@@ -44,14 +48,18 @@ export function InstancesPanel(p: {
           },
           {
             key: 'status',
+            card: 'badge',
             header: t(locale, 'field.status'),
+            icon: 'pulse',
             render: (i) => (
               <InstanceBadges locale={locale} status={i.status} driftState={i.driftState} />
             ),
           },
           {
             key: 'plan',
+            card: 'subtitle',
             header: t(locale, 'm05.web.f.plan'),
+            icon: 'tag',
             render: (i) =>
               t(locale, 'm05.web.plan.summary', {
                 vcpu: i.plan.vcpu,
@@ -60,7 +68,9 @@ export function InstancesPanel(p: {
           },
           {
             key: 'region',
+            card: 'chip',
             header: t(locale, 'field.region'),
+            icon: 'pin',
             render: (i) => (
               <>
                 {regionLabel(locale, i.dataRegion)} <Ltr>{i.country}</Ltr>
@@ -69,12 +79,15 @@ export function InstancesPanel(p: {
           },
           {
             key: 'ips',
+            card: 'footer',
             header: t(locale, 'm05.web.f.ips'),
             render: (i) => (i.publicIps.length ? <Ltr>{i.publicIps.join(', ')}</Ltr> : '—'),
           },
           {
             key: 'created',
+            card: 'meta',
             header: t(locale, 'field.created'),
+            icon: 'calendar',
             render: (i) => formatDateTime(i.createdAt, locale),
           },
         ]}

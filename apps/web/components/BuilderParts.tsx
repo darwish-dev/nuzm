@@ -8,7 +8,7 @@ import {
   type Run,
   type RunMeter,
   type Runtime,
-} from '../lib/builder';
+} from '../lib/appbuilder';
 import { SectionTabs } from './DataParts';
 
 /** Server-safe presentational pieces of the app-builder screens. No state, no I/O. */

@@ -1,13 +1,17 @@
 import { notFound } from 'next/navigation';
 import { ApiError, unwrap, type Schemas } from '@nuzm/sdk';
 import { formatDateTime, t, tDynamic } from '@nuzm/i18n';
-import { Badge, Banner, Button, Card, Ltr, PageTitle } from '@nuzm/ui';
+import { Badge, Banner, Button, Icon, Ltr, PageTitle } from '@nuzm/ui';
+import { OperationNote, StatusBadge } from '../../../../../components/DataParts';
 import {
-  DatabaseTabs,
-  Fact,
-  OperationNote,
-  StatusBadge,
-} from '../../../../../components/DataParts';
+  ActionLink,
+  ActionPanel,
+  ActionRow,
+  OverviewLayout,
+  SidePanel,
+  SpecTiles,
+  SummaryCard,
+} from '../../../../../components/Overview';
 import { databaseTone } from '../../../../../lib/data';
 import { gate } from '../../../../../lib/gate';
 import { view } from '../../../../../lib/view';
@@ -36,8 +40,11 @@ export default async function DatabaseOverview({
       const windowEnds = d.rotation?.windowEndsAt ?? null;
       return (
         <>
-          <PageTitle>{d.name}</PageTitle>
-          <DatabaseTabs locale={locale} id={d.id} current="overview" />
+          <a className="nzc-back" href={`/${locale}/databases`}>
+            <Icon name="chevron" size={16} />
+            {t(locale, 'm8.db.title')}
+          </a>
+          <PageTitle>{t(locale, 'm8.dbd.title')}</PageTitle>
           {d.status === 'provisioning' && (
             <OperationNote locale={locale} operationId={d.operationId} banner />
           )}
@@ -53,70 +60,144 @@ export default async function DatabaseOverview({
                 : t(locale, 'm8.dbd.rotationActive')}
             </Banner>
           )}
-          <Card aria-label={t(locale, 'm8.dbd.title')}>
-            <dl>
-              <Fact label={t(locale, 'field.status')}>
-                <StatusBadge
-                  locale={locale}
-                  prefix="m8.db.status"
-                  value={d.status}
-                  tone={databaseTone(d.status)}
+          <OverviewLayout
+            sideLabel={t(locale, 'm8.dbd.ov.summary')}
+            main={
+              <>
+                <ActionPanel
+                  id="db-manage"
+                  title={t(locale, 'm8.dbd.ov.title', { name: d.name })}
+                  sub={t(locale, 'm8.dbd.ov.sub')}
+                >
+                  <ActionRow
+                    icon="cloud"
+                    featured
+                    title={t(locale, 'm8.dbd.tab.backups')}
+                    desc={t(locale, 'm8.dbd.ov.backups')}
+                    action={
+                      <ActionLink
+                        href={`/${locale}/databases/${d.id}/backups`}
+                        label={t(locale, 'm8.dbd.ov.open')}
+                        primary
+                      />
+                    }
+                  />
+                  <ActionRow
+                    icon="panel"
+                    title={t(locale, 'm8.dbd.tab.settings')}
+                    desc={t(locale, 'm8.dbd.ov.settings')}
+                    action={
+                      <ActionLink
+                        href={`/${locale}/databases/${d.id}/settings`}
+                        label={t(locale, 'm8.dbd.ov.open')}
+                      />
+                    }
+                  />
+                  <ActionRow
+                    icon="key"
+                    title={t(locale, 'm8.dbd.credential')}
+                    desc={
+                      <>
+                        {t(locale, 'm8.dbd.vaultHelp')}{' '}
+                        <span id="db-reveal-note">{t(locale, 'm8.dbd.revealPending')}</span>
+                      </>
+                    }
+                    action={
+                      <Button variant="secondary" disabled aria-describedby="db-reveal-note">
+                        {t(locale, 'm8.dbd.reveal')}
+                      </Button>
+                    }
+                  />
+                  <ActionRow
+                    icon="hosting"
+                    title={t(locale, 'm8.dbd.bindings')}
+                    desc={t(locale, 'm8.dbd.bindingsNone')}
+                  />
+                </ActionPanel>
+              </>
+            }
+            side={
+              <>
+                <SummaryCard
+                  name={<Ltr>{d.name}</Ltr>}
+                  badges={
+                    <StatusBadge
+                      locale={locale}
+                      prefix="m8.db.status"
+                      value={d.status}
+                      tone={databaseTone(d.status)}
+                    />
+                  }
+                  gauge={
+                    <SpecTiles
+                      items={[
+                        {
+                          value: `${tDynamic(locale, `m8.engine.${d.engine}`, d.engine)} ${d.version}`,
+                          caption: t(locale, 'm8.dbd.ov.engine'),
+                        },
+                        {
+                          value: d.backupPolicy.enabled ? `${d.backupPolicy.intervalHours}h` : '—',
+                          caption: t(locale, 'm8.dbd.ov.backupEvery'),
+                        },
+                        {
+                          value: d.backupPolicy.enabled ? `${d.backupPolicy.retentionDays}d` : '—',
+                          caption: t(locale, 'm8.dbd.ov.kept'),
+                        },
+                      ]}
+                    />
+                  }
+                  rows={[
+                    {
+                      icon: 'lock',
+                      label: t(locale, 'm8.dbd.tls'),
+                      value: <Badge tone="success">{t(locale, 'm8.dbd.tlsRequired')}</Badge>,
+                    },
+                    {
+                      icon: 'shield',
+                      label: t(locale, 'm8.dbn.network'),
+                      value:
+                        d.network.access === 'private'
+                          ? t(locale, 'm8.dbn.net.private')
+                          : t(locale, 'm8.dbn.net.allowlist'),
+                    },
+                    {
+                      icon: 'pin',
+                      label: t(locale, 'field.region'),
+                      value: <Ltr>{d.dataRegion}</Ltr>,
+                    },
+                    {
+                      icon: 'calendar',
+                      label: t(locale, 'field.created'),
+                      value: formatDateTime(d.createdAt, locale),
+                    },
+                  ]}
                 />
-              </Fact>
-              <Fact label={t(locale, 'm8.db.col.engine')}>
-                {tDynamic(locale, `m8.engine.${d.engine}`, d.engine)} {d.version}
-              </Fact>
-              <Fact label={t(locale, 'm8.dbd.endpoint')}>
-                {d.endpoint ? (
-                  <Ltr>{`${d.endpoint.host}:${d.endpoint.port}`}</Ltr>
-                ) : (
-                  t(locale, 'm8.dbd.noEndpoint')
-                )}
-              </Fact>
-              <Fact label={t(locale, 'm8.dbd.tls')}>
-                <Badge tone="success">{t(locale, 'm8.dbd.tlsRequired')}</Badge>
-              </Fact>
-              <Fact label={t(locale, 'm8.dbn.network')}>
-                {d.network.access === 'private' ? (
-                  t(locale, 'm8.dbn.net.private')
-                ) : (
-                  <>
-                    {t(locale, 'm8.dbn.net.allowlist')}:{' '}
-                    <Ltr>{(d.network.allowCidrs ?? []).join(', ') || '—'}</Ltr>
-                  </>
-                )}
-              </Fact>
-              <Fact label={t(locale, 'field.region')}>{d.dataRegion}</Fact>
-              <Fact label={t(locale, 'm8.dbd.backupPolicy')}>
-                {d.backupPolicy.enabled
-                  ? t(locale, 'm8.dbd.backupOn', {
-                      hours: d.backupPolicy.intervalHours,
-                      days: d.backupPolicy.retentionDays,
-                    })
-                  : t(locale, 'm8.dbd.backupOff')}
-              </Fact>
-              <Fact label={t(locale, 'field.created')}>{formatDateTime(d.createdAt, locale)}</Fact>
-            </dl>
-          </Card>
-          <Card aria-label={t(locale, 'm8.dbd.credential')} style={{ marginBlockStart: 16 }}>
-            <h2 className="nz-h2">{t(locale, 'm8.dbd.credential')}</h2>
-            <p>
-              {t(locale, 'm8.dbd.vaultRef')}: {d.vaultRef ? <Ltr>{d.vaultRef}</Ltr> : '—'}
-            </p>
-            <p className="nz-muted">{t(locale, 'm8.dbd.vaultHelp')}</p>
-            <p>
-              <Button variant="secondary" disabled aria-describedby="db-reveal-note">
-                {t(locale, 'm8.dbd.reveal')}
-              </Button>
-            </p>
-            <p id="db-reveal-note" className="nz-muted">
-              {t(locale, 'm8.dbd.revealPending')}
-            </p>
-          </Card>
-          <Card aria-label={t(locale, 'm8.dbd.bindings')} style={{ marginBlockStart: 16 }}>
-            <h2 className="nz-h2">{t(locale, 'm8.dbd.bindings')}</h2>
-            <p className="nz-muted">{t(locale, 'm8.dbd.bindingsNone')}</p>
-          </Card>
+                <SidePanel title={t(locale, 'm8.dbd.endpoint')}>
+                  {d.endpoint ? (
+                    <ul className="nzc-ns-list">
+                      <li>{`${d.endpoint.host}:${d.endpoint.port}`}</li>
+                    </ul>
+                  ) : (
+                    <p className="nz-muted" style={{ margin: 0 }}>
+                      {t(locale, 'm8.dbd.noEndpoint')}
+                    </p>
+                  )}
+                  {d.network.access !== 'private' && (d.network.allowCidrs ?? []).length > 0 && (
+                    <ul className="nzc-ns-list" style={{ marginBlockStart: 8 }}>
+                      {(d.network.allowCidrs ?? []).map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  )}
+                </SidePanel>
+                <SidePanel title={t(locale, 'm8.dbd.credential')}>
+                  <p className="nz-muted" style={{ margin: 0, overflowWrap: 'anywhere' }}>
+                    {t(locale, 'm8.dbd.vaultRef')}: {d.vaultRef ? <Ltr>{d.vaultRef}</Ltr> : '—'}
+                  </p>
+                </SidePanel>
+              </>
+            }
+          />
         </>
       );
     },

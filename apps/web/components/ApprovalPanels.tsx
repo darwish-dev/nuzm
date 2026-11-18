@@ -14,7 +14,7 @@ import {
   settle,
   type Approval,
   type ApprovalType,
-} from '../lib/builder';
+} from '../lib/appbuilder';
 import { newKey } from '../lib/data';
 import { Code, TextArea, Word } from './BuilderParts';
 import { useBuilderCall } from './BuilderUi';
@@ -141,10 +141,10 @@ export function ApprovalDecision({
     void call.run(
       () =>
         runId
-          ? browserApi().POST('/v1/ai/runs/{id}/approvals', {
+          ? (browserApi().POST('/v1/ai/runs/{id}/approvals', {
               params: { path: { id: runId }, header: { 'Idempotency-Key': key } },
-              body: { approvalId: approval.id, ...body },
-            })
+              body: { approvalId: approval.id, ...body } as never,
+            }) as never)
           : browserApi().POST('/v1/ai/approvals/{approvalId}/decisions', {
               params: { path: { approvalId: approval.id }, header: { 'Idempotency-Key': key } },
               body,
@@ -152,7 +152,7 @@ export function ApprovalDecision({
       (a) => {
         const m = mode;
         setMode(null);
-        onDecided(m, a as Approval);
+        onDecided(m, a as unknown as Approval);
       },
       (f) => {
         const k = decisionErrorKey(f.problem.status, f.problem.code);

@@ -21,7 +21,7 @@ export function ComplianceTabs({ locale, current }: { locale: Locale; current: s
     'transfer-assessments': 'cmp.tab.transfer',
   } as const;
   return (
-    <nav aria-label={t(locale, 'cmp.nav')} className="nz-row">
+    <nav aria-label={t(locale, 'cmp.nav')} className="nz-row nz-subnav">
       {tabs.map((k) => (
         <a
           key={k}

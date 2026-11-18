@@ -4,7 +4,7 @@ import { t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
 import { FileBrowser, RunPanel } from '../../../../../../../components/BuilderIde';
 import { BuilderTabs } from '../../../../../../../components/BuilderParts';
-import { isUuid } from '../../../../../../../lib/builder';
+import { isUuid } from '../../../../../../../lib/appbuilder';
 import { bgate, bview } from '../../../../../../../lib/builder-gate';
 
 /** UI-M10-03: browser IDE: file tree, READ-ONLY viewer, preview placeholder (isolated origin: not implemented in M10A) and the run panel. */

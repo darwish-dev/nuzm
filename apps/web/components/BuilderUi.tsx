@@ -10,7 +10,7 @@ import {
   type ApprovalRef,
   type FieldProblem,
   type Res,
-} from '../lib/builder';
+} from '../lib/appbuilder';
 import { newKey, type ProblemInfo } from '../lib/data';
 import type { DataNotice } from './DataUi';
 import { useStepUp } from './StepUp';

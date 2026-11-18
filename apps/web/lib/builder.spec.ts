@@ -1,305 +1,477 @@
 import { describe, expect, it } from 'vitest';
+import { tDynamic } from '@nuzm/i18n';
+
+const has = (key: string) => (['ar', 'en'] as const).every((l) => tDynamic(l, key, '') !== '');
 import {
-  APPROVAL_ROLES,
-  APPROVAL_TYPES,
-  approvalLapsed,
-  approvalsOf,
-  buildPatch,
-  buildTree,
-  builderError,
-  decisionErrorKey,
-  diffOf,
-  downloadValid,
-  fieldProblems,
-  healthOf,
-  isIsolated,
-  isLiveRun,
-  maskSecrets,
-  meterLevel,
-  minorToSar,
-  percentUsed,
+  EVENT_KEYS,
+  TEMPLATE_IDS,
+  approvalView,
+  canRollback,
+  cmsValue,
+  createSseParser,
+  credits,
+  deployTone,
+  draftOps,
+  emptyHistory,
+  eventText,
+  finishRedo,
+  finishUndo,
+  inspectorFields,
+  isBaseUrl,
+  isDeployActive,
+  isPreviewUrl,
+  isRunActive,
+  isRunFinished,
+  mergeEvent,
+  moveOp,
+  nextRedo,
+  nextSectionId,
+  nextUndo,
+  outlineOf,
+  pageSeoOp,
+  problemKey,
   problemOf,
-  runMeters,
-  runWarns,
-  safeHref,
-  safeRelPath,
-  safeText,
-  sarToMinor,
-  settle,
-  splitNames,
-  summaryOf,
-  validateBudget,
+  pushEdit,
+  runTone,
+  sampleSection,
+  shouldReconnect,
+  siteSeoOp,
+  styleOf,
+  toRunEvent,
+  type Deployment,
+  type RunEvent,
+  type Section,
+  type SiteModel,
+  type SseFrame,
 } from './builder';
 
-const run = (tokens: number, cost: number, minutesLeft: number) =>
-  ({
-    budget: { maxTokens: 1000, maxCostMinor: 5000, maxMinutes: 30 },
-    usage: { tokensIn: tokens, tokensOut: 0, costMinor: cost, steps: 1 },
-    budgetRemaining: {
-      tokens: 1000 - tokens,
-      costMinor: 5000 - cost,
-      minutes: minutesLeft,
-      steps: 10,
-    },
-  }) as never;
+const frames = (chunks: string[]): SseFrame[] => {
+  const out: SseFrame[] = [];
+  const p = createSseParser((f) => out.push(f));
+  for (const c of chunks) p.push(c);
+  return out;
+};
 
-describe('money and budget input (integer minor units, no floats)', () => {
-  it('converts SAR text to halalas', () => {
-    expect(sarToMinor('500')).toBe(50000);
-    expect(sarToMinor('12.5')).toBe(1250);
-    expect(sarToMinor('12.50')).toBe(1250);
-    expect(sarToMinor('0.05')).toBe(5);
-    for (const bad of ['', '0', '-1', '1.234', 'abc', '1e3', '1.2.3'])
-      expect(sarToMinor(bad)).toBeNull();
-    expect(minorToSar(50000)).toBe('500.00');
-    expect(minorToSar(5)).toBe('0.05');
+describe('SSE frame parser', () => {
+  const ev = (seq: number, type: string) =>
+    `id: ${seq}\nevent: ${type}\ndata: ${JSON.stringify({ seq, type, data: { task: 'page' }, at: '2027-01-01T00:00:00.000Z' })}\n\n`;
+  it('parses complete frames and ignores retry and keep-alive comments', () => {
+    const f = frames([
+      'retry: 2000\n\n',
+      ': keep-alive\n\n',
+      ev(1, 'created'),
+      ev(2, 'step_started'),
+    ]);
+    expect(f.map((x) => [x.id, x.event])).toEqual([
+      ['1', 'created'],
+      ['2', 'step_started'],
+    ]);
   });
-  it('holds tokens and minutes to the ceilings', () => {
-    expect(validateBudget({ tokens: '2000000', cost: '10', minutes: '60' })).toEqual({
-      ok: true,
-      budget: { maxTokens: 2_000_000, maxCostMinor: 1000, maxMinutes: 60 },
+  it('reassembles a frame split at any byte boundary', () => {
+    const whole = ev(7, 'artifact');
+    for (let i = 1; i < whole.length; i++) {
+      const f = frames([whole.slice(0, i), whole.slice(i)]);
+      expect(f).toHaveLength(1);
+      expect(toRunEvent(f[0]!)?.seq).toBe(7);
+    }
+  });
+  it('accepts CRLF and joins multi-line data', () => {
+    const f = frames(['id: 3\r\nevent: x\r\ndata: a\r\ndata: b\r\n\r\n']);
+    expect(f).toEqual([{ id: '3', event: 'x', data: 'a\nb' }]);
+  });
+  it('a lone CR at the end of a chunk waits for its LF', () => {
+    expect(frames(['data: one\r', '\n\r', '\n'])).toEqual([{ data: 'one' }]);
+  });
+  it('drops malformed events instead of throwing', () => {
+    expect(toRunEvent({ data: 'not json' })).toBeNull();
+    expect(toRunEvent({ data: '{"seq":"1","type":"x"}' })).toBeNull();
+    expect(toRunEvent({ data: '[1]' })).toBeNull();
+  });
+});
+
+describe('run events and states', () => {
+  const e = (seq: number, type = 'x'): RunEvent => ({ seq, type, data: {}, at: '' });
+  it('merging keeps seq order and drops replays after a reconnect', () => {
+    let l: RunEvent[] = [];
+    for (const s of [3, 1, 2, 2, 3]) l = mergeEvent(l, e(s));
+    expect(l.map((x) => x.seq)).toEqual([1, 2, 3]);
+  });
+  it('state classes', () => {
+    expect(isRunActive('waiting_approval')).toBe(true);
+    expect(isRunActive('succeeded')).toBe(false);
+    expect(isRunFinished('budget_exceeded')).toBe(true);
+    expect(isRunFinished('waiting_approval')).toBe(false);
+    expect(runTone('failed')).toBe('danger');
+    expect(runTone('waiting_approval')).toBe('warn');
+  });
+  it('the stream is reopened only while the run needs no human decision', () => {
+    expect(shouldReconnect('running')).toBe(true);
+    expect(shouldReconnect('queued')).toBe(true);
+    expect(shouldReconnect('waiting_approval')).toBe(false);
+    expect(shouldReconnect('cancelled')).toBe(false);
+  });
+  it('every known event type has a message in both languages', () => {
+    for (const k of EVENT_KEYS) {
+      expect(has(`bld.ev.${k}`)).toBe(true);
+    }
+    expect(eventText({ seq: 1, type: 'step_started', data: { task: 'page' }, at: '' })).toEqual({
+      key: 'bld.ev.step_started',
+      params: expect.objectContaining({ task: 'page' }),
     });
-    const bad = validateBudget({ tokens: '2000001', cost: '0', minutes: '61' });
-    expect(bad).toEqual({
-      ok: false,
-      errors: {
-        tokens: 'm10.wiz.err.tokens',
-        cost: 'm10.wiz.err.cost',
-        minutes: 'm10.wiz.err.minutes',
+  });
+  it('reads a pending approval defensively (plan pages, change-set diff and risks); the stored payload is never exposed', () => {
+    const v = approvalView({
+      id: 'a',
+      kind: 'apply_changes',
+      expiresAt: '',
+      summary: {
+        title: 'Apply',
+        diff: {
+          structural: [{ kind: 'component_changed', pageId: 'home', summary: 's' }],
+          text: [],
+        },
+        risks: [{ code: 'deletes_page', count: 1 }],
+        payload: { secret: 1 },
       },
     });
-  });
-  it('splits one name per line, de-duplicated', () => {
-    expect(splitNames('Customer\n customer \nInvoice,\n\nمدير،موظف')).toEqual([
-      'Customer',
-      'Invoice',
-      'مدير',
-      'موظف',
-    ]);
-  });
-});
-
-describe('budget meter', () => {
-  it('warns from 80 % and flags 100 %', () => {
-    expect(percentUsed(79, 100)).toBe(79);
-    expect(meterLevel(79)).toBe('ok');
-    expect(meterLevel(80)).toBe('warn');
-    expect(meterLevel(100)).toBe('exceeded');
-    expect(percentUsed(5, 0)).toBe(0);
-  });
-  it('derives minutes used from the remaining figure', () => {
-    const m = runMeters(run(100, 100, 6));
-    expect(m.find((x) => x.key === 'minutes')).toMatchObject({
-      used: 24,
-      max: 30,
-      pct: 80,
-      level: 'warn',
-    });
-    expect(runWarns(run(100, 100, 6))).toBe(true);
-    expect(runWarns(run(100, 100, 29))).toBe(false);
-  });
-  it('knows the live states', () => {
-    expect(['queued', 'running', 'waiting_approval'].every(isLiveRun)).toBe(true);
-    expect(['succeeded', 'failed', 'cancelled', 'budget_exceeded'].some(isLiveRun)).toBe(false);
-  });
-});
-
-describe('secrets never reach the screen', () => {
-  it('masks secret-named keys and token-like text', () => {
-    expect(
-      maskSecrets({ path: 'a.ts', apiKey: 'x', nested: { Authorization: 'Bearer abc', ok: 1 } }),
-    ).toEqual({
-      path: 'a.ts',
-      apiKey: '[REDACTED]',
-      nested: { Authorization: '[REDACTED]', ok: 1 },
-    });
-    expect(safeText('key is sk_live_abcdefghijklmnopqrstuvwxyz0123 ok')).toBe(
-      'key is [REDACTED] ok',
-    );
-  });
-  it('field problems keep only path and masked message', () => {
-    expect(
-      fieldProblems({
-        errors: [
-          {
-            path: 'patches[0].content',
-            message: 'secret pattern aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-          },
-          7,
-        ],
-      }),
-    ).toEqual([{ field: 'patches[0].content', message: 'secret pattern [REDACTED]' }]);
-  });
-});
-
-describe('errors', () => {
-  const p = (status: number, code?: string, detail?: string) =>
-    problemOf({ response: { status }, error: { code, detail } });
-  it('maps the documented codes to plain language', () => {
-    expect(builderError('en', p(402, 'budget_required')).text).toMatch(/budget or credit/i);
-    expect(builderError('en', p(409, 'sandbox_quota_exceeded')).text).toMatch(/maximum number/i);
-    expect(builderError('en', p(503, 'sandbox_no_capacity')).text).toMatch(/capacity/i);
-    expect(builderError('en', p(409, 'base_mismatch')).text).toMatch(/changed/i);
-    expect(builderError('ar', p(409, 'base_mismatch')).text).toMatch(/[\u0600-\u06ff]/);
-    expect(builderError('en', p(404)).text).toMatch(/not enabled/i);
-    expect(builderError('en', p(0)).text).toMatch(/Cannot reach/i);
-  });
-  it('shows the reason of an unsupported capability, masked', () => {
-    const e = builderError('en', p(422, 'unsupported_capability', 'mobile is M10B'));
-    expect(e.detail).toBe('mobile is M10B');
-  });
-  it('decision errors: stale hash, expired, role', () => {
-    expect(decisionErrorKey(409, 'stale_approval_hash')).toBe('m10.apr.err.stale');
-    expect(decisionErrorKey(410, 'gone')).toBe('m10.apr.err.expired');
-    expect(decisionErrorKey(403, 'forbidden')).toBe('m10.apr.err.role');
-  });
-  it('reads the approvals of a 403 approval_required', () => {
-    expect(
-      approvalsOf({
-        approvals: [{ id: 'a', type: 'production_deploy', scopeHash: 'h' }, { id: 1 }, null],
-      }),
-    ).toEqual([{ id: 'a', type: 'production_deploy', scopeHash: 'h' }]);
-    expect(approvalsOf(undefined)).toEqual([]);
-  });
-  it('settle turns a network failure into status 0', async () => {
-    const r = await settle(() => Promise.reject(new TypeError('failed to fetch')));
-    expect(r.response.status).toBe(0);
-  });
-});
-
-describe('approvals', () => {
-  it('lists every type with its deciding roles (M10 §9)', () => {
-    expect(APPROVAL_TYPES).toHaveLength(10);
-    expect(APPROVAL_ROLES.release_owner).toEqual(['owner']);
-    expect(APPROVAL_ROLES.egress_or_dependency).toEqual(['owner', 'admin', 'developer']);
-    expect(APPROVAL_ROLES.paid_resource).toContain('billing_admin');
-    expect(APPROVAL_ROLES.production_deploy).toEqual(['owner', 'admin']);
-  });
-  it('a pending approval past its expiry is lapsed', () => {
-    const now = Date.parse('2026-11-18T12:00:00Z');
-    expect(approvalLapsed({ status: 'pending', expiresAt: '2026-11-18T11:59:00Z' }, now)).toBe(
-      true,
-    );
-    expect(approvalLapsed({ status: 'pending', expiresAt: '2026-11-19T11:59:00Z' }, now)).toBe(
-      false,
-    );
-    expect(approvalLapsed({ status: 'approved', expiresAt: '2026-11-18T11:59:00Z' }, now)).toBe(
-      false,
+    expect(v.diff?.structural[0]?.kind).toBe('component_changed');
+    expect(v.risks).toEqual([{ code: 'deletes_page', count: 1 }]);
+    expect(JSON.stringify(v)).not.toContain('secret');
+    expect(approvalView({ id: 'a', kind: 'plan', expiresAt: '', summary: 'weird' }).pages).toEqual(
+      [],
     );
   });
 });
 
-describe('sandbox honesty', () => {
-  it('only verified isolation is isolated', () => {
-    expect(isIsolated({ kind: 'isolated', isolation: 'verified' })).toBe(true);
-    for (const i of ['none', 'simulated', undefined])
-      expect(isIsolated({ kind: 'mock', isolation: i })).toBe(false);
-    expect(isIsolated(undefined)).toBe(false);
+describe('problems', () => {
+  const r = (status: number, error: Record<string, unknown>) =>
+    problemOf({ response: new Response(null, { status }), error });
+  it('maps the wizard errors by code', () => {
+    expect(problemKey(r(402, { code: 'insufficient_credits' }))).toBe(
+      'bld.err.insufficient_credits',
+    );
+    expect(problemKey(r(403, { code: 'residency_denied' }))).toBe('bld.err.residency_denied');
+    expect(problemKey(r(422, { code: 'unsupported_capability' }))).toBe(
+      'bld.err.unsupported_capability',
+    );
+    expect(problemKey(r(503, { code: 'ai_unavailable' }))).toBe('bld.err.ai_unavailable');
+    expect(problemKey(r(422, { code: 'quota_exceeded' }))).toBe('bld.err.quota_exceeded');
+  });
+  it('falls back by status, and 403 without a code is the generic forbidden text', () => {
+    expect(problemKey(r(403, {}))).toBe('state.forbidden.title');
+    expect(problemKey(r(409, {}))).toBe('bld.err.conflict');
+    expect(problemKey(r(429, {}))).toBe('bld.err.rate_limited');
+    expect(problemKey(r(500, {}))).toBe('state.error.title');
+  });
+  it('carries the rebase info, the validation issues and the approval id', () => {
+    const p = r(409, { code: 'base_outdated', headVersionId: 'v9', headSeq: 9 });
+    expect(p.headSeq).toBe(9);
+    const q = r(422, { code: 'op_invalid', errors: [{ path: '$.x', message: 'bad' }, 3] });
+    expect(q.issues).toEqual([{ path: '$.x', message: 'bad' }]);
+    expect(r(403, { code: 'approval_required', approvalId: 'ap1' }).approvalId).toBe('ap1');
   });
 });
 
-describe('changes', () => {
-  it('accepts only safe relative paths', () => {
-    for (const ok of ['src/a.ts', 'README.md']) expect(safeRelPath(ok)).toBe(true);
-    for (const bad of ['', '/etc/passwd', '../x', 'a/../b', 'a\\b', 'C:/x', 'a//b', './a'])
-      expect(safeRelPath(bad)).toBe(false);
-  });
-  it('builds the patch with the hash the operation needs', () => {
-    const h = 'a'.repeat(64);
-    expect(
-      buildPatch({ op: 'modify', path: 'src/a.ts', content: 'x', from: '', expectedHash: h }),
-    ).toEqual({
-      ok: true,
-      patch: { op: 'modify', path: 'src/a.ts', content: 'x', expectedHash: h },
-    });
-    expect(
-      buildPatch({ op: 'add', path: 'src/n.ts', content: 'x', from: '', expectedHash: '' }),
-    ).toEqual({
-      ok: true,
-      patch: { op: 'add', path: 'src/n.ts', content: 'x' },
-    });
-    expect(
-      buildPatch({ op: 'modify', path: 'src/a.ts', content: 'x', from: '', expectedHash: 'zz' }),
-    ).toEqual({
-      ok: false,
-      errors: { expectedHash: 'm10.chg.err.hash' },
-    });
-    expect(
-      buildPatch({ op: 'rename', path: 'b.ts', content: '', from: '../a.ts', expectedHash: h }),
-    ).toMatchObject({
-      ok: false,
-      errors: { from: 'm10.chg.err.from' },
-    });
-  });
-  it('reads a diff without trusting its shape', () => {
-    expect(diffOf({ added: ['a'], modified: 3, renamed: [{ from: 'x', to: 'y' }, 1] })).toEqual({
-      added: ['a'],
-      modified: [],
-      deleted: [],
-      renamed: [{ from: 'x', to: 'y' }],
-    });
-    expect(diffOf(null).added).toEqual([]);
-  });
-  it('builds a file tree, directories first', () => {
-    const t = buildTree([
-      { path: 'b.txt' },
-      { path: 'src/z.ts' },
-      { path: 'src/a.ts' },
-      { path: '../evil' },
-    ]);
-    expect(t.map((n) => n.name)).toEqual(['src', 'b.txt']);
-    expect(t[0]!.children.map((n) => n.name)).toEqual(['a.ts', 'z.ts']);
-  });
-});
-
-describe('test results, deployments, exports', () => {
-  it('reads structured results with failed cases first', () => {
-    const s = summaryOf({
-      totals: { suites: 1, tests: 2, failures: 1, skipped: 0 },
-      suites: [
+const model: SiteModel = {
+  locales: ['ar', 'en'],
+  defaultLocale: 'ar',
+  brand: { name: { ar: 'م', en: 'S' } },
+  seo: { siteTitle: { ar: 'م', en: 'S' }, description: { ar: 'و', en: 'D' } },
+  forms: [{ id: 'contact', name: 'Contact' }],
+  pages: [
+    {
+      id: 'home',
+      slug: 'home',
+      title: { ar: 'الرئيسية', en: 'Home' },
+      sections: [
         {
-          suite: 'unit',
-          status: 'failed',
-          tests: 2,
-          failures: 1,
-          skipped: 0,
-          cases: [
-            { suite: 'unit', name: 'adds', status: 'failed', failure: 'expected 3' },
-            { suite: 'unit', name: 'ok', status: 'passed' },
-          ],
+          id: 'hero1',
+          type: 'hero',
+          props: { heading: { ar: 'مرحبا', en: 'Welcome' }, subheading: { ar: 'س', en: 'sub' } },
+        },
+        {
+          id: 'features1',
+          type: 'features',
+          props: {
+            items: [{ title: { ar: 'أ', en: 'A' }, text: { ar: 'ب', en: 'B' }, icon: 'star' }],
+          },
+          style: { background: 'muted' },
         },
       ],
-    });
-    expect(s.totals.failures).toBe(1);
-    expect(s.failed).toEqual([
-      { suite: 'unit', name: 'adds', status: 'failed', failure: 'expected 3' },
+    },
+  ],
+};
+const hero = model.pages[0]!.sections[0] as Section;
+const feat = model.pages[0]!.sections[1] as Section;
+
+describe('outline and inspector', () => {
+  it('lists every component in reading order labelled by its heading in the page language', () => {
+    const o = outlineOf(model, 'ar');
+    expect(o.map((x) => x.sectionId)).toEqual(['hero1', 'features1']);
+    expect(o[0]).toMatchObject({ label: 'مرحبا', pageLabel: 'الرئيسية', index: 0, count: 2 });
+    expect(outlineOf(model, 'en')[0]?.label).toBe('Welcome');
+  });
+  it('offers one text field per site language, including item fields', () => {
+    const f = inspectorFields(hero, ['ar', 'en']);
+    expect(f.filter((x) => x.name === 'heading').map((x) => x.locale)).toEqual(['ar', 'en']);
+    expect(f.find((x) => x.name === 'heading' && x.locale === 'en')?.initial).toBe('Welcome');
+    const g = inspectorFields(feat, ['ar', 'en']);
+    expect(g.some((x) => x.group === 'items.0' && x.name === 'title' && x.locale === 'ar')).toBe(
+      true,
+    );
+    expect(g.find((x) => x.name === 'icon')?.initial).toBe('star');
+  });
+  it('a single-language site shows one language only', () => {
+    expect(inspectorFields(hero, ['ar']).every((x) => x.locale === 'ar')).toBe(true);
+  });
+  it('unchanged values produce no ops', () => {
+    expect(draftOps('home', hero, inspectorFields(hero, ['ar', 'en']), {}, styleOf(hero))).toEqual(
+      [],
+    );
+  });
+  it('a changed heading is one setText on that section and locale; clearing an optional text sends null', () => {
+    const fields = inspectorFields(hero, ['ar', 'en']);
+    const ops = draftOps(
+      'home',
+      hero,
+      fields,
+      { 'p:heading|en': 'Hello', 'p:subheading|en': '', 'p:subheading|ar': '' },
+      styleOf(hero),
+    );
+    expect(ops).toEqual([
+      {
+        op: 'setText',
+        target: 'section',
+        pageId: 'home',
+        sectionId: 'hero1',
+        prop: 'heading',
+        locale: 'en',
+        value: 'Hello',
+      },
+      {
+        op: 'setText',
+        target: 'section',
+        pageId: 'home',
+        sectionId: 'hero1',
+        prop: 'subheading',
+        locale: 'ar',
+        value: null,
+      },
+      {
+        op: 'setText',
+        target: 'section',
+        pageId: 'home',
+        sectionId: 'hero1',
+        prop: 'subheading',
+        locale: 'en',
+        value: null,
+      },
     ]);
-    expect(summaryOf(undefined).suites).toEqual([]);
   });
-  it('reads the health gate', () => {
-    expect(healthOf({})).toBeNull();
-    expect(
-      healthOf({ attempts: 3, autoRolledBack: true, restoredDeploymentId: 'abc' }),
-    ).toMatchObject({ attempts: 3, autoRolledBack: true });
+  it('item text and plain props go in ONE updateProps carrying the whole items list; the original is not mutated', () => {
+    const fields = inspectorFields(feat, ['ar', 'en']);
+    const ops = draftOps(
+      'home',
+      feat,
+      fields,
+      { 'i:0:title|en': 'Alpha', 'i:0:icon': '' },
+      styleOf(feat),
+    );
+    expect(ops).toHaveLength(1);
+    const op = ops[0] as {
+      op: string;
+      props: { items: { title: { en: string }; icon?: string }[] };
+    };
+    expect(op.op).toBe('updateProps');
+    expect(op.props.items[0]?.title.en).toBe('Alpha');
+    expect(op.props.items[0]).not.toHaveProperty('icon');
+    expect((feat.props.items as { title: { en: string } }[])[0]?.title.en).toBe('A');
   });
-  it('offers a download only while the signed URL is valid and http(s)', () => {
-    const now = Date.parse('2026-11-18T12:00:00Z');
+  it('a style change sends the new style; clearing both choices sends null', () => {
+    const ops = draftOps(
+      'home',
+      feat,
+      inspectorFields(feat, ['ar', 'en']),
+      {},
+      { background: 'primary', align: 'center' },
+    );
+    expect(ops).toEqual([
+      {
+        op: 'updateProps',
+        pageId: 'home',
+        sectionId: 'features1',
+        props: {},
+        style: { background: 'primary', align: 'center' },
+      },
+    ]);
+    const cleared = draftOps(
+      'home',
+      feat,
+      inspectorFields(feat, ['ar', 'en']),
+      {},
+      { background: '', align: '' },
+    );
+    expect(cleared[0]).toMatchObject({ style: null });
+  });
+  it('builds valid sample components and unique ids; contact_form needs an existing form', () => {
+    expect(nextSectionId(model, 'hero')).toBe('hero2');
+    expect(nextSectionId(model, 'contact_form')).toBe('contact-form1');
+    expect(sampleSection(model, 'faq', 'faq1')?.props).toHaveProperty('items');
+    expect(sampleSection(model, 'contact_form', 'c1')?.props).toEqual({ formId: 'contact' });
+    expect(sampleSection({ ...model, forms: [] }, 'contact_form', 'c1')).toBeNull();
+    expect(moveOp('home', 'hero1', 1)).toEqual({
+      op: 'moveComponent',
+      pageId: 'home',
+      sectionId: 'hero1',
+      index: 1,
+    });
+  });
+});
+
+describe('undo / redo history', () => {
+  const inv = (n: number) => [{ op: 'setText', n }];
+  it('an edit pushes its inverse and clears redo', () => {
+    let h = pushEdit(emptyHistory, inv(1));
+    h = pushEdit(h, inv(2));
+    expect(nextUndo(h)).toEqual(inv(2));
+    expect(h.redo).toEqual([]);
+  });
+  it('undo moves the redo ops to the redo stack; redo moves them back; a new edit drops redo', () => {
+    let h = pushEdit(pushEdit(emptyHistory, inv(1)), inv(2));
+    h = finishUndo(h, inv(20));
+    expect(nextUndo(h)).toEqual(inv(1));
+    expect(nextRedo(h)).toEqual(inv(20));
+    h = finishRedo(h, inv(2));
+    expect(nextRedo(h)).toBeNull();
+    expect(nextUndo(h)).toEqual(inv(2));
+    h = finishUndo(h, inv(20));
+    h = pushEdit(h, inv(3));
+    expect(nextRedo(h)).toBeNull();
+  });
+  it('a failed step leaves both stacks as they were (nothing is consumed until the server accepted it)', () => {
+    const h = pushEdit(emptyHistory, inv(1));
+    expect(nextUndo(h)).toEqual(inv(1));
+    expect(nextUndo(h)).toEqual(inv(1));
+    expect(h.undo).toHaveLength(1);
+  });
+  it('is capped', () => {
+    let h = emptyHistory;
+    for (let i = 0; i < 80; i++) h = pushEdit(h, inv(i));
+    expect(h.undo).toHaveLength(50);
+    expect(nextUndo(h)).toEqual(inv(79));
+  });
+});
+
+describe('seo ops', () => {
+  it('site SEO: texts per declared language, empty address removes the base URL', () => {
     expect(
-      downloadValid(
-        { downloadUrl: 'https://x/y', downloadUrlExpiresAt: '2026-11-18T12:10:00Z' },
-        now,
-      ),
-    ).toBe(true);
+      siteSeoOp(['ar', 'en'], {
+        title: { ar: ' ت ', en: 'T' },
+        description: { ar: 'و', en: 'D' },
+        baseUrl: '',
+      }),
+    ).toEqual({
+      op: 'setSeo',
+      seo: { siteTitle: { ar: 'ت', en: 'T' }, description: { ar: 'و', en: 'D' }, baseUrl: null },
+    });
+  });
+  it('page SEO: everything empty means no page-level SEO (null); noindex is kept', () => {
+    expect(pageSeoOp('home', ['ar', 'en'], { title: {}, description: {}, noindex: false })).toEqual(
+      {
+        op: 'updatePage',
+        pageId: 'home',
+        seo: null,
+      },
+    );
     expect(
-      downloadValid(
-        { downloadUrl: 'https://x/y', downloadUrlExpiresAt: '2026-11-18T11:59:00Z' },
-        now,
-      ),
-    ).toBe(false);
-    expect(
-      downloadValid({ downloadUrl: null, downloadUrlExpiresAt: '2026-11-18T12:10:00Z' }, now),
-    ).toBe(false);
-    expect(safeHref('javascript:alert(1)')).toBeUndefined();
-    expect(safeHref('https://a.b/c')).toBe('https://a.b/c');
+      pageSeoOp('home', ['ar'], { title: { ar: 'ع' }, description: {}, noindex: true }),
+    ).toEqual({
+      op: 'updatePage',
+      pageId: 'home',
+      seo: { title: { ar: 'ع' }, noindex: true },
+    });
+  });
+  it('base URL rule mirrors the model: absolute https only', () => {
+    expect(isBaseUrl('https://www.example.com')).toBe(true);
+    expect(isBaseUrl('https://example.com/ar')).toBe(true);
+    for (const bad of [
+      'http://example.com',
+      'example.com',
+      'https://',
+      'https://a b.com',
+      'javascript:alert(1)',
+    ])
+      expect(isBaseUrl(bad)).toBe(false);
+  });
+});
+
+describe('deployments', () => {
+  const d = (over: Partial<Deployment>): Deployment => ({
+    id: 'd',
+    projectId: 'p',
+    versionId: 'v',
+    target: {},
+    environment: 'production',
+    state: 'succeeded',
+    operationId: null,
+    artifactHash: null,
+    previousDeploymentId: 'prev',
+    rollbackOf: null,
+    url: null,
+    smoke: null,
+    error: null,
+    createdAt: '',
+    finishedAt: null,
+    ...over,
+  });
+  it('states', () => {
+    for (const s of ['queued', 'building', 'deploying', 'smoke_checking'])
+      expect(isDeployActive(s)).toBe(true);
+    for (const s of ['succeeded', 'failed', 'rolled_back']) expect(isDeployActive(s)).toBe(false);
+    expect(deployTone('succeeded')).toBe('success');
+    expect(deployTone('rolled_back')).toBe('danger');
+    expect(deployTone('building')).toBe('warn');
+  });
+  it('rollback only for a succeeded deployment with a predecessor that is not itself a rollback', () => {
+    expect(canRollback(d({}))).toBe(true);
+    expect(canRollback(d({ state: 'failed' }))).toBe(false);
+    expect(canRollback(d({ previousDeploymentId: null }))).toBe(false);
+    expect(canRollback(d({ rollbackOf: 'x' }))).toBe(false);
+  });
+  it('only http(s) URLs with a host are framed or linked', () => {
+    expect(isPreviewUrl('https://abc.preview.example/ar/')).toBe(true);
+    for (const bad of [
+      'javascript:alert(1)',
+      'data:text/html,x',
+      '//x.y/',
+      '/relative/',
+      'ftp://x/y/',
+    ])
+      expect(isPreviewUrl(bad)).toBe(false);
+  });
+});
+
+describe('misc readers', () => {
+  it('credits are grouped as integer strings without float arithmetic', () => {
+    expect(credits('1234567890123456789')).toBe('1,234,567,890,123,456,789');
+    expect(credits(undefined)).toBe('0');
+    expect(credits('x')).toBe('0');
+  });
+  it('typed CMS values: number, boolean, date, localized text; empty means not set', () => {
+    expect(cmsValue('number', ' 12.5 ')).toBe(12.5);
+    expect(cmsValue('number', 'abc')).toBeNull();
+    expect(cmsValue('number', '')).toBeUndefined();
+    expect(cmsValue('boolean', true)).toBe(true);
+    expect(cmsValue('date', '2027-02-03')).toBe('2027-02-03');
+    expect(cmsValue('date', 'nope')).toBeNull();
+    expect(cmsValue('localized_text', { ar: 'م', en: ' ' })).toEqual({ ar: 'م' });
+    expect(cmsValue('localized_text', { ar: '', en: '' })).toBeUndefined();
+    expect(cmsValue('text', ' hi ')).toBe('hi');
+  });
+  it('the eight templates each have a name in both languages', () => {
+    expect(TEMPLATE_IDS).toHaveLength(8);
+    for (const id of TEMPLATE_IDS) {
+      expect(has(`bld.tpl.${id}`)).toBe(true);
+    }
   });
 });

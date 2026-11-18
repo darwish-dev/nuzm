@@ -42,11 +42,13 @@ export default async function Registrars({ params }: { params: Promise<{ locale:
             {
               key: 'g',
               header: t(locale, 'dom.admin.reg.col.region'),
+              icon: 'pin',
               render: (r) => <Ltr>{r.dataRegion}</Ltr>,
             },
             {
               key: 'h',
               header: t(locale, 'dom.admin.reg.col.health'),
+              icon: 'pulse',
               render: (r) => (
                 <Badge
                   tone={

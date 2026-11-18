@@ -1,597 +1,1063 @@
-/** Pure helpers of the app-builder screens (UI-M10-01..11). No I/O: unit-tested in `builder.spec.ts`. */
-import { t, type Locale, type MessageKey } from '@nuzm/i18n';
-import type { Schemas } from '@nuzm/sdk';
-import { problemOf, type ProblemInfo, type Tone } from './data';
+/**
+ * Types and pure helpers of the website builder screens (UI-M09-01..09). No I/O: unit-tested in `builder.spec.ts`.
+ *
+ * The OpenAPI schemas of the builder answer many bodies as free-form objects (`additionalProperties: true`), so the shapes the screens read are
+ * written down here, mirroring `packages/domain/src/builder` (site model, ops, diff, risks) and the services under `apps/api/src/modules/{ai,builder,deploy}`.
+ * Everything is read defensively: nothing here invents a field, a state or a price.
+ */
+import type { Locale, MessageKey } from '@nuzm/i18n';
+import type { CallResult } from './compute';
 
-export const APP_BUILDER_FLAG = 'app_builder.enabled';
+export const BUILDER_FLAG = 'ai.enabled';
+export const TEMPLATE_IDS = [
+  'restaurant',
+  'clinic',
+  'retail',
+  'portfolio',
+  'services',
+  'education',
+  'ngo',
+  'landing',
+] as const;
+export type TemplateId = (typeof TEMPLATE_IDS)[number];
+export const SITE_LOCALES = ['ar', 'en'] as const;
+export type SiteLocale = (typeof SITE_LOCALES)[number];
+export type Tone = 'success' | 'warn' | 'danger' | undefined;
 
-/** Ceilings of a run (M10 §9, PROPOSED limits): shown as limits, enforced by the API before every model call. */
-export const CEILINGS = {
-  maxTokens: 2_000_000,
-  maxMinutes: 60,
-  maxSteps: 200,
-  warnAtPct: 80,
-} as const;
-/** What the wizard starts with when the budgets endpoint is not readable for the member. */
-export const DEFAULT_BUDGET = {
-  maxTokens: 1_000_000,
-  maxCostMinor: 50_000,
-  maxMinutes: 30,
-} as const;
-export const APP_LOCALES = ['ar', 'en'] as const;
-export type AppLocale = (typeof APP_LOCALES)[number];
+// ---- contract shapes ------------------------------------------------------------------------------------------------------------
 
-export type Run = Schemas['Run'];
-export type Approval = Schemas['Approval'];
-export type Sandbox = Schemas['Sandbox'];
-export type TestRun = Schemas['TestRun'];
-export type Deployment = Schemas['Deployment'];
-export type ExportRow = Schemas['Export'];
-
-/* ------------------------------------------------------------------ settle / problems */
-
-export interface Res<T> {
-  data?: T;
-  error?: unknown;
-  response: { ok: boolean; status: number };
-}
-
-/** A call that never throws: a network failure becomes status 0 (the screens call it "offline"). */
-export async function settle<T>(call: () => Promise<Res<T>>): Promise<Res<T>> {
-  try {
-    return await call();
-  } catch {
-    return { response: { ok: false, status: 0 }, error: {} };
-  }
-}
-
-export interface ApprovalRef {
+export type Localized = Partial<Record<SiteLocale, string>>;
+export interface Section {
   id: string;
   type: string;
-  scopeHash: string;
+  props: Record<string, unknown>;
+  style?: { background?: string; align?: string };
+}
+export interface PageSeo {
+  title?: Localized;
+  description?: Localized;
+  noindex?: boolean;
+}
+export interface Page {
+  id: string;
+  slug: string;
+  title: Localized;
+  seo?: PageSeo;
+  sections: Section[];
+}
+export interface SiteModel {
+  locales: SiteLocale[];
+  defaultLocale: SiteLocale;
+  brand: { name: Localized };
+  seo: { siteTitle: Localized; description: Localized; baseUrl?: string };
+  pages: Page[];
+  forms: { id: string; name: string }[];
+}
+/** An editor operation (the API validates it against its own schema; the builders below produce only valid shapes). */
+export type Op = { op: string } & Record<string, unknown>;
+
+export interface DiffEntry {
+  kind: string;
+  pageId?: string;
+  sectionId?: string;
+  summary: string;
+}
+export interface TextChange {
+  path: string;
+  locale: string;
+  before: string | null;
+  after: string | null;
+}
+export interface Diff {
+  structural: DiffEntry[];
+  text: TextChange[];
+}
+export interface Risk {
+  code: string;
+  count: number;
+  detail?: string;
+}
+export interface ChangeResult {
+  diff: Diff;
+  risks: Risk[];
+  newVersion: { id: string; seq: number };
+  inverseOps: Op[];
+  etag?: number;
+  changeId?: string | null;
+}
+export interface LastDeployment {
+  id: string;
+  state: string;
+  url: string | null;
+  at: string;
+}
+export interface Project {
+  id: string;
+  type: string;
+  name: string;
+  locales: string[];
+  templateId: string | null;
+  headVersionId: string | null;
+  headSeq: number | null;
+  dataRegion: string;
+  etag: number;
+  createdAt: string;
+  updatedAt: string;
+  lastDeployment: LastDeployment | null;
+}
+export interface SeoCheck {
+  id: string;
+  ok: boolean;
+  message: { ar: string; en: string };
+}
+export interface ProjectDetail extends Project {
+  versionId: string;
+  versionSeq: number;
+  siteModel: SiteModel;
+  seo: { score: number; checks: SeoCheck[] };
+  diff: Diff | null;
+}
+export interface Page_<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+export interface Version {
+  id: string;
+  seq: number;
+  parentId: string | null;
+  label: string | null;
+  named: boolean;
+  source: string;
+  runId: string | null;
+  restoredFrom: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  modelHash: string;
+  isHead: boolean;
+}
+export interface ProjectFile {
+  path: string;
+  size: number;
+  mime: string;
+  contentHash: string;
+}
+export interface FileContent {
+  path: string;
+  mime: string;
+  size: number;
+  encoding: 'utf8' | 'base64';
+  content: string;
+}
+export interface Preview {
+  id: string;
+  projectId: string;
+  versionId: string;
+  viewport: string;
+  url: string;
+  expiresAt: string;
+}
+export interface FormField {
+  name: string;
+  type: string;
+  required?: boolean;
+}
+export interface BuilderForm {
+  id: string;
+  projectId: string;
+  formKey: string;
+  name: string;
+  fields: FormField[];
+  enabled: boolean;
+  retentionDays: number;
+  notifyEmailSet?: boolean;
+  submissions: number;
+  spamBlocked: number;
+  endpoint: string;
+}
+export interface Submission {
+  id: string;
+  formId: string;
+  formKey: string;
+  fields: Record<string, string>;
+  masked: boolean;
+  createdAt: string;
+  expiresAt: string;
+}
+export interface CmsField {
+  name: string;
+  type: string;
+  required?: boolean;
+}
+export interface CmsItem {
+  id: string;
+  data: Record<string, unknown>;
+  state: string;
+  version: number;
+  updatedAt: string;
+}
+export interface CmsCollection {
+  id: string;
+  collectionKey: string;
+  name: string;
+  fields: CmsField[];
+  items: CmsItem[];
 }
 
-/** The approvals a 403 `approval_required` lists (`approvals:[{id,type,scopeHash}]`); anything malformed is dropped. */
-export function approvalsOf(error: unknown): ApprovalRef[] {
-  const list = (error as { approvals?: unknown } | null | undefined)?.approvals;
-  if (!Array.isArray(list)) return [];
-  return list
-    .filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
-    .filter((x) => typeof x.id === 'string' && typeof x.scopeHash === 'string')
-    .map((x) => ({
-      id: x.id as string,
-      type: typeof x.type === 'string' ? x.type : '',
-      scopeHash: x.scopeHash as string,
-    }));
+export interface PendingApproval {
+  id: string;
+  kind: string;
+  summary: unknown;
+  expiresAt: string;
 }
-
-/** Text from the API that is shown to a person: long token-like runs are masked so that a value the service quotes can never reach the screen. */
-export function safeText(v: unknown, max = 200): string {
-  if (typeof v !== 'string') return '';
-  return (
-    v
-      .replace(/[A-Za-z0-9+/_=-]{24,}/g, '[REDACTED]')
-      // eslint-disable-next-line no-control-regex
-      .replace(/[\u0000-\u001f\u007f]/g, ' ')
-      .slice(0, max)
-  );
+export interface RunUsage {
+  tokensIn: number;
+  tokensOut: number;
+  spentCredits: string;
+  reservedCredits: string;
+  modelRef: string | null;
 }
-
-export interface FieldProblem {
-  field: string;
+export interface Run {
+  id: string;
+  sessionId: string;
+  projectId: string | null;
+  kind: string;
+  state: string;
+  operationId: string | null;
+  step: string | null;
+  budget: unknown;
+  usage: RunUsage;
+  dataRegion: string;
+  result: unknown;
+  error: unknown;
+  pendingApproval: PendingApproval | null;
+  artifacts: { id: string; type: string; createdAt: string }[];
+  createdAt: string;
+  finishedAt: string | null;
+}
+export interface RunEvent {
+  seq: number;
+  type: string;
+  data: Record<string, unknown>;
+  at: string;
+}
+export interface Session {
+  id: string;
+  title: string;
+  projectId: string | null;
+  state: string;
+  dataRegion: string;
+  createdAt: string;
+}
+export interface Message {
+  id: string;
+  sessionId: string;
+  runId: string | null;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
+}
+export interface Credits {
+  currency: string;
+  creditUnitMinor: number;
+  walletCredits: string;
+  reservedCredits: string;
+  availableCredits: string;
+  last30DaysCredits: string;
+  lowCredit: boolean;
+}
+export interface HostingSiteRef {
+  id: string;
+  name: string;
+  status: string;
+  primaryDomain?: string | null;
+}
+export interface Deployment {
+  id: string;
+  projectId: string;
+  versionId: string;
+  target: { kind?: string; hostingSiteId?: string };
+  environment: string;
+  state: string;
+  operationId: string | null;
+  artifactHash: string | null;
+  previousDeploymentId: string | null;
+  rollbackOf: string | null;
+  url: string | null;
+  smoke: {
+    ok?: boolean;
+    tls?: boolean | null;
+    phase?: string;
+    results?: { path: string; status: number }[];
+  } | null;
+  error: { code?: string } | null;
+  createdAt: string;
+  finishedAt: string | null;
+}
+export interface DeployLog {
+  seq: number;
+  level: string;
   message: string;
-}
-/** `errors[]` of a 422 problem as `{field, message}` (the field is `path` or `field`); messages go through `safeText`. */
-export function fieldProblems(error: unknown): FieldProblem[] {
-  const list = (error as { errors?: unknown } | null | undefined)?.errors;
-  if (!Array.isArray(list)) return [];
-  return list
-    .filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
-    .map((x) => ({
-      field: safeText(typeof x.path === 'string' ? x.path : x.field, 120),
-      message: safeText(x.message),
-    }))
-    .filter((x) => x.field || x.message);
+  data?: unknown;
+  at: string;
 }
 
-const BY_CODE: Record<string, MessageKey> = {
-  budget_required: 'm10.err.budgetRequired',
-  unsupported_capability: 'm10.err.unsupported',
-  residency_denied: 'm10.err.residency',
-  sandbox_quota_exceeded: 'm10.err.sandboxQuota',
-  sandbox_no_capacity: 'm10.err.sandboxCapacity',
-  base_mismatch: 'm10.err.baseMismatch',
-  change_rejected: 'm10.err.changeRejected',
-  dependency_blocked: 'm10.err.dependencyBlocked',
-  stale_approval_hash: 'm10.err.staleApproval',
-  gone: 'm10.err.expired',
-  approval_required: 'm10.err.approvalRequired',
-  invalid_state: 'm10.err.invalidState',
-  health_gate_failed: 'm10.err.healthGate',
-  export_blocked: 'm10.err.exportBlocked',
-  test_suite_unavailable: 'm10.err.suiteUnavailable',
-  run_budget_exceeded: 'm10.err.runBudget',
-  egress_denied: 'm10.err.egressDenied',
-  step_up_required: 'm8.err.stepUp',
-  rate_limited: 'm8.err.rate',
+// ---- generic readers --------------------------------------------------------------------------------------------------------------
+
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+export const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+export const num = (v: unknown, d = 0): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : d;
+
+/** A localized text as the model stores it, in `locale`, falling back to the other language (a placeholder, never an invented text). */
+export const localized = (v: unknown, locale: SiteLocale): string => {
+  if (!isObj(v)) return '';
+  const first = str(v[locale]);
+  if (first) return first;
+  const other = locale === 'ar' ? 'en' : 'ar';
+  return str(v[other]) ?? '';
 };
 
-/** Plain-language message for a failed app-builder call (never the raw problem text); `detail` carries the service's own reason for an unsupported option. */
-export function builderError(locale: Locale, p: ProblemInfo): { text: string; detail?: string } {
-  if (p.status === 0) return { text: t(locale, 'm10.err.offline') };
-  const key = p.code ? BY_CODE[p.code] : undefined;
-  if (key)
-    return {
-      text: t(locale, key),
-      detail: p.code === 'unsupported_capability' ? safeText(p.detail) || undefined : undefined,
-    };
-  if (p.status === 404) return { text: t(locale, 'm10.err.notEnabledOrMissing') };
-  if (p.status === 403) return { text: t(locale, 'state.forbidden.title') };
-  if (p.status === 410) return { text: t(locale, 'm10.err.expired') };
-  if (p.status === 402) return { text: t(locale, 'm10.err.budgetRequired') };
-  if (p.status === 409) return { text: t(locale, 'err.conflict') };
-  if (p.status === 422) return { text: t(locale, 'err.validation') };
-  if (p.status === 429) return { text: t(locale, 'm8.err.rate') };
-  if (p.status === 503) return { text: t(locale, 'm10.err.sandboxCapacity') };
-  return { text: t(locale, 'state.error.title') };
-}
-
-export { problemOf };
-
-/* ------------------------------------------------------------------ wizard (UI-M10-01) */
-
-/** A positive integer up to `max`, or null (no signs, decimals or separators). */
-export function parsePositiveInt(v: string, max: number): number | null {
-  const s = v.trim();
-  if (!/^[1-9]\d{0,9}$/.test(s)) return null;
-  const n = Number(s);
-  return n <= max ? n : null;
-}
-
-/** SAR written by a person ("500", "12.5", "12.50") to integer halalas, without floating point. null when not a positive amount with at most two decimals. */
-export function sarToMinor(v: string): number | null {
-  const m = /^(\d{1,9})(?:[.,](\d{1,2}))?$/.exec(v.trim());
-  if (!m) return null;
-  const minor = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
-  return minor > 0 ? minor : null;
-}
-
-/** Integer halalas as an editable SAR figure with two decimals ("500.00"), integer arithmetic only. */
-export function minorToSar(minor: number): string {
-  const n = Math.max(0, Math.trunc(minor));
-  return `${Math.floor(n / 100)}.${String(n % 100).padStart(2, '0')}`;
-}
-
-export interface BudgetInput {
-  tokens: string;
-  cost: string;
-  minutes: string;
-}
-export type BudgetErrors = Partial<Record<keyof BudgetInput, MessageKey>>;
-/** Budget fields → the `budget` of POST /v1/ai/runs, or the field errors. Tokens and minutes are held to the ceilings. */
-export function validateBudget(
-  i: BudgetInput,
-):
-  | { ok: true; budget: { maxTokens: number; maxCostMinor: number; maxMinutes: number } }
-  | { ok: false; errors: BudgetErrors } {
-  const errors: BudgetErrors = {};
-  const maxTokens = parsePositiveInt(i.tokens, CEILINGS.maxTokens);
-  const maxCostMinor = sarToMinor(i.cost);
-  const maxMinutes = parsePositiveInt(i.minutes, CEILINGS.maxMinutes);
-  if (maxTokens === null) errors.tokens = 'm10.wiz.err.tokens';
-  if (maxCostMinor === null) errors.cost = 'm10.wiz.err.cost';
-  if (maxMinutes === null) errors.minutes = 'm10.wiz.err.minutes';
-  if (maxTokens === null || maxCostMinor === null || maxMinutes === null)
-    return { ok: false, errors };
-  return { ok: true, budget: { maxTokens, maxCostMinor, maxMinutes } };
-}
-
-/** Names typed one per line (or separated by commas): trimmed, de-duplicated (case-insensitive), empty lines dropped. */
-export function splitNames(text: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of text.split(/[\n,،]+/)) {
-    const v = raw.trim().replace(/\s+/g, ' ');
-    if (!v || seen.has(v.toLowerCase())) continue;
-    seen.add(v.toLowerCase());
-    out.push(v);
-  }
-  return out;
-}
-/** An entity or role name: 1..60 characters, no control characters or angle brackets. */
-export const validName = (v: string) =>
-  // eslint-disable-next-line no-control-regex
-  v.length >= 1 && v.length <= 60 && !/[\u0000-\u001f\u007f<>]/.test(v);
-export const PROMPT_MAX = 8000;
-
-/** A name for the new project, taken from the first line of the prompt (80 characters at most). */
-export function projectNameFrom(prompt: string): string {
-  const first = prompt.trim().split(/\n/)[0] ?? '';
-  const s = first.replace(/\s+/g, ' ').trim().slice(0, 80);
-  return s || 'App';
-}
-
-/* ------------------------------------------------------------------ runs (UI-M10-06) */
-
-export const LIVE_RUN_STATES = ['queued', 'running', 'waiting_approval'] as const;
-export const isLiveRun = (state: string) => (LIVE_RUN_STATES as readonly string[]).includes(state);
-
-export function runTone(state: string): Tone {
-  if (state === 'succeeded') return 'success';
-  if (state === 'failed' || state === 'budget_exceeded') return 'danger';
-  if (state === 'waiting_approval' || state === 'cancelled') return 'warn';
-  return undefined;
-}
-
-export type MeterLevel = 'ok' | 'warn' | 'exceeded';
-/** 0..100 (integer) share of `max` used; 0 when there is no usable limit. */
-export function percentUsed(used: number, max: number): number {
-  if (!Number.isFinite(used) || !Number.isFinite(max) || max <= 0 || used <= 0) return 0;
-  return Math.min(100, Math.round((used / max) * 100));
-}
-/** `warn` from 80 % (the warning of M10 §9), `exceeded` at 100 %. */
-export const meterLevel = (pct: number): MeterLevel =>
-  pct >= 100 ? 'exceeded' : pct >= CEILINGS.warnAtPct ? 'warn' : 'ok';
-
-export interface RunMeter {
-  key: 'tokens' | 'cost' | 'minutes';
-  used: number;
-  max: number;
-  pct: number;
-  level: MeterLevel;
-}
-const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-
-/** The three budget meters of a run from its budget, usage and `budgetRemaining` (minutes used = limit − remaining). */
-export function runMeters(run: Pick<Run, 'budget' | 'usage' | 'budgetRemaining'>): RunMeter[] {
-  const b = run.budget as Record<string, unknown>;
-  const u = run.usage as Record<string, unknown>;
-  const r = (run.budgetRemaining ?? {}) as Record<string, unknown>;
-  const maxMinutes = num(b.maxMinutes);
-  const rows: [RunMeter['key'], number, number][] = [
-    ['tokens', num(u.tokensIn) + num(u.tokensOut), num(b.maxTokens)],
-    ['cost', num(u.costMinor), num(b.maxCostMinor)],
-    ['minutes', r.minutes === undefined ? 0 : Math.max(0, maxMinutes - num(r.minutes)), maxMinutes],
-  ];
-  return rows.map(([key, used, max]) => {
-    const pct = percentUsed(used, max);
-    return { key, used, max, pct, level: meterLevel(pct) };
-  });
-}
-/** The run is at or over the warning line on any meter (or the server says so). */
-export const runWarns = (
-  run: Pick<Run, 'budget' | 'usage' | 'budgetRemaining'> & { warn?: boolean },
-) => run.warn === true || runMeters(run).some((m) => m.level !== 'ok');
-
-/** Argument values whose key names a secret are never shown, even if a service sent them (the API redacts first; this is a second line). */
-const SECRET_KEY =
-  /(secret|token|passw|authorization|api[-_]?key|credential|private[-_]?key|cookie)/i;
-export function maskSecrets(v: unknown, depth = 0): unknown {
-  if (depth > 6) return '[…]';
-  if (Array.isArray(v)) return v.slice(0, 50).map((x) => maskSecrets(x, depth + 1));
-  if (typeof v === 'object' && v !== null)
-    return Object.fromEntries(
-      Object.entries(v as Record<string, unknown>)
-        .slice(0, 50)
-        .map(([k, x]) => [k, SECRET_KEY.test(k) ? '[REDACTED]' : maskSecrets(x, depth + 1)]),
-    );
-  return typeof v === 'string' ? safeText(v, 500) : v;
-}
-/** Pretty JSON of an action or tool-call summary for display (secrets masked, cut at `max` characters). */
-export function prettyJson(v: unknown, max = 6000): string {
-  let s: string;
-  try {
-    s = JSON.stringify(maskSecrets(v), null, 2) ?? '';
-  } catch {
-    s = '';
-  }
-  return s.length > max ? `${s.slice(0, max)}\n…` : s;
-}
-
-/* ------------------------------------------------------------------ approvals (UI-M10-07) */
-
-export type ApprovalType = Approval['type'];
-export const APPROVAL_TYPES: ApprovalType[] = [
-  'production_deploy',
-  'production_rollback',
-  'data_migration_rollback',
-  'destructive_migration',
-  'paid_resource',
-  'egress_or_dependency',
-  'budget_increase',
-  'export_third_party',
-  'mobile_signing',
-  'release_owner',
-];
-/** Which role may decide which approval type (M10 §9). The API stays the authority: it answers 403 for any other role. */
-export const APPROVAL_ROLES: Record<ApprovalType, readonly string[]> = {
-  production_deploy: ['owner', 'admin'],
-  production_rollback: ['owner', 'admin'],
-  data_migration_rollback: ['owner', 'admin'],
-  destructive_migration: ['owner', 'admin'],
-  export_third_party: ['owner', 'admin'],
-  mobile_signing: ['owner', 'admin'],
-  paid_resource: ['owner', 'admin', 'billing_admin'],
-  egress_or_dependency: ['owner', 'admin', 'developer'],
-  budget_increase: ['owner', 'admin', 'billing_admin'],
-  release_owner: ['owner'],
+/** Integer-string digit grouping for credits (string arithmetic only: credits can exceed 2^53). */
+export const credits = (s: string | undefined): string => {
+  const d = (s ?? '0').replace(/^0+(?=\d)/, '');
+  return /^\d+$/.test(d) ? d.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '0';
 };
-export const APPROVAL_STATUSES = ['pending', 'approved', 'rejected', 'expired'] as const;
 
-export function approvalTone(status: string): Tone {
-  if (status === 'approved') return 'success';
-  if (status === 'rejected') return 'danger';
-  if (status === 'pending' || status === 'expired') return 'warn';
-  return undefined;
+// ---- problems -----------------------------------------------------------------------------------------------------------------------
+
+export interface BuilderProblem {
+  status: number;
+  code?: string;
+  traceId?: string;
+  approvalId?: string;
+  /** `base_outdated`: the head the editor must rebase onto */
+  headVersionId?: string;
+  headSeq?: number;
+  /** `op_invalid`: what is wrong, per path */
+  issues: { path: string; message: string }[];
+  /** `approval_required` on a deployment: the cost disclosure the human confirms */
+  costDisclosure?: { newHostingPlan?: boolean; note?: string };
 }
-/** Pending but past its 24 h expiry (the list may not have been refreshed): it can no longer be decided. */
-export const approvalLapsed = (a: Pick<Approval, 'status' | 'expiresAt'>, now = Date.now()) =>
-  a.status === 'expired' || (a.status === 'pending' && Date.parse(a.expiresAt) <= now);
 
-/** The decision error of an approval: stale hash → reload, 410 → expired, 403 → role of the approval type. */
-export function decisionErrorKey(status: number, code?: string): MessageKey {
-  if (code === 'stale_approval_hash') return 'm10.apr.err.stale';
-  if (status === 410 || code === 'gone') return 'm10.apr.err.expired';
-  if (status === 403) return 'm10.apr.err.role';
-  if (status === 409) return 'm10.apr.err.decided';
-  if (status === 404) return 'm10.err.notEnabledOrMissing';
+export function problemOf(r: CallResult<unknown>): BuilderProblem {
+  const e = (r.error ?? {}) as Record<string, unknown>;
+  const raw = Array.isArray(e.errors) ? e.errors : [];
+  return {
+    status: r.response.status,
+    code: str(e.code),
+    traceId: str(e.traceId) ?? r.response.headers.get('x-trace-id') ?? undefined,
+    approvalId: str(e.approvalId),
+    headVersionId: str(e.headVersionId),
+    headSeq: typeof e.headSeq === 'number' ? e.headSeq : undefined,
+    issues: raw
+      .filter(isObj)
+      .map((i) => ({ path: str(i.path) ?? '', message: str(i.message) ?? '' }))
+      .slice(0, 20),
+    costDisclosure: isObj(e.costDisclosure)
+      ? {
+          newHostingPlan: e.costDisclosure.newHostingPlan === true,
+          note: str(e.costDisclosure.note),
+        }
+      : undefined,
+  };
+}
+
+const PROBLEM_KEYS: Record<string, MessageKey> = {
+  insufficient_credits: 'bld.err.insufficient_credits',
+  residency_denied: 'bld.err.residency_denied',
+  unsupported_capability: 'bld.err.unsupported_capability',
+  ai_unavailable: 'bld.err.ai_unavailable',
+  quota_exceeded: 'bld.err.quota_exceeded',
+  name_taken: 'bld.err.name_taken',
+  run_active: 'bld.err.run_active',
+  content_blocked: 'bld.err.content_blocked',
+  secret_detected: 'bld.err.secret_detected',
+  base_outdated: 'bld.err.base_outdated',
+  op_invalid: 'bld.err.op_invalid',
+  approval_required: 'bld.err.approval_required',
+  approval_expired: 'bld.err.approval_expired',
+  invalid_state: 'bld.err.invalid_state',
+  conflict: 'bld.err.conflict',
+  in_use: 'bld.err.in_use',
+  payload_too_large: 'bld.err.payload_too_large',
+  validation_failed: 'bld.err.validation',
+  idempotency_in_progress: 'bld.err.in_progress',
+  unsupported_kind: 'bld.err.unsupported_kind',
+  site_not_active: 'bld.err.site_not_active',
+  network_error: 'bld.err.network',
+};
+
+/** Localized message for a problem: by code first, then by status. Never the raw server text. */
+export function problemKey(p: BuilderProblem): MessageKey {
+  if (p.code && PROBLEM_KEYS[p.code]) return PROBLEM_KEYS[p.code]!;
+  if (p.status === 429) return 'bld.err.rate_limited';
+  if (p.status === 403) return 'state.forbidden.title';
+  if (p.status === 404) return 'bld.err.not_found';
+  if (p.status === 409) return 'bld.err.conflict';
+  if (p.status === 422) return 'bld.err.validation';
   return 'state.error.title';
 }
 
-/* ------------------------------------------------------------------ sandboxes (UI-M10-03/04) */
+// ---- Server-Sent Events -----------------------------------------------------------------------------------------------------------------
 
-export type Runtime = { kind?: string; isolation?: string } | null | undefined;
-/** Only `isolation: verified` is isolated. Until D-21/HG-10-02 the API never answers it: every sandbox is a development stand-in. */
-export const isIsolated = (rt: Runtime) => rt?.isolation === 'verified';
-export const sandboxTone = (state: string): Tone =>
-  state === 'ready'
+export interface SseFrame {
+  id?: string;
+  event?: string;
+  data: string;
+}
+
+/**
+ * Incremental parser of a `text/event-stream` body: feed it decoded chunks (frames may be split anywhere), it calls `onFrame` once per complete frame.
+ * Comment lines (`: keep-alive`) and `retry:` are ignored; multi-line `data:` is joined with a newline; CRLF, LF and CR line ends are accepted.
+ */
+export function createSseParser(onFrame: (f: SseFrame) => void) {
+  let buf = '';
+  let id: string | undefined;
+  let event: string | undefined;
+  let data: string[] = [];
+  const flush = () => {
+    if (data.length > 0 || event !== undefined)
+      onFrame({
+        ...(id !== undefined ? { id } : {}),
+        ...(event ? { event } : {}),
+        data: data.join('\n'),
+      });
+    event = undefined;
+    data = [];
+  };
+  const line = (l: string) => {
+    if (l === '') return flush();
+    if (l.startsWith(':')) return;
+    const i = l.indexOf(':');
+    const field = i < 0 ? l : l.slice(0, i);
+    let value = i < 0 ? '' : l.slice(i + 1);
+    if (value.startsWith(' ')) value = value.slice(1);
+    if (field === 'id') id = value;
+    else if (field === 'event') event = value;
+    else if (field === 'data') data.push(value);
+  };
+  return {
+    push(chunk: string) {
+      buf += chunk;
+      let m: RegExpExecArray | null;
+      const re = /\r\n|\n|\r/g;
+      let start = 0;
+      while ((m = re.exec(buf))) {
+        // a lone CR at the very end may be the first half of CRLF: wait for the next chunk
+        if (m[0] === '\r' && m.index + 1 === buf.length) break;
+        line(buf.slice(start, m.index));
+        start = m.index + m[0].length;
+      }
+      buf = buf.slice(start);
+    },
+  };
+}
+
+/** A parsed frame as a run event; anything malformed is dropped (the stream is persisted, a missed event is re-read on reconnect). */
+export function toRunEvent(f: SseFrame): RunEvent | null {
+  try {
+    const j = JSON.parse(f.data) as unknown;
+    if (!isObj(j) || typeof j.seq !== 'number' || typeof j.type !== 'string') return null;
+    return {
+      seq: j.seq,
+      type: j.type,
+      data: isObj(j.data) ? j.data : {},
+      at: str(j.at) ?? '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Insert an event keeping the list ordered by `seq` and free of duplicates (a reconnect may replay). */
+export function mergeEvent(list: RunEvent[], e: RunEvent): RunEvent[] {
+  if (list.some((x) => x.seq === e.seq)) return list;
+  return [...list, e].sort((a, b) => a.seq - b.seq);
+}
+export const lastSeq = (list: RunEvent[]): number => list.reduce((m, e) => Math.max(m, e.seq), 0);
+
+// ---- runs -----------------------------------------------------------------------------------------------------------------------------
+
+export const RUN_ACTIVE = ['queued', 'running', 'waiting_approval'] as const;
+export const isRunActive = (state: string): boolean =>
+  (RUN_ACTIVE as readonly string[]).includes(state);
+/** States after which nothing more happens on its own. */
+export const isRunFinished = (state: string): boolean =>
+  ['succeeded', 'failed', 'cancelled', 'budget_exceeded'].includes(state);
+export const runTone = (state: string): Tone =>
+  state === 'succeeded'
     ? 'success'
-    : state === 'failed'
+    : state === 'failed' || state === 'budget_exceeded'
       ? 'danger'
-      : state === 'starting' || state === 'terminating'
+      : state === 'waiting_approval' || state === 'cancelled'
         ? 'warn'
         : undefined;
-export const sandboxUsable = (state: string) => state === 'ready' || state === 'starting';
 
-/* ------------------------------------------------------------------ files (UI-M10-03) */
+/** Whether the stream should be reopened after it ended: only while the run can still produce events without a human decision. */
+export const shouldReconnect = (state: string): boolean =>
+  state === 'queued' || state === 'running';
 
-export interface TreeNode {
-  name: string;
-  /** Full project path (files only). */
-  path?: string;
-  size?: number;
-  children: TreeNode[];
+/** Message key + params of one timeline entry (unknown event types are shown by their code, nothing is invented). */
+export function eventText(e: RunEvent): { key: string; params: Record<string, string | number> } {
+  const task = str(e.data.task) ?? '';
+  const kind = str(e.data.kind) ?? '';
+  const type = str(e.data.type) ?? '';
+  return {
+    key: `bld.ev.${e.type}`,
+    params: { task, kind, type, pageId: str(e.data.pageId) ?? '', seq: num(e.data.seq) },
+  };
 }
-/** The file list as a tree: directories first, then files, each group sorted by name. */
-export function buildTree(files: { path?: string; size?: number }[]): TreeNode[] {
-  const root: TreeNode = { name: '', children: [] };
-  for (const f of files) {
-    if (typeof f.path !== 'string' || !safeRelPath(f.path)) continue;
-    const parts = f.path.split('/');
-    let cur = root;
-    parts.forEach((part, i) => {
-      const last = i === parts.length - 1;
-      let next = cur.children.find(
-        (c) => c.name === part && (last ? c.path !== undefined : c.path === undefined),
-      );
-      if (!next) {
-        next = last
-          ? { name: part, path: f.path, size: f.size, children: [] }
-          : { name: part, children: [] };
-        cur.children.push(next);
-      }
-      cur = next;
+export const EVENT_KEYS = [
+  'created',
+  'segment_started',
+  'step_started',
+  'step_completed',
+  'checkpoint',
+  'artifact',
+  'approval_requested',
+  'approval_approved',
+  'approval_denied',
+  'approval_expired',
+  'page_generated',
+  'model_invalid',
+  'version_created',
+  'auto_applied',
+  'change_conflict',
+  'cancel_requested',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'budget_exceeded',
+  'fetch_failed',
+  'repair',
+  'output_blocked',
+  'tool_call_denied',
+  'tool_call_ignored',
+] as const;
+
+/** Events that matter to a screen reader (progress, not every checkpoint). */
+export const isAnnounced = (type: string): boolean =>
+  !['checkpoint', 'segment_started', 'created', 'artifact'].includes(type);
+
+/** The summary of a pending approval, read defensively (plan: pages; apply_changes: diff and risks). The stored payload is never shown. */
+export interface ApprovalView {
+  title: string;
+  pages: { pageId: string; slug: string; sections: number }[];
+  diff: Diff | null;
+  risks: Risk[];
+  summary: string;
+}
+export function approvalView(a: PendingApproval): ApprovalView {
+  const s = isObj(a.summary) ? a.summary : {};
+  const pages = Array.isArray(s.pages) ? s.pages.filter(isObj) : [];
+  const diff = isObj(s.diff) ? s.diff : null;
+  const risks = Array.isArray(s.risks) ? s.risks.filter(isObj) : [];
+  return {
+    title: str(s.title) ?? '',
+    pages: pages.map((p) => ({
+      pageId: str(p.pageId) ?? '',
+      slug: str(p.slug) ?? '',
+      sections: num(p.sections),
+    })),
+    diff: diff
+      ? {
+          structural: (Array.isArray(diff.structural) ? diff.structural : [])
+            .filter(isObj)
+            .map((d) => ({
+              kind: str(d.kind) ?? '',
+              ...(str(d.pageId) ? { pageId: str(d.pageId) } : {}),
+              ...(str(d.sectionId) ? { sectionId: str(d.sectionId) } : {}),
+              summary: str(d.summary) ?? '',
+            })),
+          text: (Array.isArray(diff.text) ? diff.text : []).filter(isObj).map((d) => ({
+            path: str(d.path) ?? '',
+            locale: str(d.locale) ?? '',
+            before: str(d.before) ?? null,
+            after: str(d.after) ?? null,
+          })),
+        }
+      : null,
+    risks: risks.map((r) => ({
+      code: str(r.code) ?? '',
+      count: num(r.count),
+      ...(str(r.detail) ? { detail: str(r.detail) } : {}),
+    })),
+    summary: typeof s.summary === 'string' ? s.summary : '',
+  };
+}
+
+// ---- site model: outline and inspector ------------------------------------------------------------------------------------------------
+
+/** The component types the inspector knows (mirror of the model's SECTION_SPECS: loc = required localized text, locOpt = optional). */
+interface ItemSpec {
+  prop: string;
+  loc: string[];
+  locOpt: string[];
+  strings: string[];
+}
+interface SectionSpec {
+  loc: string[];
+  locOpt: string[];
+  strings: string[];
+  items?: ItemSpec;
+}
+export const SECTION_SPECS: Record<string, SectionSpec> = {
+  hero: { loc: ['heading'], locOpt: ['subheading', 'ctaLabel'], strings: [] },
+  text: { loc: ['body'], locOpt: ['heading'], strings: [] },
+  image: { loc: [], locOpt: ['caption'], strings: [] },
+  gallery: { loc: [], locOpt: ['heading'], strings: [] },
+  features: {
+    loc: [],
+    locOpt: ['heading'],
+    strings: ['collection'],
+    items: { prop: 'items', loc: ['title', 'text'], locOpt: [], strings: ['icon'] },
+  },
+  pricing: {
+    loc: [],
+    locOpt: ['heading'],
+    strings: ['collection'],
+    items: {
+      prop: 'plans',
+      loc: ['name'],
+      locOpt: ['description', 'period'],
+      strings: ['price', 'currency'],
+    },
+  },
+  testimonials: {
+    loc: [],
+    locOpt: ['heading'],
+    strings: ['collection'],
+    items: { prop: 'items', loc: ['quote'], locOpt: ['role'], strings: ['author'] },
+  },
+  faq: {
+    loc: [],
+    locOpt: ['heading'],
+    strings: ['collection'],
+    items: { prop: 'items', loc: ['question', 'answer'], locOpt: [], strings: [] },
+  },
+  contact_form: { loc: [], locOpt: ['heading', 'intro'], strings: [] },
+  map: { loc: [], locOpt: ['heading', 'address'], strings: ['query'] },
+};
+export const SECTION_TYPES = Object.keys(SECTION_SPECS);
+const LONG_TEXT = new Set([
+  'body',
+  'text',
+  'answer',
+  'quote',
+  'subheading',
+  'intro',
+  'description',
+]);
+
+export interface OutlineEntry {
+  pageId: string;
+  pageLabel: string;
+  sectionId: string;
+  type: string;
+  label: string;
+  index: number;
+  count: number;
+}
+/** Every component of every page in reading order, labelled by its heading in `locale` when it has one. */
+export function outlineOf(model: SiteModel, locale: SiteLocale): OutlineEntry[] {
+  const out: OutlineEntry[] = [];
+  for (const p of model.pages)
+    p.sections.forEach((s, i) =>
+      out.push({
+        pageId: p.id,
+        pageLabel: localized(p.title, locale) || p.slug,
+        sectionId: s.id,
+        type: s.type,
+        label: localized(s.props.heading ?? s.props.body ?? s.props.caption, locale),
+        index: i,
+        count: p.sections.length,
+      }),
+    );
+  return out;
+}
+export const findSection = (
+  model: SiteModel,
+  pageId: string,
+  sectionId: string,
+): Section | undefined =>
+  model.pages.find((p) => p.id === pageId)?.sections.find((s) => s.id === sectionId);
+
+export interface InspectorField {
+  key: string;
+  /** property name (for the label) */
+  name: string;
+  /** `items.2` for a field of the third item, else null */
+  group: string | null;
+  kind: 'loc' | 'str';
+  locale?: SiteLocale;
+  required: boolean;
+  multiline: boolean;
+  initial: string;
+}
+
+/** The editable text fields of a component for the site's locales, with their current values. */
+export function inspectorFields(section: Section, locales: SiteLocale[]): InspectorField[] {
+  const spec = SECTION_SPECS[section.type];
+  if (!spec) return [];
+  const out: InspectorField[] = [];
+  const locField = (
+    key: string,
+    name: string,
+    group: string | null,
+    holder: Record<string, unknown>,
+    required: boolean,
+  ) => {
+    for (const l of locales)
+      out.push({
+        key: `${key}|${l}`,
+        name,
+        group,
+        kind: 'loc',
+        locale: l,
+        required,
+        multiline: LONG_TEXT.has(name),
+        initial: str(isObj(holder[name]) ? (holder[name] as Record<string, unknown>)[l] : '') ?? '',
+      });
+  };
+  for (const n of spec.loc) locField(`p:${n}`, n, null, section.props, true);
+  for (const n of spec.locOpt) locField(`p:${n}`, n, null, section.props, false);
+  for (const n of spec.strings)
+    out.push({
+      key: `p:${n}`,
+      name: n,
+      group: null,
+      kind: 'str',
+      required: false,
+      multiline: false,
+      initial: str(section.props[n]) ?? '',
+    });
+  if (spec.items) {
+    const list = Array.isArray(section.props[spec.items.prop])
+      ? (section.props[spec.items.prop] as unknown[])
+      : [];
+    list.forEach((raw, i) => {
+      const it = isObj(raw) ? raw : {};
+      const g = `${spec.items!.prop}.${i}`;
+      for (const n of spec.items!.loc) locField(`i:${i}:${n}`, n, g, it, true);
+      for (const n of spec.items!.locOpt) locField(`i:${i}:${n}`, n, g, it, false);
+      for (const n of spec.items!.strings)
+        out.push({
+          key: `i:${i}:${n}`,
+          name: n,
+          group: g,
+          kind: 'str',
+          required: false,
+          multiline: false,
+          initial: str(it[n]) ?? '',
+        });
     });
   }
-  const sort = (n: TreeNode) => {
-    n.children.sort((a, b) => {
-      const ad = a.path === undefined ? 0 : 1;
-      const bd = b.path === undefined ? 0 : 1;
-      return ad - bd || a.name.localeCompare(b.name);
+  return out;
+}
+
+export interface StyleDraft {
+  background: string;
+  align: string;
+}
+export const styleOf = (s: Section): StyleDraft => ({
+  background: s.style?.background ?? '',
+  align: s.style?.align ?? '',
+});
+
+/**
+ * The ops that turn the inspector's edited values into a change: one `setText` per changed top-level text (an emptied optional text becomes `null`),
+ * ONE `updateProps` for changed plain strings and items, and one `updateProps` for the style. Nothing changed → no ops.
+ */
+export function draftOps(
+  pageId: string,
+  section: Section,
+  fields: InspectorField[],
+  values: Record<string, string>,
+  style: StyleDraft,
+): Op[] {
+  const ops: Op[] = [];
+  const spec = SECTION_SPECS[section.type];
+  const props: Record<string, unknown> = {};
+  let items: Record<string, unknown>[] | null = null;
+  const itemsProp = spec?.items?.prop;
+  for (const f of fields) {
+    const v = values[f.key] ?? f.initial;
+    if (v === f.initial) continue;
+    if (f.group === null && f.kind === 'loc') {
+      ops.push({
+        op: 'setText',
+        target: 'section',
+        pageId,
+        sectionId: section.id,
+        prop: f.name,
+        locale: f.locale!,
+        value: v === '' ? null : v,
+      });
+    } else if (f.group === null) {
+      props[f.name] = v === '' ? null : v;
+    } else if (itemsProp) {
+      items ??= (
+        Array.isArray(section.props[itemsProp]) ? (section.props[itemsProp] as unknown[]) : []
+      ).map((x) => JSON.parse(JSON.stringify(isObj(x) ? x : {})) as Record<string, unknown>);
+      const idx = Number(f.group.split('.')[1]);
+      const it = items[idx];
+      if (!it) continue;
+      if (f.kind === 'loc') {
+        const holder = isObj(it[f.name]) ? { ...(it[f.name] as Record<string, unknown>) } : {};
+        if (v === '') delete holder[f.locale!];
+        else holder[f.locale!] = v;
+        if (Object.keys(holder).length === 0) delete it[f.name];
+        else it[f.name] = holder;
+      } else if (v === '') delete it[f.name];
+      else it[f.name] = v;
+    }
+  }
+  if (items && itemsProp) props[itemsProp] = items;
+  const cur = styleOf(section);
+  const styleChanged = cur.background !== style.background || cur.align !== style.align;
+  if (Object.keys(props).length > 0 || styleChanged) {
+    const st: Record<string, string> = {};
+    if (style.background) st.background = style.background;
+    if (style.align) st.align = style.align;
+    ops.push({
+      op: 'updateProps',
+      pageId,
+      sectionId: section.id,
+      props,
+      ...(styleChanged ? { style: Object.keys(st).length > 0 ? st : null } : {}),
     });
-    n.children.forEach(sort);
-  };
-  sort(root);
-  return root.children;
+  }
+  return ops;
 }
 
-/* ------------------------------------------------------------------ changes (UI-M10-05) */
+export const moveOp = (pageId: string, sectionId: string, index: number): Op => ({
+  op: 'moveComponent',
+  pageId,
+  sectionId,
+  index,
+});
+export const deleteOp = (pageId: string, sectionId: string): Op => ({
+  op: 'deleteComponent',
+  pageId,
+  sectionId,
+});
 
-export const PATCH_OPS = ['add', 'modify', 'delete', 'rename'] as const;
-export type PatchOp = (typeof PATCH_OPS)[number];
-export interface PatchInput {
-  op: PatchOp;
-  path: string;
-  content: string;
-  from: string;
-  expectedHash: string;
-}
-/** A project-relative path: no leading slash, drive letter, backslash, NUL or `..` segment (the API checks again and answers 422 `change_rejected`). */
-export function safeRelPath(p: string): boolean {
-  if (p.length < 1 || p.length > 300) return false;
-  // eslint-disable-next-line no-control-regex
-  if (p.startsWith('/') || /^[A-Za-z]:/.test(p) || p.includes('\\') || /[\u0000-\u001f]/.test(p))
-    return false;
-  return !p.split('/').some((seg) => seg === '..' || seg === '' || seg === '.');
-}
-export type PatchErrors = Partial<Record<keyof PatchInput, MessageKey>>;
-export const isSha256 = (v: string) => /^[0-9a-f]{64}$/.test(v);
-/** The patch of the compose form, or its field errors. `modify`/`delete`/`rename` need the hash of the content the patch is written against. */
-export function buildPatch(
-  i: PatchInput,
-): { ok: true; patch: Schemas['Patch'] } | { ok: false; errors: PatchErrors } {
-  const errors: PatchErrors = {};
-  if (!safeRelPath(i.path)) errors.path = 'm10.chg.err.path';
-  if ((i.op === 'add' || i.op === 'modify') && i.content.length === 0)
-    errors.content = 'm10.chg.err.content';
-  if (i.content.length > 900_000) errors.content = 'm10.chg.err.contentSize';
-  if (i.op === 'rename' && !safeRelPath(i.from)) errors.from = 'm10.chg.err.from';
-  if (i.op !== 'add' && !isSha256(i.expectedHash.trim().toLowerCase()))
-    errors.expectedHash = 'm10.chg.err.hash';
-  if (Object.keys(errors).length) return { ok: false, errors };
-  const patch: Schemas['Patch'] = { op: i.op, path: i.path };
-  if (i.op === 'add' || i.op === 'modify') patch.content = i.content;
-  if (i.op === 'rename') patch.from = i.from;
-  if (i.op !== 'add') patch.expectedHash = i.expectedHash.trim().toLowerCase();
-  return { ok: true, patch };
-}
+/** Placeholder CONTENT for a newly inserted component (site content, not interface text: the owner replaces it). */
+const SAMPLE: Record<SiteLocale, string> = { ar: 'نص تجريبي', en: 'Sample text' };
+export const INSERTABLE = [
+  'hero',
+  'text',
+  'features',
+  'faq',
+  'pricing',
+  'testimonials',
+  'map',
+  'contact_form',
+] as const;
 
-/** sha256 (hex) of UTF-8 text, for the "use the hash of the file I am looking at" helper. null when the browser has no SubtleCrypto. */
-export async function sha256Hex(text: string): Promise<string | null> {
-  const subtle = globalThis.crypto?.subtle;
-  if (!subtle) return null;
-  const buf = await subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+export const nextSectionId = (model: SiteModel, type: string): string => {
+  const used = new Set(model.pages.flatMap((p) => p.sections.map((s) => s.id)));
+  for (let n = 1; n < 1000; n++)
+    if (!used.has(`${type.replace(/_/g, '-')}${n}`)) return `${type.replace(/_/g, '-')}${n}`;
+  return `${type.replace(/_/g, '-')}${Date.now()}`;
+};
 
-export interface DiffView {
-  added: string[];
-  modified: string[];
-  deleted: string[];
-  renamed: { from: string; to: string }[];
+/** A valid new component of `type` with sample text in every site language; null when the type needs something the site lacks (a form). */
+export function sampleSection(model: SiteModel, type: string, id: string): Section | null {
+  const L = Object.fromEntries(model.locales.map((l) => [l, SAMPLE[l]])) as Localized;
+  switch (type) {
+    case 'hero':
+      return { id, type, props: { heading: L } };
+    case 'text':
+      return { id, type, props: { body: L } };
+    case 'features':
+      return { id, type, props: { items: [{ title: L, text: L }] } };
+    case 'faq':
+      return { id, type, props: { items: [{ question: L, answer: L }] } };
+    case 'pricing':
+      return { id, type, props: { plans: [{ name: L, price: '0', currency: 'SAR' }] } };
+    case 'testimonials':
+      return { id, type, props: { items: [{ quote: L, author: SAMPLE.en }] } };
+    case 'map':
+      return { id, type, props: {} };
+    case 'contact_form': {
+      const f = model.forms[0];
+      return f ? { id, type, props: { formId: f.id } } : null;
+    }
+    default:
+      return null;
+  }
 }
-/** The `diff` of a change result without trusting its shape. */
-export function diffOf(diff: unknown): DiffView {
-  const d = (diff ?? {}) as Record<string, unknown>;
-  const strs = (v: unknown) =>
-    Array.isArray(v)
-      ? v.filter((x): x is string => typeof x === 'string').map((x) => safeText(x, 300))
-      : [];
+export const insertOp = (pageId: string, section: Section, index?: number): Op => ({
+  op: 'insertComponent',
+  pageId,
+  section,
+  ...(index !== undefined ? { index } : {}),
+});
+
+// ---- undo / redo --------------------------------------------------------------------------------------------------------------------------
+
+/** Stacks of inverse op sets: `undo` holds what reverts the last edits, `redo` what re-applies a reverted one. The server returns each inverse; nothing is computed here. */
+export interface History {
+  undo: Op[][];
+  redo: Op[][];
+}
+export const emptyHistory: History = { undo: [], redo: [] };
+const CAP = 50;
+export const pushEdit = (h: History, inverse: Op[]): History => ({
+  undo: [...h.undo, inverse].slice(-CAP),
+  redo: [],
+});
+/** The next undo (or redo) step without consuming it: consume with `finishUndo` once the server accepted it, so a failed step leaves both stacks as they were. */
+export const nextUndo = (h: History): Op[] | null => h.undo[h.undo.length - 1] ?? null;
+export const nextRedo = (h: History): Op[] | null => h.redo[h.redo.length - 1] ?? null;
+export const finishUndo = (h: History, redoOps: Op[]): History => ({
+  undo: h.undo.slice(0, -1),
+  redo: [...h.redo, redoOps].slice(-CAP),
+});
+export const finishRedo = (h: History, undoOps: Op[]): History => ({
+  undo: [...h.undo, undoOps].slice(-CAP),
+  redo: h.redo.slice(0, -1),
+});
+
+// ---- diff / risk display --------------------------------------------------------------------------------------------------------------
+
+export const RISK_CODES = [
+  'deletes_page',
+  'deletes_component',
+  'changes_seo',
+  'changes_slug',
+  'removes_asset',
+  'many_changes',
+  'changes_base_url',
+] as const;
+/** Risk flags that make a change need a second look. All of them do; the list is kept for the key set. */
+export const DIFF_KINDS = [
+  'page_added',
+  'page_deleted',
+  'slug_changed',
+  'component_added',
+  'component_deleted',
+  'component_changed',
+  'components_reordered',
+  'tokens_changed',
+  'seo_changed',
+  'nav_changed',
+  'assets_changed',
+] as const;
+
+// ---- SEO ----------------------------------------------------------------------------------------------------------------------------------
+
+/** Mirror of the model's base URL rule (an absolute https URL). */
+export const isBaseUrl = (v: string): boolean =>
+  v.length <= 200 && /^https:\/\/[A-Za-z0-9.-]+(:[0-9]{2,5})?(\/[A-Za-z0-9._~/-]*)?$/.test(v);
+
+export const seoTone = (score: number): Tone =>
+  score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger';
+
+/** One `Localized` from per-locale form values: empty strings are dropped. */
+export const localizedOf = (values: Record<string, string>, locales: SiteLocale[]): Localized =>
+  Object.fromEntries(
+    locales.filter((l) => (values[l] ?? '').trim() !== '').map((l) => [l, values[l]!.trim()]),
+  ) as Localized;
+
+/** `setSeo` for the site-level fields; `baseUrl` empty removes it (null). */
+export function siteSeoOp(
+  locales: SiteLocale[],
+  v: { title: Record<string, string>; description: Record<string, string>; baseUrl: string },
+): Op {
   return {
-    added: strs(d.added),
-    modified: strs(d.modified),
-    deleted: strs(d.deleted),
-    renamed: Array.isArray(d.renamed)
-      ? d.renamed
-          .filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
-          .map((x) => ({ from: safeText(x.from, 300), to: safeText(x.to, 300) }))
-      : [],
-  };
-}
-
-/* ------------------------------------------------------------------ test runs (UI-M10-08) */
-
-export function testTone(status: string): Tone {
-  if (status === 'passed') return 'success';
-  if (status === 'failed' || status === 'errored') return 'danger';
-  if (status === 'queued' || status === 'running' || status === 'cancelled') return 'warn';
-  return undefined;
-}
-export const isLiveTest = (status: string) => status === 'queued' || status === 'running';
-
-export interface CaseView {
-  suite: string;
-  name: string;
-  status: string;
-  failure?: string;
-}
-export interface SuiteView {
-  suite: string;
-  status: string;
-  tests: number;
-  failures: number;
-  skipped: number;
-  cases: CaseView[];
-}
-export interface TestSummaryView {
-  totals: { suites: number; tests: number; failures: number; skipped: number };
-  suites: SuiteView[];
-  failed: CaseView[];
-  note: string;
-}
-/** The structured result of a test run (junit-like) without trusting its shape. Failed cases come first; messages are masked. */
-export function summaryOf(summary: unknown): TestSummaryView {
-  const s = (summary ?? {}) as Record<string, unknown>;
-  const tot = (s.totals ?? {}) as Record<string, unknown>;
-  const suites: SuiteView[] = (Array.isArray(s.suites) ? s.suites : [])
-    .filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
-    .map((x) => ({
-      suite: safeText(x.suite, 40),
-      status: safeText(x.status, 20),
-      tests: num(x.tests),
-      failures: num(x.failures),
-      skipped: num(x.skipped),
-      cases: (Array.isArray(x.cases) ? x.cases : [])
-        .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
-        .map((c) => ({
-          suite: safeText(c.suite ?? x.suite, 40),
-          name: safeText(c.name, 200),
-          status: safeText(c.status, 20),
-          ...(typeof c.failure === 'string' ? { failure: safeText(c.failure, 400) } : {}),
-        })),
-    }));
-  return {
-    totals: {
-      suites: num(tot.suites) || suites.length,
-      tests: num(tot.tests),
-      failures: num(tot.failures),
-      skipped: num(tot.skipped),
+    op: 'setSeo',
+    seo: {
+      siteTitle: localizedOf(v.title, locales),
+      description: localizedOf(v.description, locales),
+      baseUrl: v.baseUrl.trim() === '' ? null : v.baseUrl.trim(),
     },
-    suites,
-    failed: suites.flatMap((x) => x.cases.filter((c) => c.status === 'failed')),
-    note: safeText(s.note, 300),
   };
 }
-export const TEST_SUITES = ['all', 'unit', 'typecheck', 'build', 'e2e'] as const;
-
-/* ------------------------------------------------------------------ deployments (UI-M10-09) */
-
-export const deploymentTone = (state: string): Tone =>
-  state === 'live'
-    ? 'success'
-    : state === 'failed'
-      ? 'danger'
-      : state === 'rolled_back' || state === 'superseded'
-        ? 'warn'
-        : undefined;
-export const isLiveDeployment = (state: string) =>
-  ['queued', 'building', 'deploying', 'verifying'].includes(state);
-export const canRollback = (d: Pick<Deployment, 'state' | 'environment' | 'rollbackOf'>) =>
-  d.state === 'live' && !d.rollbackOf;
-
-export interface HealthView {
-  attempts: number | null;
-  autoRolledBack: boolean;
-  restoredDeploymentId: string | null;
-  checkedUrl: string;
-}
-/** The health-gate result stored on a deployment: attempts, and whether the previous release was restored. */
-export function healthOf(h: unknown): HealthView | null {
-  if (typeof h !== 'object' || h === null || Object.keys(h).length === 0) return null;
-  const x = h as Record<string, unknown>;
-  return {
-    attempts: typeof x.attempts === 'number' ? x.attempts : null,
-    autoRolledBack: x.autoRolledBack === true,
-    restoredDeploymentId:
-      typeof x.restoredDeploymentId === 'string' ? x.restoredDeploymentId : null,
-    checkedUrl: safeText(x.url ?? x.checkedUrl, 200),
+/** `updatePage` for a page's own SEO; all empty means "no page-level SEO" (null). */
+export function pageSeoOp(
+  pageId: string,
+  locales: SiteLocale[],
+  v: { title: Record<string, string>; description: Record<string, string>; noindex: boolean },
+): Op {
+  const title = localizedOf(v.title, locales);
+  const description = localizedOf(v.description, locales);
+  const seo: Record<string, unknown> = {
+    ...(Object.keys(title).length ? { title } : {}),
+    ...(Object.keys(description).length ? { description } : {}),
+    ...(v.noindex ? { noindex: true } : {}),
   };
+  return { op: 'updatePage', pageId, seo: Object.keys(seo).length ? seo : null };
 }
-export const isUuid = (v: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim());
 
-/* ------------------------------------------------------------------ exports (UI-M10-10) */
+// ---- preview ------------------------------------------------------------------------------------------------------------------------------
 
-export const exportTone = (status: string): Tone =>
-  status === 'ready'
+export const VIEWPORTS = { mobile: 375, tablet: 768, desktop: 1200 } as const;
+export type Viewport = keyof typeof VIEWPORTS;
+
+/** The preview is only ever framed from an https (or, in development, http) URL: anything else is not put in an iframe. */
+export const isPreviewUrl = (u: string): boolean => /^https?:\/\/[^\s/]+\//.test(u);
+
+// ---- deployments --------------------------------------------------------------------------------------------------------------------------
+
+export const DEPLOY_ACTIVE = ['queued', 'building', 'deploying', 'smoke_checking'] as const;
+export const isDeployActive = (state: string): boolean =>
+  (DEPLOY_ACTIVE as readonly string[]).includes(state);
+export const deployTone = (state: string): Tone =>
+  state === 'succeeded'
     ? 'success'
-    : status === 'blocked'
+    : state === 'failed' || state === 'rolled_back'
       ? 'danger'
-      : status === 'building' || status === 'expired'
+      : isDeployActive(state)
         ? 'warn'
         : undefined;
-/** The signed URL may be offered only while it exists and has not expired (it is valid for 15 minutes at most; a new one is issued per read). */
-export const downloadValid = (
-  e: Pick<ExportRow, 'downloadUrl' | 'downloadUrlExpiresAt'>,
-  now = Date.now(),
-) =>
-  typeof e.downloadUrl === 'string' &&
-  e.downloadUrl.length > 0 &&
-  typeof e.downloadUrlExpiresAt === 'string' &&
-  Date.parse(e.downloadUrlExpiresAt) > now;
-/** Only an http(s) URL is ever put in an `href`. */
-export const safeHref = (u: string | null | undefined) =>
-  u && /^https?:\/\//i.test(u) ? u : undefined;
+/** Rollback is offered for a succeeded deployment that has something to go back to. */
+export const canRollback = (d: Deployment): boolean =>
+  d.state === 'succeeded' && d.previousDeploymentId !== null && d.rollbackOf === null;
+export const DEPLOY_ENVIRONMENTS = ['production', 'staging'] as const;
 
-/* ------------------------------------------------------------------ admin helper reused by tests */
-export const shortId = (id: string) => id.slice(0, 8);
+// ---- CMS ----------------------------------------------------------------------------------------------------------------------------------
+
+export const CMS_FIELD_TYPES = ['text', 'number', 'boolean', 'date', 'localized_text'] as const;
+export const SLUG = /^[a-z][a-z0-9_-]{0,39}$/;
+export const FIELD_NAME = /^[a-z][a-z0-9_]{0,29}$/;
+
+/** The typed value the CMS API expects for one field, from the editor's string value; null = invalid for the type. */
+export function cmsValue(
+  type: string,
+  raw: string | boolean | Record<string, string>,
+): string | number | boolean | Record<string, string> | null | undefined {
+  if (type === 'boolean') return raw === true;
+  if (type === 'localized_text') {
+    const o = Object.fromEntries(
+      Object.entries(raw as Record<string, string>).filter(([, v]) => v.trim() !== ''),
+    );
+    return Object.keys(o).length ? o : undefined;
+  }
+  const s = typeof raw === 'string' ? raw.trim() : '';
+  if (s === '') return undefined; // empty = not set
+  if (type === 'number') {
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (type === 'date') return Number.isNaN(Date.parse(s)) ? null : s;
+  return s;
+}
+
+/** A short text of an item for a table cell (first text-like field, in `locale`). */
+export function cmsItemLabel(fields: CmsField[], data: Record<string, unknown>, l: Locale): string {
+  for (const f of fields) {
+    const v = data[f.name];
+    if (typeof v === 'string' && v) return v;
+    if (isObj(v)) {
+      const s = localized(v, l);
+      if (s) return s;
+    }
+  }
+  return '';
+}
+
+/** Absolute label of a form field for a table header. */
+export const LOCALE_LABEL: Record<SiteLocale, string> = { ar: 'العربية', en: 'English' };

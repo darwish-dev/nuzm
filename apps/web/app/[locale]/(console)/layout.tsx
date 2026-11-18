@@ -1,13 +1,54 @@
 import type { ReactNode } from 'react';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { isLocale, locales, t, formatDateTime } from '@nuzm/i18n';
-import { Banner, Ltr, LocaleSwitch, NavList, Shell } from '@nuzm/ui';
-import { VerifyEmailBanner } from '../../../components/AuthForms';
-import { ActiveOrgCookie, OrgSwitcher, SignOut } from '../../../components/ConsoleChrome';
-import { CLOUD_FLAG, flagOn } from '../../../lib/compute';
+import { unwrap } from '@nuzm/sdk';
+import { formatDateTime, formatMinor, isLocale, locales, t } from '@nuzm/i18n';
+import {
+  Banner,
+  SectionTabs,
+  Icon,
+  PrimaryRail,
+  type IconName,
+  type RailItem,
+  type SideGroup,
+  type SideItem,
+} from '@nuzm/ui';
+import { BrandMark, BrandWordmark } from '../../../components/BrandLogo';
+import { VerifyEmailPill } from '../../../components/AuthForms';
+import { ActiveOrgCookie, OrgSwitcher } from '../../../components/ConsoleChrome';
+import { ConsoleFrame, ProfileMenu } from '../../../components/ConsoleShell';
+import {
+  buildNav,
+  currentCategory,
+  currentItemId,
+  stripLocale,
+  type ResolvedItem,
+} from '../../../lib/nav';
 import { requireSession } from '../../../lib/server';
 import { flagEnabled } from '../../../lib/services';
+
+const MENU_ICONS: Record<string, IconName> = {
+  team: 'user',
+  organization: 'organization',
+  privacy: 'shield',
+  agency: 'globe',
+  reseller: 'globe',
+};
+
+const initialsOf = (name: string | null | undefined, email: string) => {
+  const src = (name ?? '').trim() || email;
+  const parts = src.split(/[\s@._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? (parts[1]?.[0] ?? '') : '')).toUpperCase();
+};
+
+/** A figure that is unavailable to this role or fails to load is left out of the top bar, never faked. */
+const safe = async <T,>(p: Promise<T>): Promise<T | null> => {
+  try {
+    return await p;
+  } catch {
+    return null;
+  }
+};
 
 export default async function ConsoleLayout({
   children,
@@ -19,90 +60,82 @@ export default async function ConsoleLayout({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const s = await requireSession(locale);
-  const path = (await headers()).get('x-pathname') ?? '';
   const base = `/${locale}`;
-  const gated = (perm: string, href: string, key: Parameters<typeof t>[1]) =>
-    s.org && s.can(perm) ? [{ href: `${base}${href}`, label: t(locale, key) }] : [];
-  const items = [
-    { href: base, label: t(locale, 'nav.home') },
-    ...(s.org ? [{ href: `${base}/notifications`, label: t(locale, 'nav.notifications') }] : []),
-    ...gated('workspace:read', '/workspaces', 'nav.workspaces'),
-    ...gated('project:read', '/projects', 'nav.projects'),
-    ...gated('operation:read', '/operations', 'nav.operations'),
-    ...gated('resource:read', '/resources', 'nav.resources'),
-    // hosting is a flagged capability (`hosting.enabled`, default off); the API answers 404 while it is off
-    ...(flagEnabled(s.me.featureFlags, 'hosting.enabled')
-      ? gated('hosting:site:read', '/hosting/sites', 'nav.hosting')
-      : []),
-    ...gated('data:db:read', '/databases', 'm8.nav.databases'),
-    ...gated('data:storage:read', '/storage/buckets', 'm8.nav.storage'),
-    ...gated('email:read', '/email/domains', 'm8.nav.email'),
-    // domains is a flagged capability (`domains.enabled`, default off)
-    ...(flagEnabled(s.me.featureFlags, 'domains.enabled')
-      ? gated('domain:read', '/domains', 'nav.domains')
-      : []),
-    // M10A: the app builder is a flagged capability (`app_builder.enabled`, default off; the API answers 404 while it is off)
-    ...(flagEnabled(s.me.featureFlags, 'app_builder.enabled')
-      ? [
-          ...gated('builder:read', '/builder/projects', 'm10.nav.builder'),
-          ...gated('ai:read', '/approvals', 'm10.nav.approvals'),
-        ]
-      : []),
-    ...(s.org && (s.can('billing:read') || s.can('usage:read'))
-      ? [
-          {
-            href: `${base}/billing${s.can('billing:read') ? '' : '/usage'}`,
-            label: t(locale, 'nav.billing'),
-          },
-        ]
-      : []),
-    ...gated('privacy:dsr:self', '/privacy/requests', 'nav.privacy'),
-    // M05: compute entries only while `cloud.provisioning` is on for the organization AND the member holds the permission
-    ...(flagOn(s.me.featureFlags, CLOUD_FLAG)
-      ? [
-          ...gated('offers:read', '/compute/offers', 'm05.web.nav.offers'),
-          ...gated('compute:instance:read', '/compute/instances', 'm05.web.nav.instances'),
-        ]
-      : []),
-    ...gated('audit:read', '/audit-logs', 'nav.audit'),
-    ...gated('member:read', '/settings/members', 'nav.members'),
-    ...gated('member:invite', '/settings/invitations', 'nav.invitations'),
-    ...gated('apikey:read', '/settings/api-keys', 'nav.apiKeys'),
-    ...gated('org:update', '/settings/organization', 'nav.orgSettings'),
-    { href: `${base}/account/sessions`, label: t(locale, 'nav.sessions') },
-    { href: `${base}/account/security/mfa`, label: t(locale, 'nav.security') },
-    { href: `${base}/account/security/password`, label: t(locale, 'nav.password') },
-    { href: `${base}/account/security/recovery-codes`, label: t(locale, 'nav.recovery') },
-    ...(s.org?.type === 'agency'
-      ? [{ href: `${base}/agency`, label: t(locale, 'nav.agency') }]
-      : []),
-    ...(s.org?.type === 'reseller'
-      ? [{ href: `${base}/reseller`, label: t(locale, 'nav.reseller') }]
-      : []),
-  ].map((i) => ({
-    ...i,
-    // the Billing entry stays current on every billing sub-page
-    current:
-      path === i.href ||
-      (i.href.includes('/compute/') ? path.startsWith(`${i.href}/`) : false) ||
-      (i.href.endsWith('/billing') ? path.startsWith(`${i.href}/`) : false) ||
-      (i.href.endsWith('/privacy/requests')
-        ? path.includes('/privacy/') || path.endsWith('/settings/data-residency')
-        : false) ||
-      // managed data and email: every sub-page keeps its section entry current
-      (i.href.endsWith('/builder/projects') ? path.startsWith(i.href) : false) ||
-      (i.href.endsWith('/databases') ? path.startsWith(i.href) : false) ||
-      (i.href.endsWith('/storage/buckets') ? path.startsWith(`${base}/storage/`) : false) ||
-      (i.href.endsWith('/email/domains') ? path.startsWith(`${base}/email/`) : false),
-  }));
+  const path = stripLocale((await headers()).get('x-pathname') ?? base, locale);
+  const theme = (await cookies()).get('nuzm_theme')?.value === 'light' ? 'light' : 'dark';
+
+  const cats = buildNav({
+    can: s.can,
+    flag: (k) => flagEnabled(s.me.featureFlags, k),
+    hasOrg: Boolean(s.org),
+    orgType: s.org?.type,
+  });
+  const active = currentCategory(cats, path);
+  const activeCat = cats.find((c) => c.id === active) ?? cats[0]!;
+
+  // wallet (needs billing:read) and unread notifications, both optional extras of the top bar
+  const [balance, unread] = await Promise.all([
+    s.org && s.can('billing:read') ? safe(unwrap(s.api.GET('/v1/billing/balance', {}))) : null,
+    s.org
+      ? safe(unwrap(s.api.GET('/v1/notifications', { params: { query: { limit: 1 } } })))
+      : null,
+  ]);
+  const wallet = balance?.balances[0] ?? null;
+
+  // categories reached from the account menu (the account, the organization) are not on the rail
+  const railItems: RailItem[] = cats
+    .filter((c) => !c.menu)
+    .map((c) => ({
+      id: c.id,
+      href: `${base}${c.home === '/' ? '' : c.home}`,
+      label: t(locale, c.label),
+      icon: c.icon,
+      current: c.id === active,
+    }));
+  const toSide = (i: ResolvedItem, current: string | null): SideItem => ({
+    id: i.id,
+    label: t(locale, i.label),
+    href: i.href ? `${base}${i.href === '/' ? '' : i.href}` : undefined,
+    current: i.id === current,
+    children: i.children?.map((c) => toSide(c, current)),
+  });
+  const currentId = currentItemId(activeCat, path);
+  const groups: SideGroup[] = (activeCat.menu || activeCat.noTabs ? [] : activeCat.groups).map(
+    (g) => ({
+      id: g.id,
+      title: g.title ? t(locale, g.title) : undefined,
+      items: g.items.map((i) => toSide(i, currentId)),
+    }),
+  );
+
+  // the organization's pages, listed in the account menu
+  const menuLinks = (cats.find((c) => c.id === 'organization')?.groups ?? [])
+    .flatMap((g) => g.items)
+    .filter((i) => i.href)
+    .map((i) => ({
+      href: `${base}${i.href}`,
+      label: t(locale, i.label),
+      icon: MENU_ICONS[i.id] ?? ('organization' as const),
+      current: currentId === i.id && activeCat.id === 'organization',
+    }));
+
   const imp = s.me.impersonation;
+  const brand = (
+    <a className="nzc-brandlink" href={base} aria-label="Nuzm">
+      <BrandWordmark className="nzc-logo-full" />
+      <BrandMark className="nzc-logo-mark" />
+    </a>
+  );
+  const unreadCount = unread?.unreadCount ?? 0;
   return (
-    <Shell
-      brand={
-        <a className="nz-brand" href={base}>
-          {locale === 'ar' ? 'نظم' : 'Nuzm'}
-        </a>
-      }
+    <ConsoleFrame
+      labels={{
+        openMenu: t(locale, 'nc.top.menu'),
+        closeMenu: t(locale, 'nc.top.close'),
+      }}
+      brand={brand}
+      rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
+      tabs={<SectionTabs label={t(locale, 'nc.nav.side')} groups={groups} />}
       topbar={
         <>
           {s.org && (
@@ -112,18 +145,67 @@ export default async function ConsoleLayout({
               orgs={s.me.memberships.map((m) => ({ orgId: m.orgId, name: m.name }))}
             />
           )}
-          <LocaleSwitch
-            current={locale}
-            locales={[...locales]}
-            labels={{ ar: 'العربية', en: 'English' }}
+          <span className="nzc-grow" />
+          {!s.me.emailVerified && !imp && <VerifyEmailPill locale={locale} />}
+          <span className="nzc-grow" />
+          {s.org && s.can('billing:read') && (
+            <a
+              className="nzc-chip"
+              href={`${base}/billing/payments#wallet`}
+              aria-label={
+                wallet
+                  ? `${t(locale, 'nc.wallet')}: ${formatMinor(wallet.balanceMinor, wallet.currency, locale)}`
+                  : t(locale, 'nc.wallet')
+              }
+            >
+              <Icon name="wallet" size={18} />
+              <span className="nzc-num" dir="ltr">
+                {wallet
+                  ? formatMinor(wallet.balanceMinor, wallet.currency, locale)
+                  : t(locale, 'nc.wallet.empty')}
+              </span>
+            </a>
+          )}
+          {s.org && (
+            <a
+              className="nzc-icon-btn"
+              href={`${base}/notifications`}
+              aria-label={
+                unreadCount > 0
+                  ? `${t(locale, 'nav.notifications')} (${unreadCount})`
+                  : t(locale, 'nav.notifications')
+              }
+              aria-current={path === '/notifications' ? 'page' : undefined}
+            >
+              <Icon name="bell" />
+              {unreadCount > 0 && (
+                <span className="nzc-dot" aria-hidden="true">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </a>
+          )}
+          <ProfileMenu
+            initials={initialsOf(s.me.displayName, s.me.email)}
+            name={s.me.displayName ?? s.me.email}
+            email={s.me.email}
+            locale={locale}
+            languages={locales.map((l) => ({ code: l, label: l === 'ar' ? 'العربية' : 'English' }))}
+            theme={theme}
+            labels={{
+              menu: t(locale, 'nc.profile.menu'),
+              profile: t(locale, 'nc.profile.open'),
+              language: t(locale, 'nc.menu.language'),
+              darkMode: t(locale, 'nc.menu.darkMode'),
+              signOut: t(locale, 'action.signout'),
+            }}
+            profileHref={`${base}/account`}
+            links={menuLinks}
+            linksTitle={s.org ? s.org.name : undefined}
+            signedOutTo={`${base}/login`}
           />
-          <Ltr>{s.me.email}</Ltr>
-          <SignOut label={t(locale, 'action.signout')} to={`/${locale}/login`} />
         </>
       }
-      nav={<NavList items={items} />}
-      navLabel={t(locale, 'nav.primary')}
-      skipLabel={t(locale, 'app.skip')}
       banner={
         <>
           {imp && (
@@ -134,7 +216,6 @@ export default async function ConsoleLayout({
               })}
             </Banner>
           )}
-          {!s.me.emailVerified && !imp && <VerifyEmailBanner locale={locale} />}
           {s.org?.status === 'suspended' && (
             <Banner tone="warn">{t(locale, 'banner.suspended')}</Banner>
           )}
@@ -143,6 +224,6 @@ export default async function ConsoleLayout({
     >
       {s.org && <ActiveOrgCookie orgId={s.org.orgId} />}
       {children}
-    </Shell>
+    </ConsoleFrame>
   );
 }

@@ -1,5 +1,5 @@
-import { ComputeLoading } from '../../../../components/ComputeLoading';
+import { BuilderLoading } from '../../../../components/BuilderLoading';
 
 export default function Loading() {
-  return <ComputeLoading />;
+  return <BuilderLoading />;
 }

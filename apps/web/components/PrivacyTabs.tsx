@@ -21,7 +21,7 @@ export function PrivacyTabs({
     },
   ] as const;
   return (
-    <nav aria-label={t(locale, 'pv.nav')} className="nz-row">
+    <nav aria-label={t(locale, 'pv.nav')} className="nz-row nz-subnav">
       {tabs
         .filter((x) => can(x.perm))
         .map((x) => (

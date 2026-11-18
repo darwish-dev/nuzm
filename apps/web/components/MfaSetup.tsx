@@ -1,10 +1,12 @@
 'use client';
+import { useRouter } from 'next/navigation';
 import { MfaEnrol } from '@nuzm/ui';
 import { t, type Locale } from '@nuzm/i18n';
 import { browserApi } from '../lib/client';
 
 export function MfaSetup({ locale }: { locale: Locale }) {
   const api = browserApi();
+  const router = useRouter();
   return (
     <MfaEnrol
       labels={{
@@ -18,6 +20,8 @@ export function MfaSetup({ locale }: { locale: Locale }) {
         errorCode: t(locale, 'mfa.error.code'),
         errorGeneric: t(locale, 'state.error.title'),
       }}
+      // the account page's status badge and recovery-codes section read the factor from the server
+      onDone={() => router.refresh()}
       lockedMessage={t(locale, 'mfa.error.locked')}
       start={async () => {
         const r = await api.POST('/v1/auth/mfa/factors', { body: { type: 'totp' } });

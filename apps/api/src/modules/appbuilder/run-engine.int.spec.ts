@@ -296,12 +296,12 @@ describe('approvals (hash-bound, 24 h, AC-M10-05)', () => {
       requestedBy: { kind: 'ai' },
       dataRegion: 'sa-central',
     });
-    await e.env.sql(`ALTER TABLE ai.approval_requests DISABLE TRIGGER approval_guard`);
+    await e.env.sql(`ALTER TABLE ai.approval_requests DISABLE TRIGGER approval_request_guard`);
     await e.env.sql(
       `UPDATE ai.approval_requests SET expires_at = now() - interval '1 minute' WHERE id = $1`,
       [exp.id],
     );
-    await e.env.sql(`ALTER TABLE ai.approval_requests ENABLE TRIGGER approval_guard`);
+    await e.env.sql(`ALTER TABLE ai.approval_requests ENABLE TRIGGER approval_request_guard`);
     await expect(
       e.approvals.decide(e.orgA, actor('admin'), exp.id, {
         decision: 'approve',

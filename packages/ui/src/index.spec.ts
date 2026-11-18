@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { baseCss, cssVariables, tokens } from './index';
+import { baseCss, consoleCss, cssVariables, tokens } from './index';
 
 describe('ui tokens', () => {
   it('emits css variables for every token', () => {
@@ -17,5 +17,13 @@ describe('ui tokens', () => {
     expect(baseCss).not.toMatch(
       /(?<![a-z-])(left|right)\s*:|margin-(left|right)|padding-(left|right)|border-(left|right)|text-align:\s*(left|right)/,
     );
+  });
+  it('the console stylesheet also uses logical properties only, and defines both themes', () => {
+    expect(consoleCss).not.toMatch(
+      /(?<![a-z-])(left|right)\s*:|margin-(left|right)|padding-(left|right)|border-(left|right)|text-align:\s*(left|right)/,
+    );
+    expect(consoleCss).toContain('.nzc[data-theme="light"]');
+    expect(consoleCss).toContain('--nzc-bg: #0b0b0c;');
+    expect(consoleCss).toContain('prefers-reduced-motion');
   });
 });

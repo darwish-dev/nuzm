@@ -62,6 +62,10 @@ export default async function ConsoleLayout({
     ...gated('member:invite', '/settings/invitations', 'nav.invitations'),
     ...gated('apikey:read', '/settings/api-keys', 'nav.apiKeys'),
     ...gated('org:update', '/settings/organization', 'nav.orgSettings'),
+    // M12: SSO is a flagged capability (`enterprise.sso`, default off); the API answers 404 while it is off
+    ...(flagEnabled(s.me.featureFlags, 'enterprise.sso')
+      ? gated('org:security', '/settings/security/sso', 'm12.nav.sso')
+      : []),
     { href: `${base}/account/sessions`, label: t(locale, 'nav.sessions') },
     { href: `${base}/account/security/mfa`, label: t(locale, 'nav.security') },
     { href: `${base}/account/security/password`, label: t(locale, 'nav.password') },

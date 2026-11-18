@@ -50,6 +50,15 @@ export default async function ConsoleLayout({
     ...(s.can('admin:provider:read')
       ? [{ href: `${base}/providers`, label: t(locale, 'nav.admin.providers') }]
       : []),
+    // M12: operations (health, incidents, alerts, DR) and governance (access reviews, policies, audit retention); the sections are reachable from their tab bars
+    ...(s.can('admin:ops:read')
+      ? [{ href: `${base}/operations/health`, label: t(locale, 'm12.nav.admin.ops') }]
+      : []),
+    ...(s.can('admin:security:manage')
+      ? [{ href: `${base}/access-reviews`, label: t(locale, 'm12.nav.admin.gov') }]
+      : s.can('admin:compliance:read')
+        ? [{ href: `${base}/policies`, label: t(locale, 'm12.nav.admin.gov') }]
+        : []),
   ].map((i) => ({
     ...i,
     current:
@@ -61,7 +70,19 @@ export default async function ConsoleLayout({
         (path.startsWith(`${i.href}/`) ||
           path.startsWith(`${base}/cloud/`) ||
           path.startsWith(`${base}/finance/`))) ||
-      (i.href.endsWith('/hosting/nodes') && path.includes('/hosting/')),
+      (i.href.endsWith('/hosting/nodes') && path.includes('/hosting/')) ||
+      (i.href.endsWith('/operations/health') &&
+        [
+          '/operations/',
+          '/incidents',
+          '/alerts',
+          '/provider-incidents',
+          '/recovery-exercises',
+          '/launch',
+          '/support/',
+        ].some((p) => path.startsWith(`${base}${p}`))) ||
+      ((i.href.endsWith('/access-reviews') || i.href.endsWith('/policies')) &&
+        ['/access-reviews', '/policies', '/audit/'].some((p) => path.startsWith(`${base}${p}`))),
   }));
   return (
     <Shell

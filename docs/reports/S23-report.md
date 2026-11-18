@@ -34,6 +34,8 @@ Backend: `packages/adapters/costs/**`, `packages/adapters/live-verify/src/{cli,b
 | `apps/api src/platform-scope.spec.ts` | 2 passed (allow-list gained `modules/cloud-vendors/`) |
 | UI: `pnpm --filter @nuzm/admin typecheck|test|build` | typecheck + build exit 0; **125 tests passed** (65 before) |
 | UI: `pnpm --filter @nuzm/web …` | typecheck + build exit 0; **137 tests passed** (70 new: `lib/compute.spec.ts` 36, `components/ComputePanels.spec.tsx` 34); `pnpm --filter @nuzm/i18n test` 9 passed (ar/en key parity) |
+| Filtered verify (everything `pnpm verify` runs except the `@nuzm/e2e` browser package, whose ports belong to other sessions): `pnpm lint && pnpm typecheck && pnpm exec turbo run test --filter='!@nuzm/e2e' && pnpm build && pnpm spec:lint && pnpm spec:drift && pnpm sdk:check && pnpm scan:secrets && pnpm zatca:guard` | exit 0 (second run; the first run failed one Huawei probe test on a 1 s call deadline under host load ~300, fixed by raising the test-subject deadline to 3 s) |
+| `pnpm db:migrate && pnpm db:test-rls && pnpm test:integration` (Postgres :54335) | exit 0: db 43, platform 32, worker 8, **api 720 (31 files)** all passed |
 | `pnpm test:e2e` / `pnpm verify:full` / `e2e/tests/08,09` | **NOT RUN** (ports 3000/3001/4000/4010/54329 belong to other sessions; the S17 API is not in this tree) |
 | Screenshots (CLAUDE.md §4) | **NOT PRODUCED** |
 

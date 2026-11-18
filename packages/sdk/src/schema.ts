@@ -2452,6 +2452,398 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/storage/buckets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List buckets
+         * @description Newest first. Requires permission `data:storage:read`.
+         */
+        get: operations["listBuckets"];
+        put?: never;
+        /**
+         * Create a bucket
+         * @description Body {name, quoteId (a quote of kind `storage`), region?, versioning?}. The bucket is named `nz-<orgShort>-<name>` (the namespace comes from the organization, never from input), PRIVATE by default (`public`, `policy` or an organization cannot be set here) and gets its own bucket-scoped credential stored in the vault. 202 + operation. 409 `name_taken` (the same answer whoever holds the name: names of other organizations cannot be enumerated); 422 `unsupported_capability` when no object-storage provider is enabled or the probe does not report buckets supported; 422 `quota_exceeded` beyond the entitlement bucket count; 403 `residency_denied`. Idempotent per Idempotency-Key. Requires permission `data:storage:write`. Audited.
+         */
+        post: operations["createBucket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/storage/buckets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a bucket
+         * @description State, endpoint, `dataRegion`, `public`, versioning, quota, lifecycle, last usage (with which figures the provider could report), the vault REFERENCE of the bucket credential (never the secret) and the ETag. 404 for another organization, identical to a bucket that does not exist. Requires permission `data:storage:read`.
+         */
+        get: operations["getBucket"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a bucket
+         * @description `confirmName` (query or JSON body) must equal the bucket name. An EMPTY bucket only (409 otherwise); `force=true` deletes the objects too and needs `data:storage:admin` plus a recent MFA verification. 202 + operation. Requires permission `data:storage:write`. Audited.
+         */
+        delete: operations["deleteBucket"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a bucket
+         * @description Body {quotaBytes}. Requires If-Match (428/412); bounded by the entitlement. Requires permission `data:storage:admin`.
+         */
+        patch: operations["updateBucket"];
+        trace?: never;
+    };
+    "/v1/storage/buckets/{id}/access-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the access policy
+         * @description The policy document (deny-by-default subset) and its ETag. Requires permission `data:storage:read`.
+         */
+        get: operations["getBucketAccessPolicy"];
+        /**
+         * Replace the access policy
+         * @description Body {policy: {version: 1, access: private|public-read, statements: [{effect: allow, actions, prefix, principal: bucket-credentials}], cors?}, confirmPublic?} (the policy may also be the body itself). Requires If-Match with the policy ETag. Only the documented subset is accepted: anything else is 422 `policy_invalid`. `access=public-read` needs `confirmPublic=true` (else 422 `policy_invalid`), a recent MFA verification, and is audited (`data.bucket.made_public`); the console shows a warning. Requires permission `data:storage:admin`.
+         */
+        put: operations["putBucketAccessPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/storage/buckets/{id}/signed-urls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a signed URL
+         * @description Body {key, method: GET|HEAD|PUT|DELETE, ttlSeconds?}. Method-scoped: GET and HEAD need `data:storage:read`, PUT and DELETE also need `data:storage:write`. Default TTL 900 s, maximum 604800 s (7 days): 422 `ttl_too_long`. The URL is returned once and is never logged; the audit event carries a hash of the key. 422 `unsupported_capability` when the provider cannot sign. Requires permission `data:storage:read`.
+         */
+        post: operations["createBucketSignedUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/storage/buckets/{id}/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get lifecycle rules
+         * @description The rules and which actions the provider supports (expiry, multipart abort, transitions): unsupported actions are hidden by the console. Requires permission `data:storage:read`.
+         */
+        get: operations["getBucketLifecycle"];
+        /**
+         * Replace lifecycle rules
+         * @description Body {rules: [{id, prefix, expireDays?, abortIncompleteMultipartDays?, transition?}]}. Expiry and multipart-abort need their capability; transitions only if the probe says so: otherwise 422 `unsupported_capability` (never a silent no-op). Requires permission `data:storage:write`.
+         */
+        put: operations["putBucketLifecycle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List email domains
+         * @description Newest first, with the required records and their last checked status (ok, missing, conflict, unknown). Requires permission `email:read`.
+         */
+        get: operations["listEmailDomains"];
+        put?: never;
+        /**
+         * Add an email domain
+         * @description Body {domain, purposes: [mailbox|transactional]}. 201 with the REQUIRED DNS records, declared by the enabled provider adapters (ownership, ONE merged SPF, DKIM selectors, MX for mailboxes, return-path) plus Nuzm's own ownership TXT (a token bound to this organization) and DMARC guidance (start `p=none`); state `pending`. 422 `unsupported_capability` when no provider is enabled for a purpose; 403 `residency_denied` when the provider's processing region is not allowed for personal data; 422 `domain_not_owned` when another account already VERIFIED the domain; 409 when this organization already added it. Requires permission `email:domain:manage`. Audited.
+         */
+        post: operations["createEmailDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/domains/{id}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-check a domain now
+         * @description Body {apply?: boolean}. Looks every record up on SEVERAL resolvers (a majority decides; duplicate SPF, a wrong DKIM target or a foreign MX is a conflict), then asks the provider whether it verified the domain: `verified` needs both. `apply=true` writes the records through the M07 DNS zone (managed_by `email-verification`) when the domain is a Nuzm zone, else 422 `unsupported_capability` and the console shows manual instructions. If every resolver fails the state is unchanged and the retry comes sooner; otherwise the next automatic check follows the smallest TTL seen. Requires permission `email:domain:manage`.
+         */
+        post: operations["verifyEmailDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/mailboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List mailboxes
+         * @description Newest first; filter domainId. Requires permission `email:read`.
+         */
+        get: operations["listMailboxes"];
+        put?: never;
+        /**
+         * Create a business mailbox
+         * @description Body {domainId, localPart, quotaMb, quoteId (a quote of kind `email`)}. The domain must be verified for the mailbox purpose. 202 + operation. The password is set through the provider's reset link or a one-time secret that goes straight into the vault: the response and every other endpoint show only its KIND (`passwordSetup`). 409 address taken, 422 `unsupported_capability` / `quota_exceeded`, 403 `residency_denied`. Idempotent per Idempotency-Key. Requires permission `email:mailbox:manage`. Audited.
+         */
+        post: operations["createMailbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/mailboxes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a mailbox
+         * @description 202 + operation; the provider mailbox is deleted and its vault entry removed. Requires permission `email:mailbox:manage`. Audited.
+         */
+        delete: operations["deleteMailbox"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a mailbox quota
+         * @description Body {quotaMb}. Requires If-Match. 202 + operation; 422 `unsupported_capability` when the provider cannot change quotas. Requires permission `email:mailbox:manage`.
+         */
+        patch: operations["updateMailbox"];
+        trace?: never;
+    };
+    "/v1/email/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List aliases
+         * @description Newest first. Requires permission `email:read`.
+         */
+        get: operations["listEmailAliases"];
+        put?: never;
+        /**
+         * Add a mailbox alias
+         * @description Body {mailboxId, localPart}. 202 + operation; 409 when the address is already an alias or a mailbox. Requires permission `email:mailbox:manage`.
+         */
+        post: operations["createEmailAlias"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/sender-identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sender identities
+         * @description Newest first. Requires permission `email:read`.
+         */
+        get: operations["listSenderIdentities"];
+        put?: never;
+        /**
+         * Add a sender identity
+         * @description Body {domainId, fromAddress}: a plain address of a domain this organization added for transactional email. `pending` until the domain verifies, then `verified`. Anti-spoofing: only a verified identity of the organization can be a sender. Requires permission `email:domain:manage`.
+         */
+        post: operations["createSenderIdentity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List templates and versions
+         * @description Newest first; filter key. Requires permission `email:read`.
+         */
+        get: operations["listEmailTemplates"];
+        put?: never;
+        /**
+         * Create a template or a new version
+         * @description Body {key, name, locale: ar|en, subject, html, text?, variables?: {name: {type: string|number, required}}}. A new key is version 1; an existing key gets the NEXT version (versions are immutable). The HTML is sanitized with an allow-list (no script, handlers, styles or script URLs), every placeholder must be declared, the subject cannot contain line breaks, Arabic templates are RTL. Requires permission `email:template:write`.
+         */
+        post: operations["createEmailTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List messages
+         * @description Newest first; filters status, senderId. Metadata only: never recipients or content. Requires permission `email:read`.
+         */
+        get: operations["listEmailMessages"];
+        put?: never;
+        /**
+         * Send a transactional message
+         * @description Body {senderId, to[], templateId+variables | subject+html(+text), category: transactional}. Idempotency-Key is MANDATORY. 202 {id, status: queued}. Only `category=transactional` is accepted (422 `category_not_allowed`; marketing and bulk are blocked, as are more than 10 recipients); 422 `sender_not_verified`; 422 `suppressed` when any recipient is on the suppression list; 429 `rate_limited` (per-minute rate, warm-up allowance, auto-throttle at bounce rate above 5% or complaint rate above 0.1% over 24 h; proposals); 403 `residency_denied`; header injection and unsafe HTML are rejected or neutralized. The send is a durable operation: a replay is one provider call; the usage meter is emitted when the provider ACCEPTED the message, not when it was queued. Content is stored as a hash (sealed only for the queue buffer, or N days when the organization enabled retention); recipients are sealed. Requires permission `email:send`.
+         */
+        post: operations["sendEmailMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a message with its event timeline
+         * @description Status, counts, provider-acceptance time and the event timeline (sent, delivered, bounce, complaint, ...). 404 for another organization. Requires permission `email:read`.
+         */
+        get: operations["getEmailMessage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List email events
+         * @description Newest first; filters type, messageId. Events are append-only and carry no addresses or content. Requires permission `email:read`.
+         */
+        get: operations["listEmailEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/email/suppressions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the suppression list
+         * @description Newest first; filter active. Addresses are shown to the organization's own readers (sealed at rest). Requires permission `email:read`.
+         */
+        get: operations["listEmailSuppressions"];
+        put?: never;
+        /**
+         * Add or remove a suppression
+         * @description Body {address, action?: add|remove, override?}. Add (default) is a manual suppression, idempotent. Remove is audited; removing a hard bounce or a complaint needs `override=true`. Hard bounces and complaints are also added AUTOMATICALLY from provider webhooks. Requires permission `email:domain:manage`.
+         */
+        post: operations["changeEmailSuppression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/email/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email provider webhook
+         * @description Provider callback, authenticated by the signature over the RAW body and a replay window (no session). 200 once every event is durably stored: a duplicate provider event id is a no-op (one event, one suppression, one meter however often it is delivered). A hard bounce or complaint suppresses the address in the same transaction. 401 invalid signature, 409 outside the replay window, 422 malformed, 404 unknown provider.
+         */
+        post: operations["receiveEmailWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4921,6 +5313,377 @@ export interface components {
         };
         DataProviderList: {
             items: components["schemas"]["DataProvider"][];
+        };
+        CreateBucket: {
+            name: string;
+            /** Format: uuid */
+            quoteId: string;
+            region?: string;
+            versioning?: boolean;
+        };
+        UpdateBucket: {
+            quotaBytes: number;
+        };
+        Bucket: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            bucketName: string;
+            /** @enum {string} */
+            status: "provisioning" | "active" | "failed" | "deleting" | "deleted" | "unknown";
+            endpoint?: string | null;
+            dataRegion: string;
+            providerRegionId: string;
+            versioning: boolean;
+            public: boolean;
+            quotaBytes?: number | null;
+            lifecycle: components["schemas"]["LifecycleRule"][];
+            usage?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Metadata only: the bucket-scoped credential lives in the vault. The secret is never returned. */
+            credentialVaultRef?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+            etag: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        BucketPage: {
+            items: components["schemas"]["Bucket"][];
+            nextCursor: string | null;
+        };
+        BucketDeletion: components["schemas"]["Bucket"] & {
+            /** Format: uuid */
+            operationId: string;
+        };
+        LifecycleRule: {
+            id: string;
+            prefix: string;
+            expireDays?: number;
+            abortIncompleteMultipartDays?: number;
+            transition?: {
+                days?: number;
+                storageClass?: string;
+            };
+        };
+        BucketLifecycleRules: {
+            rules: components["schemas"]["LifecycleRule"][];
+        };
+        BucketLifecycle: components["schemas"]["BucketLifecycleRules"] & {
+            capabilities: {
+                expiry?: boolean;
+                abortMultipart?: boolean;
+                transition?: boolean;
+            };
+        };
+        PutBucketLifecycle: {
+            rules: components["schemas"]["LifecycleRule"][];
+        };
+        BucketPolicyDocument: {
+            /** @constant */
+            version: 1;
+            /** @enum {string} */
+            access: "private" | "public-read";
+            statements?: {
+                /** @enum {string} */
+                effect: "allow";
+                actions: ("read" | "write" | "delete" | "list")[];
+                prefix?: string;
+                /** @enum {string} */
+                principal: "bucket-credentials";
+            }[];
+            cors?: {
+                origins: string[];
+                methods: ("GET" | "PUT" | "HEAD")[];
+                maxAgeSeconds: number;
+            }[];
+        };
+        PutBucketAccessPolicy: {
+            policy?: components["schemas"]["BucketPolicyDocument"];
+            confirmPublic?: boolean;
+        };
+        BucketAccessPolicy: {
+            policy: components["schemas"]["BucketPolicyDocument"];
+            etag: string;
+            public: boolean;
+        };
+        CreateSignedUrl: {
+            key: string;
+            /** @enum {string} */
+            method: "GET" | "HEAD" | "PUT" | "DELETE";
+            ttlSeconds?: number;
+        };
+        SignedUrl: {
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+            method: string;
+        };
+        CreateEmailDomain: {
+            domain: string;
+            purposes: ("mailbox" | "transactional")[];
+        };
+        VerifyEmailDomain: {
+            apply?: boolean;
+        };
+        EmailDnsRecord: {
+            /** @enum {string} */
+            type: "TXT" | "MX" | "CNAME";
+            name: string;
+            value: string;
+            priority?: number;
+            /** @enum {string} */
+            purpose: "ownership" | "mx" | "spf" | "dkim" | "dmarc" | "return-path";
+            required: boolean;
+            /** @enum {string} */
+            status: "ok" | "missing" | "conflict" | "unknown";
+            detail?: string;
+        };
+        EmailDomain: {
+            /** Format: uuid */
+            id: string;
+            domain: string;
+            purposes: ("mailbox" | "transactional")[];
+            /** @enum {string} */
+            state: "pending" | "partial" | "verified" | "failed";
+            requiredRecords: components["schemas"]["EmailDnsRecord"][];
+            dmarc?: {
+                /** @enum {string} */
+                state: "missing" | "none" | "quarantine" | "reject" | "invalid" | "duplicate";
+                suggestion?: string;
+            } | null;
+            /** Format: uuid */
+            dnsZoneId?: string | null;
+            dataRegion: string;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            /** Format: date-time */
+            lastCheckedAt?: string | null;
+            /** Format: date-time */
+            nextCheckAt?: string | null;
+            etag: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        EmailDomainPage: {
+            items: components["schemas"]["EmailDomain"][];
+            nextCursor: string | null;
+        };
+        CreateMailbox: {
+            /** Format: uuid */
+            domainId: string;
+            localPart: string;
+            quotaMb: number;
+            /** Format: uuid */
+            quoteId: string;
+        };
+        UpdateMailbox: {
+            quotaMb: number;
+        };
+        Mailbox: {
+            /** Format: uuid */
+            id: string;
+            address: string;
+            /** Format: uuid */
+            domainId: string;
+            localPart: string;
+            /** @enum {string} */
+            status: "provisioning" | "active" | "suspended" | "failed" | "deleting" | "deleted" | "unknown";
+            quotaMb: number;
+            passwordSetup?: {
+                /** @enum {string} */
+                kind: "reset_link" | "one_time_secret";
+                /** @enum {string} */
+                state: "pending" | "revealed";
+            } | null;
+            usage?: {
+                [key: string]: unknown;
+            } | null;
+            dataRegion: string;
+            /** Format: uuid */
+            operationId?: string | null;
+            etag: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MailboxOperation: components["schemas"]["Mailbox"] & {
+            /** Format: uuid */
+            operationId: string;
+        };
+        MailboxPage: {
+            items: components["schemas"]["Mailbox"][];
+            nextCursor: string | null;
+        };
+        CreateEmailAlias: {
+            /** Format: uuid */
+            mailboxId: string;
+            localPart: string;
+        };
+        EmailAlias: {
+            /** Format: uuid */
+            id: string;
+            address: string;
+            /** Format: uuid */
+            mailboxId: string;
+            /** Format: uuid */
+            domainId: string;
+            /** @enum {string} */
+            status: "provisioning" | "active" | "failed" | "unknown";
+            /** Format: uuid */
+            operationId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        EmailAliasPage: {
+            items: components["schemas"]["EmailAlias"][];
+            nextCursor: string | null;
+        };
+        CreateSenderIdentity: {
+            /** Format: uuid */
+            domainId: string;
+            fromAddress: string;
+        };
+        SenderIdentity: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            domainId: string;
+            fromAddress: string;
+            /** @enum {string} */
+            status: "pending" | "verified" | "disabled";
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SenderIdentityPage: {
+            items: components["schemas"]["SenderIdentity"][];
+            nextCursor: string | null;
+        };
+        EmailTemplateVariables: {
+            [key: string]: {
+                /** @enum {string} */
+                type: "string" | "number";
+                required?: boolean;
+            };
+        };
+        CreateEmailTemplate: {
+            key: string;
+            name: string;
+            /** @enum {string} */
+            locale: "ar" | "en";
+            subject: string;
+            html: string;
+            text?: string;
+            variables?: components["schemas"]["EmailTemplateVariables"];
+        };
+        EmailTemplate: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            version: number;
+            name: string;
+            /** @enum {string} */
+            locale: "ar" | "en";
+            /** @enum {string} */
+            direction: "rtl" | "ltr";
+            subject: string;
+            html: string;
+            text?: string | null;
+            variables: components["schemas"]["EmailTemplateVariables"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        EmailTemplatePage: {
+            items: components["schemas"]["EmailTemplate"][];
+            nextCursor: string | null;
+        };
+        SendEmailMessage: {
+            /** Format: uuid */
+            senderId: string;
+            to: string[];
+            /** Format: uuid */
+            templateId?: string;
+            variables?: {
+                [key: string]: unknown;
+            };
+            subject?: string;
+            html?: string;
+            text?: string;
+            /** @enum {string} */
+            category: "transactional";
+        };
+        EmailEvent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            messageId?: string | null;
+            type: string;
+            /** Format: date-time */
+            occurredAt: string;
+        };
+        EmailEventPage: {
+            items: components["schemas"]["EmailEvent"][];
+            nextCursor: string | null;
+        };
+        EmailMessage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            senderId: string;
+            /** Format: uuid */
+            templateId?: string | null;
+            /** @enum {string} */
+            category: "transactional";
+            /** @enum {string} */
+            status: "queued" | "sending" | "sent" | "delivered" | "bounced" | "complained" | "failed" | "unknown";
+            recipientCount: number;
+            errorCode?: string | null;
+            dataRegion: string;
+            /** Format: uuid */
+            operationId?: string | null;
+            /** Format: date-time */
+            acceptedAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        EmailMessageWithEvents: components["schemas"]["EmailMessage"] & {
+            events: components["schemas"]["EmailEvent"][];
+        };
+        EmailMessagePage: {
+            items: components["schemas"]["EmailMessage"][];
+            nextCursor: string | null;
+        };
+        ChangeSuppression: {
+            address: string;
+            /** @enum {string} */
+            action?: "add" | "remove";
+            override?: boolean;
+        };
+        Suppression: {
+            /** Format: uuid */
+            id: string;
+            address: string;
+            /** @enum {string} */
+            reason: "bounce_hard" | "bounce_soft" | "complaint" | "manual";
+            /** @enum {string} */
+            source: "webhook" | "manual" | "provider_sync";
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            removedAt?: string | null;
+        };
+        SuppressionPage: {
+            items: components["schemas"]["Suppression"][];
+            nextCursor: string | null;
+        };
+        EmailWebhookResult: {
+            received: number;
+            applied: number;
+            duplicates: number;
+            unmatched: number;
         };
     };
     responses: {
@@ -9954,6 +10717,988 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listBuckets: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createBucket: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBucket"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Bucket"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBucket: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Bucket"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteBucket: {
+        parameters: {
+            query?: {
+                confirmName?: string;
+                force?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketDeletion"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    updateBucket: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBucket"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Bucket"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    getBucketAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketAccessPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    putBucketAccessPolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutBucketAccessPolicy"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketAccessPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    createBucketSignedUrl: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSignedUrl"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBucketLifecycle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketLifecycle"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    putBucketLifecycle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutBucketLifecycle"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketLifecycleRules"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listEmailDomains: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDomainPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createEmailDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmailDomain"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDomain"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    verifyEmailDomain: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailDomain"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDomain"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listMailboxes: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                domainId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createMailbox: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMailbox"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mailbox"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteMailbox: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOperation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateMailbox: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMailbox"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOperation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listEmailAliases: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAliasPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createEmailAlias: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmailAlias"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAlias"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listSenderIdentities: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SenderIdentityPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createSenderIdentity: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSenderIdentity"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SenderIdentity"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listEmailTemplates: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                key?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplatePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createEmailTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmailTemplate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplate"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listEmailMessages: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+                senderId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailMessagePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    sendEmailMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendEmailMessage"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailMessage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getEmailMessage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailMessageWithEvents"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listEmailEvents: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                type?: string;
+                messageId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailEventPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listEmailSuppressions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                active?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuppressionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    changeEmailSuppression: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeSuppression"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Suppression"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    receiveEmailWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailWebhookResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];

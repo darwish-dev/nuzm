@@ -1,0 +1,757 @@
+{
+  "generatedAt": "2026-11-18T02:13:58.846Z",
+  "note": "Dev-reference mock/fake adapters ONLY. A pass here says our contract is honoured; it is NEVER live verification (NOT VERIFIED).",
+  "reports": [
+    {
+      "adapterId": "mock-database",
+      "kind": "database",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind database",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "D01",
+          "title": "create is idempotent per token: a replay never creates a second billable instance",
+          "status": "pass"
+        },
+        {
+          "id": "D02",
+          "title": "timeout AFTER the side effect is `uncertain`; findByToken then proves presence and a retry creates nothing new",
+          "status": "pass"
+        },
+        {
+          "id": "D03",
+          "title": "timeout BEFORE the side effect is `uncertain`; findByToken proves absence; the retry creates exactly one",
+          "status": "pass"
+        },
+        {
+          "id": "D04",
+          "title": "an outage or rate limit is a definitive, retryable failure and creates nothing",
+          "status": "pass"
+        },
+        {
+          "id": "D05",
+          "title": "an engine the account does not support is failed/unsupported, never a silent no-op",
+          "status": "pass"
+        },
+        {
+          "id": "D06",
+          "title": "inspect: private network by default, TLS required, an endpoint only while the instance exists",
+          "status": "pass"
+        },
+        {
+          "id": "D07",
+          "title": "delete is idempotent and findByToken no longer reports the instance",
+          "status": "pass"
+        },
+        {
+          "id": "D08",
+          "title": "backup is idempotent per token and carries size, checksum, storage reference and a manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D09",
+          "title": "restore-to-new reproduces the source: row counts and checksums equal, a different instance, same region",
+          "status": "pass"
+        },
+        {
+          "id": "D10",
+          "title": "restore is idempotent per token and never crosses provider regions",
+          "status": "pass"
+        },
+        {
+          "id": "D11",
+          "title": "injected backup corruption is detectable: the restored data no longer matches the backup manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D12",
+          "title": "credential rotation: dual-credential window, the old credential stops authenticating once revoked, the new one works",
+          "status": "pass"
+        },
+        {
+          "id": "D13",
+          "title": "issuing is idempotent per token; without dual-credential support a window is failed/unsupported",
+          "status": "pass"
+        },
+        {
+          "id": "D14",
+          "title": "issued secrets never appear in evidence",
+          "status": "pass"
+        },
+        {
+          "id": "D15",
+          "title": "unsupported backup/restore/in-place/resize/usage are failed/unsupported (capability gating)",
+          "status": "pass"
+        },
+        {
+          "id": "D16",
+          "title": "usage reports numbers (or null when not reportable), never estimates",
+          "status": "pass"
+        }
+      ],
+      "passed": 20,
+      "failed": 0,
+      "total": 20,
+      "liveStatus": "NOT VERIFIED"
+    },
+    {
+      "adapterId": "mock-database",
+      "kind": "database",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind database",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "D01",
+          "title": "create is idempotent per token: a replay never creates a second billable instance",
+          "status": "pass"
+        },
+        {
+          "id": "D02",
+          "title": "timeout AFTER the side effect is `uncertain`; findByToken then proves presence and a retry creates nothing new",
+          "status": "pass"
+        },
+        {
+          "id": "D03",
+          "title": "timeout BEFORE the side effect is `uncertain`; findByToken proves absence; the retry creates exactly one",
+          "status": "pass"
+        },
+        {
+          "id": "D04",
+          "title": "an outage or rate limit is a definitive, retryable failure and creates nothing",
+          "status": "pass"
+        },
+        {
+          "id": "D05",
+          "title": "an engine the account does not support is failed/unsupported, never a silent no-op",
+          "status": "pass"
+        },
+        {
+          "id": "D06",
+          "title": "inspect: private network by default, TLS required, an endpoint only while the instance exists",
+          "status": "pass"
+        },
+        {
+          "id": "D07",
+          "title": "delete is idempotent and findByToken no longer reports the instance",
+          "status": "pass"
+        },
+        {
+          "id": "D08",
+          "title": "backup is idempotent per token and carries size, checksum, storage reference and a manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D09",
+          "title": "restore-to-new reproduces the source: row counts and checksums equal, a different instance, same region",
+          "status": "pass"
+        },
+        {
+          "id": "D10",
+          "title": "restore is idempotent per token and never crosses provider regions",
+          "status": "pass"
+        },
+        {
+          "id": "D11",
+          "title": "injected backup corruption is detectable: the restored data no longer matches the backup manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D12",
+          "title": "credential rotation: dual-credential window, the old credential stops authenticating once revoked, the new one works",
+          "status": "pass"
+        },
+        {
+          "id": "D13",
+          "title": "issuing is idempotent per token; without dual-credential support a window is failed/unsupported",
+          "status": "pass"
+        },
+        {
+          "id": "D14",
+          "title": "issued secrets never appear in evidence",
+          "status": "pass"
+        },
+        {
+          "id": "D15",
+          "title": "unsupported backup/restore/in-place/resize/usage are failed/unsupported (capability gating)",
+          "status": "pass"
+        },
+        {
+          "id": "D16",
+          "title": "usage reports numbers (or null when not reportable), never estimates",
+          "status": "pass"
+        }
+      ],
+      "passed": 20,
+      "failed": 0,
+      "total": 20,
+      "liveStatus": "NOT VERIFIED"
+    },
+    {
+      "adapterId": "mock-cache",
+      "kind": "cache",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind cache",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "R01",
+          "title": "create is idempotent per token; a timeout is uncertain and reconciled via findByToken",
+          "status": "pass"
+        },
+        {
+          "id": "R02",
+          "title": "TLS required, private network by default, engine redis",
+          "status": "pass"
+        },
+        {
+          "id": "R03",
+          "title": "persistence is honoured only when the account supports it, otherwise failed/unsupported",
+          "status": "pass"
+        },
+        {
+          "id": "R04",
+          "title": "ACL users: issue, dual window, revoke; the old credential is rejected; ACL unsupported is failed/unsupported; secrets stay out of evidence",
+          "status": "pass"
+        },
+        {
+          "id": "R05",
+          "title": "failover info reports topology; unsupported when the account cannot report it",
+          "status": "pass"
+        },
+        {
+          "id": "R06",
+          "title": "a non-persistent instance cannot be backed up (failed/unsupported); a persistent one restores to a NEW instance with equal data",
+          "status": "pass"
+        },
+        {
+          "id": "R07",
+          "title": "delete is idempotent; usage reports integers or null",
+          "status": "pass"
+        }
+      ],
+      "passed": 11,
+      "failed": 0,
+      "total": 11,
+      "liveStatus": "NOT VERIFIED"
+    },
+    {
+      "adapterId": "mock-object-storage",
+      "kind": "object-storage",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind object-storage",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "O01",
+          "title": "createBucket is idempotent per token; a name collision is a conflict (not a silent reuse)",
+          "status": "pass"
+        },
+        {
+          "id": "O02",
+          "title": "timeout after the side effect is uncertain; findBucketByToken reconciles; no second bucket",
+          "status": "pass"
+        },
+        {
+          "id": "O03",
+          "title": "a new bucket is private (no public access); a public-read policy is visible on inspect",
+          "status": "pass"
+        },
+        {
+          "id": "O04",
+          "title": "lifecycle: expiry and multipart-abort need their capability; transitions only if supported",
+          "status": "pass"
+        },
+        {
+          "id": "O05",
+          "title": "credentials are scoped to ONE bucket: a credential of bucket A is useless on bucket B; a read credential cannot write; revoked credentials stop working",
+          "status": "pass"
+        },
+        {
+          "id": "O06",
+          "title": "signed URLs: valid until expiry, method-scoped, a tampered signature or path is rejected, an expired URL is rejected",
+          "status": "pass"
+        },
+        {
+          "id": "O07",
+          "title": "usage: bytes counted; requests/egress are null when the provider cannot report them (never estimated)",
+          "status": "pass"
+        },
+        {
+          "id": "O08",
+          "title": "deleting a non-empty bucket needs force; delete is idempotent; the name becomes free again",
+          "status": "pass"
+        },
+        {
+          "id": "O09",
+          "title": "compat report lists every operation tested; unsupported capabilities show up as unsupported operations",
+          "status": "pass"
+        },
+        {
+          "id": "O10",
+          "title": "unsupported bucket/policy/signed-url/scoped-credential capabilities are failed/unsupported",
+          "status": "pass"
+        }
+      ],
+      "passed": 14,
+      "failed": 0,
+      "total": 14,
+      "liveStatus": "NOT VERIFIED"
+    },
+    {
+      "adapterId": "mock-transactional-email",
+      "kind": "transactional-email",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind transactional-email",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "E01",
+          "title": "verifyDomain is idempotent and returns the required records declaratively (ownership, SPF, DKIM)",
+          "status": "pass"
+        },
+        {
+          "id": "E02",
+          "title": "checkDomain reflects verification; an unknown domain is not_found",
+          "status": "pass"
+        },
+        {
+          "id": "E03",
+          "title": "a send from an unverified domain is refused by the provider adapter (failed/validation) and bills nothing",
+          "status": "pass"
+        },
+        {
+          "id": "E04",
+          "title": "send is idempotent per key: a replay makes NO second provider send",
+          "status": "pass"
+        },
+        {
+          "id": "E05",
+          "title": "a timeout after acceptance is uncertain; findByToken proves it; the retry sends nothing new. A timeout before acceptance is proven absent.",
+          "status": "pass"
+        },
+        {
+          "id": "E06",
+          "title": "parseWebhook accepts a correctly signed payload inside the replay window",
+          "status": "pass"
+        },
+        {
+          "id": "E07",
+          "title": "parseWebhook rejects: no signature, a forged signature, a tampered body, a replay outside the window, malformed JSON",
+          "status": "pass"
+        },
+        {
+          "id": "E08",
+          "title": "suppression sync lists provider suppressions; without the capability it is failed/unsupported",
+          "status": "pass"
+        },
+        {
+          "id": "E09",
+          "title": "an outage on send is a definitive, retryable failure; nothing is accepted",
+          "status": "pass"
+        },
+        {
+          "id": "E10",
+          "title": "usage reports provider-accepted counts or null (never estimated); unsupported usage is failed/unsupported",
+          "status": "pass"
+        }
+      ],
+      "passed": 14,
+      "failed": 0,
+      "total": 14,
+      "liveStatus": "NOT VERIFIED"
+    },
+    {
+      "adapterId": "mock-mailbox",
+      "kind": "mailbox",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind mailbox",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "M01",
+          "title": "dnsRequirements returns MX, SPF, DKIM and ownership records declaratively, plus DMARC guidance (p=none start)",
+          "status": "pass"
+        },
+        {
+          "id": "M02",
+          "title": "provisioning needs a verified domain (failed/validation otherwise) and is idempotent per token",
+          "status": "pass"
+        },
+        {
+          "id": "M03",
+          "title": "timeout after the side effect is uncertain; findByToken reconciles; the retry creates nothing new",
+          "status": "pass"
+        },
+        {
+          "id": "M04",
+          "title": "password setup is a reset link or a one-time secret; the secret never appears in evidence; the same address twice is a conflict",
+          "status": "pass"
+        },
+        {
+          "id": "M05",
+          "title": "without reset-link support the adapter falls back to a one-time secret",
+          "status": "pass"
+        },
+        {
+          "id": "M06",
+          "title": "aliases: add and remove; quota: set; unsupported capabilities are failed/unsupported",
+          "status": "pass"
+        },
+        {
+          "id": "M07",
+          "title": "delete is idempotent and the mailbox is no longer billable",
+          "status": "pass"
+        },
+        {
+          "id": "M08",
+          "title": "usage: storage is reported per mailbox or null when the provider cannot report it (never estimated)",
+          "status": "pass"
+        }
+      ],
+      "passed": 12,
+      "failed": 0,
+      "total": 12,
+      "liveStatus": "NOT VERIFIED"
+    },
+    {
+      "adapterId": "self-operated-database (fake compute + fake node agent) / postgresql",
+      "kind": "database",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind database",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "D01",
+          "title": "create is idempotent per token: a replay never creates a second billable instance",
+          "status": "pass"
+        },
+        {
+          "id": "D02",
+          "title": "timeout AFTER the side effect is `uncertain`; findByToken then proves presence and a retry creates nothing new",
+          "status": "pass"
+        },
+        {
+          "id": "D03",
+          "title": "timeout BEFORE the side effect is `uncertain`; findByToken proves absence; the retry creates exactly one",
+          "status": "pass"
+        },
+        {
+          "id": "D04",
+          "title": "an outage or rate limit is a definitive, retryable failure and creates nothing",
+          "status": "pass"
+        },
+        {
+          "id": "D05",
+          "title": "an engine the account does not support is failed/unsupported, never a silent no-op",
+          "status": "pass"
+        },
+        {
+          "id": "D06",
+          "title": "inspect: private network by default, TLS required, an endpoint only while the instance exists",
+          "status": "pass"
+        },
+        {
+          "id": "D07",
+          "title": "delete is idempotent and findByToken no longer reports the instance",
+          "status": "pass"
+        },
+        {
+          "id": "D08",
+          "title": "backup is idempotent per token and carries size, checksum, storage reference and a manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D09",
+          "title": "restore-to-new reproduces the source: row counts and checksums equal, a different instance, same region",
+          "status": "pass"
+        },
+        {
+          "id": "D10",
+          "title": "restore is idempotent per token and never crosses provider regions",
+          "status": "pass"
+        },
+        {
+          "id": "D11",
+          "title": "injected backup corruption is detectable: the restored data no longer matches the backup manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D12",
+          "title": "credential rotation: dual-credential window, the old credential stops authenticating once revoked, the new one works",
+          "status": "pass"
+        },
+        {
+          "id": "D13",
+          "title": "issuing is idempotent per token; without dual-credential support a window is failed/unsupported",
+          "status": "pass"
+        },
+        {
+          "id": "D14",
+          "title": "issued secrets never appear in evidence",
+          "status": "pass"
+        },
+        {
+          "id": "D15",
+          "title": "unsupported backup/restore/in-place/resize/usage are failed/unsupported (capability gating)",
+          "status": "pass"
+        },
+        {
+          "id": "D16",
+          "title": "usage reports numbers (or null when not reportable), never estimates",
+          "status": "pass"
+        }
+      ],
+      "passed": 20,
+      "failed": 0,
+      "total": 20,
+      "liveStatus": "NOT VERIFIED"
+    },
+    {
+      "adapterId": "self-operated-database (fake compute + fake node agent) / mysql",
+      "kind": "database",
+      "contractVersion": "1.0.0",
+      "evidenceKind": "mock",
+      "results": [
+        {
+          "id": "K01",
+          "title": "declares contract 1.0.0 and kind database",
+          "status": "pass"
+        },
+        {
+          "id": "K02",
+          "title": "probe reports every capability id, is side-effect free and its evidence carries the run kind",
+          "status": "pass"
+        },
+        {
+          "id": "K03",
+          "title": "health and catalog are read-only; regions from a mock/fixture are never verified; a plan without a price carries no price",
+          "status": "pass"
+        },
+        {
+          "id": "K04",
+          "title": "normalized error categories are the documented ones",
+          "status": "pass"
+        },
+        {
+          "id": "D01",
+          "title": "create is idempotent per token: a replay never creates a second billable instance",
+          "status": "pass"
+        },
+        {
+          "id": "D02",
+          "title": "timeout AFTER the side effect is `uncertain`; findByToken then proves presence and a retry creates nothing new",
+          "status": "pass"
+        },
+        {
+          "id": "D03",
+          "title": "timeout BEFORE the side effect is `uncertain`; findByToken proves absence; the retry creates exactly one",
+          "status": "pass"
+        },
+        {
+          "id": "D04",
+          "title": "an outage or rate limit is a definitive, retryable failure and creates nothing",
+          "status": "pass"
+        },
+        {
+          "id": "D05",
+          "title": "an engine the account does not support is failed/unsupported, never a silent no-op",
+          "status": "pass"
+        },
+        {
+          "id": "D06",
+          "title": "inspect: private network by default, TLS required, an endpoint only while the instance exists",
+          "status": "pass"
+        },
+        {
+          "id": "D07",
+          "title": "delete is idempotent and findByToken no longer reports the instance",
+          "status": "pass"
+        },
+        {
+          "id": "D08",
+          "title": "backup is idempotent per token and carries size, checksum, storage reference and a manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D09",
+          "title": "restore-to-new reproduces the source: row counts and checksums equal, a different instance, same region",
+          "status": "pass"
+        },
+        {
+          "id": "D10",
+          "title": "restore is idempotent per token and never crosses provider regions",
+          "status": "pass"
+        },
+        {
+          "id": "D11",
+          "title": "injected backup corruption is detectable: the restored data no longer matches the backup manifest",
+          "status": "pass"
+        },
+        {
+          "id": "D12",
+          "title": "credential rotation: dual-credential window, the old credential stops authenticating once revoked, the new one works",
+          "status": "pass"
+        },
+        {
+          "id": "D13",
+          "title": "issuing is idempotent per token; without dual-credential support a window is failed/unsupported",
+          "status": "pass"
+        },
+        {
+          "id": "D14",
+          "title": "issued secrets never appear in evidence",
+          "status": "pass"
+        },
+        {
+          "id": "D15",
+          "title": "unsupported backup/restore/in-place/resize/usage are failed/unsupported (capability gating)",
+          "status": "pass"
+        },
+        {
+          "id": "D16",
+          "title": "usage reports numbers (or null when not reportable), never estimates",
+          "status": "pass"
+        }
+      ],
+      "passed": 20,
+      "failed": 0,
+      "total": 20,
+      "liveStatus": "NOT VERIFIED"
+    }
+  ]
+}

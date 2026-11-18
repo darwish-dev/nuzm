@@ -5,8 +5,7 @@ import {
   ManualClock,
 } from '@nuzm/adapter-data';
 import { Harness, cookieHeader, type App } from '../../identity/testing/app-harness';
-import { DataAdapterRegistry } from '../index';
-import { DataJobs } from '../internal/jobs';
+import { DataAdapterRegistry, DataJobs } from '../index';
 
 export type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- loosely-typed JSON rows in tests
 

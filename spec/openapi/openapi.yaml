@@ -12,6 +12,8 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: email
+    description: Business mailboxes, sending domains, transactional email, suppressions and webhooks (M08)
   - name: data
     description: Managed databases, Redis, object storage and provider selection (M08)
   - name: payments
@@ -4554,6 +4556,504 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/domains:
+    post:
+      operationId: createEmailDomain
+      tags: [email]
+      summary: 'Add an email domain'
+      description: "Body {domain, purposes: [mailbox|transactional]}. 201 with the REQUIRED DNS records, declared by the enabled provider adapters (ownership, ONE merged SPF, DKIM selectors, MX for mailboxes, return-path) plus Nuzm's own ownership TXT (a token bound to this organization) and DMARC guidance (start `p=none`); state `pending`. 422 `unsupported_capability` when no provider is enabled for a purpose; 403 `residency_denied` when the provider's processing region is not allowed for personal data; 422 `domain_not_owned` when another account already VERIFIED the domain; 409 when this organization already added it. Requires permission `email:domain:manage`. Audited."
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEmailDomain' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailDomain' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailDomains
+      tags: [email]
+      summary: 'List email domains'
+      description: 'Newest first, with the required records and their last checked status (ok, missing, conflict, unknown). Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailDomainPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/domains/{id}/verification:
+    post:
+      operationId: verifyEmailDomain
+      tags: [email]
+      summary: 'Re-check a domain now'
+      description: 'Body {apply?: boolean}. Looks every record up on SEVERAL resolvers (a majority decides; duplicate SPF, a wrong DKIM target or a foreign MX is a conflict), then asks the provider whether it verified the domain: `verified` needs both. `apply=true` writes the records through the M07 DNS zone (managed_by `email-verification`) when the domain is a Nuzm zone, else 422 `unsupported_capability` and the console shows manual instructions. If every resolver fails the state is unchanged and the retry comes sooner; otherwise the next automatic check follows the smallest TTL seen. Requires permission `email:domain:manage`.'
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmailDomain' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailDomain' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/mailboxes:
+    post:
+      operationId: createMailbox
+      tags: [email]
+      summary: 'Create a business mailbox'
+      description: "Body {domainId, localPart, quotaMb, quoteId (a quote of kind `email`)}. The domain must be verified for the mailbox purpose. 202 + operation. The password is set through the provider's reset link or a one-time secret that goes straight into the vault: the response and every other endpoint show only its KIND (`passwordSetup`). 409 address taken, 422 `unsupported_capability` / `quota_exceeded`, 403 `residency_denied`. Idempotent per Idempotency-Key. Requires permission `email:mailbox:manage`. Audited."
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMailbox' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Mailbox' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listMailboxes
+      tags: [email]
+      summary: 'List mailboxes'
+      description: 'Newest first; filter domainId. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: domainId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailboxPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/mailboxes/{id}:
+    patch:
+      operationId: updateMailbox
+      tags: [email]
+      summary: 'Change a mailbox quota'
+      description: 'Body {quotaMb}. Requires If-Match. 202 + operation; 422 `unsupported_capability` when the provider cannot change quotas. Requires permission `email:mailbox:manage`.'
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMailbox' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailboxOperation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteMailbox
+      tags: [email]
+      summary: 'Delete a mailbox'
+      description: '202 + operation; the provider mailbox is deleted and its vault entry removed. Requires permission `email:mailbox:manage`. Audited.'
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailboxOperation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/email/aliases:
+    post:
+      operationId: createEmailAlias
+      tags: [email]
+      summary: 'Add a mailbox alias'
+      description: 'Body {mailboxId, localPart}. 202 + operation; 409 when the address is already an alias or a mailbox. Requires permission `email:mailbox:manage`.'
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEmailAlias' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailAlias' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailAliases
+      tags: [email]
+      summary: 'List aliases'
+      description: 'Newest first. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailAliasPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/sender-identities:
+    post:
+      operationId: createSenderIdentity
+      tags: [email]
+      summary: 'Add a sender identity'
+      description: 'Body {domainId, fromAddress}: a plain address of a domain this organization added for transactional email. `pending` until the domain verifies, then `verified`. Anti-spoofing: only a verified identity of the organization can be a sender. Requires permission `email:domain:manage`.'
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSenderIdentity' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SenderIdentity' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listSenderIdentities
+      tags: [email]
+      summary: 'List sender identities'
+      description: 'Newest first. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SenderIdentityPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/templates:
+    post:
+      operationId: createEmailTemplate
+      tags: [email]
+      summary: 'Create a template or a new version'
+      description: 'Body {key, name, locale: ar|en, subject, html, text?, variables?: {name: {type: string|number, required}}}. A new key is version 1; an existing key gets the NEXT version (versions are immutable). The HTML is sanitized with an allow-list (no script, handlers, styles or script URLs), every placeholder must be declared, the subject cannot contain line breaks, Arabic templates are RTL. Requires permission `email:template:write`.'
+      x-nuzm-permission: email:template:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEmailTemplate' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailTemplate' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailTemplates
+      tags: [email]
+      summary: 'List templates and versions'
+      description: 'Newest first; filter key. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: key, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailTemplatePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/messages:
+    post:
+      operationId: sendEmailMessage
+      tags: [email]
+      summary: 'Send a transactional message'
+      description: 'Body {senderId, to[], templateId+variables | subject+html(+text), category: transactional}. Idempotency-Key is MANDATORY. 202 {id, status: queued}. Only `category=transactional` is accepted (422 `category_not_allowed`; marketing and bulk are blocked, as are more than 10 recipients); 422 `sender_not_verified`; 422 `suppressed` when any recipient is on the suppression list; 429 `rate_limited` (per-minute rate, warm-up allowance, auto-throttle at bounce rate above 5% or complaint rate above 0.1% over 24 h; proposals); 403 `residency_denied`; header injection and unsafe HTML are rejected or neutralized. The send is a durable operation: a replay is one provider call; the usage meter is emitted when the provider ACCEPTED the message, not when it was queued. Content is stored as a hash (sealed only for the queue buffer, or N days when the organization enabled retention); recipients are sealed. Requires permission `email:send`.'
+      x-nuzm-permission: email:send
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendEmailMessage' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailMessage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailMessages
+      tags: [email]
+      summary: 'List messages'
+      description: 'Newest first; filters status, senderId. Metadata only: never recipients or content. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: senderId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailMessagePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/messages/{id}:
+    get:
+      operationId: getEmailMessage
+      tags: [email]
+      summary: 'Get a message with its event timeline'
+      description: 'Status, counts, provider-acceptance time and the event timeline (sent, delivered, bounce, complaint, ...). 404 for another organization. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailMessageWithEvents' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/events:
+    get:
+      operationId: listEmailEvents
+      tags: [email]
+      summary: 'List email events'
+      description: 'Newest first; filters type, messageId. Events are append-only and carry no addresses or content. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: messageId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailEventPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/suppressions:
+    get:
+      operationId: listEmailSuppressions
+      tags: [email]
+      summary: 'List the suppression list'
+      description: "Newest first; filter active. Addresses are shown to the organization's own readers (sealed at rest). Requires permission `email:read`."
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: active, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuppressionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: changeEmailSuppression
+      tags: [email]
+      summary: 'Add or remove a suppression'
+      description: 'Body {address, action?: add|remove, override?}. Add (default) is a manual suppression, idempotent. Remove is audited; removing a hard bounce or a complaint needs `override=true`. Hard bounces and complaints are also added AUTOMATICALLY from provider webhooks. Requires permission `email:domain:manage`.'
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeSuppression' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Suppression' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/webhooks/email/{provider}:
+    post:
+      operationId: receiveEmailWebhook
+      tags: [email]
+      summary: 'Email provider webhook'
+      description: 'Provider callback, authenticated by the signature over the RAW body and a replay window (no session). 200 once every event is durably stored: a duplicate provider event id is a no-op (one event, one suppression, one meter however often it is delivered). A hard bounce or complaint suppresses the address in the same transaction. 401 invalid signature, 409 outside the replay window, 422 malformed, 404 unknown provider.'
+      x-nuzm-access: public
+      security: []
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailWebhookResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -8074,4 +8574,492 @@ components:
             'method': { 'type': 'string' },
           },
         'required': ['url', 'expiresAt', 'method'],
+      }
+    CreateEmailDomain:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'domain': { 'type': 'string' },
+            'purposes':
+              {
+                'type': 'array',
+                'items': { 'type': 'string', 'enum': ['mailbox', 'transactional'] },
+              },
+          },
+        'required': ['domain', 'purposes'],
+      }
+    VerifyEmailDomain: { 'type': 'object', 'properties': { 'apply': { 'type': 'boolean' } } }
+    EmailDnsRecord:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'type': { 'type': 'string', 'enum': ['TXT', 'MX', 'CNAME'] },
+            'name': { 'type': 'string' },
+            'value': { 'type': 'string' },
+            'priority': { 'type': 'integer' },
+            'purpose':
+              {
+                'type': 'string',
+                'enum': ['ownership', 'mx', 'spf', 'dkim', 'dmarc', 'return-path'],
+              },
+            'required': { 'type': 'boolean' },
+            'status': { 'type': 'string', 'enum': ['ok', 'missing', 'conflict', 'unknown'] },
+            'detail': { 'type': 'string' },
+          },
+        'required': ['type', 'name', 'value', 'purpose', 'required', 'status'],
+      }
+    EmailDomain:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'domain': { 'type': 'string' },
+            'purposes':
+              {
+                'type': 'array',
+                'items': { 'type': 'string', 'enum': ['mailbox', 'transactional'] },
+              },
+            'state': { 'type': 'string', 'enum': ['pending', 'partial', 'verified', 'failed'] },
+            'requiredRecords':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailDnsRecord' } },
+            'dmarc':
+              {
+                'oneOf':
+                  [
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'state':
+                            {
+                              'type': 'string',
+                              'enum':
+                                ['missing', 'none', 'quarantine', 'reject', 'invalid', 'duplicate'],
+                            },
+                          'suggestion': { 'type': 'string' },
+                        },
+                      'required': ['state'],
+                    },
+                    { 'type': 'null' },
+                  ],
+              },
+            'dnsZoneId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'dataRegion': { 'type': 'string' },
+            'verifiedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'lastCheckedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'nextCheckAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'etag': { 'type': 'integer' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'domain',
+            'purposes',
+            'state',
+            'requiredRecords',
+            'dataRegion',
+            'etag',
+            'createdAt',
+          ],
+      }
+    EmailDomainPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailDomain' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    CreateMailbox:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'localPart': { 'type': 'string' },
+            'quotaMb': { 'type': 'integer' },
+            'quoteId': { 'type': 'string', 'format': 'uuid' },
+          },
+        'required': ['domainId', 'localPart', 'quotaMb', 'quoteId'],
+      }
+    UpdateMailbox:
+      {
+        'type': 'object',
+        'properties': { 'quotaMb': { 'type': 'integer' } },
+        'required': ['quotaMb'],
+      }
+    Mailbox:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'address': { 'type': 'string' },
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'localPart': { 'type': 'string' },
+            'status':
+              {
+                'type': 'string',
+                'enum':
+                  [
+                    'provisioning',
+                    'active',
+                    'suspended',
+                    'failed',
+                    'deleting',
+                    'deleted',
+                    'unknown',
+                  ],
+              },
+            'quotaMb': { 'type': 'integer' },
+            'passwordSetup':
+              {
+                'oneOf':
+                  [
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'kind': { 'type': 'string', 'enum': ['reset_link', 'one_time_secret'] },
+                          'state': { 'type': 'string', 'enum': ['pending', 'revealed'] },
+                        },
+                      'required': ['kind', 'state'],
+                    },
+                    { 'type': 'null' },
+                  ],
+              },
+            'usage':
+              { 'oneOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'dataRegion': { 'type': 'string' },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'etag': { 'type': 'integer' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'address',
+            'domainId',
+            'localPart',
+            'status',
+            'quotaMb',
+            'dataRegion',
+            'etag',
+            'createdAt',
+          ],
+      }
+    MailboxOperation:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/Mailbox' },
+            {
+              'type': 'object',
+              'properties': { 'operationId': { 'type': 'string', 'format': 'uuid' } },
+              'required': ['operationId'],
+            },
+          ],
+      }
+    MailboxPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/Mailbox' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    CreateEmailAlias:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'mailboxId': { 'type': 'string', 'format': 'uuid' },
+            'localPart': { 'type': 'string' },
+          },
+        'required': ['mailboxId', 'localPart'],
+      }
+    EmailAlias:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'address': { 'type': 'string' },
+            'mailboxId': { 'type': 'string', 'format': 'uuid' },
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'status': { 'type': 'string', 'enum': ['provisioning', 'active', 'failed', 'unknown'] },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required': ['id', 'address', 'mailboxId', 'domainId', 'status', 'createdAt'],
+      }
+    EmailAliasPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailAlias' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    CreateSenderIdentity:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'fromAddress': { 'type': 'string' },
+          },
+        'required': ['domainId', 'fromAddress'],
+      }
+    SenderIdentity:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'fromAddress': { 'type': 'string' },
+            'status': { 'type': 'string', 'enum': ['pending', 'verified', 'disabled'] },
+            'verifiedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required': ['id', 'domainId', 'fromAddress', 'status', 'createdAt'],
+      }
+    SenderIdentityPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/SenderIdentity' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    EmailTemplateVariables:
+      {
+        'type': 'object',
+        'additionalProperties':
+          {
+            'type': 'object',
+            'properties':
+              {
+                'type': { 'type': 'string', 'enum': ['string', 'number'] },
+                'required': { 'type': 'boolean' },
+              },
+            'required': ['type'],
+          },
+      }
+    CreateEmailTemplate:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'key': { 'type': 'string' },
+            'name': { 'type': 'string' },
+            'locale': { 'type': 'string', 'enum': ['ar', 'en'] },
+            'subject': { 'type': 'string' },
+            'html': { 'type': 'string' },
+            'text': { 'type': 'string' },
+            'variables': { '$ref': '#/components/schemas/EmailTemplateVariables' },
+          },
+        'required': ['key', 'name', 'locale', 'subject', 'html'],
+      }
+    EmailTemplate:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'key': { 'type': 'string' },
+            'version': { 'type': 'integer' },
+            'name': { 'type': 'string' },
+            'locale': { 'type': 'string', 'enum': ['ar', 'en'] },
+            'direction': { 'type': 'string', 'enum': ['rtl', 'ltr'] },
+            'subject': { 'type': 'string' },
+            'html': { 'type': 'string' },
+            'text': { 'type': ['string', 'null'] },
+            'variables': { '$ref': '#/components/schemas/EmailTemplateVariables' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'key',
+            'version',
+            'name',
+            'locale',
+            'direction',
+            'subject',
+            'html',
+            'variables',
+            'createdAt',
+          ],
+      }
+    EmailTemplatePage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailTemplate' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    SendEmailMessage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'senderId': { 'type': 'string', 'format': 'uuid' },
+            'to': { 'type': 'array', 'items': { 'type': 'string' } },
+            'templateId': { 'type': 'string', 'format': 'uuid' },
+            'variables': { 'type': 'object', 'additionalProperties': true },
+            'subject': { 'type': 'string' },
+            'html': { 'type': 'string' },
+            'text': { 'type': 'string' },
+            'category': { 'type': 'string', 'enum': ['transactional'] },
+          },
+        'required': ['senderId', 'to', 'category'],
+      }
+    EmailEvent:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'messageId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'type': { 'type': 'string' },
+            'occurredAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required': ['id', 'type', 'occurredAt'],
+      }
+    EmailEventPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailEvent' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    EmailMessage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'senderId': { 'type': 'string', 'format': 'uuid' },
+            'templateId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'category': { 'type': 'string', 'enum': ['transactional'] },
+            'status':
+              {
+                'type': 'string',
+                'enum':
+                  [
+                    'queued',
+                    'sending',
+                    'sent',
+                    'delivered',
+                    'bounced',
+                    'complained',
+                    'failed',
+                    'unknown',
+                  ],
+              },
+            'recipientCount': { 'type': 'integer' },
+            'errorCode': { 'type': ['string', 'null'] },
+            'dataRegion': { 'type': 'string' },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'acceptedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          ['id', 'senderId', 'category', 'status', 'recipientCount', 'dataRegion', 'createdAt'],
+      }
+    EmailMessageWithEvents:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/EmailMessage' },
+            {
+              'type': 'object',
+              'properties':
+                {
+                  'events':
+                    { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailEvent' } },
+                },
+              'required': ['events'],
+            },
+          ],
+      }
+    EmailMessagePage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailMessage' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    ChangeSuppression:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'address': { 'type': 'string' },
+            'action': { 'type': 'string', 'enum': ['add', 'remove'] },
+            'override': { 'type': 'boolean' },
+          },
+        'required': ['address'],
+      }
+    Suppression:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'address': { 'type': 'string' },
+            'reason':
+              { 'type': 'string', 'enum': ['bounce_hard', 'bounce_soft', 'complaint', 'manual'] },
+            'source': { 'type': 'string', 'enum': ['webhook', 'manual', 'provider_sync'] },
+            'active': { 'type': 'boolean' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+            'removedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+          },
+        'required': ['id', 'address', 'reason', 'source', 'active', 'createdAt'],
+      }
+    SuppressionPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/Suppression' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    EmailWebhookResult:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'received': { 'type': 'integer' },
+            'applied': { 'type': 'integer' },
+            'duplicates': { 'type': 'integer' },
+            'unmatched': { 'type': 'integer' },
+          },
+        'required': ['received', 'applied', 'duplicates', 'unmatched'],
       }

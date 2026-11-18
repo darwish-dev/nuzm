@@ -21,6 +21,8 @@ export class DataJobs {
   private busy = false;
   private readonly tasks: DataTask[] = [];
   autoKick = process.env.DATA_KICK !== 'off';
+  /** Extra "rows that still wait for an operation" queries (`SELECT org_id, operation_id FROM ...`) added by other modules, e.g. email. */
+  private readonly opSources: string[] = [];
   constructor(
     private readonly db: Db,
     private readonly flow: DatabaseFlow,
@@ -42,6 +44,9 @@ export class DataJobs {
   static intervalFromEnv(env: NodeJS.ProcessEnv = process.env): number {
     const n = Number(env.DATA_SCHEDULER_INTERVAL_SECONDS ?? 0);
     return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+  addOpSource(selectOrgOperation: string) {
+    this.opSources.push(selectOrgOperation);
   }
   addTask(t: DataTask) {
     this.tasks.push(t);
@@ -95,6 +100,7 @@ export class DataJobs {
                UNION SELECT org_id, operation_id FROM data.database_backups WHERE state = 'creating' AND operation_id IS NOT NULL
                UNION SELECT org_id, operation_id FROM data.storage_buckets WHERE state IN ('provisioning','deleting','unknown') AND operation_id IS NOT NULL
                UNION SELECT org_id, operation_id FROM data.database_restores WHERE state IN ('requested','running','needs_reconcile') AND operation_id IS NOT NULL
+               ${this.opSources.map((q) => ' UNION ' + q).join('')}
                LIMIT 200`,
             )
           ).rows as Row[],

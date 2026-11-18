@@ -14,3 +14,15 @@ export { DataAlerts } from './internal/alerts';
 export { DataOperations } from './internal/operations-port';
 export { StorageService } from './internal/storage.service';
 export { StorageFlow, SYSTEM_ORG } from './internal/storage-flow';
+// building blocks the email module (and later M06/M09/M10) reuse
+export { OP, DATA_CONFIG, isUuid, loadDataConfig } from './internal/model';
+export type { DataConfig, Row as DataRow } from './internal/model';
+export { FlowFailure, FlowUncertain, outcomeOf, retryTransient } from './internal/flow-support';
+export type { Outcome } from './internal/flow-support';
+export { DataFlags } from './internal/flags';
+export { gibMonthFraction, gibMonthFractionOfGb } from './internal/metering';
+export { priceLines } from './internal/pricers';
+export type { PriceLine } from './internal/pricers';
+export type { DataAlert } from './internal/alerts';
+export type { ProviderDto } from './internal/provider.service';
+export { assertRecentMfa } from './internal/storage.service';

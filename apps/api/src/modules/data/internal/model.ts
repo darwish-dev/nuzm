@@ -11,6 +11,11 @@ export const OP = {
   DB_VERIFY: 'data.database.restore_verify',
   BUCKET_CREATE: 'data.bucket.create',
   BUCKET_DELETE: 'data.bucket.delete',
+  MAILBOX_CREATE: 'email.mailbox.create',
+  MAILBOX_UPDATE: 'email.mailbox.update',
+  MAILBOX_DELETE: 'email.mailbox.delete',
+  ALIAS_ADD: 'email.alias.add',
+  MESSAGE_SEND: 'email.message.send',
 } as const;
 export const DATA_OP_KINDS: readonly string[] = Object.values(OP);
 

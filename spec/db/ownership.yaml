@@ -209,6 +209,12 @@ classification:
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
     data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.email_domains.ownership_token: the public DNS TXT value that proves ownership of a domain (published in DNS by design), not a secret
+    email.mailboxes.password_setup: holds only the kind of password setup and a vault REFERENCE to the reset link or one-time secret, never the secret itself
+    email.mailboxes.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.aliases.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.messages.send_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    email.messages.idempotency_key: the caller's Idempotency-Key header value (an opaque client-chosen id), not a credential
     data.storage_buckets.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     data.database_backups.idempotency_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
@@ -232,6 +238,9 @@ classification:
     compliance.dsr_requests.details_enc: encrypted
     data.database_instances.vault_ref: vault_ref
     data.storage_buckets.credential_vault_ref: vault_ref
+    email.messages.recipients_enc: encrypted
+    email.messages.body_enc: encrypted
+    email.suppressions.address_enc: encrypted
   columns:
     audit.audit_checkpoints:
       id: internal
@@ -1490,3 +1499,133 @@ classification:
       created_at: internal
       updated_at: internal
       deleted_at: internal
+    email.aliases:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      mailbox_id: internal
+      local_part: personal
+      state: internal
+      create_token: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    email.email_domains:
+      id: internal
+      org_id: internal
+      domain: customer-content
+      purposes: internal
+      verification_state: internal
+      ownership_token: internal
+      required_records: customer-content
+      dmarc: internal
+      tx_provider_id: internal
+      tx_provider_ref: internal
+      mailbox_provider_id: internal
+      dns_zone_id: internal
+      data_region: internal
+      verified_at: internal
+      last_checked_at: internal
+      next_check_at: internal
+      check_attempts: internal
+      throttle_override: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+    email.email_events:
+      id: internal
+      org_id: internal
+      message_id: internal
+      provider_code: internal
+      provider_event_id: internal
+      type: internal
+      payload: internal
+      occurred_at: internal
+      created_at: internal
+    email.mailboxes:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      local_part: personal
+      state: internal
+      provider_id: internal
+      provider_ref: internal
+      plan_ref: internal
+      quota_mb: internal
+      password_setup: internal
+      create_token: internal
+      quote_id: internal
+      order_id: internal
+      usage: internal
+      operation_id: internal
+      data_region: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+    email.messages:
+      id: internal
+      org_id: internal
+      sender_id: internal
+      template_id: internal
+      category: internal
+      state: internal
+      to_hashes: personal
+      recipients_enc: personal
+      body_hash: customer-content
+      body_enc: customer-content
+      subject_hash: customer-content
+      expires_at: internal
+      idempotency_key: internal
+      send_token: internal
+      provider_id: internal
+      provider_message_ref: internal
+      error_code: internal
+      operation_id: internal
+      data_region: internal
+      accepted_at: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    email.sender_identities:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      from_address: personal
+      state: internal
+      verified_at: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    email.suppressions:
+      id: internal
+      org_id: internal
+      address_hash: personal
+      address_enc: personal
+      reason: internal
+      source: internal
+      active: internal
+      event_id: internal
+      created_by: internal
+      created_at: internal
+      removed_at: internal
+      removed_by: internal
+    email.templates:
+      id: internal
+      org_id: internal
+      key: customer-content
+      version: internal
+      name: customer-content
+      locale: internal
+      direction: internal
+      subject: customer-content
+      html: customer-content
+      body_text: customer-content
+      variables: customer-content
+      created_by: internal
+      created_at: internal

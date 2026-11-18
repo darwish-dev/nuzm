@@ -73,6 +73,10 @@ export const ERROR_REGISTRY = {
   policy_invalid: { status: 422, title: 'The access policy is not valid' },
   ttl_too_long: { status: 422, title: 'The requested lifetime is longer than allowed' },
   name_taken: { status: 409, title: 'This name is not available' },
+  category_not_allowed: { status: 422, title: 'This message category is not allowed' },
+  suppressed: { status: 422, title: 'A recipient is on the suppression list' },
+  sender_not_verified: { status: 422, title: 'The sender identity is not verified' },
+  domain_not_owned: { status: 422, title: 'The domain is not owned by this account' },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

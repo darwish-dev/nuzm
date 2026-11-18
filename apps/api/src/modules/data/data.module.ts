@@ -278,6 +278,8 @@ const PRICERS = Symbol('DATA_PRICERS');
     },
   ],
   exports: [
+    DATA_CONFIG,
+    DataFlags,
     StorageService,
     StorageFlow,
     DataProviderService,

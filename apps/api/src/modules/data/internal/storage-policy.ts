@@ -18,6 +18,8 @@ export const bucketGlobalName = (orgId: string, name: string): string =>
 export const BUCKET_NAME = /^(?!nz-|sys-)[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 
 const bad = (m: string, errors?: unknown[]) => new ProblemException('policy_invalid', m, errors);
+// control characters are exactly what these patterns refuse
+/* eslint-disable no-control-regex */
 const KEY = /^[^\u0000-\u001f\u007f]{0,200}$/;
 
 /**
@@ -193,3 +195,4 @@ export function parseObjectKey(k: unknown): string {
     );
   return k;
 }
+/* eslint-enable no-control-regex */

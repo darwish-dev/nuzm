@@ -47,6 +47,24 @@ tables:
       hook: m08-object-storage,
       note: 'placement is evaluated at quote, create and every execution (storage.service.ts, storage-flow.ts, storage-pricer.ts); system buckets stay in the data_region of the databases they protect',
     }
+  email.email_domains:
+    {
+      owner: M08,
+      hook: m08-mailbox,
+      note: 'the processing region of the mailbox/transactional provider is evaluated when a domain is added (domain.service.ts)',
+    }
+  email.mailboxes:
+    {
+      owner: M08,
+      hook: m08-mailbox,
+      note: 'mailbox provisioning is evaluated before the provider is called (mailbox.service.ts)',
+    }
+  email.messages:
+    {
+      owner: M08,
+      hook: m08-transactional-email,
+      note: 'recipients and content are personal data: evaluated before every send (message.service.ts)',
+    }
   data.database_restores:
     {
       owner: M08,
@@ -170,9 +188,9 @@ hooks:
       where: 'Transactional email content and recipients sent to the email vendor',
       data_classes: [personal],
       processor_kind: transactional-email,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.email,
-      call_site: null,
+      call_site: apps/api/src/modules/email/internal/message.service.ts,
     }
   - {
       id: m08-mailbox,
@@ -180,9 +198,9 @@ hooks:
       where: 'Mailbox provisioning and mailbox data placement',
       data_classes: [personal, customer-content],
       processor_kind: mailbox,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.mailbox,
-      call_site: null,
+      call_site: apps/api/src/modules/email/internal/mailbox.service.ts,
     }
   - {
       id: m09-model-gateway,

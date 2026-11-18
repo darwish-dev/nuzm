@@ -11,6 +11,7 @@ import { BillingController } from './billing.controller';
 import { AdjustmentService } from './internal/adjustment.service';
 import { BillingReadService } from './internal/billing-read.service';
 import { EntitlementService } from './internal/entitlement.service';
+import { ResellerPriceRuleService } from './internal/reseller-price-rules.service';
 import { LedgerPostingService } from './internal/ledger.service';
 import { PlanService } from './internal/plan.service';
 import { PriceBookService } from './internal/price-book.service';
@@ -124,6 +125,12 @@ import { billingManagerIds as approverIds } from '../../common/billing-managers'
       useFactory: (db: Db) => new BillingReadService(db),
       inject: [DB],
     },
+    // M11 S54 (appended)
+    {
+      provide: ResellerPriceRuleService,
+      useFactory: (db: Db, a: AuditSink) => new ResellerPriceRuleService(db, a),
+      inject: [DB, AuditSink],
+    },
   ],
   exports: [
     LedgerPostingService,
@@ -136,6 +143,7 @@ import { billingManagerIds as approverIds } from '../../common/billing-managers'
     AdjustmentService,
     WalletTopupService,
     DunningService,
+    ResellerPriceRuleService, // M11 S54 (appended)
   ],
 })
 export class BillingModule {}

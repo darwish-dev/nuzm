@@ -220,6 +220,9 @@ CREATE POLICY client_side ON programs.delegated_access FOR SELECT USING (client_
 CREATE POLICY client_answer ON programs.delegated_access FOR UPDATE USING (client_org_id = nullif(current_setting('app.org_id', true), '')::uuid) WITH CHECK (client_org_id = nullif(current_setting('app.org_id', true), '')::uuid);
 CREATE POLICY sub_org_side ON programs.reseller_sub_orgs FOR SELECT USING (sub_org_id = nullif(current_setting('app.org_id', true), '')::uuid);
 CREATE POLICY sub_org_answer ON programs.reseller_sub_orgs FOR UPDATE USING (sub_org_id = nullif(current_setting('app.org_id', true), '')::uuid) WITH CHECK (sub_org_id = nullif(current_setting('app.org_id', true), '')::uuid);
+-- a client organization can read the PROFILE (id, name, status) of an agency that holds a link to it: it needs the id and name to answer the invitation
+CREATE POLICY linked_client_read ON programs.agencies FOR SELECT USING (EXISTS (SELECT 1 FROM programs.agency_clients ac WHERE ac.agency_id = agencies.id AND ac.client_org_id = nullif(current_setting('app.org_id', true), '')::uuid));
+CREATE POLICY linked_sub_org_read ON programs.resellers FOR SELECT USING (EXISTS (SELECT 1 FROM programs.reseller_sub_orgs so WHERE so.reseller_id = resellers.id AND so.sub_org_id = nullif(current_setting('app.org_id', true), '')::uuid));
 -- the admin console may suspend a program profile and revoke a link
 CREATE POLICY platform_suspend ON programs.agencies FOR UPDATE USING (coalesce(current_setting('app.platform_scope', true), '') = 'admin') WITH CHECK (coalesce(current_setting('app.platform_scope', true), '') = 'admin');
 CREATE POLICY platform_suspend ON programs.resellers FOR UPDATE USING (coalesce(current_setting('app.platform_scope', true), '') = 'admin') WITH CHECK (coalesce(current_setting('app.platform_scope', true), '') = 'admin');

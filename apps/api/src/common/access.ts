@@ -31,6 +31,8 @@ export interface AccessContext {
   role: string;
   permissions: ReadonlySet<string>;
   actor: { kind: 'session'; userId: string } | { kind: 'api_key'; keyId: string; userId: string };
+  /** Present only for delegated (agency) requests: `orgId` is then the CLIENT organization. */
+  acting?: { agencyOrgId: string; clientOrgId: string; grantId: string };
 }
 
 declare module 'fastify' {
@@ -52,3 +54,18 @@ export const Platform = createParamDecorator(
     return ctx.switchToHttp().getRequest<FastifyRequest>().platform!;
   },
 );
+
+// ---- M11 S54 (appended): delegated access -------------------------------------------------------------------------------------------------
+/**
+ * Marks a route (or controller) as usable with `X-Nuzm-Acting-Org` (agency acting for a client). DENY BY DEFAULT: on every other route the header is refused. A delegable route still
+ * needs its `@RequirePermission`, and the permission must be inside the grant AND the agency member's own role (the intersection).
+ */
+export const DELEGABLE = 'nuzm:delegable';
+export const Delegable = () => SetMetadata(DELEGABLE, true);
+
+/** Set on `req.access` when an agency acts for a client: the audit sink records the agency as the ACTOR organization and the client as the ACTING-FOR organization. */
+export interface ActingContext {
+  agencyOrgId: string;
+  clientOrgId: string;
+  grantId: string;
+}

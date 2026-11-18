@@ -78,7 +78,9 @@ function personalData(text: string): string[] {
 }
 
 export function scanArtifact(i: { type: ListingType; content: Buffer; sbomPresent: boolean }): ScanResult {
-  const text = i.content.toString('utf8');
+  const raw = i.content.toString('utf8');
+  // artifacts are often JSON: scan the text as stored AND with JSON string escapes undone, so an escaped quote or backslash cannot hide a signature
+  const text = `${raw}\n${raw.replace(/\\(u[0-9a-fA-F]{4}|["\\/nrt])/g, (_m, g: string) => (g.length === 1 ? (g === 'n' ? '\n' : g === 'r' ? '\r' : g === 't' ? '\t' : g) : String.fromCharCode(parseInt(g.slice(1), 16))))}`;
   const findings: Finding[] = [];
   const add = (f: Finding) => findings.push(f);
   for (const [re, what] of SECRET) if (re.test(text)) add({ rule: 'secret', severity: 'block', where: 'artifact', detail: `contains a ${what}` });
@@ -87,7 +89,7 @@ export function scanArtifact(i: { type: ListingType; content: Buffer; sbomPresen
   // dependency + licence: the artifact may carry a package.json (website/app templates) as JSON at the top level or under `package.json`
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(raw);
   } catch {
     parsed = undefined;
   }

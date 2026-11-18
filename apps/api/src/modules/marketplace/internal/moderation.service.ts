@@ -39,8 +39,10 @@ export class ModerationService {
       const need = decision === 'suspend' ? 'approved' : 'pending';
       const v = (
         await c.query(
-          body.versionId ? `SELECT * FROM marketplace.listing_versions WHERE id = $1 AND listing_id = $2 FOR UPDATE` : `SELECT * FROM marketplace.listing_versions WHERE listing_id = $2 AND moderation_status = $3 ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-          body.versionId ? [body.versionId, listingId] : [null, listingId, need],
+          body.versionId
+            ? `SELECT * FROM marketplace.listing_versions WHERE id = $1 AND listing_id = $2 FOR UPDATE`
+            : `SELECT * FROM marketplace.listing_versions WHERE listing_id = $1 AND moderation_status = $2 ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+          body.versionId ? [body.versionId, listingId] : [listingId, need],
         )
       ).rows[0] as Row | undefined;
       if (!v) {

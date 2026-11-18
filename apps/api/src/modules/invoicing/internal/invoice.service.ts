@@ -357,6 +357,21 @@ export class InvoiceService {
     return { invoice: await this.ensureLedger(orgId, id, actorUserId), created };
   }
 
+  /** What the LEDGER-posted invoices of one organization show as USAGE net for a billing period (M11 reseller statements compare their wholesale figure with it: variance 0). Void invoices are excluded. */
+  async usageNetForPeriod(orgId: string, periodStart: string, currency: string): Promise<bigint> {
+    return this.db.withOrg(orgId, async (c) =>
+      BigInt(
+        (
+          await c.query(
+            `SELECT coalesce(sum(l.net_minor), 0)::text AS n FROM invoicing.invoice_lines l JOIN invoicing.invoices i ON i.id = l.invoice_id
+              WHERE i.org_id = $1 AND i.period_start = $2::date AND i.currency = $3 AND i.status <> 'void' AND l.kind = 'usage' AND i.ledger_transaction_id IS NOT NULL`,
+            [orgId, periodStart, currency],
+          )
+        ).rows[0]!.n as string,
+      ),
+    );
+  }
+
   /** Total of the credit notes issued against an invoice (a refund of a purchase shows up here). Minor units, 0 when none. */
   async creditedMinor(orgId: string, invoiceId: string): Promise<bigint> {
     return this.db.withOrg(orgId, async (c) =>

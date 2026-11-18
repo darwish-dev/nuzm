@@ -96,8 +96,8 @@ export class ListingService {
       (
         await c.query(
           `INSERT INTO marketplace.listings (id, org_id, publisher_id, type, title_ar, title_en, description_ar, description_en, status, licence, seats, price_minor, currency, data_region, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9,$10,$11,$12,'sa-pending',$13) RETURNING *`,
-          [id, orgId, publisher.id, body.type, title.ar, title.en, text(d.ar, 'description.ar', 4000, true), text(d.en, 'description.en', 4000, true), body.licence, seats, price.minor.toString(), price.currency, actor],
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9,$10,$11,$12,$13,$14) RETURNING *`,
+          [id, orgId, publisher.id, body.type, title.ar, title.en, text(d.ar, 'description.ar', 4000, true), text(d.en, 'description.en', 4000, true), body.licence, seats, price.minor.toString(), price.currency, this.cfg.artifactRegion, actor],
         )
       ).rows[0],
     )) as Row;

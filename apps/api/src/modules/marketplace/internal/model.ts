@@ -18,6 +18,11 @@ export interface MarketplaceConfig {
    */
   publisherShareBps: number;
   maxArtifactBytes: number;
+  /**
+   * The region where artifacts live. `sa-pending` (the unverified placeholder) until the artifact store is wired to verified in-Kingdom storage (M08 storage + M05 region evidence): the residency
+   * hook then denies every purchase and install for an organization restricted to the Kingdom: FAIL CLOSED. Tests and local runs set a verified mock region.
+   */
+  artifactRegion: string;
 }
 export const MARKETPLACE_CONFIG = Symbol('MARKETPLACE_CONFIG');
 export const loadMarketplaceConfig = (env: NodeJS.ProcessEnv = process.env): MarketplaceConfig => {
@@ -25,6 +30,7 @@ export const loadMarketplaceConfig = (env: NodeJS.ProcessEnv = process.env): Mar
   return {
     publisherShareBps: Number.isInteger(bps) && bps >= 0 && bps <= 10_000 ? bps : 7000,
     maxArtifactBytes: Number(env.MARKETPLACE_MAX_ARTIFACT_BYTES ?? 5 * 1024 * 1024) || 5 * 1024 * 1024,
+    artifactRegion: env.MARKETPLACE_ARTIFACT_REGION ?? 'sa-pending',
   };
 };
 /** floor(net × bps / 10000): integer arithmetic only. */

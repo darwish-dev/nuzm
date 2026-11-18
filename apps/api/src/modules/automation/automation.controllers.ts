@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Header, HttpCode, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
+import { Access, Delegable, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { etag, parseIfMatch } from '../../common/etag';
 import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
@@ -22,7 +22,8 @@ const ifMatch = (req: FastifyRequest) => {
   return v;
 };
 
-/** Workflows, versions and executions (docs/04 §2.11). */
+/** Workflows, versions and executions (docs/04 §2.11). Usable by an agency acting for a client (`@Delegable`: the grant must carry automation:*). */
+@Delegable()
 @Controller('v1/workflows')
 export class WorkflowsController {
   constructor(
@@ -84,6 +85,7 @@ export class WorkflowsController {
   }
 }
 
+@Delegable()
 @Controller('v1/workflow-executions')
 export class WorkflowExecutionsController {
   constructor(private readonly executions: ExecutionService) {}

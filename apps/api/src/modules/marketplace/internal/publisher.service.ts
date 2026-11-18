@@ -24,9 +24,8 @@ export class PublisherService {
   /** The organization's account, creating an UNVERIFIED one the first time (registers interest: ops sees it in the verification queue). */
   async ensure(orgId: string): Promise<Row> {
     return this.db.withOrg(orgId, async (c) => {
-      const have = (await c.query(`SELECT * FROM marketplace.publisher_accounts WHERE org_id = $1`, [orgId])).rows[0] as Row | undefined;
-      if (have) return have;
-      return (await c.query(`INSERT INTO marketplace.publisher_accounts (id, org_id) VALUES ($1,$2) ON CONFLICT (org_id) DO UPDATE SET org_id = EXCLUDED.org_id RETURNING *`, [uuidv7(), orgId])).rows[0] as Row;
+      await c.query(`INSERT INTO marketplace.publisher_accounts (id, org_id) VALUES ($1,$2) ON CONFLICT (org_id) DO NOTHING`, [uuidv7(), orgId]);
+      return (await c.query(`SELECT * FROM marketplace.publisher_accounts WHERE org_id = $1`, [orgId])).rows[0] as Row;
     });
   }
   async get(orgId: string): Promise<PublisherDto | null> {

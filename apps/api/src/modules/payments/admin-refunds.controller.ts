@@ -1,8 +1,10 @@
-import { Body, Controller, Headers, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import { Platform, RequirePlatformPermission, type PlatformContext } from '../../common/access';
 import { ProblemException } from '../../common/errors';
+import { parseLimit } from '../../common/pagination';
 import { RealmOnly, StepUp } from '../identity';
+import { AdminPaymentReadService } from './internal/admin-payment-read.service';
 import { RefundService } from './internal/refund.service';
 
 /**
@@ -12,7 +14,27 @@ import { RefundService } from './internal/refund.service';
 @RealmOnly('admin')
 @Controller('v1/admin/billing/refunds')
 export class AdminRefundsController {
-  constructor(private readonly refunds: RefundService) {}
+  constructor(
+    private readonly refunds: RefundService,
+    private readonly reads: AdminPaymentReadService,
+  ) {}
+
+  /** Read-only list for UI-M03-15 (S12d): refunds across organizations with their status. Audited. */
+  @RequirePlatformPermission('admin:billing:read')
+  @Get()
+  list(
+    @Platform() who: PlatformContext,
+    @Query()
+    q: { limit?: string; cursor?: string; org?: string; status?: string; paymentId?: string },
+  ) {
+    return this.reads.listRefunds(who.userId, {
+      limit: parseLimit(q.limit),
+      cursor: q.cursor,
+      org: q.org,
+      status: q.status,
+      paymentId: q.paymentId,
+    });
+  }
 
   @RequirePlatformPermission('admin:billing:read')
   @StepUp()

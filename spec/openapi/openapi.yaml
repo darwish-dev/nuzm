@@ -3095,6 +3095,29 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
   /v1/admin/billing/refunds:
+    get:
+      operationId: adminListRefunds
+      tags: [payments]
+      summary: List refunds across organizations
+      description: 'S12d (UI-M03-15). Refunds newest first with their status, so finance can follow a pending refund. Filters: org, status (pending, succeeded, failed), paymentId. Platform permission `admin:billing:read`; admin-realm session; the read is audited (`billing.admin.refunds.read`). Read-only: a refund is still created only by POST.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: org, in: query, schema: { type: string, format: uuid } }
+        - { name: paymentId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, succeeded, failed] } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminRefundPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
     post:
       operationId: adminCreateRefund
       tags: [payments]
@@ -3137,6 +3160,79 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/invoices:
+    get:
+      operationId: adminListInvoices
+      tags: [billing]
+      summary: Search invoices across organizations
+      description: 'S12d (UI-M03-13). Invoices newest first with the e-invoice state of each. Filters: org, status, number (prefix of the invoice number), einvoiceState (not_generated or a submission state), from/to (issue date). Platform permission `admin:billing:read`; admin-realm session; the read is audited (`billing.admin.invoices.read`). Read-only: a wrong invoice is corrected by a credit note, never edited.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: org, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: number, in: query, schema: { type: string, maxLength: 40 } }
+        - { name: einvoiceState, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminInvoicePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/payments:
+    get:
+      operationId: adminListPayments
+      tags: [payments]
+      summary: List payments across organizations
+      description: 'S12d (UI-M03-14). Payment attempts (intents) newest first. Filters: org, status, invoiceId, from/to (creation time). Platform permission `admin:billing:read`; admin-realm session; the read is audited (`billing.admin.payments.read`). No card data exists in the platform, so none is returned.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: org, in: query, schema: { type: string, format: uuid } }
+        - { name: invoiceId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPaymentPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/billing/payments/{id}/events:
+    get:
+      operationId: adminListPaymentEvents
+      tags: [payments]
+      summary: PSP events of a payment (redacted)
+      description: 'S12d (UI-M03-14). The provider events stored for one payment, oldest first, with how each was handled and how many times the provider resent it (`duplicateCount`; a resend never has a second effect). The payload is the sanitized whitelist stored at intake with the provider payment reference masked to its last four characters. Platform permission `admin:billing:read`; the read is audited (`billing.admin.payment_events.read`). 404 for an unknown payment.'
+      x-nuzm-platform-permission: admin:billing:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPspEventList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /v1/webhooks/payments/{provider}:
     post:
       operationId: receivePaymentWebhook
@@ -5331,6 +5427,174 @@ components:
         failureCode: { type: [string, 'null'] }
         creditNoteId: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
+    AdminRefund:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          paymentId,
+          amountMinor,
+          currency,
+          status,
+          reason,
+          failureCode,
+          creditNoteId,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        paymentId: { type: string, format: uuid }
+        amountMinor: { type: string }
+        currency: { type: string }
+        status: { type: string, enum: [pending, succeeded, failed] }
+        reason: { type: string }
+        failureCode: { type: [string, 'null'] }
+        creditNoteId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+    AdminRefundPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminRefund' } }
+        nextCursor: { type: [string, 'null'] }
+    AdminPayment:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          invoiceId,
+          walletTopupId,
+          provider,
+          amountMinor,
+          currency,
+          status,
+          failureCode,
+          capturedMinor,
+          refundedMinor,
+          eventCount,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        invoiceId: { type: [string, 'null'], format: uuid }
+        walletTopupId: { type: [string, 'null'], format: uuid }
+        provider:
+          { type: string, description: 'Provider account code (sandbox accounts are named so).' }
+        amountMinor: { type: string }
+        currency: { type: string }
+        status: { type: string }
+        failureCode: { type: [string, 'null'] }
+        capturedMinor: { type: string }
+        refundedMinor: { type: string }
+        eventCount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+    AdminPaymentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminPayment' } }
+        nextCursor: { type: [string, 'null'] }
+    AdminPspEvent:
+      type: object
+      required:
+        [
+          id,
+          provider,
+          eventId,
+          type,
+          status,
+          error,
+          eventAt,
+          receivedAt,
+          processedAt,
+          duplicateCount,
+          lastDuplicateAt,
+          payload,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        eventId: { type: string, description: 'The provider event id (unique per provider).' }
+        type: { type: string }
+        status: { type: string, enum: [received, processed, ignored, failed] }
+        error: { type: [string, 'null'] }
+        eventAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        processedAt: { type: [string, 'null'], format: date-time }
+        duplicateCount: { type: integer, minimum: 0 }
+        lastDuplicateAt: { type: [string, 'null'], format: date-time }
+        payload:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'Sanitized whitelist; the provider payment reference is masked.',
+          }
+    AdminPspEventList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminPspEvent' } }
+    AdminInvoice:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          number,
+          status,
+          environment,
+          currency,
+          issuedAt,
+          dueAt,
+          subtotalMinor,
+          taxMinor,
+          totalMinor,
+          paidMinor,
+          buyerName,
+          buyerVatNumber,
+          taxReviewRequired,
+          dataRegion,
+          einvoice,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        number: { type: string }
+        status: { type: string }
+        environment: { type: string, enum: [sandbox, live] }
+        currency: { type: string }
+        issuedAt: { type: string, format: date-time }
+        dueAt: { type: string, format: date-time }
+        subtotalMinor: { type: string }
+        taxMinor: { type: string }
+        totalMinor: { type: string }
+        paidMinor: { type: string }
+        buyerName:
+          {
+            type: object,
+            required: [ar, en],
+            properties: { ar: { type: string }, en: { type: string } },
+          }
+        buyerVatNumber: { type: [string, 'null'] }
+        taxReviewRequired: { type: boolean }
+        dataRegion: { type: string }
+        einvoice:
+          type: object
+          required: [state, environment, uuid]
+          properties:
+            state: { type: string, description: 'not_generated or the latest submission state.' }
+            environment: { type: [string, 'null'], enum: [sandbox, simulation, production, null] }
+            uuid: { type: [string, 'null'], format: uuid }
+    AdminInvoicePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminInvoice' } }
+        nextCursor: { type: [string, 'null'] }
     PaymentPage:
       type: object
       required: [items, nextCursor]

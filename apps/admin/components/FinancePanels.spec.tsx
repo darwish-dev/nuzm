@@ -64,6 +64,18 @@ describe('refund form (UI-M03-15)', () => {
   });
 });
 
+describe('refund form pre-fill (UI-M03-14 → 15)', () => {
+  it('starts with the payment chosen on the payment screen but still needs an amount and a reason', () => {
+    render(<RefundForm locale="en" mfaFactorId={null} defaultPaymentId={PAYMENT} />);
+    expect((screen.getByLabelText(t('en', 'af.ref.payment')) as HTMLInputElement).value).toBe(
+      PAYMENT,
+    );
+    // the amount and the reason are required fields: nothing is sent without them
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'af.ref.submit') }));
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
 describe('run reconciliations (UI-M03-16)', () => {
   it('needs at least one type and a valid period', () => {
     render(

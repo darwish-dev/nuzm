@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   barRows,
   bpsToPercent,
+  dayEndIso,
+  dayStartIso,
+  eventTone,
+  filterProblems,
   humanize,
+  invoiceTone,
+  pageQuery,
+  paymentTone,
+  refundTone,
+  shortId,
   isDateOnly,
   itemTone,
   nextZatcaStep,
@@ -132,5 +141,45 @@ describe('report values', () => {
   it('humanizes a key with no translation', () => {
     expect(humanize('days1to30Minor')).toBe('Days1to30 Minor');
     expect(humanize('openAtRiskMinor')).toBe('Open At Risk Minor');
+  });
+});
+
+describe('S12d list helpers', () => {
+  it('turns a calendar day into UTC day bounds and ignores anything else', () => {
+    expect(dayStartIso('2026-11-05')).toBe('2026-11-05T00:00:00.000Z');
+    expect(dayEndIso('2026-11-05')).toBe('2026-11-05T23:59:59.999Z');
+    expect(dayStartIso('2026-02-30')).toBeUndefined();
+    expect(dayStartIso('')).toBeUndefined();
+    expect(dayEndIso(undefined)).toBeUndefined();
+  });
+  it('flags bad filters and accepts empty ones', () => {
+    expect(filterProblems({})).toBe(false);
+    expect(filterProblems({ org: '', from: '' })).toBe(false);
+    expect(filterProblems({ org: '0190b6c0-0000-7000-8000-000000000001' })).toBe(false);
+    expect(filterProblems({ org: 'x' })).toBe(true);
+    expect(filterProblems({ invoiceId: 'nope' })).toBe(true);
+    expect(filterProblems({ paymentId: 'nope' })).toBe(true);
+    expect(filterProblems({ from: '2026-13-01' })).toBe(true);
+    expect(filterProblems({ from: '2026-11-05', to: '2026-11-04' })).toBe(true);
+    expect(filterProblems({ from: '2026-11-04', to: '2026-11-05' })).toBe(false);
+  });
+  it('keeps the filters in the next-page link and drops empty ones', () => {
+    expect(pageQuery({ status: 'paid', org: '', number: undefined }, 'abc')).toBe(
+      '?status=paid&cursor=abc',
+    );
+  });
+  it('maps statuses to tones', () => {
+    expect(invoiceTone('paid')).toBe('success');
+    expect(invoiceTone('void')).toBe('danger');
+    expect(invoiceTone('open')).toBe('warn');
+    expect(paymentTone('succeeded')).toBe('success');
+    expect(paymentTone('failed')).toBe('danger');
+    expect(paymentTone('processing')).toBe('warn');
+    expect(refundTone('pending')).toBe('warn');
+    expect(refundTone('failed')).toBe('danger');
+    expect(eventTone('processed')).toBe('success');
+    expect(eventTone('failed')).toBe('danger');
+    expect(eventTone('ignored')).toBe('warn');
+    expect(shortId('0190b6c0-0000-7000-8000-000000000001')).toBe('0190b6c0');
   });
 });

@@ -632,12 +632,15 @@ export class PaymentService {
     };
     const stored = await this.db.withAuthScope('psp_webhook', async (c) => {
       const row = (
-        await c.query<{ id: string }>(
-          `INSERT INTO payments.psp_events (id, psp, event_id, type, event_at, payload) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (psp, event_id) DO NOTHING RETURNING id`,
-          [uuidv7(), provider, ev.id, ev.type, ev.createdAt, JSON.stringify(payload)],
+        await c.query<{ id: string; inserted: boolean }>(
+          // a redelivery changes nothing but a counter (the admin screen shows it); `xmax = 0` tells a fresh row from an updated one
+          `INSERT INTO payments.psp_events (id, psp, event_id, type, event_at, payload) VALUES ($1,$2,$3,$4,$5,$6)
+             ON CONFLICT (psp, event_id) DO UPDATE SET duplicate_count = payments.psp_events.duplicate_count + 1, last_duplicate_at = $7
+           RETURNING id, (xmax = 0) AS inserted`,
+          [uuidv7(), provider, ev.id, ev.type, ev.createdAt, JSON.stringify(payload), now],
         )
       ).rows[0];
-      if (!row) return null;
+      if (!row || !row.inserted) return null;
       const ref = (
         await c.query<{ id: string; org_id: string }>(
           `SELECT id, org_id FROM payments.resolve_intent($1)`,

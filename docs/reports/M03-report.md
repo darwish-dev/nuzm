@@ -2,12 +2,12 @@
 
 Format: CLAUDE.md §10. Sprint reports: [S08a](S08a-report.md) · [S08b](S08b-report.md) · [S09](S09-report.md) · [S10a](S10a-report.md) · [S10b](S10b-report.md) · [S10c](S10c-report.md) · [S11a](S11a-report.md) · [S11b](S11b-report.md) · [S12a](S12a-report.md) · [S12b](S12b-report.md) · [S12c](S12c-report.md) · [S12d](S12d-report.md). Gate review: [M03-gate-review.md](M03-gate-review.md). Demo: [demo-m03.md](../runbooks/demo-m03.md).
 
-Status: **NOT SIGNED. Prepared 2026-11-17 for the owner's gate review.** Everything runs on the **sandbox PSP and a SIMULATED, synthetic-profile e-invoicing pipeline**. No row that needs a real PSP, ZATCA, a tax advisor or a registered billing entity is PASS: those are BLOCKED or NOT VERIFIED (§G, §H). No BLOCKED row was converted to PASS using a mock.
+Status: **NOT SIGNED. Prepared 2026-11-17, updated 2026-11-18 after S12d was verified (`pnpm verify:full` exit 0), for the owner's gate review.** Everything runs on the **sandbox PSP and a SIMULATED, synthetic-profile e-invoicing pipeline**. No row that needs a real PSP, ZATCA, a tax advisor or a registered billing entity is PASS: those are BLOCKED or NOT VERIFIED (§G, §H). No BLOCKED row was converted to PASS using a mock.
 
 ## A. Repository findings and assumptions
 - Approved documentation (HG-00-01) governs; M01 and M02 are signed with deferrals ([M01](M01-deferrals.md), [M02](M02-deferrals.md)). Local-only git (D-01), one team sequential (D-02).
 - **Conflicts and gaps recorded (never silently reconciled):**
-  1. docs/04 has **no admin endpoint to search invoices across organizations, list payments with PSP events, or list refunds** → UI-M03-13 and -14 not built, UI-M03-15 partial. Proposed endpoints are in [S12d §A](S12d-report.md).
+  1. docs/04 had **no admin endpoint to search invoices across organizations, list payments with PSP events, or list refunds**. S12d added four read-only operations (spec first, migration 0312 for the duplicate-event counter) so UI-M03-13/14/15 could be built; **owner approved these additions in chat on 2026-11-18** (CLAUDE.md §2). Details in [S12d §A](S12d-report.md).
   2. docs/04 has **no operation that pays a quote** → checkout (UI-M03-11) reviews the quote only.
   3. No credit-note PDF operation (customer screens have no PDF link for credit notes). No billing-entity / tax-rate administration endpoints (managed by migrations, as the M03 prompt says).
   4. The M03 prompt lists `payments.payment_reconciliations`; RC-01 lives in `finrec` (as the prompt itself notes). Reconciliation runs are their own resource instead of `platform.operations` records.
@@ -33,9 +33,9 @@ Status: **NOT SIGNED. Prepared 2026-11-17 for the owner's gate review.** Everyth
 | S12a | reconciliation RC-01..RC-06 | `c4f054d` |
 | S12b | revenue/finance reports, invoice and card-expiry notices, runbooks | `da7f35f` |
 | S12c | customer billing screens UI-M03-01..12 | `24a48b5` |
-| S12d | admin finance screens UI-M03-15..21 | `d201e20` |
+| S12d | admin finance screens UI-M03-13..21, four admin read APIs, E2E | `d201e20`, `28bed5a`, `c62b419`, `f8d681c`, test fixes `95c32bd` `a2e6367` `3629202` |
 
-Migrations `0300–0302, 0310–0311, 0320–0322, 0330–0331, 0340–0341` (all inside `0300–0499`). Modules `invoicing` (+`zatca/`), `payments` (+`psp/`), `finrec`, billing extensions (`subscriptions`, dunning, wallet), `common/billing-managers`. Specs `spec/zatca/`, `spec/billing/dunning-policy.yaml`. Runbooks listed in §C.
+Migrations `0300–0302, 0310–0312, 0320–0322, 0330–0331, 0340–0341` (all inside `0300–0499`). Modules `invoicing` (+`zatca/`), `payments` (+`psp/`), `finrec`, billing extensions (`subscriptions`, dunning, wallet), `common/billing-managers`. Specs `spec/zatca/`, `spec/billing/dunning-policy.yaml`. Runbooks listed in §C.
 
 ## C. Implemented features, API and UI screens
 - **Tax and invoices:** effective-dated tax rates from configuration, B2B/B2C classification, half-up per-line rounding with `Σ lines + tax = total` (0 minor-unit difference), gapless sequences per entity and series, immutable issued invoices, credit notes, PDF in Arabic and English, idempotent period close (`source_key`), payment application.
@@ -44,26 +44,26 @@ Migrations `0300–0302, 0310–0311, 0320–0322, 0330–0331, 0340–0341` (al
 - **E-invoicing (SIMULATED):** standard/simplified/credit documents, UBL XML, ICV/PIH hash chain (database-enforced), QR TLV, ECDSA signing with vault references (dev vault only), CSR, two-person onboarding, submission queue with backoff and dead letters, clearance gating of standard invoices, reporting window clock, archive (local WORM store). Production environment is refused.
 - **Reconciliation and reports:** RC-01..RC-06 with seeded-break detection and tolerances, break lifecycle linked to approved adjustments, SLA alert; eight finance reports (JSON/CSV, ledger-tied, audited).
 - **Notifications (ar/en, in-app):** invoice issued, payment failed, dunning notices, card expiring. Email delivery is the dev logger (NOT VERIFIED).
-- **API:** 117 operations (83 at M02 close; +34), spec ↔ code two-way drift check, SDK regenerated.
-- **UI:** customer UI-M03-01..12 (UI-M03-11 partial) and admin UI-M03-15..21 (15 partial); UI-M03-13/14 not built. Arabic RTL + English, loading/empty/error/forbidden states.
+- **API:** 121 operations (83 at M02 close; +38), spec ↔ code two-way drift check, SDK regenerated.
+- **UI:** customer UI-M03-01..12 (UI-M03-11 partial) and admin UI-M03-13..21 (UI-M03-19 verified with an empty queue only). Arabic RTL + English, loading/empty/error/forbidden states.
 - **Runbooks:** `psp-incident`, `refund-procedure`, `subscription-lifecycle`, `dunning`, `zatca-onboarding`, `zatca-queue-stuck`, `zatca-key-rotation` (states **NOT IMPLEMENTED**), `reconciliation-break-handling`, `invoice-correction`, `tax-and-invoice-numbering`. Demo: [demo-m03.md](../runbooks/demo-m03.md).
 
 ## D. Migrations and rollback
-Twelve forward migrations, each with a dev/staging-only `.down.sql`; production is forward-fix. Invoice, credit-note, payment, refund, ledger, ZATCA and reconciliation tables are append-only or immutable by trigger and are **never dropped** by down scripts in a production profile. Tenant-less tables (entities, tax rates, PSP accounts, reconciliation, ZATCA onboarding) are listed in `db/ownership.yaml` `tenant_less`; `pnpm --filter @nuzm/db exec tsx src/cli.ts check` enforces RLS or listing. Reviewer action: read the down scripts and `refund-procedure` / `invoice-correction` before sign-off.
+Thirteen forward migrations (0312 added in S12d: duplicate-event counters on `payments.psp_events`), each with a dev/staging-only `.down.sql`; production is forward-fix. Invoice, credit-note, payment, refund, ledger, ZATCA and reconciliation tables are append-only or immutable by trigger and are **never dropped** by down scripts in a production profile. Tenant-less tables (entities, tax rates, PSP accounts, reconciliation, ZATCA onboarding) are listed in `db/ownership.yaml` `tenant_less`; `pnpm --filter @nuzm/db exec tsx src/cli.ts check` enforces RLS or listing. Reviewer action: read the down scripts and `refund-procedure` / `invoice-correction` before sign-off.
 
 ## E. Tests run with actual results
-Last full run: `pnpm verify:full` at S12c (**exit 0**): lint, typecheck, unit, build, spec lint/drift, SDK check, secret scan, ZATCA guard, 19/19 turbo test tasks including browser E2E, `db:migrate`, `db:test-rls`, integration.
+`pnpm verify:full` → **exit 0** on 2026-11-18 at S12d (commit `3629202`): lint, typecheck, unit, build, spec lint/drift, SDK check, secret scan, ZATCA guard, 19/19 turbo test tasks including the browser E2E, `db:migrate`, `db:test-rls`, integration. Two earlier attempts the same day failed on test defects (a UTC-day helper in `reports.int.spec.ts`, random fixture ids in a new test) that were fixed, not skipped — see [S12d §A](S12d-report.md).
 | Layer | Result |
 |---|---|
 | API unit | 301 passed |
-| Integration (real PostgreSQL) | db 43, platform 32, worker 8, api **568**: 651 passed |
-| Web unit | 49 passed (S12c) |
-| Admin unit | 41 passed (S12d, run alone: `pnpm --filter @nuzm/admin exec vitest run`) |
-| i18n | 9 passed (key and placeholder parity, 551 M03 keys across S12c/S12d) |
-| Browser E2E | **8 passed** at S12c (customer, admin, billing, payments; ar and en; axe clean). **`05-admin-finance.spec.ts` (S12d) was NOT RUN.** |
-| Lint / typecheck / spec drift | exit 0 / passed / "117 implemented route(s) all declared" (re-run after S12d) |
+| Integration (real PostgreSQL) | db 43, platform 32, worker 8, api **580**: 663 passed |
+| Web unit | 49 passed |
+| Admin unit | **46** passed |
+| i18n | 9 passed (key and placeholder parity, 770 M03 keys across S12c/S12d) |
+| Browser E2E | **10 passed** (01 customer, 02 admin, 03 billing, 04 payments, **05 admin finance**; ar and en; axe WCAG A/AA clean on every screen) |
+| Lint / typecheck / spec drift | exit 0 / passed / "121 implemented route(s) all declared (121 declared)"; `sdk:check` up to date; `db check OK` |
 
-Not rerun since S12d: `pnpm verify:full` and the integration suite (S12d changes no API, database or spec). Highlights by acceptance row are in §H. **Environment note:** the end-to-end ports and local Postgres were held by another session's stack, which blocked the S12d E2E on the owner's instruction (see S12d report).
+Highlights by acceptance row are in §H. Screenshots: `docs/reports/screenshots/{ar,en}/` (S12d screens are `adminfin-*.png`).
 
 ## F. Security, tenant isolation, billing, residency
 - **Tenant isolation:** forced RLS on every org table; the cross-tenant suite is generated from the OpenAPI spec and fails when a new org-scoped route has no fixture (404 for a foreign organization, by session and by API key); `db check` requires `org_id` + RLS or a `tenant_less` entry.
@@ -128,7 +128,7 @@ HG-03-01, HG-03-02, HG-03-03, HG-03-04, HG-02-01 (approved price book), HG-04-01
 | AC-M03-11 revenue/VAT/AR reports equal ledger sums | **PASS** | S12b |
 | AC-M03-12 dunning exhaustive tests; no automatic data deletion path | **PARTIAL** | transition tests and database guards PASS; day 0→45 test asserts zero deletion/termination requests; **no static source scan** for deletion paths exists |
 | AC-M03-13 cross-tenant for 100 % new routes; RLS coverage 100 % new tenant tables | **PASS** | generated suite (fails on a missing fixture) + `db check`, green in the S12c full run |
-| AC-M03-14 all 21 screens axe 0 serious/critical, ar+en screenshots | **PARTIAL** | UI-M03-01..12: axe clean + screenshots (E2E, S12c; UI-M03-11 review-only). UI-M03-15..21 built, **NOT VERIFIED in a browser**. UI-M03-13/14 **BLOCKED (spec gap)** |
+| AC-M03-14 all 21 screens axe 0 serious/critical, ar+en screenshots | **PARTIAL** | UI-M03-01..10 and 12: E2E, axe clean, screenshots (S12c). UI-M03-13..18, 20, 21: E2E in ar and en, axe clean, screenshots (S12d). **Gaps:** UI-M03-11 reviews the quote only (no pay-quote API); UI-M03-19 verified with an empty queue only (no generated e-invoice in the E2E profile). All data is sandbox / simulated |
 | AC-M03-20 live PSP sandbox end-to-end | **BLOCKED** (D-10, HG-03-02) | |
 | AC-M03-21 PSP production approval, first live transaction | **BLOCKED** (HG-03-02) | |
 | AC-M03-22 ZATCA sandbox/simulation compliance checks with owner credentials | **BLOCKED** (HG-03-03) | only our simulated server was exercised |
@@ -137,20 +137,18 @@ HG-03-01, HG-03-02, HG-03-03, HG-03-04, HG-02-01 (approved price book), HG-04-01
 | AC-M03-25 real billing entity loaded | **BLOCKED** (HG-03-01) | |
 | AC-M03-26 RC-04 against real provider bills | **BLOCKED** (M05) | |
 
-**Milestone state:** not DONE. Critical-path rows still open: AC-M03-01 (recipes), -07 (visual approval), -08 (spec pinning), -12 (static check), -14 (admin screens and the two blocked ones). BLOCKED rows are non-critical for M04–M05 only if the owner lists them as such in the gate review.
+**Milestone state:** not DONE. Critical-path rows still open: AC-M03-01 (recipes), -07 (visual approval), -08 (spec pinning), -12 (static check), -14 (UI-M03-11 payment and UI-M03-19 with data). BLOCKED rows are non-critical for M04–M05 only if the owner lists them as such in the gate review.
 
 ### Commands run (exact) and results
 | Command | Exit | Note |
 |---|---|---|
-| `pnpm verify:full` | 0 | last run at S12c, 2026-11-17 |
-| `pnpm --filter @nuzm/e2e test` | 0 | 8 passed (S12c) |
-| `pnpm --filter @nuzm/admin exec vitest run` | 0 | 41 passed (S12d) |
-| `pnpm lint` · `pnpm typecheck` · `pnpm spec:drift` | 0 | after S12d |
-| `pnpm --filter @nuzm/web build` · `pnpm --filter @nuzm/admin build` | 0 | after S12d |
-| `pnpm verify:full` / `pnpm test:integration` after S12d | not run | ports and local Postgres held by another session |
+| `pnpm verify:full` | 0 | 2026-11-18 on `3629202`; numbers in §E |
+| `pnpm test:e2e` / `pnpm --filter @nuzm/e2e exec playwright test` | 0 (final) | 10 passed; earlier S12d iterations failed on test setup (staff needed the finance role, shared ar/en database assumptions, strict locators) and were fixed |
+| `pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts src/modules/payments/admin-reads.int.spec.ts` | 0 | 8 passed (3 consecutive runs) |
+| `pnpm lint` · `pnpm typecheck` · `pnpm spec:lint` · `pnpm spec:drift` · `pnpm sdk:check` | 0 | after S12d |
 
 ### Spec issues found / change requests
-1. Admin read APIs for invoices, payments + PSP events, and refunds (UI-M03-13/14/15).
+1. Admin read APIs for invoices, payments + PSP events, and refunds (UI-M03-13/14/15): **added in S12d, owner-approved 2026-11-18**; invoice and payment detail endpoints not added.
 2. An operation to pay a quote; a credit-note PDF operation.
 3. Billing entity and tax-rate administration endpoints (PA-11) if runtime management is wanted.
 4. Ledger dimension for meter group on revenue postings (revenue-by-meter-group report).
@@ -163,4 +161,4 @@ HG-03-01, HG-03-02, HG-03-03, HG-03-04, HG-02-01 (approved price book), HG-04-01
 - **M05:** `commerce.orders` → payment/authorization flow; RC-04 `fetchBilling` hook; consumers of dunning restrict/suspend/review requests (billing emits requests only).
 - **M07/M11:** domain-order charge flow; `billing_entities`/D-24 options, marketplace checkout and publisher payable account (2600).
 - **M12:** reconciliation and ZATCA queue SLO dashboards; production placement of the billing scheduler (ADR-017).
-- **Open decisions:** D-10, D-11, D-23, D-24, D-25, D-31, D-33, D-34, HG-02-01, HG-03-01..04, the three admin read APIs and quote payment, ADR-017.
+- **Open decisions:** D-10, D-11, D-23, D-24, D-25, D-31, D-33, D-34, HG-02-01, HG-03-01..04, quote payment, ADR-017.

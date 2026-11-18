@@ -6,9 +6,11 @@ import { LedgerPostingService, WalletTopupService } from '../billing';
 import { CreditNoteService, InvoiceService } from '../invoicing';
 import { PaymentMethodService } from './internal/method.service';
 import { PaymentService } from './internal/payment.service';
+import { AdminPaymentReadService } from './internal/admin-payment-read.service';
 import { RefundService } from './internal/refund.service';
 import { MockPsp } from './internal/psp/mock-psp';
 import { PspRegistry } from './internal/psp/registry';
+import { AdminPaymentsController } from './admin-payments.controller';
 import { AdminRefundsController } from './admin-refunds.controller';
 import { WalletTopupsController } from './wallet-topups.controller';
 import { PaymentMethodsController } from './payment-methods.controller';
@@ -28,6 +30,7 @@ import { PaymentWebhooksController } from './webhooks.controller';
     PaymentWebhooksController,
     WalletTopupsController,
     AdminRefundsController,
+    AdminPaymentsController,
   ],
   providers: [
     {
@@ -70,6 +73,11 @@ import { PaymentWebhooksController } from './webhooks.controller';
         InvoiceService,
         WalletTopupService,
       ],
+    },
+    {
+      provide: AdminPaymentReadService,
+      useFactory: (db: Db, a: AuditSink) => new AdminPaymentReadService(db, a),
+      inject: [DB, AuditSink],
     },
     {
       provide: RefundService,

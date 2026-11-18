@@ -6,7 +6,7 @@
 * **Owner-directed exception (recorded as required):** the milestone prompt says to stop when M05 is missing. The owner directed M06, M07 and M08 to start now. M05 is being written in another session (`claude/m05-provider-core-05b775`, S16 committed); M07 codes against ports it defines, mirrors M05's S16 contract **read-only**, and lists every assumption in [M07-m05-interface-assumptions.md](M07-m05-interface-assumptions.md). Integration with the real M05 is a mechanical follow-up, **not yet done**.
 * Base = main's M04 + M03 S12d (`integration/main-m04-s12d` lineage); M03/M04 gate reviews were unsigned when this started.
 * Conflicts between sources (CLAUDE.md §2): (1) migration range — manifest `0900–0999` followed over the task's "800–899"; (2) `platform.resources_index` (prompt) vs docs/05 (no inventory in `platform`) — events only; (3) audit action `registrar.verified` has two segments, the audit table needs three — used `registrar.account.verified`; (4) payment model — wallet reservation instead of M05's hold table; (5) statements → RC-04 bill lines instead of cost records. None needs an ADR beyond the owner approving these notes; no spec/ADR was changed beyond the additive M07 blocks.
-* **Spec additions needing owner approval (not granted):** `M07-ADD-1` `GET /v1/admin/domains`, `GET /v1/admin/domains/{id}`; `M07-ADD-2` `POST/GET /v1/domains/{id}/hosting-links`.
+* **Spec additions (owner approved both after this report was written):** `M07-ADD-1` `GET /v1/admin/domains`, `GET /v1/admin/domains/{id}`; `M07-ADD-2` `POST/GET /v1/domains/{id}/hosting-links`.
 
 ## B. Plan and changed files
 See the sprint reports. New packages: `packages/adapters/{registrar-contracts,registrar-conformance,openprovider,resellerclub}`; `packages/domain/src/dns-validate`. New module `apps/api/src/modules/domains` (+ dev hook `src/dev/domains-dev.ts`). Migrations `0900`, `0910`, `0920` (+ down scripts). Spec: OpenAPI (23 operations), errors, `spec/providers/tld-policy.yaml`, ownership/classification, purposes, residency hooks. UI: 8 customer + 4 admin screens, 172 i18n keys (ar/en).
@@ -41,7 +41,7 @@ Run on 2026-11-18 against a project-local Postgres on :54333 (Redis is not insta
 * Residency: enforced hook `m07-registrant-contacts` (checked at quote, order and immediately before PII leaves; stored with the order).
 
 ## G. Human gates and live checks still needed
-HG-07-01 (reseller accounts, API access/IP allow-list, sandbox credentials) · HG-07-02 / D-19 (`.sa` route and TLD portfolio) · HG-03-02 (PSP production) · HG-04-01 (counsel: cross-border registrant data, registry retention) · D-31 (variance threshold) · D-23 (margin policy; default markup 0) · D-12 (vault) · owner approval of M07-ADD-1/2. The agent did **not** mark any gate granted.
+HG-07-01 (reseller accounts, API access/IP allow-list, sandbox credentials) · HG-07-02 / D-19 (`.sa` route and TLD portfolio) · HG-03-02 (PSP production) · HG-04-01 (counsel: cross-border registrant data, registry retention) · D-31 (variance threshold) · D-23 (margin policy; default markup 0) · D-12 (vault). The agent did **not** mark any gate granted.
 
 ## H. Acceptance checklist
 | ID | Status | Evidence / reason |

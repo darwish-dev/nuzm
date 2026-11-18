@@ -2537,13 +2537,13 @@ export interface paths {
         };
         /**
          * Platform-managed DNS records of a domain
-         * @description PROPOSED ADDITION M07-ADD-2. The records written by the platform (hosting linkage, certificate challenges) in the domain's zone. Requires domain:read.
+         * @description ADDITION M07-ADD-2 (approved by the owner). The records written by the platform (hosting linkage, certificate challenges) in the domain's zone. Requires domain:read.
          */
         get: operations["getDomainHostingLinks"];
         put?: never;
         /**
          * Preview or apply the DNS records that link a domain to a hosting site
-         * @description PROPOSED ADDITION M07-ADD-2 (owner approval pending; needed by UI-M07-08 until M06 calls DnsLinkagePort itself). Body {siteId, apply?}. Without apply the response is a PREVIEW {outcome:preview, proposal:{records, changes, replaces, ssl}} built from the site's real targets (read through the M06 HostingSiteReadPort; an in-memory fake until M06 lands: NOT VERIFIED). With apply:true the records are written through the atomic DNS change-set as platform-managed (linkage) records and the approver is audited; applying again is {outcome:unchanged}. Requires domain:write and a DNS zone for the domain.
+         * @description ADDITION M07-ADD-2 (approved by the owner; needed by UI-M07-08 until M06 calls DnsLinkagePort itself). Body {siteId, apply?}. Without apply the response is a PREVIEW {outcome:preview, proposal:{records, changes, replaces, ssl}} built from the site's real targets (read through the M06 HostingSiteReadPort; an in-memory fake until M06 lands: NOT VERIFIED). With apply:true the records are written through the atomic DNS change-set as platform-managed (linkage) records and the approver is audited; applying again is {outcome:unchanged}. Requires domain:write and a DNS zone for the domain.
          */
         post: operations["linkDomainToSite"];
         delete?: never;
@@ -2561,7 +2561,7 @@ export interface paths {
         };
         /**
          * Domains and their latest order across organizations
-         * @description PROPOSED ADDITION M07-ADD-1 (owner approval pending; needed by UI-M07-10/12). Filters state, needsReconcile=true (orders waiting on the registrar), q, limit, cursor. Metadata only. Requires admin:domains:read.
+         * @description ADDITION M07-ADD-1 (approved by the owner; needed by UI-M07-10/12). Filters state, needsReconcile=true (orders waiting on the registrar), q, limit, cursor. Metadata only. Requires admin:domains:read.
          */
         get: operations["listAdminDomains"];
         put?: never;
@@ -2581,7 +2581,7 @@ export interface paths {
         };
         /**
          * Support lookup of one domain (contacts masked)
-         * @description PROPOSED ADDITION M07-ADD-1. Metadata and the order history; contacts are ALWAYS masked (no break-glass in this milestone). Requires admin:domains:read.
+         * @description ADDITION M07-ADD-1 (approved by the owner). Metadata and the order history; contacts are ALWAYS masked (no break-glass in this milestone). Requires admin:domains:read.
          */
         get: operations["getAdminDomain"];
         put?: never;

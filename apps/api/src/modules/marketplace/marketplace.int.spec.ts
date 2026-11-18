@@ -565,14 +565,12 @@ describe('purchase, entitlement, installation (FR-MKT-03..05)', () => {
     await svc.sync(A(), p.purchaseId, null);
     const ins = await install(A(), 'alice', versionOf(l));
     expect(ins.statusCode).toBe(202);
-    await e.app
-      .get(CreditNoteService)
-      .issue(A(), e.ids.alice!, {
-        invoiceId: p.invoiceId,
-        reasonCode: 'refund',
-        reason: 'customer refund',
-        sourceKey: `refund-${rid()}`,
-      });
+    await e.app.get(CreditNoteService).issue(A(), e.ids.alice!, {
+      invoiceId: p.invoiceId,
+      reasonCode: 'refund',
+      reason: 'customer refund',
+      sourceKey: `refund-${rid()}`,
+    });
     const after = await svc.sync(A(), p.purchaseId, null);
     expect(after.status).toBe('refunded');
     expect(after.entitlementStatus).toBe('revoked');
@@ -779,6 +777,14 @@ describe('AC-M11-04: a purchased template installs only for the entitled organiz
         ])
       )[0]!.n,
     );
+    // copies installed earlier by other tests stay by design after a refund or revoke (install = copy): only count what these attempts add
+    const orphansBefore = Number(
+      (
+        await sql(
+          `SELECT count(*) n FROM marketplace.installations WHERE entitlement_id IN (SELECT id FROM marketplace.entitlements_mkt WHERE status <> 'active')`,
+        )
+      )[0]!.n,
+    );
     let successes = 0;
     for (const a of attempts) {
       const r = await install(a.org, a.who, a.version);
@@ -805,7 +811,7 @@ describe('AC-M11-04: a purchased template installs only for the entitled organiz
           )
         )[0]!.n,
       ),
-    ).toBe(0);
+    ).toBe(orphansBefore);
     void sp;
   }, 300_000);
 

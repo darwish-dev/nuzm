@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Platform, RequirePlatformPermission, type PlatformContext } from '../../common/access';
 import { parseLimit } from '../../common/pagination';
@@ -38,6 +38,7 @@ export class AccessReviewsController {
 
   @RequirePlatformPermission('admin:security:manage')
   @StepUp()
+  @HttpCode(200)
   @Post(':id/decisions')
   decide(
     @Platform() who: PlatformContext,

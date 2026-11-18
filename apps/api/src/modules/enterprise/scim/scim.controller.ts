@@ -24,6 +24,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { SlidingWindowLimiter } from '../../../common/rate-limit';
 import { Public } from '../../identity';
 import { SCHEMA_ERROR, ScimError, ScimService } from './scim.service';
+import { EnterpriseFlags, SCIM_FLAG } from '../flags';
 import { ScimTokenService, type ScimPrincipal } from './scim-tokens.service';
 
 declare module 'fastify' {
@@ -65,13 +66,18 @@ export const SCIM_RATE_PER_MINUTE = Number(process.env.SCIM_RATE_PER_MINUTE ?? 6
 
 @Injectable()
 export class ScimAuthGuard implements CanActivate {
-  constructor(private readonly tokens: ScimTokenService) {}
+  constructor(
+    private readonly tokens: ScimTokenService,
+    private readonly flags: EnterpriseFlags,
+  ) {}
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<FastifyRequest>();
     const h = req.headers.authorization;
     const m = typeof h === 'string' ? /^Bearer\s+(nzscim_\S+)$/i.exec(h) : null;
     const p = m ? await this.tokens.authenticate(m[1]!) : null;
     if (!p) throw new ScimError(401, undefined, 'Unauthorized');
+    if (!(await this.flags.enabled(p.orgId, SCIM_FLAG)))
+      throw new ScimError(404, undefined, 'SCIM is not enabled for this organization');
     if (!limiter.allow(`scim:${p.tokenId}`, SCIM_RATE_PER_MINUTE, 60_000))
       throw new ScimError(429, undefined, 'Too many requests');
     req.scim = p;

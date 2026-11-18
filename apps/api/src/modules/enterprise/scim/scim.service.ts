@@ -338,12 +338,18 @@ export class ScimService {
       );
       return id;
     });
-    await this.db.withOrg(p.orgId, (c) =>
-      c.query(
-        `INSERT INTO identity.scim_identities (id, org_id, connection_id, external_id, user_id) VALUES ($1,$2,$3,$4,$5)`,
-        [uuidv7(), p.orgId, p.connectionId, externalId, userId],
-      ),
-    );
+    try {
+      await this.db.withOrg(p.orgId, (c) =>
+        c.query(
+          `INSERT INTO identity.scim_identities (id, org_id, connection_id, external_id, user_id) VALUES ($1,$2,$3,$4,$5)`,
+          [uuidv7(), p.orgId, p.connectionId, externalId, userId],
+        ),
+      );
+    } catch (e) {
+      if ((e as { code?: string }).code === '23505')
+        throw new ScimError(409, 'uniqueness', 'a user with this userName already exists');
+      throw e;
+    }
     if (active) await this.members.add(p.orgId, userId, conn.jit.defaultRole, { via: 'scim' });
     await this.audit.record({
       action: 'scim.user.provisioned',

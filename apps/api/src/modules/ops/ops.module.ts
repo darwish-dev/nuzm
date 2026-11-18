@@ -1,8 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
+import { EnterpriseModule, SsoConnectionService } from '../enterprise';
 import { AlertService } from './alerts.service';
+import { OpsScheduler } from './ops-scheduler';
 import { HealthService } from './health.service';
 import { IncidentService } from './incidents.service';
 import { MetricsService } from './metrics.service';
@@ -20,6 +22,7 @@ export const TR_SOURCES = Symbol('TR_SOURCES');
 
 /** M12 operations: health, incidents, alerts, provider incidents, recovery exercises, synthetic probes, TR-01..04. Feature flag `ops.enabled`: the API stays reachable but nothing here runs a job unless the worker is configured. */
 @Module({
+  imports: [EnterpriseModule],
   controllers: [OpsController],
   providers: [
     { provide: TR_SOURCES, useValue: NO_SOURCES }, // adapters / fixtures are bound by the environment that holds the credentials
@@ -49,6 +52,25 @@ export const TR_SOURCES = Symbol('TR_SOURCES');
       useFactory: (db: Db, a: AuditSink) => new RecoveryExerciseService(db, a),
       inject: [DB, AuditSink],
     },
+    {
+      provide: OpsScheduler,
+      useFactory: (
+        db: Db,
+        sso: SsoConnectionService,
+        p: ProbeRunner,
+        m: MetricsService,
+        a: AlertService,
+        t: TechnicalReconciliationService,
+      ) => new OpsScheduler(db, sso, p, m, a, t),
+      inject: [
+        DB,
+        SsoConnectionService,
+        ProbeRunner,
+        MetricsService,
+        AlertService,
+        TechnicalReconciliationService,
+      ],
+    },
     { provide: ProbeRunner, useFactory: (db: Db) => new ProbeRunner(db), inject: [DB] },
     {
       provide: TechnicalReconciliationService,
@@ -68,4 +90,12 @@ export const TR_SOURCES = Symbol('TR_SOURCES');
     RecoveryExerciseService,
   ],
 })
-export class OpsModule {}
+export class OpsModule implements OnModuleInit, OnModuleDestroy {
+  constructor(@Inject(OpsScheduler) private readonly scheduler: OpsScheduler) {}
+  onModuleInit() {
+    this.scheduler.start(OpsScheduler.intervalFromEnv());
+  }
+  onModuleDestroy() {
+    this.scheduler.stop();
+  }
+}

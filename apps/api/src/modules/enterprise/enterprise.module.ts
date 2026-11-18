@@ -13,6 +13,7 @@ import { AccessReviewsController } from './access-reviews.controller';
 import { AuditRetentionController } from './audit-retention.controller';
 import { PolicyVersionsController } from './policy-versions.controller';
 import { SsoConnectionsController } from './sso-connections.controller';
+import { EnterpriseFlags } from './flags';
 import { PolicyVersionService } from './policy-versions.service';
 import { DnsTxtResolver, MetadataFetcher, NodeDnsTxtResolver, SafeMetadataFetcher } from './ports';
 import { ScimAuthGuard, ScimController } from './scim/scim.controller';
@@ -46,6 +47,7 @@ const baseUrl = () => (process.env.PUBLIC_API_URL ?? 'http://127.0.0.1:4000').re
     PolicyVersionsController,
   ],
   providers: [
+    { provide: EnterpriseFlags, useFactory: (db: Db) => new EnterpriseFlags(db), inject: [DB] },
     { provide: MetadataFetcher, useClass: SafeMetadataFetcher },
     { provide: DnsTxtResolver, useClass: NodeDnsTxtResolver },
     { provide: CHECKPOINT_SIGNER, useFactory: signer },

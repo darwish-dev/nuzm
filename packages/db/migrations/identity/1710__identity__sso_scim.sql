@@ -111,11 +111,11 @@ CREATE POLICY scim_lookup_touch ON identity.scim_tokens FOR UPDATE TO nuzm_app
 -- Email-domain discovery for the sign-in page ("is this domain enforced?") happens before any org is known.
 CREATE POLICY sso_domain_lookup ON identity.sso_domain_proofs FOR SELECT TO nuzm_app
   USING (current_setting('app.auth_scope', true) = 'sso_lookup');
--- The domain verifier is a platform job (cross-organization, claim scope).
-CREATE POLICY worker_verifier ON identity.sso_domain_proofs TO nuzm_worker
+-- The domain verifier is a platform job (cross-organization, claim scope; the GUC is set only by Db.withWorkerClaim).
+CREATE POLICY worker_verifier ON identity.sso_domain_proofs
   USING (current_setting('app.worker_scope', true) = 'claim')
   WITH CHECK (current_setting('app.worker_scope', true) = 'claim');
-CREATE POLICY worker_verifier_conn ON identity.sso_connections TO nuzm_worker
+CREATE POLICY worker_verifier_conn ON identity.sso_connections
   USING (current_setting('app.worker_scope', true) = 'claim')
   WITH CHECK (current_setting('app.worker_scope', true) = 'claim');
 

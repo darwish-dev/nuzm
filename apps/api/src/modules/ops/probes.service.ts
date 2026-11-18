@@ -29,9 +29,7 @@ export class ProbeRunner {
   constructor(private readonly db: Db) {}
 
   /** Runs and records every configured probe. A probe that throws is a FAILED run (with the error class only, no payload). Returns what was recorded plus the keys that are not configured. */
-  async runAll(
-    probes: Probe[],
-  ): Promise<{
+  async runAll(probes: Probe[]): Promise<{
     recorded: { key: ProbeKey; ok: boolean; durationMs: number; mode: ProbeMode }[];
     notConfigured: ProbeKey[];
   }> {

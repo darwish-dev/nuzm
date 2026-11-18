@@ -10,7 +10,14 @@ const kinds = adapterKindsFromDocs(
   readFileSync(join(root, 'docs/09-provider-adapter-interfaces.md'), 'utf8'),
 );
 const tables = Object.keys(reg.tables);
-const none = () => null;
+/** Reads a call-site file from the repository (null when it does not exist): enforced hooks must name real files. */
+const none = (path: string) => {
+  try {
+    return readFileSync(join(root, path), 'utf8');
+  } catch {
+    return null;
+  }
+};
 const kindsOf = (r: HookRegistry) =>
   evaluateHooks(r, tables, kinds, none).map((x) => `${x.kind} ${x.object}`);
 const clone = (): HookRegistry => JSON.parse(JSON.stringify(reg)) as HookRegistry;
@@ -32,8 +39,11 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
         k,
       ).toBe(true);
   });
-  it('starts with nothing enforced: the hooks are required, owned by their milestone, and not yet built', () => {
-    expect(reg.hooks.filter((h) => h.enforcement === 'enforced')).toEqual([]);
+  it('enforces only what a milestone has built (M05 S17: offers/quotes and provisioning); the rest is required, owned by its milestone and not yet built', () => {
+    expect(reg.hooks.filter((h) => h.enforcement === 'enforced').map((h) => h.id)).toEqual([
+      'm05-offers-quote',
+      'm05-provisioning',
+    ]);
     expect(reg.hooks.filter((h) => h.enforcement === 'exempt').map((h) => h.id)).toEqual([
       'm03-zatca-submission',
     ]);
@@ -66,9 +76,12 @@ describe('hook registry rules', () => {
         (x) => x.kind === 'enforced_without_call_site',
       ),
     ).toEqual([]);
-    expect(evaluateHooks(r, tables, kinds, () => 'export const x = 1').map((x) => x.kind)).toEqual([
-      'enforced_without_call_site',
-    ]);
+    // a file without the marker fails too (only the hook under test is looked at: the real M05 hooks are enforced as well)
+    expect(
+      evaluateHooks(r, tables, kinds, () => 'export const x = 1')
+        .filter((x) => x.object === r.hooks[0]!.id)
+        .map((x) => x.kind),
+    ).toEqual(['enforced_without_call_site']);
   });
   it('an exempt hook needs its reason', () => {
     const r = clone();

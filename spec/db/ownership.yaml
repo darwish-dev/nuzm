@@ -9,7 +9,7 @@ schemas:
     owner_module: identity
     created_by: M01
     extended_by: [M12]
-    tables: [api_keys, auth_tokens, credentials, credentials_refs, mfa_factors, recovery_codes, scim_tokens, sessions, sso_connections, users]
+    tables: [api_keys, auth_tokens, credentials, credentials_refs, mfa_factors, recovery_codes, scim_identities, scim_tokens, sessions, sso_assertion_replays, sso_connections, sso_domain_proofs, users]  # M12 manifest additions: scim_identities, sso_assertion_replays, sso_domain_proofs
   tenancy:
     owner_module: tenancy
     created_by: M01
@@ -124,7 +124,7 @@ schemas:
     owner_module: ops
     created_by: M12
     extended_by: []
-    tables: [alerts, incident_updates, incidents, launch_gates, provider_incidents, recovery_exercises, slo_definitions]
+    tables: [alerts, incident_updates, incidents, launch_gates, probe_runs, provider_incidents, recovery_exercises, slo_definitions]  # M12 manifest addition: probe_runs
 tenant_less:
   # user-scoped identity data (hashes/refs only); access via session/token hash lookups
   - identity.users
@@ -208,6 +208,17 @@ tenant_less:
   - hosting.plan_definitions
   - hosting.site_allocations
   - hosting.site_migrations
+  # >>> M12 (S55-S57): platform-level compliance and operations registers, admin scope only
+  - compliance.policy_versions
+  - ops.incidents
+  - ops.incident_updates
+  - ops.alerts
+  - ops.provider_incidents
+  - ops.recovery_exercises
+  - ops.slo_definitions
+  - ops.probe_runs
+  - ops.launch_gates
+  # <<< M12
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations
@@ -240,6 +251,7 @@ classification:
     email.messages.idempotency_key: the caller's Idempotency-Key header value (an opaque client-chosen id), not a credential
     data.storage_buckets.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     data.database_backups.idempotency_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    identity.sso_domain_proofs.token: the public DNS TXT challenge value (published in DNS by design, proves domain ownership only), not a secret
     audit.audit_logs.actor_api_key_id: the opaque id of the API key that acted, never the key or its secret
     billing.price_items.unit_price_minor: an entry of the public price list, not a customer's money
     identity.credentials.password_set_at: the time the password was last changed, not the password or any part of it
@@ -266,6 +278,9 @@ classification:
     email.messages.body_enc: encrypted
     email.suppressions.address_enc: encrypted
     audit.audit_checkpoints.key_ref: vault_ref
+    identity.sso_connections.vault_ref: vault_ref
+    identity.scim_tokens.prefix: lookup
+    identity.scim_tokens.token_hash: hash
     identity.api_keys.prefix: lookup
     identity.api_keys.secret_hash: hash
     identity.mfa_factors.secret_ref: vault_ref
@@ -2311,3 +2326,191 @@ classification:
       managed_by: internal
       created_at: internal
       updated_at: internal
+
+    # >>> M12 classification
+    identity.sso_connections:
+      id: internal
+      org_id: internal
+      protocol: internal
+      name: customer-content
+      config: customer-content
+      vault_ref: credentials
+      domains: customer-content
+      verified_domains: customer-content
+      jit: internal
+      enforce: internal
+      idp_initiated: internal
+      status: internal
+      last_test_result: customer-content
+      created_by: internal
+      idempotency_key: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    identity.sso_domain_proofs:
+      id: internal
+      org_id: internal
+      connection_id: internal
+      domain: customer-content
+      token: internal
+      status: internal
+      checked_at: internal
+      verified_at: internal
+      created_at: internal
+    identity.sso_assertion_replays:
+      connection_id: internal
+      org_id: internal
+      assertion_hash: internal
+      expires_at: internal
+      created_at: internal
+    identity.scim_tokens:
+      id: internal
+      org_id: internal
+      connection_id: internal
+      prefix: credentials
+      token_hash: credentials
+      scopes: internal
+      expires_at: internal
+      last_used_at: internal
+      revoked_at: internal
+      created_by: internal
+      created_at: internal
+    identity.scim_identities:
+      id: internal
+      org_id: internal
+      connection_id: internal
+      external_id: personal
+      user_id: internal
+      created_at: internal
+      updated_at: internal
+      deprovisioned_at: internal
+    audit.access_reviews:
+      id: internal
+      org_id: internal
+      scope: internal
+      reviewers: internal
+      due_at: internal
+      status: internal
+      items: personal
+      created_by: internal
+      idempotency_key: internal
+      created_at: internal
+      closed_at: internal
+      version: internal
+    compliance.policy_versions:
+      id: internal
+      policy_key: internal
+      version: internal
+      title: internal
+      body_ref: internal
+      effective_from: internal
+      approved_by: internal
+      approval_ref: internal
+      change_note: internal
+      created_by: internal
+      created_at: internal
+    ops.incidents:
+      id: internal
+      severity: internal
+      title: internal
+      status: internal
+      components: internal
+      summary: internal
+      breach_case_id: internal
+      opened_by: internal
+      idempotency_key: internal
+      opened_at: internal
+      resolved_at: internal
+      closed_at: internal
+      updated_at: internal
+      version: internal
+    ops.incident_updates:
+      id: internal
+      incident_id: internal
+      kind: internal
+      body: internal
+      status_to: internal
+      severity_to: internal
+      author: internal
+      created_at: internal
+    ops.alerts:
+      id: internal
+      rule_key: internal
+      title: internal
+      severity: internal
+      owner_role: internal
+      runbook_url: internal
+      rule: internal
+      state: internal
+      state_since: internal
+      silenced_until: internal
+      silenced_by: internal
+      acknowledged_by: internal
+      last_evaluated_at: internal
+      last_value: internal
+      enabled: internal
+      created_by: internal
+      created_at: internal
+      version: internal
+    ops.provider_incidents:
+      id: internal
+      provider_account_id: internal
+      provider_key: internal
+      external_ref: internal
+      status: internal
+      title: internal
+      started_at: internal
+      resolved_at: internal
+      related_incident_id: internal
+      source: internal
+      created_at: internal
+      updated_at: internal
+    ops.recovery_exercises:
+      id: internal
+      scope: internal
+      started_at: internal
+      restored_at: internal
+      rpo_seconds: internal
+      rto_seconds: internal
+      target_rpo_seconds: internal
+      target_rto_seconds: internal
+      evidence_refs: internal
+      result: internal
+      environment: internal
+      notes: internal
+      recorded_by: internal
+      idempotency_key: internal
+      created_at: internal
+    ops.slo_definitions:
+      id: internal
+      slo_key: internal
+      title: internal
+      objective: internal
+      unit: internal
+      window_days: internal
+      sli: internal
+      basis: internal
+      status: internal
+      created_at: internal
+    ops.probe_runs:
+      id: internal
+      probe_key: internal
+      ok: internal
+      duration_ms: internal
+      detail: internal
+      mode: internal
+      ran_at: internal
+    ops.launch_gates:
+      id: internal
+      gate_key: internal
+      version: internal
+      title: internal
+      owner: internal
+      source: internal
+      status: internal
+      evidence_ref: internal
+      decided_by: internal
+      decided_at: internal
+      note: internal
+      created_at: internal
+    # <<< M12 classification

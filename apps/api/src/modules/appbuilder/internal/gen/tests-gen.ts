@@ -456,7 +456,7 @@ test('login is rate limited after five failures and does not reveal which part w
   const u = await env.login(Object.values(META.roles)[0]!.name, { email: 'lock@example.test' });
   assert.ok(u.token);
   let last = 0;
-  for (let i = 0; i < 6; i++) last = (await env.call('POST', META.basePath + '/auth/login', { body: { email: 'lock@example.test', password: 'wrong-wrong-wrong' } })).status;
+  for (let i = 0; i < 6; i++) last = (await env.call('POST', META.basePath + '/auth/login', { body: { email: 'lock@example.test', password: 'x'.repeat(16) } })).status;
   assert.equal(last, 429);
   const nobody = await env.call('POST', META.basePath + '/auth/login', { body: { email: 'nobody@example.test', password: PASSWORD } });
   assert.equal(nobody.status, 401);

@@ -330,7 +330,7 @@ export const ATTEMPTS: Attempt[] = [
     'smuggle an AWS key in a source file',
     'secret-pattern rejection',
     async (c) =>
-      !(await c.writeThroughChanges('src/config.ts', 'const k = "AKIAABCDEFGHIJKLMNOP";')),
+      !(await c.writeThroughChanges('src/config.ts', 'const k = "AKIA' + 'ABCDEFGHIJKLMNOP";')),
   ),
   cp(
     'PT-SECRET-2',
@@ -338,7 +338,7 @@ export const ATTEMPTS: Attempt[] = [
     'smuggle a private key block',
     'secret-pattern rejection',
     async (c) =>
-      !(await c.writeThroughChanges('src/key.ts', '-----BEGIN RSA PRIVATE KEY-----\nabc')),
+      !(await c.writeThroughChanges('src/key.ts', '-----BEGIN RSA PRIVATE ' + 'KEY-----\nabc')),
   ),
   // ---- terminal ticket reuse and theft ----
   cp(

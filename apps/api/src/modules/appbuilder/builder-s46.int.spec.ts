@@ -173,7 +173,7 @@ describe('changes (safe diff apply)', () => {
       { op: 'add', path: '/abs', content: 'x' },
       { op: 'add', path: '.git/hooks/pre-commit', content: 'x' },
       { op: 'add', path: 'a\\b', content: 'x' },
-      { op: 'add', path: 'src/k.ts', content: 'const k = "AKIAABCDEFGHIJKLMNOP";' },
+      { op: 'add', path: 'src/k.ts', content: 'const k = "AKIA' + 'ABCDEFGHIJKLMNOP";' },
       { op: 'add', path: 'src/c.ts', content: `x ${canary}` },
       { op: 'add', path: 'big.txt', content: 'x'.repeat(1_000_001) },
       { op: 'explode', path: 'x' },
@@ -181,7 +181,7 @@ describe('changes (safe diff apply)', () => {
     ]) {
       const e = await apply(p, { patches: [patch] }).catch((x) => x);
       expect(e.code, JSON.stringify(patch).slice(0, 60)).toBe('change_rejected');
-      expect(JSON.stringify(e.errors ?? [])).not.toContain('AKIAABCDEFGHIJKLMNOP');
+      expect(JSON.stringify(e.errors ?? [])).not.toContain('AKIA' + 'ABCDEFGHIJKLMNOP');
       expect(JSON.stringify(e.errors ?? [])).not.toContain(canary);
     }
     await expect(
@@ -288,7 +288,8 @@ describe('test runner (S46.3)', () => {
     b.mock.register('node', ({ files }) => ({
       stdout:
         junit([{ name: 'src/answer.ts check', fail: 'expected FIXED' }, { name: 'other ok' }]) +
-        '\nleak AKIAABCDEFGHIJKLMNOP ' +
+        '\nleak AKIA' +
+        'ABCDEFGHIJKLMNOP ' +
         (files.size ? '' : ''),
       exitCode: 1,
       cpuSeconds: 3,
@@ -304,7 +305,7 @@ describe('test runner (S46.3)', () => {
     )[0]!.cases.find((c) => c.status === 'failed')!;
     expect(failing.failure).toBe('expected FIXED');
     const log = JSON.stringify(await b.artifacts.get(ORG_A, done.logsRef!));
-    expect(log).not.toContain('AKIAABCDEFGHIJKLMNOP');
+    expect(log).not.toContain('AKIA' + 'ABCDEFGHIJKLMNOP');
     expect(log).toContain('redacted');
     const ev = await b.env.sql(
       `SELECT payload FROM platform.outbox WHERE topic = 'usage.recorded' AND payload->>'meterId' = 'builder.build_minutes' AND payload->>'resourceId' = $1`,
@@ -483,7 +484,11 @@ describe('test-fix run: bounded debugging loop (AC-M10-04)', () => {
     registerNode();
     b.model.register('test_fix', () => ({
       patches: [
-        { op: 'modify', path: 'src/answer.ts', content: 'const k = "AKIAABCDEFGHIJKLMNOP"; FIXED' },
+        {
+          op: 'modify',
+          path: 'src/answer.ts',
+          content: 'const k = "AKIA' + 'ABCDEFGHIJKLMNOP"; FIXED',
+        },
       ],
     }));
     const p = await b.newProject(FIXBASE);

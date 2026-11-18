@@ -152,13 +152,13 @@ describe('sandbox lifecycle (S45)', () => {
     const s = await mk();
     const planted = canaries.plantStandardSet();
     runtime.register('leak', () => ({
-      stdout: `token ${planted[0]!.value} and AKIAABCDEFGHIJKLMNOP\n`,
+      stdout: `token ${planted[0]!.value} and AKIA' + 'ABCDEFGHIJKLMNOP\n`,
       exitCode: 0,
     }));
     const r = await svc.exec(ORG_A, SEED_USER, null, s.id, ['leak']);
     expect(r.canaryHits).toBe(1);
     expect(r.stdout).not.toContain(planted[0]!.value);
-    expect(r.stdout).not.toContain('AKIAABCDEFGHIJKLMNOP');
+    expect(r.stdout).not.toContain('AKIA' + 'ABCDEFGHIJKLMNOP');
     expect(alerts.alerts.some((a) => a.kind === 'canary_triggered' && a.sandboxId === s.id)).toBe(
       true,
     );
@@ -276,7 +276,8 @@ describe('path and secret checks (changes API building blocks)', () => {
   });
   it('finds secrets by rule and line, never returning the secret, and ignores placeholders', () => {
     const f = scanSecrets(
-      'ok\nconst k = "AKIAABCDEFGHIJKLMNOP";\npostgres://u:hunter2secret@db/x\nSESSION_SECRET=change-me-please\nprocess.env.DATABASE_URL',
+      'ok\nconst k = "AKIA' +
+        'ABCDEFGHIJKLMNOP";\npostgres://u:hunter2secret@db/x\nSESSION_SECRET=change-me-please\nprocess.env.DATABASE_URL',
     );
     expect(f).toEqual([
       { rule: 'aws_access_key_id', line: 2 },

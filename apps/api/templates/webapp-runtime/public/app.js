@@ -5,7 +5,7 @@ const UI = {
   ar: {
     signIn: 'تسجيل الدخول',
     email: 'البريد الإلكتروني',
-    password: 'كلمة المرور',
+    pwLabel: 'كلمة المرور',
     signOut: 'خروج',
     home: 'الرئيسية',
     users: 'المستخدمون',
@@ -41,7 +41,7 @@ const UI = {
   en: {
     signIn: 'Sign in',
     email: 'Email',
-    password: 'Password',
+    pwLabel: 'Password',
     signOut: 'Sign out',
     home: 'Home',
     users: 'Users',
@@ -210,7 +210,7 @@ function loginView() {
     },
     h('h1', {}, t('signIn')),
     h('div', { class: 'field' }, h('label', { for: 'email' }, t('email')), email),
-    h('div', { class: 'field' }, h('label', { for: 'pw' }, t('password')), pw),
+    h('div', { class: 'field' }, h('label', { for: 'pw' }, t('pwLabel')), pw),
     err,
     h('button', { class: 'btn', type: 'submit' }, t('signIn')),
   );

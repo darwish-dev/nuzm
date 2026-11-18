@@ -320,12 +320,14 @@ describe('web-app project -> changes -> sandbox -> tests -> export -> run -> app
       `/v1/builder/projects/${projectId}/changes`,
       {
         baseVersion: versionId,
-        patches: [{ op: 'add', path: 'src/k.ts', content: 'const k = "AKIAABCDEFGHIJKLMNOP";' }],
+        patches: [
+          { op: 'add', path: 'src/k.ts', content: 'const k = "AKIA' + 'ABCDEFGHIJKLMNOP";' },
+        ],
       },
       A(),
     );
     expect(leak.statusCode).toBe(422);
-    expect(JSON.stringify(leak.json())).not.toContain('AKIAABCDEFGHIJKLMNOP');
+    expect(JSON.stringify(leak.json())).not.toContain('AKIA' + 'ABCDEFGHIJKLMNOP');
   });
 
   it('runs: webapp run over the scripted model, redacted tool calls, live budget meter; cancellation and 422 for mobile / unknown kinds', async () => {

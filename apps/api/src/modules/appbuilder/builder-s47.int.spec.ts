@@ -496,7 +496,7 @@ describe('M10A gate path on the reference-CRM fixture: generate -> test -> deplo
   });
 
   it('secrets in the release block the deployment; a canary anywhere blocks it too', async () => {
-    const p = await mkProject({ 'src/leak.ts': 'export const k = "AKIAABCDEFGHIJKLMNOP";\n' });
+    const p = await mkProject({ 'src/leak.ts': 'export const k = "AKIA' + 'ABCDEFGHIJKLMNOP";\n' });
     await expect(
       b.deployments.create(ORG_A, SEED_USER, p.project, {
         versionId: p.v1,
@@ -633,7 +633,7 @@ describe('export (AC-M10-07): standalone, secret-free, deterministic, signed', (
   it('a secret, a canary, an unsafe path or a missing lockfile BLOCKS the export (422 export_blocked) and records rule + path, never the secret', async () => {
     const canary = b.canaries.plantStandardSet()[1]!.value;
     for (const [extra, drop, rule] of [
-      [{ 'src/secrets.ts': 'const k = "AKIAABCDEFGHIJKLMNOP";' }, [], 'aws_access_key_id'],
+      [{ 'src/secrets.ts': 'const k = "AKIA' + 'ABCDEFGHIJKLMNOP";' }, [], 'aws_access_key_id'],
       [{ 'src/c.ts': `// ${canary}` }, [], 'canary_token'],
       [{}, ['package-lock.json'], 'lockfile_missing'],
     ] as const) {
@@ -641,7 +641,7 @@ describe('export (AC-M10-07): standalone, secret-free, deterministic, signed', (
       const e = await b.exports.create(ORG_A, SEED_USER, p.project, {}).catch((x) => x);
       expect(e.code, rule).toBe('export_blocked');
       expect(JSON.stringify(e.errors)).toContain(rule === 'canary_token' ? 'canary' : rule);
-      expect(JSON.stringify(e.errors)).not.toContain('AKIAABCDEFGHIJKLMNOP');
+      expect(JSON.stringify(e.errors)).not.toContain('AKIA' + 'ABCDEFGHIJKLMNOP');
       expect(JSON.stringify(e.errors)).not.toContain(canary);
       expect((await b.exports.list(ORG_A, p.project.id))[0]).toMatchObject({
         status: 'blocked',

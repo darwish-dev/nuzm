@@ -58,6 +58,9 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
       'm08-transactional-email',
       'm09-builder-assets',
       'm09-model-gateway',
+      'm10-app-deployment',
+      'm10-sandbox-builds',
+      'm10-source-export',
       'm11-connectors',
       'm11-marketplace',
     ]);

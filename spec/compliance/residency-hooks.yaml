@@ -201,200 +201,265 @@ tables:
       hook: m09-builder-assets,
       note: 'a deployment publishes only to a hosting site in an allowed region (hosting placement is M06 m06-node-selection)',
     }
+  ai.run_steps:
+    owner: M10
+    hook: m10-agent-runs
+    note: run steps carry the data_region of their run; the model gateway of M09 evaluates residency before every call (hook m09-model-gateway); LISTED until M09 is integrated
+  ai.tool_calls:
+    owner: M10
+    hook: m10-agent-runs
+    note: redacted tool-call summaries inherit the region of their run
+  ai.approval_requests:
+    owner: M10
+    hook: m10-agent-runs
+    note: an approval names the region of the action it is bound to
+  ai.evaluations:
+    owner: M10
+    hook: m10-agent-runs
+    note: evaluation scores inherit the region of the run they scored
+  builder.app_specs:
+    owner: M10
+    hook: m10-agent-runs
+    note: a spec is customer content stored in the region of its project
+  builder.sandboxes:
+    owner: M10
+    hook: m10-sandbox-builds
+    note: the node region of the sandbox pool is evaluated before placement (sandbox.service.ts create)
+  builder.git_repos:
+    owner: M10
+    hook: m10-sandbox-builds
+    note: the repository stays in the region of its project; there is no Git remote
+  builder.test_runs:
+    owner: M10
+    hook: m10-sandbox-builds
+    note: tests run in a sandbox placed under the sandbox hook
+  builder.exports:
+    owner: M10
+    hook: m10-source-export
+    note: the export destination region is evaluated before the archive is built (export.service.ts)
+  deploy.app_deployments:
+    owner: M10
+    hook: m10-app-deployment
+    note: the target region is evaluated before anything is built or deployed (deployment.service.ts create)
+  deploy.app_deployment_logs:
+    owner: M10
+    hook: m10-app-deployment
+    note: logs inherit the region of their deployment
   # <<< M09 tables
 hooks:
-  - {
-      id: m03-psp-personal-data,
-      milestone: M03,
-      where: 'Before sending personal or financial data to the payment provider (PspAdapter calls)',
-      data_classes: [personal, financial],
-      processor_kind: psp,
-      enforcement: listed,
-      flag: residency.enforce.psp,
-      call_site: null,
-    }
-  - {
-      id: m03-zatca-submission,
-      milestone: M03,
-      where: 'ZATCA submissions are regulator-mandated: logged, not blocked',
-      data_classes: [financial, personal],
-      processor_kind: einvoice,
-      enforcement: exempt,
-      exempt_reason: 'regulator-mandated transfer (class regulatory); the decision is logged by the submission service',
-      flag: residency.enforce.zatca,
-      call_site: null,
-    }
-  - {
-      id: m03-invoice-archive,
-      milestone: M03,
-      where: 'Placement of issued invoice archives and PDFs',
-      data_classes: [financial, personal],
-      enforcement: listed,
-      flag: residency.enforce.invoice_archive,
-      call_site: null,
-    }
-  - {
-      id: m05-offers-quote,
-      milestone: M05,
-      where: 'Offer filtering and quotes: only regions the organization policy allows',
-      data_classes: [customer-content, personal],
-      processor_kind: compute,
-      enforcement: enforced,
-      flag: residency.enforce.offers,
-      call_site: apps/api/src/modules/cloud/internal/compute-pricer.ts,
-    }
-  - {
-      id: m05-provisioning,
-      milestone: M05,
-      where: 'Routing and provisioning: dataRegion of every resource',
-      data_classes: [customer-content, personal, credentials],
-      processor_kind: compute,
-      enforcement: enforced,
-      flag: residency.enforce.provisioning,
-      call_site: apps/api/src/modules/cloud/internal/provisioning.service.ts,
-    }
-  - {
-      id: m05-backups,
-      milestone: M05,
-      where: 'Snapshot and backup destinations',
-      data_classes: [customer-content, credentials],
-      processor_kind: compute,
-      enforcement: listed,
-      flag: residency.enforce.backups,
-      call_site: null,
-    }
-  - {
-      id: m06-node-selection,
-      milestone: M06,
-      where: 'Hosting node selection by region (PlansService.eligibleRegions asks the residency service for every candidate region before a site is placed)',
-      data_classes: [customer-content, personal],
-      processor_kind: hosting,
-      enforcement: enforced,
-      flag: residency.enforce.hosting,
-      call_site: apps/api/src/modules/hosting/internal/plans.service.ts,
-    }
-  - {
-      id: m06-backup-sink,
-      milestone: M06,
-      where: 'Site backup destination (BackupService asks the residency service before a backup is stored; the sink region equals the site data_region)',
-      data_classes: [customer-content, personal, credentials],
-      processor_kind: hosting,
-      enforcement: enforced,
-      flag: residency.enforce.hosting_backup,
-      call_site: apps/api/src/modules/hosting/internal/backups.service.ts,
-    }
-  - {
-      id: m07-registrant-contacts,
-      milestone: M07,
-      where: 'Registrant contact data sent to registrars (processor evaluation)',
-      data_classes: [personal],
-      processor_kind: registrar,
-      enforcement: enforced,
-      flag: residency.enforce.registrar,
-      call_site: apps/api/src/modules/domains/internal/orders.service.ts,
-    }
-  - {
-      id: m08-data-placement,
-      milestone: M08,
-      where: 'Database, cache and bucket placement and backup region',
-      data_classes: [customer-content, credentials],
-      processor_kind: database,
-      enforcement: enforced,
-      flag: residency.enforce.data,
-      call_site: apps/api/src/modules/data/internal/database-flow.ts,
-    }
-  - {
-      id: m08-cache-placement,
-      milestone: M08,
-      where: 'Cache placement',
-      data_classes: [customer-content],
-      processor_kind: cache,
-      enforcement: enforced,
-      flag: residency.enforce.cache,
-      call_site: apps/api/src/modules/data/internal/database-flow.ts,
-    }
-  - {
-      id: m08-object-storage,
-      milestone: M08,
-      where: 'Object storage placement and signed-URL regions',
-      data_classes: [customer-content],
-      processor_kind: object-storage,
-      enforcement: enforced,
-      flag: residency.enforce.storage,
-      call_site: apps/api/src/modules/data/internal/storage-flow.ts,
-    }
-  - {
-      id: m08-transactional-email,
-      milestone: M08,
-      where: 'Transactional email content and recipients sent to the email vendor',
-      data_classes: [personal],
-      processor_kind: transactional-email,
-      enforcement: enforced,
-      flag: residency.enforce.email,
-      call_site: apps/api/src/modules/email/internal/message.service.ts,
-    }
-  - {
-      id: m08-mailbox,
-      milestone: M08,
-      where: 'Mailbox provisioning and mailbox data placement',
-      data_classes: [personal, customer-content],
-      processor_kind: mailbox,
-      enforcement: enforced,
-      flag: residency.enforce.mailbox,
-      call_site: apps/api/src/modules/email/internal/mailbox.service.ts,
-    }
-  - {
-      id: m09-model-gateway,
-      milestone: M09,
-      where: 'Model gateway: prompt and output class against the model region and processor',
-      data_classes: [customer-content, personal],
-      processor_kind: model,
-      enforcement: enforced,
-      flag: residency.enforce.model,
-      call_site: apps/api/src/modules/ai/internal/gateway.service.ts,
-    }
-  - {
-      id: m09-builder-assets,
-      milestone: M09,
-      where: 'Builder asset storage',
-      data_classes: [customer-content],
-      enforcement: enforced,
-      flag: residency.enforce.builder,
-      call_site: apps/api/src/modules/builder/internal/project.service.ts,
-    }
-  - {
-      id: m10-sandbox-builds,
-      milestone: M10,
-      where: 'Sandbox node region, exports, build workers (including a macOS build vendor) and Git remotes',
-      data_classes: [customer-content, credentials],
-      enforcement: listed,
-      flag: residency.enforce.builds,
-      call_site: null,
-    }
-  - {
-      id: m11-connectors,
-      milestone: M11,
-      where: 'Connectors and workflow HTTP actions to tenant-chosen hosts (the declared region of the target is evaluated before the call)',
-      data_classes: [customer-content, personal],
-      enforcement: enforced,
-      flag: residency.enforce.connectors,
-      call_site: apps/api/src/modules/automation/internal/default-ports.ts,
-    }
-  - {
-      id: m11-marketplace,
-      milestone: M11,
-      where: 'Marketplace purchase (listing region against the buyer policy) and install (copy of an artifact into the buyer organization)',
-      data_classes: [customer-content],
-      enforcement: enforced,
-      flag: residency.enforce.marketplace,
-      call_site: apps/api/src/modules/marketplace/internal/install.service.ts,
-    }
-  - {
-      id: m12-audit-archive,
-      milestone: M12,
-      where: 'Audit-log archive and backup placement (audit retention)',
-      data_classes: [personal, internal],
-      enforcement: listed,
-      flag: residency.enforce.audit_archive,
-      call_site: null,
-    }
+  - id: m03-psp-personal-data
+    milestone: M03
+    where: Before sending personal or financial data to the payment provider (PspAdapter calls)
+    data_classes:
+      - personal
+      - financial
+    processor_kind: psp
+    enforcement: listed
+    flag: residency.enforce.psp
+    call_site: null
+  - id: m03-zatca-submission
+    milestone: M03
+    where: 'ZATCA submissions are regulator-mandated: logged, not blocked'
+    data_classes:
+      - financial
+      - personal
+    processor_kind: einvoice
+    enforcement: exempt
+    exempt_reason: regulator-mandated transfer (class regulatory); the decision is logged by the submission service
+    flag: residency.enforce.zatca
+    call_site: null
+  - id: m03-invoice-archive
+    milestone: M03
+    where: Placement of issued invoice archives and PDFs
+    data_classes:
+      - financial
+      - personal
+    enforcement: listed
+    flag: residency.enforce.invoice_archive
+    call_site: null
+  - id: m05-offers-quote
+    milestone: M05
+    where: 'Offer filtering and quotes: only regions the organization policy allows'
+    data_classes:
+      - customer-content
+      - personal
+    processor_kind: compute
+    enforcement: enforced
+    flag: residency.enforce.offers
+    call_site: apps/api/src/modules/cloud/internal/compute-pricer.ts
+  - id: m05-provisioning
+    milestone: M05
+    where: 'Routing and provisioning: dataRegion of every resource'
+    data_classes:
+      - customer-content
+      - personal
+      - credentials
+    processor_kind: compute
+    enforcement: enforced
+    flag: residency.enforce.provisioning
+    call_site: apps/api/src/modules/cloud/internal/provisioning.service.ts
+  - id: m05-backups
+    milestone: M05
+    where: Snapshot and backup destinations
+    data_classes:
+      - customer-content
+      - credentials
+    processor_kind: compute
+    enforcement: listed
+    flag: residency.enforce.backups
+    call_site: null
+  - id: m06-node-selection
+    milestone: M06
+    where: Hosting node selection by region (PlansService.eligibleRegions asks the residency service for every candidate region before a site is placed)
+    data_classes:
+      - customer-content
+      - personal
+    processor_kind: hosting
+    enforcement: enforced
+    flag: residency.enforce.hosting
+    call_site: apps/api/src/modules/hosting/internal/plans.service.ts
+  - id: m06-backup-sink
+    milestone: M06
+    where: Site backup destination (BackupService asks the residency service before a backup is stored; the sink region equals the site data_region)
+    data_classes:
+      - customer-content
+      - personal
+      - credentials
+    processor_kind: hosting
+    enforcement: enforced
+    flag: residency.enforce.hosting_backup
+    call_site: apps/api/src/modules/hosting/internal/backups.service.ts
+  - id: m07-registrant-contacts
+    milestone: M07
+    where: Registrant contact data sent to registrars (processor evaluation)
+    data_classes:
+      - personal
+    processor_kind: registrar
+    enforcement: enforced
+    flag: residency.enforce.registrar
+    call_site: apps/api/src/modules/domains/internal/orders.service.ts
+  - id: m08-data-placement
+    milestone: M08
+    where: Database, cache and bucket placement and backup region
+    data_classes:
+      - customer-content
+      - credentials
+    processor_kind: database
+    enforcement: enforced
+    flag: residency.enforce.data
+    call_site: apps/api/src/modules/data/internal/database-flow.ts
+  - id: m08-cache-placement
+    milestone: M08
+    where: Cache placement
+    data_classes:
+      - customer-content
+    processor_kind: cache
+    enforcement: enforced
+    flag: residency.enforce.cache
+    call_site: apps/api/src/modules/data/internal/database-flow.ts
+  - id: m08-object-storage
+    milestone: M08
+    where: Object storage placement and signed-URL regions
+    data_classes:
+      - customer-content
+    processor_kind: object-storage
+    enforcement: enforced
+    flag: residency.enforce.storage
+    call_site: apps/api/src/modules/data/internal/storage-flow.ts
+  - id: m08-transactional-email
+    milestone: M08
+    where: Transactional email content and recipients sent to the email vendor
+    data_classes:
+      - personal
+    processor_kind: transactional-email
+    enforcement: enforced
+    flag: residency.enforce.email
+    call_site: apps/api/src/modules/email/internal/message.service.ts
+  - id: m08-mailbox
+    milestone: M08
+    where: Mailbox provisioning and mailbox data placement
+    data_classes:
+      - personal
+      - customer-content
+    processor_kind: mailbox
+    enforcement: enforced
+    flag: residency.enforce.mailbox
+    call_site: apps/api/src/modules/email/internal/mailbox.service.ts
+  - id: m09-model-gateway
+    milestone: M09
+    where: 'Model gateway: prompt and output class against the model region and processor'
+    data_classes:
+      - customer-content
+      - personal
+    processor_kind: model
+    enforcement: enforced
+    flag: residency.enforce.model
+    call_site: apps/api/src/modules/ai/internal/gateway.service.ts
+  - id: m09-builder-assets
+    milestone: M09
+    where: Builder asset storage
+    data_classes:
+      - customer-content
+    enforcement: enforced
+    flag: residency.enforce.builder
+    call_site: apps/api/src/modules/builder/internal/project.service.ts
+  - id: m11-connectors
+    milestone: M11
+    where: Connectors and workflow HTTP actions to tenant-chosen hosts (the declared region of the target is evaluated before the call)
+    data_classes:
+      - customer-content
+      - personal
+    enforcement: enforced
+    flag: residency.enforce.connectors
+    call_site: apps/api/src/modules/automation/internal/default-ports.ts
+  - id: m11-marketplace
+    milestone: M11
+    where: Marketplace purchase (listing region against the buyer policy) and install (copy of an artifact into the buyer organization)
+    data_classes:
+      - customer-content
+    enforcement: enforced
+    flag: residency.enforce.marketplace
+    call_site: apps/api/src/modules/marketplace/internal/install.service.ts
+  - id: m12-audit-archive
+    milestone: M12
+    where: Audit-log archive and backup placement (audit retention)
+    data_classes:
+      - personal
+      - internal
+    enforcement: listed
+    flag: residency.enforce.audit_archive
+    call_site: null
+  - id: m10-sandbox-builds
+    milestone: M10
+    where: Sandbox node region, builds and test runs (Git has no remote); build workers of M10B (including a macOS build vendor) are listed there
+    data_classes:
+      - customer-content
+      - credentials
+    enforcement: enforced
+    flag: residency.enforce.builds
+    call_site: apps/api/src/modules/appbuilder/internal/sandbox/sandbox.service.ts
+  - id: m10-source-export
+    milestone: M10
+    where: 'Source exports: the destination region of the archive and its signed URL'
+    data_classes:
+      - customer-content
+    enforcement: enforced
+    flag: residency.enforce.export
+    call_site: apps/api/src/modules/appbuilder/internal/export/export.service.ts
+  - id: m10-app-deployment
+    milestone: M10
+    where: Deployment of a generated app to a hosting site or compute instance in a region
+    data_classes:
+      - customer-content
+    enforcement: enforced
+    flag: residency.enforce.deployment
+    call_site: apps/api/src/modules/appbuilder/internal/deploy/deployment.service.ts
+  - id: m10-agent-runs
+    milestone: M10
+    where: 'Agent runs: prompts, structured outputs and run records in the project region; model routing is the M09 gateway hook'
+    data_classes:
+      - customer-content
+    processor_kind: model
+    enforcement: listed
+    flag: residency.enforce.agent_runs
+    call_site: null

@@ -82,6 +82,8 @@ tags:
     description: SCIM 2.0 server at /scim/v2 (M12)
   - name: ops-console
     description: Operational health, incidents, alerts, recovery exercises (M12)
+  - name: app-builder
+    description: 'AI app builder (M10A): sandboxes, tests, exports and approvals of generated web apps'
 paths:
   /healthz:
     get:
@@ -10597,6 +10599,535 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/sandboxes:
+    post:
+      operationId: createSandbox
+      tags:
+        - app-builder
+      summary: Create a sandbox for a web-app project
+      description: 'Body {profile?: "standard", ttlMinutes?}. Starts an isolated runtime for untrusted generated code. 202 with the sandbox (`runtime.kind` and `runtime.isolation` say what really runs it: until D-21/HG-10-02 it is NEVER `verified`). Residency of the node region is evaluated first (403 `residency_denied`); 402 `budget_required` without credit; 409 `sandbox_quota_exceeded` (5 concurrent per organization); 503 `sandbox_no_capacity`; 422 `unsupported_capability` for a non-web-app project. Idempotent per Idempotency-Key. Permission `sandbox:use`. Audited (`sandbox.sandbox.created`). The terminal WebSocket and its ticket route need owner approval (PA-M10-01) and are not exposed.'
+      x-nuzm-permission: sandbox:use
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSandbox'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '402':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+    get:
+      operationId: listSandboxes
+      tags:
+        - app-builder
+      summary: List the sandboxes of a project
+      description: Newest first (50). A project of another organization is 404. Permission `sandbox:use`.
+      x-nuzm-permission: sandbox:use
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxList'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/builder/projects/{projectId}/sandboxes/{sid}:
+    get:
+      operationId: getSandbox
+      tags:
+        - app-builder
+      summary: Read a sandbox
+      description: State, quotas, egress profile, runtime label and lifetime. Another organization's sandbox is 404. Permission `sandbox:use`.
+      x-nuzm-permission: sandbox:use
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+    delete:
+      operationId: deleteSandbox
+      tags:
+        - app-builder
+      summary: Terminate a sandbox
+      description: Terminates the runtime (the record stays, state `terminated`). Idempotent. Permission `sandbox:use`. Audited (`sandbox.sandbox.terminated`).
+      x-nuzm-permission: sandbox:use
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/builder/projects/{projectId}/test-runs:
+    post:
+      operationId: createTestRun
+      tags:
+        - app-builder
+      summary: Run the tests of a project version in a sandbox
+      description: 'Body {suite: unit|typecheck|build|e2e|all, versionId?}. 202 `queued`; the run executes in a fresh sandbox with the commands the project declares in nuzm.app.json (argv, no shell) and returns structured junit-like results; the log is redacted of secret patterns. 422 `test_suite_unavailable`. Meters `builder.build_minutes`. Permission `builder:test`.'
+      x-nuzm-permission: builder:test
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTestRun'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRun'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      operationId: listTestRuns
+      tags:
+        - app-builder
+      summary: List test runs
+      description: Newest first. Permission `builder:read`.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRunList'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/builder/projects/{projectId}/test-runs/{testRunId}:
+    get:
+      operationId: getTestRun
+      tags:
+        - app-builder
+      summary: Read a test run
+      description: Status, summary (suites, cases, failures), log reference and the runtime that executed it. Permission `builder:read`.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRun'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/builder/projects/{projectId}/exports:
+    post:
+      operationId: createExport
+      tags:
+        - app-builder
+      summary: Export the source of a project version
+      description: 'Body {versionId?}. Source + lockfile + migrations + README + OpenAPI + SBOM as a deterministic archive with no Nuzm secret: every file is scanned first and a secret, a canary token, an unsafe path, a missing lockfile or a policy violation BLOCKS the export (422 `export_blocked`, rule and path only). Vendored third-party code needs the `export_third_party` approval (403 `approval_required`). 403 `residency_denied`. Permission `builder:export`. Audited (`builder.export.created`).'
+      x-nuzm-permission: builder:export
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExport'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Export'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      operationId: listExports
+      tags:
+        - app-builder
+      summary: List exports
+      description: Newest first. Permission `builder:export`.
+      x-nuzm-permission: builder:export
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportList'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/builder/projects/{projectId}/exports/{exportId}:
+    get:
+      operationId: getExport
+      tags:
+        - app-builder
+      summary: Read an export
+      description: Returns a freshly signed download URL valid at most 15 minutes for a ready export (never stored; issuing it is audited as `builder.export.downloaded`). Permission `builder:export`.
+      x-nuzm-permission: builder:export
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: exportId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Export'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/ai/approvals:
+    get:
+      operationId: listApprovals
+      tags:
+        - app-builder
+      summary: List approvals (inbox)
+      description: Pending, decided and expired approvals across runs, deployments, exports and releases; pending ones past their 24 h expiry are marked expired first. Filters status, subjectType. Permission `ai:read`. PROPOSED ADDITION PA-M10-02 (not in docs/04; needs the owner's approval).
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      x-nuzm-proposed: PA-M10-02
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - approved
+              - rejected
+              - expired
+        - name: subjectType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalList'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /v1/ai/approvals/{approvalId}:
+    get:
+      operationId: getApproval
+      tags:
+        - app-builder
+      summary: Read an approval
+      description: The exact action and the scopeHash an approver must quote. Permission `ai:read`. PROPOSED ADDITION PA-M10-02 (not in docs/04; needs the owner's approval).
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      x-nuzm-proposed: PA-M10-02
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: approvalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/ai/approvals/{approvalId}/decisions:
+    post:
+      operationId: decideApproval
+      tags:
+        - app-builder
+      summary: Decide an approval
+      description: "Body {decision: approve|reject, scopeHash, note?}. Bound to the exact action: 409 `stale_approval_hash` for another hash, 410 `gone` after 24 h, 403 `forbidden` without the role of the approval type, 409 `conflict` for a different second decision; an identical repeat is idempotent. Permission `ai:approve` (`ai:budget` for budget increases). Audited (`ai.approval.decided`). PROPOSED ADDITION PA-M10-02 (not in docs/04; needs the owner's approval)."
+      x-nuzm-permission: ai:approve
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      x-nuzm-feature-flag: app_builder.enabled
+      x-nuzm-proposed: PA-M10-02
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: approvalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideApproval'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
   # <<< M11 paths
 components:
   parameters:
@@ -17577,4 +18108,403 @@ components:
         targetType: { type: string, enum: [workflow, project] }
         targetId: { type: [string, 'null'] }
         status: { type: string, enum: [pending, succeeded, failed] }
+    CreateSandbox:
+      type: object
+      properties:
+        profile:
+          type: string
+          enum:
+            - standard
+        ttlMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+      additionalProperties: true
+    Sandbox:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        profile:
+          type: string
+        state:
+          type: string
+          enum:
+            - starting
+            - ready
+            - terminating
+            - terminated
+            - failed
+            - expired
+        runtime:
+          type: object
+          properties:
+            kind:
+              type: string
+              enum:
+                - mock
+                - local-dev
+                - isolated
+            isolation:
+              type: string
+              enum:
+                - none
+                - simulated
+                - verified
+          required:
+            - kind
+            - isolation
+          additionalProperties: true
+        egressProfile:
+          type: string
+        quota:
+          type: object
+          additionalProperties: true
+        ttlAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+        dataRegion:
+          type: string
+        terminationReason:
+          type:
+            - string
+            - 'null'
+        createdAt:
+          type: string
+          format: date-time
+        terminatedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        operationId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+      required:
+        - id
+        - projectId
+        - state
+        - runtime
+      additionalProperties: true
+    SandboxList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sandbox'
+      required:
+        - items
+      additionalProperties: true
+    CreateTestRun:
+      type: object
+      properties:
+        suite:
+          type: string
+          enum:
+            - unit
+            - typecheck
+            - build
+            - e2e
+            - all
+        versionId:
+          type: string
+          format: uuid
+      additionalProperties: true
+    TestRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        versionId:
+          type: string
+          format: uuid
+        suite:
+          type: string
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - passed
+            - failed
+            - errored
+            - cancelled
+        summary:
+          type: object
+          additionalProperties: true
+        logsRef:
+          type:
+            - string
+            - 'null'
+        runtime:
+          type: object
+          properties:
+            kind:
+              type:
+                - string
+                - 'null'
+          additionalProperties: true
+        durationMs:
+          type:
+            - integer
+            - 'null'
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        finishedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        operationId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+      required:
+        - id
+        - status
+        - suite
+      additionalProperties: true
+    TestRunList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestRun'
+      required:
+        - items
+      additionalProperties: true
+    CreateExport:
+      type: object
+      properties:
+        versionId:
+          type: string
+          format: uuid
+      additionalProperties: true
+    Export:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        versionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - building
+            - ready
+            - blocked
+            - expired
+        sha256:
+          type:
+            - string
+            - 'null'
+        sbomRef:
+          type:
+            - string
+            - 'null'
+        sizeBytes:
+          type:
+            - integer
+            - 'null'
+        fileCount:
+          type:
+            - integer
+            - 'null'
+        blockedReasons:
+          type: array
+          items:
+            type: object
+            properties:
+              rule:
+                type: string
+              path:
+                type: string
+              line:
+                type: integer
+            additionalProperties: true
+        flags:
+          type: array
+          items:
+            type: string
+        downloadUrl:
+          type:
+            - string
+            - 'null'
+        downloadUrlExpiresAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        dataRegion:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        operationId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+      required:
+        - id
+        - status
+      additionalProperties: true
+    ExportList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Export'
+      required:
+        - items
+      additionalProperties: true
+    ApprovalList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Approval'
+      required:
+        - items
+      additionalProperties: true
+    Approval:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        subjectType:
+          type: string
+        subjectId:
+          type: string
+          format: uuid
+        runId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        type:
+          type: string
+          enum:
+            - production_deploy
+            - production_rollback
+            - data_migration_rollback
+            - destructive_migration
+            - paid_resource
+            - egress_or_dependency
+            - budget_increase
+            - export_third_party
+            - mobile_signing
+            - release_owner
+        action:
+          type: object
+          additionalProperties: true
+        scopeHash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+            - expired
+        requestedByKind:
+          type: string
+          enum:
+            - ai
+            - user
+            - system
+        requestedBy:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        requiredRoles:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+        decidedBy:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        decidedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        decisionNote:
+          type:
+            - string
+            - 'null'
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - status
+        - scopeHash
+        - action
+        - expiresAt
+      additionalProperties: true
+    DecideApproval:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - approve
+            - reject
+        scopeHash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        note:
+          type: string
+          maxLength: 500
+      required:
+        - decision
+        - scopeHash
+      additionalProperties: true
     # <<< M11 schemas

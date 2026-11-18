@@ -140,6 +140,23 @@ export const ERROR_REGISTRY = {
     status: 409,
     title: 'The reseller invoice-issuer model is not approved (D-24) and cannot be enabled',
   },
+  // M10A (app builder) - append-only block
+  stale_approval_hash: { status: 409, title: 'The approval is bound to a different action' },
+  budget_required: { status: 402, title: 'A budget is required for this run' },
+  run_budget_exceeded: { status: 409, title: 'The run budget is exhausted' },
+  sandbox_quota_exceeded: { status: 409, title: 'The sandbox quota is exhausted' },
+  sandbox_no_capacity: { status: 503, title: 'No sandbox capacity is available' },
+  base_mismatch: { status: 409, title: 'The change was made against an outdated version' },
+  change_rejected: { status: 422, title: 'The change was rejected by the safety checks' },
+  test_suite_unavailable: {
+    status: 422,
+    title: 'This test suite is not available for the project',
+  },
+  health_gate_failed: { status: 409, title: 'The health check of the deployment failed' },
+  export_blocked: { status: 422, title: 'The export was blocked by the safety checks' },
+  dependency_blocked: { status: 422, title: 'A dependency was blocked by the supply-chain policy' },
+  egress_denied: { status: 403, title: 'Outbound network access is not allowed' },
+  ticket_invalid: { status: 401, title: 'The terminal ticket is invalid, expired or already used' },
   // >>> M09 error codes
   insufficient_credits: { status: 402, title: 'Not enough AI credits for this request' },
   budget_exceeded: { status: 402, title: 'An AI budget cap would be exceeded' },

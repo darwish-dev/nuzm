@@ -14,6 +14,7 @@ export default tseslint.config(
       '.local/**', // git-ignored local scratch (run logs, dev logins, backups)
       'packages/sdk/src/schema.ts',
       '.claude/worktrees/**',
+      'apps/api/templates/webapp-runtime/public/**', // M10A: browser code shipped inside generated apps
     ],
   },
   js.configs.recommended,

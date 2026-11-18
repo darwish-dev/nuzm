@@ -5,6 +5,7 @@ import { emptySiteModel } from '@nuzm/domain';
 import { OperationsService } from '@nuzm/platform';
 import { NotificationService } from '../notifications';
 import { AdapterRegistry } from '../cloud';
+import { ProjectsPort } from '../appbuilder';
 import { parse } from 'yaml';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
@@ -86,6 +87,11 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (o.path.startsWith('/v1/email/messages/')) return A.emailMessage;
   // >>> M09: AI sessions/runs/artifacts, builder projects/versions, deployments
   if (p === 'artifactId') return A.aiArtifact;
+  if (p === 'approvalId') return A.aiApproval; // M10A (agent approvals)
+  if (p === 'projectId') return A.m10Project; // M10A routes name the project {projectId}; they resolve it through the M09 port
+  if (p === 'sid') return A.m10Sandbox;
+  if (p === 'testRunId') return A.m10TestRun;
+  if (p === 'exportId') return A.m10Export;
   if (p === 'vid') return A.bVersion;
   if (o.path.startsWith('/v1/ai/sessions/')) return A.aiSession;
   if (o.path.startsWith('/v1/ai/runs/')) return A.aiRun;
@@ -116,6 +122,8 @@ const bodyFor = (o: Op): unknown => {
   }
   if (o.method === 'POST' && o.path.endsWith('/executions')) return { dedupeKey: 'ct-run' }; // a VALID body (M11): only the workflow id may differ
   if (o.method === 'POST' && o.path.endsWith('/decision')) return { decision: 'approve' }; // a VALID body: only the id may differ
+  if (o.method === 'POST' && o.path.endsWith('/decisions'))
+    return { decision: 'reject', scopeHash: 'a'.repeat(64) }; // a VALID body (M10A): only the approval id may differ (hash = the fixture's action_hash)
   if (o.method === 'POST' && o.path.endsWith('/restores')) return { backupId: crypto.randomUUID() }; // a VALID body (M08): only the database id may differ
   if (o.method === 'POST')
     return o.path.endsWith('/environments') ? { name: 'x', kind: 'dev' } : undefined;
@@ -364,6 +372,7 @@ beforeAll(async () => {
   A.aiSession = crypto.randomUUID();
   A.aiRun = crypto.randomUUID();
   A.aiArtifact = crypto.randomUUID();
+  A.aiApproval = crypto.randomUUID();
   A.bProject = crypto.randomUUID();
   A.bVersion = crypto.randomUUID();
   A.deployment = crypto.randomUUID();
@@ -379,6 +388,44 @@ beforeAll(async () => {
     `INSERT INTO ai.artifacts (id, org_id, run_id, type, payload, data_region) VALUES ($1, $2, $3, 'requirements', '{}', 'sa-central')`,
     [A.aiArtifact, orgA, A.aiRun],
   );
+  // >>> M10A: the app builder is flagged off by default (the positive control needs it on) and org A holds one pending agent approval
+  await h.env.sql(
+    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'app_builder.enabled', NULL, 'true')`,
+  );
+  await h.env.sql(
+    `INSERT INTO ai.approval_requests (id, org_id, subject_type, subject_id, run_id, approval_type, action, action_hash, status, requested_by_kind, required_roles, expires_at, data_region)
+     VALUES ($1, $2, 'run', $3, $3, 'budget_increase', '{}'::jsonb, repeat('a', 64), 'pending', 'ai', '{owner}', now() + interval '1 day', 'sa-central')`,
+    [A.aiApproval, orgA, A.aiRun],
+  );
+  // M10A resolves the project through the M09 port, still bound to an in-memory stand-in (NOT VERIFIED): org A's project must exist THERE for the positive control
+  A.m10Project = (
+    await app.get(ProjectsPort, { strict: false }).create(orgA, {
+      type: 'webapp',
+      name: 'ct-m10-project',
+      dataRegion: 'sa-central',
+      createdBy: aliceId,
+    })
+  ).id;
+  // M10A rows of org A in its own tables (written directly): a sandbox, a test run and an export of that project
+  A.m10Sandbox = crypto.randomUUID();
+  A.m10TestRun = crypto.randomUUID();
+  A.m10Export = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO builder.sandboxes (id, org_id, project_id, runtime_kind, isolation, state, quota, ttl_at, data_region, created_by)
+     VALUES ($1, $2, $3, 'mock', 'simulated', 'ready', '{}'::jsonb, now() + interval '1 hour', 'sa-central', $4)`,
+    [A.m10Sandbox, orgA, A.m10Project, aliceId],
+  );
+  await h.env.sql(
+    `INSERT INTO builder.test_runs (id, org_id, project_id, version_id, suite, status, data_region, requested_by)
+     VALUES ($1, $2, $3, $4, 'unit', 'queued', 'sa-central', $5)`,
+    [A.m10TestRun, orgA, A.m10Project, A.bVersion, aliceId],
+  );
+  await h.env.sql(
+    `INSERT INTO builder.exports (id, org_id, project_id, version_id, status, expires_at, data_region, requested_by)
+     VALUES ($1, $2, $3, $4, 'building', now() + interval '1 day', 'sa-central', $5)`,
+    [A.m10Export, orgA, A.m10Project, A.bVersion, aliceId],
+  );
+  // <<< M10A
   await h.env.sql(
     `INSERT INTO builder.projects (id, org_id, name, locales, data_region, created_by) VALUES ($1, $2, 'ct-project', '{ar,en}', 'sa-central', $3)`,
     [A.bProject, orgA, aliceId],

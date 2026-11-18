@@ -20,6 +20,8 @@ import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
 import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
+// M10A (app builder): append-only block
+import { AppBuilderModule } from './modules/appbuilder';
 // >>> M09 modules
 import { AiModule } from './modules/ai';
 import { BuilderModule } from './modules/builder';
@@ -70,6 +72,7 @@ import { ProgramsModule } from './modules/programs';
     AutomationModule,
     MarketplaceModule,
     ProgramsModule,
+    AppBuilderModule, // M10A
   ],
 })
 export class AppModule {}

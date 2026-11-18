@@ -1,0 +1,3 @@
+# HG-10-02 review pack (status: PREPARED, review UNREVIEWED)
+
+Contents: threat model (`sandbox-threat-model.md`), technology comparison (`sandbox-technology-comparison.md`), escape suite catalogue + latest result (`tests/security/sandbox-escape/README.md`; mock-runtime run: 0 escapes among control-plane attempts, all isolating-runtime attempts NOT VERIFIED), egress policy source, quotas (M10 §9), canary design, runbook `docs/runbooks/sandbox-fleet.md`. Open for the reviewer: a real runner to attack, node-pool network design, seccomp profile, log retention (D-34). The agent records nothing as reviewed or granted.

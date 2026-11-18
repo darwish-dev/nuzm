@@ -1914,6 +1914,7 @@ export const messages = {
     'm05.web.region.gcc': 'دول الخليج',
     'm05.web.region.eu': 'الاتحاد الأوروبي',
     'm05.web.region.other': 'مناطق أخرى',
+    'nav.admin.providers': 'المزوّدون والسحابة',
   },
   en: {
     'app.web.title': 'Nuzm — Customer Console',
@@ -3868,5 +3869,6 @@ export const messages = {
     'm05.web.region.gcc': 'Gulf countries (GCC)',
     'm05.web.region.eu': 'European Union',
     'm05.web.region.other': 'Other regions',
+    'nav.admin.providers': 'Providers and cloud',
   },
 } as const satisfies Record<Locale, Record<string, string>>;

@@ -14,9 +14,9 @@ import {
   showServerDetail,
   type JobDto,
 } from '../lib/providers';
-import { Result, useCompliance, type Notice, type Overrides } from './ComplianceBits';
+import { Result, useStaffAction, type Notice, type Overrides } from './ProviderCommon';
 
-/** Localized text for every problem code these screens know (looked up by `code` first, then status), for `useCompliance().run`. */
+/** Localized text for every problem code these screens know (looked up by `code` first, then status), for `useProviderAction().run`. */
 export const providerOverrides = (locale: Locale): Overrides => ({
   ...Object.fromEntries(PROBLEM_CODES.map((c) => [c, problemMessage(locale, c, 0)])),
   '404': problemMessage(locale, undefined, 404),
@@ -26,7 +26,7 @@ export const providerOverrides = (locale: Locale): Overrides => ({
 
 /** Run a staff mutation with provider texts: busy flag, localized error, server explanation (never for a rejected credential), step-up. */
 export function useProviderAction(locale: Locale, factorId: string | null) {
-  const a = useCompliance(locale, factorId);
+  const a = useStaffAction(locale, factorId);
   return { ...a, overrides: providerOverrides(locale) };
 }
 

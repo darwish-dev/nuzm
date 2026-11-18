@@ -13,7 +13,7 @@ import {
   type PlanRow,
   type RegionRow,
 } from '../lib/providers';
-import { Kv } from './ComplianceBits';
+import { Kv } from './ProviderCommon';
 import { BreakerBadge, HealthBadge } from './ProviderRegistry';
 
 /** Account facts. The vault reference is shown, a credential value never is. */

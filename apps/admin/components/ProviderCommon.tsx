@@ -1,9 +1,19 @@
 'use client';
 import { useState, type ReactNode } from 'react';
-import { t, type Locale } from '@nuzm/i18n';
-import { Badge, Ltr } from '@nuzm/ui';
-import { problemCode, problemDetail, problemTrace, isPlaceholderText } from '../lib/compliance';
+import { useParams } from 'next/navigation';
+import { isLocale, t, type Locale } from '@nuzm/i18n';
+import { Ltr, Skeleton } from '@nuzm/ui';
 import { useStepUp } from './StepUp';
+
+/** Problem+json helpers (same shape as the API's problem responses). */
+interface Problem {
+  code?: string;
+  detail?: string;
+  traceId?: string;
+}
+const problemCode = (p: unknown): string | undefined => (p as Problem | null | undefined)?.code;
+const problemDetail = (p: unknown): string | undefined => (p as Problem | null | undefined)?.detail;
+const problemTrace = (p: unknown): string | undefined => (p as Problem | null | undefined)?.traceId;
 
 export type Notice = { tone: 'error' | 'ok'; text: string } | null;
 export interface Res {
@@ -18,7 +28,7 @@ export type Overrides = Record<string, string>;
  * Run a staff mutation: busy flag, localized error (by problem code, then status), the server's own explanation and trace id, and an MFA
  * step-up prompt when the API asks for one (the call is retried after a correct code).
  */
-export function useCompliance(locale: Locale, factorId: string | null) {
+export function useStaffAction(locale: Locale, factorId: string | null) {
   const step = useStepUp(locale, factorId);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
@@ -47,7 +57,7 @@ export function useCompliance(locale: Locale, factorId: string | null) {
         (s === 403
           ? t(locale, 'state.forbidden.title')
           : s === 404
-            ? t(locale, 'compliance.err.notFound')
+            ? t(locale, 'state.error.title')
             : s === 409
               ? t(locale, 'err.conflict')
               : s === 422
@@ -78,37 +88,6 @@ export function Result(p: { n: Notice; problem?: unknown; locale: Locale }) {
   );
 }
 
-/** Marks counsel-owned text that is still a placeholder: visible, never hidden. */
-export const PendingReview = ({ locale }: { locale: Locale }) => (
-  <Badge tone="warn">{t(locale, 'compliance.pendingReview')}</Badge>
-);
-/** The PROPOSAL marker of values awaiting owner sign-off (HG-04-01). */
-export const Proposal = ({ locale }: { locale: Locale }) => (
-  <Badge tone="warn">{t(locale, 'compliance.proposal')}</Badge>
-);
-
-/** A localized text from the API (`{code, en, ar}` or a plain placeholder string): shown, with the marker when it is a counsel placeholder. */
-export function CounselText(p: { locale: Locale; en?: string; ar?: string }) {
-  const own = (p.locale === 'ar' ? p.ar : p.en) ?? '';
-  const pending = isPlaceholderText(own);
-  const shown = pending ? (p.en ?? own) : own;
-  return (
-    <span>
-      <span lang={pending ? 'en' : p.locale} dir={pending ? 'ltr' : undefined}>
-        {shown}
-      </span>{' '}
-      {(pending || isPlaceholderText(p.en)) && <PendingReview locale={p.locale} />}
-    </span>
-  );
-}
-
-/** A SHA-256 digest, complete (never truncated: it is evidence) and wrap-safe. */
-export const Hash = ({ value }: { value: string }) => (
-  <code dir="ltr" style={{ overflowWrap: 'anywhere', fontSize: '0.85em' }}>
-    {value}
-  </code>
-);
-
 export const Kv = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="nz-row">
     <dt className="nz-muted" style={{ minInlineSize: '12rem' }}>
@@ -118,20 +97,8 @@ export const Kv = ({ label, children }: { label: string; children: ReactNode }) 
   </div>
 );
 
-/** A pretty-printed JSON value (LTR), for evidence summaries and packs whose shape the API leaves open. */
-export const Json = ({ value, label }: { value: unknown; label: string }) => (
-  <pre
-    dir="ltr"
-    tabIndex={0}
-    aria-label={label}
-    style={{
-      overflow: 'auto',
-      maxBlockSize: '20rem',
-      background: 'var(--nuzm-color-surface)',
-      padding: 'var(--nuzm-space-3)',
-      borderRadius: 'var(--nuzm-radius-sm)',
-    }}
-  >
-    {JSON.stringify(value, null, 2)}
-  </pre>
-);
+/** Loading state of the provider screens, announced in the page's own language. */
+export function ProviderLoading() {
+  const { locale } = useParams<{ locale: string }>();
+  return <Skeleton lines={4} label={t(isLocale(locale) ? locale : 'ar', 'state.loading')} />;
+}

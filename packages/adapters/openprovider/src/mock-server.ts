@@ -33,7 +33,11 @@ const TLDS: Record<
 
 export interface OpenproviderMock {
   url: string;
-  controls: RegistrarControls;
+  controls: RegistrarControls & {
+    holdRegistrations(v: boolean): void;
+    activate(name: string): void;
+    webhookBody(type: string, id: string, domain: string, at: Date): string;
+  };
   credentials: { username: string; password: string };
   webhookSecret: string;
   close(): Promise<void>;
@@ -55,6 +59,7 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
   let nextHandle = 1;
   let dnsFailAt: number | null = null;
   let dnsCalls = 0;
+  let hold = false;
 
   const takeFault = (op: FaultOp): FaultKind | null => {
     const f = faults.find((x) => x.op === op && x.left > 0);
@@ -222,7 +227,7 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
         id: nextId++,
         name: dom.name,
         ext: dom.extension,
-        status: route === 'POST /domains' ? 'ACT' : 'REQ',
+        status: route === 'POST /domains' && !hold ? 'ACT' : 'REQ',
         comments: String(body.comments ?? ''),
         owner: String(body.owner_handle),
         ns: ((body.name_servers as { name: string }[]) ?? []).map((x) => x.name),
@@ -338,7 +343,7 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
 
-  const controls: RegistrarControls = {
+  const controls: OpenproviderMock['controls'] = {
     registrationCount: () => doms.size,
     registrationsByName: (n) => [...doms.values()].filter((d) => full(d) === n).length,
     inject: (op, kind, times = 1) => void faults.push({ op, kind, left: times }),
@@ -360,6 +365,23 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
       return { headers: { 'x-webhook-signature': `t=${t},v1=${v1}` }, secret: webhookSecret };
     },
     lastRequestBodies: () => bodies,
+    /** Registrations answer REQ (pending at the registry) until `activate` is called. */
+    holdRegistrations: (v: boolean) => void (hold = v),
+    activate: (name: string) => {
+      for (const d of doms.values()) if (full(d) === name) d.status = 'ACT';
+    },
+    webhookBody: (type: string, id: string, domain: string, at: Date) =>
+      JSON.stringify({
+        id,
+        schemaVersion: '1.0',
+        eventType: type,
+        timeStamp: Math.floor(at.getTime() / 1000),
+        data: {
+          domain,
+          domainId: [...doms.values()].find((d) => full(d) === domain)?.id ?? 0,
+          status: 'ACT',
+        },
+      }),
   };
   return {
     url,

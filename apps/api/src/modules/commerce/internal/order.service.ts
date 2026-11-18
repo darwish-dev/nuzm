@@ -161,4 +161,41 @@ export class OrderService {
       throw e;
     }
   }
+
+  /** Fulfilment moves an order's status (the owning kind's orchestrator calls this; terms stay frozen by the database guard). Idempotent. */
+  async setStatus(
+    orgId: string,
+    orderId: string,
+    status: 'fulfilled' | 'failed' | 'cancelled',
+  ): Promise<void> {
+    await this.db.withOrg(orgId, (c) =>
+      c.query(
+        `UPDATE commerce.orders SET status = $3 WHERE id = $1 AND org_id = $2 AND status = 'created'`,
+        [orderId, orgId, status],
+      ),
+    );
+  }
+
+  /** The order created from a quote, if any (an orchestrator that crashed between order creation and its own bookkeeping adopts it instead of failing with a conflict). */
+  async findByQuote(
+    orgId: string,
+    quoteId: string,
+  ): Promise<{ id: string; status: string; totalMinor: string; currency: string } | null> {
+    return this.db.withOrg(orgId, async (c) => {
+      const r = (
+        await c.query(
+          `SELECT id, status, total_minor, currency FROM commerce.orders WHERE org_id = $1 AND quote_id = $2`,
+          [orgId, quoteId],
+        )
+      ).rows[0];
+      return r
+        ? {
+            id: r.id as string,
+            status: r.status as string,
+            totalMinor: String(r.total_minor),
+            currency: (r.currency as string).trim(),
+          }
+        : null;
+    });
+  }
 }

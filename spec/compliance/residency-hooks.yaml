@@ -27,6 +27,18 @@ tables:
     }
   metering.usage_aggregates:
     { owner: M05, hook: m05-provisioning, note: 'derived from usage events' }
+  domains.domains:
+    {
+      owner: M07,
+      hook: m07-registrant-contacts,
+      note: 'the domain record names where the registrar processes registrant data (providerRegionId); contacts are residency-checked before they leave',
+    }
+  domains.registrar_accounts:
+    {
+      owner: M07,
+      hook: m07-registrant-contacts,
+      note: 'a registrar account declares the country where it processes registrant data; every order evaluates it',
+    }
   tenancy.environments:
     { owner: M05, hook: m05-provisioning, note: 'an environment names where its resources run' }
 hooks:
@@ -106,9 +118,9 @@ hooks:
       where: 'Registrant contact data sent to registrars (processor evaluation)',
       data_classes: [personal],
       processor_kind: registrar,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.registrar,
-      call_site: null,
+      call_site: apps/api/src/modules/domains/internal/orders.service.ts,
     }
   - {
       id: m08-data-placement,

@@ -228,6 +228,8 @@ classification:
     tenancy.invitations.token_hash: hash
     invoicing.tax_profiles.pii_enc: encrypted
     compliance.dsr_requests.details_enc: encrypted
+    domains.domain_transfers.auth_code_ref: vault_ref
+    domains.domain_contacts.payload_enc: encrypted
     domains.registrar_accounts.webhook_secret_ref: vault_ref
     domains.registrar_accounts.vault_ref: vault_ref
   columns:
@@ -1457,3 +1459,27 @@ classification:
       error_code: internal
       evidence: personal
       created_at: internal
+    domains.domain_contacts:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      role: internal
+      payload_enc: personal
+      version: internal
+      created_at: internal
+      updated_at: internal
+    domains.domain_transfers:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      order_id: internal
+      name: internal
+      registrar_account_id: internal
+      auth_code_ref: credentials
+      state: internal
+      provider_ref: internal
+      failure_code: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      completed_at: internal

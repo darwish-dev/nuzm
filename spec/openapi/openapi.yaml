@@ -56,6 +56,8 @@ tags:
     description: Admin console (platform roles, admin realm, MFA-verified session)
   - name: compliance
     description: Consent, privacy requests, residency and compliance registers
+  - name: domains
+    description: Domains, registrars, DNS and domain webhooks (M07)
 paths:
   /healthz:
     get:
@@ -4018,6 +4020,349 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  # >>> M07 paths
+  /v1/domains/search:
+    get:
+      operationId: searchDomains
+      tags: [domains]
+      summary: Search domain availability and price
+      description: 'Query q (a label or a full name; IDN is converted to punycode), tlds (comma list, default: every TLD that policy and a verified registrar allow), country. Returns per name: availability (true|false|unknown|null when the TLD is not sold), premium, price {amountMinor,currency} in the platform currency (registrar cost converted exactly + markup, rounded up), eligibility {state,rule,reason}, purchasable, cacheTtl. Only verified registrar capabilities are used; a TLD outside the policy (every Saudi TLD today, HG-07-02) is listed as blocked without a vendor call. Cached: availability 60 s, catalogue 15 min (proposals). Rate limited per organization (429). Search terms are internal data, not personal. Requires domain:search. Feature flag domains.enabled (404 when off). Vendor behaviour is NOT VERIFIED (HG-07-01).'
+      x-nuzm-permission: domain:search
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 253 } }
+        - { name: tlds, in: query, schema: { type: string } }
+        - { name: country, in: query, schema: { type: string, minLength: 2, maxLength: 2 } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainSearchResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/domains:
+    post:
+      operationId: orderDomain
+      tags: [domains]
+      summary: Order a domain from a quote
+      description: 'Body {quoteId, contacts:{registrant, admin?, tech?, billing?}, nameservers?, autoRenew?, privacy?}. The quote (kind domain, ONE register item) must be valid (409 quote_expired), eligible, and covered by the spend cap or an approved spend approval (403 approval_required); the wallet must cover it (402 payment_required: nothing is reserved). Funds are reserved in the ledger, the registrar is called through a platform operation with a deterministic token, the order is confirmed (ledger record, meter event) only after the registrar did. Registrant contacts are personal data: sealed at rest, residency-checked before they leave (403 residency_denied), and without privacy protection the consent domain_registrant_disclosure is required (422 consent_required). A taken name is 409 domain_unavailable. Answers 202 with operationId and the pending domain. Idempotent per Idempotency-Key and per quote. Requires domain:write. Audited.'
+      x-nuzm-permission: domain:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DomainOrderRequest' }
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainOrderAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listDomains
+      tags: [domains]
+      summary: List domains
+      description: 'Filters state, q (substring of the name), limit, cursor. Requires domain:read.'
+      x-nuzm-permission: domain:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: state, in: query, schema: { type: string, enum: [pending, active, expired, redemption, transferring, failed, renewal_at_risk] } }
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/domains/transfers:
+    post:
+      operationId: transferDomainIn
+      tags: [domains]
+      summary: Transfer a domain in
+      description: 'Body {name, quoteId (action transfer_in), authCode (write-only) or authCodeRef (vault://), contacts, nameservers?, privacy?}. The auth code goes to the vault and only its reference is kept; it is never returned, logged or audited. 422 transfer_locked when the registrar reports the domain locked. Same funds, residency, consent and spend rules as an order. 202 with operationId and transferId. Requires domain:write. Audited.'
+      x-nuzm-permission: domain:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferRequest' }
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainOrderAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listDomainTransfers
+      tags: [domains]
+      summary: List domain transfers
+      description: 'Newest first. The auth code reference is never returned. Requires domain:read.'
+      x-nuzm-permission: domain:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/domains/{id}:
+    get:
+      operationId: getDomain
+      tags: [domains]
+      summary: Read a domain
+      description: 'Returns the domain with its capability flags (what the registrar can do for it) and contacts: full for callers with domain:write, MASKED for others. ETag = version. Requires domain:read.'
+      x-nuzm-permission: domain:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Domain' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateDomain
+      tags: [domains]
+      summary: Change contacts, nameservers, lock or auto-renew
+      description: "Body any of {contacts, nameservers, lock, autoRenew}; If-Match required. Fields the registrar cannot change are 422 unsupported_capability (never a silent no-op). Contacts are residency- and consent-checked. autoRenew is the PLATFORM's renewal flag (the vendor's own auto-renew stays off). 200 when applied, 202 with operationId when the registrar did not answer in time (reconciled). Requires domain:write. Audited."
+      x-nuzm-permission: domain:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: If-Match, in: header, required: true, schema: { type: string }, description: 'ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428.' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DomainPatch' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Domain' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/domains/{id}/renewals:
+    post:
+      operationId: renewDomain
+      tags: [domains]
+      summary: Renew a domain
+      description: 'Body {quoteId (action renew), years}. Funds are reserved first (402), the spend cap applies (403 approval_required). A replayed run never extends the registration twice. 202 with operationId. Requires domain:renew (owner, admin, billing_admin). Idempotent. Audited.'
+      x-nuzm-permission: domain:renew
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DomainRenewalRequest' }
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainOrderAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/domains/{id}/eligibility:
+    get:
+      operationId: getDomainEligibility
+      tags: [domains]
+      summary: Latest eligibility evaluation of a domain
+      description: 'The last stored evaluation {rule,state,reason,ruleSetVersion,evidence}. Requires domain:read.'
+      x-nuzm-permission: domain:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EligibilityEvaluation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/registrars:
+    get:
+      operationId: listRegistrars
+      tags: [domains]
+      summary: List registrars and registrar accounts
+      description: 'Accounts carry the probe matrix, health, data region and the evidence kind; anything probed on a mock or recorded fixtures is shown NOT VERIFIED (only live evidence can be LIVE-VERIFIED, HG-07-01). Requires admin:domains:read.'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrarList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createRegistrarAccount
+      tags: [domains]
+      summary: Register a registrar account (vault reference only)
+      description: 'Body {providerCode, label, environment, vaultRef (vault://…), webhookSecretRef?, dataRegion, currency?, priority?}. Credential VALUES are refused (422 credential_value_rejected). The account starts disabled. Needs admin:domains:manage and a recent MFA check. Audited.'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrarAccountCreate' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrarAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/registrars/{id}/verification:
+    post:
+      operationId: verifyRegistrarAccount
+      tags: [domains]
+      summary: Probe a registrar account
+      description: 'Runs the adapter probe (read-only), stores the capability matrix and TLD support and the evidence kind. Body {enable?: boolean} also enables the account, but only when search and register are supported AND the evidence is live (or the profile explicitly allows non-live registrars: never production). Needs admin:domains:manage and a recent MFA check. Audited (registrar.account.verified).'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: Registrar account id. }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrarVerificationRequest' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrarVerification' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/admin/domains/{id}/reconciliations:
+    post:
+      operationId: reconcileDomain
+      tags: [domains]
+      summary: Force a domain reconciliation
+      description: 'Looks at the registrar, finishes orders parked in needs_reconcile/provider_pending and brings the domain in line with the registrar. 202 with the operation. Needs admin:domains:manage and a recent MFA check. Audited.'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReconciliationStarted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/webhooks/registrars/{provider}:
+    post:
+      operationId: registrarWebhook
+      tags: [domains]
+      summary: Receive a registrar webhook
+      description: "Unauthenticated by design: the HMAC signature over the RAW body and the replay window (5 min) authenticate it. Deduplicated on the provider's event id: a duplicate answers 200 {outcome:duplicate} and changes nothing. 401 bad signature, 409 outside the replay window, 404 unknown provider or a provider without webhooks. Unknown event types are stored and ignored."
+      security: []
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookOutcome' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  # <<< M07 paths
 components:
   parameters:
     OrgHeader:
@@ -6963,3 +7308,249 @@ components:
           type: array
           items:
             type: object
+    # >>> M07 schemas
+    DomainSearchItem:
+      type: object
+      required: [name, tld, available, premium, price, eligibility, purchasable, cacheTtl, stale]
+      properties:
+        name: { type: string }
+        tld: { type: string }
+        available: { oneOf: [{ type: boolean }, { type: string, enum: [unknown] }, { type: 'null' }] }
+        premium: { type: boolean }
+        price:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [amountMinor, currency]
+              properties: { amountMinor: { type: string }, currency: { type: string } }
+        eligibility:
+          type: object
+          required: [state, rule, reason]
+          properties: { state: { type: string, enum: [allowed, blocked] }, rule: { type: string }, reason: { type: string } }
+        purchasable: { type: boolean }
+        cacheTtl: { type: integer }
+        stale: { type: boolean }
+    DomainSearchResult:
+      type: object
+      required: [items, ruleSetVersion]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DomainSearchItem' } }
+        ruleSetVersion: { type: string }
+    Contact:
+      type: object
+      required: [firstName, lastName, email, phone, address]
+      properties:
+        firstName: { type: string }
+        lastName: { type: string }
+        organization: { type: string }
+        email: { type: string }
+        phone: { type: string, description: E.164 }
+        address:
+          type: object
+          required: [street, city, postalCode, country]
+          properties: { street: { type: string }, city: { type: string }, state: { type: string }, postalCode: { type: string }, country: { type: string } }
+        extra: { type: object, additionalProperties: { type: string } }
+    ContactSet:
+      type: object
+      required: [registrant]
+      properties:
+        registrant: { $ref: '#/components/schemas/Contact' }
+        admin: { $ref: '#/components/schemas/Contact' }
+        tech: { $ref: '#/components/schemas/Contact' }
+        billing: { $ref: '#/components/schemas/Contact' }
+    DomainOrderRequest:
+      type: object
+      required: [quoteId, contacts]
+      properties:
+        quoteId: { type: string, format: uuid }
+        contacts: { $ref: '#/components/schemas/ContactSet' }
+        nameservers: { type: array, items: { type: string } }
+        autoRenew: { type: boolean }
+        privacy: { type: boolean }
+    TransferRequest:
+      type: object
+      required: [quoteId, contacts]
+      properties:
+        quoteId: { type: string, format: uuid }
+        name: { type: string }
+        authCode: { type: string, writeOnly: true, description: Write-only; stored in the vault and never returned. }
+        authCodeRef: { type: string, description: A vault:// reference to the auth code. }
+        contacts: { $ref: '#/components/schemas/ContactSet' }
+        nameservers: { type: array, items: { type: string } }
+        privacy: { type: boolean }
+    DomainRenewalRequest:
+      type: object
+      required: [quoteId]
+      properties: { quoteId: { type: string, format: uuid }, years: { type: integer, minimum: 1, maximum: 10 } }
+    DomainOrderAccepted:
+      type: object
+      required: [operationId, orderId, domain]
+      properties:
+        operationId: { type: [string, 'null'], format: uuid }
+        orderId: { type: string, format: uuid }
+        transferId: { type: string, format: uuid }
+        replay: { type: boolean }
+        domain:
+          type: object
+          required: [id, name, status]
+          properties: { id: { type: string, format: uuid }, name: { type: string }, status: { type: string } }
+    Domain:
+      type: object
+      required: [id, name, tld, state, autoRenew, locked, privacyState, nameservers, dataRegion, version, capabilities, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        tld: { type: string }
+        state: { type: string, enum: [pending, active, expired, redemption, transferring, failed, renewal_at_risk] }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        registeredAt: { type: [string, 'null'], format: date-time }
+        autoRenew: { type: boolean }
+        locked: { type: boolean }
+        privacyState: { type: string, enum: [on, off, unsupported, unknown] }
+        nameservers: { type: array, items: { type: string } }
+        dataRegion: { type: string }
+        providerRegionId: { type: [string, 'null'] }
+        renewalAtRisk: { type: boolean }
+        version: { type: integer }
+        capabilities: { type: object, additionalProperties: { type: boolean } }
+        contacts: { type: object, additionalProperties: true }
+        contactsMasked: { type: boolean }
+        operationId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+    DomainPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Domain' } }
+        nextCursor: { type: [string, 'null'] }
+    DomainPatch:
+      type: object
+      properties:
+        contacts: { $ref: '#/components/schemas/ContactSet' }
+        nameservers: { type: array, items: { type: string } }
+        lock: { type: boolean }
+        autoRenew: { type: boolean }
+    TransferPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        nextCursor: { type: [string, 'null'] }
+    EligibilityEvaluation:
+      type: object
+      required: [rule, state, reason]
+      properties:
+        rule: { type: string }
+        state: { type: string, enum: [allowed, blocked, needs_info] }
+        reason: { type: string }
+        action: { type: string }
+        ruleSetVersion: { type: string }
+        evaluatedAt: { type: string, format: date-time }
+        evidence: { type: object, additionalProperties: true }
+    RegistrarAccount:
+      type: object
+      required: [id, providerCode, label, environment, enabled, health, capabilities, verification]
+      properties:
+        id: { type: string, format: uuid }
+        providerCode: { type: string }
+        label: { type: string }
+        environment: { type: string, enum: [sandbox, production] }
+        vaultRef: { type: string }
+        dataRegion: { type: string }
+        providerRegionId: { type: [string, 'null'] }
+        currency: { type: string }
+        priority: { type: integer }
+        enabled: { type: boolean }
+        registrarEnabled: { type: boolean }
+        health: { type: string }
+        capabilities: { type: object, additionalProperties: { type: string, enum: [supported, unsupported, unknown] } }
+        tldCount: { type: integer }
+        evidenceKind: { type: [string, 'null'], enum: [mock, fixture, live, null] }
+        verification: { type: string, enum: [NOT PROBED, NOT VERIFIED, LIVE-VERIFIED] }
+        probedAt: { type: [string, 'null'], format: date-time }
+    RegistrarList:
+      type: object
+      required: [registrars, accounts]
+      properties:
+        registrars: { type: array, items: { type: object, additionalProperties: true } }
+        accounts: { type: array, items: { $ref: '#/components/schemas/RegistrarAccount' } }
+    RegistrarAccountCreate:
+      type: object
+      required: [providerCode, label, environment, vaultRef, dataRegion]
+      properties:
+        providerCode: { type: string }
+        label: { type: string }
+        environment: { type: string, enum: [sandbox, production] }
+        vaultRef: { type: string, description: A vault:// reference; credential values are refused. }
+        webhookSecretRef: { type: string }
+        dataRegion: { type: string }
+        currency: { type: string }
+        priority: { type: integer }
+    RegistrarVerificationRequest:
+      type: object
+      properties: { enable: { type: boolean } }
+    RegistrarVerification:
+      type: object
+      required: [account, capabilities, evidenceKind]
+      properties:
+        account: { $ref: '#/components/schemas/RegistrarAccount' }
+        capabilities: { type: object, additionalProperties: { type: string } }
+        evidenceKind: { type: string }
+        evidenceCount: { type: integer }
+        tlds: { type: integer }
+    ReconciliationStarted:
+      type: object
+      required: [operationId, results]
+      properties: { operationId: { type: string, format: uuid }, results: { type: array, items: { type: string } } }
+    WebhookOutcome:
+      type: object
+      required: [outcome]
+      properties: { outcome: { type: string, enum: [processed, duplicate, ignored] } }
+    DnsZone:
+      type: object
+      required: [id, domainId, name, state, version, degraded]
+      properties:
+        id: { type: string, format: uuid }
+        domainId: { type: string, format: uuid }
+        name: { type: string }
+        state: { type: string, enum: [active, degraded, creating, failed] }
+        version: { type: integer }
+        degraded: { type: boolean }
+        dnssec: { type: object, additionalProperties: true }
+        recordCount: { type: integer }
+    DnsZoneCreate:
+      type: object
+      required: [domainId]
+      properties: { domainId: { type: string, format: uuid } }
+    DnsZonePage:
+      type: object
+      required: [items, nextCursor]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/DnsZone' } }, nextCursor: { type: [string, 'null'] } }
+    DnsRecord:
+      type: object
+      required: [name, type, ttl, value]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [A, AAAA, CNAME, MX, TXT, SRV, CAA, NS] }
+        ttl: { type: integer, minimum: 60, maximum: 86400 }
+        value: {}
+        managedBy: { type: string, enum: [user, linkage, email-verification] }
+    DnsRecordList:
+      type: object
+      required: [items, version]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } }, version: { type: integer } }
+    DnsChangeSet:
+      type: object
+      properties:
+        create: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } }
+        update: { type: array, items: { type: object, required: [match, record], properties: { match: { type: object, properties: { name: { type: string }, type: { type: string } } }, record: { $ref: '#/components/schemas/DnsRecord' } } } }
+        delete: { type: array, items: { type: object, properties: { name: { type: string }, type: { type: string } } } }
+    DnsChangeSetResult:
+      type: object
+      required: [outcome, results, version]
+      properties:
+        outcome: { type: string, enum: [applied, rolled_back, degraded] }
+        results: { type: array, items: { type: object, additionalProperties: true } }
+        version: { type: integer }
+    # <<< M07 schemas

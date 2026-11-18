@@ -38,7 +38,10 @@ export interface QuoteDto {
   totalMinor: string;
   requiresApproval: boolean;
   approvalDetail: unknown;
-  residency: { status: 'not_evaluated' };
+  /** `{status:'not_evaluated'}` for kinds without a residency hook; domains carry `{decision, policyVersion, ...}` (M04). */
+  residency: { status: string; [k: string]: unknown };
+  /** Per-item eligibility evaluations (M07 domain quotes); absent for other kinds. */
+  eligibility?: unknown[];
   priceBookVersionId: string | null;
   projectId: string | null;
   createdAt: string;
@@ -106,7 +109,11 @@ export class QuoteService {
       );
       if (!ok) throw new ProblemException('not_found', 'project not found');
     }
-    const priced = await pricer.price({ orgId, currency, now }, input.items);
+    const id = uuidv7();
+    const priced = await pricer.price(
+      { orgId, currency, now, actorUserId, quoteId: id },
+      input.items,
+    );
 
     // hard quotas refuse the quote; soft quotas never block (they notify on their own)
     const byGroup = new Map<string, bigint>();
@@ -134,7 +141,6 @@ export class QuoteService {
       note: 'computed from the configured tax rates; the issued invoice is authoritative and rates await tax-advisor sign-off [VERIFY HG-03-04]',
     };
     const total = subtotal + taxMinor;
-    const id = uuidv7();
     const spend = await this.spend.evaluate(orgId, {
       amountMinor: total.toString(),
       currency,
@@ -158,11 +164,11 @@ export class QuoteService {
           taxMinor.toString(),
           total.toString(),
           JSON.stringify(estimate),
-          JSON.stringify({ status: 'not_evaluated' }),
+          JSON.stringify(priced.residency ?? { status: 'not_evaluated' }),
           spend.requiresApproval,
           JSON.stringify(spend.exceeded),
           priced.priceBookVersionId,
-          JSON.stringify(prefs),
+          JSON.stringify({ ...prefs, ...(priced.preferences ?? {}) }),
           expiresAt,
           actorUserId,
           now,
@@ -248,7 +254,11 @@ export function toDto(q: Row, items: Row[], now: Date): QuoteDto {
     totalMinor: String(q.total_minor),
     requiresApproval: q.requires_approval as boolean,
     approvalDetail: q.approval_detail,
-    residency: q.residency as { status: 'not_evaluated' },
+    residency: q.residency as { status: string; [k: string]: unknown },
+    ...(q.kind === 'domain' &&
+    Array.isArray((q.preferences as { eligibility?: unknown } | null)?.eligibility)
+      ? { eligibility: (q.preferences as { eligibility: unknown[] }).eligibility }
+      : {}),
     priceBookVersionId: (q.price_book_version_id as string | null) ?? null,
     projectId: (q.project_id as string | null) ?? null,
     createdAt: (q.created_at as Date).toISOString(),

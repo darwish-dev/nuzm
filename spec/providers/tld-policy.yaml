@@ -1,0 +1,21 @@
+# TLD sales policy (M07 S30 task 5; owner: compliance/legal; D-19 TLD portfolio and the .sa route are OPEN).
+# Rules, evaluated at QUOTE time (before any authorization or payment):
+#   1. A TLD that is not listed here is NOT SOLD (`unsupported_capability`). Listing = a deliberate portfolio decision.
+#   2. A listed TLD is sold only when `enabled: true`.
+#   3. A TLD the registrar flags as restricted (or whose registry has eligibility rules) is sold ONLY when its entry names an `evidence_ref`
+#      (the recorded evidence of the eligibility route) in addition to `enabled: true`.
+#   4. Saudi and other restricted TLDs are ABSENT by default. Adding one needs HG-07-02 evidence and an owner decision (docs/07). The loader refuses a
+#      Saudi suffix entry that has no `evidence_ref`, so a careless edit cannot switch .sa on.
+# `pnpm test` exercises this file (apps/api tld-policy.spec.ts): Saudi suffixes absent => blocked.
+version: 1
+status: PROPOSAL
+owner: compliance
+decision_refs: [D-19, HG-07-02]
+# Suffixes that are always treated as Saudi/restricted by the loader, whatever the file says.
+always_restricted_suffixes:
+  [sa, com.sa, net.sa, org.sa, edu.sa, gov.sa, med.sa, pub.sa, id.sa, sch.sa, xn--mgberp4a5d4ar]
+tlds:
+  # Unrestricted generic TLDs: no registry eligibility rules are known. They are still sold only through a verified, enabled registrar account.
+  - { tld: com, enabled: true, note: 'generic; owner approval of the portfolio pending (D-19)' }
+  - { tld: net, enabled: true, note: 'generic; owner approval of the portfolio pending (D-19)' }
+  - { tld: org, enabled: true, note: 'generic; owner approval of the portfolio pending (D-19)' }

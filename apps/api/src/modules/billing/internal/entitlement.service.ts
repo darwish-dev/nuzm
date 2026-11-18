@@ -13,7 +13,7 @@ export interface EffectiveEntitlements {
     mode: 'soft' | 'hard';
     source: 'plan' | 'override';
   }[];
-  /** Marketplace entitlements (`marketplace.v_entitlements`) are merged here from M11; empty until then. */
+  /** Marketplace entitlements, read from the published view `marketplace.v_entitlements` (M11 S53). */
   marketplace: unknown[];
 }
 
@@ -91,7 +91,24 @@ export class EntitlementService {
         plan: { key: key!, versionId: versionId!, source },
         features,
         limits: [...limits.values()].sort((a, b) => a.meterGroup.localeCompare(b.meterGroup)),
-        marketplace: [],
+        marketplace: (
+          await c.query(
+            `SELECT entitlement_id, listing_id, listing_type, listing_title_ar, listing_title_en, version_range, licence, seats, status, purchase_id, created_at
+               FROM marketplace.v_entitlements WHERE org_id = $1 ORDER BY created_at DESC, entitlement_id DESC LIMIT 200`,
+            [orgId],
+          )
+        ).rows.map((m) => ({
+          entitlementId: m.entitlement_id as string,
+          listingId: m.listing_id as string,
+          type: m.listing_type as string | null,
+          title: { ar: m.listing_title_ar as string | null, en: m.listing_title_en as string | null },
+          versionRange: m.version_range as string,
+          licence: m.licence as string,
+          seats: m.seats as number,
+          status: m.status as string,
+          purchaseId: m.purchase_id as string,
+          createdAt: (m.created_at as Date).toISOString(),
+        })),
       };
     });
   }

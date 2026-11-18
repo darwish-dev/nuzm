@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sign, signatureHeader } from '@nuzm/domain';
-import { ActionError, ConnectorService, ExecutionEngine, ExecutionService, TriggerService, WorkflowService, tenantSecretId } from './index';
+import { ActionError, AutomationJobs, ConnectorService, ExecutionEngine, ExecutionService, TriggerService, WorkflowService, tenantSecretId } from './index';
 import { setupAutomationEnv, type AutoEnv, type Row } from './testing/automation-harness';
 
 let e: AutoEnv;
@@ -200,8 +200,7 @@ describe('executions (FR-AUT-02)', () => {
     expect(c.statusCode).toBe(200);
     await e.app.get(ExecutionEngine).runOne(A(), r.id);
     // the tick settles an execution whose operation was cancelled through the generic endpoint
-    const jobs = (await import('./index')).AutomationJobs;
-    await e.app.get(jobs).tick();
+    await e.app.get(AutomationJobs).tick();
     expect((await e.call('alice', 'GET', `/v1/workflow-executions/${r.id}`)).json().status).toBe('cancelled');
   });
   it('services are wired and the module exports its public surface', () => {

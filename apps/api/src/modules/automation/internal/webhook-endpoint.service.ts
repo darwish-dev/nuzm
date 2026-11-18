@@ -48,9 +48,14 @@ export class WebhookEndpointService {
     private readonly audit: AuditSink,
     private readonly secrets: SecretStore,
     private readonly egress: EgressHttpPort,
-    private readonly now: () => Date = () => new Date(),
+    private now: () => Date = () => new Date(),
     private readonly random: () => number = Math.random,
   ) {}
+
+  /** Tests only: a controllable clock for the retry schedule. */
+  useClock(fn: () => Date) {
+    this.now = fn;
+  }
 
   private dto(r: Row, extra: Partial<WebhookEndpointDto> = {}): WebhookEndpointDto {
     return {

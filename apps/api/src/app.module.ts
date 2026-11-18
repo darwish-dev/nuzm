@@ -23,6 +23,7 @@ import { PlatformModule } from './modules/platform';
 import { TenancyModule } from './modules/tenancy';
 // M11 (appended): automation, marketplace, programs
 import { AutomationModule } from './modules/automation';
+import { MarketplaceModule } from './modules/marketplace';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AutomationModule } from './modules/automation';
     HealthModule,
     // M11 (appended)
     AutomationModule,
+    MarketplaceModule,
   ],
 })
 export class AppModule {}

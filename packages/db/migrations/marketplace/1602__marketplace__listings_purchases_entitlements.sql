@@ -117,6 +117,8 @@ CREATE TABLE marketplace.purchases (
   org_id uuid NOT NULL,                                  -- the BUYER organization
   listing_id uuid NOT NULL REFERENCES marketplace.listings(id),
   listing_version_id uuid NOT NULL REFERENCES marketplace.listing_versions(id),
+  publisher_id uuid NOT NULL,                            -- the publisher account and its organization, frozen at purchase time (the accrual needs them even if the listing is later withdrawn)
+  publisher_org_id uuid NOT NULL,
   quote_id uuid NOT NULL,                                -- logical reference to commerce.quotes
   order_id uuid,
   invoice_id uuid,                                       -- logical reference to invoicing.invoices
@@ -137,7 +139,7 @@ CREATE INDEX purchases_org_idx ON marketplace.purchases (org_id, created_at DESC
 CREATE INDEX purchases_invoice_idx ON marketplace.purchases (invoice_id) WHERE invoice_id IS NOT NULL;
 CREATE FUNCTION marketplace.purchase_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF NEW.id <> OLD.id OR NEW.org_id <> OLD.org_id OR NEW.listing_id <> OLD.listing_id OR NEW.listing_version_id <> OLD.listing_version_id OR NEW.quote_id <> OLD.quote_id
+  IF NEW.id <> OLD.id OR NEW.org_id <> OLD.org_id OR NEW.listing_id <> OLD.listing_id OR NEW.listing_version_id <> OLD.listing_version_id OR NEW.quote_id <> OLD.quote_id OR NEW.publisher_id <> OLD.publisher_id OR NEW.publisher_org_id <> OLD.publisher_org_id
      OR NEW.amount_minor <> OLD.amount_minor OR NEW.currency <> OLD.currency OR NEW.publisher_share_minor <> OLD.publisher_share_minor OR NEW.created_at <> OLD.created_at THEN
     RAISE EXCEPTION 'the commercial terms of a purchase are immutable' USING ERRCODE = 'check_violation', HINT = 'immutable';
   END IF;
@@ -247,6 +249,7 @@ GRANT UPDATE (target_id, status, error) ON marketplace.installations TO nuzm_app
 
 -- The published read-only view the billing entitlement resolver consumes (docs/05 §4). security_invoker: the caller's row-level security applies.
 CREATE VIEW marketplace.v_entitlements WITH (security_invoker = true) AS
-  SELECT e.org_id, e.id AS entitlement_id, e.listing_id, e.version_range, e.licence, e.seats, e.status, e.revoked_at
-    FROM marketplace.entitlements_mkt e;
+  SELECT e.org_id, e.id AS entitlement_id, e.listing_id, e.purchase_id, e.version_range, e.licence, e.seats, e.status, e.revoked_at, e.created_at,
+         l.type AS listing_type, l.title_ar AS listing_title_ar, l.title_en AS listing_title_en
+    FROM marketplace.entitlements_mkt e LEFT JOIN marketplace.listings l ON l.id = e.listing_id;
 GRANT SELECT ON marketplace.v_entitlements TO nuzm_app, nuzm_worker, nuzm_readonly_reporting;

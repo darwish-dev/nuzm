@@ -226,6 +226,25 @@ export class QuoteService {
       return toDto(q, items, now);
     });
   }
+
+  /**
+   * What an ORCHESTRATOR needs about a quote (M11 marketplace): the kind, the expiry and each item's stored `details` (never returned to customers). Another organization's quote is a 404.
+   */
+  async internal(orgId: string, id: string): Promise<{ id: string; kind: QuoteKind; currency: string; expiresAt: Date; totalMinor: string; items: { details: Record<string, unknown>; unitPriceMinor: string | null; amountMinor: string }[] }> {
+    return this.db.withOrg(orgId, async (c) => {
+      const q = (await c.query(`SELECT * FROM commerce.quotes WHERE id = $1 AND org_id = $2`, [id, orgId])).rows[0];
+      if (!q) throw new ProblemException('not_found');
+      const items = (await c.query(`SELECT details, unit_price_minor, amount_minor FROM commerce.quote_items WHERE quote_id = $1 ORDER BY position`, [id])).rows;
+      return {
+        id,
+        kind: q.kind as QuoteKind,
+        currency: (q.currency as string).trim(),
+        expiresAt: q.expires_at as Date,
+        totalMinor: String(q.total_minor),
+        items: items.map((i) => ({ details: i.details as Record<string, unknown>, unitPriceMinor: i.unit_price_minor === null ? null : String(i.unit_price_minor), amountMinor: String(i.amount_minor) })),
+      };
+    });
+  }
 }
 
 export function toDto(q: Row, items: Row[], now: Date): QuoteDto {

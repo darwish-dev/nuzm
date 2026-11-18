@@ -42,7 +42,7 @@ export class TriggerService {
         }
       }
       const next = t ? nextCronRun(t.cron!, now, t.timezone ?? 'UTC') : null;
-      await this.db.withOrg(w.org_id, (c) => c.query(`UPDATE automation.workflows SET next_run_at = $2 WHERE id = $1 AND next_run_at = $3`, [w.id, next, w.next_run_at]));
+      await this.db.withOrg(w.org_id, (c) => c.query(`UPDATE automation.workflows SET next_run_at = $2 WHERE id = $1 AND next_run_at <= $3`, [w.id, next, now]));
     }
     return fired;
   }

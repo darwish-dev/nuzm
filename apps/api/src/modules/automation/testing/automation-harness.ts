@@ -1,5 +1,5 @@
 import type { SafeRequest, SafeResponse } from '@nuzm/domain';
-import { Harness } from '../../identity/testing/app-harness';
+import { Harness, cookieHeader } from '../../identity/testing/app-harness';
 import { makeSession, type Session, type Row } from '../../data/testing/data-harness';
 import { AiRunPort, DeploymentPort, EgressHttpPort, EmailSendPort, NuzmApiPort, TargetResidencyPort } from '../internal/ports';
 
@@ -90,7 +90,6 @@ export async function setupAutomationEnv(extra: [unknown, unknown][] = [], flags
     s.jars[n] = await h.sessionFor(app, s.ids[n]!);
   }
   for (const n of ['alice', 'bob', 'carol', 'dave', 'erin']) await h.elevate(s.jars[n]!);
-  const { cookieHeader } = await import('../../identity/testing/app-harness');
   const mk = async (who: string, name: string, type = 'customer') =>
     (await app.inject({ method: 'POST', url: '/v1/organizations', headers: { cookie: cookieHeader(s.jars[who]!), 'x-csrf-token': s.jars[who]!.nuzm_csrf! }, payload: { name, type } })).json().id as string;
   s.org.A = await mk('alice', 'Auto A');

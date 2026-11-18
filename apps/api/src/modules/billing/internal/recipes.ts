@@ -577,3 +577,35 @@ export function walletTopUp(p: {
     ],
   };
 }
+
+// ---- M11 S53 (owner PR to the billing module): marketplace publisher revenue accrual ---------------------------------------------------
+/**
+ * Publisher share accrual: Dr 4400 marketplace revenue (the PUBLISHER'S share of an invoice line that was recognized in full as 4400) → Cr 2600 publisher payables (sub-ledger = publisher id).
+ * ACCRUAL ONLY: nothing here moves money to a publisher, and no recipe, service or route pays one out (D-26 / HG-11-01 are open). `reverse` flips the directions (refund of the purchase).
+ */
+export function publisherAccrual(p: {
+  orgId: string;
+  publisherId: string;
+  purchaseId: string;
+  invoiceId: string;
+  shareMinor: Minor;
+  currency: string;
+  reverse?: boolean;
+}): Built {
+  const amount = parseMinor(p.shareMinor, 'publisher share');
+  const currency = parseCurrency(p.currency);
+  const sub = text(p.publisherId, 'publisherId', 100);
+  const dimensions = { purchase_id: p.purchaseId, invoice_id: p.invoiceId, publisher_id: sub };
+  const [dr, cr] = p.reverse ? (['credit', 'debit'] as const) : (['debit', 'credit'] as const);
+  return {
+    kind: p.reverse ? 'publisher_accrual_reversal' : 'publisher_accrual',
+    orgId: p.orgId,
+    description: p.reverse ? 'Publisher accrual reversal (refund)' : 'Publisher share accrual',
+    sourceEventId: `${p.reverse ? 'publisher_accrual_reversal' : 'publisher_accrual'}:${p.purchaseId}`,
+    affectsWallet: false,
+    postings: [
+      { account: { code: '4400', org: false }, direction: dr, amountMinor: amount, currency, dimensions },
+      { account: { code: '2600', org: false, subledger: sub }, direction: cr, amountMinor: amount, currency, dimensions },
+    ],
+  };
+}

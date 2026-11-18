@@ -15,6 +15,7 @@ import { ComplianceModule } from './modules/compliance';
 import { FinrecModule } from './modules/finrec';
 import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
+import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
 import { TenancyModule } from './modules/tenancy';
 
@@ -32,6 +33,7 @@ import { TenancyModule } from './modules/tenancy';
     ComplianceModule,
     CloudModule,
     CloudVendorsModule,
+    HostingModule,
     IdentityModule,
     NotificationsModule,
     AccessModule,

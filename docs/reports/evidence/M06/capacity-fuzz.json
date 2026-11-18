@@ -1,0 +1,12 @@
+{
+  "alloc": 25147,
+  "noCap": 24843,
+  "resize": 24965,
+  "resizeNoCap": 8119,
+  "release": 25045,
+  "violations": 0,
+  "ops": 100000,
+  "workers": 32,
+  "nodes": 5,
+  "finishedAt": "2026-11-18T03:08:41.035Z"
+}

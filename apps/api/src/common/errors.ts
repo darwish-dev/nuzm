@@ -67,6 +67,7 @@ export const ERROR_REGISTRY = {
     status: 422,
     title: 'Credential values are never accepted; send a vault reference',
   },
+  // M08 (managed data and email)
   unsupported_capability: {
     status: 422,
     title: 'The provider or instance does not support this capability',
@@ -77,6 +78,16 @@ export const ERROR_REGISTRY = {
   price_changed: { status: 409, title: 'The price changed since the quote was issued' },
   deletion_protected: { status: 409, title: 'Deletion protection is on' },
   invalid_state: { status: 409, title: 'The operation is not allowed in the current state' },
+  in_use: { status: 409, title: 'The resource is in use' },
+  rotation_in_progress: { status: 409, title: 'A credential rotation is already in progress' },
+  restore_not_supported: { status: 422, title: 'This restore is not supported' },
+  policy_invalid: { status: 422, title: 'The access policy is not valid' },
+  ttl_too_long: { status: 422, title: 'The requested lifetime is longer than allowed' },
+  name_taken: { status: 409, title: 'This name is not available' },
+  category_not_allowed: { status: 422, title: 'This message category is not allowed' },
+  suppressed: { status: 422, title: 'A recipient is on the suppression list' },
+  sender_not_verified: { status: 422, title: 'The sender identity is not verified' },
+  domain_not_owned: { status: 422, title: 'The domain is not owned by this account' },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

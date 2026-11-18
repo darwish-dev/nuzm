@@ -34,6 +34,9 @@ export default async function ConsoleLayout({
     ...(s.can('admin:compliance:read')
       ? [{ href: `${base}/compliance/controls`, label: t(locale, 'nav.admin.compliance') }]
       : []),
+    ...(s.can('admin:data:read')
+      ? [{ href: `${base}/data/providers`, label: t(locale, 'm8.nav.admin.providers') }]
+      : []),
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),

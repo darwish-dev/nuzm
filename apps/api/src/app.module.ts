@@ -12,6 +12,8 @@ import { CommerceModule } from './modules/commerce';
 import { InvoicingModule } from './modules/invoicing';
 import { MeteringModule } from './modules/metering';
 import { ComplianceModule } from './modules/compliance';
+import { DataModule } from './modules/data';
+import { EmailModule } from './modules/email';
 import { FinrecModule } from './modules/finrec';
 import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
@@ -32,6 +34,8 @@ import { TenancyModule } from './modules/tenancy';
     ComplianceModule,
     CloudModule,
     CloudVendorsModule,
+    DataModule,
+    EmailModule,
     IdentityModule,
     NotificationsModule,
     AccessModule,

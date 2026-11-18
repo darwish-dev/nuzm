@@ -69,6 +69,7 @@ describe('categories', () => {
       '/settings/team',
       '/settings/organization',
       '/privacy',
+      '/settings/security/sso', // M12 (flag enterprise.sso)
     ]);
     // any one permission of a stacked page's screens lists it
     const only = (p: string) =>

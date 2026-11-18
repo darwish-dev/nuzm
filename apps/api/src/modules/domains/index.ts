@@ -16,3 +16,5 @@ export {
 export type { DomainsConfig, HostingSiteReadPort, HostingSiteView } from './internal/ports';
 export { loadTldPolicy, parseTldPolicy } from './internal/tld-policy';
 export { RegistrarAdminService } from './internal/registrar-admin.service';
+// M12: read-only TXT lookup in an organization's hosted zones (SSO domain proof)
+export { DnsTxtLookup } from './internal/txt-lookup.service';

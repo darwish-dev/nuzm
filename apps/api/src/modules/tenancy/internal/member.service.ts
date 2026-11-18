@@ -1,3 +1,4 @@
+import { v7 as uuidv7 } from 'uuid';
 import { AuditSink } from '../../../common/audit';
 import { enqueue, type Db } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
@@ -110,6 +111,45 @@ export class MemberService {
         joinedAt: m.created_at.toISOString(),
         version: m.version,
       };
+    });
+  }
+
+  /**
+   * Add a user to an organization with a role (M12: SCIM provisioning, JIT sign-in). Idempotent: an existing membership is returned unchanged.
+   * Callers decide the role; enterprise flows never pass `owner` or `admin`.
+   */
+  async add(
+    orgId: string,
+    userId: string,
+    role: string,
+    by: { userId?: string; via: string },
+  ): Promise<{ created: boolean; role: string }> {
+    return this.db.withOrg(orgId, async (c) => {
+      const { rows } = await c.query<{ role: string }>(
+        `INSERT INTO tenancy.memberships (id, org_id, user_id, role) VALUES ($4, $1, $2, $3)
+         ON CONFLICT (org_id, user_id) DO NOTHING RETURNING role`,
+        [orgId, userId, role, uuidv7()],
+      );
+      if (rows[0]) {
+        await enqueue(c, orgId, 'member.added', { userId, role, via: by.via });
+        await this.audit.record({
+          action: 'tenancy.member.added',
+          orgId,
+          actorUserId: by.userId,
+          actorType: by.userId ? 'user' : 'system',
+          resource: { type: 'member', id: userId },
+          outcome: 'success',
+          after: { role },
+          detail: { via: by.via },
+        });
+        return { created: true, role };
+      }
+      const cur = (
+        await c.query<{ role: string }>(`SELECT role FROM tenancy.memberships WHERE user_id = $1`, [
+          userId,
+        ])
+      ).rows[0]!;
+      return { created: false, role: cur.role };
     });
   }
 

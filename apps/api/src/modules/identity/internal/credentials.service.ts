@@ -1,3 +1,4 @@
+import { enforcedConnectionFor } from './sso-enforcement';
 import { createHash, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { v7 as uuidv7 } from 'uuid';
@@ -80,6 +81,16 @@ export class CredentialsService {
   ): Promise<UserRow> {
     const email = this.validateEmail(input.email);
     this.assertPolicy(input.password, email);
+    if (await enforcedConnectionFor(this.db, email)) {
+      await this.audit.record({
+        action: 'auth.account.registration_refused',
+        outcome: 'failure',
+        traceId: meta.traceId,
+        ip: meta.ip,
+        detail: { reason: 'sso_enforced' },
+      });
+      throw new ProblemException('sso_required');
+    }
     const hash = await hashPassword(input.password, this.cost);
     const id = uuidv7();
     let user: UserRow;
@@ -139,6 +150,16 @@ export class CredentialsService {
     if (!email || typeof password !== 'string' || password.length > 128) {
       await verifyPassword('x', await this.dummyHash());
       return fail('malformed');
+    }
+    if (await enforcedConnectionFor(this.db, email)) {
+      await this.audit.record({
+        action: 'auth.login.failed',
+        outcome: 'failure',
+        traceId: meta.traceId,
+        ip: meta.ip,
+        detail: { method: 'password', reason: 'sso_enforced' },
+      });
+      throw new ProblemException('sso_required');
     }
     const row = await this.db.withoutScope(async (c) => {
       const { rows } = await c.query<

@@ -19,6 +19,20 @@ declare module 'fastify' {
 export async function configureApp(app: INestApplication): Promise<void> {
   const fastify = (app as NestFastifyApplication).getHttpAdapter().getInstance();
   await fastify.register(fastifyCookie);
+  // M12: SCIM clients (RFC 7644) send application/scim+json; parse it as JSON.
+  fastify.addContentTypeParser(
+    'application/scim+json',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      try {
+        done(null, body === '' ? {} : JSON.parse(body as string));
+      } catch {
+        const e = new Error('invalid JSON') as Error & { statusCode: number };
+        e.statusCode = 400;
+        done(e, undefined);
+      }
+    },
+  );
   initTelemetry({ serviceName: 'nuzm-api' }); // idempotent; exporter only when OTEL_EXPORTER_OTLP_ENDPOINT is set
   const metrics = httpMetrics();
   fastify.addHook('onRequest', async (req, reply) => {

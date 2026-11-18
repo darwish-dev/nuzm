@@ -18,6 +18,8 @@ describe('admin navigation', () => {
       'compliance',
       'infra',
       'ai',
+      'ops',
+      'gov',
       'platform',
     ]);
   });
@@ -25,7 +27,8 @@ describe('admin navigation', () => {
   it('shows only what the roles allow and drops empty categories', () => {
     const can = (p: string) => p === 'admin:compliance:read';
     const cats = buildAdminNav(can);
-    expect(ids(cats)).toEqual(['compliance']);
+    // governance (policies, audit retention) is readable with the same permission
+    expect(ids(cats)).toEqual(['compliance', 'gov']);
     expect(cats[0]!.home).toBe('/compliance/controls');
     expect(cats[0]!.groups.flatMap((g) => g.items.map((i) => i.id))).toEqual([
       'controls',
@@ -65,6 +68,10 @@ describe('admin navigation', () => {
       ['/data/providers', 'infra'],
       ['/domains/abc', 'infra'],
       ['/ai/runs', 'ai'],
+      ['/incidents/9', 'ops'],
+      ['/support/handbook', 'ops'],
+      ['/access-reviews/3', 'gov'],
+      ['/audit/retention', 'gov'],
       ['/audit-logs', 'platform'],
       ['/feature-flags', 'platform'],
     ];

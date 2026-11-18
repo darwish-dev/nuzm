@@ -44,6 +44,6 @@ import { TenancyController } from './tenancy.controller';
       inject: [DB, ResidencyPolicy, RetentionHook, AuditSink],
     },
   ],
-  exports: [OrgService],
+  exports: [OrgService, MemberService],
 })
 export class TenancyModule {}

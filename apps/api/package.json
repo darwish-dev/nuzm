@@ -36,6 +36,7 @@
     "@nuzm/platform": "workspace:*",
     "@nuzm/registrar-contracts": "workspace:*",
     "@nuzm/telemetry": "workspace:*",
+    "@xmldom/xmldom": "^0.9.12",
     "fastify": "5.12.8",
     "jose": "^6.2.17",
     "otpauth": "^9.6.0",
@@ -43,6 +44,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "uuid": "^14.0.3",
+    "xml-crypto": "^6.4.0",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

@@ -4,176 +4,197 @@ schemas:
     owner_module: platform
     created_by: M01
     extended_by: []
-    tables: [feature_flags, idempotency_keys, notification_preferences, notifications, operation_steps, operations, outbox, webhook_events_inbound]
+    tables: [ feature_flags, idempotency_keys, notification_preferences, notifications, operation_steps, operations, outbox, webhook_events_inbound ]
   identity:
     owner_module: identity
     created_by: M01
-    extended_by: [M12]
-    tables: [api_keys, auth_tokens, credentials, credentials_refs, mfa_factors, recovery_codes, scim_tokens, sessions, sso_connections, users]
+    extended_by:
+      - M12
+    tables:
+      - api_keys
+      - auth_tokens
+      - credentials
+      - credentials_refs
+      - mfa_factors
+      - recovery_codes
+      - scim_identities
+      - scim_tokens
+      - sessions
+      - sso_assertion_replays
+      - sso_connections
+      - sso_domain_proofs
+      - users
   tenancy:
     owner_module: tenancy
     created_by: M01
-    extended_by: [M11]
-    tables: [environments, invitations, memberships, organizations, permissions, platform_roles, projects, role_permissions, roles, workspaces]
+    extended_by: [ M11 ]
+    tables: [ environments, invitations, memberships, organizations, permissions, platform_roles, projects, role_permissions, roles, workspaces ]
   audit:
     owner_module: audit
     created_by: M01
-    extended_by: [M04, M12]
-    tables: [access_reviews, archivable_tables, audit_checkpoints, audit_logs, chain_heads, legal_holds, retention_policies]
+    extended_by: [ M04, M12 ]
+    tables: [ access_reviews, archivable_tables, audit_checkpoints, audit_logs, chain_heads, legal_holds, retention_policies ]
   metering:
     owner_module: metering
     created_by: M02
     extended_by: []
-    tables: [finrec, meters, provider_cost_records, rated_usage, usage_aggregates, usage_events]
+    tables: [ finrec, meters, provider_cost_records, rated_usage, usage_aggregates, usage_events ]
   billing:
     owner_module: billing
     created_by: M02
-    extended_by: [M03, M11]
-    tables: [adjustment_requests, dunning_cases, entitlements, ledger_accounts, ledger_postings, ledger_transactions, plan_versions, plans, price_book_versions, price_books, price_items, quota_meters, quotas, reseller_price_rules, spend_approvals, spending_limits, subscriptions, wallet_balances, wallet_topups]
+    extended_by: [ M03, M11 ]
+    tables: [ adjustment_requests, dunning_cases, entitlements, ledger_accounts, ledger_postings, ledger_transactions, plan_versions, plans, price_book_versions, price_books, price_items, quota_meters, quotas, reseller_price_rules, spend_approvals, spending_limits, subscriptions, wallet_balances, wallet_topups ]
   commerce:
     owner_module: commerce
     created_by: M02
-    extended_by: [M05, M08]
-    tables: [authorization_releases, authorizations, order_items, orders, quote_items, quotes]
+    extended_by: [ M05, M08 ]
+    tables: [ authorization_releases, authorizations, order_items, orders, quote_items, quotes ]
   payments:
     owner_module: payments
     created_by: M03
     extended_by: []
-    tables: [customers_psp, finrec, payment_attempts, payment_intents, payment_methods, psp_accounts, psp_events, refunds]
+    tables: [ customers_psp, finrec, payment_attempts, payment_intents, payment_methods, psp_accounts, psp_events, refunds ]
   invoicing:
     owner_module: invoicing
     created_by: M03
-    extended_by: [M04, M11]
-    tables: [billing_entities, credit_notes, invoice_lines, invoice_payment_applications, invoice_sequences, invoices, tax_profiles, tax_rates, zatca_credentials_refs, zatca_documents, zatca_onboarding, zatca_submissions]
+    extended_by: [ M04, M11 ]
+    tables: [ billing_entities, credit_notes, invoice_lines, invoice_payment_applications, invoice_sequences, invoices, tax_profiles, tax_rates, zatca_credentials_refs, zatca_documents, zatca_onboarding, zatca_submissions ]
   finrec:
     owner_module: finrec
     created_by: M03
-    extended_by: [M05]
-    tables: [reconciliation_items, reconciliation_resolutions, reconciliation_runs]
+    extended_by: [ M05 ]
+    tables: [ reconciliation_items, reconciliation_resolutions, reconciliation_runs ]
   compliance:
     owner_module: compliance
     created_by: M04
-    extended_by: [M12]
-    tables: [breach_cases, consents, control_catalog, control_mappings, data_classes, dsr_requests, dsr_tasks, evidence_items, policy_versions, regulatory_validations, residency_policies, ropa_entries, transfer_assessments]
+    extended_by: [ M12 ]
+    tables: [ breach_cases, consents, control_catalog, control_mappings, data_classes, dsr_requests, dsr_tasks, evidence_items, policy_versions, regulatory_validations, residency_policies, ropa_entries, transfer_assessments ]
   cloud:
     owner_module: cloud
     created_by: M05
-    extended_by: [M06, M08]
-    tables: [catalog_snapshots, evidence_items, live_verification_runs, provider_accounts, provider_capabilities, provider_jobs, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
+    extended_by:
+      - M06
+      - M08
+      - M12
+    tables:
+      - catalog_snapshots
+      - evidence_items
+      - live_verification_runs
+      - provider_accounts
+      - provider_capabilities
+      - provider_jobs
+      - provider_plans
+      - provider_regions
+      - providers
+      - resource_reconciliations
+      - resources
+      - routing_rules
   compute:
     owner_module: compute
     created_by: M05
     extended_by: []
-    tables: [images, instance_actions, instance_intervals, instances, snapshots]
+    tables: [ images, instance_actions, instance_intervals, instances, snapshots ]
   hosting:
     owner_module: hosting
     created_by: M06
-    extended_by: [M10]
-    tables: [abuse_cases, metering_marks, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, site_allocations, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports]
+    extended_by: [ M10 ]
+    tables: [ abuse_cases, metering_marks, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, site_allocations, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports ]
   domains:
     owner_module: domains
     created_by: M07
     extended_by: []
-    tables: [dns_records, dns_zones, domain_contacts, domain_orders, domain_transfers, domains, eligibility_checks, registrar_accounts, registrars]
+    tables: [ dns_records, dns_zones, domain_contacts, domain_orders, domain_transfers, domains, eligibility_checks, registrar_accounts, registrars ]
   data:
     owner_module: data
     created_by: M08
     extended_by: []
-    tables: [bucket_policies, data_providers, database_backups, database_instances, database_restores, storage_buckets]
+    tables: [ bucket_policies, data_providers, database_backups, database_instances, database_restores, storage_buckets ]
   email:
     owner_module: email
     created_by: M08
     extended_by: []
-    tables: [aliases, email_domains, email_events, mailboxes, messages, sender_identities, suppressions, templates]
+    tables: [ aliases, email_domains, email_events, mailboxes, messages, sender_identities, suppressions, templates ]
   ai:
     owner_module: ai
     created_by: M09
-    extended_by: [M10]
-    tables: [approvals, artifacts, budgets, credit_balances, evaluations, messages, model_providers, model_usage, reservations, run_events, run_steps, runs, sessions, tool_calls]
+    extended_by: [ M10 ]
+    tables: [ approvals, artifacts, budgets, credit_balances, evaluations, messages, model_providers, model_usage, reservations, run_events, run_steps, runs, sessions, tool_calls ]
   builder:
     owner_module: builder
     created_by: M09
-    extended_by: [M10]
-    tables: [app_specs, changes, cms_collections, cms_items, exports, form_submissions, forms, git_repos, pages, previews, project_files, project_versions, projects, sandboxes, test_runs]
+    extended_by: [ M10 ]
+    tables: [ app_specs, changes, cms_collections, cms_items, exports, form_submissions, forms, git_repos, pages, previews, project_files, project_versions, projects, sandboxes, test_runs ]
   deploy:
     owner_module: deploy
     created_by: M09
-    extended_by: [M10]
-    tables: [builds, deployment_logs, deployments, hosting]
+    extended_by: [ M10 ]
+    tables: [ builds, deployment_logs, deployments, hosting ]
   mobile:
     owner_module: mobile
     created_by: M10
     extended_by: []
-    tables: [artifacts, builds, releases, signing_credential_refs]
+    tables: [ artifacts, builds, releases, signing_credential_refs ]
   automation:
     owner_module: automation
     created_by: M11
     extended_by: []
-    tables: [connector_authorizations, connectors, dead_letters, execution_steps, executions, webhook_deliveries, webhook_endpoints, workflow_versions, workflows]
+    tables: [ connector_authorizations, connectors, dead_letters, execution_steps, executions, webhook_deliveries, webhook_endpoints, workflow_versions, workflows ]
   marketplace:
     owner_module: marketplace
     created_by: M11
     extended_by: []
-    tables: [entitlements_mkt, installations, listing_versions, listings, moderation_cases, publisher_accounts, purchases, v_entitlements]
+    tables: [ entitlements_mkt, installations, listing_versions, listings, moderation_cases, publisher_accounts, purchases, v_entitlements ]
   programs:
     owner_module: programs
     created_by: M11
     extended_by: []
-    tables: [agencies, agency_clients, delegated_access, reseller_sub_orgs, resellers]
+    tables: [ agencies, agency_clients, delegated_access, reseller_sub_orgs, resellers ]
   ops:
     owner_module: ops
     created_by: M12
     extended_by: []
-    tables: [alerts, incident_updates, incidents, launch_gates, provider_incidents, recovery_exercises, slo_definitions]
+    tables:
+      - alerts
+      - incident_updates
+      - incidents
+      - launch_gates
+      - probe_runs
+      - provider_incidents
+      - recovery_exercises
+      - slo_definitions
 tenant_less:
-  # user-scoped identity data (hashes/refs only); access via session/token hash lookups
   - identity.users
   - identity.credentials
   - identity.auth_tokens
   - identity.sessions
   - identity.mfa_factors
   - identity.recovery_codes
-  # provider callbacks arrive before an org is known; deduped by (provider, event_id)
   - platform.webhook_events_inbound
-  # RBAC reference data (seeded by migration; read-only to runtime roles)
   - tenancy.roles
   - tenancy.permissions
   - tenancy.role_permissions
-  # platform-role assignments: tenant-less by nature (platform staff, not org members)
   - tenancy.platform_roles
-  # plan catalogue: global reference data, readable by every runtime role, written only from the admin console scope
   - billing.plans
   - billing.plan_versions
-  # meter catalogue: global reference data, written only from the admin console scope
   - metering.meters
-  # price books: global reference data (public price list), written only from the admin console scope
   - billing.price_books
   - billing.quota_meters
-  # platform configuration read by every runtime role, written by seed/config migrations only (docs/11 §4, §6)
   - invoicing.billing_entities
   - invoicing.tax_rates
   - invoicing.invoice_sequences
-  # e-invoicing onboarding and credential REFERENCES (vault refs only): per billing entity and environment, admin console scope only (S11b)
   - invoicing.zatca_onboarding
   - invoicing.zatca_credentials_refs
-  # financial reconciliation results span organizations: admin console scope only (S12a)
   - finrec.reconciliation_runs
   - finrec.reconciliation_items
   - finrec.reconciliation_resolutions
-  # payment service providers: configuration (psp_accounts) and the webhook intake (psp_events; only the psp_webhook scope can touch it)
   - payments.psp_accounts
   - payments.psp_events
   - billing.price_book_versions
   - billing.price_items
-  # hash-chain heads: private to audit trigger/verifier functions (no runtime grants)
   - audit.chain_heads
-  # classification catalogue: global reference data seeded by migration, read-only to runtime roles (M04 S13a)
   - compliance.data_classes
-  # archival registry: platform configuration, written by migration only (M04 S13c)
   - audit.archivable_tables
-  # retention policies: platform configuration, versioned, admin scope only (M04 S13c)
   - audit.retention_policies
-  # control register, evidence, validations and breach cases: platform registers, admin scope only (M04 S15)
   - compliance.control_catalog
   - compliance.control_mappings
   - compliance.evidence_items
@@ -181,10 +202,7 @@ tenant_less:
   - compliance.breach_cases
   - domains.registrar_accounts
   - domains.registrars
-  # provider selection config for managed data and email (M08 S32): platform register, admin scope only; nothing is seeded, nothing is enabled by default
   - data.data_providers
-  # provider registry, accounts (vault REFERENCES only), verified regions, plans, capability matrix, evidence, catalog snapshots, platform jobs (M05 S16):
-  # admin console scope only; customers see offers through the eligibility function, never these tables
   - cloud.providers
   - cloud.provider_accounts
   - cloud.evidence_items
@@ -193,12 +211,10 @@ tenant_less:
   - cloud.provider_capabilities
   - cloud.catalog_snapshots
   - cloud.provider_jobs
-  - cloud.live_verification_runs # M05 S23: results of human-triggered live verifications (append-only)
-  # M05 S17: routing rules, reconciliation history (admin console scope) and the image catalogue (written by catalog syncs, admin scope)
+  - cloud.live_verification_runs
   - cloud.routing_rules
   - cloud.resource_reconciliations
   - compute.images
-  # hosting platform tables (M06): nodes, agents, capacity, the agent command log and the plan catalogue; admin scope only (the plan catalogue is readable by every runtime role)
   - hosting.nodes
   - hosting.node_overcommit_changes
   - hosting.node_agents
@@ -208,11 +224,16 @@ tenant_less:
   - hosting.plan_definitions
   - hosting.site_allocations
   - hosting.site_migrations
-  # >>> M09 tenant-less
-  # model provider registry (M09 S37): admin console scope; runtime roles read only ENABLED rows (through the gateway)
   - ai.model_providers
-  # <<< M09 tenant-less
-# isolated by RLS on their own key instead of an org_id column
+  - compliance.policy_versions
+  - ops.incidents
+  - ops.incident_updates
+  - ops.alerts
+  - ops.provider_incidents
+  - ops.recovery_exercises
+  - ops.slo_definitions
+  - ops.probe_runs
+  - ops.launch_gates
 rls_keyed:
   - tenancy.organizations
 migration_ranges:
@@ -232,7 +253,7 @@ migration_ranges:
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
 classification:
-  classes: [public, internal, customer-content, personal, financial, credentials]
+  classes: [ public, internal, customer-content, personal, financial, credentials ]
   # Columns whose NAME looks sensitive but whose content is not; each needs a reason (10+ characters).
   exceptions:
     data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
@@ -268,11 +289,12 @@ classification:
     ai.reservations.tokens: a count of reserved LLM tokens (text units), not an authentication token
     ai.runs.tokens_in: a count of LLM input tokens (text units), not an authentication token
     ai.runs.tokens_out: a count of LLM output tokens (text units), not an authentication token
+    identity.sso_domain_proofs.token: the public DNS TXT challenge value (published in DNS by design, proves domain ownership only), not a secret
     # <<< M09 exceptions
-  # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
-  # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
-  #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
-  #   lookup    = the NON-secret lookup prefix of a key                    encrypted = field-level AES-256-GCM (apps/api/src/common/field-crypto.ts)
+    # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
+    # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
+    #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
+    #   lookup    = the NON-secret lookup prefix of a key                    encrypted = field-level AES-256-GCM (apps/api/src/common/field-crypto.ts)
   protection:
     data.database_instances.vault_ref: vault_ref
     data.storage_buckets.credential_vault_ref: vault_ref
@@ -312,6 +334,9 @@ classification:
     builder.forms.notify_email_enc: encrypted
     ai.messages.content_enc: encrypted
     ai.model_usage.body_enc: encrypted
+    identity.sso_connections.vault_ref: vault_ref
+    identity.scim_tokens.prefix: lookup
+    identity.scim_tokens.token_hash: hash
     # <<< M09 protection
   columns:
     audit.audit_checkpoints:
@@ -1090,7 +1115,7 @@ classification:
       error: internal
       received_at: internal
       processed_at: internal
-      duplicate_count: internal   # S12d migration 0312: counters of duplicate deliveries, no personal data
+      duplicate_count: internal # S12d migration 0312: counters of duplicate deliveries, no personal data
       last_duplicate_at: internal
     payments.refunds:
       id: internal
@@ -1571,6 +1596,10 @@ classification:
       result: internal
       action_taken: internal
       actor_user_id: internal
+      tr_type: internal
+      subject_kind: internal
+      subject_ref: internal
+      evidence_mode: internal
     cloud.resources:
       id: internal
       org_id: internal
@@ -2683,3 +2712,188 @@ classification:
       updated_at: internal
       finished_at: internal
       version: internal
+    identity.sso_connections:
+      id: internal
+      org_id: internal
+      protocol: internal
+      name: customer-content
+      config: customer-content
+      vault_ref: credentials
+      domains: customer-content
+      verified_domains: customer-content
+      jit: internal
+      enforce: internal
+      idp_initiated: internal
+      status: internal
+      last_test_result: customer-content
+      created_by: internal
+      idempotency_key: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    identity.sso_domain_proofs:
+      id: internal
+      org_id: internal
+      connection_id: internal
+      domain: customer-content
+      token: internal
+      status: internal
+      checked_at: internal
+      verified_at: internal
+      created_at: internal
+    identity.sso_assertion_replays:
+      connection_id: internal
+      org_id: internal
+      assertion_hash: internal
+      expires_at: internal
+      created_at: internal
+    identity.scim_tokens:
+      id: internal
+      org_id: internal
+      connection_id: internal
+      prefix: credentials
+      token_hash: credentials
+      scopes: internal
+      expires_at: internal
+      last_used_at: internal
+      revoked_at: internal
+      created_by: internal
+      created_at: internal
+    identity.scim_identities:
+      id: internal
+      org_id: internal
+      connection_id: internal
+      external_id: personal
+      user_id: internal
+      created_at: internal
+      updated_at: internal
+      deprovisioned_at: internal
+    audit.access_reviews:
+      id: internal
+      org_id: internal
+      scope: internal
+      reviewers: internal
+      due_at: internal
+      status: internal
+      items: personal
+      created_by: internal
+      idempotency_key: internal
+      created_at: internal
+      closed_at: internal
+      version: internal
+    compliance.policy_versions:
+      id: internal
+      policy_key: internal
+      version: internal
+      title: internal
+      body_ref: internal
+      effective_from: internal
+      approved_by: internal
+      approval_ref: internal
+      change_note: internal
+      created_by: internal
+      created_at: internal
+    ops.incidents:
+      id: internal
+      severity: internal
+      title: internal
+      status: internal
+      components: internal
+      summary: internal
+      breach_case_id: internal
+      opened_by: internal
+      idempotency_key: internal
+      opened_at: internal
+      resolved_at: internal
+      closed_at: internal
+      updated_at: internal
+      version: internal
+    ops.incident_updates:
+      id: internal
+      incident_id: internal
+      kind: internal
+      body: internal
+      status_to: internal
+      severity_to: internal
+      author: internal
+      created_at: internal
+    ops.alerts:
+      id: internal
+      rule_key: internal
+      title: internal
+      severity: internal
+      owner_role: internal
+      runbook_url: internal
+      rule: internal
+      state: internal
+      state_since: internal
+      silenced_until: internal
+      silenced_by: internal
+      acknowledged_by: internal
+      last_evaluated_at: internal
+      last_value: internal
+      enabled: internal
+      created_by: internal
+      created_at: internal
+      version: internal
+    ops.provider_incidents:
+      id: internal
+      provider_account_id: internal
+      provider_key: internal
+      external_ref: internal
+      status: internal
+      title: internal
+      started_at: internal
+      resolved_at: internal
+      related_incident_id: internal
+      source: internal
+      created_at: internal
+      updated_at: internal
+    ops.recovery_exercises:
+      id: internal
+      scope: internal
+      started_at: internal
+      restored_at: internal
+      rpo_seconds: internal
+      rto_seconds: internal
+      target_rpo_seconds: internal
+      target_rto_seconds: internal
+      evidence_refs: internal
+      result: internal
+      environment: internal
+      notes: internal
+      recorded_by: internal
+      idempotency_key: internal
+      created_at: internal
+    ops.slo_definitions:
+      id: internal
+      slo_key: internal
+      title: internal
+      objective: internal
+      unit: internal
+      window_days: internal
+      sli: internal
+      basis: internal
+      status: internal
+      created_at: internal
+    ops.probe_runs:
+      id: internal
+      probe_key: internal
+      ok: internal
+      duration_ms: internal
+      detail: internal
+      mode: internal
+      ran_at: internal
+    ops.launch_gates:
+      id: internal
+      gate_key: internal
+      version: internal
+      title: internal
+      owner: internal
+      source: internal
+      status: internal
+      evidence_ref: internal
+      decided_by: internal
+      decided_at: internal
+      note: internal
+      created_at: internal

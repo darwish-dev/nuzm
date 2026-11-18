@@ -414,6 +414,13 @@ export const CATEGORIES: Category[] = [
               'privacy:residency:read',
             ],
           },
+          {
+            id: 'sso',
+            label: 'm12.nav.sso',
+            href: '/settings/security/sso',
+            perm: ['org:security'],
+            flag: 'enterprise.sso',
+          },
           { id: 'agency', label: 'nav.agency', href: '/agency', orgType: 'agency' },
           { id: 'reseller', label: 'nav.reseller', href: '/reseller', orgType: 'reseller' },
         ],

@@ -61,3 +61,22 @@ HG-12-01 (pen test), HG-12-02 (SSO tenants), HG-12-03 (training, runbooks, on-ca
 
 ## I. Next-milestone handoff and open decisions
 After M09–M11 gates exist: merge, regenerate SDK/lockfile, run S58 (full regression, documentation freeze, decision package). Owner decisions: SCR-M12-01..09, manifest additions (4 tables + `cloud` extension + migration numbering), D-27/D-29/D-30/D-31/D-34, ADR-055, staging environment, vendor for the pen test (D-28), trustProxy / rate-limit placement, metering gaps (egress, snapshots, RC-04 compute bill source).
+
+## UI (UI-M12-xx)
+Built (apps/web, apps/admin; AR-RTL + EN keys `m12.*`, 489 keys appended; loading/forbidden/empty/error handled): UI-M12-01 SSO settings (customer; nav hidden unless flag `enterprise.sso` and `org:security`; test login shown disabled, enforcement unavailable until a test login exists), -04 health, -05/-06 incidents (detail derived from the list: no GET by id), -07 alerts, -08 provider incidents, -09 recovery exercises (RTO computed, not typed), -10/-11 access reviews, -12 policies, -14 audit retention (states archival is unavailable), -16 launch board (static, read-only: SCR-M12-03), -17 support handbook (static runbook index; escalation matrix not in the repo, stated as such). **Not built:** -02 and -03 (SCR-M12-01/02), -13 (audit explorer already exists as UI-M01-17), -15 (not trivial). Admin screens are hidden by permission only (no admin feature-flag mechanism exists).
+Verified: typecheck (i18n, admin, web) exit 0; unit tests admin 174 and web SSO 16 pass; eslint/prettier clean on touched files; `@nuzm/admin` and `@nuzm/web` build. **NOT RUN:** `e2e/tests/10-m12-console.spec.ts` (AR + EN, axe + screenshots) — ports held by the owner's dev servers; therefore **no screenshots and no axe result exist** and AC-M12-22 stays NOT VERIFIED. Arabic copy has had no native review.
+
+## Verification log (2026-11-18, `NUZM_PGPORT=54354`, local single-node Postgres 16, machine heavily loaded by sibling sessions)
+| Command | Result |
+|---|---|
+| `pnpm install --frozen-lockfile` (before adding deps) | OK; then `pnpm add xml-crypto @xmldom/xmldom` (lockfile regenerated) |
+| `pnpm build` | OK (exit 0, 26 tasks, incl. admin and web production builds) |
+| `pnpm --filter @nuzm/api typecheck`, admin, web, i18n | exit 0 |
+| `pnpm exec eslint apps/api packages/platform packages/db` | clean (after fixing 3 findings) |
+| `pnpm exec prettier --check apps/api packages/platform packages/db spec docs` | all formatted |
+| unit: `turbo run test --filter='!@nuzm/e2e'` | all packages pass (api 760+ incl. SAML 37, OIDC 8, load harness 7, chaos registry 3, RC-05 3); admin 174 pass on re-run (1 transient failure of `ProviderPanels.spec` under load during the first run) |
+| `pnpm spec:lint` / `spec:drift` / `sdk:check` | no findings / 314 routes declared and implemented / up to date |
+| `pnpm scan:secrets`, `compliance:claims-guard` | 0 hits (1545 files) / OK |
+| `db:migrate` (1710–1750 on a fresh DB), `db:test-rls`, `compliance:classification-coverage` (2039 columns, 168 tables), `compliance:ropa-coverage`, `compliance:residency-hooks` | all OK |
+| `pnpm test:integration` | db 43, platform 32, worker 8 pass; **api 1326 pass, 2 fail**: (1) `invoicing/zatca-queue.int.spec.ts` "exponential backoff, then a dead letter…" fails deterministically on re-run (`queued` ≠ `reported`); M12 touches nothing in invoicing; **not verified on main**; (2) `tenancy/cross-tenant.int.spec.ts` positive control: invoice PDF 503 because the PDF renderer needs Chrome (environmental). M12 suites inside this run: enterprise 22 + audit-assurance 7, ops 13, tenant sweep 8, all pass. |
+| `pnpm test:e2e`, `verify:full` | **NOT RUN** (ports held by the owner's dev servers) |

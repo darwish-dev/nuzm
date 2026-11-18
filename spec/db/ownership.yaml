@@ -89,7 +89,7 @@ schemas:
     owner_module: ai
     created_by: M09
     extended_by: [M10]
-    tables: [artifacts, budgets, credit_balances, evaluations, messages, model_providers, model_usage, run_steps, runs, sessions, tool_calls]
+    tables: [approval_requests, artifacts, budgets, credit_balances, evaluations, messages, model_providers, model_usage, run_steps, runs, sessions, tool_calls]
   builder:
     owner_module: builder
     created_by: M09
@@ -239,6 +239,8 @@ classification:
     email.messages.send_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     email.messages.idempotency_key: the caller's Idempotency-Key header value (an opaque client-chosen id), not a credential
     data.storage_buckets.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    ai.run_steps.tokens_in: a count of language-model input tokens consumed by one step (a usage number), not an authentication token
+    ai.run_steps.tokens_out: a count of language-model output tokens produced by one step (a usage number), not an authentication token
     data.database_backups.idempotency_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     audit.audit_logs.actor_api_key_id: the opaque id of the API key that acted, never the key or its secret
     billing.price_items.unit_price_minor: an entry of the public price list, not a customer's money
@@ -2311,3 +2313,71 @@ classification:
       managed_by: internal
       created_at: internal
       updated_at: internal
+    # ---- M10A (S42..S47): append-only block; M10 tables only (M09 owns ai.runs, builder.projects, deploy.deployments) ----
+    ai.run_steps:
+      id: internal
+      org_id: internal
+      run_id: internal
+      seq: internal
+      node: internal
+      agent: internal
+      status: internal
+      attempt: internal
+      input_ref: internal
+      output_ref: internal
+      checkpoint_ref: internal
+      tokens_in: internal
+      tokens_out: internal
+      cost_minor: financial
+      error_code: internal
+      data_region: internal
+      started_at: internal
+      finished_at: internal
+      created_at: internal
+    ai.tool_calls:
+      id: internal
+      org_id: internal
+      run_id: internal
+      step_id: internal
+      tool: internal
+      args_redacted: customer-content
+      result_ref: internal
+      status: internal
+      duration_ms: internal
+      approved_by: internal
+      action_hash: internal
+      data_region: internal
+      created_at: internal
+    ai.approval_requests:
+      id: internal
+      org_id: internal
+      subject_type: internal
+      subject_id: internal
+      run_id: internal
+      approval_type: internal
+      action: customer-content
+      action_hash: internal
+      status: internal
+      requested_by: internal
+      requested_by_kind: internal
+      required_roles: internal
+      expires_at: internal
+      decided_by: internal
+      decided_at: internal
+      decision_note: customer-content
+      data_region: internal
+      created_at: internal
+    builder.app_specs:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version: internal
+      spec: customer-content
+      content_hash: internal
+      status: internal
+      run_id: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      approved_by: internal
+      approved_at: internal

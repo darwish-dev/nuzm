@@ -108,9 +108,27 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
+      '@nuzm/adapter-alibaba-ecs':
+        specifier: workspace:*
+        version: link:../../packages/adapters/alibaba-ecs
+      '@nuzm/adapter-contabo-vps':
+        specifier: workspace:*
+        version: link:../../packages/adapters/contabo-vps
       '@nuzm/adapter-contracts':
         specifier: workspace:*
         version: link:../../packages/adapters/contracts
+      '@nuzm/adapter-costs':
+        specifier: workspace:*
+        version: link:../../packages/adapters/costs
+      '@nuzm/adapter-http':
+        specifier: workspace:*
+        version: link:../../packages/adapters/http
+      '@nuzm/adapter-huawei-ecs':
+        specifier: workspace:*
+        version: link:../../packages/adapters/huawei-ecs
+      '@nuzm/adapter-live-verify':
+        specifier: workspace:*
+        version: link:../../packages/adapters/live-verify
       '@nuzm/adapter-mock-compute':
         specifier: workspace:*
         version: link:../../packages/adapters/mock-compute
@@ -343,6 +361,22 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/adapters/costs:
+    dependencies:
+      '@nuzm/adapter-contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/adapters/http:
     dependencies:
       '@nuzm/adapter-contracts':
@@ -386,16 +420,28 @@ importers:
 
   packages/adapters/live-verify:
     dependencies:
+      '@nuzm/adapter-alibaba-ecs':
+        specifier: workspace:*
+        version: link:../alibaba-ecs
+      '@nuzm/adapter-contabo-vps':
+        specifier: workspace:*
+        version: link:../contabo-vps
       '@nuzm/adapter-contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@nuzm/adapter-http':
+        specifier: workspace:*
+        version: link:../http
+      '@nuzm/adapter-huawei-ecs':
+        specifier: workspace:*
+        version: link:../huawei-ecs
+      '@nuzm/adapter-runtime':
+        specifier: workspace:*
+        version: link:../runtime
     devDependencies:
       '@nuzm/adapter-mock-compute':
         specifier: workspace:*
         version: link:../mock-compute
-      '@nuzm/adapter-runtime':
-        specifier: workspace:*
-        version: link:../runtime
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5

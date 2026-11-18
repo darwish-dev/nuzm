@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MockComputeAdapter } from '@nuzm/adapter-mock-compute';
 import { buildRegionReport } from './region-report';
+import { runCli } from './cli';
 import { runLiveVerification, type LvOptions } from './runner';
 
 const mk = (over: Partial<LvOptions> = {}): LvOptions => {
@@ -104,5 +105,44 @@ describe('verified-region report', () => {
     });
     expect(r.status).toBe('LIVE-VERIFIED');
     expect(r.json.saudiArabia).toBe('verified');
+  });
+});
+
+describe('owner CLI', () => {
+  it('does nothing without the owner trigger variables (agents never set them)', async () => {
+    const lines: string[] = [];
+    const r = await runCli(
+      { NUZM_LV_PROVIDER: 'alibaba' },
+      {
+        makeAdapter: async () => {
+          throw new Error('must not be called');
+        },
+        log: (l: string) => lines.push(l),
+      },
+    );
+    expect(r.exitCode).toBe(2);
+    expect(r.result).toBeNull();
+    expect(lines[0]).toMatch(/^NOT RUN/);
+  });
+  it('with the full owner trigger it runs, and a mock adapter yields NOT VERIFIED', async () => {
+    const env = {
+      NUZM_LV_PROVIDER: 'contabo',
+      NUZM_LV_VAULT_REF: 'vault://dev/x/y',
+      NUZM_LV_OWNER_HG: 'HG-05-03',
+      NUZM_LV_OWNER_EVIDENCE_ID: 'EV-1',
+      NUZM_LV_SPEND_CAP_MINOR: '1000',
+      NUZM_LV_CURRENCY: 'SAR',
+      NUZM_LV_REGION: 'mock-eu-1',
+      NUZM_LV_PLAN: 'mock.small',
+      NUZM_LV_IMAGE: 'mock-ubuntu',
+      NUZM_LV_SSH_PUBLIC_KEY: 'ssh-ed25519 AAAA t',
+      NUZM_LV_EST_COST_MINOR: '100',
+    };
+    const r = await runCli(env, {
+      makeAdapter: async () => new MockComputeAdapter(),
+      log: () => {},
+    });
+    expect(r.result?.status).toBe('NOT VERIFIED');
+    expect(r.exitCode).toBe(0);
   });
 });

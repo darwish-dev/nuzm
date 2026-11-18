@@ -92,7 +92,9 @@ describe('provider registry (FR-CLD-01)', () => {
       environmentPolicy: 'non_production_only',
       adapterAvailable: true,
     });
-    for (const k of ['alibaba', 'huawei', 'contabo']) expect(by[k].adapterAvailable).toBe(false);
+    // M05 S18-S22 registered the real vendor adapters (documentation-built, NOT VERIFIED); hosting still has none
+    for (const k of ['alibaba', 'huawei', 'contabo']) expect(by[k].adapterAvailable).toBe(true);
+    expect(by.cloudpanel.adapterAvailable).toBe(false);
   });
   it('enforces platform permissions: security may read but not register; compliance officer has no provider access', async () => {
     expect((await admin('sec', 'GET', '/v1/admin/providers')).statusCode).toBe(200);
@@ -420,7 +422,7 @@ describe('verification: capabilities and verified regions come only from the pro
   });
 
   it('a provider without an adapter fails verification honestly (no invented capabilities or regions)', async () => {
-    const a = await newAccount('alibaba', 'acct-alibaba-noadapter');
+    const a = await newAccount('cloudpanel', 'acct-cloudpanel-noadapter');
     const j = await verify(a.id);
     expect(j.state).toBe('failed');
     expect(j.error.code).toBe('adapter_not_available');

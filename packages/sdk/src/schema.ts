@@ -2736,6 +2736,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/provider-costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provider cost records
+         * @description What the providers charge Nuzm (metering.provider_cost_records), in the provider currency as integer minor units, with totals per currency. Platform only; never shown to customers. Records are captured from closed billing periods (adapter fetchBilling) or the manual import. Keyset pagination (cursor).
+         */
+        get: operations["adminListProviderCosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/live-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live-verification jobs and recorded runs
+         * @description The three human-triggered live-verification jobs (alibaba, huawei, contabo) with their gate state (HG-05-01..03 PENDING|GRANTED) and label (NOT RUN | NOT VERIFIED | LIVE-VERIFIED | FAIL), plus recorded runs. READ-ONLY: no operation starts a run.
+         */
+        get: operations["adminListLiveVerification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/live-verification/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the result of a human-triggered live verification
+         * @description Stores what the owner-run job reported (append-only). LIVE-VERIFIED is accepted only with the owner gate evidence id, at least one evidence id and zero residual resources; fixtures and mocks are NOT VERIFIED. This does not start anything.
+         */
+        post: operations["adminRecordLiveVerificationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5359,6 +5419,95 @@ export interface components {
         CloudResourceList: {
             items: components["schemas"]["CloudResource"][];
             nextCursor: string | null;
+        };
+        ProviderCostRecord: {
+            /** Format: uuid */
+            id: string;
+            providerAccountId: string;
+            providerKey?: string | null;
+            resourceId?: string | null;
+            /** Format: uuid */
+            orgId?: string | null;
+            /** Format: date */
+            periodStart: string;
+            /** Format: date */
+            periodEnd: string;
+            meterOrSku: string;
+            quantity: string;
+            /** @description Integer minor units of currency. */
+            costMinor: string;
+            currency: string;
+            /** @enum {string} */
+            source: "api" | "bill_import";
+            providerLineRef: string;
+            /** Format: date-time */
+            capturedAt: string;
+        };
+        ProviderCostList: {
+            items: components["schemas"]["ProviderCostRecord"][];
+            nextCursor: string | null;
+            totals: {
+                currency: string;
+                costMinor: string;
+                records: number;
+                unattributed: number;
+            }[];
+        };
+        LiveVerificationJob: {
+            /** @enum {string} */
+            jobId: "live-verify-alibaba" | "live-verify-huawei" | "live-verify-contabo";
+            provider: string;
+            /** @enum {string} */
+            gate: "HG-05-01" | "HG-05-02" | "HG-05-03";
+            /** @enum {string} */
+            gateStatus: "PENDING" | "GRANTED";
+            /** @enum {string} */
+            label: "NOT RUN" | "NOT VERIFIED" | "LIVE-VERIFIED" | "FAIL";
+            /** Format: date-time */
+            lastRunAt: string | null;
+        };
+        LiveVerificationRun: {
+            /** Format: uuid */
+            id: string;
+            jobId: string;
+            /** @enum {string} */
+            status: "NOT RUN" | "NOT VERIFIED" | "LIVE-VERIFIED" | "FAIL";
+            reason: string;
+            steps: {
+                [key: string]: unknown;
+            }[];
+            evidenceIds: string[];
+            gateEvidenceId?: string | null;
+            spendCapMinor?: string | null;
+            currency?: string | null;
+            residualResources: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LiveVerificationOverview: {
+            jobs: components["schemas"]["LiveVerificationJob"][];
+            runs: components["schemas"]["LiveVerificationRun"][];
+        };
+        RecordLiveVerificationRun: {
+            /** @enum {string} */
+            jobId: "live-verify-alibaba" | "live-verify-huawei" | "live-verify-contabo";
+            /** @enum {string} */
+            status: "NOT RUN" | "NOT VERIFIED" | "LIVE-VERIFIED" | "FAIL";
+            reason: string;
+            steps?: {
+                [key: string]: unknown;
+            }[];
+            evidenceIds?: string[];
+            gateEvidenceId?: string;
+            spendCapMinor?: string;
+            currency?: string;
+            residualResources?: number;
+        };
+        LiveVerificationRecorded: {
+            /** Format: uuid */
+            id: string;
+            jobId: string;
+            status: string;
         };
     };
     responses: {
@@ -10812,6 +10961,87 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["Problem"];
+        };
+    };
+    adminListProviderCosts: {
+        parameters: {
+            query?: {
+                /** @description Filter by provider account. */
+                providerAccountId?: string;
+                /** @description Billing month YYYY-MM. */
+                period?: string;
+                /** @description Page size (default 50). */
+                limit?: number;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderCostList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListLiveVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveVerificationOverview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminRecordLiveVerificationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordLiveVerificationRun"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveVerificationRecorded"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }

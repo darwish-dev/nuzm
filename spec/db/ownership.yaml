@@ -59,7 +59,7 @@ schemas:
     owner_module: cloud
     created_by: M05
     extended_by: [M06, M08]
-    tables: [catalog_snapshots, evidence_items, provider_accounts, provider_capabilities, provider_jobs, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
+    tables: [catalog_snapshots, evidence_items, live_verification_runs, provider_accounts, provider_capabilities, provider_jobs, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
   compute:
     owner_module: compute
     created_by: M05
@@ -187,6 +187,7 @@ tenant_less:
   - cloud.provider_capabilities
   - cloud.catalog_snapshots
   - cloud.provider_jobs
+  - cloud.live_verification_runs # M05 S23: results of human-triggered live verifications (append-only)
   # M05 S17: routing rules, reconciliation history (admin console scope) and the image catalogue (written by catalog syncs, admin scope)
   - cloud.routing_rules
   - cloud.resource_reconciliations
@@ -1430,6 +1431,21 @@ classification:
       created_at: internal
       updated_at: internal
       subject_id: internal
+    cloud.live_verification_runs:
+      id: internal
+      job_id: internal
+      provider_key: internal
+      gate: internal
+      gate_evidence_id: internal
+      status: internal
+      reason: internal
+      steps: internal
+      evidence_ids: internal
+      spend_cap_minor: internal
+      currency: internal
+      residual_resources: internal
+      recorded_by: internal
+      created_at: internal
     cloud.provider_plans:
       id: internal
       account_id: internal

@@ -1,0 +1,104 @@
+# Live-verification job definitions (M05 §5, LV-1..LV-6). HUMAN-TRIGGERED ONLY: an agent never enables or runs these; every job needs the owner's
+# gate evidence id and a spend cap. Status of every job today: NOT RUN (HG-05-01/02/03/04 PENDING, no account or credential exists).
+# Run (owner, on a trusted machine, with the non-production dedicated test account's vault reference):
+#   NUZM_LV_PROVIDER=alibaba NUZM_LV_OWNER_TRIGGER=… node packages/adapters/live-verify/dist/bin.js      (see docs/runbooks/live-verification.md)
+status: PROPOSAL
+jobs:
+  - id: live-verify-alibaba
+    provider: alibaba
+    adapter: alibaba-ecs
+    gate: HG-05-01
+    quota_gate: HG-05-04
+    egress: ['*.aliyuncs.com']
+    steps:
+      [
+        probe,
+        provision,
+        inspect,
+        stop,
+        start,
+        reboot,
+        resize-if-supported,
+        snapshot-if-supported,
+        metrics,
+        delete,
+        teardown-verifier,
+        billing-record,
+      ]
+    resources_tagged: { 'nuzm-live-verify': '<job id>' }
+    teardown: 'findByToken must find nothing live for the run token; any residue fails the job and pages the owner (LV-4)'
+    evidence: 'redacted raw evidence indexed in docs/reports/evidence-index.md; result recorded through POST /v1/admin/live-verification/runs'
+    must_establish:
+      [
+        signature acceptance by the real endpoint,
+        DryRun semantics (HTTP status of DryRunOperation),
+        ClientToken replay,
+        tag-lookup consistency after RunInstances,
+        Saudi region (me-central-1) in the account DescribeRegions listing,
+        BSS endpoint for the account site,
+      ]
+  - id: live-verify-huawei
+    provider: huawei
+    adapter: huawei-ecs
+    gate: HG-05-02
+    quota_gate: HG-05-04
+    egress: ['*.myhuaweicloud.com']
+    steps:
+      [
+        probe,
+        provision,
+        inspect,
+        stop,
+        start,
+        reboot,
+        resize-if-supported,
+        snapshot-if-supported,
+        metrics,
+        delete,
+        teardown-verifier,
+        billing-record,
+      ]
+    resources_tagged: { 'nuzm-live-verify': '<job id>' }
+    teardown: 'findByToken must find nothing live for the run token; any residue fails the job and pages the owner (LV-4)'
+    evidence: 'redacted raw evidence indexed in docs/reports/evidence-index.md; result recorded through POST /v1/admin/live-verification/runs'
+    must_establish:
+      [
+        gateway acceptance of the AK/SK signer,
+        IAM project listing with AK/SK,
+        X-Client-Token replay and the 8-hour window,
+        name-filter consistency after create,
+        delete of a missing server,
+        EVS snapshot permission,
+        job-query permission,
+        me-east-1 (ME-Riyadh) project in the account,
+      ]
+  - id: live-verify-contabo
+    provider: contabo
+    adapter: contabo-vps
+    gate: HG-05-03
+    quota_gate: HG-05-04
+    egress: ['api.contabo.com', 'auth.contabo.com']
+    steps:
+      [
+        probe,
+        provision,
+        inspect,
+        stop,
+        start,
+        reboot,
+        snapshot-if-supported,
+        delete(cancel),
+        teardown-verifier,
+      ]
+    resources_tagged: { 'displayName marker': 'nuzm:<token>|…' }
+    teardown: 'cancel semantics are NOT DOCUMENTED: the verifier records the post-cancel state and whether billing continues; a residual instance fails the job'
+    evidence: 'redacted raw evidence indexed in docs/reports/evidence-index.md; result recorded through POST /v1/admin/live-verification/runs'
+    must_establish:
+      [
+        list-after-create consistency (is absence from findByToken proof?),
+        state and billing after cancel,
+        cloud-init key injection,
+        per-product action support,
+        the data-centre country behind region EU (SI-M05-7),
+        plan and location access of the account,
+      ]

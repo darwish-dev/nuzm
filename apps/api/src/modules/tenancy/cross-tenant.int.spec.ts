@@ -170,6 +170,7 @@ beforeAll(async () => {
   // M07: a domain and its DNS zone of org A (rows written directly: ordering one needs a registrar; the isolation check does not). The feature flag is on so the
   // positive control resolves them; every hostile call must still be a 404.
   process.env.DOMAINS_ENABLED = 'true';
+  process.env.ENTERPRISE_ENABLED = 'true'; // M12: SSO/SCIM are flagged off by default; the positive control needs them on
   const acct = crypto.randomUUID();
   A.domain = crypto.randomUUID();
   A.zone = crypto.randomUUID();

@@ -1,4 +1,10 @@
-import { Global, Inject, Module, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Module,
+  type OnApplicationBootstrap,
+  type OnModuleDestroy,
+} from '@nestjs/common';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { FlagReader } from '../../common/feature-flags';
@@ -14,9 +20,19 @@ import { MarketplaceController } from './marketplace.controller';
 import { InstallService } from './internal/install.service';
 import { ListingService } from './internal/listing.service';
 import { ModerationService } from './internal/moderation.service';
-import { MARKETPLACE_CONFIG, MARKETPLACE_FLAG, loadMarketplaceConfig, type MarketplaceConfig } from './internal/model';
+import {
+  MARKETPLACE_CONFIG,
+  MARKETPLACE_FLAG,
+  loadMarketplaceConfig,
+  type MarketplaceConfig,
+} from './internal/model';
 import { MarketplacePricer } from './internal/pricer';
-import { ArtifactStore, ProjectInstallPort, UnavailableArtifactStore, UnavailableProjectInstallPort } from './internal/ports';
+import {
+  ArtifactStore,
+  ProjectInstallPort,
+  UnavailableArtifactStore,
+  UnavailableProjectInstallPort,
+} from './internal/ports';
 import { PublisherService } from './internal/publisher.service';
 import { PurchaseService } from './internal/purchase.service';
 
@@ -28,7 +44,17 @@ export class MarketplaceJobs {
   constructor(private readonly purchases: PurchaseService) {}
   start(seconds: number) {
     if (this.timer || seconds <= 0) return;
-    this.timer = setInterval(() => void this.purchases.syncOpen().catch((e) => process.stderr.write(JSON.stringify({ marketplace_sync_error: (e as Error).message }) + '\n')), seconds * 1000);
+    this.timer = setInterval(
+      () =>
+        void this.purchases
+          .syncOpen()
+          .catch((e) =>
+            process.stderr.write(
+              JSON.stringify({ marketplace_sync_error: (e as Error).message }) + '\n',
+            ),
+          ),
+      seconds * 1000,
+    );
     this.timer.unref();
   }
   stop() {
@@ -52,22 +78,71 @@ export class MarketplaceJobs {
     { provide: MARKETPLACE_CONFIG, useFactory: () => loadMarketplaceConfig() },
     { provide: ArtifactStore, useClass: UnavailableArtifactStore },
     { provide: ProjectInstallPort, useClass: UnavailableProjectInstallPort },
-    { provide: PublisherService, useFactory: (db: Db, a: AuditSink) => new PublisherService(db, a), inject: [DB, AuditSink] },
+    {
+      provide: PublisherService,
+      useFactory: (db: Db, a: AuditSink) => new PublisherService(db, a),
+      inject: [DB, AuditSink],
+    },
     {
       provide: ListingService,
-      useFactory: (db: Db, a: AuditSink, p: PublisherService, s: ArtifactStore, t: TaxService, c: MarketplaceConfig) => new ListingService(db, a, p, s, t, c),
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        p: PublisherService,
+        s: ArtifactStore,
+        t: TaxService,
+        c: MarketplaceConfig,
+      ) => new ListingService(db, a, p, s, t, c),
       inject: [DB, AuditSink, PublisherService, ArtifactStore, TaxService, MARKETPLACE_CONFIG],
     },
-    { provide: ModerationService, useFactory: (db: Db, a: AuditSink) => new ModerationService(db, a), inject: [DB, AuditSink] },
+    {
+      provide: ModerationService,
+      useFactory: (db: Db, a: AuditSink) => new ModerationService(db, a),
+      inject: [DB, AuditSink],
+    },
     {
       provide: PurchaseService,
-      useFactory: (db: Db, a: AuditSink, q: QuoteService, o: OrderService, i: InvoiceService, l: LedgerPostingService, f: FlagReader, c: MarketplaceConfig) => new PurchaseService(db, a, q, o, i, l, f, c),
-      inject: [DB, AuditSink, QuoteService, OrderService, InvoiceService, LedgerPostingService, FlagReader, MARKETPLACE_CONFIG],
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        q: QuoteService,
+        o: OrderService,
+        i: InvoiceService,
+        l: LedgerPostingService,
+        f: FlagReader,
+        c: MarketplaceConfig,
+      ) => new PurchaseService(db, a, q, o, i, l, f, c),
+      inject: [
+        DB,
+        AuditSink,
+        QuoteService,
+        OrderService,
+        InvoiceService,
+        LedgerPostingService,
+        FlagReader,
+        MARKETPLACE_CONFIG,
+      ],
     },
     {
       provide: InstallService,
-      useFactory: (db: Db, a: AuditSink, s: ArtifactStore, pj: ProjectInstallPort, w: WorkflowService, r: ResidencyService, f: FlagReader) => new InstallService(db, a, s, pj, w, r, f),
-      inject: [DB, AuditSink, ArtifactStore, ProjectInstallPort, WorkflowService, ResidencyService, FlagReader],
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        s: ArtifactStore,
+        pj: ProjectInstallPort,
+        w: WorkflowService,
+        r: ResidencyService,
+        f: FlagReader,
+      ) => new InstallService(db, a, s, pj, w, r, f),
+      inject: [
+        DB,
+        AuditSink,
+        ArtifactStore,
+        ProjectInstallPort,
+        WorkflowService,
+        ResidencyService,
+        FlagReader,
+      ],
     },
     {
       provide: PRICERS,
@@ -77,9 +152,22 @@ export class MarketplaceJobs {
       },
       inject: [QuotePricerRegistry, DB, ResidencyService, FlagReader],
     },
-    { provide: MarketplaceJobs, useFactory: (p: PurchaseService) => new MarketplaceJobs(p), inject: [PurchaseService] },
+    {
+      provide: MarketplaceJobs,
+      useFactory: (p: PurchaseService) => new MarketplaceJobs(p),
+      inject: [PurchaseService],
+    },
   ],
-  exports: [PublisherService, ListingService, ModerationService, PurchaseService, InstallService, ArtifactStore, ProjectInstallPort, MarketplaceJobs],
+  exports: [
+    PublisherService,
+    ListingService,
+    ModerationService,
+    PurchaseService,
+    InstallService,
+    ArtifactStore,
+    ProjectInstallPort,
+    MarketplaceJobs,
+  ],
 })
 export class MarketplaceModule implements OnApplicationBootstrap, OnModuleDestroy {
   constructor(

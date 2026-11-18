@@ -40,8 +40,39 @@ interface Tok {
   pos: number;
 }
 
-const OPS = ['&&', '||', '==', '!=', '<=', '>=', '+', '-', '*', '/', '%', '<', '>', '!', '?', ':', '(', ')', '[', ']', ',', '.'];
-const FORBIDDEN = new Set(['__proto__', 'constructor', 'prototype', '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__']);
+const OPS = [
+  '&&',
+  '||',
+  '==',
+  '!=',
+  '<=',
+  '>=',
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '<',
+  '>',
+  '!',
+  '?',
+  ':',
+  '(',
+  ')',
+  '[',
+  ']',
+  ',',
+  '.',
+];
+const FORBIDDEN = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+]);
 
 function tokenize(src: string): Tok[] {
   const out: Tok[] = [];
@@ -113,11 +144,13 @@ class Parser {
     if (!this.eat(v)) throw new ExpressionError('syntax', `expected '${v}' at ${this.cur.pos}`);
   }
   private enter() {
-    if (++this.depth > EXPRESSION_LIMITS.maxDepth) throw new ExpressionError('limit', 'expression is nested too deeply');
+    if (++this.depth > EXPRESSION_LIMITS.maxDepth)
+      throw new ExpressionError('limit', 'expression is nested too deeply');
   }
   parse(): Node {
     const n = this.ternary();
-    if (this.cur.k !== 'eof') throw new ExpressionError('syntax', `unexpected '${this.cur.v}' at ${this.cur.pos}`);
+    if (this.cur.k !== 'eof')
+      throw new ExpressionError('syntax', `unexpected '${this.cur.v}' at ${this.cur.pos}`);
     return n;
   }
   private ternary(): Node {
@@ -133,7 +166,14 @@ class Parser {
     this.depth--;
     return n;
   }
-  private static readonly LEVELS: string[][] = [['||'], ['&&'], ['==', '!='], ['<', '<=', '>', '>='], ['+', '-'], ['*', '/', '%']];
+  private static readonly LEVELS: string[][] = [
+    ['||'],
+    ['&&'],
+    ['==', '!='],
+    ['<', '<=', '>', '>='],
+    ['+', '-'],
+    ['*', '/', '%'],
+  ];
   private binary(level: number): Node {
     if (level >= Parser.LEVELS.length) return this.unary();
     let a = this.binary(level + 1);
@@ -192,13 +232,16 @@ class Parser {
         }
         return { t: 'call', fn: t.v, args };
       }
-      if (FORBIDDEN.has(t.v)) throw new ExpressionError('forbidden_path', `'${t.v}' is not allowed`);
+      if (FORBIDDEN.has(t.v))
+        throw new ExpressionError('forbidden_path', `'${t.v}' is not allowed`);
       const parts: (string | Node)[] = [];
       for (;;) {
         if (this.eat('.')) {
           const id = this.cur;
-          if (id.k !== 'id') throw new ExpressionError('syntax', `expected a name after '.' at ${id.pos}`);
-          if (FORBIDDEN.has(id.v)) throw new ExpressionError('forbidden_path', `'${id.v}' is not allowed`);
+          if (id.k !== 'id')
+            throw new ExpressionError('syntax', `expected a name after '.' at ${id.pos}`);
+          if (FORBIDDEN.has(id.v))
+            throw new ExpressionError('forbidden_path', `'${id.v}' is not allowed`);
           this.p++;
           parts.push(id.v);
         } else if (this.eat('[')) {
@@ -213,12 +256,18 @@ class Parser {
   }
 }
 
-export type CompiledExpression = { readonly source: string; readonly ast: unknown; readonly roots: readonly string[] };
+export type CompiledExpression = {
+  readonly source: string;
+  readonly ast: unknown;
+  readonly roots: readonly string[];
+};
 
 /** Parse once (also used by the workflow validator: a definition with an unparsable expression is rejected at publish). */
 export function compileExpression(source: string): CompiledExpression {
-  if (typeof source !== 'string') throw new ExpressionError('type', 'an expression must be a string');
-  if (source.length > EXPRESSION_LIMITS.maxLength) throw new ExpressionError('limit', 'expression is too long');
+  if (typeof source !== 'string')
+    throw new ExpressionError('type', 'an expression must be a string');
+  if (source.length > EXPRESSION_LIMITS.maxLength)
+    throw new ExpressionError('limit', 'expression is too long');
   const ast = new Parser(tokenize(source)).parse();
   const roots = new Set<string>();
   const walk = (n: Node) => {
@@ -240,7 +289,8 @@ export function compileExpression(source: string): CompiledExpression {
         walk(n.b);
         break;
       case 'call': {
-        if (!(n.fn in FUNCTIONS)) throw new ExpressionError('unknown_function', `unknown function '${n.fn}'`);
+        if (!(n.fn in FUNCTIONS))
+          throw new ExpressionError('unknown_function', `unknown function '${n.fn}'`);
         n.args.forEach(walk);
         break;
       }
@@ -260,7 +310,8 @@ const str = (v: Json, f: string): string => {
   return v;
 };
 const num = (v: Json, f: string): number => {
-  if (typeof v !== 'number' || !Number.isFinite(v)) throw new ExpressionError('type', `${f}() needs a number`);
+  if (typeof v !== 'number' || !Number.isFinite(v))
+    throw new ExpressionError('type', `${f}() needs a number`);
   return v;
 };
 const arr = (v: Json, f: string): Json[] => {
@@ -269,17 +320,31 @@ const arr = (v: Json, f: string): Json[] => {
 };
 /** The complete function library. Every function is pure and total over its declared types. */
 const FUNCTIONS: Record<string, Fn> = Object.assign(Object.create(null) as Record<string, Fn>, {
-  len: (v) => (typeof v === 'string' || Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0),
+  len: (v) =>
+    typeof v === 'string' || Array.isArray(v)
+      ? v.length
+      : v && typeof v === 'object'
+        ? Object.keys(v).length
+        : 0,
   lower: (v) => str(v!, 'lower').toLowerCase(),
   upper: (v) => str(v!, 'upper').toUpperCase(),
   trim: (v) => str(v!, 'trim').trim(),
-  concat: (...a) => a.map((x) => (x === null ? '' : typeof x === 'object' ? JSON.stringify(x) : String(x))).join(''),
-  contains: (h, n) => (typeof h === 'string' ? h.includes(str(n!, 'contains')) : arr(h!, 'contains').some((x) => JSON.stringify(x) === JSON.stringify(n))),
+  concat: (...a) =>
+    a
+      .map((x) => (x === null ? '' : typeof x === 'object' ? JSON.stringify(x) : String(x)))
+      .join(''),
+  contains: (h, n) =>
+    typeof h === 'string'
+      ? h.includes(str(n!, 'contains'))
+      : arr(h!, 'contains').some((x) => JSON.stringify(x) === JSON.stringify(n)),
   startsWith: (s, p) => str(s!, 'startsWith').startsWith(str(p!, 'startsWith')),
   endsWith: (s, p) => str(s!, 'endsWith').endsWith(str(p!, 'endsWith')),
   replace: (s, a, b) => str(s!, 'replace').split(str(a!, 'replace')).join(str(b!, 'replace')),
   split: (s, sep) => str(s!, 'split').split(str(sep!, 'split')),
-  join: (a, sep) => arr(a!, 'join').map((x) => String(x)).join(str(sep!, 'join')),
+  join: (a, sep) =>
+    arr(a!, 'join')
+      .map((x) => String(x))
+      .join(str(sep!, 'join')),
   coalesce: (...a) => a.find((x) => x !== null && x !== undefined) ?? null,
   round: (v) => Math.round(num(v!, 'round')),
   floor: (v) => Math.floor(num(v!, 'floor')),
@@ -299,14 +364,17 @@ const FUNCTIONS: Record<string, Fn> = Object.assign(Object.create(null) as Recor
     const x = arr(a!, 'last');
     return x[x.length - 1] ?? null;
   },
-  slice: (a, from, to) => arr(a!, 'slice').slice(num(from!, 'slice'), to === undefined ? undefined : num(to, 'slice')),
+  slice: (a, from, to) =>
+    arr(a!, 'slice').slice(num(from!, 'slice'), to === undefined ? undefined : num(to, 'slice')),
 } satisfies Record<string, Fn>);
 export const EXPRESSION_FUNCTIONS: readonly string[] = Object.keys(FUNCTIONS);
 
 const get = (base: Json | undefined, key: string | number): Json => {
   if (base === null || base === undefined) return null;
   if (Array.isArray(base)) {
-    return typeof key === 'number' && Number.isInteger(key) && key >= 0 ? (base[key] ?? null) : null;
+    return typeof key === 'number' && Number.isInteger(key) && key >= 0
+      ? (base[key] ?? null)
+      : null;
   }
   if (typeof base === 'object' && typeof key === 'string') {
     if (FORBIDDEN.has(key)) throw new ExpressionError('forbidden_path', `'${key}' is not allowed`);
@@ -317,10 +385,14 @@ const get = (base: Json | undefined, key: string | number): Json => {
 };
 
 /** Evaluate against `scope` (a plain JSON object). Throws ExpressionError; never throws anything else. */
-export function evaluateExpression(compiled: CompiledExpression, scope: Record<string, unknown>): Json {
+export function evaluateExpression(
+  compiled: CompiledExpression,
+  scope: Record<string, unknown>,
+): Json {
   let steps = 0;
   const tick = () => {
-    if (++steps > EXPRESSION_LIMITS.maxSteps) throw new ExpressionError('limit', 'expression took too many steps');
+    if (++steps > EXPRESSION_LIMITS.maxSteps)
+      throw new ExpressionError('limit', 'expression took too many steps');
   };
   const truthy = (v: Json) => v !== null && v !== false && v !== 0 && v !== '';
   const ev = (n: Node): Json => {
@@ -329,11 +401,14 @@ export function evaluateExpression(compiled: CompiledExpression, scope: Record<s
       case 'lit':
         return n.v;
       case 'arr': {
-        if (n.items.length > EXPRESSION_LIMITS.maxArrayLength) throw new ExpressionError('limit', 'array is too large');
+        if (n.items.length > EXPRESSION_LIMITS.maxArrayLength)
+          throw new ExpressionError('limit', 'array is too large');
         return n.items.map(ev);
       }
       case 'path': {
-        let v: Json = Object.prototype.hasOwnProperty.call(scope, n.root) ? (scope[n.root] as Json) : null;
+        let v: Json = Object.prototype.hasOwnProperty.call(scope, n.root)
+          ? (scope[n.root] as Json)
+          : null;
         for (const p of n.parts) v = get(v, typeof p === 'string' ? p : (ev(p) as string | number));
         return v;
       }
@@ -364,7 +439,8 @@ export function evaluateExpression(compiled: CompiledExpression, scope: Record<s
           case '+':
             if (typeof a === 'string' || typeof b === 'string') {
               const s = `${String(a ?? '')}${String(b ?? '')}`;
-              if (s.length > EXPRESSION_LIMITS.maxStringLength) throw new ExpressionError('limit', 'string is too long');
+              if (s.length > EXPRESSION_LIMITS.maxStringLength)
+                throw new ExpressionError('limit', 'string is too long');
               return s;
             }
             return num(a, '+') + num(b, '+');
@@ -419,7 +495,8 @@ export function renderTemplate(template: string, scope: Record<string, unknown>)
     const v = evalExpression(m[1]!.trim(), scope);
     out += v === null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
     last = m.index + m[0].length;
-    if (out.length > EXPRESSION_LIMITS.maxStringLength) throw new ExpressionError('limit', 'template result is too long');
+    if (out.length > EXPRESSION_LIMITS.maxStringLength)
+      throw new ExpressionError('limit', 'template result is too long');
   }
   return out + template.slice(last);
 }

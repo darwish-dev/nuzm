@@ -12,7 +12,11 @@ export const sign = (secret: string, timestamp: number, body: string): string =>
   createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
 
 /** Build the header for one or more active secrets (current + previous during rotation overlap). */
-export function signatureHeader(secrets: readonly string[], timestamp: number, body: string): string {
+export function signatureHeader(
+  secrets: readonly string[],
+  timestamp: number,
+  body: string,
+): string {
   if (secrets.length === 0) throw new Error('at least one secret is required');
   return `t=${timestamp},${secrets.map((s) => `v1=${sign(s, timestamp, body)}`).join(',')}`;
 }
@@ -27,7 +31,8 @@ export function verifySignature(
   nowSeconds: number,
   toleranceSeconds = SIGNATURE_TOLERANCE_SECONDS,
 ): VerifyResult {
-  if (typeof header !== 'string' || header.length === 0 || header.length > 1000) return { ok: false, reason: 'malformed' };
+  if (typeof header !== 'string' || header.length === 0 || header.length > 1000)
+    return { ok: false, reason: 'malformed' };
   let t: number | null = null;
   const sigs: string[] = [];
   for (const part of header.split(',')) {
@@ -44,7 +49,8 @@ export function verifySignature(
     }
   }
   if (t === null || sigs.length === 0 || sigs.length > 5) return { ok: false, reason: 'malformed' };
-  if (Math.abs(nowSeconds - t) > toleranceSeconds) return { ok: false, reason: 'timestamp_outside_tolerance' };
+  if (Math.abs(nowSeconds - t) > toleranceSeconds)
+    return { ok: false, reason: 'timestamp_outside_tolerance' };
   let match = false;
   for (const secret of secrets) {
     const expected = Buffer.from(sign(secret, t, body), 'hex');
@@ -58,5 +64,8 @@ export function verifySignature(
 }
 
 /** Deterministic per-step idempotency key (docs M11 S51.4): the same logical step attempt-group always yields the same key. */
-export const stepIdempotencyKey = (executionId: string, stepId: string, attemptGroup: string): string =>
-  createHash('sha256').update(`${executionId}|${stepId}|${attemptGroup}`).digest('hex');
+export const stepIdempotencyKey = (
+  executionId: string,
+  stepId: string,
+  attemptGroup: string,
+): string => createHash('sha256').update(`${executionId}|${stepId}|${attemptGroup}`).digest('hex');

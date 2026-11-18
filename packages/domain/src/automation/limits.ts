@@ -43,7 +43,8 @@ export class CircuitBreaker {
   private state: BreakerState = 'closed';
   constructor(private readonly o: BreakerOptions = { failureThreshold: 5, openSeconds: 60 }) {}
   status(now = Date.now()): BreakerState {
-    if (this.state === 'open' && now - this.openedAt >= this.o.openSeconds * 1000) this.state = 'half_open';
+    if (this.state === 'open' && now - this.openedAt >= this.o.openSeconds * 1000)
+      this.state = 'half_open';
     return this.state;
   }
   /** May a call go out now? Half-open lets exactly one probe through. */

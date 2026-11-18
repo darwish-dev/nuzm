@@ -25,17 +25,62 @@ import { StatementService } from './internal/statement.service';
   controllers: [AgenciesController, ResellersController],
   providers: [
     { provide: IssuerModelGate, useFactory: () => new IssuerModelGate() },
-    { provide: AgencyService, useFactory: (db: Db, a: AuditSink, o: OrgService, f: FlagReader) => new AgencyService(db, a, o, f), inject: [DB, AuditSink, OrgService, FlagReader] },
-    { provide: ActingOrgService, useFactory: (db: Db, a: AuditSink, o: OrgService, f: FlagReader) => new ActingOrgService(db, a, o, f), inject: [DB, AuditSink, OrgService, FlagReader] },
+    {
+      provide: AgencyService,
+      useFactory: (db: Db, a: AuditSink, o: OrgService, f: FlagReader) =>
+        new AgencyService(db, a, o, f),
+      inject: [DB, AuditSink, OrgService, FlagReader],
+    },
+    {
+      provide: ActingOrgService,
+      useFactory: (db: Db, a: AuditSink, o: OrgService, f: FlagReader) =>
+        new ActingOrgService(db, a, o, f),
+      inject: [DB, AuditSink, OrgService, FlagReader],
+    },
     { provide: ActingOrgPort, useExisting: ActingOrgService },
-    { provide: ResellerService, useFactory: (db: Db, a: AuditSink, o: OrgService, f: FlagReader, p: ResellerPriceRuleService) => new ResellerService(db, a, o, f, p), inject: [DB, AuditSink, OrgService, FlagReader, ResellerPriceRuleService] },
+    {
+      provide: ResellerService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        o: OrgService,
+        f: FlagReader,
+        p: ResellerPriceRuleService,
+      ) => new ResellerService(db, a, o, f, p),
+      inject: [DB, AuditSink, OrgService, FlagReader, ResellerPriceRuleService],
+    },
     {
       provide: StatementService,
-      useFactory: (db: Db, a: AuditSink, r: ResellerService, rt: RatingService, t: TaxService, i: InvoiceService, g: IssuerModelGate, f: FlagReader) => new StatementService(db, a, r, rt, t, i, g, f),
-      inject: [DB, AuditSink, ResellerService, RatingService, TaxService, InvoiceService, IssuerModelGate, FlagReader],
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        r: ResellerService,
+        rt: RatingService,
+        t: TaxService,
+        i: InvoiceService,
+        g: IssuerModelGate,
+        f: FlagReader,
+      ) => new StatementService(db, a, r, rt, t, i, g, f),
+      inject: [
+        DB,
+        AuditSink,
+        ResellerService,
+        RatingService,
+        TaxService,
+        InvoiceService,
+        IssuerModelGate,
+        FlagReader,
+      ],
     },
   ],
-  exports: [AgencyService, ActingOrgService, ActingOrgPort, ResellerService, StatementService, IssuerModelGate],
+  exports: [
+    AgencyService,
+    ActingOrgService,
+    ActingOrgPort,
+    ResellerService,
+    StatementService,
+    IssuerModelGate,
+  ],
 })
 export class ProgramsModule implements OnApplicationBootstrap, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
@@ -43,7 +88,10 @@ export class ProgramsModule implements OnApplicationBootstrap, OnModuleDestroy {
   onApplicationBootstrap() {
     const s = Number(process.env.PROGRAMS_SWEEP_INTERVAL_SECONDS ?? 0);
     if (s > 0) {
-      this.timer = setInterval(() => void this.agencies.expireDue().catch(() => undefined), s * 1000);
+      this.timer = setInterval(
+        () => void this.agencies.expireDue().catch(() => undefined),
+        s * 1000,
+      );
       this.timer.unref();
     }
   }

@@ -8,9 +8,16 @@ export class GuardedEgressPort extends EgressHttpPort {
   constructor(private readonly client: SafeHttpClient = new SafeHttpClient(DEFAULT_EGRESS)) {
     super();
   }
-  request(r: SafeRequest, policy: { allowHosts?: readonly string[]; denyHosts?: readonly string[] }): Promise<SafeResponse> {
+  request(
+    r: SafeRequest,
+    policy: { allowHosts?: readonly string[]; denyHosts?: readonly string[] },
+  ): Promise<SafeResponse> {
     if (!policy.allowHosts?.length && !policy.denyHosts?.length) return this.client.request(r);
-    return new SafeHttpClient({ ...DEFAULT_EGRESS, allowHosts: policy.allowHosts, denyHosts: policy.denyHosts }).request(r);
+    return new SafeHttpClient({
+      ...DEFAULT_EGRESS,
+      allowHosts: policy.allowHosts,
+      denyHosts: policy.denyHosts,
+    }).request(r);
   }
 }
 
@@ -20,7 +27,9 @@ export class MessageEmailPort extends EmailSendPort {
     super();
   }
   async send(i: Parameters<EmailSendPort['send']>[0]) {
-    const body = Object.fromEntries(Object.entries(i.body).filter(([, v]) => v !== undefined && v !== null));
+    const body = Object.fromEntries(
+      Object.entries(i.body).filter(([, v]) => v !== undefined && v !== null),
+    );
     const m = await this.messages.send(i.orgId, i.actorUserId, i.idempotencyKey, body);
     return { messageId: m.id, state: String((m as { status?: string }).status ?? 'queued') };
   }
@@ -37,12 +46,30 @@ export class ResidencyTargetPort extends TargetResidencyPort {
   }
   async check(i: Parameters<TargetResidencyPort['check']>[0]) {
     try {
-      const r = await this.residency.evaluate({ orgId: i.orgId, dataClass: 'customer-content', targetRegion: i.declaredRegion, purpose: i.purpose, operation: 'write' });
+      const r = await this.residency.evaluate({
+        orgId: i.orgId,
+        dataClass: 'customer-content',
+        targetRegion: i.declaredRegion,
+        purpose: i.purpose,
+        operation: 'write',
+      });
       if (r.decision === 'allow') return { allowed: true };
-      if (r.decision === 'requires_assessment' && i.assessmentId && r.assessmentId === i.assessmentId) return { allowed: true };
-      return { allowed: false, reason: r.reasons[0]?.message.en ?? 'denied by the residency policy' };
+      if (
+        r.decision === 'requires_assessment' &&
+        i.assessmentId &&
+        r.assessmentId === i.assessmentId
+      )
+        return { allowed: true };
+      return {
+        allowed: false,
+        reason: r.reasons[0]?.message.en ?? 'denied by the residency policy',
+      };
     } catch (e) {
-      throw new ActionError('residency_denied', `residency could not be evaluated: ${(e as Error).message}`, { retryable: false });
+      throw new ActionError(
+        'residency_denied',
+        `residency could not be evaluated: ${(e as Error).message}`,
+        { retryable: false },
+      );
     }
   }
 }

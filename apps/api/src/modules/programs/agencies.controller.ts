@@ -29,7 +29,12 @@ export class AgenciesController {
   @Idempotent()
   @Post(':id/clients')
   @HttpCode(201)
-  postClient(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_) {
+  postClient(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+  ) {
     return this.agencies.postClient(orgId, a.actor.userId, a.permissions, id, b(body));
   }
   @RequirePermission('org:read')
@@ -41,7 +46,12 @@ export class AgenciesController {
   @Idempotent()
   @Post(':id/delegated-access')
   @HttpCode(201)
-  postGrant(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_) {
+  postGrant(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+  ) {
     return this.agencies.postGrant(orgId, a.actor.userId, a.permissions, id, b(body));
   }
   @RequirePermission('org:read')

@@ -90,12 +90,20 @@ errors:
   consent_required: { status: 422, title: 'A consent is required before this action' }
   # M11 (automation, marketplace, programs) -- appended block
   connector_not_authorized: { status: 403, title: 'The connector is not authorized for this use' }
-  not_entitled: { status: 403, title: 'The organization has no active entitlement for this listing' }
-  delegation_expired: { status: 403, title: 'The delegated access has expired or is no longer valid' }
+  not_entitled:
+    { status: 403, title: 'The organization has no active entitlement for this listing' }
+  delegation_expired:
+    { status: 403, title: 'The delegated access has expired or is no longer valid' }
   ssrf_denied: { status: 422, title: 'The target address is not allowed (SSRF policy)' }
   feature_disabled: { status: 403, title: 'This capability is not enabled for the organization' }
-  publisher_not_verified: { status: 403, title: 'The organization is not a verified marketplace publisher' }
-  already_entitled: { status: 409, title: 'The organization already holds an entitlement for this listing' }
+  publisher_not_verified:
+    { status: 403, title: 'The organization is not a verified marketplace publisher' }
+  already_entitled:
+    { status: 409, title: 'The organization already holds an entitlement for this listing' }
   not_purchasable: { status: 409, title: 'This listing version cannot be purchased or installed' }
   below_cost: { status: 422, title: 'The price rule is below the wholesale cost' }
-  issuer_model_blocked: { status: 409, title: 'The reseller invoice-issuer model is not approved (D-24) and cannot be enabled' }
+  issuer_model_blocked:
+    {
+      status: 409,
+      title: 'The reseller invoice-issuer model is not approved (D-24) and cannot be enabled',
+    }

@@ -9,7 +9,8 @@ export const hint = (e: unknown): string | undefined => (e as { hint?: string })
 export const MARKETPLACE_FLAG = 'marketplace.enabled';
 export const LISTING_TYPES = ['website-template', 'app-template', 'workflow-template'] as const;
 export type ListingType = (typeof LISTING_TYPES)[number];
-export const badRequest = (detail: string, errors?: unknown[]) => new ProblemException('validation_failed', detail, errors);
+export const badRequest = (detail: string, errors?: unknown[]) =>
+  new ProblemException('validation_failed', detail, errors);
 
 export interface MarketplaceConfig {
   /**
@@ -29,11 +30,13 @@ export const loadMarketplaceConfig = (env: NodeJS.ProcessEnv = process.env): Mar
   const bps = Number(env.MARKETPLACE_PUBLISHER_SHARE_BPS ?? 7000);
   return {
     publisherShareBps: Number.isInteger(bps) && bps >= 0 && bps <= 10_000 ? bps : 7000,
-    maxArtifactBytes: Number(env.MARKETPLACE_MAX_ARTIFACT_BYTES ?? 5 * 1024 * 1024) || 5 * 1024 * 1024,
+    maxArtifactBytes:
+      Number(env.MARKETPLACE_MAX_ARTIFACT_BYTES ?? 5 * 1024 * 1024) || 5 * 1024 * 1024,
     artifactRegion: env.MARKETPLACE_ARTIFACT_REGION ?? 'sa-pending',
   };
 };
 /** floor(net × bps / 10000): integer arithmetic only. */
-export const shareOf = (netMinor: bigint, bps: number): bigint => (netMinor * BigInt(bps)) / 10_000n;
+export const shareOf = (netMinor: bigint, bps: number): bigint =>
+  (netMinor * BigInt(bps)) / 10_000n;
 /** The artifact reference of an organization lives under its own namespace: a publisher can never point a version at someone else's artifact. */
 export const artifactNamespace = (orgId: string) => `artifact://${orgId}/`;

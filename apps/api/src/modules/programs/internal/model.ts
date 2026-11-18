@@ -8,4 +8,5 @@ export const pgCode = (e: unknown): string | undefined => (e as { code?: string 
 export const hint = (e: unknown): string | undefined => (e as { hint?: string }).hint;
 export const AGENCY_FLAG = 'agency.enabled';
 export const RESELLER_FLAG = 'reseller.enabled';
-export const badRequest = (detail: string, errors?: unknown[]) => new ProblemException('validation_failed', detail, errors);
+export const badRequest = (detail: string, errors?: unknown[]) =>
+  new ProblemException('validation_failed', detail, errors);

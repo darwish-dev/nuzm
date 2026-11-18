@@ -604,8 +604,20 @@ export function publisherAccrual(p: {
     sourceEventId: `${p.reverse ? 'publisher_accrual_reversal' : 'publisher_accrual'}:${p.purchaseId}`,
     affectsWallet: false,
     postings: [
-      { account: { code: '4400', org: false }, direction: dr, amountMinor: amount, currency, dimensions },
-      { account: { code: '2600', org: false, subledger: sub }, direction: cr, amountMinor: amount, currency, dimensions },
+      {
+        account: { code: '4400', org: false },
+        direction: dr,
+        amountMinor: amount,
+        currency,
+        dimensions,
+      },
+      {
+        account: { code: '2600', org: false, subledger: sub },
+        direction: cr,
+        amountMinor: amount,
+        currency,
+        dimensions,
+      },
     ],
   };
 }

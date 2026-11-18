@@ -9,7 +9,12 @@ export abstract class ArtifactStore {
 }
 export class UnavailableArtifactStore extends ArtifactStore {
   read(): Promise<never> {
-    return Promise.reject(new ProblemException('unsupported_capability', 'no artifact store is configured on this deployment'));
+    return Promise.reject(
+      new ProblemException(
+        'unsupported_capability',
+        'no artifact store is configured on this deployment',
+      ),
+    );
   }
 }
 
@@ -31,6 +36,11 @@ export abstract class ProjectInstallPort {
 }
 export class UnavailableProjectInstallPort extends ProjectInstallPort {
   install(): Promise<never> {
-    return Promise.reject(new ProblemException('unsupported_capability', 'installing website and app templates needs the builder (M09/M10), which is not available on this deployment'));
+    return Promise.reject(
+      new ProblemException(
+        'unsupported_capability',
+        'installing website and app templates needs the builder (M09/M10), which is not available on this deployment',
+      ),
+    );
   }
 }

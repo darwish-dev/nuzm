@@ -1,20 +1,15 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
-import { parseIfMatch } from '../../common/etag';
-import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { parseLimit } from '../../common/pagination';
 import { ConnectorService } from './internal/connector.service';
 
 type Body_ = Record<string, unknown> | undefined;
 const b = (x: Body_) => x ?? {};
-const page = (q: { limit?: string; cursor?: string }) => ({ limit: parseLimit(q.limit), cursor: q.cursor });
-const ifMatch = (req: FastifyRequest) => {
-  const v = parseIfMatch(req.headers['if-match']);
-  if (v === null) throw new ProblemException('precondition_required', 'send the current ETag in If-Match');
-  return v;
-};
+const page = (q: { limit?: string; cursor?: string }) => ({
+  limit: parseLimit(q.limit),
+  cursor: q.cursor,
+});
 
 @Controller('v1/connectors')
 export class ConnectorsController {
@@ -35,7 +30,12 @@ export class ConnectorsController {
   @Idempotent()
   @Post(':id/authorization')
   @HttpCode(201)
-  authorize(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_) {
+  authorize(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+  ) {
     return this.connectors.authorize(orgId, a.actor.userId, id.toLowerCase(), b(body));
   }
 }

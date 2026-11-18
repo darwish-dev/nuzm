@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Post, Put, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { etag, parseIfMatch } from '../../common/etag';
@@ -33,7 +45,12 @@ export class ResellersController {
   @Idempotent()
   @Post(':id/sub-organizations')
   @HttpCode(201)
-  postSub(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_) {
+  postSub(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+  ) {
     return this.resellers.postSubOrg(orgId, a.actor.userId, a.permissions, id, b(body));
   }
   @RequirePermission('org:read')
@@ -43,16 +60,31 @@ export class ResellersController {
   }
   @RequirePermission('reseller:pricing')
   @Get(':id/price-rules')
-  async rules(@Org() orgId: string, @Param('id') id: string, @Res({ passthrough: true }) reply: FastifyReply) {
+  async rules(
+    @Org() orgId: string,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     const r = await this.resellers.rules(orgId, id);
     void reply.header('etag', etag(r.version));
     return r;
   }
   @RequirePermission('reseller:pricing')
   @Put(':id/price-rules')
-  async putRules(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_, @Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+  async putRules(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     const m = parseIfMatch(req.headers['if-match']);
-    if (m === null) throw new ProblemException('precondition_required', 'send the current rule-set version in If-Match');
+    if (m === null)
+      throw new ProblemException(
+        'precondition_required',
+        'send the current rule-set version in If-Match',
+      );
     const r = await this.resellers.putRules(orgId, a.actor.userId, a.permissions, id, m, b(body));
     void reply.header('etag', etag(r.version));
     return r;
@@ -61,8 +93,20 @@ export class ResellersController {
   @RequirePermission('reseller:finance')
   @Get(':id/statements')
   @Header('cache-control', 'no-store')
-  async statement(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Query() q: { period?: string; format?: string }, @Res({ passthrough: true }) reply: FastifyReply) {
-    const s = await this.statements.statement(orgId, a.actor.userId, a.permissions, id.toLowerCase(), q.period);
+  async statement(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Query() q: { period?: string; format?: string },
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const s = await this.statements.statement(
+      orgId,
+      a.actor.userId,
+      a.permissions,
+      id.toLowerCase(),
+      q.period,
+    );
     if (q.format === 'csv') {
       void reply.header('content-type', 'text/csv; charset=utf-8');
       void reply.header('content-disposition', `attachment; filename="statement-${s.period}.csv"`);

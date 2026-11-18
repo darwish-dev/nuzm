@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Access, Delegable, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { etag, parseIfMatch } from '../../common/etag';
@@ -11,10 +22,14 @@ import { WorkflowService } from './internal/workflow.service';
 
 type Body_ = Record<string, unknown> | undefined;
 const b = (x: Body_) => x ?? {};
-const page = (q: { limit?: string; cursor?: string }) => ({ limit: parseLimit(q.limit), cursor: q.cursor });
+const page = (q: { limit?: string; cursor?: string }) => ({
+  limit: parseLimit(q.limit),
+  cursor: q.cursor,
+});
 const ifMatch = (req: FastifyRequest) => {
   const v = parseIfMatch(req.headers['if-match']);
-  if (v === null) throw new ProblemException('precondition_required', 'send the current ETag in If-Match');
+  if (v === null)
+    throw new ProblemException('precondition_required', 'send the current ETag in If-Match');
   return v;
 };
 
@@ -32,7 +47,12 @@ export class WorkflowsController {
   @Idempotent()
   @Post()
   @HttpCode(201)
-  async create(@Org() orgId: string, @Access() a: AccessContext, @Body() body: Body_, @Res({ passthrough: true }) reply: FastifyReply) {
+  async create(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Body() body: Body_,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     const w = await this.workflows.create(orgId, a.actor.userId, b(body));
     void reply.header('etag', etag(w.etag));
     return w;
@@ -44,15 +64,32 @@ export class WorkflowsController {
   }
   @RequirePermission('automation:read')
   @Get(':id')
-  async get(@Org() orgId: string, @Param('id') id: string, @Res({ passthrough: true }) reply: FastifyReply) {
+  async get(
+    @Org() orgId: string,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     const w = await this.workflows.get(orgId, id.toLowerCase());
     void reply.header('etag', etag(w.etag));
     return w;
   }
   @RequirePermission('automation:write')
   @Patch(':id')
-  async patch(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_, @Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
-    const w = await this.workflows.patch(orgId, a.actor.userId, id.toLowerCase(), ifMatch(req), b(body));
+  async patch(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const w = await this.workflows.patch(
+      orgId,
+      a.actor.userId,
+      id.toLowerCase(),
+      ifMatch(req),
+      b(body),
+    );
     void reply.header('etag', etag(w.etag));
     return w;
   }
@@ -60,7 +97,12 @@ export class WorkflowsController {
   @Idempotent()
   @Post(':id/versions')
   @HttpCode(201)
-  createVersion(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_) {
+  createVersion(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+  ) {
     return this.workflows.createVersion(orgId, a.actor.userId, id.toLowerCase(), b(body));
   }
   /** 202 + the execution (its `operationId` is the durable operation). A repeated `dedupeKey` answers 200 with the ORIGINAL execution and `duplicate: true`. */
@@ -68,7 +110,13 @@ export class WorkflowsController {
   @Idempotent()
   @Post(':id/executions')
   @HttpCode(202)
-  async run(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_, @Res({ passthrough: true }) reply: FastifyReply) {
+  async run(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     const e = await this.executions.create(orgId, a.actor.userId, id.toLowerCase(), b(body));
     if (e.duplicate) void reply.status(200);
     else this.jobs.kick(orgId, e.id);
@@ -76,7 +124,11 @@ export class WorkflowsController {
   }
   @RequirePermission('automation:read')
   @Get(':id/executions')
-  listExecutions(@Org() orgId: string, @Param('id') id: string, @Query() q: { limit?: string; cursor?: string; status?: string }) {
+  listExecutions(
+    @Org() orgId: string,
+    @Param('id') id: string,
+    @Query() q: { limit?: string; cursor?: string; status?: string },
+  ) {
     return this.executions.list(orgId, id.toLowerCase(), { ...page(q), status: q.status });
   }
 }

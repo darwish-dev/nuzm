@@ -101,7 +101,10 @@ export class EntitlementService {
           entitlementId: m.entitlement_id as string,
           listingId: m.listing_id as string,
           type: m.listing_type as string | null,
-          title: { ar: m.listing_title_ar as string | null, en: m.listing_title_en as string | null },
+          title: {
+            ar: m.listing_title_ar as string | null,
+            en: m.listing_title_en as string | null,
+          },
           versionRange: m.version_range as string,
           licence: m.licence as string,
           seats: m.seats as number,

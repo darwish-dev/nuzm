@@ -41,23 +41,47 @@ export abstract class AiRunPort {
 }
 export class UnavailableAiRunPort extends AiRunPort {
   start(): Promise<never> {
-    return Promise.reject(new ActionError('m09_unavailable', 'the AI run service (M09) is not available on this deployment', { retryable: false }));
+    return Promise.reject(
+      new ActionError(
+        'm09_unavailable',
+        'the AI run service (M09) is not available on this deployment',
+        { retryable: false },
+      ),
+    );
   }
 }
 
 /** Creates a deployment (M09 `POST /v1/deployments`). */
 export abstract class DeploymentPort {
-  abstract create(i: { orgId: string; projectId: string; target?: Record<string, unknown>; idempotencyKey: string }): Promise<{ deploymentId: string; status: string }>;
+  abstract create(i: {
+    orgId: string;
+    projectId: string;
+    target?: Record<string, unknown>;
+    idempotencyKey: string;
+  }): Promise<{ deploymentId: string; status: string }>;
 }
 export class UnavailableDeploymentPort extends DeploymentPort {
   create(): Promise<never> {
-    return Promise.reject(new ActionError('m09_unavailable', 'the deployment service (M09) is not available on this deployment', { retryable: false }));
+    return Promise.reject(
+      new ActionError(
+        'm09_unavailable',
+        'the deployment service (M09) is not available on this deployment',
+        { retryable: false },
+      ),
+    );
   }
 }
 
 /** A Nuzm API call with a connector's scoped token (first-party connector). */
 export abstract class NuzmApiPort {
-  abstract call(i: { orgId: string; method: string; path: string; body?: unknown; token: string; idempotencyKey: string }): Promise<{ status: number; body: unknown }>;
+  abstract call(i: {
+    orgId: string;
+    method: string;
+    path: string;
+    body?: unknown;
+    token: string;
+    idempotencyKey: string;
+  }): Promise<{ status: number; body: unknown }>;
 }
 /** Calls the platform API over HTTP at `NUZM_API_BASE_URL` (an allow-listed first-party host, so it is not subject to the public-address rule). */
 export class HttpNuzmApiPort extends NuzmApiPort {
@@ -65,12 +89,22 @@ export class HttpNuzmApiPort extends NuzmApiPort {
     super();
   }
   async call(i: Parameters<NuzmApiPort['call']>[0]) {
-    if (!this.base) throw new ActionError('unsupported_capability', 'NUZM_API_BASE_URL is not configured', { retryable: false });
+    if (!this.base)
+      throw new ActionError('unsupported_capability', 'NUZM_API_BASE_URL is not configured', {
+        retryable: false,
+      });
     const url = new URL(i.path, this.base);
-    if (url.origin !== new URL(this.base).origin) throw new ActionError('ssrf_denied', 'a Nuzm API step can only call the platform API', { retryable: false });
+    if (url.origin !== new URL(this.base).origin)
+      throw new ActionError('ssrf_denied', 'a Nuzm API step can only call the platform API', {
+        retryable: false,
+      });
     const res = await fetch(url, {
       method: i.method,
-      headers: { authorization: `Bearer ${i.token}`, 'idempotency-key': i.idempotencyKey, 'content-type': 'application/json' },
+      headers: {
+        authorization: `Bearer ${i.token}`,
+        'idempotency-key': i.idempotencyKey,
+        'content-type': 'application/json',
+      },
       body: i.body === undefined ? undefined : JSON.stringify(i.body),
       redirect: 'error',
       signal: AbortSignal.timeout(30_000),
@@ -88,15 +122,29 @@ export class HttpNuzmApiPort extends NuzmApiPort {
 
 /** Sends a transactional message through M08 (`POST /v1/email/messages`). */
 export abstract class EmailSendPort {
-  abstract send(i: { orgId: string; actorUserId: string; idempotencyKey: string; body: Record<string, unknown> }): Promise<{ messageId: string; state: string }>;
+  abstract send(i: {
+    orgId: string;
+    actorUserId: string;
+    idempotencyKey: string;
+    body: Record<string, unknown>;
+  }): Promise<{ messageId: string; state: string }>;
 }
 
 /** Residency decision for a tenant-chosen target (M04 hook). Fails closed: the default asks `ResidencyService`, which denies what it cannot classify. */
 export abstract class TargetResidencyPort {
-  abstract check(i: { orgId: string; host: string; declaredRegion: string; purpose: string; assessmentId?: string | null }): Promise<{ allowed: boolean; reason?: string }>;
+  abstract check(i: {
+    orgId: string;
+    host: string;
+    declaredRegion: string;
+    purpose: string;
+    assessmentId?: string | null;
+  }): Promise<{ allowed: boolean; reason?: string }>;
 }
 
 /** The HTTP client for tenant-chosen URLs (SSRF guarded). */
 export abstract class EgressHttpPort {
-  abstract request(r: SafeRequest, policy: { allowHosts?: readonly string[]; denyHosts?: readonly string[] }): Promise<SafeResponse>;
+  abstract request(
+    r: SafeRequest,
+    policy: { allowHosts?: readonly string[]; denyHosts?: readonly string[] },
+  ): Promise<SafeResponse>;
 }

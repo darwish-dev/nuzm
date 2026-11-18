@@ -320,17 +320,29 @@ export class InvoiceService {
     input: {
       sourceKey: string;
       currency: string;
-      lines: { description: string; quantity: string; unit: string; netMinor: string; sourceId: string; revenueAccount?: RevenueAccount }[];
+      lines: {
+        description: string;
+        quantity: string;
+        unit: string;
+        netMinor: string;
+        sourceId: string;
+        revenueAccount?: RevenueAccount;
+      }[];
     },
     actorUserId: string | null = null,
     now = new Date(),
   ): Promise<{ invoice: InvoiceDto; created: boolean }> {
-    if (!CURRENCY.test(input.currency)) throw new ProblemException('validation_failed', 'currency must be an ISO 4217 code');
+    if (!CURRENCY.test(input.currency))
+      throw new ProblemException('validation_failed', 'currency must be an ISO 4217 code');
     if (input.lines.length < 1 || input.lines.some((l) => !/^[1-9]\d{0,17}$/.test(l.netMinor)))
       throw new ProblemException('validation_failed', 'an order invoice needs positive lines');
     const entity = await this.entity();
     const existing = await this.findByKey(orgId, entity.id as string, input.sourceKey);
-    if (existing) return { invoice: await this.ensureLedger(orgId, existing.id as string, actorUserId), created: false };
+    if (existing)
+      return {
+        invoice: await this.ensureLedger(orgId, existing.id as string, actorUserId),
+        created: false,
+      };
     const periodStart = now.toISOString().slice(0, 10);
     const { id, created } = await this.issue(
       orgId,
@@ -377,7 +389,10 @@ export class InvoiceService {
     return this.db.withOrg(orgId, async (c) =>
       BigInt(
         (
-          await c.query(`SELECT coalesce(sum(total_minor), 0)::text AS n FROM invoicing.credit_notes WHERE invoice_id = $1 AND org_id = $2 AND status IN ('issued','applied','refunded')`, [invoiceId, orgId])
+          await c.query(
+            `SELECT coalesce(sum(total_minor), 0)::text AS n FROM invoicing.credit_notes WHERE invoice_id = $1 AND org_id = $2 AND status IN ('issued','applied','refunded')`,
+            [invoiceId, orgId],
+          )
         ).rows[0]!.n as string,
       ),
     );

@@ -10,4 +10,10 @@ export { InstallService } from './internal/install.service';
 export { ArtifactStore, ProjectInstallPort } from './internal/ports';
 export { satisfies as satisfiesVersionRange } from './internal/semver';
 export { scanArtifact, SCAN_RULESET } from './internal/scan';
-export { MARKETPLACE_FLAG, MARKETPLACE_CONFIG, loadMarketplaceConfig, shareOf, artifactNamespace } from './internal/model';
+export {
+  MARKETPLACE_FLAG,
+  MARKETPLACE_CONFIG,
+  loadMarketplaceConfig,
+  shareOf,
+  artifactNamespace,
+} from './internal/model';

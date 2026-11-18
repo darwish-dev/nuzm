@@ -30,7 +30,15 @@ export class AutomationJobs {
   }
   start(seconds: number) {
     if (this.timer || seconds <= 0) return;
-    this.timer = setInterval(() => void this.tick().catch((e) => process.stderr.write(JSON.stringify({ automation_tick_error: (e as Error).message }) + '\n')), seconds * 1000);
+    this.timer = setInterval(
+      () =>
+        void this.tick().catch((e) =>
+          process.stderr.write(
+            JSON.stringify({ automation_tick_error: (e as Error).message }) + '\n',
+          ),
+        ),
+      seconds * 1000,
+    );
     this.timer.unref();
   }
   stop() {
@@ -40,16 +48,38 @@ export class AutomationJobs {
   /** Fire-and-forget run right after the API accepted a manual execution. */
   kick(orgId: string, executionId: string) {
     if (!this.autoKick) return;
-    setImmediate(() => void this.engine.runOne(orgId, executionId).catch((e) => process.stderr.write(JSON.stringify({ automation_run_error: (e as Error).message }) + '\n')));
+    setImmediate(
+      () =>
+        void this.engine
+          .runOne(orgId, executionId)
+          .catch((e) =>
+            process.stderr.write(
+              JSON.stringify({ automation_run_error: (e as Error).message }) + '\n',
+            ),
+          ),
+    );
   }
 
-  async tick(): Promise<{ scheduled: number; attached: number; ran: number; settled: number; deliveries: number; paused: number }> {
-    if (this.busy) return { scheduled: 0, attached: 0, ran: 0, settled: 0, deliveries: 0, paused: 0 };
+  async tick(): Promise<{
+    scheduled: number;
+    attached: number;
+    ran: number;
+    settled: number;
+    deliveries: number;
+    paused: number;
+  }> {
+    if (this.busy)
+      return { scheduled: 0, attached: 0, ran: 0, settled: 0, deliveries: 0, paused: 0 };
     this.busy = true;
     try {
       const scheduled = await this.triggers.fireSchedules();
-      const open = await this.db.withPlatformScope(async (c) =>
-        (await c.query(`SELECT id, org_id, operation_id, status FROM automation.executions WHERE status IN ('queued','running','waiting') ORDER BY created_at LIMIT 200`)).rows as Row[],
+      const open = await this.db.withPlatformScope(
+        async (c) =>
+          (
+            await c.query(
+              `SELECT id, org_id, operation_id, status FROM automation.executions WHERE status IN ('queued','running','waiting') ORDER BY created_at LIMIT 200`,
+            )
+          ).rows as Row[],
       );
       let attached = 0;
       let ran = 0;
@@ -59,10 +89,18 @@ export class AutomationJobs {
           await this.executions.ensureOperation(e.org_id, e.id);
           attached++;
         }
-        const op = await this.ops.get(e.org_id, e.operation_id ?? (await this.executions.ensureOperation(e.org_id, e.id)));
+        const op = await this.ops.get(
+          e.org_id,
+          e.operation_id ?? (await this.executions.ensureOperation(e.org_id, e.id)),
+        );
         if (!op) continue;
         if (op.state === 'cancelled') {
-          await this.db.withOrg(e.org_id, (c) => c.query(`UPDATE automation.executions SET status = 'cancelled', finished_at = now(), error = '{"code":"cancelled"}' WHERE id = $1 AND status NOT IN ('succeeded','failed','cancelled')`, [e.id]));
+          await this.db.withOrg(e.org_id, (c) =>
+            c.query(
+              `UPDATE automation.executions SET status = 'cancelled', finished_at = now(), error = '{"code":"cancelled"}' WHERE id = $1 AND status NOT IN ('succeeded','failed','cancelled')`,
+              [e.id],
+            ),
+          );
           settled++;
         } else if (op.state === 'pending' || op.state === 'running') {
           const r = await this.engine.runOne(e.org_id, e.id);

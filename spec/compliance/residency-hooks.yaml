@@ -124,15 +124,35 @@ tables:
     }
   # >>> M11 tables (appended): control-plane records of automation and the marketplace carry the organization's data_region ('sa-pending' until M05 supplies verified regions)
   automation.workflows:
-    { owner: M11, hook: m11-connectors, note: 'workflow definitions are customer content; the region is the organization default (sa-pending until M05)' }
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'workflow definitions are customer content; the region is the organization default (sa-pending until M05)',
+    }
   automation.executions:
-    { owner: M11, hook: m11-connectors, note: 'execution inputs and step data inherit the workflow region' }
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'execution inputs and step data inherit the workflow region',
+    }
   automation.connectors:
-    { owner: M11, hook: m11-connectors, note: 'a connector names the declared region of its target host; every call is evaluated by the residency hook before it leaves' }
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'a connector names the declared region of its target host; every call is evaluated by the residency hook before it leaves',
+    }
   automation.webhook_endpoints:
-    { owner: M11, hook: m11-connectors, note: 'outbound webhooks carry event payloads to a tenant-chosen URL' }
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'outbound webhooks carry event payloads to a tenant-chosen URL',
+    }
   marketplace.listings:
-    { owner: M11, hook: m11-marketplace, note: 'the region where the listing artifacts live; purchase and install evaluate it against the buyer policy (fail closed)' }
+    {
+      owner: M11,
+      hook: m11-marketplace,
+      note: 'the region where the listing artifacts live; purchase and install evaluate it against the buyer policy (fail closed)',
+    }
   # <<< M11 tables
 hooks:
   - {

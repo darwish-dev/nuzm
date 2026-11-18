@@ -47,9 +47,21 @@ export class AccessGuard implements CanActivate {
     // re-validated against an active, unexpired grant (ActingOrgService). Everywhere else the header is refused, never trusted.
     const actingHeader = req.headers['x-nuzm-acting-org'];
     if (actingHeader !== undefined) {
-      const bearer = typeof req.headers.authorization === 'string' && /^Bearer\s+/i.test(req.headers.authorization);
-      if (!this.acting || bearer || platformNeeded || !needed || typeof actingHeader !== 'string' || !this.reflector.getAllAndOverride<boolean>(DELEGABLE, targets))
-        throw new ProblemException('forbidden', 'delegated access is not available for this request');
+      const bearer =
+        typeof req.headers.authorization === 'string' &&
+        /^Bearer\s+/i.test(req.headers.authorization);
+      if (
+        !this.acting ||
+        bearer ||
+        platformNeeded ||
+        !needed ||
+        typeof actingHeader !== 'string' ||
+        !this.reflector.getAllAndOverride<boolean>(DELEGABLE, targets)
+      )
+        throw new ProblemException(
+          'forbidden',
+          'delegated access is not available for this request',
+        );
     }
 
     const auth = req.headers.authorization;
@@ -91,10 +103,25 @@ export class AccessGuard implements CanActivate {
     const principal = await this.sessions.authenticate(ctx);
     if (typeof actingHeader === 'string') {
       const agencyRaw = req.headers['x-nuzm-org'];
-      if (typeof agencyRaw !== 'string' || !UUID.test(agencyRaw)) throw new ProblemException('forbidden', 'delegated access is not available for this request');
+      if (typeof agencyRaw !== 'string' || !UUID.test(agencyRaw))
+        throw new ProblemException(
+          'forbidden',
+          'delegated access is not available for this request',
+        );
       const am = await this.policy.membership(principal.userId, agencyRaw.toLowerCase());
-      if (!am) throw new ProblemException('forbidden', 'delegated access is not available for this request'); // never "not found": no oracle for agency membership either
-      req.access = await this.acting!.authorize({ userId: principal.userId, agencyOrgId: agencyRaw.toLowerCase(), agencyOrgStatus: am.orgStatus, agencyMemberPermissions: am.permissions, clientOrgId: actingHeader.toLowerCase(), needed: needed! });
+      if (!am)
+        throw new ProblemException(
+          'forbidden',
+          'delegated access is not available for this request',
+        ); // never "not found": no oracle for agency membership either
+      req.access = await this.acting!.authorize({
+        userId: principal.userId,
+        agencyOrgId: agencyRaw.toLowerCase(),
+        agencyOrgStatus: am.orgStatus,
+        agencyMemberPermissions: am.permissions,
+        clientOrgId: actingHeader.toLowerCase(),
+        needed: needed!,
+      });
       req.orgId = req.access.orgId;
       return true;
     }

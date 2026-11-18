@@ -22,7 +22,8 @@ export const ALLOWED_EVENT_TOPICS = [
   'resource.state_changed',
 ] as const;
 export type AllowedTopic = (typeof ALLOWED_EVENT_TOPICS)[number];
-export const isAllowedTopic = (t: unknown): t is AllowedTopic => (ALLOWED_EVENT_TOPICS as readonly string[]).includes(t as string);
+export const isAllowedTopic = (t: unknown): t is AllowedTopic =>
+  (ALLOWED_EVENT_TOPICS as readonly string[]).includes(t as string);
 
 export interface Trigger {
   type: 'schedule' | 'webhook' | 'platform_event' | 'manual';
@@ -79,22 +80,36 @@ export const loadAutomationConfig = (env: NodeJS.ProcessEnv = process.env): Auto
 };
 export const AUTOMATION_CONFIG = Symbol('AUTOMATION_CONFIG');
 
-const SECRET_KEY = /(secret|password|passwd|token|api[-_]?key|authorization|private[-_]?key|credential|client[-_]?secret)/i;
+const SECRET_KEY =
+  /(secret|password|passwd|token|api[-_]?key|authorization|private[-_]?key|credential|client[-_]?secret)/i;
 const VAULT_REF = /^vault:\/\/[A-Za-z0-9/_.-]{1,200}$/;
 /** 422 `credential_value_rejected` when a body carries a literal credential: only vault REFERENCES are accepted (docs/04 §6: raw secret in body rejected). */
 export function rejectRawSecrets(v: unknown, path = '$', depth = 0): void {
   if (depth > 10 || v === null || typeof v !== 'object') return;
   for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
-    if (SECRET_KEY.test(k) && x !== null && x !== undefined && !(typeof x === 'string' && VAULT_REF.test(x)) && !/^(vaultRef|secretRef|tokenRef)$/.test(k) && k !== 'secretRotation' && !/^(tokenUrl|tokenEndpoint|secretsRequired)$/.test(k))
-      throw new ProblemException('credential_value_rejected', `'${path}.${k}' looks like a credential: send a vault reference (vaultRef), never the value`);
+    if (
+      SECRET_KEY.test(k) &&
+      x !== null &&
+      x !== undefined &&
+      !(typeof x === 'string' && VAULT_REF.test(x)) &&
+      !/^(vaultRef|secretRef|tokenRef)$/.test(k) &&
+      k !== 'secretRotation' &&
+      !/^(tokenUrl|tokenEndpoint|secretsRequired)$/.test(k)
+    )
+      throw new ProblemException(
+        'credential_value_rejected',
+        `'${path}.${k}' looks like a credential: send a vault reference (vaultRef), never the value`,
+      );
     rejectRawSecrets(x, `${path}.${k}`, depth + 1);
   }
 }
 
 /** Tenant secrets live under a per-organization id so a tenant can NEVER point a connector at a platform secret (confused-deputy / exfiltration). */
-export const tenantSecretId = (orgId: string, kind: string, id: string) => `tenant-${orgId}-${kind}-${id}`;
+export const tenantSecretId = (orgId: string, kind: string, id: string) =>
+  `tenant-${orgId}-${kind}-${id}`;
 export const isTenantRef = (orgId: string, ref: unknown): ref is string =>
-  typeof ref === 'string' && new RegExp(`^vault://[a-z]+/tenant-${orgId}-[A-Za-z0-9_-]{1,120}$`).test(ref);
+  typeof ref === 'string' &&
+  new RegExp(`^vault://[a-z]+/tenant-${orgId}-[A-Za-z0-9_-]{1,120}$`).test(ref);
 export const NO_SECRET_REF = 'vault://none/internal';
 export const DEFAULT_DATA_REGION = 'sa-pending';
 

@@ -10,7 +10,10 @@ export class FlagReader {
 
   async enabled(orgId: string | null, key: string): Promise<boolean> {
     const v = await this.value(orgId, key);
-    return v === true || (typeof v === 'object' && v !== null && (v as { enabled?: unknown }).enabled === true);
+    return (
+      v === true ||
+      (typeof v === 'object' && v !== null && (v as { enabled?: unknown }).enabled === true)
+    );
   }
 
   async value(orgId: string | null, key: string): Promise<unknown> {
@@ -18,13 +21,15 @@ export class FlagReader {
       const env = process.env[`FLAG_${key.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`];
       if (env === 'true') return true;
     }
-    const rows = await this.db.withOrg(orgId ?? '00000000-0000-0000-0000-000000000000', async (c) =>
-      (
-        await c.query(
-          `SELECT org_id, value FROM platform.feature_flags WHERE key = $1 AND (org_id IS NULL OR org_id = $2) ORDER BY org_id NULLS FIRST`,
-          [key, orgId],
-        )
-      ).rows as { org_id: string | null; value: unknown }[],
+    const rows = await this.db.withOrg(
+      orgId ?? '00000000-0000-0000-0000-000000000000',
+      async (c) =>
+        (
+          await c.query(
+            `SELECT org_id, value FROM platform.feature_flags WHERE key = $1 AND (org_id IS NULL OR org_id = $2) ORDER BY org_id NULLS FIRST`,
+            [key, orgId],
+          )
+        ).rows as { org_id: string | null; value: unknown }[],
     );
     return rows[rows.length - 1]?.value;
   }

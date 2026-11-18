@@ -7646,7 +7646,7 @@ paths:
       operationId: getWorkflow
       tags: [automation]
       summary: 'Get a workflow with its active definition and versions'
-      description: 'Returns the active version''s definition and the version list; ETag header. Another organization''s workflow answers 404.'
+      description: "Returns the active version's definition and the version list; ETag header. Another organization's workflow answers 404."
       x-nuzm-permission: automation:read
       x-nuzm-org-scoped: true
       x-nuzm-delegable: true
@@ -7794,7 +7794,7 @@ paths:
       operationId: getWorkflowExecution
       tags: [automation]
       summary: 'Get an execution with its steps, attempts, redacted logs and dead letters'
-      description: 'Steps carry per-attempt status, idempotency flag, input and output (secrets removed before storage), errors; `deadLetters` lists failed steps with their replay state. Another organization''s execution answers 404.'
+      description: "Steps carry per-attempt status, idempotency flag, input and output (secrets removed before storage), errors; `deadLetters` lists failed steps with their replay state. Another organization's execution answers 404."
       x-nuzm-permission: automation:read
       x-nuzm-org-scoped: true
       x-nuzm-delegable: true
@@ -7867,7 +7867,7 @@ paths:
       operationId: authorizeConnector
       tags: [automation]
       summary: 'Authorize a connector'
-      description: 'Body {kind: credential, vaultRef, scopes?, expiresAt?} stores a reference to a secret of THIS organization (vault://…/tenant-<orgId>-…; any other reference or a raw value is 422 `credential_value_rejected`); {kind: oauth2_start, redirectUri} returns the authorization URL with PKCE (S256) and state; {kind: oauth2_complete, state, code} exchanges the code at the tenant-supplied token endpoint through the SSRF-guarded client. Granted scopes can never exceed the connector''s declared scopes (403 `connector_not_authorized`).'
+      description: "Body {kind: credential, vaultRef, scopes?, expiresAt?} stores a reference to a secret of THIS organization (vault://…/tenant-<orgId>-…; any other reference or a raw value is 422 `credential_value_rejected`); {kind: oauth2_start, redirectUri} returns the authorization URL with PKCE (S256) and state; {kind: oauth2_complete, state, code} exchanges the code at the tenant-supplied token endpoint through the SSRF-guarded client. Granted scopes can never exceed the connector's declared scopes (403 `connector_not_authorized`)."
       x-nuzm-permission: connector:manage
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -7971,7 +7971,7 @@ paths:
       operationId: createMarketplaceListing
       tags: [marketplace]
       summary: 'Create a listing (and its first version)'
-      description: 'Body {type: website-template|app-template|workflow-template, title: {ar, en}, description?: {ar, en}, price: {amount, currency}, licence: single_org|multi_seat, seats?, artifactRef?, sbomRef?, version?}. The organization must be a VERIFIED publisher (403 `publisher_not_verified`; an unverified account is registered for the ops verification step). A submitted version is hashed, scanned (secrets, malware signatures, dependencies, personal data, licence, SBOM, workflow schema) and enters moderation as `pending`: it is neither listed nor purchasable until a person approves it. The artifact reference must lie inside the publisher''s own namespace. Requires permission `marketplace:publish`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.'
+      description: "Body {type: website-template|app-template|workflow-template, title: {ar, en}, description?: {ar, en}, price: {amount, currency}, licence: single_org|multi_seat, seats?, artifactRef?, sbomRef?, version?}. The organization must be a VERIFIED publisher (403 `publisher_not_verified`; an unverified account is registered for the ops verification step). A submitted version is hashed, scanned (secrets, malware signatures, dependencies, personal data, licence, SBOM, workflow schema) and enters moderation as `pending`: it is neither listed nor purchasable until a person approves it. The artifact reference must lie inside the publisher's own namespace. Requires permission `marketplace:publish`. Default OFF: 403 `feature_disabled` until the flag is on for the organization."
       x-nuzm-permission: marketplace:publish
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -7995,8 +7995,8 @@ paths:
     get:
       operationId: listMarketplaceListings
       tags: [marketplace]
-      summary: 'Browse listings (or the publisher''s own)'
-      description: 'Default: published listings with APPROVED versions only (artifact references and scan findings are never shown). `mine=true`: the publisher''s own listings in every state with all versions, scan findings and the revenue accrual summary (accrued, not paid out). `filter[id]` returns one listing (the detail view) with a provisional VAT estimate. Filters: type, q. Requires permission `marketplace:read`. The dedicated detail GET is SCR-M11-03 (not exposed).'
+      summary: "Browse listings (or the publisher's own)"
+      description: "Default: published listings with APPROVED versions only (artifact references and scan findings are never shown). `mine=true`: the publisher's own listings in every state with all versions, scan findings and the revenue accrual summary (accrued, not paid out). `filter[id]` returns one listing (the detail view) with a provisional VAT estimate. Filters: type, q. Requires permission `marketplace:read`. The dedicated detail GET is SCR-M11-03 (not exposed)."
       x-nuzm-permission: marketplace:read
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8052,7 +8052,7 @@ paths:
       operationId: purchaseMarketplaceListing
       tags: [marketplace]
       summary: 'Purchase a listing from a quote'
-      description: 'Body {listingId, versionId?, quoteId} where the quote has kind `marketplace` (POST /v1/quotes). The quote becomes an order (spend limits and quotas apply) and an invoice through M03; the buyer pays the invoice with POST /v1/billing/payments (or at once with the default payment method). The entitlement is `pending` until the invoice is PAID, then `active`, and the publisher''s share is ACCRUED on the ledger (account 2600; never paid out: D-26 open). 202 while payment is pending, 200 when paid. 409 `already_entitled`, 409 `not_purchasable`, 409 `price_changed`, 409 `quote_expired`, 409 `quote_conflict`, 402 `payment_required` when the immediate payment is declined (the invoice stays open), 403 `residency_denied`. A repeated request (same quote) returns the same purchase: exactly one order, invoice, entitlement and accrual. Requires permission `marketplace:buy`.'
+      description: "Body {listingId, versionId?, quoteId} where the quote has kind `marketplace` (POST /v1/quotes). The quote becomes an order (spend limits and quotas apply) and an invoice through M03; the buyer pays the invoice with POST /v1/billing/payments (or at once with the default payment method). The entitlement is `pending` until the invoice is PAID, then `active`, and the publisher's share is ACCRUED on the ledger (account 2600; never paid out: D-26 open). 202 while payment is pending, 200 when paid. 409 `already_entitled`, 409 `not_purchasable`, 409 `price_changed`, 409 `quote_expired`, 409 `quote_conflict`, 402 `payment_required` when the immediate payment is declined (the invoice stays open), 403 `residency_denied`. A repeated request (same quote) returns the same purchase: exactly one order, invoice, entitlement and accrual. Requires permission `marketplace:buy`."
       x-nuzm-permission: marketplace:buy
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8086,7 +8086,7 @@ paths:
       operationId: getMarketplacePurchase
       tags: [marketplace]
       summary: 'Get a purchase'
-      description: 'Brings the purchase up to date with its invoice first (payment webhooks update the invoice; a refund shows as a credit note and revokes the entitlement). Another organization''s purchase answers 404.'
+      description: "Brings the purchase up to date with its invoice first (payment webhooks update the invoice; a refund shows as a credit note and revokes the entitlement). Another organization's purchase answers 404."
       x-nuzm-permission: marketplace:read
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8135,7 +8135,7 @@ paths:
       operationId: listMarketplaceInstallations
       tags: [marketplace]
       summary: 'List installations'
-      description: 'The organization''s own installations, newest first.'
+      description: "The organization's own installations, newest first."
       x-nuzm-permission: marketplace:read
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8232,7 +8232,7 @@ paths:
       operationId: postAgencyClient
       tags: [programs]
       summary: 'Invite a client (agency) or answer an invitation (client)'
-      description: 'Agency side (the agency''s own organization, `agency:manage`): body {clientOrgId} creates a link in `pending_acceptance` (status `pending`). Client side (a linked organization, `partners:manage`): body {linkId, decision: accept|decline}; ONLY the client can accept, and an unknown client id stays pending (no existence oracle). 409 for a duplicate live link. The caller''s organization decides the side; a stranger gets 404. Revocation is SCR-M11-01 (not exposed).'
+      description: "Agency side (the agency's own organization, `agency:manage`): body {clientOrgId} creates a link in `pending_acceptance` (status `pending`). Client side (a linked organization, `partners:manage`): body {linkId, decision: accept|decline}; ONLY the client can accept, and an unknown client id stays pending (no existence oracle). 409 for a duplicate live link. The caller's organization decides the side; a stranger gets 404. Revocation is SCR-M11-01 (not exposed)."
       x-nuzm-permission: org:read
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8379,7 +8379,7 @@ paths:
       operationId: postResellerSubOrganization
       tags: [programs]
       summary: 'Link a sub-organization (reseller) or answer the link (sub-organization)'
-      description: 'Reseller side (`reseller:manage`): body {subOrgId, priceBookRef?} links an EXISTING organization (pending); the sub-organization''s administrator answers {linkId, decision: accept|decline}. Creating a brand-new sub-organization is NOT available (422 `unsupported_capability`): who owns it afterwards is an open product/legal decision. An organization belongs to one reseller at a time (409). A reseller sees aggregates and metadata only, never sub-organization content.'
+      description: "Reseller side (`reseller:manage`): body {subOrgId, priceBookRef?} links an EXISTING organization (pending); the sub-organization's administrator answers {linkId, decision: accept|decline}. Creating a brand-new sub-organization is NOT available (422 `unsupported_capability`): who owns it afterwards is an open product/legal decision. An organization belongs to one reseller at a time (409). A reseller sees aggregates and metadata only, never sub-organization content."
       x-nuzm-permission: org:read
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8480,7 +8480,7 @@ paths:
       operationId: getResellerStatement
       tags: [programs]
       summary: 'Get a reseller statement for a period (JSON or CSV)'
-      description: '?period=YYYY-MM (default: the previous month), ?format=csv. Per sub-organization and meter: wholesale cost (the platform''s own rating), retail (the price rule in force at the end of the period), margin, a provisional VAT estimate, and the ledger figure for the same organizations (variance). A closed period is stored once and never changes. The statement carries the invoice-issuer model: `disabled` / BLOCKED while D-24 is open (no retail invoice exists). Requires permission `reseller:finance`.'
+      description: "?period=YYYY-MM (default: the previous month), ?format=csv. Per sub-organization and meter: wholesale cost (the platform's own rating), retail (the price rule in force at the end of the period), margin, a provisional VAT estimate, and the ledger figure for the same organizations (variance). A closed period is stored once and never changes. The statement carries the invoice-issuer model: `disabled` / BLOCKED while D-24 is open (no retail invoice exists). Requires permission `reseller:finance`."
       x-nuzm-permission: reseller:finance
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -13978,7 +13978,12 @@ components:
         triggers: { type: array, items: { type: object, additionalProperties: true } }
         definition: { type: object, additionalProperties: true }
         versions: { type: array, items: { type: object, additionalProperties: true } }
-        webhook: { type: object, additionalProperties: true, description: 'Shown once at creation: {path, secret}.' }
+        webhook:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'Shown once at creation: {path, secret}.',
+          }
         nextRunAt: { type: [string, 'null'] }
         lastRunAt: { type: [string, 'null'] }
         pausedReason: { type: [string, 'null'] }

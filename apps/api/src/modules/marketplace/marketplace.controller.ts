@@ -9,7 +9,10 @@ import { PurchaseService } from './internal/purchase.service';
 
 type Body_ = Record<string, unknown> | undefined;
 const b = (x: Body_) => x ?? {};
-const page = (q: { limit?: string; cursor?: string }) => ({ limit: parseLimit(q.limit), cursor: q.cursor });
+const page = (q: { limit?: string; cursor?: string }) => ({
+  limit: parseLimit(q.limit),
+  cursor: q.cursor,
+});
 
 /** Marketplace (docs/04 §2.11). Browsing needs `marketplace:read`; publishing `marketplace:publish` AND a verified publisher account. */
 @Controller('v1/marketplace')
@@ -30,14 +33,36 @@ export class MarketplaceController {
   /** `?mine=true` the publisher's own listings in every state; otherwise browse. `filter[id]` returns one listing with its versions (the detail view). */
   @RequirePermission('marketplace:read')
   @Get('listings')
-  listListings(@Org() orgId: string, @Query() q: { limit?: string; cursor?: string; mine?: string; type?: string; q?: string; 'filter[id]'?: string }) {
-    return this.listings.list(orgId, { ...page(q), mine: q.mine === 'true', type: q.type, q: q.q, id: q['filter[id]'] });
+  listListings(
+    @Org() orgId: string,
+    @Query()
+    q: {
+      limit?: string;
+      cursor?: string;
+      mine?: string;
+      type?: string;
+      q?: string;
+      'filter[id]'?: string;
+    },
+  ) {
+    return this.listings.list(orgId, {
+      ...page(q),
+      mine: q.mine === 'true',
+      type: q.type,
+      q: q.q,
+      id: q['filter[id]'],
+    });
   }
   @RequirePermission('marketplace:publish')
   @Idempotent()
   @Post('listings/:id/versions')
   @HttpCode(201)
-  createVersion(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string, @Body() body: Body_) {
+  createVersion(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Body_,
+  ) {
     return this.listings.createVersion(orgId, a.actor.userId, id.toLowerCase(), b(body));
   }
 
@@ -45,7 +70,12 @@ export class MarketplaceController {
   @Idempotent()
   @Post('purchases')
   @HttpCode(202)
-  async purchase(@Org() orgId: string, @Access() a: AccessContext, @Body() body: Body_, @Res({ passthrough: true }) reply: FastifyReply) {
+  async purchase(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Body() body: Body_,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     const r = await this.purchases.create(orgId, a.actor.userId, b(body));
     void reply.status(r.http);
     return r.purchase;
@@ -60,8 +90,18 @@ export class MarketplaceController {
   @Idempotent()
   @Post('installations')
   @HttpCode(202)
-  install(@Org() orgId: string, @Access() a: AccessContext, @Body() body: Body_, @Req() req: FastifyRequest) {
-    return this.installs.create(orgId, a.actor.userId, String(req.headers['idempotency-key'] ?? ''), b(body));
+  install(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Body() body: Body_,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.installs.create(
+      orgId,
+      a.actor.userId,
+      String(req.headers['idempotency-key'] ?? ''),
+      b(body),
+    );
   }
   @RequirePermission('marketplace:read')
   @Get('installations')

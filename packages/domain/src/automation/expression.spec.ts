@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { EXPRESSION_LIMITS, ExpressionError, compileExpression, evalExpression, renderTemplate } from './expression';
+import {
+  EXPRESSION_LIMITS,
+  ExpressionError,
+  compileExpression,
+  evalExpression,
+  renderTemplate,
+} from './expression';
 
-const scope = { input: { a: 2, b: 3, name: 'Nuzm', list: [1, 2, 3], nested: { x: 'y' } }, steps: { s1: { output: { ok: true, n: 10 } } }, item: 'z' };
+const scope = {
+  input: { a: 2, b: 3, name: 'Nuzm', list: [1, 2, 3], nested: { x: 'y' } },
+  steps: { s1: { output: { ok: true, n: 10 } } },
+  item: 'z',
+};
 const ev = (s: string) => evalExpression(s, scope);
 
 describe('expression language', () => {
@@ -33,32 +43,57 @@ describe('expression language', () => {
     expect(() => ev('eval("1")')).toThrow(/unknown function/);
     expect(() => ev('process.exit()')).toThrow(ExpressionError);
     expect(() => ev('require("fs")')).toThrow(/unknown function/);
-    for (const inherited of ['valueOf', 'hasOwnProperty', 'constructor', 'toLocaleString', '__defineGetter__']) expect(() => ev(`${inherited}(1)`), inherited).toThrow(ExpressionError);
+    for (const inherited of [
+      'valueOf',
+      'hasOwnProperty',
+      'constructor',
+      'toLocaleString',
+      '__defineGetter__',
+    ])
+      expect(() => ev(`${inherited}(1)`), inherited).toThrow(ExpressionError);
   });
   it('refuses prototype-chain access in every spelling', () => {
-    for (const bad of ['input.__proto__', 'input.constructor', 'input["constructor"]', 'input.constructor.prototype', 'constructor', '__proto__.x', 'input["__proto__"]']) {
+    for (const bad of [
+      'input.__proto__',
+      'input.constructor',
+      'input["constructor"]',
+      'input.constructor.prototype',
+      'constructor',
+      '__proto__.x',
+      'input["__proto__"]',
+    ]) {
       expect(() => ev(bad), bad).toThrow(ExpressionError);
     }
     expect(ev('input.toString')).toBeNull(); // inherited members are invisible
     expect(ev('input["hasOwnProperty"]')).toBeNull();
   });
   it('has no assignment, no statements, no code execution syntax', () => {
-    for (const bad of ['a = 1', 'a; b', '() => 1', 'function(){}', '`x`', 'new Date()', 'a++', 'a.b = 3', '{}', 'x => x', 'import("x")', 'this', 'globalThis.process']) {
-      let threw = false;
-      try {
-        const r = ev(bad);
-        threw = r === null && /^(this|globalThis\.process)$/.test(bad) ? false : false;
-      } catch {
-        threw = true;
-      }
-      if (!/^(this|globalThis\.process)$/.test(bad)) expect(threw, bad).toBe(true);
+    for (const bad of [
+      'a = 1',
+      'a; b',
+      '() => 1',
+      'function(){}',
+      '`x`',
+      'new Date()',
+      'a++',
+      'a.b = 3',
+      '{}',
+      'x => x',
+      'import("x")',
+      'this',
+      'globalThis.process',
+    ]) {
+      if (/^(this|globalThis\.process)$/.test(bad)) continue; // plain unknown names: they read nothing (asserted below)
+      expect(() => ev(bad), bad).toThrow(ExpressionError);
     }
     expect(ev('this')).toBeNull(); // just an unknown name: reads nothing
     expect(ev('globalThis.process')).toBeNull();
   });
   it('enforces length, depth and step limits', () => {
     expect(() => compileExpression('1+'.repeat(EXPRESSION_LIMITS.maxLength))).toThrow(/too long/);
-    expect(() => compileExpression('('.repeat(100) + '1' + ')'.repeat(100))).toThrow(/nested too deeply/);
+    expect(() => compileExpression('('.repeat(100) + '1' + ')'.repeat(100))).toThrow(
+      /nested too deeply/,
+    );
     const wide = Array.from({ length: 400 }, () => '1').join('+');
     expect(ev(wide)).toBe(400);
     const big = `[${Array.from({ length: 100 }, () => '1').join(',')}]`;
@@ -73,7 +108,9 @@ describe('expression language', () => {
   it('renders templates: whole-value keeps the type, mixed text stringifies', () => {
     expect(renderTemplate('{{ input.list }}', scope)).toEqual([1, 2, 3]);
     expect(renderTemplate('{{ input.a }}', scope)).toBe(2);
-    expect(renderTemplate('Hi {{ input.name }}, n={{ steps.s1.output.n }}', scope)).toBe('Hi Nuzm, n=10');
+    expect(renderTemplate('Hi {{ input.name }}, n={{ steps.s1.output.n }}', scope)).toBe(
+      'Hi Nuzm, n=10',
+    );
     expect(renderTemplate('no placeholders', scope)).toBe('no placeholders');
     expect(() => renderTemplate('{{ nope( }}', scope)).toThrow(ExpressionError);
   });

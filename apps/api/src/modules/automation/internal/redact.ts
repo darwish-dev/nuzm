@@ -3,7 +3,8 @@
  * handled (connector token, webhook secret, an idempotency header the receiver echoed) is replaced; (2) values that look like credentials are replaced;
  * (3) keys that name a credential have their string values replaced. The result is also capped in size so one step cannot fill the database.
  */
-const KEY = /(secret|password|passwd|token|api[-_]?key|authorization|cookie|private[-_]?key|credential|signature)/i;
+const KEY =
+  /(secret|password|passwd|token|api[-_]?key|authorization|cookie|private[-_]?key|credential|signature)/i;
 const VALUE: RegExp[] = [
   /(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi,
   /\bnzk_[A-Za-z0-9]{8,}/g,
@@ -30,7 +31,10 @@ export function redact(v: unknown, secrets: readonly string[] = [], depth = 0): 
     return Object.fromEntries(
       Object.entries(v as Record<string, unknown>)
         .slice(0, 500)
-        .map(([k, x]) => [k, KEY.test(k) && typeof x === 'string' ? REDACTED : redact(x, secrets, depth + 1)]),
+        .map(([k, x]) => [
+          k,
+          KEY.test(k) && typeof x === 'string' ? REDACTED : redact(x, secrets, depth + 1),
+        ]),
     );
   return v;
 }

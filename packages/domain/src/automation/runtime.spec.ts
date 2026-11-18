@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { CircuitBreaker, TokenBucket } from './limits';
-import { WEBHOOK_MAX_ATTEMPTS, WEBHOOK_WINDOW_SECONDS, isRetryableStatus, shouldRetryStep, stepBackoffSeconds, webhookDelaySeconds } from './retry';
+import {
+  WEBHOOK_MAX_ATTEMPTS,
+  WEBHOOK_WINDOW_SECONDS,
+  isRetryableStatus,
+  shouldRetryStep,
+  stepBackoffSeconds,
+  webhookDelaySeconds,
+} from './retry';
 import { cronMatches, isValidTimeZone, nextCronRun, parseCron } from './cron';
 import { sign, signatureHeader, stepIdempotencyKey, verifySignature } from './signing';
 
@@ -13,17 +20,42 @@ describe('webhook signing', () => {
   });
   it('rejects tampered bodies, wrong secrets, malformed headers', () => {
     const h = signatureHeader(['s3cret'], now, body);
-    expect(verifySignature(h, body + ' ', ['s3cret'], now)).toEqual({ ok: false, reason: 'signature_mismatch' });
-    expect(verifySignature(h, body, ['other'], now)).toEqual({ ok: false, reason: 'signature_mismatch' });
-    for (const bad of [undefined, '', 'garbage', 't=abc,v1=00', `t=${now}`, `t=${now},v1=zz`, `v1=${'0'.repeat(64)}`])
-      expect(verifySignature(bad, body, ['s3cret'], now), String(bad)).toEqual({ ok: false, reason: 'malformed' });
+    expect(verifySignature(h, body + ' ', ['s3cret'], now)).toEqual({
+      ok: false,
+      reason: 'signature_mismatch',
+    });
+    expect(verifySignature(h, body, ['other'], now)).toEqual({
+      ok: false,
+      reason: 'signature_mismatch',
+    });
+    for (const bad of [
+      undefined,
+      '',
+      'garbage',
+      't=abc,v1=00',
+      `t=${now}`,
+      `t=${now},v1=zz`,
+      `v1=${'0'.repeat(64)}`,
+    ])
+      expect(verifySignature(bad, body, ['s3cret'], now), String(bad)).toEqual({
+        ok: false,
+        reason: 'malformed',
+      });
   });
   it('rejects timestamps outside the 5 minute window in both directions (replay)', () => {
     const old = signatureHeader(['s'], now - 301, body);
-    expect(verifySignature(old, body, ['s'], now)).toEqual({ ok: false, reason: 'timestamp_outside_tolerance' });
+    expect(verifySignature(old, body, ['s'], now)).toEqual({
+      ok: false,
+      reason: 'timestamp_outside_tolerance',
+    });
     const future = signatureHeader(['s'], now + 301, body);
-    expect(verifySignature(future, body, ['s'], now)).toEqual({ ok: false, reason: 'timestamp_outside_tolerance' });
-    expect(verifySignature(signatureHeader(['s'], now - 299, body), body, ['s'], now).ok).toBe(true);
+    expect(verifySignature(future, body, ['s'], now)).toEqual({
+      ok: false,
+      reason: 'timestamp_outside_tolerance',
+    });
+    expect(verifySignature(signatureHeader(['s'], now - 299, body), body, ['s'], now).ok).toBe(
+      true,
+    );
   });
   it('secret rotation overlap: old and new secrets are both accepted while both are active', () => {
     const h = signatureHeader(['new', 'old'], now, body);
@@ -58,9 +90,10 @@ describe('retry schedules', () => {
   });
   it('webhook schedule spans up to ~24 h and then dead-letters', () => {
     expect(WEBHOOK_WINDOW_SECONDS).toBeLessThanOrEqual(24 * 3600);
-    expect(WEBHOOK_WINDOW_SECONDS).toBeGreaterThan(23 * 3600);
-    expect(webhookDelaySeconds(1, () => 0.5)).toBe(30);
-    expect(webhookDelaySeconds(WEBHOOK_MAX_ATTEMPTS - 1, () => 0.5)).toBe(29_400);
+    expect(WEBHOOK_WINDOW_SECONDS).toBeGreaterThan(23 * 3600); // 23.9 h nominal; jitter can only shorten it
+    expect(webhookDelaySeconds(1, () => 1)).toBe(30); // jitter only shortens: 80%..100% of the step
+    expect(webhookDelaySeconds(1, () => 0)).toBe(24);
+    expect(webhookDelaySeconds(WEBHOOK_MAX_ATTEMPTS - 1, () => 1)).toBe(29_400);
     expect(webhookDelaySeconds(WEBHOOK_MAX_ATTEMPTS)).toBeNull();
     let prev = 0;
     for (let a = 1; a < WEBHOOK_MAX_ATTEMPTS; a++) {
@@ -110,13 +143,28 @@ describe('cron', () => {
     expect(cronMatches(c, new Date('2026-11-15T09:30:00Z'))).toBe(false); // Sunday
   });
   it('computes the next run in UTC and in an organization time zone', () => {
-    expect(nextCronRun('0 0 * * *', new Date('2026-11-18T10:00:00Z'))?.toISOString()).toBe('2026-11-19T00:00:00.000Z');
+    expect(nextCronRun('0 0 * * *', new Date('2026-11-18T10:00:00Z'))?.toISOString()).toBe(
+      '2026-11-19T00:00:00.000Z',
+    );
     // Riyadh is UTC+3 all year
-    expect(nextCronRun('0 9 * * *', new Date('2026-11-18T00:00:00Z'), 'Asia/Riyadh')?.toISOString()).toBe('2026-11-18T06:00:00.000Z');
-    expect(nextCronRun('30 2 29 2 *', new Date('2026-03-01T00:00:00Z'))?.toISOString()).toBe('2028-02-29T02:30:00.000Z');
+    expect(
+      nextCronRun('0 9 * * *', new Date('2026-11-18T00:00:00Z'), 'Asia/Riyadh')?.toISOString(),
+    ).toBe('2026-11-18T06:00:00.000Z');
+    expect(nextCronRun('30 2 29 2 *', new Date('2026-03-01T00:00:00Z'))?.toISOString()).toBe(
+      '2028-02-29T02:30:00.000Z',
+    );
   });
   it('rejects bad expressions and time zones', () => {
-    for (const bad of ['', '* * * *', '60 * * * *', '* 24 * * *', '*/0 * * * *', 'a b c d e', '5-1 * * * *']) expect(() => parseCron(bad), bad).toThrow();
+    for (const bad of [
+      '',
+      '* * * *',
+      '60 * * * *',
+      '* 24 * * *',
+      '*/0 * * * *',
+      'a b c d e',
+      '5-1 * * * *',
+    ])
+      expect(() => parseCron(bad), bad).toThrow();
     expect(isValidTimeZone('Asia/Riyadh')).toBe(true);
     expect(isValidTimeZone('Mars/Base')).toBe(false);
   });

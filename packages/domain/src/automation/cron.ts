@@ -13,7 +13,12 @@ export interface CronSpec {
   dowStar: boolean;
 }
 
-function field(src: string, min: number, max: number, name: string): { set: Set<number>; star: boolean } {
+function field(
+  src: string,
+  min: number,
+  max: number,
+  name: string,
+): { set: Set<number>; star: boolean } {
   const set = new Set<number>();
   for (const part of src.split(',')) {
     const m = /^(\*|\d+(?:-\d+)?)(?:\/(\d+))?$/.exec(part);
@@ -42,20 +47,43 @@ export function parseCron(expr: string): CronSpec {
   const month = field(f[3]!, 1, 12, 'month');
   const dow = field(f[4]!, 0, 7, 'day-of-week');
   if (dow.set.has(7)) dow.set.add(0);
-  return { minute: minute.set, hour: hour.set, dom: dom.set, month: month.set, dow: dow.set, domStar: dom.star, dowStar: dow.star };
+  return {
+    minute: minute.set,
+    hour: hour.set,
+    dom: dom.set,
+    month: month.set,
+    dow: dow.set,
+    domStar: dom.star,
+    dowStar: dow.star,
+  };
 }
 
 const fmtCache = new Map<string, Intl.DateTimeFormat>();
 function parts(d: Date, tz: string) {
   let f = fmtCache.get(tz);
   if (!f) {
-    f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', weekday: 'short' });
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      weekday: 'short',
+    });
     fmtCache.set(tz, f);
   }
   const o: Record<string, string> = {};
   for (const p of f.formatToParts(d)) o[p.type] = p.value;
   const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(o.weekday!);
-  return { minute: Number(o.minute), hour: Number(o.hour) % 24, dom: Number(o.day), month: Number(o.month), dow };
+  return {
+    minute: Number(o.minute),
+    hour: Number(o.hour) % 24,
+    dom: Number(o.day),
+    month: Number(o.month),
+    dow,
+  };
 }
 
 export function isValidTimeZone(tz: string): boolean {

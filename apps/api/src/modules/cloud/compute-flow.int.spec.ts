@@ -159,7 +159,7 @@ describe('compute quotes (AC-M05-06): immutable, TTL, consume-once, price drift,
       'compute.disk_gb_months',
     ]);
     expect(q.residency).toMatchObject({ decision: 'allow', dataRegion: 'in_kingdom' });
-    expect(typeof q.residency.policyVersion).toBe('number');
+    expect(q.residency.floorVersion).toEqual(expect.any(Number)); // policyVersion is null while the org has no policy of its own (the floor applies)
     expect(q.residency.evidenceRef).toMatch(/^rd_|^residency/);
     expect(['provisional', 'computed']).toContain(q.taxEstimate.status);
     expect(JSON.stringify(q)).not.toMatch(/mock|planRef|providerRegionId|routing/);

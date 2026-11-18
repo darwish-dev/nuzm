@@ -169,26 +169,33 @@ export class ComputeKit {
   async registerProcessor(name: string, present = true) {
     const entryKey = `activity:compute-${name}`;
     const base = this.ropaVersions.get(entryKey);
-    const r = await this.admin('co', 'POST', '/v1/admin/compliance/ropa', {
-      entryKey,
-      activity: 'Compute provisioning',
-      purpose: 'Provision customer compute instances',
-      dataClasses: ['customer-content'],
-      processors: present
-        ? [
-            {
-              name,
-              role: 'processor',
-              region: 'other',
-              dataClasses: ['customer-content'],
-              contractRef: 'TEST-FIXTURE',
-            },
-          ]
-        : [],
-      regions: ['SA'],
-      status: 'draft',
-      ...(base ? { baseVersion: base } : {}),
-    });
+    const r = await this.admin(
+      'co',
+      'POST',
+      '/v1/admin/compliance/ropa',
+      {
+        entryKey,
+        kind: 'activity',
+        activity: 'Compute provisioning',
+        purpose: 'Provision customer compute instances',
+        dataClasses: ['customer-content'],
+        processors: present
+          ? [
+              {
+                name,
+                role: 'processor',
+                region: 'other',
+                dataClasses: ['customer-content'],
+                contractRef: 'TEST-FIXTURE',
+              },
+            ]
+          : [],
+        regions: ['SA'],
+        status: 'draft',
+        ...(base ? { baseVersion: base } : {}),
+      },
+      { 'idempotency-key': `ropa-${++this.n}-${Math.random()}` },
+    );
     if (r.statusCode !== 201) throw new Error(`ROPA upsert failed: ${r.statusCode} ${r.body}`);
     this.ropaVersions.set(entryKey, r.json().version as number);
     this.app.get(ResidencyService).invalidate(); // the residency service caches policy data for a short TTL

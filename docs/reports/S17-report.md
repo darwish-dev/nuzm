@@ -15,7 +15,7 @@ Status: implemented and verified against real PostgreSQL (project-local, port 54
   - The quote is issued and expires against the wall clock; the module clock (provider-side observations) is separate (matters only in tests).
   - Audit names need three segments (`<domain>.<resource>.<action>`): `compute.instance.deleted`, `compute.instance.action`, `cloud.reconcile.drift_detected` (+ `.requested`, `.absence_proven`), `cloud.orphan.auto_deleted`; the others are as in the M05 prompt.
   - `POST /v1/webhooks/cloud/{provider}` answers 404 for every provider (no adapter implements webhook parsing yet); nothing is stored.
-  - **Observed in M04 (not changed):** `RopaService.upsert` does not invalidate the residency service's processor cache, so a processor deregistration takes effect after the cache TTL; tests call `invalidate()`.
+  - **Observed in M04:** the residency service caches policy data for a short TTL and ROPA changes do not invalidate it; tests call `ResidencyService.invalidate()`.
 - Spec issues: SI-M05-1 resolved by implementing only `cloud.resources` (no `platform.resources_index`); SI-M05-2 (RC-xx ids) and SI-M05-4 (price visibility/margin) stay open for S23/D-23; SI-M05-5 open (no case-closing endpoint; see `docs/runbooks/orphan-handling.md`); SI-M05-6 recorded in S16.
 
 ## B. Plan and changed files
@@ -101,3 +101,19 @@ HG-05-01/02/03 (accounts, RAM/IAM users, eligibility), HG-05-04 (quota/spend cap
 
 ### Open
 D-12, D-15, D-23, HG-05-01..04, SI-M05-2/4/5, ROPA processor registration per real provider, the 422-vs-429/409 registry decisions noted in §A.
+
+## J. Port onto the canonical M04 (main's, commit 55f86f4 merged with M03 S12d: base `integration/main-m04-s12d` @ 74abc67)
+
+This work was first committed on `claude/m05-provider-core-05b775` (3a11e91, 4f80238; built against the other M04 branch) and then **cherry-picked** onto a new branch `claude/m05-on-main-m04` (2fdf856 S16, f88b8ec S17; no history rewritten). Main's M04 has a different residency surface, so the S17 hook calls were **adapted** (sections A, C, F above describe the first version; this section is authoritative):
+
+| Aspect | First version (other M04) | Main's M04 (used now) |
+|---|---|---|
+| Service | `ResidencyPolicyService`, global gate, `evaluate({target:{country,id}, operation:'compute.offer', mutation})` | `ResidencyService.evaluate({orgId, dataClass, targetRegion, purpose, processorId, operation:'read'\|'write'})`; `assertResidency(evaluator, req)` throws `ResidencyDenied(result)` (mapped by M05 code to 403 `residency_denied` with the bilingual reasons) |
+| Region registry | `useRegionResolver()` on the service | **`RegionRegistry.resolve()` may now be async** and `ResidencyService.useRegionRegistry()` was added (small change to main's `regions.ts` / `residency.service.ts`); the cloud module installs `ProviderRegionRegistry`: a provider-region row id resolves from `cloud.provider_regions` (verified only with `verified_at` + `evidence_ref`, `live` evidence only in production); everything else falls back to main's `MockRegionRegistry` unchanged |
+| Processor id | ROPA processor `id` = provider key | ROPA processors are identified by **name**: register the processor with `name` = the provider key (`mock`, `alibaba`, `huawei`, `contabo`); without it every offer is hidden (fail closed) |
+| Quote residency block | `{decision, policyVersion:'floor:…', dataRegion}` | `{decision, policyVersion:number, floorVersion, evidenceRef, dataRegion}` |
+| Hook registry | `implemented: true` entries | main's format: hooks `m05-offers-quote` and `m05-provisioning` set to `enforced` with `call_site` (`compute-pricer.ts`, `provisioning.service.ts`); tables `cloud.resources`, `compute.instances`, `compute.instance_intervals`, `compute.snapshots` added; `m05-backups` stays `listed` (destination hook for S23); `pnpm compliance:residency-hooks` and `compliance:ropa-coverage` pass |
+| Classification | `default`/`columns` per table, retrofit register | main's per-column format with `exceptions` (3 justified: spend cap, provider price, region display name; plus the provision token) and `protection` (`cloud.provider_accounts.vault_ref: vault_ref`); `spec/compliance/encryption-retrofit.yaml` does not exist on main (removed) |
+| Other conflicts | — | `errors.ts`/`errors.yaml` (main already had `residency_denied`; only M05 codes appended), `platform-scope.spec.ts`, `operations.ts` (main already had a `kinds` filter on `claimDue`; merged with `onlyPending`), `openapi.yaml` (rebuilt from main + M05 operations only), SDK regenerated, `pnpm-lock.yaml` regenerated |
+
+S16 contract surface (`@nuzm/adapter-contracts`, `@nuzm/adapter-runtime`, conformance kit, mock adapter, cloud tables and admin APIs) is **unchanged** by the port.

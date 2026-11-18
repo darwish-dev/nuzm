@@ -20,8 +20,8 @@ providers:
     kind: compute
     adapter: huawei-ecs
     environment_policy: any
-    egress: { hosts: [], allow_loopback: false }
-    note: 'Adapter arrives in S20/S21 (needs HG-05-02).'
+    egress: { hosts: ['*.myhuaweicloud.com'], allow_loopback: false } # ecs|iam|evs|ces|ims.<region>.myhuaweicloud.com, bss-intl.myhuaweicloud.com (docs read 2026-11-18)
+    note: 'Adapter built from the official docs (S20/S21), NOT VERIFIED: needs HG-05-02 for any live call. me-east-1 is documented as ME-Riyadh; offers appear only if a live probe proves the region.'
   - key: contabo
     kind: compute
     adapter: contabo-vps

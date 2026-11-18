@@ -34,6 +34,10 @@ export default async function ConsoleLayout({
     ...(flagEnabled(s.me.featureFlags, 'hosting.enabled')
       ? gated('hosting:site:read', '/hosting/sites', 'nav.hosting')
       : []),
+    // the website builder is a flagged capability (`ai.enabled`, default off); the API answers 404 while it is off
+    ...(flagEnabled(s.me.featureFlags, 'ai.enabled')
+      ? gated('builder:read', '/builder/projects', 'bld.nav.builder')
+      : []),
     ...gated('data:db:read', '/databases', 'm8.nav.databases'),
     ...gated('data:storage:read', '/storage/buckets', 'm8.nav.storage'),
     ...gated('email:read', '/email/domains', 'm8.nav.email'),
@@ -48,6 +52,10 @@ export default async function ConsoleLayout({
             label: t(locale, 'nav.billing'),
           },
         ]
+      : []),
+    // AI usage, credits and budgets (M09) is a flagged capability (`ai.enabled`, default off)
+    ...(flagEnabled(s.me.featureFlags, 'ai.enabled')
+      ? gated('ai:read', '/ai/usage', 'aiu.nav.ai')
       : []),
     ...gated('privacy:dsr:self', '/privacy/requests', 'nav.privacy'),
     // M05: compute entries only while `cloud.provisioning` is on for the organization AND the member holds the permission
@@ -82,10 +90,13 @@ export default async function ConsoleLayout({
       (i.href.endsWith('/privacy/requests')
         ? path.includes('/privacy/') || path.endsWith('/settings/data-residency')
         : false) ||
+      // the builder: projects, workspace, new-site wizard and run pages keep the entry current
+      (i.href.endsWith('/builder/projects') ? path.startsWith(`${base}/builder/`) : false) ||
       // managed data and email: every sub-page keeps its section entry current
       (i.href.endsWith('/databases') ? path.startsWith(i.href) : false) ||
       (i.href.endsWith('/storage/buckets') ? path.startsWith(`${base}/storage/`) : false) ||
-      (i.href.endsWith('/email/domains') ? path.startsWith(`${base}/email/`) : false),
+      (i.href.endsWith('/email/domains') ? path.startsWith(`${base}/email/`) : false) ||
+      (i.href.endsWith('/ai/usage') ? path.startsWith(`${base}/ai/`) : false),
   }));
   const imp = s.me.impersonation;
   return (

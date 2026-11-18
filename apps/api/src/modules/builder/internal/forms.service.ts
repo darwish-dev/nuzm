@@ -96,6 +96,18 @@ export class FormsService {
     b: Record<string, unknown>,
   ): Promise<FormDto> {
     if (!isUuid(projectId)) throw new ProblemException('not_found');
+    if (
+      !(await this.db.withOrg(
+        orgId,
+        async (c) =>
+          (
+            await c.query(`SELECT 1 FROM builder.projects WHERE id=$1 AND deleted_at IS NULL`, [
+              projectId,
+            ])
+          ).rows[0],
+      ))
+    )
+      throw new ProblemException('not_found');
     const key = b.formKey;
     if (typeof key !== 'string' || !/^[a-z][a-z0-9_-]{0,39}$/.test(key))
       throw new ProblemException('validation_failed', 'formKey must be a lower-case slug');

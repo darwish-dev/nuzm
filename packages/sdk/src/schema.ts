@@ -5036,6 +5036,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ai/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evaluation reports vs thresholds
+         * @description Evaluation harness reports (40 prompts, 20 Arabic and 20 English, 8 site categories) with the PROPOSED thresholds (owner approval pending) and the breaches. Every report states `modelQuality`: reports from the scripted mock are `NOT VERIFIED` and prove plumbing only; the human rubric is a separate record and is never filled in by the harness. a11y, SEO and performance figures are proxies, not Lighthouse. Platform permission `admin:ai:read`.
+         */
+        get: operations["getAiQuality"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9619,6 +9639,14 @@ export interface components {
         };
         DeploymentLogs: {
             items: {
+                [key: string]: unknown;
+            }[];
+        };
+        AiQuality: {
+            thresholds: {
+                [key: string]: number;
+            };
+            reports: {
                 [key: string]: unknown;
             }[];
         };
@@ -19910,6 +19938,28 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+        };
+    };
+    getAiQuality: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiQuality"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
 }

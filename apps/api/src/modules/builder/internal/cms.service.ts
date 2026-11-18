@@ -97,6 +97,18 @@ export class CmsService {
   /** Create a collection (name + fields) and/or add items to it. Body {collectionKey, name?, fields?, items?: [{data, state?: draft|published}]}. */
   async upsert(orgId: string, userId: string, projectId: string, b: Record<string, unknown>) {
     if (!isUuid(projectId)) throw new ProblemException('not_found');
+    if (
+      !(await this.db.withOrg(
+        orgId,
+        async (c) =>
+          (
+            await c.query(`SELECT 1 FROM builder.projects WHERE id=$1 AND deleted_at IS NULL`, [
+              projectId,
+            ])
+          ).rows[0],
+      ))
+    )
+      throw new ProblemException('not_found');
     const key = b.collectionKey;
     if (typeof key !== 'string' || !/^[a-z][a-z0-9_-]{0,39}$/.test(key))
       throw new ProblemException('validation_failed', 'collectionKey must be a lower-case slug');

@@ -16,6 +16,8 @@ import { ResidencyService } from '../compliance';
 import { IdentityModule } from '../identity';
 import { AdminAiProvidersController } from './admin-ai-providers.controller';
 import { AdminAiRunsController } from './admin-ai-runs.controller';
+import { AdminAiQualityController } from './admin-ai-quality.controller';
+import { EvaluationService } from './internal/evaluation.service';
 import { AiModelsController } from './ai-models.controller';
 import { AiRunsController } from './ai-runs.controller';
 import { AiSessionsController } from './ai-sessions.controller';
@@ -47,6 +49,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     AiSessionsController,
     AiRunsController,
     AdminAiRunsController,
+    AdminAiQualityController,
   ],
   providers: [
     { provide: AI_CONFIG, useFactory: () => loadAiConfig() },
@@ -142,6 +145,11 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
       ],
     },
     {
+      provide: EvaluationService,
+      useFactory: (db: Db, a: AuditSink, cfg: AiConfig) => new EvaluationService(db, a, cfg),
+      inject: [DB, AuditSink, AI_CONFIG],
+    },
+    {
       provide: AiJobs,
       useFactory: (db: Db, r: RunService, b: BudgetService) => new AiJobs(db, r, b),
       inject: [DB, RunService, BudgetService],
@@ -158,6 +166,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     RunKindRegistry,
     RunService,
     SessionService,
+    EvaluationService,
     AiJobs,
     UrlFetchPort,
   ],

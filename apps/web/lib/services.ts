@@ -51,6 +51,14 @@ export const SERVICES: Service[] = [
     flag: 'domains.enabled',
   },
   {
+    id: 'builder',
+    href: '/builder/projects',
+    perm: ['builder:read'],
+    label: 'bld.nav.builder',
+    desc: 'bld.home.desc',
+    flag: 'ai.enabled',
+  },
+  {
     id: 'databases',
     href: '/databases',
     perm: ['data:db:read'],
@@ -78,6 +86,14 @@ export const SERVICES: Service[] = [
     label: 'm05.web.nav.instances',
     desc: 'home.svc.compute',
     flag: 'cloud.provisioning',
+  },
+  {
+    id: 'ai',
+    href: '/ai/usage',
+    perm: ['ai:read'],
+    label: 'aiu.nav.ai',
+    desc: 'home.svc.ai',
+    flag: 'ai.enabled',
   },
   {
     id: 'billing',

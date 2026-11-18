@@ -23,3 +23,4 @@ export type {
 } from './internal/run-kinds';
 export { UrlFetchPort, SafeUrlFetcher } from './internal/url-fetcher';
 export type { AgentTask } from './internal/run-kinds';
+export { EvaluationService } from './internal/evaluation.service';

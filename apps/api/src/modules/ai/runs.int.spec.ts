@@ -6,6 +6,7 @@ import { safeFetch, type SafeFetchDeps } from '@nuzm/domain';
 import {
   AI_CONFIG,
   RunKindRegistry,
+  EvaluationService,
   RunService,
   SessionService,
   UrlFetchPort,
@@ -574,4 +575,24 @@ describe('admin run oversight is metadata only', () => {
     );
     expect(e.sink.events.some((x) => x.action === 'ai.admin.cross_org_read')).toBe(true);
   });
+});
+
+describe('evaluation harness results (S41.5)', () => {
+  it('a run stores an evaluation_report artifact stamped NOT VERIFIED and the admin quality view lists it with thresholds', async () => {
+    const out = await e.app.get(EvaluationService).run(A(), { model: 'mock-model' });
+    expect(out.report.sites).toBe(40);
+    expect(out.report.modelQuality).toBe('NOT VERIFIED');
+    const r = await e.admin('padmin', 'GET', '/v1/admin/ai/quality');
+    expect(r.statusCode).toBe(200);
+    expect(r.json().reports[0]).toMatchObject({
+      id: out.artifactId,
+      modelQuality: 'NOT VERIFIED',
+      sites: 40,
+    });
+    expect(r.json().thresholds.humanRubricMean).toBe(4);
+    expect(JSON.stringify(r.json())).not.toContain('perSite');
+    expect(
+      (await e.call('alice', 'GET', '/v1/admin/ai/quality')).statusCode,
+    ).toBeGreaterThanOrEqual(401);
+  }, 120_000);
 });

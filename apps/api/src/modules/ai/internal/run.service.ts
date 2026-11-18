@@ -423,12 +423,12 @@ export class RunService {
     runId: string,
     b: Record<string, unknown>,
   ): Promise<RunDto> {
+    const run = await this.load(orgId, runId); // 404 for another organization BEFORE any body validation
     if (!isUuid(b.approvalId))
       throw new ProblemException('validation_failed', 'approvalId must be a uuid');
     if (b.decision !== 'approve' && b.decision !== 'deny')
       throw new ProblemException('validation_failed', 'decision must be approve or deny');
     const note = typeof b.note === 'string' ? b.note.slice(0, 500) : null;
-    const run = await this.load(orgId, runId);
     const ap = await this.db.withOrg(orgId, async (c) => {
       const a = (
         await c.query(`SELECT * FROM ai.approvals WHERE id=$1 AND run_id=$2 FOR UPDATE`, [

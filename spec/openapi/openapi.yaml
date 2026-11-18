@@ -8597,6 +8597,23 @@ paths:
             text/html:
               schema: { type: string }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/quality:
+    get:
+      operationId: getAiQuality
+      tags: [ai]
+      summary: 'Evaluation reports vs thresholds'
+      description: 'Evaluation harness reports (40 prompts, 20 Arabic and 20 English, 8 site categories) with the PROPOSED thresholds (owner approval pending) and the breaches. Every report states `modelQuality`: reports from the scripted mock are `NOT VERIFIED` and prove plumbing only; the human rubric is a separate record and is never filled in by the harness. a11y, SEO and performance figures are proxies, not Lighthouse. Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiQuality' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   # <<< M09 paths
 components:
   parameters:
@@ -14579,5 +14596,11 @@ components:
       required: [items]
       properties:
         items: { type: array, items: { type: object, additionalProperties: true } }
+    AiQuality:
+      type: object
+      required: [thresholds, reports]
+      properties:
+        thresholds: { type: object, additionalProperties: { type: number } }
+        reports: { type: array, items: { type: object, additionalProperties: true } }
     # <<< S39-41 schemas
     # <<< M09 schemas

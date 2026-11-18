@@ -43,6 +43,10 @@ export default async function ConsoleLayout({
     ...(s.can('admin:domains:read')
       ? [{ href: `${base}/domains/registrars`, label: t(locale, 'nav.admin.domains') }]
       : []),
+    // M09: model providers, run oversight and quality (the sections are reachable from the AI tabs)
+    ...(s.can('admin:ai:read')
+      ? [{ href: `${base}/ai/model-providers`, label: t(locale, 'aia.nav.ai') }]
+      : []),
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),
@@ -57,6 +61,7 @@ export default async function ConsoleLayout({
       (i.href.endsWith('/billing/ledger') && path.includes('/billing/')) ||
       (i.href.endsWith('/compliance/controls') && path.includes('/compliance/')) ||
       (i.href.endsWith('/domains/registrars') && path.includes('/domains/')) ||
+      (i.href.endsWith('/ai/model-providers') && path.includes('/ai/')) ||
       (i.href.endsWith('/providers') &&
         (path.startsWith(`${i.href}/`) ||
           path.startsWith(`${base}/cloud/`) ||

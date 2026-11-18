@@ -379,10 +379,10 @@ export class ProjectService {
     });
   }
   async fileContent(orgId: string, id: string, path: unknown, versionId?: string) {
-    if (typeof path !== 'string' || path.length < 1 || path.length > 300)
-      throw new ProblemException('validation_failed', 'path is required');
     return this.db.withOrg(orgId, async (c) => {
       const r = await this.row(c, id);
+      if (typeof path !== 'string' || path.length < 1 || path.length > 300)
+        throw new ProblemException('validation_failed', 'path is required');
       const f = (
         await c.query(
           `SELECT path, size, mime, content FROM builder.project_files WHERE project_id=$1 AND version_id=$2 AND path=$3`,
@@ -503,6 +503,7 @@ export class ProjectService {
   }
   /** Validate and apply an ordered op set atomically against `baseVersion`. 409 `base_outdated` carries rebase info; 422 `op_invalid` carries the issues. */
   async applyChange(orgId: string, projectId: string, a: ApplyInput) {
+    await this.db.withOrg(orgId, (c) => this.row(c, projectId)); // 404 for another organization BEFORE any body validation
     if (!isUuid(a.baseVersion))
       throw new ProblemException('validation_failed', 'baseVersion must be a version id');
     if (a.source !== 'user' && a.source !== 'ai')

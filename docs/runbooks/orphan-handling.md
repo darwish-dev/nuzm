@@ -1,0 +1,9 @@
+# Orphan handling (M05 S17)
+
+An **orphan** is a billable provider resource that Nuzm has no live record for (for example a create that the provider completed although Nuzm recorded a definitive failure, or a provision whose outcome could never be proven). Orphans cost money and may hold customer data, so they are handled by people, with evidence.
+
+1. **Detection** — the reconciler (`orphan_suspected`) or a provider that cannot look resources up by token (`cannot_prove_absence` for `CLOUD_CASE_AFTER_CYCLES` cycles) opens an **admin case**: `cloud.resources.case_opened_at/case_detail`, `drift_state = orphan_suspected`, audit `orphan.case.opened`. Find cases: `GET /v1/admin/resources?driftState=orphan_suspected` (cross-organization reads are audited).
+2. **Never automatic** — nothing is deleted by default. `CLOUD_AUTO_DELETE_ORPHANS=true` makes the reconciler delete a suspected orphan; it is **off by default**, must be a deliberate admin decision for a specific environment, and every deletion is audited (`cloud.orphan.auto_deleted`). Do not enable it in production without the owner's explicit approval.
+3. **Investigation** — compare the provider console/billing with `cloud.resources` (`provider_ref`, `provision_token`) and the operation (`resource_id` on `platform.operations`). Provider tags carry only an opaque org hash and the instance id (never names).
+4. **Resolution** — delete (or adopt) the provider resource with the provider's own tooling under the least-privilege account; record the evidence. **Open point (SI-M05-5):** there is no endpoint yet to close a case (docs/04 defines none besides the admin resources API); the marker stays until the S23 admin console adds it. Until then the case is closed by the evidence recorded in the operations log.
+5. **Money** — a billable orphan is a provider cost with no customer revenue: report it to finance (RC-04 reconciliation arrives in S23).

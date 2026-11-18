@@ -15,7 +15,7 @@ export class SimClock implements Clock {
     return this.t;
   }
   iso(): string {
-    return new Date(this.t).toISOString();
+    return new Date(this.now()).toISOString();
   }
 }
 

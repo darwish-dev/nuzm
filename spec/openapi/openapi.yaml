@@ -4361,6 +4361,472 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/offers:
+    get:
+      operationId: listOffers
+      tags: [cloud]
+      summary: 'List compute offers'
+      description: 'ONLY eligible inventory: account healthy, region verified (fresh, with evidence), plan available, capability supported, residency allows, entitlement and quota allow, price present. Any false hides the offer. Provider identity, provider region ids and provider cost are never returned (admin view: GET /v1/admin/offers). Behind the feature flag cloud.provisioning (404 while off). A 422 invalid_filter answers an unknown or admin-only filter. Requires permission `offers:read`.'
+      x-nuzm-permission: offers:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: kind,
+            in: query,
+            required: false,
+            schema: { type: string, enum: [compute] },
+            description: 'Only compute is available.',
+          }
+        - {
+            name: country,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'ISO 3166-1 alpha-2 country.',
+          }
+        - {
+            name: geoGroup,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Region group (in_kingdom, gcc, eu, ...).',
+          }
+        - {
+            name: minVcpu,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1 },
+            description: 'Minimum vCPU.',
+          }
+        - {
+            name: minMemoryMb,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1 },
+            description: 'Minimum memory in MB.',
+          }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OfferList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/offers:
+    get:
+      operationId: adminListOffers
+      tags: [cloud]
+      summary: 'Offers as evaluated for one organization'
+      description: 'Admin view: adds provider identity, provider region id, provider cost, evidence kind and, with includeIneligible=true, the list of failing conditions of every plan (the data of the routing dry-run). orgId selects the organization whose residency, entitlement and quota are evaluated.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: orgId,
+            in: query,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Organization to evaluate for.',
+          }
+        - {
+            name: includeIneligible,
+            in: query,
+            required: false,
+            schema: { type: boolean },
+            description: 'Also return plans that fail a condition.',
+          }
+        - {
+            name: provider,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Provider key.',
+          }
+        - {
+            name: region,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Provider region id.',
+          }
+        - {
+            name: country,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'ISO 3166-1 alpha-2 country.',
+          }
+        - {
+            name: geoGroup,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Region group (in_kingdom, gcc, eu, ...).',
+          }
+        - {
+            name: minVcpu,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1 },
+            description: 'Minimum vCPU.',
+          }
+        - {
+            name: minMemoryMb,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1 },
+            description: 'Minimum memory in MB.',
+          }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOfferList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances:
+    post:
+      operationId: createComputeInstance
+      tags: [cloud]
+      summary: 'Create a compute instance from a quote'
+      description: 'Consumes the compute quote (an M02 order: validity, quota group, spend limit or approved spend approval), records a cost-authorization hold for the first period, re-evaluates eligibility, residency, capability, quota and price at execution (TOCTOU) and starts a durable operation (202). Errors: 409 quote_expired|quote_consumed|price_changed, 422 spend_approval_required (with approvalId), 403 residency_denied, 422 quota_exceeded|unsupported_capability|no_eligible_offer. Requires permission `compute:instance:create` and an Idempotency-Key.'
+      x-nuzm-permission: compute:instance:create
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateComputeInstance' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComputeInstanceAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listComputeInstances
+      tags: [cloud]
+      summary: 'List compute instances'
+      description: 'Instances of the active organization with status, data region, plan, public IPs, capabilities and drift state. Requires permission `compute:instance:read`.'
+      x-nuzm-permission: compute:instance:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: status,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Filter by status.',
+          }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComputeInstanceList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances/{id}:
+    get:
+      operationId: getComputeInstance
+      tags: [cloud]
+      summary: 'Get a compute instance'
+      description: 'An id that belongs to another organization answers 404. Returns the ETag header used by DELETE If-Match. Requires permission `compute:instance:read`.'
+      x-nuzm-permission: compute:instance:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComputeInstance' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteComputeInstance
+      tags: [cloud]
+      summary: 'Delete a compute instance'
+      description: 'Async (202 + operationId). Requires If-Match; 409 deletion_protected while protection is on; an instance whose state is uncertain is reconciled BEFORE the delete. Requires permission `compute:instance:delete`.'
+      x-nuzm-permission: compute:instance:delete
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+        - { $ref: '#/components/parameters/IfMatch' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComputeInstanceAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances/{id}/actions:
+    post:
+      operationId: actComputeInstance
+      tags: [cloud]
+      summary: 'Start, stop, reboot, resize or snapshot an instance'
+      description: 'Body {type, params}. Only types in the instance capability set are accepted, otherwise 422 unsupported_capability (never a silent no-op); 409 invalid_state; idempotent per Idempotency-Key. resize takes params.offerId of an eligible plan in the same placement. Requires permission `compute:instance:act`.'
+      x-nuzm-permission: compute:instance:act
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComputeInstanceAction' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComputeActionAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances/{id}/metrics:
+    get:
+      operationId: getComputeInstanceMetrics
+      tags: [cloud]
+      summary: 'Instance metrics'
+      description: 'Series for a window (default the last hour, at most 7 days). 422 unsupported_capability when the provider exposes no metrics. Requires permission `compute:instance:read`.'
+      x-nuzm-permission: compute:instance:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+        - {
+            name: from,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Window start (ISO).',
+          }
+        - {
+            name: to,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Window end (ISO).',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComputeMetrics' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/routing-rules:
+    get:
+      operationId: adminListRoutingRules
+      tags: [cloud]
+      summary: 'List routing rules'
+      description: 'Current version of every rule (history=true: every version). Rules are immutable rows; a change is a new version.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: history,
+            in: query,
+            required: false,
+            schema: { type: boolean },
+            description: 'Return every version.',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoutingRuleList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminPutRoutingRule
+      tags: [cloud]
+      summary: 'Create or version a routing rule'
+      description: 'Body {ruleKey, priority, match{country[],geoGroup[],mode}, action{type: prefer|exclude|pin, providerKey|accountId|providerRegionId}, enabled?, note?}. Audited as routing.rule.changed. Permission admin:provider:manage.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoutingRuleInput' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoutingRule' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/resources:
+    get:
+      operationId: adminListCloudResources
+      tags: [cloud]
+      summary: 'Cross-organization resource inventory'
+      description: 'Resources with canonical state, drift state (in_sync|drift|orphan_suspected|missing) and any open admin case. The read is audited (admin.resources.listed).'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: orgId,
+            in: query,
+            required: false,
+            schema: { type: string, format: uuid },
+            description: 'Filter by organization.',
+          }
+        - {
+            name: state,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Canonical resource state.',
+          }
+        - {
+            name: driftState,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'Drift state.',
+          }
+        - {
+            name: accountId,
+            in: query,
+            required: false,
+            schema: { type: string, format: uuid },
+            description: 'Provider account.',
+          }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CloudResourceList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/resources/{id}/reconciliations:
+    post:
+      operationId: adminReconcileResource
+      tags: [cloud]
+      summary: 'Force a reconciliation'
+      description: '202 with a platform job id (poll GET /v1/admin/provider-jobs/{id}). The reconciler never retries a provision unless the provider lookup proved absence and never deletes automatically.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: 'Identifier.',
+          }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderJobAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/webhooks/cloud/{provider}:
+    post:
+      operationId: receiveCloudWebhook
+      tags: [cloud]
+      summary: 'Provider webhook'
+      description: 'Unauthenticated by design (a verified signature over the raw body is the authentication). No provider adapter supports webhooks yet, so every provider answers 404; nothing is stored.'
+      security: []
+      parameters:
+        - {
+            name: provider,
+            in: path,
+            required: true,
+            schema: { type: string },
+            description: 'Provider key.',
+          }
+      responses:
+        '200': { description: Success }
+        '404': { $ref: '#/components/responses/Problem' }
 
 components:
   parameters:
@@ -6171,7 +6637,8 @@ components:
         updatedAt: { type: string, format: date-time }
     CreateQuote:
       type: object
-      required: [kind, items]
+      required: [kind]
+      description: 'Kind specific. ai-credit: {items:[{credits}]}. compute (M05): {offerId | routing{mode,country|geoGroup|region|provider}, spec{imageId, diskGb?, count}, term{period:"month"}} - requires compute:quote:create; the quote carries the residency decision and the routing decision is recorded internally.'
       properties:
         kind:
           {
@@ -6190,6 +6657,21 @@ components:
         projectId: { type: string, format: uuid }
         currency: { type: string, pattern: '^[A-Z]{3}$', default: SAR }
         preferences: { type: object, additionalProperties: true }
+        offerId: { type: string, format: uuid, description: 'compute: a specific eligible offer.' }
+        routing:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'compute: explicit (provider+region) or automatic (country|geoGroup) routing.',
+          }
+        spec:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'compute: {imageId, diskGb?, count}.',
+          }
+        term:
+          { type: object, additionalProperties: true, description: 'compute: {period:"month"}.' }
     QuoteItem:
       type: object
       required: [position, description, meterId, quantity, unit, unitPriceMinor, amountMinor]
@@ -7467,3 +7949,217 @@ components:
                   period: { type: string, enum: [hour, month] }
               availability: { type: string, enum: [available, sold_out, unavailable] }
               lastSeenAt: { type: string, format: date-time }
+    OfferList:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Offer' } }
+        nextCursor: { type: string, nullable: true }
+    Offer:
+      type: object
+      required: [offerId, kind, country, dataRegion, plan, price, capabilities, verifiedAt]
+      properties:
+        offerId: { type: string, format: uuid }
+        kind: { type: string, enum: [compute] }
+        country: { type: string }
+        dataRegion: { type: string }
+        plan: { $ref: '#/components/schemas/ComputePlan' }
+        price:
+          type: object
+          required: [amount, currency, period]
+          properties:
+            amount:
+              { type: string, description: 'Integer minor units for one instance for one month.' }
+            currency: { type: string }
+            period: { type: string, enum: [month] }
+        capabilities: { type: array, items: { type: string } }
+        verifiedAt: { type: string, format: date-time, nullable: true }
+    ComputePlan:
+      type: object
+      required: [vcpu, memoryMb, diskGb]
+      properties:
+        vcpu: { type: integer }
+        memoryMb: { type: integer }
+        diskGb: { type: integer }
+        bandwidth: { type: string }
+    AdminOfferList:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/Offer' }
+              - type: object
+                properties:
+                  provider: { type: object, additionalProperties: true }
+                  providerRegionId: { type: string }
+                  planRef: { type: string }
+                  providerPrice: { type: object, additionalProperties: true, nullable: true }
+                  evidenceKind: { type: string, nullable: true }
+                  eligible: { type: boolean }
+                  failures: { type: array, items: { type: string } }
+        nextCursor: { type: string, nullable: true }
+    CreateComputeInstance:
+      type: object
+      required: [quoteId, name]
+      properties:
+        quoteId: { type: string, format: uuid }
+        name: { type: string }
+        projectId: { type: string, format: uuid }
+        environmentId: { type: string, format: uuid }
+        sshPublicKeys: { type: array, items: { type: string } }
+        tags: { type: object, additionalProperties: { type: string } }
+    ComputeInstanceAccepted:
+      type: object
+      required: [instance, operationId]
+      properties:
+        instance:
+          type: object
+          required: [id, status]
+          properties:
+            id: { type: string, format: uuid }
+            status: { type: string }
+        operationId: { type: string, format: uuid }
+    ComputeActionAccepted:
+      type: object
+      required: [instance, operationId, actionId]
+      properties:
+        instance: { type: object, additionalProperties: true }
+        operationId: { type: string, format: uuid }
+        actionId: { type: string, format: uuid }
+    ComputeInstanceAction:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [start, stop, reboot, resize, snapshot] }
+        params: { type: object, additionalProperties: true }
+    ComputeInstance:
+      type: object
+      required:
+        [
+          id,
+          name,
+          status,
+          dataRegion,
+          country,
+          plan,
+          publicIps,
+          createdAt,
+          capabilities,
+          driftState,
+          version,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          {
+            type: string,
+            enum: [provisioning, running, stopped, failed, deleting, deleted, unknown],
+          }
+        dataRegion: { type: string }
+        country: { type: string }
+        plan: { $ref: '#/components/schemas/ComputePlan' }
+        publicIps: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+        capabilities: { type: array, items: { type: string } }
+        operationId: { type: string, format: uuid, nullable: true }
+        projectId: { type: string, format: uuid, nullable: true }
+        environmentId: { type: string, format: uuid, nullable: true }
+        tags: { type: object, additionalProperties: { type: string } }
+        deletionProtected: { type: boolean }
+        driftState: { type: string, enum: [in_sync, drift, orphan_suspected, missing] }
+        version: { type: integer }
+    ComputeInstanceList:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ComputeInstance' } }
+        nextCursor: { type: string, nullable: true }
+    ComputeMetrics:
+      type: object
+      required: [window, series]
+      properties:
+        window: { type: object, additionalProperties: true }
+        series: { type: array, items: { type: object, additionalProperties: true } }
+    RoutingRuleInput:
+      type: object
+      required: [ruleKey, priority, action]
+      properties:
+        ruleKey: { type: string }
+        priority: { type: integer }
+        match: { type: object, additionalProperties: true }
+        action: { type: object, additionalProperties: true }
+        enabled: { type: boolean }
+        note: { type: string }
+    RoutingRule:
+      type: object
+      required: [id, ruleKey, version, priority, match, action, enabled]
+      properties:
+        id: { type: string, format: uuid }
+        ruleKey: { type: string }
+        version: { type: integer }
+        priority: { type: integer }
+        match: { type: object, additionalProperties: true }
+        action: { type: object, additionalProperties: true }
+        enabled: { type: boolean }
+        note: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    RoutingRuleList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/RoutingRule' } }
+    CloudResource:
+      type: object
+      required:
+        [
+          id,
+          orgId,
+          kind,
+          providerAccountId,
+          state,
+          dataRegion,
+          country,
+          providerRegionId,
+          driftState,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        kind: { type: string }
+        providerAccountId: { type: string, format: uuid }
+        providerKey: { type: string, nullable: true }
+        providerRef: { type: string, nullable: true }
+        state:
+          {
+            type: string,
+            enum:
+              [
+                DRAFT,
+                QUOTED,
+                AWAITING_PAYMENT,
+                PROVISIONING,
+                ACTIVE,
+                FAILED,
+                DELETING,
+                DELETED,
+                UNKNOWN,
+              ],
+          }
+        dataRegion: { type: string }
+        country: { type: string }
+        providerRegionId: { type: string }
+        driftState: { type: string, enum: [in_sync, drift, orphan_suspected, missing] }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        caseOpenedAt: { type: string, format: date-time, nullable: true }
+        caseDetail: { type: object, additionalProperties: true, nullable: true }
+        createdAt: { type: string, format: date-time }
+    CloudResourceList:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CloudResource' } }
+        nextCursor: { type: string, nullable: true }

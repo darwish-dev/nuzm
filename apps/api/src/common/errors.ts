@@ -72,6 +72,11 @@ export const ERROR_REGISTRY = {
     title: 'The provider or instance does not support this capability',
   },
   no_eligible_offer: { status: 422, title: 'No eligible offer matches the request' },
+  quote_expired: { status: 409, title: 'The quote has expired' },
+  quote_consumed: { status: 409, title: 'The quote has already been used' },
+  price_changed: { status: 409, title: 'The price changed since the quote was issued' },
+  deletion_protected: { status: 409, title: 'Deletion protection is on' },
+  invalid_state: { status: 409, title: 'The operation is not allowed in the current state' },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

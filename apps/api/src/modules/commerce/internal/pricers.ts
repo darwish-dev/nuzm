@@ -33,15 +33,25 @@ export interface PriceContext {
   orgId: string;
   currency: string;
   now: Date;
+  actorUserId?: string;
 }
 export interface PricerResult {
   items: PricedItem[];
   priceBookVersionId: string | null;
+  /** The kind's own residency evaluation (M04 hook), stored in the immutable quote. Absent = `{status:'not_evaluated'}`. */
+  residency?: Record<string, unknown>;
+  /** Internal, admin-visible decisions stored with the quote (e.g. the compute routing decision); NEVER returned to customers. */
+  preferences?: Record<string, unknown>;
 }
 /** One pricer per quote kind. The owning milestone registers it (compute M05, hosting M06, domain M07, ...). */
 export interface QuotePricer {
   readonly kind: QuoteKind;
   price(ctx: PriceContext, items: unknown[]): Promise<PricerResult>;
+  /**
+   * Kinds whose request is not an `items` list (compute: `{offerId | routing, spec, term}`, docs/04) map the request body to the pricer's
+   * items here. Absent = the body must carry `items` (the M02 shape).
+   */
+  itemsFrom?(input: Record<string, unknown>): unknown[];
 }
 
 /** Registry of quote pricers: a kind with no registered pricer is `kind_not_available` (never invented prices). */

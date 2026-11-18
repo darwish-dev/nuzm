@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OperationsService } from '@nuzm/platform';
 import { NotificationService } from '../notifications';
+import { AdapterRegistry } from '../cloud';
 import { parse } from 'yaml';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
@@ -73,6 +74,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
       operations: A.operation,
       notifications: A.notification,
       quotes: A.quote,
+      compute: A.instance,
     } as Record<string, string>
   )[root];
 };
@@ -202,6 +204,49 @@ beforeAll(async () => {
      SELECT $1, $2, v.id, 'SAR', 'active', '[{"kind":"plan_fee","planKey":"starter","meterId":"plan.starter_months","unitPriceMinor":"100","rounding":"half_up","priceBookVersionId":"x"}]', 1, $3, 1, '2026-01-01', '2026-02-01'
        FROM billing.plan_versions v JOIN billing.plans p ON p.id = v.plan_id WHERE p.key = 'starter' AND v.status = 'published' LIMIT 1`,
     [A.subscription, orgA, A.paymentMethod],
+  );
+  // M05 compute fixture of org A: an instance written directly (the compute module has its own tests) on a mock-provider resource that really exists in the simulator
+  await h.env.sql(
+    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'cloud.provisioning', NULL, 'true'::jsonb)`,
+  );
+  const mockAccount = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO cloud.provider_accounts (id, provider_id, name, vault_ref, created_by) SELECT $1, id, 'ct-mock', 'vault://dev/test/ct-mock', $2 FROM cloud.providers WHERE key = 'mock'`,
+    [mockAccount, aliceId],
+  );
+  const mockRegistry = app.get(AdapterRegistry);
+  const mockRef = (
+    await mockRegistry
+      .entry('mock-compute')!
+      .create()
+      .provision(
+        {
+          providerAccountId: mockAccount,
+          credentialRef: 'vault://dev/test/ct-mock',
+          traceId: 't',
+          deadlineMs: 1000,
+        },
+        {
+          providerRegionId: 'mock-sa-1',
+          planRef: 'mock.small',
+          imageRef: 'mock-ubuntu',
+          name: 'ct',
+          sshPublicKeys: [],
+          tags: {},
+          idempotencyToken: 'c'.repeat(64),
+        },
+      )
+  ).providerRef!;
+  const ctResource = crypto.randomUUID();
+  A.instance = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO cloud.resources (id, org_id, kind, provider_account_id, provider_ref, state, data_region, country, provider_region_id, last_seen_at) VALUES ($1,$2,'compute_instance',$3,$4,'ACTIVE','in_kingdom','SA','mock-sa-1', now())`,
+    [ctResource, orgA, mockAccount, mockRef],
+  );
+  await h.env.sql(
+    `INSERT INTO compute.instances (id, org_id, resource_id, name, plan, status, capabilities, quote_id, data_region, country)
+     VALUES ($1,$2,$3,'ct-instance','{"vcpu":1,"memoryMb":2048,"diskGb":40,"planRef":"mock.small"}','running','["compute.metrics","compute.action.stop"]', gen_random_uuid(), 'in_kingdom','SA')`,
+    [A.instance, orgA, ctResource],
   );
   // org B's API key carries EVERY org permission an owner has: the strongest key org B can hold
   const ownerPerms = (

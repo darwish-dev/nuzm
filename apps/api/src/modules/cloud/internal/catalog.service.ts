@@ -366,6 +366,14 @@ export class CatalogService {
       `UPDATE cloud.provider_plans SET availability = 'unavailable' WHERE account_id = $1 AND id <> ALL($2::uuid[]) AND availability <> 'unavailable'`,
       [accountId, seenPlans],
     );
+    for (const im of snap.images) {
+      if (!seenRegions.includes(im.providerRegionId)) continue;
+      await c.query(
+        `INSERT INTO compute.images (id, account_id, provider_region_id, image_ref, name, os_family, last_seen_at) VALUES ($1,$2,$3,$4,$5,$6, now())
+         ON CONFLICT (account_id, provider_region_id, image_ref) DO UPDATE SET name = EXCLUDED.name, os_family = EXCLUDED.os_family, last_seen_at = now()`,
+        [uuidv7(), accountId, im.providerRegionId, im.imageRef, im.name, im.osFamily ?? null],
+      );
+    }
     const hash = sha256(
       canonicalJson({
         regions: snap.regions.map((r) => ({

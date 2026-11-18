@@ -153,9 +153,11 @@ export class MockComputeAdapter implements ComputeAdapter {
   private faults: (Fault & { left: number })[] = [];
   private seq = 0;
   private lagMs: number;
-  private readonly dedupe: boolean;
+  private dedupe: boolean;
   /** Every call made, for assertions: `provision` calls are what a duplicate-resource test counts. */
   readonly calls: { op: string; at: number }[] = [];
+  /** Every provision call with whether a live resource already carried the token (a call with `existed: true` is a REPLAY after the side effect). */
+  readonly provisionLog: { token: string; existed: boolean }[] = [];
 
   constructor(o: MockComputeOptions = {}) {
     this.clock = o.clock ?? new SimClock();
@@ -177,6 +179,11 @@ export class MockComputeAdapter implements ComputeAdapter {
   }
   setRegions(r: MockRegionSpec[]): this {
     this.regions = r.map((x) => ({ ...x }));
+    return this;
+  }
+  /** Does the simulated vendor dedupe on the idempotency token? `false` models a vendor without client tokens: a replay creates a SECOND resource. */
+  setDedupe(on: boolean): this {
+    this.dedupe = on;
     return this;
   }
   setConsistencyLag(ms: number): this {
@@ -354,6 +361,12 @@ export class MockComputeAdapter implements ComputeAdapter {
     _ctx: AccountContext,
     req: ProvisionRequest & { idempotencyToken: string },
   ): Promise<OperationResult<InstanceRef>> {
+    this.provisionLog.push({
+      token: req.idempotencyToken,
+      existed: [...this.instances.values()].some(
+        (i) => i.token === req.idempotencyToken && !i.deleted,
+      ),
+    });
     const [g, kind] = this.gate<InstanceRef>('provision');
     if (g) return g;
     if (!isSupported(this.caps, 'compute.provision'))

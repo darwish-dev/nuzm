@@ -38,7 +38,8 @@ export interface QuoteDto {
   totalMinor: string;
   requiresApproval: boolean;
   approvalDetail: unknown;
-  residency: { status: 'not_evaluated' };
+  /** `{status:'not_evaluated'}` for kinds without a residency hook; compute carries `{decision, policyVersion, ...}` (M04). */
+  residency: { status: string; [k: string]: unknown };
   priceBookVersionId: string | null;
   projectId: string | null;
   createdAt: string;
@@ -72,7 +73,9 @@ export class QuoteService {
         'validation_failed',
         `kind must be one of ${QUOTE_KINDS.join(', ')}`,
       );
-    if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 50)
+    const pricer = this.pricers.get(kind as QuoteKind); // kind_not_available when no pricer is registered
+    const itemsInput = pricer.itemsFrom ? pricer.itemsFrom(input) : input.items;
+    if (!Array.isArray(itemsInput) || itemsInput.length < 1 || itemsInput.length > 50)
       throw new ProblemException('validation_failed', 'items must be an array of 1..50 items');
     const currency = input.currency ?? 'SAR';
     if (typeof currency !== 'string' || !CURRENCY.test(currency))
@@ -92,7 +95,6 @@ export class QuoteService {
         'preferences must be an object of at most 2000 characters',
       );
 
-    const pricer = this.pricers.get(kind as QuoteKind); // kind_not_available when no pricer is registered
     if (projectId !== null) {
       const ok = await this.db.withOrg(
         orgId,
@@ -106,7 +108,7 @@ export class QuoteService {
       );
       if (!ok) throw new ProblemException('not_found', 'project not found');
     }
-    const priced = await pricer.price({ orgId, currency, now }, input.items);
+    const priced = await pricer.price({ orgId, currency, now, actorUserId }, itemsInput);
 
     // hard quotas refuse the quote; soft quotas never block (they notify on their own)
     const byGroup = new Map<string, bigint>();
@@ -158,11 +160,11 @@ export class QuoteService {
           taxMinor.toString(),
           total.toString(),
           JSON.stringify(estimate),
-          JSON.stringify({ status: 'not_evaluated' }),
+          JSON.stringify(priced.residency ?? { status: 'not_evaluated' }),
           spend.requiresApproval,
           JSON.stringify(spend.exceeded),
           priced.priceBookVersionId,
-          JSON.stringify(prefs),
+          JSON.stringify({ ...prefs, ...(priced.preferences ?? {}) }),
           expiresAt,
           actorUserId,
           now,
@@ -248,7 +250,7 @@ export function toDto(q: Row, items: Row[], now: Date): QuoteDto {
     totalMinor: String(q.total_minor),
     requiresApproval: q.requires_approval as boolean,
     approvalDetail: q.approval_detail,
-    residency: q.residency as { status: 'not_evaluated' },
+    residency: q.residency as { status: string; [k: string]: unknown },
     priceBookVersionId: (q.price_book_version_id as string | null) ?? null,
     projectId: (q.project_id as string | null) ?? null,
     createdAt: (q.created_at as Date).toISOString(),

@@ -2524,6 +2524,218 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List compute offers
+         * @description ONLY eligible inventory: account healthy, region verified (fresh, with evidence), plan available, capability supported, residency allows, entitlement and quota allow, price present. Any false hides the offer. Provider identity, provider region ids and provider cost are never returned (admin view: GET /v1/admin/offers). Behind the feature flag cloud.provisioning (404 while off). A 422 invalid_filter answers an unknown or admin-only filter. Requires permission `offers:read`.
+         */
+        get: operations["listOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Offers as evaluated for one organization
+         * @description Admin view: adds provider identity, provider region id, provider cost, evidence kind and, with includeIneligible=true, the list of failing conditions of every plan (the data of the routing dry-run). orgId selects the organization whose residency, entitlement and quota are evaluated.
+         */
+        get: operations["adminListOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List compute instances
+         * @description Instances of the active organization with status, data region, plan, public IPs, capabilities and drift state. Requires permission `compute:instance:read`.
+         */
+        get: operations["listComputeInstances"];
+        put?: never;
+        /**
+         * Create a compute instance from a quote
+         * @description Consumes the compute quote (an M02 order: validity, quota group, spend limit or approved spend approval), records a cost-authorization hold for the first period, re-evaluates eligibility, residency, capability, quota and price at execution (TOCTOU) and starts a durable operation (202). Errors: 409 quote_expired|quote_consumed|price_changed, 422 spend_approval_required (with approvalId), 403 residency_denied, 422 quota_exceeded|unsupported_capability|no_eligible_offer. Requires permission `compute:instance:create` and an Idempotency-Key.
+         */
+        post: operations["createComputeInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a compute instance
+         * @description An id that belongs to another organization answers 404. Returns the ETag header used by DELETE If-Match. Requires permission `compute:instance:read`.
+         */
+        get: operations["getComputeInstance"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a compute instance
+         * @description Async (202 + operationId). Requires If-Match; 409 deletion_protected while protection is on; an instance whose state is uncertain is reconciled BEFORE the delete. Requires permission `compute:instance:delete`.
+         */
+        delete: operations["deleteComputeInstance"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start, stop, reboot, resize or snapshot an instance
+         * @description Body {type, params}. Only types in the instance capability set are accepted, otherwise 422 unsupported_capability (never a silent no-op); 409 invalid_state; idempotent per Idempotency-Key. resize takes params.offerId of an eligible plan in the same placement. Requires permission `compute:instance:act`.
+         */
+        post: operations["actComputeInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instance metrics
+         * @description Series for a window (default the last hour, at most 7 days). 422 unsupported_capability when the provider exposes no metrics. Requires permission `compute:instance:read`.
+         */
+        get: operations["getComputeInstanceMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/routing-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List routing rules
+         * @description Current version of every rule (history=true: every version). Rules are immutable rows; a change is a new version.
+         */
+        get: operations["adminListRoutingRules"];
+        put?: never;
+        /**
+         * Create or version a routing rule
+         * @description Body {ruleKey, priority, match{country[],geoGroup[],mode}, action{type: prefer|exclude|pin, providerKey|accountId|providerRegionId}, enabled?, note?}. Audited as routing.rule.changed. Permission admin:provider:manage.
+         */
+        post: operations["adminPutRoutingRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cross-organization resource inventory
+         * @description Resources with canonical state, drift state (in_sync|drift|orphan_suspected|missing) and any open admin case. The read is audited (admin.resources.listed).
+         */
+        get: operations["adminListCloudResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/resources/{id}/reconciliations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Force a reconciliation
+         * @description 202 with a platform job id (poll GET /v1/admin/provider-jobs/{id}). The reconciler never retries a provision unless the provider lookup proved absence and never deletes automatically.
+         */
+        post: operations["adminReconcileResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/cloud/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Provider webhook
+         * @description Unauthenticated by design (a verified signature over the raw body is the authentication). No provider adapter supports webhooks yet, so every provider answers 404; nothing is stored.
+         */
+        post: operations["receiveCloudWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3830,11 +4042,12 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        /** @description Kind specific. ai-credit: {items:[{credits}]}. compute (M05): {offerId | routing{mode,country|geoGroup|region|provider}, spec{imageId, diskGb?, count}, term{period:"month"}} - requires compute:quote:create; the quote carries the residency decision and the routing decision is recorded internally. */
         CreateQuote: {
             /** @enum {string} */
             kind: "compute" | "hosting" | "domain" | "database" | "storage" | "email" | "ai-credit" | "plan" | "marketplace";
             /** @description Kind specific; ai-credit takes exactly one item {credits: "1000"}. */
-            items: {
+            items?: {
                 [key: string]: unknown;
             }[];
             /** Format: uuid */
@@ -3842,6 +4055,23 @@ export interface components {
             /** @default SAR */
             currency?: string;
             preferences?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: uuid
+             * @description compute: a specific eligible offer.
+             */
+            offerId?: string;
+            /** @description compute: explicit (provider+region) or automatic (country|geoGroup) routing. */
+            routing?: {
+                [key: string]: unknown;
+            };
+            /** @description compute: {imageId, diskGb?, count}. */
+            spec?: {
+                [key: string]: unknown;
+            };
+            /** @description compute: {period:"month"}. */
+            term?: {
                 [key: string]: unknown;
             };
         };
@@ -4944,6 +5174,191 @@ export interface components {
                 /** Format: date-time */
                 lastSeenAt?: string;
             }[];
+        };
+        OfferList: {
+            items: components["schemas"]["Offer"][];
+            nextCursor: string | null;
+        };
+        Offer: {
+            /** Format: uuid */
+            offerId: string;
+            /** @enum {string} */
+            kind: "compute";
+            country: string;
+            dataRegion: string;
+            plan: components["schemas"]["ComputePlan"];
+            price: {
+                /** @description Integer minor units for one instance for one month. */
+                amount: string;
+                currency: string;
+                /** @enum {string} */
+                period: "month";
+            };
+            capabilities: string[];
+            /** Format: date-time */
+            verifiedAt: string | null;
+        };
+        ComputePlan: {
+            vcpu: number;
+            memoryMb: number;
+            diskGb: number;
+            bandwidth?: string;
+        };
+        AdminOfferList: {
+            items: (components["schemas"]["Offer"] & {
+                provider?: {
+                    [key: string]: unknown;
+                };
+                providerRegionId?: string;
+                planRef?: string;
+                providerPrice?: {
+                    [key: string]: unknown;
+                } | null;
+                evidenceKind?: string | null;
+                eligible?: boolean;
+                failures?: string[];
+            })[];
+            nextCursor: string | null;
+        };
+        CreateComputeInstance: {
+            /** Format: uuid */
+            quoteId: string;
+            name: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** Format: uuid */
+            environmentId?: string;
+            sshPublicKeys?: string[];
+            tags?: {
+                [key: string]: string;
+            };
+        };
+        ComputeInstanceAccepted: {
+            instance: {
+                /** Format: uuid */
+                id: string;
+                status: string;
+            };
+            /** Format: uuid */
+            operationId: string;
+        };
+        ComputeActionAccepted: {
+            instance: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            operationId: string;
+            /** Format: uuid */
+            actionId: string;
+        };
+        ComputeInstanceAction: {
+            /** @enum {string} */
+            type: "start" | "stop" | "reboot" | "resize" | "snapshot";
+            params?: {
+                [key: string]: unknown;
+            };
+        };
+        ComputeInstance: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "provisioning" | "running" | "stopped" | "failed" | "deleting" | "deleted" | "unknown";
+            dataRegion: string;
+            country: string;
+            plan: components["schemas"]["ComputePlan"];
+            publicIps: string[];
+            /** Format: date-time */
+            createdAt: string;
+            capabilities: string[];
+            /** Format: uuid */
+            operationId?: string | null;
+            /** Format: uuid */
+            projectId?: string | null;
+            /** Format: uuid */
+            environmentId?: string | null;
+            tags?: {
+                [key: string]: string;
+            };
+            deletionProtected?: boolean;
+            /** @enum {string} */
+            driftState: "in_sync" | "drift" | "orphan_suspected" | "missing";
+            version: number;
+        };
+        ComputeInstanceList: {
+            items: components["schemas"]["ComputeInstance"][];
+            nextCursor: string | null;
+        };
+        ComputeMetrics: {
+            window: {
+                [key: string]: unknown;
+            };
+            series: {
+                [key: string]: unknown;
+            }[];
+        };
+        RoutingRuleInput: {
+            ruleKey: string;
+            priority: number;
+            match?: {
+                [key: string]: unknown;
+            };
+            action: {
+                [key: string]: unknown;
+            };
+            enabled?: boolean;
+            note?: string;
+        };
+        RoutingRule: {
+            /** Format: uuid */
+            id: string;
+            ruleKey: string;
+            version: number;
+            priority: number;
+            match: {
+                [key: string]: unknown;
+            };
+            action: {
+                [key: string]: unknown;
+            };
+            enabled: boolean;
+            note?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        RoutingRuleList: {
+            items: components["schemas"]["RoutingRule"][];
+        };
+        CloudResource: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            kind: string;
+            /** Format: uuid */
+            providerAccountId: string;
+            providerKey?: string | null;
+            providerRef?: string | null;
+            /** @enum {string} */
+            state: "DRAFT" | "QUOTED" | "AWAITING_PAYMENT" | "PROVISIONING" | "ACTIVE" | "FAILED" | "DELETING" | "DELETED" | "UNKNOWN";
+            dataRegion: string;
+            country: string;
+            providerRegionId: string;
+            /** @enum {string} */
+            driftState: "in_sync" | "drift" | "orphan_suspected" | "missing";
+            /** Format: date-time */
+            lastSeenAt?: string | null;
+            /** Format: date-time */
+            caseOpenedAt?: string | null;
+            caseDetail?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        CloudResourceList: {
+            items: components["schemas"]["CloudResource"][];
+            nextCursor: string | null;
         };
     };
     responses: {
@@ -9971,6 +10386,431 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listOffers: {
+        parameters: {
+            query?: {
+                /** @description Only compute is available. */
+                kind?: "compute";
+                /** @description ISO 3166-1 alpha-2 country. */
+                country?: string;
+                /** @description Region group (in_kingdom, gcc, eu, ...). */
+                geoGroup?: string;
+                /** @description Minimum vCPU. */
+                minVcpu?: number;
+                /** @description Minimum memory in MB. */
+                minMemoryMb?: number;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListOffers: {
+        parameters: {
+            query: {
+                /** @description Organization to evaluate for. */
+                orgId: string;
+                /** @description Also return plans that fail a condition. */
+                includeIneligible?: boolean;
+                /** @description Provider key. */
+                provider?: string;
+                /** @description Provider region id. */
+                region?: string;
+                /** @description ISO 3166-1 alpha-2 country. */
+                country?: string;
+                /** @description Region group (in_kingdom, gcc, eu, ...). */
+                geoGroup?: string;
+                /** @description Minimum vCPU. */
+                minVcpu?: number;
+                /** @description Minimum memory in MB. */
+                minMemoryMb?: number;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOfferList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listComputeInstances: {
+        parameters: {
+            query?: {
+                /** @description Filter by status. */
+                status?: string;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstanceList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createComputeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateComputeInstance"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstanceAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getComputeInstance: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstance"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteComputeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeInstanceAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    actComputeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComputeInstanceAction"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeActionAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getComputeInstanceMetrics: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO). */
+                from?: string;
+                /** @description Window end (ISO). */
+                to?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeMetrics"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListRoutingRules: {
+        parameters: {
+            query?: {
+                /** @description Return every version. */
+                history?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutingRuleList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminPutRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoutingRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutingRule"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListCloudResources: {
+        parameters: {
+            query?: {
+                /** @description Filter by organization. */
+                orgId?: string;
+                /** @description Canonical resource state. */
+                state?: string;
+                /** @description Drift state. */
+                driftState?: string;
+                /** @description Provider account. */
+                accountId?: string;
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloudResourceList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminReconcileResource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderJobAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    receiveCloudWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Provider key. */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             404: components["responses"]["Problem"];
         };
     };

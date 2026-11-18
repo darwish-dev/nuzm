@@ -37,6 +37,8 @@ export interface Operation {
 }
 
 export interface NewOperation {
+  /** Pre-assigned id (M05: the idempotency token of a provider call is derived from the operation id, so it must exist before the row does). */
+  id?: string;
   kind: string;
   input?: unknown;
   resourceKind?: string;
@@ -67,7 +69,7 @@ export class OperationsService {
 
   async create(orgId: string, n: NewOperation): Promise<Operation> {
     return this.db.withOrg(orgId, async (c) => {
-      const id = uuidv7();
+      const id = n.id ?? uuidv7();
       const { rows } = await c.query<Operation>(
         `INSERT INTO platform.operations (id, org_id, kind, input, resource_kind, resource_id, created_by, trace_id, idempotency_key, max_attempts)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${COLS}`,
@@ -146,7 +148,12 @@ export class OperationsService {
    */
   async claimDue(
     workerId: string,
-    opts: { batch?: number; leaseSeconds?: number; kinds?: string[] } = {},
+    opts: {
+      batch?: number;
+      leaseSeconds?: number;
+      kinds?: readonly string[];
+      onlyPending?: boolean;
+    } = {},
   ): Promise<ClaimedOperation[]> {
     const batch = opts.batch ?? 10;
     const lease = opts.leaseSeconds ?? 60;
@@ -161,11 +168,12 @@ export class OperationsService {
       }>(
         `SELECT id, org_id, kind, state, attempts, cancel_requested FROM platform.operations
           WHERE next_run_at <= now()
-            AND ($2::text[] IS NULL OR kind = ANY($2::text[]))
             AND ( state = 'pending'
                OR (state IN ('running','waiting_provider','needs_reconcile') AND (lease_expires_at IS NULL OR lease_expires_at < now())) )
+            AND ($2::text[] IS NULL OR kind = ANY($2::text[]))
+            AND (NOT $3::boolean OR state = 'pending')
           ORDER BY next_run_at LIMIT $1 FOR UPDATE SKIP LOCKED`,
-        [batch, opts.kinds ?? null],
+        [batch, opts.kinds ? [...opts.kinds] : null, opts.onlyPending === true],
       );
       const claimed: ClaimedOperation[] = [];
       for (const r of rows) {
@@ -257,6 +265,40 @@ export class OperationsService {
     });
   }
 
+  /**
+   * Take the lease of ONE `needs_reconcile` operation for the reconciler (no state change, no attempt counted: an observation is not an execution).
+   * Returns false when it is not parked for reconciliation or another worker holds a live lease.
+   */
+  async claimReconcile(
+    orgId: string,
+    id: string,
+    workerId: string,
+    leaseSeconds = 30,
+  ): Promise<boolean> {
+    return this.db.withOrg(orgId, async (c) => {
+      const { rows } = await c.query(
+        `SELECT id FROM platform.operations WHERE id = $1 AND state = 'needs_reconcile' AND (lease_owner IS NULL OR lease_expires_at < now()) FOR UPDATE SKIP LOCKED`,
+        [id],
+      );
+      if (!rows[0]) return false;
+      await c.query(
+        `UPDATE platform.operations SET lease_owner = $2, lease_expires_at = now() + make_interval(secs => $3), updated_at = now(), version = version + 1 WHERE id = $1`,
+        [id, workerId, leaseSeconds],
+      );
+      return true;
+    });
+  }
+
+  /** Give the lease of a still-`needs_reconcile` operation back (the reconciler looked, could not decide yet, and the next cycle must be able to claim it). */
+  async releaseLease(orgId: string, id: string, workerId: string): Promise<void> {
+    await this.db.withOrg(orgId, (c) =>
+      c.query(
+        `UPDATE platform.operations SET lease_owner = NULL, lease_expires_at = NULL WHERE id = $1 AND lease_owner = $2 AND state = 'needs_reconcile'`,
+        [id, workerId],
+      ),
+    );
+  }
+
   private async mutate(
     orgId: string,
     id: string,
@@ -316,6 +358,22 @@ export class OperationsService {
     return this.mutate(orgId, id, workerId, 'needs_reconcile', async () => ({
       sql: `error=$2, lease_owner=NULL, lease_expires_at=NULL, next_run_at=now()`,
       params: [JSON.stringify({ reason })],
+    }));
+  }
+
+  /** `needs_reconcile` → `running` under the SAME lease: the reconciler proved what happened and re-enters the workflow (M05). */
+  resumeFromReconcile(orgId: string, id: string, workerId: string): Promise<Operation> {
+    return this.mutate(orgId, id, workerId, 'running', async () => ({
+      sql: `error=NULL, lease_expires_at=now()+make_interval(secs=>120)`,
+      params: [],
+    }));
+  }
+
+  /** Terminal failure now (a DEFINITIVE provider/policy outcome: retrying cannot help), bypassing the retry policy. */
+  failPermanently(orgId: string, id: string, workerId: string, error: unknown): Promise<Operation> {
+    return this.mutate(orgId, id, workerId, 'failed', async () => ({
+      sql: `error=$2, lease_owner=NULL, lease_expires_at=NULL`,
+      params: [JSON.stringify(error ?? null)],
     }));
   }
 

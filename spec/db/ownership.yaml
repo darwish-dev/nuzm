@@ -34,7 +34,7 @@ schemas:
     owner_module: commerce
     created_by: M02
     extended_by: [M05, M08]
-    tables: [authorizations, order_items, orders, quote_items, quotes]
+    tables: [authorization_releases, authorizations, order_items, orders, quote_items, quotes]
   payments:
     owner_module: payments
     created_by: M03
@@ -64,7 +64,7 @@ schemas:
     owner_module: compute
     created_by: M05
     extended_by: []
-    tables: [images, instance_actions, instances, snapshots]
+    tables: [images, instance_actions, instance_intervals, instances, snapshots]
   hosting:
     owner_module: hosting
     created_by: M06
@@ -187,6 +187,10 @@ tenant_less:
   - cloud.provider_capabilities
   - cloud.catalog_snapshots
   - cloud.provider_jobs
+  # M05 S17: routing rules, reconciliation history (admin console scope) and the image catalogue (written by catalog syncs, admin scope)
+  - cloud.routing_rules
+  - cloud.resource_reconciliations
+  - compute.images
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations
@@ -219,6 +223,7 @@ classification:
     cloud.provider_accounts.spend_cap_minor: Nuzm's own spend cap on a provider account (an internal control), not a customer's money
     cloud.provider_plans.provider_price_minor: the provider's list price for a plan (our cost input), not a customer's money
     cloud.provider_regions.display_name: the provider's own name of a region, not a person's name
+    cloud.resources.provision_token: a deterministic sha256 idempotency key for the provider call (orgId|operationId|stepId), not a credential
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
   #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
@@ -1368,7 +1373,7 @@ classification:
       started_at: internal
       finished_at: internal
       created_at: internal
-    # --- M05 cloud schema (S16)
+    # --- M05 cloud / compute schemas and commerce.authorization_releases (S16-S17)
     cloud.catalog_snapshots:
       id: internal
       account_id: internal
@@ -1424,6 +1429,7 @@ classification:
       requested_by: internal
       created_at: internal
       updated_at: internal
+      subject_id: internal
     cloud.provider_plans:
       id: internal
       account_id: internal
@@ -1457,3 +1463,114 @@ classification:
       status: internal
       environment_policy: internal
       created_at: internal
+    cloud.resource_reconciliations:
+      id: internal
+      resource_id: internal
+      run_at: internal
+      trigger: internal
+      observed: internal
+      result: internal
+      action_taken: internal
+      actor_user_id: internal
+    cloud.resources:
+      id: internal
+      org_id: internal
+      kind: internal
+      provider_account_id: internal
+      provider_ref: internal
+      state: internal
+      data_region: internal
+      country: internal
+      provider_region_id: internal
+      created_by_operation_id: internal
+      provision_token: internal
+      last_seen_at: internal
+      drift_state: internal
+      observed: internal
+      case_opened_at: internal
+      case_detail: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    cloud.routing_rules:
+      id: internal
+      rule_key: internal
+      version: internal
+      priority: internal
+      match: internal
+      action: internal
+      enabled: internal
+      note: internal
+      created_by: internal
+      created_at: internal
+    commerce.authorization_releases:
+      id: financial
+      org_id: financial
+      authorization_id: financial
+      reason: financial
+      detail: financial
+      released_at: financial
+    compute.images:
+      id: internal
+      account_id: internal
+      provider_region_id: internal
+      image_ref: internal
+      name: internal
+      os_family: internal
+      last_seen_at: internal
+    compute.instance_actions:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      type: internal
+      params: internal
+      operation_id: internal
+      status: internal
+      idempotency_key: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    compute.instance_intervals:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      resource_id: internal
+      started_at: internal
+      ended_at: internal
+      vcpu: internal
+      memory_mb: internal
+      disk_gb: internal
+      data_region: internal
+      emitted_until: internal
+    compute.instances:
+      id: internal
+      org_id: internal
+      project_id: internal
+      environment_id: internal
+      resource_id: internal
+      name: customer-content
+      plan: internal
+      status: internal
+      capabilities: internal
+      quote_id: internal
+      order_id: internal
+      data_region: internal
+      country: internal
+      public_ips: personal
+      ssh_public_keys: internal
+      tags: customer-content
+      deletion_protected: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    compute.snapshots:
+      id: customer-content
+      org_id: customer-content
+      instance_id: customer-content
+      provider_ref: customer-content
+      size_gb: customer-content
+      data_region: customer-content
+      state: customer-content
+      created_at: customer-content

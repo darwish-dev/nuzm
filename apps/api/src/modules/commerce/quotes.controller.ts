@@ -20,6 +20,12 @@ export class QuotesController {
     @Access() a: AccessContext,
     @Body() body: Record<string, unknown> | undefined,
   ) {
+    // Kind-specific permission (docs/04 §2.5): compute quotes need `compute:quote:create` on top of the generic `quote:create`.
+    if (body?.kind === 'compute' && !a.permissions.has('compute:quote:create'))
+      throw new ProblemException(
+        'forbidden',
+        'compute quotes need the compute:quote:create permission',
+      );
     return this.quotes.create(orgId, a.actor.userId, body ?? {});
   }
 

@@ -85,8 +85,13 @@ export class AdapterRegistry {
   }
 }
 
-/** The dev simulator, registered only outside production. One instance per process (state is in memory). */
-export function defaultAdapterRegistry(clock: Clock = systemClock): AdapterRegistry {
+/**
+ * The dev simulator, registered only outside production. One instance per process (state is in memory). Outside production the registry runs on an
+ * `OffsetClock` (wall time + an advanceable offset) shared with the simulator, so tests and demos can move time forward for the whole cloud module.
+ */
+export function defaultAdapterRegistry(
+  clock: Clock = isProduction() ? systemClock : new OffsetClock(),
+): AdapterRegistry {
   const r = new AdapterRegistry(clock);
   if (!isProduction()) {
     let shared: MockComputeAdapter | null = null;
@@ -95,7 +100,10 @@ export function defaultAdapterRegistry(clock: Clock = systemClock): AdapterRegis
       nonProductionOnly: true,
       requiresCredentials: false,
       egress: { adapterId: 'mock-compute', hosts: [] },
-      create: () => (shared ??= new MockComputeAdapter({ clock: new OffsetClock() })),
+      create: () =>
+        (shared ??= new MockComputeAdapter({
+          clock: clock instanceof OffsetClock ? clock : new OffsetClock(),
+        })),
     });
   }
   return r;

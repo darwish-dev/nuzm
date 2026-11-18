@@ -8,7 +8,6 @@ import { AppRunService } from './index';
 import { CRM_SPEC } from './internal/fixtures/crm-appspec';
 import { DeployTargetPort, DevStaticTarget } from './internal/deploy/ports';
 import type { ScriptedModelGateway } from './internal/ports/m09-mock';
-import { WEBAPP_GRAPH } from './internal/graph/dag';
 import { generateProject, packageJson } from './internal/gen/project';
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any

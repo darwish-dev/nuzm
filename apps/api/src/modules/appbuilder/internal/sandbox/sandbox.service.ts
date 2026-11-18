@@ -135,7 +135,7 @@ export class SandboxService {
     const id = newId();
     const now = this.now();
     // the per-organization count and the insert happen under one advisory lock: concurrent creates cannot both see "4 of 5"
-    const row = await this.db.withOrg(orgId, async (c) => {
+    await this.db.withOrg(orgId, async (c) => {
       await c.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`sandbox:${orgId}`]);
       const active = (
         await c.query(
@@ -214,7 +214,6 @@ export class SandboxService {
         );
       throw e;
     }
-    void row;
   }
 
   private async load(orgId: string, projectId: string | null, id: string): Promise<Row> {

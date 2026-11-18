@@ -12,7 +12,6 @@ import type {
 } from './types.ts';
 
 const q = (id: string): string => '"' + id.replace(/"/g, '""') + '"';
-const camel = (s: string): string => s.replace(/_([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
 
 /** pg parsers: bigint and numeric as numbers, date as the plain string, so rows have the same shape as in the memory store. */
 const types = {

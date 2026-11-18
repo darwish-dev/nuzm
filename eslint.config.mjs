@@ -13,6 +13,7 @@ export default tseslint.config(
       '.dev-vault/**',
       'packages/sdk/src/schema.ts',
       '.claude/worktrees/**',
+      'apps/api/templates/webapp-runtime/public/**', // M10A: browser code shipped inside generated apps
     ],
   },
   js.configs.recommended,

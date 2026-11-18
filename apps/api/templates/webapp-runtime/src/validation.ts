@@ -141,6 +141,7 @@ export function validateInput(
         errors.push({ field: f.name, message: 'is larger than ' + maxFileBytes + ' bytes' });
         continue;
       }
+      // eslint-disable-next-line no-control-regex -- control characters are exactly what is removed from a file name
       const name = x.name.replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 255);
       files[f.name] = {
         name,

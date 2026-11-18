@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { Idempotent } from '../../common/idempotency';
 import { ProjectScoped } from './internal/project-scoped';

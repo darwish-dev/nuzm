@@ -79,11 +79,6 @@ export function buildRouter(deps: EngineDeps): Router {
     (s.ownerId === null && s.teamId === null) ||
     (s.ownerId !== null && r['ownerId'] === s.ownerId) ||
     (s.teamId !== null && r['teamId'] === s.teamId);
-  const entityOf = (name: string): EntityMeta => {
-    const em = Object.values(meta.entities).find((e) => e.plural === name);
-    if (!em) throw new HttpError(404, 'not_found', 'Not found');
-    return em;
-  };
   const publicRow = (r: Row): Row => r;
   const maskDiff = (em: EntityMeta, d: Record<string, unknown>): Record<string, unknown> => {
     // personal fields are redacted in every shape of diff: {after:{f:v}}, {before:{f:v}}, {changes:{f:{from,to}}}

@@ -294,7 +294,7 @@ export function diffSpecs(
   if (contractUp.length) {
     const up = contractUp.join('\n');
     out.push({
-      version: v++,
+      version: v,
       name: 'contract',
       phase: 'contract',
       up: `${header}-- CONTRACT phase: run after the new application version is live and any backfill is complete\n${up}`,

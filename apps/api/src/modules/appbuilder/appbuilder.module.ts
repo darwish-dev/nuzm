@@ -19,7 +19,7 @@ import { DeploymentsController } from './deployments.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
 import { TestRunsController } from './test-runs.controller';
-import { M09StubsController } from './m09-stubs/stubs.controller';
+import { M09StubsController } from './m09-stubs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
 import { ChangeService } from './internal/changes/change.service';

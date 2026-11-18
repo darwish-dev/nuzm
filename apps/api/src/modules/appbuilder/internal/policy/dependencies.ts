@@ -364,7 +364,7 @@ export async function evaluateDependencies(input: {
         message: `${name}@${version}: no integrity hash in the lockfile`,
       });
     if (p.resolved) {
-      let host = '';
+      let host: string;
       try {
         host = new URL(p.resolved).host;
       } catch {

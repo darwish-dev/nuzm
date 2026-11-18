@@ -8,7 +8,7 @@ const DNS: Record<string, string[]> = {
   'models.nuzm.internal': ['93.184.216.50', '10.1.1.1'],
   'approved.example.com': ['93.184.216.77'],
 };
-const policy = (extra: string[] = []) =>
+const policy = () =>
   new EgressPolicy(
     [
       { host: 'npm-mirror.nuzm.internal', ports: [443], purpose: 'package_mirror' },

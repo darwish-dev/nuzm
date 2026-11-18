@@ -76,7 +76,7 @@ export class DatabaseAgent implements AgentExecutor {
   constructor(private readonly svc: AgentServices) {}
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const spec = ctx.inputs['app_spec'] as AppSpec;
-    let previous: AppSpec | null = null;
+    let previous: AppSpec | null;
     try {
       const specs = (await this.svc.specs.list(ctx.orgId, ctx.projectId)).filter(
         (s) => s.status === 'approved',

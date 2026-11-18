@@ -29,6 +29,7 @@
     "@nuzm/adapter-openprovider": "workspace:*",
     "@nuzm/adapter-resellerclub": "workspace:*",
     "@nuzm/adapter-runtime": "workspace:*",
+    "@nuzm/adapter-data": "workspace:*",
     "@nuzm/domain": "workspace:*",
     "@nuzm/platform": "workspace:*",
     "@nuzm/registrar-contracts": "workspace:*",

@@ -12,6 +12,10 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: email
+    description: Business mailboxes, sending domains, transactional email, suppressions and webhooks (M08)
+  - name: data
+    description: Managed databases, Redis, object storage and provider selection (M08)
   - name: payments
     description: Payment methods, payments and PSP webhooks
   - name: commerce
@@ -4918,6 +4922,1038 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
 
+  /v1/databases:
+    post:
+      operationId: createDatabase
+      tags: [data]
+      summary: 'Create a managed database or Redis instance'
+      description: 'Body {quoteId (a quote of kind `database`), engine: postgresql|mysql|redis, version, name, network?: {access: private|allowlist, allowCidrs?}, backupPolicy?}. 202 with status `provisioning` and `operationId`: the order is placed from the quote (spend, quota and dunning checks of M02), the offer is re-derived NOW (enabled provider, available plan, verified region, supported version) and residency is evaluated (403 `residency_denied`). 422 `unsupported_capability` when no provider is enabled for the engine or the probe does not report it supported (nothing is ever mocked in production). 409 when the name is taken or the quote was used. Idempotent per Idempotency-Key; the provider call carries a deterministic token and an uncertain outcome is reconciled before any retry. The response carries a vault REFERENCE only, never a secret. Requires permission `data:db:write`. Audited.'
+      x-nuzm-permission: data:db:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDatabase' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Database' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listDatabases
+      tags: [data]
+      summary: 'List managed databases'
+      description: 'Newest first; filters engine and status. Deleted databases are not listed. Requires permission `data:db:read`.'
+      x-nuzm-permission: data:db:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: engine, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatabasePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/databases/{id}:
+    get:
+      operationId: getDatabase
+      tags: [data]
+      summary: 'Get a managed database'
+      description: 'State, endpoint {host, port}, `tlsRequired` (always true), network posture, `dataRegion`, `providerRegionId`, the vault REFERENCE of the connection secret (never the secret), backup policy, rotation window and the ETag. The provider and its account are never shown to customers. 404 for another organization. Requires permission `data:db:read`.'
+      x-nuzm-permission: data:db:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Database' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateDatabase
+      tags: [data]
+      summary: 'Update a managed database'
+      description: 'Body {name?, backupPolicy?: {enabled?, retentionDays?, intervalHours?}, plan?}. Requires If-Match (428/412). `name` needs `data:db:write`; `backupPolicy` and `plan` need `data:db:admin`; the policy is bounded by the organization entitlements. `plan` (resize) answers 422 `unsupported_capability` unless the provider probe reports resize as supported: the action is disabled, never a silent no-op.'
+      x-nuzm-permission: data:db:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDatabase' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Database' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteDatabase
+      tags: [data]
+      summary: 'Delete a managed database'
+      description: 'The typed database name must be sent as `confirmName` (query or JSON body), else 422. 409 `in_use` while a site or app is bound to it (DatabaseBindingPort). 202 + operation: a final backup is taken per the backup policy (a failed final backup STOPS the deletion), then the instance is destroyed and its vault entry removed. Requires permission `data:db:admin`. Audited.'
+      x-nuzm-permission: data:db:admin
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: confirmName, in: query, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatabaseDeletion' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/databases/{id}/backups:
+    post:
+      operationId: createDatabaseBackup
+      tags: [data]
+      summary: 'Take a manual backup'
+      description: "Body {type?: manual}. 202 + operation; the backup is stored in a system bucket of the database's own data region and carries size, SHA-256 checksum and a manifest of sampled tables. 409 unless the database is running; 422 `unsupported_capability` when the provider cannot back it up (never faked). Idempotent per Idempotency-Key. Requires permission `data:db:write`."
+      x-nuzm-permission: data:db:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDatabaseBackup' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatabaseBackup' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listDatabaseBackups
+      tags: [data]
+      summary: 'List backups with their restores and verification history'
+      description: 'Newest first. Each backup lists the restores (and verification drills) made from it and the last verification result, which is how the console shows verification history. Requires permission `data:db:read`.'
+      x-nuzm-permission: data:db:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatabaseBackupPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/databases/{id}/restores:
+    post:
+      operationId: restoreDatabase
+      tags: [data]
+      summary: 'Restore a database from a backup'
+      description: "Body {backupId, target?: new|inplace (default new), name?, confirmInPlace?, confirmName?, region?}. DEFAULT is restore-to-NEW in the same organization and provider region. `target=inplace` needs `confirmInPlace=true`, `confirmName` equal to the database name and a recent MFA verification (401 `step_up_required`), takes an automatic pre-restore backup first and answers 422 `restore_not_supported` when the provider cannot restore in place. A body that names another organization is 403; another organization's backup is 404; a region other than the source is checked against residency (403 `residency_denied`) and otherwise 422 `restore_not_supported`. The restored data is verified against the backup manifest: a mismatch fails the restore and raises an alert. 202 + operation. Requires permission `data:db:admin`. Audited."
+      x-nuzm-permission: data:db:admin
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RestoreDatabase' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatabaseRestore' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/databases/{id}/credential-rotations:
+    post:
+      operationId: rotateDatabaseCredentials
+      tags: [data]
+      summary: 'Rotate the database credential (dual-credential window)'
+      description: 'Body {role?}. 202 + operation. The NEW credential is issued while the old one keeps working, its secret goes to the vault, consumers are notified through DatabaseBindingPort and switch inside the window (proposal 24 h); at the window end the old credential is revoked. 409 `rotation_in_progress` while a rotation is pending or its window is open; 422 `unsupported_capability` when the provider has no dual-credential support (the action is disabled). Needs a recent MFA verification. The secret is never returned: the one-time reveal is PA-15 (not exposed until approved). Requires permission `data:db:admin`. Audited.'
+      x-nuzm-permission: data:db:admin
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RotateDatabaseCredentials' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatabaseRotation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/data-providers:
+    get:
+      operationId: listDataProviders
+      tags: [data]
+      summary: 'List data provider selection config and probe evidence'
+      description: 'Provider rows (service, family, provider code, account reference, environment, enabled, verifiedAt, evidenceRef, adrRef, last probe) with `blockers`: why enabling is blocked right now (adapter_not_registered, not_probed, probe_failed, evidence_missing, adr_not_accepted, probe_not_live, enable_not_requested, second_approver_missing). Nothing is seeded: no provider is enabled by default. Platform permission `admin:data:read`.'
+      x-nuzm-platform-permission: admin:data:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: service, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataProviderList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: actOnDataProvider
+      tags: [data]
+      summary: 'Configure, probe, approve or enable a data provider'
+      description: "Body {action: configure|probe|record_adr|request_enable|enable|disable, id?, ...}. configure (admin:data:manage) creates or updates the selection config (never `enabled`); credentials are vault references only. probe (admin:data:manage) runs the adapter's read-only probe and stores it. record_adr (admin:data:approve) records that a PERSON accepted the ADR. request_enable (admin:data:manage) names the evidence reference and verification time. enable (admin:data:approve) enables: 422 `unsupported_capability` unless the probe passed with every required capability supported, evidence exists and, outside environment=local, the ADR is accepted, the probe carries LIVE evidence and a DIFFERENT person than the requester approves (two-person rule); the database re-checks the same rules. Dev-reference providers (mock-*) are environment=local only and refused in production. Needs a recent MFA verification. Audited (`data.provider.*`)."
+      x-nuzm-platform-permission: admin:data:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DataProviderAction' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataProvider' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets:
+    post:
+      operationId: createBucket
+      tags: [data]
+      summary: 'Create a bucket'
+      description: 'Body {name, quoteId (a quote of kind `storage`), region?, versioning?}. The bucket is named `nz-<orgShort>-<name>` (the namespace comes from the organization, never from input), PRIVATE by default (`public`, `policy` or an organization cannot be set here) and gets its own bucket-scoped credential stored in the vault. 202 + operation. 409 `name_taken` (the same answer whoever holds the name: names of other organizations cannot be enumerated); 422 `unsupported_capability` when no object-storage provider is enabled or the probe does not report buckets supported; 422 `quota_exceeded` beyond the entitlement bucket count; 403 `residency_denied`. Idempotent per Idempotency-Key. Requires permission `data:storage:write`. Audited.'
+      x-nuzm-permission: data:storage:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBucket' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Bucket' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listBuckets
+      tags: [data]
+      summary: 'List buckets'
+      description: 'Newest first. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}:
+    get:
+      operationId: getBucket
+      tags: [data]
+      summary: 'Get a bucket'
+      description: 'State, endpoint, `dataRegion`, `public`, versioning, quota, lifecycle, last usage (with which figures the provider could report), the vault REFERENCE of the bucket credential (never the secret) and the ETag. 404 for another organization, identical to a bucket that does not exist. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Bucket' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateBucket
+      tags: [data]
+      summary: 'Update a bucket'
+      description: 'Body {quotaBytes}. Requires If-Match (428/412); bounded by the entitlement. Requires permission `data:storage:admin`.'
+      x-nuzm-permission: data:storage:admin
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateBucket' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Bucket' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteBucket
+      tags: [data]
+      summary: 'Delete a bucket'
+      description: '`confirmName` (query or JSON body) must equal the bucket name. An EMPTY bucket only (409 otherwise); `force=true` deletes the objects too and needs `data:storage:admin` plus a recent MFA verification. 202 + operation. Requires permission `data:storage:write`. Audited.'
+      x-nuzm-permission: data:storage:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: confirmName, in: query, schema: { type: string } }
+        - { name: force, in: query, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketDeletion' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}/access-policy:
+    get:
+      operationId: getBucketAccessPolicy
+      tags: [data]
+      summary: 'Get the access policy'
+      description: 'The policy document (deny-by-default subset) and its ETag. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketAccessPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putBucketAccessPolicy
+      tags: [data]
+      summary: 'Replace the access policy'
+      description: 'Body {policy: {version: 1, access: private|public-read, statements: [{effect: allow, actions, prefix, principal: bucket-credentials}], cors?}, confirmPublic?} (the policy may also be the body itself). Requires If-Match with the policy ETag. Only the documented subset is accepted: anything else is 422 `policy_invalid`. `access=public-read` needs `confirmPublic=true` (else 422 `policy_invalid`), a recent MFA verification, and is audited (`data.bucket.made_public`); the console shows a warning. Requires permission `data:storage:admin`.'
+      x-nuzm-permission: data:storage:admin
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutBucketAccessPolicy' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketAccessPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}/signed-urls:
+    post:
+      operationId: createBucketSignedUrl
+      tags: [data]
+      summary: 'Issue a signed URL'
+      description: 'Body {key, method: GET|HEAD|PUT|DELETE, ttlSeconds?}. Method-scoped: GET and HEAD need `data:storage:read`, PUT and DELETE also need `data:storage:write`. Default TTL 900 s, maximum 604800 s (7 days): 422 `ttl_too_long`. The URL is returned once and is never logged; the audit event carries a hash of the key. 422 `unsupported_capability` when the provider cannot sign. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSignedUrl' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignedUrl' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}/lifecycle:
+    get:
+      operationId: getBucketLifecycle
+      tags: [data]
+      summary: 'Get lifecycle rules'
+      description: 'The rules and which actions the provider supports (expiry, multipart abort, transitions): unsupported actions are hidden by the console. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketLifecycle' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putBucketLifecycle
+      tags: [data]
+      summary: 'Replace lifecycle rules'
+      description: 'Body {rules: [{id, prefix, expireDays?, abortIncompleteMultipartDays?, transition?}]}. Expiry and multipart-abort need their capability; transitions only if the probe says so: otherwise 422 `unsupported_capability` (never a silent no-op). Requires permission `data:storage:write`.'
+      x-nuzm-permission: data:storage:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutBucketLifecycle' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketLifecycleRules' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/domains:
+    post:
+      operationId: createEmailDomain
+      tags: [email]
+      summary: 'Add an email domain'
+      description: "Body {domain, purposes: [mailbox|transactional]}. 201 with the REQUIRED DNS records, declared by the enabled provider adapters (ownership, ONE merged SPF, DKIM selectors, MX for mailboxes, return-path) plus Nuzm's own ownership TXT (a token bound to this organization) and DMARC guidance (start `p=none`); state `pending`. 422 `unsupported_capability` when no provider is enabled for a purpose; 403 `residency_denied` when the provider's processing region is not allowed for personal data; 422 `domain_not_owned` when another account already VERIFIED the domain; 409 when this organization already added it. Requires permission `email:domain:manage`. Audited."
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEmailDomain' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailDomain' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailDomains
+      tags: [email]
+      summary: 'List email domains'
+      description: 'Newest first, with the required records and their last checked status (ok, missing, conflict, unknown). Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailDomainPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/domains/{id}/verification:
+    post:
+      operationId: verifyEmailDomain
+      tags: [email]
+      summary: 'Re-check a domain now'
+      description: 'Body {apply?: boolean}. Looks every record up on SEVERAL resolvers (a majority decides; duplicate SPF, a wrong DKIM target or a foreign MX is a conflict), then asks the provider whether it verified the domain: `verified` needs both. `apply=true` writes the records through the M07 DNS zone (managed_by `email-verification`) when the domain is a Nuzm zone, else 422 `unsupported_capability` and the console shows manual instructions. If every resolver fails the state is unchanged and the retry comes sooner; otherwise the next automatic check follows the smallest TTL seen. Requires permission `email:domain:manage`.'
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmailDomain' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailDomain' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/mailboxes:
+    post:
+      operationId: createMailbox
+      tags: [email]
+      summary: 'Create a business mailbox'
+      description: "Body {domainId, localPart, quotaMb, quoteId (a quote of kind `email`)}. The domain must be verified for the mailbox purpose. 202 + operation. The password is set through the provider's reset link or a one-time secret that goes straight into the vault: the response and every other endpoint show only its KIND (`passwordSetup`). 409 address taken, 422 `unsupported_capability` / `quota_exceeded`, 403 `residency_denied`. Idempotent per Idempotency-Key. Requires permission `email:mailbox:manage`. Audited."
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMailbox' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Mailbox' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listMailboxes
+      tags: [email]
+      summary: 'List mailboxes'
+      description: 'Newest first; filter domainId. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: domainId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailboxPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/mailboxes/{id}:
+    patch:
+      operationId: updateMailbox
+      tags: [email]
+      summary: 'Change a mailbox quota'
+      description: 'Body {quotaMb}. Requires If-Match. 202 + operation; 422 `unsupported_capability` when the provider cannot change quotas. Requires permission `email:mailbox:manage`.'
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMailbox' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailboxOperation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteMailbox
+      tags: [email]
+      summary: 'Delete a mailbox'
+      description: '202 + operation; the provider mailbox is deleted and its vault entry removed. Requires permission `email:mailbox:manage`. Audited.'
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailboxOperation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/email/aliases:
+    post:
+      operationId: createEmailAlias
+      tags: [email]
+      summary: 'Add a mailbox alias'
+      description: 'Body {mailboxId, localPart}. 202 + operation; 409 when the address is already an alias or a mailbox. Requires permission `email:mailbox:manage`.'
+      x-nuzm-permission: email:mailbox:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEmailAlias' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailAlias' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailAliases
+      tags: [email]
+      summary: 'List aliases'
+      description: 'Newest first. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailAliasPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/sender-identities:
+    post:
+      operationId: createSenderIdentity
+      tags: [email]
+      summary: 'Add a sender identity'
+      description: 'Body {domainId, fromAddress}: a plain address of a domain this organization added for transactional email. `pending` until the domain verifies, then `verified`. Anti-spoofing: only a verified identity of the organization can be a sender. Requires permission `email:domain:manage`.'
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSenderIdentity' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SenderIdentity' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listSenderIdentities
+      tags: [email]
+      summary: 'List sender identities'
+      description: 'Newest first. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SenderIdentityPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/templates:
+    post:
+      operationId: createEmailTemplate
+      tags: [email]
+      summary: 'Create a template or a new version'
+      description: 'Body {key, name, locale: ar|en, subject, html, text?, variables?: {name: {type: string|number, required}}}. A new key is version 1; an existing key gets the NEXT version (versions are immutable). The HTML is sanitized with an allow-list (no script, handlers, styles or script URLs), every placeholder must be declared, the subject cannot contain line breaks, Arabic templates are RTL. Requires permission `email:template:write`.'
+      x-nuzm-permission: email:template:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEmailTemplate' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailTemplate' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailTemplates
+      tags: [email]
+      summary: 'List templates and versions'
+      description: 'Newest first; filter key. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: key, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailTemplatePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/messages:
+    post:
+      operationId: sendEmailMessage
+      tags: [email]
+      summary: 'Send a transactional message'
+      description: 'Body {senderId, to[], templateId+variables | subject+html(+text), category: transactional}. Idempotency-Key is MANDATORY. 202 {id, status: queued}. Only `category=transactional` is accepted (422 `category_not_allowed`; marketing and bulk are blocked, as are more than 10 recipients); 422 `sender_not_verified`; 422 `suppressed` when any recipient is on the suppression list; 429 `rate_limited` (per-minute rate, warm-up allowance, auto-throttle at bounce rate above 5% or complaint rate above 0.1% over 24 h; proposals); 403 `residency_denied`; header injection and unsafe HTML are rejected or neutralized. The send is a durable operation: a replay is one provider call; the usage meter is emitted when the provider ACCEPTED the message, not when it was queued. Content is stored as a hash (sealed only for the queue buffer, or N days when the organization enabled retention); recipients are sealed. Requires permission `email:send`.'
+      x-nuzm-permission: email:send
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendEmailMessage' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailMessage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listEmailMessages
+      tags: [email]
+      summary: 'List messages'
+      description: 'Newest first; filters status, senderId. Metadata only: never recipients or content. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: senderId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailMessagePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/messages/{id}:
+    get:
+      operationId: getEmailMessage
+      tags: [email]
+      summary: 'Get a message with its event timeline'
+      description: 'Status, counts, provider-acceptance time and the event timeline (sent, delivered, bounce, complaint, ...). 404 for another organization. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailMessageWithEvents' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/events:
+    get:
+      operationId: listEmailEvents
+      tags: [email]
+      summary: 'List email events'
+      description: 'Newest first; filters type, messageId. Events are append-only and carry no addresses or content. Requires permission `email:read`.'
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: messageId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailEventPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/email/suppressions:
+    get:
+      operationId: listEmailSuppressions
+      tags: [email]
+      summary: 'List the suppression list'
+      description: "Newest first; filter active. Addresses are shown to the organization's own readers (sealed at rest). Requires permission `email:read`."
+      x-nuzm-permission: email:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: active, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuppressionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: changeEmailSuppression
+      tags: [email]
+      summary: 'Add or remove a suppression'
+      description: 'Body {address, action?: add|remove, override?}. Add (default) is a manual suppression, idempotent. Remove is audited; removing a hard bounce or a complaint needs `override=true`. Hard bounces and complaints are also added AUTOMATICALLY from provider webhooks. Requires permission `email:domain:manage`.'
+      x-nuzm-permission: email:domain:manage
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeSuppression' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Suppression' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/webhooks/email/{provider}:
+    post:
+      operationId: receiveEmailWebhook
+      tags: [email]
+      summary: 'Email provider webhook'
+      description: 'Provider callback, authenticated by the signature over the RAW body and a replay window (no session). 200 once every event is durably stored: a duplicate provider event id is a no-op (one event, one suppression, one meter however often it is delivered). A hard bounce or complaint suppresses the address in the same transaction. 401 invalid signature, 409 outside the replay window, 422 malformed, 404 unknown provider.'
+      x-nuzm-access: public
+      security: []
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailWebhookResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   # >>> M07 paths
   /v1/domains/search:
     get:
@@ -8938,6 +9974,1070 @@ components:
         id: { type: string, format: uuid }
         jobId: { type: string }
         status: { type: string }
+    CreateDatabase:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'quoteId': { 'type': 'string', 'format': 'uuid' },
+            'engine': { 'type': 'string', 'enum': ['postgresql', 'mysql', 'redis'] },
+            'version': { 'type': 'string' },
+            'name': { 'type': 'string' },
+            'network': { '$ref': '#/components/schemas/DatabaseNetwork' },
+            'backupPolicy': { '$ref': '#/components/schemas/BackupPolicy' },
+          },
+        'required': ['quoteId', 'engine', 'version', 'name'],
+      }
+    DatabaseNetwork:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'access': { 'type': 'string', 'enum': ['private', 'allowlist'] },
+            'allowCidrs': { 'type': 'array', 'items': { 'type': 'string' } },
+          },
+        'required': ['access'],
+      }
+    BackupPolicy:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'enabled': { 'type': 'boolean' },
+            'retentionDays': { 'type': 'integer' },
+            'intervalHours': { 'type': 'integer' },
+          },
+        'required': ['enabled', 'retentionDays', 'intervalHours'],
+      }
+    UpdateDatabase:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'name': { 'type': 'string' },
+            'backupPolicy': { '$ref': '#/components/schemas/BackupPolicy' },
+            'plan': { 'type': 'object', 'properties': { 'planRef': { 'type': 'string' } } },
+          },
+      }
+    Database:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'name': { 'type': 'string' },
+            'engine': { 'type': 'string', 'enum': ['postgresql', 'mysql', 'redis'] },
+            'version': { 'type': 'string' },
+            'planRef': { 'type': 'string' },
+            'status':
+              {
+                'type': 'string',
+                'enum': ['provisioning', 'running', 'failed', 'deleting', 'deleted', 'unknown'],
+              },
+            'endpoint':
+              {
+                'oneOf':
+                  [
+                    {
+                      'type': 'object',
+                      'properties': { 'host': { 'type': 'string' }, 'port': { 'type': 'integer' } },
+                      'required': ['host', 'port'],
+                    },
+                    { 'type': 'null' },
+                  ],
+              },
+            'tlsRequired': { 'type': 'boolean', 'const': true },
+            'network': { '$ref': '#/components/schemas/DatabaseNetwork' },
+            'dataRegion': { 'type': 'string' },
+            'providerRegionId': { 'type': 'string' },
+            'vaultRef':
+              {
+                'type': ['string', 'null'],
+                'description': 'Metadata only: where the connection secret lives. The secret is never returned.',
+              },
+            'backupPolicy': { '$ref': '#/components/schemas/BackupPolicy' },
+            'rotation':
+              {
+                'oneOf':
+                  [
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'state': { 'type': 'string' },
+                          'windowEndsAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+                        },
+                    },
+                    { 'type': 'null' },
+                  ],
+              },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'etag': { 'type': 'integer' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+            'updatedAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'name',
+            'engine',
+            'version',
+            'planRef',
+            'status',
+            'endpoint',
+            'tlsRequired',
+            'network',
+            'dataRegion',
+            'providerRegionId',
+            'vaultRef',
+            'backupPolicy',
+            'etag',
+            'createdAt',
+            'updatedAt',
+          ],
+      }
+    DatabasePage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/Database' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    DatabaseDeletion:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/Database' },
+            {
+              'type': 'object',
+              'properties': { 'operationId': { 'type': 'string', 'format': 'uuid' } },
+              'required': ['operationId'],
+            },
+          ],
+      }
+    CreateDatabaseBackup:
+      { 'type': 'object', 'properties': { 'type': { 'type': 'string', 'enum': ['manual'] } } }
+    DatabaseBackup:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'databaseId': { 'type': 'string', 'format': 'uuid' },
+            'type': { 'type': 'string', 'enum': ['manual', 'scheduled', 'pre_restore', 'final'] },
+            'state':
+              {
+                'type': 'string',
+                'enum': ['creating', 'available', 'failed', 'deleted', 'expired'],
+              },
+            'size': { 'type': ['integer', 'null'] },
+            'checksum': { 'type': ['string', 'null'] },
+            'expiresAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'dataRegion': { 'type': 'string' },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required': ['id', 'databaseId', 'type', 'state', 'dataRegion', 'createdAt'],
+      }
+    DatabaseRestoreRecord:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'databaseId': { 'type': 'string', 'format': 'uuid' },
+            'backupId': { 'type': 'string', 'format': 'uuid' },
+            'mode': { 'type': 'string', 'enum': ['new', 'inplace', 'verification'] },
+            'state':
+              {
+                'type': 'string',
+                'enum': ['requested', 'running', 'needs_reconcile', 'succeeded', 'failed'],
+              },
+            'targetDatabaseId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'verification':
+              { 'oneOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'failureCode': { 'type': ['string', 'null'] },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+            'finishedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+          },
+        'required': ['id', 'databaseId', 'backupId', 'mode', 'state', 'createdAt'],
+      }
+    DatabaseBackupWithRestores:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/DatabaseBackup' },
+            {
+              'type': 'object',
+              'properties':
+                {
+                  'restores':
+                    {
+                      'type': 'array',
+                      'items': { '$ref': '#/components/schemas/DatabaseRestoreRecord' },
+                    },
+                  'lastVerification':
+                    {
+                      'oneOf':
+                        [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }],
+                    },
+                },
+              'required': ['restores'],
+            },
+          ],
+      }
+    DatabaseBackupPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/DatabaseBackupWithRestores' },
+              },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    RestoreDatabase:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'backupId': { 'type': 'string', 'format': 'uuid' },
+            'target': { 'type': 'string', 'enum': ['new', 'inplace'] },
+            'name': { 'type': 'string' },
+            'confirmInPlace': { 'type': 'boolean' },
+            'confirmName': { 'type': 'string' },
+            'region': { 'type': 'string' },
+          },
+        'required': ['backupId'],
+      }
+    DatabaseRestore: { '$ref': '#/components/schemas/DatabaseRestoreRecord' }
+    RotateDatabaseCredentials: { 'type': 'object', 'properties': { 'role': { 'type': 'string' } } }
+    DatabaseRotation:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/Database' },
+            {
+              'type': 'object',
+              'properties': { 'operationId': { 'type': 'string', 'format': 'uuid' } },
+              'required': ['operationId'],
+            },
+          ],
+      }
+    DataProviderAction:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'action':
+              {
+                'type': 'string',
+                'enum': ['configure', 'probe', 'record_adr', 'request_enable', 'enable', 'disable'],
+              },
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'service':
+              {
+                'type': 'string',
+                'enum': ['database', 'cache', 'object-storage', 'transactional-email', 'mailbox'],
+              },
+            'family': { 'type': 'string' },
+            'providerCode': { 'type': 'string' },
+            'providerAccountId': { 'type': ['string', 'null'] },
+            'environment': { 'type': 'string', 'enum': ['local', 'staging', 'production'] },
+            'adrRef': { 'type': 'string' },
+            'evidenceRef': { 'type': 'string' },
+            'verifiedAt': { 'type': 'string', 'format': 'date-time' },
+            'config':
+              {
+                'type': 'object',
+                'additionalProperties': true,
+                'description': 'Selection config. Credentials are vault references (credentialRef: vault://...) only; any secret-looking key is refused.',
+              },
+          },
+        'required': ['action'],
+      }
+    DataProvider:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'service': { 'type': 'string' },
+            'family': { 'type': 'string' },
+            'providerCode': { 'type': 'string' },
+            'providerAccountId': { 'type': ['string', 'null'] },
+            'environment': { 'type': 'string', 'enum': ['local', 'staging', 'production'] },
+            'enabled': { 'type': 'boolean' },
+            'verifiedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'evidenceRef': { 'type': ['string', 'null'] },
+            'adrRef': { 'type': ['string', 'null'] },
+            'adrAcceptedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'probe':
+              { 'oneOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'config': { 'type': 'object', 'additionalProperties': true },
+            'requestedBy': { 'type': ['string', 'null'] },
+            'approvedBy': { 'type': ['string', 'null'] },
+            'enabledAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'blockers': { 'type': 'array', 'items': { 'type': 'string' } },
+            'version': { 'type': 'integer' },
+            'updatedAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'service',
+            'family',
+            'providerCode',
+            'environment',
+            'enabled',
+            'blockers',
+            'version',
+          ],
+      }
+    DataProviderList:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/DataProvider' } },
+          },
+        'required': ['items'],
+      }
+    CreateBucket:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'name': { 'type': 'string' },
+            'quoteId': { 'type': 'string', 'format': 'uuid' },
+            'region': { 'type': 'string' },
+            'versioning': { 'type': 'boolean' },
+          },
+        'required': ['name', 'quoteId'],
+      }
+    UpdateBucket:
+      {
+        'type': 'object',
+        'properties': { 'quotaBytes': { 'type': 'integer' } },
+        'required': ['quotaBytes'],
+      }
+    Bucket:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'name': { 'type': 'string' },
+            'bucketName': { 'type': 'string' },
+            'status':
+              {
+                'type': 'string',
+                'enum': ['provisioning', 'active', 'failed', 'deleting', 'deleted', 'unknown'],
+              },
+            'endpoint': { 'type': ['string', 'null'] },
+            'dataRegion': { 'type': 'string' },
+            'providerRegionId': { 'type': 'string' },
+            'versioning': { 'type': 'boolean' },
+            'public': { 'type': 'boolean' },
+            'quotaBytes': { 'type': ['integer', 'null'] },
+            'lifecycle':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/LifecycleRule' } },
+            'usage':
+              { 'oneOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'credentialVaultRef':
+              {
+                'type': ['string', 'null'],
+                'description': 'Metadata only: the bucket-scoped credential lives in the vault. The secret is never returned.',
+              },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'etag': { 'type': 'integer' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'name',
+            'bucketName',
+            'status',
+            'dataRegion',
+            'providerRegionId',
+            'versioning',
+            'public',
+            'lifecycle',
+            'etag',
+            'createdAt',
+          ],
+      }
+    BucketPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/Bucket' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    BucketDeletion:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/Bucket' },
+            {
+              'type': 'object',
+              'properties': { 'operationId': { 'type': 'string', 'format': 'uuid' } },
+              'required': ['operationId'],
+            },
+          ],
+      }
+    LifecycleRule:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string' },
+            'prefix': { 'type': 'string' },
+            'expireDays': { 'type': 'integer' },
+            'abortIncompleteMultipartDays': { 'type': 'integer' },
+            'transition':
+              {
+                'type': 'object',
+                'properties':
+                  { 'days': { 'type': 'integer' }, 'storageClass': { 'type': 'string' } },
+              },
+          },
+        'required': ['id', 'prefix'],
+      }
+    BucketLifecycleRules:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'rules': { 'type': 'array', 'items': { '$ref': '#/components/schemas/LifecycleRule' } },
+          },
+        'required': ['rules'],
+      }
+    BucketLifecycle:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/BucketLifecycleRules' },
+            {
+              'type': 'object',
+              'properties':
+                {
+                  'capabilities':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'expiry': { 'type': 'boolean' },
+                          'abortMultipart': { 'type': 'boolean' },
+                          'transition': { 'type': 'boolean' },
+                        },
+                    },
+                },
+              'required': ['capabilities'],
+            },
+          ],
+      }
+    PutBucketLifecycle:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'rules': { 'type': 'array', 'items': { '$ref': '#/components/schemas/LifecycleRule' } },
+          },
+        'required': ['rules'],
+      }
+    BucketPolicyDocument:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'version': { 'type': 'integer', 'const': 1 },
+            'access': { 'type': 'string', 'enum': ['private', 'public-read'] },
+            'statements':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'properties':
+                      {
+                        'effect': { 'type': 'string', 'enum': ['allow'] },
+                        'actions':
+                          {
+                            'type': 'array',
+                            'items':
+                              { 'type': 'string', 'enum': ['read', 'write', 'delete', 'list'] },
+                          },
+                        'prefix': { 'type': 'string' },
+                        'principal': { 'type': 'string', 'enum': ['bucket-credentials'] },
+                      },
+                    'required': ['effect', 'actions', 'principal'],
+                  },
+              },
+            'cors':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'properties':
+                      {
+                        'origins': { 'type': 'array', 'items': { 'type': 'string' } },
+                        'methods':
+                          {
+                            'type': 'array',
+                            'items': { 'type': 'string', 'enum': ['GET', 'PUT', 'HEAD'] },
+                          },
+                        'maxAgeSeconds': { 'type': 'integer' },
+                      },
+                    'required': ['origins', 'methods', 'maxAgeSeconds'],
+                  },
+              },
+          },
+        'required': ['version', 'access'],
+      }
+    PutBucketAccessPolicy:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'policy': { '$ref': '#/components/schemas/BucketPolicyDocument' },
+            'confirmPublic': { 'type': 'boolean' },
+          },
+      }
+    BucketAccessPolicy:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'policy': { '$ref': '#/components/schemas/BucketPolicyDocument' },
+            'etag': { 'type': 'string' },
+            'public': { 'type': 'boolean' },
+          },
+        'required': ['policy', 'etag', 'public'],
+      }
+    CreateSignedUrl:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'key': { 'type': 'string' },
+            'method': { 'type': 'string', 'enum': ['GET', 'HEAD', 'PUT', 'DELETE'] },
+            'ttlSeconds': { 'type': 'integer', 'minimum': 1, 'maximum': 604800 },
+          },
+        'required': ['key', 'method'],
+      }
+    SignedUrl:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'url': { 'type': 'string' },
+            'expiresAt': { 'type': 'string', 'format': 'date-time' },
+            'method': { 'type': 'string' },
+          },
+        'required': ['url', 'expiresAt', 'method'],
+      }
+    CreateEmailDomain:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'domain': { 'type': 'string' },
+            'purposes':
+              {
+                'type': 'array',
+                'items': { 'type': 'string', 'enum': ['mailbox', 'transactional'] },
+              },
+          },
+        'required': ['domain', 'purposes'],
+      }
+    VerifyEmailDomain: { 'type': 'object', 'properties': { 'apply': { 'type': 'boolean' } } }
+    EmailDnsRecord:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'type': { 'type': 'string', 'enum': ['TXT', 'MX', 'CNAME'] },
+            'name': { 'type': 'string' },
+            'value': { 'type': 'string' },
+            'priority': { 'type': 'integer' },
+            'purpose':
+              {
+                'type': 'string',
+                'enum': ['ownership', 'mx', 'spf', 'dkim', 'dmarc', 'return-path'],
+              },
+            'required': { 'type': 'boolean' },
+            'status': { 'type': 'string', 'enum': ['ok', 'missing', 'conflict', 'unknown'] },
+            'detail': { 'type': 'string' },
+          },
+        'required': ['type', 'name', 'value', 'purpose', 'required', 'status'],
+      }
+    EmailDomain:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'domain': { 'type': 'string' },
+            'purposes':
+              {
+                'type': 'array',
+                'items': { 'type': 'string', 'enum': ['mailbox', 'transactional'] },
+              },
+            'state': { 'type': 'string', 'enum': ['pending', 'partial', 'verified', 'failed'] },
+            'requiredRecords':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailDnsRecord' } },
+            'dmarc':
+              {
+                'oneOf':
+                  [
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'state':
+                            {
+                              'type': 'string',
+                              'enum':
+                                ['missing', 'none', 'quarantine', 'reject', 'invalid', 'duplicate'],
+                            },
+                          'suggestion': { 'type': 'string' },
+                        },
+                      'required': ['state'],
+                    },
+                    { 'type': 'null' },
+                  ],
+              },
+            'dnsZoneId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'dataRegion': { 'type': 'string' },
+            'verifiedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'lastCheckedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'nextCheckAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'etag': { 'type': 'integer' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'domain',
+            'purposes',
+            'state',
+            'requiredRecords',
+            'dataRegion',
+            'etag',
+            'createdAt',
+          ],
+      }
+    EmailDomainPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailDomain' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    CreateMailbox:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'localPart': { 'type': 'string' },
+            'quotaMb': { 'type': 'integer' },
+            'quoteId': { 'type': 'string', 'format': 'uuid' },
+          },
+        'required': ['domainId', 'localPart', 'quotaMb', 'quoteId'],
+      }
+    UpdateMailbox:
+      {
+        'type': 'object',
+        'properties': { 'quotaMb': { 'type': 'integer' } },
+        'required': ['quotaMb'],
+      }
+    Mailbox:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'address': { 'type': 'string' },
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'localPart': { 'type': 'string' },
+            'status':
+              {
+                'type': 'string',
+                'enum':
+                  [
+                    'provisioning',
+                    'active',
+                    'suspended',
+                    'failed',
+                    'deleting',
+                    'deleted',
+                    'unknown',
+                  ],
+              },
+            'quotaMb': { 'type': 'integer' },
+            'passwordSetup':
+              {
+                'oneOf':
+                  [
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'kind': { 'type': 'string', 'enum': ['reset_link', 'one_time_secret'] },
+                          'state': { 'type': 'string', 'enum': ['pending', 'revealed'] },
+                        },
+                      'required': ['kind', 'state'],
+                    },
+                    { 'type': 'null' },
+                  ],
+              },
+            'usage':
+              { 'oneOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'dataRegion': { 'type': 'string' },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'etag': { 'type': 'integer' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'address',
+            'domainId',
+            'localPart',
+            'status',
+            'quotaMb',
+            'dataRegion',
+            'etag',
+            'createdAt',
+          ],
+      }
+    MailboxOperation:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/Mailbox' },
+            {
+              'type': 'object',
+              'properties': { 'operationId': { 'type': 'string', 'format': 'uuid' } },
+              'required': ['operationId'],
+            },
+          ],
+      }
+    MailboxPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/Mailbox' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    CreateEmailAlias:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'mailboxId': { 'type': 'string', 'format': 'uuid' },
+            'localPart': { 'type': 'string' },
+          },
+        'required': ['mailboxId', 'localPart'],
+      }
+    EmailAlias:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'address': { 'type': 'string' },
+            'mailboxId': { 'type': 'string', 'format': 'uuid' },
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'status': { 'type': 'string', 'enum': ['provisioning', 'active', 'failed', 'unknown'] },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required': ['id', 'address', 'mailboxId', 'domainId', 'status', 'createdAt'],
+      }
+    EmailAliasPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailAlias' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    CreateSenderIdentity:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'fromAddress': { 'type': 'string' },
+          },
+        'required': ['domainId', 'fromAddress'],
+      }
+    SenderIdentity:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'domainId': { 'type': 'string', 'format': 'uuid' },
+            'fromAddress': { 'type': 'string' },
+            'status': { 'type': 'string', 'enum': ['pending', 'verified', 'disabled'] },
+            'verifiedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required': ['id', 'domainId', 'fromAddress', 'status', 'createdAt'],
+      }
+    SenderIdentityPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/SenderIdentity' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    EmailTemplateVariables:
+      {
+        'type': 'object',
+        'additionalProperties':
+          {
+            'type': 'object',
+            'properties':
+              {
+                'type': { 'type': 'string', 'enum': ['string', 'number'] },
+                'required': { 'type': 'boolean' },
+              },
+            'required': ['type'],
+          },
+      }
+    CreateEmailTemplate:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'key': { 'type': 'string' },
+            'name': { 'type': 'string' },
+            'locale': { 'type': 'string', 'enum': ['ar', 'en'] },
+            'subject': { 'type': 'string' },
+            'html': { 'type': 'string' },
+            'text': { 'type': 'string' },
+            'variables': { '$ref': '#/components/schemas/EmailTemplateVariables' },
+          },
+        'required': ['key', 'name', 'locale', 'subject', 'html'],
+      }
+    EmailTemplate:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'key': { 'type': 'string' },
+            'version': { 'type': 'integer' },
+            'name': { 'type': 'string' },
+            'locale': { 'type': 'string', 'enum': ['ar', 'en'] },
+            'direction': { 'type': 'string', 'enum': ['rtl', 'ltr'] },
+            'subject': { 'type': 'string' },
+            'html': { 'type': 'string' },
+            'text': { 'type': ['string', 'null'] },
+            'variables': { '$ref': '#/components/schemas/EmailTemplateVariables' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'key',
+            'version',
+            'name',
+            'locale',
+            'direction',
+            'subject',
+            'html',
+            'variables',
+            'createdAt',
+          ],
+      }
+    EmailTemplatePage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailTemplate' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    SendEmailMessage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'senderId': { 'type': 'string', 'format': 'uuid' },
+            'to': { 'type': 'array', 'items': { 'type': 'string' } },
+            'templateId': { 'type': 'string', 'format': 'uuid' },
+            'variables': { 'type': 'object', 'additionalProperties': true },
+            'subject': { 'type': 'string' },
+            'html': { 'type': 'string' },
+            'text': { 'type': 'string' },
+            'category': { 'type': 'string', 'enum': ['transactional'] },
+          },
+        'required': ['senderId', 'to', 'category'],
+      }
+    EmailEvent:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'messageId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'type': { 'type': 'string' },
+            'occurredAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required': ['id', 'type', 'occurredAt'],
+      }
+    EmailEventPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailEvent' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    EmailMessage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'senderId': { 'type': 'string', 'format': 'uuid' },
+            'templateId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'category': { 'type': 'string', 'enum': ['transactional'] },
+            'status':
+              {
+                'type': 'string',
+                'enum':
+                  [
+                    'queued',
+                    'sending',
+                    'sent',
+                    'delivered',
+                    'bounced',
+                    'complained',
+                    'failed',
+                    'unknown',
+                  ],
+              },
+            'recipientCount': { 'type': 'integer' },
+            'errorCode': { 'type': ['string', 'null'] },
+            'dataRegion': { 'type': 'string' },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'acceptedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          ['id', 'senderId', 'category', 'status', 'recipientCount', 'dataRegion', 'createdAt'],
+      }
+    EmailMessageWithEvents:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/EmailMessage' },
+            {
+              'type': 'object',
+              'properties':
+                {
+                  'events':
+                    { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailEvent' } },
+                },
+              'required': ['events'],
+            },
+          ],
+      }
+    EmailMessagePage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/EmailMessage' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    ChangeSuppression:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'address': { 'type': 'string' },
+            'action': { 'type': 'string', 'enum': ['add', 'remove'] },
+            'override': { 'type': 'boolean' },
+          },
+        'required': ['address'],
+      }
+    Suppression:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'address': { 'type': 'string' },
+            'reason':
+              { 'type': 'string', 'enum': ['bounce_hard', 'bounce_soft', 'complaint', 'manual'] },
+            'source': { 'type': 'string', 'enum': ['webhook', 'manual', 'provider_sync'] },
+            'active': { 'type': 'boolean' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+            'removedAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+          },
+        'required': ['id', 'address', 'reason', 'source', 'active', 'createdAt'],
+      }
+    SuppressionPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/Suppression' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    EmailWebhookResult:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'received': { 'type': 'integer' },
+            'applied': { 'type': 'integer' },
+            'duplicates': { 'type': 'integer' },
+            'unmatched': { 'type': 'integer' },
+          },
+        'required': ['received', 'applied', 'duplicates', 'unmatched'],
+      }
     # >>> M07 schemas
     DomainSearchItem:
       type: object

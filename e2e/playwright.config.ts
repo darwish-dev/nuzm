@@ -46,6 +46,7 @@ export default defineConfig({
       env: {
         DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/${E2E_DB}`,
         DEV_IDP_USERS: JSON.stringify(USERS),
+        DATA_LOCAL_REFERENCE: 'true', // M08: in-memory dev-reference adapters (mock-*, NOT VERIFIED) so the managed-data screens can be exercised; never production
         // M07: local MOCK registrars (Openprovider/ResellerClub shaped from their docs: NOT VERIFIED vendor behaviour) behind the real adapters, dev only
         DOMAINS_DEV_MOCKS: 'true',
         DOMAINS_ENABLED: 'true',

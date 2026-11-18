@@ -61,6 +61,49 @@ tables:
       hook: m05-backups,
       note: 'snapshots inherit the instance region; destination hook listed for S23',
     }
+  data.database_instances:
+    {
+      owner: M08,
+      hook: m08-data-placement,
+      note: 'placement is evaluated at quote, create, restore, backup and rotation (database-flow.ts, pricers.ts)',
+    }
+  data.database_backups:
+    {
+      owner: M08,
+      hook: m08-data-placement,
+      note: 'a backup stays in the data_region of its instance; evaluated before every backup',
+    }
+  data.storage_buckets:
+    {
+      owner: M08,
+      hook: m08-object-storage,
+      note: 'placement is evaluated at quote, create and every execution (storage.service.ts, storage-flow.ts, storage-pricer.ts); system buckets stay in the data_region of the databases they protect',
+    }
+  email.email_domains:
+    {
+      owner: M08,
+      hook: m08-mailbox,
+      note: 'the processing region of the mailbox/transactional provider is evaluated when a domain is added (domain.service.ts)',
+    }
+  email.mailboxes:
+    {
+      owner: M08,
+      hook: m08-mailbox,
+      note: 'mailbox provisioning is evaluated before the provider is called (mailbox.service.ts)',
+    }
+  email.messages:
+    {
+      owner: M08,
+      hook: m08-transactional-email,
+      note: 'recipients and content are personal data: evaluated before every send (message.service.ts)',
+    }
+  data.database_restores:
+    {
+      owner: M08,
+      hook: m08-data-placement,
+      note: 'a restore stays in the source region; evaluated at request and execution',
+    }
+
 hooks:
   - {
       id: m03-psp-personal-data,
@@ -148,9 +191,9 @@ hooks:
       where: 'Database, cache and bucket placement and backup region',
       data_classes: [customer-content, credentials],
       processor_kind: database,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.data,
-      call_site: null,
+      call_site: apps/api/src/modules/data/internal/database-flow.ts,
     }
   - {
       id: m08-cache-placement,
@@ -158,9 +201,9 @@ hooks:
       where: 'Cache placement',
       data_classes: [customer-content],
       processor_kind: cache,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.cache,
-      call_site: null,
+      call_site: apps/api/src/modules/data/internal/database-flow.ts,
     }
   - {
       id: m08-object-storage,
@@ -168,9 +211,9 @@ hooks:
       where: 'Object storage placement and signed-URL regions',
       data_classes: [customer-content],
       processor_kind: object-storage,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.storage,
-      call_site: null,
+      call_site: apps/api/src/modules/data/internal/storage-flow.ts,
     }
   - {
       id: m08-transactional-email,
@@ -178,9 +221,9 @@ hooks:
       where: 'Transactional email content and recipients sent to the email vendor',
       data_classes: [personal],
       processor_kind: transactional-email,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.email,
-      call_site: null,
+      call_site: apps/api/src/modules/email/internal/message.service.ts,
     }
   - {
       id: m08-mailbox,
@@ -188,9 +231,9 @@ hooks:
       where: 'Mailbox provisioning and mailbox data placement',
       data_classes: [personal, customer-content],
       processor_kind: mailbox,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.mailbox,
-      call_site: null,
+      call_site: apps/api/src/modules/email/internal/mailbox.service.ts,
     }
   - {
       id: m09-model-gateway,

@@ -276,6 +276,7 @@ classification:
     identity.credentials.password_hash: hash
     identity.auth_tokens.token_hash: hash
     identity.sessions.csrf_hash: hash
+    builder.sandboxes.ws_ticket_hash: hash
     hosting.node_enrolment_tokens.token_hash: hash
     hosting.sites.credentials_ref: vault_ref
     hosting.sites.backup_key_ref: vault_ref
@@ -2393,3 +2394,30 @@ classification:
       mock_model: internal
       data_region: internal
       created_at: internal
+    builder.sandboxes:
+      id: internal
+      org_id: internal
+      project_id: internal
+      profile: internal
+      runtime_kind: internal
+      isolation: internal
+      runtime_handle: internal
+      node_ref: internal
+      state: internal
+      egress_profile: internal
+      quota: internal
+      ttl_at: internal
+      last_activity_at: internal
+      cpu_metered: internal
+      metered_until: internal
+      ws_ticket_hash: credentials
+      ws_ticket_user: internal
+      ws_ticket_expires_at: internal
+      termination_reason: internal
+      data_region: internal
+      operation_id: internal
+      created_by: internal
+      created_at: internal
+      started_at: internal
+      terminated_at: internal
+      version: internal

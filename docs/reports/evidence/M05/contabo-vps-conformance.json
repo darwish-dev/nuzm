@@ -1,0 +1,86 @@
+{
+  "adapterId": "contabo-vps",
+  "contractVersion": "1.0.0",
+  "evidenceKind": "fixture",
+  "results": [
+    {
+      "id": "C01",
+      "title": "declares contract 1.0.0 and kind compute",
+      "status": "pass"
+    },
+    {
+      "id": "C02",
+      "title": "probe reports every capability id, is side-effect free and evidence-backed",
+      "status": "pass"
+    },
+    {
+      "id": "C03",
+      "title": "capability honesty: claimed supported ⇒ works; unsupported ⇒ rejected as unsupported (never silent)",
+      "status": "pass"
+    },
+    {
+      "id": "C04",
+      "title": "catalog: ISO countries, integer-string prices (no floats), evidence for every verified region",
+      "status": "pass"
+    },
+    {
+      "id": "C05",
+      "title": "idempotent provision: a replayed token never creates a second billable resource",
+      "status": "pass"
+    },
+    {
+      "id": "C06",
+      "title": "timeout AFTER the side effect is `uncertain`; findByToken locates the resource (no second create needed)",
+      "status": "pass"
+    },
+    {
+      "id": "C07",
+      "title": "timeout BEFORE the side effect is `uncertain`; findByToken proves absence; a retry then yields exactly one resource",
+      "status": "pass"
+    },
+    {
+      "id": "C08",
+      "title": "delete is idempotent and a deleted resource is not billable",
+      "status": "pass"
+    },
+    {
+      "id": "C09",
+      "title": "an action the probe lists as unsupported is rejected as `unsupported` (never a silent no-op)",
+      "status": "pass"
+    },
+    {
+      "id": "C10",
+      "title": "errors are normalized (category from the table, boolean retryable, provider code, message)",
+      "status": "pass"
+    },
+    {
+      "id": "C11",
+      "title": "rate limiting: a rate-limited call fails retryably and creates nothing",
+      "status": "pass"
+    },
+    {
+      "id": "C12",
+      "title": "lookup by token unsupported ⇒ `failed/unsupported` (absence can never be inferred)",
+      "status": "pass"
+    },
+    {
+      "id": "C13",
+      "title": "eventual consistency: a fresh resource may be invisible (not_found / null) until it settles, then appears",
+      "status": "pass"
+    },
+    {
+      "id": "C14",
+      "title": "secrets never appear in results or evidence (canary through the framework guard)",
+      "status": "pass"
+    },
+    {
+      "id": "C15",
+      "title": "idempotency token is deterministic: sha256(orgId|operationId|stepId)",
+      "status": "pass"
+    }
+  ],
+  "passed": 15,
+  "failed": 0,
+  "total": 15,
+  "liveStatus": "NOT VERIFIED"
+}

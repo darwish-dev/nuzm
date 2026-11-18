@@ -20,6 +20,9 @@ import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
 import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
+// >>> M09 modules
+import { AiModule } from './modules/ai';
+// <<< M09 modules
 import { TenancyModule } from './modules/tenancy';
 
 @Module({
@@ -40,6 +43,9 @@ import { TenancyModule } from './modules/tenancy';
     DataModule,
     EmailModule,
     HostingModule,
+    // >>> M09 modules
+    AiModule,
+    // <<< M09 modules
     IdentityModule,
     NotificationsModule,
     AccessModule,

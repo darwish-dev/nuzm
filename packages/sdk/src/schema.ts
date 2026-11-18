@@ -4368,6 +4368,94 @@ export interface paths {
         patch: operations["changeDnsRecords"];
         trace?: never;
     };
+    "/v1/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the AI models this organization may use
+         * @description Models of ENABLED providers that have a rate card, filtered by the organization residency policy (class `customer-content`): a provider outside the allowed regions is never listed. Empty until a provider is decided (D-18), attested (HG-09-01) and enabled. Requires permission `ai:read`; the whole surface answers 404 while the `ai.enabled` flag is off.
+         */
+        get: operations["listAiModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * AI credit balance and usage
+         * @description Credits are a projection of the wallet (ledger account 2100) minus open reservations: `availableCredits = floor(wallet / creditUnitMinor) - reserved`. Usage by model and by project for the last 30 days. Requires permission `ai:read`.
+         */
+        get: operations["getAiCredits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * AI budgets and caps
+         * @description Organization budget (daily credits, per-run credits/tokens, totals, alert thresholds, prompt-body logging, auto-apply) and project budgets. The ETag is the budget version (`"0"` = never set). Requires permission `ai:read`.
+         */
+        get: operations["getAiBudgets"];
+        /**
+         * Replace AI budgets and caps
+         * @description Needs `If-Match` (428 if absent, 412 if stale). Caps are non-negative integers or null (no cap). `logBodies=true` needs `bodyRetentionDays` (D-34). Enabling `autoApplyLowRisk` also needs `ai:write` (owner, admin, developer). Audited (`ai.budgets.updated`). Requires permission `ai:budgets:write`.
+         */
+        put: operations["putAiBudgets"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/model-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List model providers
+         * @description Provider rows with region, human-attested data terms, rate card, enable state and whether an adapter is registered. Only the vault REFERENCE of a credential is ever returned. Nothing is seeded. Platform permission `admin:ai:read`.
+         */
+        get: operations["listAiModelProviders"];
+        put?: never;
+        /**
+         * Configure, attest, enable or disable a model provider; kill switch
+         * @description Body {action: configure|attest|request_enable|enable|disable|kill_switch, ...}. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).
+         */
+        post: operations["actOnAiModelProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8476,6 +8564,116 @@ export interface components {
                 [key: string]: unknown;
             }[];
             version: number;
+        };
+        AiModel: {
+            providerCode: string;
+            modelId: string;
+            region: string;
+            capabilities: ("chat" | "structured-output" | "long-context" | "embeddings" | "vision")[];
+            contextTokens: number;
+            maxOutputTokens: number;
+            /** @enum {string} */
+            latencyClass: "low" | "medium" | "high";
+            dataTermsAttested: boolean;
+            /** @description integer string */
+            creditsPerMillionInput: string;
+            /** @description integer string */
+            creditsPerMillionOutput: string;
+        };
+        AiModelList: {
+            items: components["schemas"]["AiModel"][];
+        };
+        AiCredits: {
+            currency: string;
+            creditUnitMinor: number;
+            walletCredits: string;
+            reservedCredits: string;
+            availableCredits: string;
+            last30DaysCredits: string;
+            lowCredit: boolean;
+            usage: {
+                byModel: {
+                    [key: string]: unknown;
+                }[];
+                byProject: {
+                    [key: string]: unknown;
+                }[];
+            };
+        };
+        AiBudgetDoc: {
+            dailyCredits?: number | null;
+            runMaxCredits?: number | null;
+            runMaxTokens?: number | null;
+            totalCredits?: number | null;
+            totalTokens?: number | null;
+            alertThresholds?: number[];
+            logBodies?: boolean;
+            bodyRetentionDays?: number | null;
+            autoApplyLowRisk?: boolean;
+        };
+        AiBudgets: {
+            org: components["schemas"]["AiBudgetDoc"];
+            projects: {
+                [key: string]: unknown;
+            }[];
+            version: number;
+        };
+        AiBudgetsInput: {
+            org?: components["schemas"]["AiBudgetDoc"];
+            projects?: {
+                /** Format: uuid */
+                projectId: string;
+                totalCredits?: number | null;
+                totalTokens?: number | null;
+            }[];
+        };
+        AiModelProvider: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            adapter: string;
+            displayName: string;
+            region: string;
+            dataTerms: {
+                [key: string]: unknown;
+            };
+            attestationRef?: string | null;
+            vaultRef?: string | null;
+            rateCardVersion?: string;
+            rateCard?: {
+                [key: string]: unknown;
+            };
+            enabled: boolean;
+            enableRequestedBy?: string | null;
+            enabledBy?: string | null;
+            adapterRegistered: boolean;
+            version: number;
+        };
+        AiModelProviderList: {
+            items: components["schemas"]["AiModelProvider"][];
+        };
+        AiModelProviderAction: {
+            /** @enum {string} */
+            action: "configure" | "attest" | "request_enable" | "enable" | "disable" | "kill_switch";
+            /** Format: uuid */
+            id?: string;
+            code?: string;
+            adapter?: string;
+            displayName?: string;
+            region?: string;
+            vaultRef?: string;
+            rateCard?: {
+                [key: string]: unknown;
+            };
+            rateCardVersion?: string;
+            egressAllow?: string[];
+            dataTerms?: {
+                [key: string]: unknown;
+            };
+            attestationRef?: string;
+            on?: boolean;
+            /** Format: uuid */
+            orgId?: string;
         };
     };
     responses: {
@@ -17441,6 +17639,169 @@ export interface operations {
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             428: components["responses"]["Problem"];
+        };
+    };
+    listAiModels: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiCredits: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCredits"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAiBudgets: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiBudgets"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    putAiBudgets: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiBudgetsInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiBudgets"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listAiModelProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelProviderList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    actOnAiModelProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiModelProviderAction"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelProvider"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }

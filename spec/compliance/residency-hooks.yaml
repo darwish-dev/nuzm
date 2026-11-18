@@ -122,6 +122,34 @@ tables:
       hook: m06-node-selection,
       note: 'a site is placed only on a node whose data_region the residency service allows',
     }
+  # >>> M09 tables
+  ai.sessions:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'a session carries the data_region of the organization; prompts leave only through the gateway',
+    }
+  ai.messages:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'message content is stored sealed in the session region and sent to a model only after the residency check',
+    }
+  ai.runs:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'every run carries data_region; every model call of the run evaluates residency first',
+    }
+  ai.artifacts:
+    { owner: M09, hook: m09-model-gateway, note: 'generated artifacts stay in the run region' }
+  ai.model_usage:
+    {
+      owner: M09,
+      hook: m09-model-gateway,
+      note: 'every call records the provider region and the residency evidence reference',
+    }
+  # <<< M09 tables
 hooks:
   - {
       id: m03-psp-personal-data,
@@ -269,9 +297,9 @@ hooks:
       where: 'Model gateway: prompt and output class against the model region and processor',
       data_classes: [customer-content, personal],
       processor_kind: model,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.model,
-      call_site: null,
+      call_site: apps/api/src/modules/ai/internal/gateway.service.ts,
     }
   - {
       id: m09-builder-assets,

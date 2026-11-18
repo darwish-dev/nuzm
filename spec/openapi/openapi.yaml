@@ -66,6 +66,14 @@ tags:
     description: Provider framework and compute - provider registry, accounts (vault references only), capability matrix, verified regions, plans, offers, routing, quotes, instances, reconciliation (M05; live provider checks are BLOCKED until HG-05-01..03)
   - name: domains
     description: Domains, registrars, DNS and domain webhooks (M07)
+  # >>> M09 tags
+  - name: ai
+    description: AI core - model gateway, budgets and credits, sessions and runs, model providers (M09; no provider is enabled by default, D-18/HG-09-01 OPEN)
+  - name: builder
+    description: Website builder - projects, site model, changes, versions, previews, forms and CMS (M09)
+  - name: deploy
+    description: Deployments of builder projects to hosting sites (M09; live publish BLOCKED until HG-05-01/02, HG-06-01)
+  # <<< M09 tags
 paths:
   /healthz:
     get:
@@ -7581,6 +7589,136 @@ paths:
         '422': { $ref: '#/components/responses/Problem' }
         '428': { $ref: '#/components/responses/Problem' }
   # <<< M07 paths
+  # >>> M09 paths
+  /v1/ai/models:
+    get:
+      operationId: listAiModels
+      tags: [ai]
+      summary: 'List the AI models this organization may use'
+      description: 'Models of ENABLED providers that have a rate card, filtered by the organization residency policy (class `customer-content`): a provider outside the allowed regions is never listed. Empty until a provider is decided (D-18), attested (HG-09-01) and enabled. Requires permission `ai:read`; the whole surface answers 404 while the `ai.enabled` flag is off.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/credits:
+    get:
+      operationId: getAiCredits
+      tags: [ai]
+      summary: 'AI credit balance and usage'
+      description: 'Credits are a projection of the wallet (ledger account 2100) minus open reservations: `availableCredits = floor(wallet / creditUnitMinor) - reserved`. Usage by model and by project for the last 30 days. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCredits' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/budgets:
+    get:
+      operationId: getAiBudgets
+      tags: [ai]
+      summary: 'AI budgets and caps'
+      description: 'Organization budget (daily credits, per-run credits/tokens, totals, alert thresholds, prompt-body logging, auto-apply) and project budgets. The ETag is the budget version (`"0"` = never set). Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiBudgets' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putAiBudgets
+      tags: [ai]
+      summary: 'Replace AI budgets and caps'
+      description: 'Needs `If-Match` (428 if absent, 412 if stale). Caps are non-negative integers or null (no cap). `logBodies=true` needs `bodyRetentionDays` (D-34). Enabling `autoApplyLowRisk` also needs `ai:write` (owner, admin, developer). Audited (`ai.budgets.updated`). Requires permission `ai:budgets:write`.'
+      x-nuzm-permission: ai:budgets:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiBudgetsInput' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiBudgets' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/model-providers:
+    get:
+      operationId: listAiModelProviders
+      tags: [ai]
+      summary: 'List model providers'
+      description: 'Provider rows with region, human-attested data terms, rate card, enable state and whether an adapter is registered. Only the vault REFERENCE of a credential is ever returned. Nothing is seeded. Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelProviderList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: actOnAiModelProvider
+      tags: [ai]
+      summary: 'Configure, attest, enable or disable a model provider; kill switch'
+      description: 'Body {action: configure|attest|request_enable|enable|disable|kill_switch, ...}. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiModelProviderAction' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelProvider' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  # <<< M09 paths
 components:
   parameters:
     OrgHeader:
@@ -13026,3 +13164,152 @@ components:
         results: { type: array, items: { type: object, additionalProperties: true } }
         version: { type: integer }
     # <<< M07 schemas
+    # >>> M09 schemas
+    # >>> S37 schemas
+    AiModel:
+      type: object
+      required:
+        [
+          providerCode,
+          modelId,
+          region,
+          capabilities,
+          contextTokens,
+          maxOutputTokens,
+          latencyClass,
+          dataTermsAttested,
+          creditsPerMillionInput,
+          creditsPerMillionOutput,
+        ]
+      properties:
+        providerCode: { type: string }
+        modelId: { type: string }
+        region: { type: string }
+        capabilities:
+          {
+            type: array,
+            items:
+              { type: string, enum: [chat, structured-output, long-context, embeddings, vision] },
+          }
+        contextTokens: { type: integer }
+        maxOutputTokens: { type: integer }
+        latencyClass: { type: string, enum: [low, medium, high] }
+        dataTermsAttested: { type: boolean }
+        creditsPerMillionInput: { type: string, description: 'integer string' }
+        creditsPerMillionOutput: { type: string, description: 'integer string' }
+    AiModelList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiModel' } }
+    AiCredits:
+      type: object
+      required:
+        [
+          currency,
+          creditUnitMinor,
+          walletCredits,
+          reservedCredits,
+          availableCredits,
+          last30DaysCredits,
+          lowCredit,
+          usage,
+        ]
+      properties:
+        currency: { type: string }
+        creditUnitMinor: { type: integer }
+        walletCredits: { type: string }
+        reservedCredits: { type: string }
+        availableCredits: { type: string }
+        last30DaysCredits: { type: string }
+        lowCredit: { type: boolean }
+        usage:
+          type: object
+          required: [byModel, byProject]
+          properties:
+            byModel: { type: array, items: { type: object, additionalProperties: true } }
+            byProject: { type: array, items: { type: object, additionalProperties: true } }
+    AiBudgetDoc:
+      type: object
+      properties:
+        dailyCredits: { type: [integer, 'null'] }
+        runMaxCredits: { type: [integer, 'null'] }
+        runMaxTokens: { type: [integer, 'null'] }
+        totalCredits: { type: [integer, 'null'] }
+        totalTokens: { type: [integer, 'null'] }
+        alertThresholds: { type: array, items: { type: integer, minimum: 1, maximum: 100 } }
+        logBodies: { type: boolean }
+        bodyRetentionDays: { type: [integer, 'null'] }
+        autoApplyLowRisk: { type: boolean }
+    AiBudgets:
+      type: object
+      required: [org, projects, version]
+      properties:
+        org: { $ref: '#/components/schemas/AiBudgetDoc' }
+        projects: { type: array, items: { type: object, additionalProperties: true } }
+        version: { type: integer }
+    AiBudgetsInput:
+      type: object
+      properties:
+        org: { $ref: '#/components/schemas/AiBudgetDoc' }
+        projects:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [projectId],
+                properties:
+                  {
+                    projectId: { type: string, format: uuid },
+                    totalCredits: { type: [integer, 'null'] },
+                    totalTokens: { type: [integer, 'null'] },
+                  },
+              },
+          }
+    AiModelProvider:
+      type: object
+      required:
+        [id, code, adapter, displayName, region, dataTerms, enabled, adapterRegistered, version]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        adapter: { type: string }
+        displayName: { type: string }
+        region: { type: string }
+        dataTerms: { type: object, additionalProperties: true }
+        attestationRef: { type: [string, 'null'] }
+        vaultRef: { type: [string, 'null'] }
+        rateCardVersion: { type: string }
+        rateCard: { type: object, additionalProperties: true }
+        enabled: { type: boolean }
+        enableRequestedBy: { type: [string, 'null'] }
+        enabledBy: { type: [string, 'null'] }
+        adapterRegistered: { type: boolean }
+        version: { type: integer }
+    AiModelProviderList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiModelProvider' } }
+    AiModelProviderAction:
+      type: object
+      required: [action]
+      properties:
+        action:
+          { type: string, enum: [configure, attest, request_enable, enable, disable, kill_switch] }
+        id: { type: string, format: uuid }
+        code: { type: string }
+        adapter: { type: string }
+        displayName: { type: string }
+        region: { type: string }
+        vaultRef: { type: string }
+        rateCard: { type: object, additionalProperties: true }
+        rateCardVersion: { type: string }
+        egressAllow: { type: array, items: { type: string } }
+        dataTerms: { type: object, additionalProperties: true }
+        attestationRef: { type: string }
+        on: { type: boolean }
+        orgId: { type: string, format: uuid }
+    # <<< S37 schemas
+    # <<< M09 schemas

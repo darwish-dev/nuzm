@@ -12,6 +12,12 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: enterprise
+    description: Enterprise SSO, access reviews (M12)
+  - name: scim
+    description: SCIM 2.0 server at /scim/v2 (M12)
+  - name: ops-console
+    description: Operational health, incidents, alerts, recovery exercises (M12)
   - name: hosting
     description: Shared hosting sites, nodes and abuse cases
   - name: email
@@ -7581,6 +7587,715 @@ paths:
         '422': { $ref: '#/components/responses/Problem' }
         '428': { $ref: '#/components/responses/Problem' }
   # <<< M07 paths
+  # >>> M12 paths (S55-S57): enterprise IAM and operations. SCIM lives at /scim/v2 (docs/04 §1 exception).
+  /v1/organizations/{orgId}/sso-connections:
+    get:
+      operationId: listSsoConnections
+      tags: [enterprise]
+      summary: List SSO connections
+      description: 'Connections of the organization with their email domains and DNS TXT proof status (txtName/txtValue while pending), JIT policy, enforcement flag and the signing-certificate count (never the certificates or any secret). Requires org:security. Feature flag enterprise.sso.'
+      x-nuzm-permission: org:security
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: orgId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SsoConnectionList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: upsertSsoConnection
+      tags: [enterprise]
+      summary: Create or update an SSO connection
+      description: "CREATE {protocol: saml|oidc, name, domains[], jit?{enabled, defaultRole viewer|developer|billing_admin}, xml|metadataUrl (saml) or issuer, clientId, clientSecretRef=vault://… (oidc)}: SAML metadata must declare a signing certificate (422 invalid_sso_metadata), a domain verified by another organization is 409 domain_claimed, a secret VALUE is refused (422 credential_value_rejected). Each domain needs a DNS TXT record _nuzm-sso.<domain> = nuzm-sso-verification=<token>; a platform job verifies it (read from the organization's own Nuzm zone first, then public DNS). UPDATE {connectionId, enforce?, jit?, idpInitiated?, enabled?, domains?}: enforce=true needs an active connection with a verified domain AND a successful test login (the test login endpoint is not approved yet, SCR-M12-05, so enforcement cannot be turned on in production until it is). Enforcement blocks password and platform-IdP sign-in for the verified domains (403 sso_required). JIT never grants owner/admin. IdP-initiated SAML is off unless idpInitiated=true. Idempotent per Idempotency-Key. Requires org:security and a recent MFA step-up. Audited (sso.connection.created|enforced)."
+      x-nuzm-permission: org:security
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: orgId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SsoConnectionRequest' }
+      responses:
+        '200':
+          description: Updated or replayed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SsoConnection' }
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SsoConnection' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /scim/v2/ServiceProviderConfig:
+    get:
+      operationId: scimServiceProviderConfig
+      tags: [scim]
+      summary: SCIM service provider configuration
+      description: 'RFC 7643 §5. Authenticated with an organization-scoped SCIM bearer token (identity.scim_tokens). Feature flag enterprise.scim.'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimDocument' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /scim/v2/ResourceTypes:
+    get:
+      operationId: scimResourceTypes
+      tags: [scim]
+      summary: SCIM resource types
+      description: 'User and Group. Bearer SCIM token.'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimDocument' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /scim/v2/Schemas:
+    get:
+      operationId: scimSchemas
+      tags: [scim]
+      summary: SCIM schemas
+      description: 'User and Group schemas. Bearer SCIM token.'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimDocument' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /scim/v2/Users:
+    get:
+      operationId: scimListUsers
+      tags: [scim]
+      summary: List provisioned users
+      description: "RFC 7644 §3.4: filter (eq ne co sw ew pr gt ge lt le, and/or/not, parentheses) over id, externalId, userName, displayName, emails.value, active, name.formatted; startIndex/count pagination (count <= 200). Only users provisioned through this organization's SCIM connection are visible. Rate limited per token (429)."
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: filter, in: query, schema: { type: string, maxLength: 1000 } }
+        - { name: startIndex, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: count, in: query, schema: { type: integer, minimum: 0, maximum: 200 } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimListResponse' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: scimCreateUser
+      tags: [scim]
+      summary: Provision a user
+      description: 'RFC 7644 §3.3. Idempotent by externalId: the same externalId returns the existing user (200) instead of a duplicate; a different userName for the same externalId, or a userName that already exists, is 409 uniqueness. The email domain must be a VERIFIED domain of the connection. The new member gets the connection default role (never owner/admin). active=false creates the identity without a membership. Audited (scim.user.provisioned).'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema: { $ref: '#/components/schemas/ScimUser' }
+      responses:
+        '200':
+          description: Existing user (idempotent replay)
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimUser' }
+        '201':
+          description: Created
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimUser' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /scim/v2/Users/{id}:
+    get:
+      operationId: scimGetUser
+      tags: [scim]
+      summary: Get a provisioned user
+      description: 'RFC 7644 §3.4.1. A user of another organization is 404.'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimUser' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: scimReplaceUser
+      tags: [scim]
+      summary: Replace a provisioned user
+      description: 'RFC 7644 §3.5.1. userName is immutable (400 mutability). active=false deprovisions.'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema: { $ref: '#/components/schemas/ScimUser' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimUser' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: scimPatchUser
+      tags: [scim]
+      summary: Patch a provisioned user
+      description: 'RFC 7644 §3.5.2: add/replace/remove on active, displayName, name.formatted, externalId (also the pathless object form and string booleans used by Entra ID and Okta). active=false deprovisions: the membership is removed, API keys the user created in the organization are revoked and ALL sessions of the user are revoked within the same request (target 60 s p95; measured in the tests); the last owner cannot be deprovisioned (409 mutability).'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema: { $ref: '#/components/schemas/ScimPatchOp' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimUser' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: scimDeleteUser
+      tags: [scim]
+      summary: Deprovision a user
+      description: 'RFC 7644 §3.6: same effect as active=false. 204.'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Deprovisioned }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /scim/v2/Groups:
+    get:
+      operationId: scimListGroups
+      tags: [scim]
+      summary: List groups
+      description: 'Groups are the NON-administrative roles of the organization (billing_admin, developer, viewer); owner and admin are never exposed or assignable through SCIM. Groups cannot be created or deleted.'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimListResponse' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /scim/v2/Groups/{id}:
+    get:
+      operationId: scimGetGroup
+      tags: [scim]
+      summary: Get a group
+      description: "A role name. Members are the organization's active provisioned users holding that role."
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimGroup' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: scimPatchGroup
+      tags: [scim]
+      summary: Change group members
+      description: 'add/replace members sets the member role to the group; remove members returns them to viewer. A user holding owner or admin cannot be changed through SCIM (403 mutability).'
+      x-nuzm-access: service-key
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema: { $ref: '#/components/schemas/ScimPatchOp' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/scim+json:
+              schema: { $ref: '#/components/schemas/ScimGroup' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/admin/access-reviews:
+    get:
+      operationId: listAccessReviews
+      tags: [enterprise]
+      summary: List access review campaigns
+      description: "Filters orgId, status (open|closed), limit, cursor. Items (the organization's members at campaign creation) and their decisions are part of each campaign (SCR-M12-04 / PA-07 would add a separate item endpoint: not approved). Requires admin:security:manage."
+      x-nuzm-platform-permission: admin:security:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: orgId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [open, closed] } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessReviewPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createAccessReview
+      tags: [enterprise]
+      summary: Create an access review campaign
+      description: 'Body {scope:{orgId, kinds:["members"]}, reviewers[] (platform staff ids), dueAt}. Snapshots the members of the organization as items. API keys and admin roles are reviewed through the member; delegated access arrives with M11. Idempotent per Idempotency-Key. Requires admin:security:manage and a recent MFA. Audited.'
+      x-nuzm-platform-permission: admin:security:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccessReviewCreate' }
+      responses:
+        '200':
+          description: Replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessReview' }
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessReview' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/access-reviews/{id}/decisions:
+    post:
+      operationId: decideAccessReviewItem
+      tags: [enterprise]
+      summary: Decide an access review item
+      description: 'Body {itemId, decision: keep|revoke, reason}. Only an assigned reviewer (403). A closed campaign is 409 review_closed. The same decision twice is a no-op; a different one is 409. revoke removes the membership through the tenancy module, revokes the API keys the user created in the organization and all their sessions; the campaign closes when every item is decided. Idempotent. Requires admin:security:manage and a recent MFA. Audited (audit.access_review.decision).'
+      x-nuzm-platform-permission: admin:security:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccessReviewDecision' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessReview' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/operations/health:
+    get:
+      operationId: getOperationsHealth
+      tags: [ops-console]
+      summary: Operational health
+      description: 'Component statuses, outbox lag, operations by state, reconciler last runs, open provider incidents, latest synthetic probe results, SLO burn and alert counts. Anything not measured is unknown / not_measured, never healthy; fixture probe runs never count as availability. Requires admin:ops:read.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpsHealth' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/incidents:
+    get:
+      operationId: listIncidents
+      tags: [ops-console]
+      summary: List incidents
+      description: 'Filters status, severity, limit, cursor. Each incident carries its timeline (latest 50 updates). Requires admin:ops:read.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [open, investigating, identified, monitoring, resolved, closed] } }
+        - { name: severity, in: query, schema: { type: string, enum: [SEV1, SEV2, SEV3, SEV4] } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IncidentPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: openIncident
+      tags: [ops-console]
+      summary: Open an incident
+      description: 'Body {severity, title, components[], summary?, breachCaseId?}. Text must not contain personal data (422). breachCaseId links the M04 breach workflow. Idempotent per Idempotency-Key. Requires admin:ops:manage and a recent MFA. Audited (ops.incident.opened).'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncidentCreate' }
+      responses:
+        '200':
+          description: Replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Incident' }
+        '201':
+          description: Opened
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Incident' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/incidents/{id}:
+    patch:
+      operationId: updateIncident
+      tags: [ops-console]
+      summary: Update an incident
+      description: 'Body {status?, severity?, note?, commsDraft?, breachCaseId?}: each change adds a timeline entry. Status moves forward (open, investigating, identified, monitoring, resolved, closed) or reopens a resolved incident; closed is terminal (409 invalid_state). Requires admin:ops:manage and a recent MFA.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncidentUpdate' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Incident' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/alerts:
+    get:
+      operationId: listAlerts
+      tags: [ops-console]
+      summary: List alert rules and state
+      description: 'Filters state (ok|firing|acknowledged|silenced), limit, cursor. Every rule has an owner role, a severity and a runbook. A rule whose metric is not measured is not evaluated (state unchanged). Requires admin:ops:read.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [ok, firing, acknowledged, silenced] } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: alertAction
+      tags: [ops-console]
+      summary: Define, acknowledge or silence an alert
+      description: 'Body {action: define|acknowledge|silence|unsilence, ruleKey, ...}. define needs title, severity, ownerRole, runbookUrl and rule{metric,op,threshold}. silence needs until (at most 30 days ahead). Requires admin:ops:manage and a recent MFA. Audited.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlertAction' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Alert' }
+        '201':
+          description: Defined
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Alert' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-incidents:
+    get:
+      operationId: listProviderIncidents
+      tags: [ops-console]
+      summary: List provider incidents
+      description: 'Provider status events linked to platform incidents. Filters providerKey, status, limit, cursor. Written by feed ingestion; there is no write endpoint. Requires admin:ops:read.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: providerKey, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderIncidentPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/recovery-exercises:
+    get:
+      operationId: listRecoveryExercises
+      tags: [ops-console]
+      summary: List recovery exercises
+      description: 'Filter scope, limit, cursor. Requires admin:ops:read.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: scope, in: query, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecoveryExercisePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: recordRecoveryExercise
+      tags: [ops-console]
+      summary: Record a recovery exercise
+      description: 'Body {scope, environment, startedAt, restoredAt, rpoSeconds, rtoSeconds, evidenceRefs[], result?, notes?}. MEASURED: rtoSeconds must equal restoredAt minus startedAt (422 otherwise) and the result follows from the D-30 targets (RPO 900 s, RTO 14400 s); a disagreeing result is 422. Append-only. Idempotent per Idempotency-Key. Requires admin:ops:manage and a recent MFA. Audited.'
+      x-nuzm-platform-permission: admin:ops:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecoveryExerciseCreate' }
+      responses:
+        '200':
+          description: Replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecoveryExercise' }
+        '201':
+          description: Recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecoveryExercise' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/policy-versions:
+    get:
+      operationId: listPolicyVersions
+      tags: [compliance]
+      summary: List policy versions
+      description: 'Current version per policy key (history=true for all). With policyKey the ETag is the current version. Requires admin:compliance:read.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: policyKey, in: query, schema: { type: string } }
+        - { name: history, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersionList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: publishPolicyVersion
+      tags: [compliance]
+      summary: Publish a policy version
+      description: 'Creates version n+1 of a policy key (security, privacy, aup, ...). If-Match = the current version ("0" for a new key); a stale value is 412 etag_mismatch. The body is a reference to the document, never the text. approvedBy is a DIFFERENT active platform user and needs approvalRef; without them the version is a DRAFT (the agent never approves). Requires admin:compliance:manage and a recent MFA. Audited (policy.version.published).'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PolicyVersionPublish' }
+      responses:
+        '201':
+          description: Published
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersion' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/admin/audit-retention:
+    get:
+      operationId: getAuditRetention
+      tags: [compliance]
+      summary: Audit retention and holds
+      description: 'Retention policies for dataset audit.audit_logs (versioned, M04), the minimum retention (a PROPOSAL until D-34), active legal holds, the archive target region and a DRY-RUN of what a policy would archive minus anything under a legal hold. Archival itself is not available (the audit log is hash-chained; ADR-055 PROPOSED). Requires admin:compliance:read.'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditRetention' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putAuditRetention
+      tags: [compliance]
+      summary: Set an audit retention class
+      description: 'Body {dataClass, retainDays, archiveAfterDays, basis, status?, documentRef?, changeNote?, baseVersion?}: creates a new policy VERSION for dataset audit.audit_logs; retainDays below the minimum is 422 below_minimum_retention. An approved policy needs a document reference. Requires admin:compliance:manage and a recent MFA. Audited (audit.retention.changed).'
+      x-nuzm-platform-permission: admin:compliance:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditRetentionPut' }
+      responses:
+        '200':
+          description: Existing version replayed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionPolicy' }
+        '201':
+          description: New version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  # <<< M12 paths
 components:
   parameters:
     OrgHeader:
@@ -7614,6 +8329,10 @@ components:
       schema: { type: string }
       description: Opaque cursor from nextCursor.
   securitySchemes:
+    scimToken:
+      type: http
+      scheme: bearer
+      description: Organization-scoped SCIM token (nzscim_…), issued per SSO connection; stored as a SHA-256 hash (M12).
     sourceKey:
       type: http
       scheme: bearer
@@ -13026,3 +13745,348 @@ components:
         results: { type: array, items: { type: object, additionalProperties: true } }
         version: { type: integer }
     # <<< M07 schemas
+    # >>> M12 schemas
+    SsoConnectionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        connectionId: { type: string, format: uuid }
+        protocol: { type: string, enum: [saml, oidc] }
+        name: { type: string, maxLength: 120 }
+        domains: { type: array, items: { type: string }, maxItems: 10 }
+        xml: { type: string, maxLength: 524288 }
+        metadataUrl: { type: string, format: uri }
+        issuer: { type: string, format: uri }
+        clientId: { type: string }
+        clientSecretRef: { type: string, pattern: '^vault://' }
+        jit: { type: object, properties: { enabled: { type: boolean }, defaultRole: { type: string, enum: [viewer, developer, billing_admin] } } }
+        enforce: { type: boolean }
+        idpInitiated: { type: boolean }
+        enabled: { type: boolean }
+    SsoConnection:
+      type: object
+      required: [id, protocol, status]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        protocol: { type: string, enum: [saml, oidc] }
+        name: { type: string }
+        status: { type: string, enum: [pending_domain_proof, active, disabled] }
+        domains: { type: array, items: { type: object, additionalProperties: true } }
+        jit: { type: object, additionalProperties: true }
+        enforce: { type: boolean }
+        idpInitiated: { type: boolean }
+        config: { type: object, additionalProperties: true }
+        sp: { type: object, additionalProperties: true }
+        testLogin: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SsoConnectionList:
+      type: object
+      required: [items]
+      additionalProperties: true
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SsoConnection' } }
+    ScimUser:
+      type: object
+      additionalProperties: true
+      properties:
+        schemas: { type: array, items: { type: string } }
+        id: { type: string }
+        externalId: { type: string }
+        userName: { type: string }
+        displayName: { type: string }
+        name: { type: object, additionalProperties: true }
+        emails: { type: array, items: { type: object, additionalProperties: true } }
+        active: { type: boolean }
+        groups: { type: array, items: { type: object, additionalProperties: true } }
+        meta: { type: object, additionalProperties: true }
+    ScimGroup:
+      type: object
+      additionalProperties: true
+      properties:
+        schemas: { type: array, items: { type: string } }
+        id: { type: string }
+        displayName: { type: string }
+        members: { type: array, items: { type: object, additionalProperties: true } }
+        meta: { type: object, additionalProperties: true }
+    ScimPatchOp:
+      type: object
+      required: [Operations]
+      additionalProperties: true
+      properties:
+        schemas: { type: array, items: { type: string } }
+        Operations: { type: array, items: { type: object, additionalProperties: true } }
+    ScimListResponse:
+      type: object
+      required: [totalResults]
+      additionalProperties: true
+      properties:
+        schemas: { type: array, items: { type: string } }
+        totalResults: { type: integer }
+        startIndex: { type: integer }
+        itemsPerPage: { type: integer }
+        Resources: { type: array, items: { type: object, additionalProperties: true } }
+    ScimDocument:
+      description: A SCIM discovery document (RFC 7643 §5-7).
+      type: object
+      additionalProperties: true
+    AccessReviewCreate:
+      type: object
+      required: [scope, reviewers, dueAt]
+      additionalProperties: false
+      properties:
+        scope: { type: object, properties: { orgId: { type: string, format: uuid }, kinds: { type: array, items: { type: string, enum: [members] } } }, required: [orgId] }
+        reviewers: { type: array, items: { type: string, format: uuid }, minItems: 1, maxItems: 20 }
+        dueAt: { type: string, format: date-time }
+    AccessReviewDecision:
+      type: object
+      required: [itemId, decision, reason]
+      additionalProperties: false
+      properties:
+        itemId: { type: string, format: uuid }
+        decision: { type: string, enum: [keep, revoke] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    AccessReview:
+      type: object
+      required: [id, orgId, status, items]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        orgId: { type: string, format: uuid }
+        scope: { type: object, additionalProperties: true }
+        reviewers: { type: array, items: { type: string } }
+        dueAt: { type: string, format: date-time }
+        status: { type: string, enum: [open, closed] }
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        progress: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+    AccessReviewPage:
+      type: object
+      required: [items]
+      additionalProperties: true
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AccessReview' } }
+        nextCursor: { type: [string, 'null'] }
+    OpsHealth:
+      type: object
+      required: [status, components]
+      additionalProperties: true
+      properties:
+        generatedAt: { type: string, format: date-time }
+        status: { type: string, enum: [ok, degraded, down] }
+        components: { type: array, items: { type: object, additionalProperties: true } }
+        queues: { type: object, additionalProperties: true }
+        reconcilers: { type: object, additionalProperties: true }
+        providers: { type: object, additionalProperties: true }
+        probes: { type: array, items: { type: object, additionalProperties: true } }
+        sloBurn: { type: array, items: { type: object, additionalProperties: true } }
+        alerts: { type: object, additionalProperties: true }
+    IncidentCreate:
+      type: object
+      required: [severity, title]
+      additionalProperties: false
+      properties:
+        severity: { type: string, enum: [SEV1, SEV2, SEV3, SEV4] }
+        title: { type: string, minLength: 3, maxLength: 200 }
+        components: { type: array, items: { type: string }, maxItems: 30 }
+        summary: { type: string, maxLength: 2000 }
+        breachCaseId: { type: string, format: uuid }
+    IncidentUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [open, investigating, identified, monitoring, resolved, closed] }
+        severity: { type: string, enum: [SEV1, SEV2, SEV3, SEV4] }
+        note: { type: string, maxLength: 4000 }
+        commsDraft: { type: string, maxLength: 4000 }
+        breachCaseId: { type: string, format: uuid }
+    Incident:
+      type: object
+      required: [id, severity, status]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        severity: { type: string }
+        title: { type: string }
+        status: { type: string }
+        components: { type: array, items: { type: string } }
+        summary: { type: [string, 'null'] }
+        breachCaseId: { type: [string, 'null'] }
+        openedBy: { type: string }
+        openedAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'] }
+        closedAt: { type: [string, 'null'] }
+        version: { type: integer }
+        timeline: { type: array, items: { type: object, additionalProperties: true } }
+    IncidentPage:
+      type: object
+      required: [items]
+      additionalProperties: true
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Incident' } }
+        nextCursor: { type: [string, 'null'] }
+    AlertAction:
+      type: object
+      required: [action, ruleKey]
+      additionalProperties: false
+      properties:
+        action: { type: string, enum: [define, acknowledge, silence, unsilence] }
+        ruleKey: { type: string }
+        title: { type: string }
+        severity: { type: string, enum: [info, warning, critical] }
+        ownerRole: { type: string }
+        runbookUrl: { type: string }
+        rule: { type: object, additionalProperties: true }
+        until: { type: string, format: date-time }
+    Alert:
+      type: object
+      required: [id, ruleKey, state]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        ruleKey: { type: string }
+        title: { type: string }
+        severity: { type: string }
+        ownerRole: { type: string }
+        runbookUrl: { type: string }
+        rule: { type: object, additionalProperties: true }
+        state: { type: string }
+        stateSince: { type: string, format: date-time }
+        silencedUntil: { type: [string, 'null'] }
+        lastEvaluatedAt: { type: [string, 'null'] }
+        lastValue: { type: [number, 'null'] }
+        enabled: { type: boolean }
+        version: { type: integer }
+    AlertPage:
+      type: object
+      required: [items]
+      additionalProperties: true
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Alert' } }
+        nextCursor: { type: [string, 'null'] }
+    ProviderIncident:
+      type: object
+      required: [id, providerKey, status]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        providerKey: { type: string }
+        providerAccountId: { type: [string, 'null'] }
+        externalRef: { type: string }
+        status: { type: string }
+        title: { type: string }
+        startedAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'] }
+        relatedIncidentId: { type: [string, 'null'] }
+        source: { type: string }
+    ProviderIncidentPage:
+      type: object
+      required: [items]
+      additionalProperties: true
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ProviderIncident' } }
+        nextCursor: { type: [string, 'null'] }
+    RecoveryExerciseCreate:
+      type: object
+      required: [scope, environment, startedAt, restoredAt, rpoSeconds, rtoSeconds, evidenceRefs]
+      additionalProperties: false
+      properties:
+        scope: { type: string, enum: [control_plane_db, object_storage, hosting_site, managed_db, secrets_kms, regional_loss_tabletop] }
+        environment: { type: string, enum: [local, staging, production] }
+        startedAt: { type: string, format: date-time }
+        restoredAt: { type: string, format: date-time }
+        rpoSeconds: { type: integer, minimum: 0 }
+        rtoSeconds: { type: integer, minimum: 0 }
+        evidenceRefs: { type: array, items: { type: string }, minItems: 1, maxItems: 20 }
+        result: { type: string, enum: [pass, fail] }
+        notes: { type: string, maxLength: 2000 }
+    RecoveryExercise:
+      type: object
+      required: [id, scope, result]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        scope: { type: string }
+        environment: { type: string }
+        startedAt: { type: string, format: date-time }
+        restoredAt: { type: string, format: date-time }
+        rpoSeconds: { type: integer }
+        rtoSeconds: { type: integer }
+        targetRpoSeconds: { type: integer }
+        targetRtoSeconds: { type: integer }
+        evidenceRefs: { type: array, items: { type: string } }
+        result: { type: string, enum: [pass, fail] }
+        notes: { type: [string, 'null'] }
+        recordedBy: { type: string }
+        createdAt: { type: string, format: date-time }
+    RecoveryExercisePage:
+      type: object
+      required: [items]
+      additionalProperties: true
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/RecoveryExercise' } }
+        nextCursor: { type: [string, 'null'] }
+    PolicyVersionPublish:
+      type: object
+      required: [policyKey, title, bodyRef, effectiveFrom]
+      additionalProperties: false
+      properties:
+        policyKey: { type: string }
+        title: { type: string }
+        bodyRef: { type: string }
+        effectiveFrom: { type: string, format: date }
+        approvedBy: { type: string, format: uuid }
+        approvalRef: { type: string }
+        changeNote: { type: string }
+    PolicyVersion:
+      type: object
+      required: [id, policyKey, version]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        policyKey: { type: string }
+        version: { type: integer }
+        title: { type: string }
+        bodyRef: { type: string }
+        effectiveFrom: { type: string, format: date }
+        approvedBy: { type: [string, 'null'] }
+        approvalRef: { type: [string, 'null'] }
+        changeNote: { type: [string, 'null'] }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        status: { type: string, enum: [draft, approved] }
+    PolicyVersionList:
+      type: object
+      required: [items]
+      additionalProperties: true
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PolicyVersion' } }
+    AuditRetentionPut:
+      type: object
+      required: [dataClass, retainDays, archiveAfterDays, basis]
+      additionalProperties: false
+      properties:
+        dataClass: { type: string }
+        retainDays: { type: integer, minimum: 1 }
+        archiveAfterDays: { type: integer, minimum: 1 }
+        basis: { type: string }
+        status: { type: string, enum: [proposal, approved] }
+        documentRef: { type: string }
+        changeNote: { type: string }
+        baseVersion: { type: integer }
+    AuditRetention:
+      type: object
+      required: [dataset, policies]
+      additionalProperties: true
+      properties:
+        dataset: { type: string }
+        minimumRetainDays: { type: integer }
+        minimumBasis: { type: string }
+        policies: { type: array, items: { type: object, additionalProperties: true } }
+        legalHolds: { type: array, items: { type: object, additionalProperties: true } }
+        archiveTargetRegion: { type: [string, 'null'] }
+        archival: { type: object, additionalProperties: true }
+        preview: { type: [object, 'null'], additionalProperties: true }
+    # <<< M12 schemas

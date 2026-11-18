@@ -21,8 +21,38 @@ export function makeTestKey(cn = 'test-idp', kind: 'rsa' | 'ec' = 'rsa'): TestKe
     execFileSync(
       'openssl',
       kind === 'rsa'
-        ? ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', crt, '-days', '30', '-subj', `/CN=${cn}`]
-        : ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-keyout', key, '-out', crt, '-days', '30', '-subj', `/CN=${cn}`],
+        ? [
+            'req',
+            '-x509',
+            '-newkey',
+            'rsa:2048',
+            '-nodes',
+            '-keyout',
+            key,
+            '-out',
+            crt,
+            '-days',
+            '30',
+            '-subj',
+            `/CN=${cn}`,
+          ]
+        : [
+            'req',
+            '-x509',
+            '-newkey',
+            'ec',
+            '-pkeyopt',
+            'ec_paramgen_curve:P-256',
+            '-nodes',
+            '-keyout',
+            key,
+            '-out',
+            crt,
+            '-days',
+            '30',
+            '-subj',
+            `/CN=${cn}`,
+          ],
       { stdio: 'pipe' },
     );
     return { privateKey: readFileSync(key, 'utf8'), certificate: readFileSync(crt, 'utf8') };
@@ -86,7 +116,12 @@ export function unsignedResponse(o: ResponseOptions): string {
   return `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="${rid}" Version="2.0" IssueInstant="${iso(now)}"${dest}${irt}><saml:Issuer>${o.idpEntityId}</saml:Issuer><samlp:Status><samlp:StatusCode Value="${o.statusCode ?? 'urn:oasis:names:tc:SAML:2.0:status:Success'}"/></samlp:Status><saml:Assertion ID="${aid}" Version="2.0" IssueInstant="${iso(now)}"><saml:Issuer>${o.idpEntityId}</saml:Issuer><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">${o.nameId ?? o.email ?? 'alice@acme.example'}</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="${iso(confirmAfter)}" Recipient="${o.recipient === null ? '' : (o.recipient ?? o.acsUrl)}"${irt}/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="${iso(notBefore)}" NotOnOrAfter="${iso(notAfter)}"><saml:AudienceRestriction><saml:Audience>${o.audience === null ? '' : (o.audience ?? o.spEntityId)}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="${iso(now)}" SessionIndex="_s1"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement><saml:AttributeStatement>${attributeXml}</saml:AttributeStatement></saml:Assertion></samlp:Response>`;
 }
 
-function signElement(xml: string, key: TestKey, target: 'assertion' | 'response', o: ResponseOptions): string {
+function signElement(
+  xml: string,
+  key: TestKey,
+  target: 'assertion' | 'response',
+  o: ResponseOptions,
+): string {
   const local = target === 'assertion' ? 'Assertion' : 'Response';
   const sx = new SignedXml({
     privateKey: key.privateKey,

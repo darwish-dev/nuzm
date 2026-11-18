@@ -107,7 +107,8 @@ const ENVELOPED = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
 type El = Element;
 const kids = (e: El, ns: string, name: string): El[] =>
   Array.from(e.childNodes).filter(
-    (n): n is El => n.nodeType === 1 && (n as El).namespaceURI === ns && (n as El).localName === name,
+    (n): n is El =>
+      n.nodeType === 1 && (n as El).namespaceURI === ns && (n as El).localName === name,
   );
 const first = (e: El, ns: string, name: string): El | undefined => kids(e, ns, name)[0];
 const attr = (e: El, n: string): string | null => (e.hasAttribute(n) ? e.getAttribute(n) : null);
@@ -143,15 +144,20 @@ function checkSignatureElement(sig: El, parent: El): void {
   if (!si) throw new SamlError('malformed', 'SignedInfo missing');
   const c14n = attr(first(si, NS_DSIG, 'CanonicalizationMethod')!, 'Algorithm');
   const method = attr(first(si, NS_DSIG, 'SignatureMethod')!, 'Algorithm');
-  if (!c14n || !ALLOWED_C14N.has(c14n)) throw new SamlError('algorithm_refused', `canonicalization ${c14n}`);
+  if (!c14n || !ALLOWED_C14N.has(c14n))
+    throw new SamlError('algorithm_refused', `canonicalization ${c14n}`);
   if (!method || !ALLOWED_SIGNATURE_ALGORITHMS.has(method))
     throw new SamlError('algorithm_refused', `signature algorithm ${method}`);
   const refs = kids(si, NS_DSIG, 'Reference');
-  if (refs.length !== 1) throw new SamlError('wrapped', 'a signature must have exactly one Reference');
+  if (refs.length !== 1)
+    throw new SamlError('wrapped', 'a signature must have exactly one Reference');
   const ref = refs[0]!;
   const id = attr(parent, 'ID');
   if (!id || attr(ref, 'URI') !== `#${id}`)
-    throw new SamlError('wrapped', 'the Reference does not point at the element that carries the signature');
+    throw new SamlError(
+      'wrapped',
+      'the Reference does not point at the element that carries the signature',
+    );
   const digest = attr(first(ref, NS_DSIG, 'DigestMethod')!, 'Algorithm');
   if (!digest || !ALLOWED_DIGEST_ALGORITHMS.has(digest))
     throw new SamlError('algorithm_refused', `digest algorithm ${digest}`);
@@ -169,7 +175,10 @@ function verify(xml: string, sig: El, certs: string[]): string {
   for (const cert of certs) {
     let publicKey: string;
     try {
-      publicKey = new X509Certificate(pemOf(cert)).publicKey.export({ type: 'spki', format: 'pem' }) as string;
+      publicKey = new X509Certificate(pemOf(cert)).publicKey.export({
+        type: 'spki',
+        format: 'pem',
+      }) as string;
     } catch {
       continue;
     }
@@ -178,7 +187,8 @@ function verify(xml: string, sig: El, certs: string[]): string {
       sx.loadSignature(sig as unknown as Node);
       if (!sx.checkSignature(xml)) continue;
       const signed = sx.getSignedReferences();
-      if (signed.length !== 1) throw new SamlError('wrapped', 'exactly one signed reference is expected');
+      if (signed.length !== 1)
+        throw new SamlError('wrapped', 'exactly one signed reference is expected');
       return signed[0]!;
     } catch (e) {
       if (e instanceof SamlError) throw e;
@@ -186,12 +196,16 @@ function verify(xml: string, sig: El, certs: string[]): string {
     }
   }
   void lastError;
-  throw new SamlError('bad_signature', 'the signature does not verify with any pinned IdP certificate');
+  throw new SamlError(
+    'bad_signature',
+    'the signature does not verify with any pinned IdP certificate',
+  );
 }
 
 export async function validateSamlResponse(input: SamlValidationInput): Promise<SamlIdentity> {
   const now = input.now ?? new Date();
-  const skew = Math.min(Math.max(input.skewSeconds ?? MAX_SKEW_SECONDS, 0), MAX_SKEW_SECONDS) * 1000;
+  const skew =
+    Math.min(Math.max(input.skewSeconds ?? MAX_SKEW_SECONDS, 0), MAX_SKEW_SECONDS) * 1000;
 
   const raw = Buffer.from(input.samlResponse.replace(/\s+/g, ''), 'base64');
   if (raw.length === 0) throw new SamlError('malformed', 'empty response');
@@ -219,7 +233,10 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
   const assertions = Array.from(doc.getElementsByTagNameNS(NS_ASSERTION, 'Assertion'));
   const direct = kids(response, NS_ASSERTION, 'Assertion');
   if (assertions.length !== 1 || direct.length !== 1)
-    throw new SamlError('wrapped', 'exactly one Assertion, directly under the Response, is required');
+    throw new SamlError(
+      'wrapped',
+      'exactly one Assertion, directly under the Response, is required',
+    );
   const assertion = direct[0]!;
 
   const status = first(first(response, NS_PROTOCOL, 'Status')!, NS_PROTOCOL, 'StatusCode');
@@ -231,11 +248,13 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
   if (signatures.length === 0) throw new SamlError('unsigned');
   for (const s of signatures) {
     const p = s.parentNode as El | null;
-    if (p !== response && p !== assertion) throw new SamlError('wrapped', 'signature in an unexpected place');
+    if (p !== response && p !== assertion)
+      throw new SamlError('wrapped', 'signature in an unexpected place');
   }
   const responseSig = kids(response, NS_DSIG, 'Signature');
   const assertionSig = kids(assertion, NS_DSIG, 'Signature');
-  if (responseSig.length > 1 || assertionSig.length > 1) throw new SamlError('wrapped', 'multiple signatures');
+  if (responseSig.length > 1 || assertionSig.length > 1)
+    throw new SamlError('wrapped', 'multiple signatures');
 
   // The identity is read ONLY from XML that was actually covered by a verified signature.
   let signedAssertion: El | undefined;
@@ -255,7 +274,11 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
     };
     if (!signedAssertion) {
       const a = kids(signedResponse, NS_ASSERTION, 'Assertion');
-      if (a.length !== 1) throw new SamlError('wrapped', 'the signed Response does not contain exactly one Assertion');
+      if (a.length !== 1)
+        throw new SamlError(
+          'wrapped',
+          'the signed Response does not contain exactly one Assertion',
+        );
       signedAssertion = a[0];
     }
   }
@@ -265,8 +288,11 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
   const a = signedAssertion;
 
   // Response-level checks that are only meaningful when the Response itself was signed; otherwise the Assertion's own signed fields decide.
-  const destination = signedResponseAttrs ? signedResponseAttrs.destination : attr(response, 'Destination');
-  if (destination !== null && destination !== input.sp.acsUrl) throw new SamlError('destination_mismatch');
+  const destination = signedResponseAttrs
+    ? signedResponseAttrs.destination
+    : attr(response, 'Destination');
+  if (destination !== null && destination !== input.sp.acsUrl)
+    throw new SamlError('destination_mismatch');
 
   const issuer = text(first(a, NS_ASSERTION, 'Issuer'));
   if (issuer !== input.idp.entityId) throw new SamlError('issuer_mismatch', `unexpected issuer`);
@@ -286,7 +312,8 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
   const confirmations = kids(subject, NS_ASSERTION, 'SubjectConfirmation').filter(
     (c) => attr(c, 'Method') === 'urn:oasis:names:tc:SAML:2.0:cm:bearer',
   );
-  if (confirmations.length === 0) throw new SamlError('confirmation_invalid', 'no bearer confirmation');
+  if (confirmations.length === 0)
+    throw new SamlError('confirmation_invalid', 'no bearer confirmation');
   let confirmedUntil: Date | undefined;
   let recipientOk = false;
   let irtOk = false;
@@ -309,13 +336,21 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
       if (irt === input.expectedRequestId) irtOk = true;
     } else if (irt === null) irtOk = true;
   }
-  if (!recipientOk) throw new SamlError('recipient_mismatch', sawRecipient ? 'recipient differs' : 'recipient missing');
+  if (!recipientOk)
+    throw new SamlError(
+      'recipient_mismatch',
+      sawRecipient ? 'recipient differs' : 'recipient missing',
+    );
   if (!confirmedUntil) throw new SamlError('confirmation_invalid', 'NotOnOrAfter missing');
   if (input.expectedRequestId !== undefined) {
     if (!irtOk) throw new SamlError('in_response_to_mismatch');
   } else {
     if (!input.allowUnsolicited) throw new SamlError('unsolicited_refused');
-    if (!irtOk) throw new SamlError('in_response_to_mismatch', 'an unsolicited response must not answer a request');
+    if (!irtOk)
+      throw new SamlError(
+        'in_response_to_mismatch',
+        'an unsolicited response must not answer a request',
+      );
   }
 
   const conditions = first(a, NS_ASSERTION, 'Conditions');
@@ -326,7 +361,8 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
   if (nb && new Date(nb).getTime() - skew > now.getTime()) throw new SamlError('not_yet_valid');
   if (new Date(na).getTime() + skew <= now.getTime()) throw new SamlError('expired');
   const restrictions = kids(conditions, NS_ASSERTION, 'AudienceRestriction');
-  if (restrictions.length === 0) throw new SamlError('audience_mismatch', 'no audience restriction');
+  if (restrictions.length === 0)
+    throw new SamlError('audience_mismatch', 'no audience restriction');
   for (const r of restrictions)
     if (!kids(r, NS_ASSERTION, 'Audience').some((x) => text(x) === input.sp.entityId))
       throw new SamlError('audience_mismatch');
@@ -341,7 +377,8 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
   for (const st of kids(a, NS_ASSERTION, 'AttributeStatement'))
     for (const at of kids(st, NS_ASSERTION, 'Attribute')) {
       const name = attr(at, 'Name');
-      if (name) (attributes[name] ??= []).push(...kids(at, NS_ASSERTION, 'AttributeValue').map(text));
+      if (name)
+        (attributes[name] ??= []).push(...kids(at, NS_ASSERTION, 'AttributeValue').map(text));
     }
   const pick = (...names: string[]) => names.map((n) => attributes[n]?.[0]).find((v) => v);
   const format = attr(nameIdEl!, 'Format');
@@ -356,13 +393,16 @@ export async function validateSamlResponse(input: SamlValidationInput): Promise<
 
   // Replay: only a fully valid assertion consumes its id.
   const keepUntil = new Date(Math.min(new Date(na).getTime(), confirmedUntil.getTime()) + skew);
-  if (!(await input.replay.claim(assertionHash(assertionId), keepUntil))) throw new SamlError('replayed');
+  if (!(await input.replay.claim(assertionHash(assertionId), keepUntil)))
+    throw new SamlError('replayed');
 
   return {
     nameId,
     nameIdFormat: format,
     email: email ? email.trim().toLowerCase() : null,
-    displayName: pick('displayName', 'name', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ?? null,
+    displayName:
+      pick('displayName', 'name', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ??
+      null,
     groups: attributes['groups'] ?? attributes['memberOf'] ?? [],
     attributes,
     assertionId,

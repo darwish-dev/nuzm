@@ -1,3 +1,4 @@
+import { DnsTxtLookup } from './internal/txt-lookup.service';
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { OperationsService } from '@nuzm/platform';
 import type { Db } from '@nuzm/platform';
@@ -65,6 +66,7 @@ import { loadTldPolicy } from './internal/tld-policy';
     RegistrarWebhooksController,
   ],
   providers: [
+    { provide: DnsTxtLookup, useFactory: (db: Db) => new DnsTxtLookup(db), inject: [DB] },
     { provide: DOMAINS_CONFIG, useFactory: () => domainsConfigFromEnv() },
     { provide: DOMAINS_VAULT, useFactory: () => new UnavailableVault() },
     {
@@ -313,6 +315,7 @@ import { loadTldPolicy } from './internal/tld-policy';
     },
   ],
   exports: [
+    DnsTxtLookup,
     RegistrarAccessService,
     EligibilityService,
     SearchService,

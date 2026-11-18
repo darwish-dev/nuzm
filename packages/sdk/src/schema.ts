@@ -4368,6 +4368,414 @@ export interface paths {
         patch: operations["changeDnsRecords"];
         trace?: never;
     };
+    "/v1/organizations/{orgId}/sso-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List SSO connections
+         * @description Connections of the organization with their email domains and DNS TXT proof status (txtName/txtValue while pending), JIT policy, enforcement flag and the signing-certificate count (never the certificates or any secret). Requires org:security. Feature flag enterprise.sso.
+         */
+        get: operations["listSsoConnections"];
+        put?: never;
+        /**
+         * Create or update an SSO connection
+         * @description CREATE {protocol: saml|oidc, name, domains[], jit?{enabled, defaultRole viewer|developer|billing_admin}, xml|metadataUrl (saml) or issuer, clientId, clientSecretRef=vault://… (oidc)}: SAML metadata must declare a signing certificate (422 invalid_sso_metadata), a domain verified by another organization is 409 domain_claimed, a secret VALUE is refused (422 credential_value_rejected). Each domain needs a DNS TXT record _nuzm-sso.<domain> = nuzm-sso-verification=<token>; a platform job verifies it (read from the organization's own Nuzm zone first, then public DNS). UPDATE {connectionId, enforce?, jit?, idpInitiated?, enabled?, domains?}: enforce=true needs an active connection with a verified domain AND a successful test login (the test login endpoint is not approved yet, SCR-M12-05, so enforcement cannot be turned on in production until it is). Enforcement blocks password and platform-IdP sign-in for the verified domains (403 sso_required). JIT never grants owner/admin. IdP-initiated SAML is off unless idpInitiated=true. Idempotent per Idempotency-Key. Requires org:security and a recent MFA step-up. Audited (sso.connection.created|enforced).
+         */
+        post: operations["upsertSsoConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/ServiceProviderConfig": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SCIM service provider configuration
+         * @description RFC 7643 §5. Authenticated with an organization-scoped SCIM bearer token (identity.scim_tokens). Feature flag enterprise.scim.
+         */
+        get: operations["scimServiceProviderConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/ResourceTypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SCIM resource types
+         * @description User and Group. Bearer SCIM token.
+         */
+        get: operations["scimResourceTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SCIM schemas
+         * @description User and Group schemas. Bearer SCIM token.
+         */
+        get: operations["scimSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List provisioned users
+         * @description RFC 7644 §3.4: filter (eq ne co sw ew pr gt ge lt le, and/or/not, parentheses) over id, externalId, userName, displayName, emails.value, active, name.formatted; startIndex/count pagination (count <= 200). Only users provisioned through this organization's SCIM connection are visible. Rate limited per token (429).
+         */
+        get: operations["scimListUsers"];
+        put?: never;
+        /**
+         * Provision a user
+         * @description RFC 7644 §3.3. Idempotent by externalId: the same externalId returns the existing user (200) instead of a duplicate; a different userName for the same externalId, or a userName that already exists, is 409 uniqueness. The email domain must be a VERIFIED domain of the connection. The new member gets the connection default role (never owner/admin). active=false creates the identity without a membership. Audited (scim.user.provisioned).
+         */
+        post: operations["scimCreateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a provisioned user
+         * @description RFC 7644 §3.4.1. A user of another organization is 404.
+         */
+        get: operations["scimGetUser"];
+        /**
+         * Replace a provisioned user
+         * @description RFC 7644 §3.5.1. userName is immutable (400 mutability). active=false deprovisions.
+         */
+        put: operations["scimReplaceUser"];
+        post?: never;
+        /**
+         * Deprovision a user
+         * @description RFC 7644 §3.6: same effect as active=false. 204.
+         */
+        delete: operations["scimDeleteUser"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch a provisioned user
+         * @description RFC 7644 §3.5.2: add/replace/remove on active, displayName, name.formatted, externalId (also the pathless object form and string booleans used by Entra ID and Okta). active=false deprovisions: the membership is removed, API keys the user created in the organization are revoked and ALL sessions of the user are revoked within the same request (target 60 s p95; measured in the tests); the last owner cannot be deprovisioned (409 mutability).
+         */
+        patch: operations["scimPatchUser"];
+        trace?: never;
+    };
+    "/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List groups
+         * @description Groups are the NON-administrative roles of the organization (billing_admin, developer, viewer); owner and admin are never exposed or assignable through SCIM. Groups cannot be created or deleted.
+         */
+        get: operations["scimListGroups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a group
+         * @description A role name. Members are the organization's active provisioned users holding that role.
+         */
+        get: operations["scimGetGroup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change group members
+         * @description add/replace members sets the member role to the group; remove members returns them to viewer. A user holding owner or admin cannot be changed through SCIM (403 mutability).
+         */
+        patch: operations["scimPatchGroup"];
+        trace?: never;
+    };
+    "/v1/admin/access-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List access review campaigns
+         * @description Filters orgId, status (open|closed), limit, cursor. Items (the organization's members at campaign creation) and their decisions are part of each campaign (SCR-M12-04 / PA-07 would add a separate item endpoint: not approved). Requires admin:security:manage.
+         */
+        get: operations["listAccessReviews"];
+        put?: never;
+        /**
+         * Create an access review campaign
+         * @description Body {scope:{orgId, kinds:["members"]}, reviewers[] (platform staff ids), dueAt}. Snapshots the members of the organization as items. API keys and admin roles are reviewed through the member; delegated access arrives with M11. Idempotent per Idempotency-Key. Requires admin:security:manage and a recent MFA. Audited.
+         */
+        post: operations["createAccessReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/access-reviews/{id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide an access review item
+         * @description Body {itemId, decision: keep|revoke, reason}. Only an assigned reviewer (403). A closed campaign is 409 review_closed. The same decision twice is a no-op; a different one is 409. revoke removes the membership through the tenancy module, revokes the API keys the user created in the organization and all their sessions; the campaign closes when every item is decided. Idempotent. Requires admin:security:manage and a recent MFA. Audited (audit.access_review.decision).
+         */
+        post: operations["decideAccessReviewItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/operations/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operational health
+         * @description Component statuses, outbox lag, operations by state, reconciler last runs, open provider incidents, latest synthetic probe results, SLO burn and alert counts. Anything not measured is unknown / not_measured, never healthy; fixture probe runs never count as availability. Requires admin:ops:read.
+         */
+        get: operations["getOperationsHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List incidents
+         * @description Filters status, severity, limit, cursor. Each incident carries its timeline (latest 50 updates). Requires admin:ops:read.
+         */
+        get: operations["listIncidents"];
+        put?: never;
+        /**
+         * Open an incident
+         * @description Body {severity, title, components[], summary?, breachCaseId?}. Text must not contain personal data (422). breachCaseId links the M04 breach workflow. Idempotent per Idempotency-Key. Requires admin:ops:manage and a recent MFA. Audited (ops.incident.opened).
+         */
+        post: operations["openIncident"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incidents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update an incident
+         * @description Body {status?, severity?, note?, commsDraft?, breachCaseId?}: each change adds a timeline entry. Status moves forward (open, investigating, identified, monitoring, resolved, closed) or reopens a resolved incident; closed is terminal (409 invalid_state). Requires admin:ops:manage and a recent MFA.
+         */
+        patch: operations["updateIncident"];
+        trace?: never;
+    };
+    "/v1/admin/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alert rules and state
+         * @description Filters state (ok|firing|acknowledged|silenced), limit, cursor. Every rule has an owner role, a severity and a runbook. A rule whose metric is not measured is not evaluated (state unchanged). Requires admin:ops:read.
+         */
+        get: operations["listAlerts"];
+        put?: never;
+        /**
+         * Define, acknowledge or silence an alert
+         * @description Body {action: define|acknowledge|silence|unsilence, ruleKey, ...}. define needs title, severity, ownerRole, runbookUrl and rule{metric,op,threshold}. silence needs until (at most 30 days ahead). Requires admin:ops:manage and a recent MFA. Audited.
+         */
+        post: operations["alertAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List provider incidents
+         * @description Provider status events linked to platform incidents. Filters providerKey, status, limit, cursor. Written by feed ingestion; there is no write endpoint. Requires admin:ops:read.
+         */
+        get: operations["listProviderIncidents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/recovery-exercises": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recovery exercises
+         * @description Filter scope, limit, cursor. Requires admin:ops:read.
+         */
+        get: operations["listRecoveryExercises"];
+        put?: never;
+        /**
+         * Record a recovery exercise
+         * @description Body {scope, environment, startedAt, restoredAt, rpoSeconds, rtoSeconds, evidenceRefs[], result?, notes?}. MEASURED: rtoSeconds must equal restoredAt minus startedAt (422 otherwise) and the result follows from the D-30 targets (RPO 900 s, RTO 14400 s); a disagreeing result is 422. Append-only. Idempotent per Idempotency-Key. Requires admin:ops:manage and a recent MFA. Audited.
+         */
+        post: operations["recordRecoveryExercise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/policy-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List policy versions
+         * @description Current version per policy key (history=true for all). With policyKey the ETag is the current version. Requires admin:compliance:read.
+         */
+        get: operations["listPolicyVersions"];
+        /**
+         * Publish a policy version
+         * @description Creates version n+1 of a policy key (security, privacy, aup, ...). If-Match = the current version ("0" for a new key); a stale value is 412 etag_mismatch. The body is a reference to the document, never the text. approvedBy is a DIFFERENT active platform user and needs approvalRef; without them the version is a DRAFT (the agent never approves). Requires admin:compliance:manage and a recent MFA. Audited (policy.version.published).
+         */
+        put: operations["publishPolicyVersion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/audit-retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit retention and holds
+         * @description Retention policies for dataset audit.audit_logs (versioned, M04), the minimum retention (a PROPOSAL until D-34), active legal holds, the archive target region and a DRY-RUN of what a policy would archive minus anything under a legal hold. Archival itself is not available (the audit log is hash-chained; ADR-055 PROPOSED). Requires admin:compliance:read.
+         */
+        get: operations["getAuditRetention"];
+        /**
+         * Set an audit retention class
+         * @description Body {dataClass, retainDays, archiveAfterDays, basis, status?, documentRef?, changeNote?, baseVersion?}: creates a new policy VERSION for dataset audit.audit_logs; retainDays below the minimum is 422 below_minimum_retention. An approved policy needs a document reference. Requires admin:compliance:manage and a recent MFA. Audited (audit.retention.changed).
+         */
+        put: operations["putAuditRetention"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8476,6 +8884,425 @@ export interface components {
                 [key: string]: unknown;
             }[];
             version: number;
+        };
+        SsoConnectionRequest: {
+            /** Format: uuid */
+            connectionId?: string;
+            /** @enum {string} */
+            protocol?: "saml" | "oidc";
+            name?: string;
+            domains?: string[];
+            xml?: string;
+            /** Format: uri */
+            metadataUrl?: string;
+            /** Format: uri */
+            issuer?: string;
+            clientId?: string;
+            clientSecretRef?: string;
+            jit?: {
+                enabled?: boolean;
+                /** @enum {string} */
+                defaultRole?: "viewer" | "developer" | "billing_admin";
+            };
+            enforce?: boolean;
+            idpInitiated?: boolean;
+            enabled?: boolean;
+        };
+        SsoConnection: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            protocol: "saml" | "oidc";
+            name?: string;
+            /** @enum {string} */
+            status: "pending_domain_proof" | "active" | "disabled";
+            domains?: {
+                [key: string]: unknown;
+            }[];
+            jit?: {
+                [key: string]: unknown;
+            };
+            enforce?: boolean;
+            idpInitiated?: boolean;
+            config?: {
+                [key: string]: unknown;
+            };
+            sp?: {
+                [key: string]: unknown;
+            };
+            testLogin?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        SsoConnectionList: {
+            items: components["schemas"]["SsoConnection"][];
+        } & {
+            [key: string]: unknown;
+        };
+        ScimUser: {
+            schemas?: string[];
+            id?: string;
+            externalId?: string;
+            userName?: string;
+            displayName?: string;
+            name?: {
+                [key: string]: unknown;
+            };
+            emails?: {
+                [key: string]: unknown;
+            }[];
+            active?: boolean;
+            groups?: {
+                [key: string]: unknown;
+            }[];
+            meta?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        ScimGroup: {
+            schemas?: string[];
+            id?: string;
+            displayName?: string;
+            members?: {
+                [key: string]: unknown;
+            }[];
+            meta?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        ScimPatchOp: {
+            schemas?: string[];
+            Operations: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        ScimListResponse: {
+            schemas?: string[];
+            totalResults: number;
+            startIndex?: number;
+            itemsPerPage?: number;
+            Resources?: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A SCIM discovery document (RFC 7643 §5-7). */
+        ScimDocument: {
+            [key: string]: unknown;
+        };
+        AccessReviewCreate: {
+            scope: {
+                /** Format: uuid */
+                orgId: string;
+                kinds?: "members"[];
+            };
+            reviewers: string[];
+            /** Format: date-time */
+            dueAt: string;
+        };
+        AccessReviewDecision: {
+            /** Format: uuid */
+            itemId: string;
+            /** @enum {string} */
+            decision: "keep" | "revoke";
+            reason: string;
+        };
+        AccessReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            scope?: {
+                [key: string]: unknown;
+            };
+            reviewers?: string[];
+            /** Format: date-time */
+            dueAt?: string;
+            /** @enum {string} */
+            status: "open" | "closed";
+            items: {
+                [key: string]: unknown;
+            }[];
+            progress?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            closedAt?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        AccessReviewPage: {
+            items: components["schemas"]["AccessReview"][];
+            nextCursor?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        OpsHealth: {
+            /** Format: date-time */
+            generatedAt?: string;
+            /** @enum {string} */
+            status: "ok" | "degraded" | "down";
+            components: {
+                [key: string]: unknown;
+            }[];
+            queues?: {
+                [key: string]: unknown;
+            };
+            reconcilers?: {
+                [key: string]: unknown;
+            };
+            providers?: {
+                [key: string]: unknown;
+            };
+            probes?: {
+                [key: string]: unknown;
+            }[];
+            sloBurn?: {
+                [key: string]: unknown;
+            }[];
+            alerts?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        IncidentCreate: {
+            /** @enum {string} */
+            severity: "SEV1" | "SEV2" | "SEV3" | "SEV4";
+            title: string;
+            components?: string[];
+            summary?: string;
+            /** Format: uuid */
+            breachCaseId?: string;
+        };
+        IncidentUpdate: {
+            /** @enum {string} */
+            status?: "open" | "investigating" | "identified" | "monitoring" | "resolved" | "closed";
+            /** @enum {string} */
+            severity?: "SEV1" | "SEV2" | "SEV3" | "SEV4";
+            note?: string;
+            commsDraft?: string;
+            /** Format: uuid */
+            breachCaseId?: string;
+        };
+        Incident: {
+            /** Format: uuid */
+            id: string;
+            severity: string;
+            title?: string;
+            status: string;
+            components?: string[];
+            summary?: string | null;
+            breachCaseId?: string | null;
+            openedBy?: string;
+            /** Format: date-time */
+            openedAt?: string;
+            resolvedAt?: string | null;
+            closedAt?: string | null;
+            version?: number;
+            timeline?: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        IncidentPage: {
+            items: components["schemas"]["Incident"][];
+            nextCursor?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        AlertAction: {
+            /** @enum {string} */
+            action: "define" | "acknowledge" | "silence" | "unsilence";
+            ruleKey: string;
+            title?: string;
+            /** @enum {string} */
+            severity?: "info" | "warning" | "critical";
+            ownerRole?: string;
+            runbookUrl?: string;
+            rule?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            until?: string;
+        };
+        Alert: {
+            /** Format: uuid */
+            id: string;
+            ruleKey: string;
+            title?: string;
+            severity?: string;
+            ownerRole?: string;
+            runbookUrl?: string;
+            rule?: {
+                [key: string]: unknown;
+            };
+            state: string;
+            /** Format: date-time */
+            stateSince?: string;
+            silencedUntil?: string | null;
+            lastEvaluatedAt?: string | null;
+            lastValue?: number | null;
+            enabled?: boolean;
+            version?: number;
+        } & {
+            [key: string]: unknown;
+        };
+        AlertPage: {
+            items: components["schemas"]["Alert"][];
+            nextCursor?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        ProviderIncident: {
+            /** Format: uuid */
+            id: string;
+            providerKey: string;
+            providerAccountId?: string | null;
+            externalRef?: string;
+            status: string;
+            title?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            resolvedAt?: string | null;
+            relatedIncidentId?: string | null;
+            source?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ProviderIncidentPage: {
+            items: components["schemas"]["ProviderIncident"][];
+            nextCursor?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        RecoveryExerciseCreate: {
+            /** @enum {string} */
+            scope: "control_plane_db" | "object_storage" | "hosting_site" | "managed_db" | "secrets_kms" | "regional_loss_tabletop";
+            /** @enum {string} */
+            environment: "local" | "staging" | "production";
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            restoredAt: string;
+            rpoSeconds: number;
+            rtoSeconds: number;
+            evidenceRefs: string[];
+            /** @enum {string} */
+            result?: "pass" | "fail";
+            notes?: string;
+        };
+        RecoveryExercise: {
+            /** Format: uuid */
+            id: string;
+            scope: string;
+            environment?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            restoredAt?: string;
+            rpoSeconds?: number;
+            rtoSeconds?: number;
+            targetRpoSeconds?: number;
+            targetRtoSeconds?: number;
+            evidenceRefs?: string[];
+            /** @enum {string} */
+            result: "pass" | "fail";
+            notes?: string | null;
+            recordedBy?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        RecoveryExercisePage: {
+            items: components["schemas"]["RecoveryExercise"][];
+            nextCursor?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        PolicyVersionPublish: {
+            policyKey: string;
+            title: string;
+            bodyRef: string;
+            /** Format: date */
+            effectiveFrom: string;
+            /** Format: uuid */
+            approvedBy?: string;
+            approvalRef?: string;
+            changeNote?: string;
+        };
+        PolicyVersion: {
+            /** Format: uuid */
+            id: string;
+            policyKey: string;
+            version: number;
+            title?: string;
+            bodyRef?: string;
+            /** Format: date */
+            effectiveFrom?: string;
+            approvedBy?: string | null;
+            approvalRef?: string | null;
+            changeNote?: string | null;
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** @enum {string} */
+            status?: "draft" | "approved";
+        } & {
+            [key: string]: unknown;
+        };
+        PolicyVersionList: {
+            items: components["schemas"]["PolicyVersion"][];
+        } & {
+            [key: string]: unknown;
+        };
+        AuditRetentionPut: {
+            dataClass: string;
+            retainDays: number;
+            archiveAfterDays: number;
+            basis: string;
+            /** @enum {string} */
+            status?: "proposal" | "approved";
+            documentRef?: string;
+            changeNote?: string;
+            baseVersion?: number;
+        };
+        AuditRetention: {
+            dataset: string;
+            minimumRetainDays?: number;
+            minimumBasis?: string;
+            policies: {
+                [key: string]: unknown;
+            }[];
+            legalHolds?: {
+                [key: string]: unknown;
+            }[];
+            archiveTargetRegion?: string | null;
+            archival?: {
+                [key: string]: unknown;
+            };
+            preview?: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
         };
     };
     responses: {
@@ -17441,6 +18268,926 @@ export interface operations {
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             428: components["responses"]["Problem"];
+        };
+    };
+    listSsoConnections: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoConnectionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    upsertSsoConnection: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoConnectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated or replayed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoConnection"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoConnection"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    scimServiceProviderConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimResourceTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimListUsers: {
+        parameters: {
+            query?: {
+                filter?: string;
+                startIndex?: number;
+                count?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimListResponse"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimCreateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["ScimUser"];
+            };
+        };
+        responses: {
+            /** @description Existing user (idempotent replay) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimUser"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimUser"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimGetUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimUser"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimReplaceUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["ScimUser"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimUser"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimDeleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deprovisioned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimPatchUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["ScimPatchOp"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimUser"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimListGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimListResponse"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimGetGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimGroup"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    scimPatchGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["ScimPatchOp"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["ScimGroup"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    listAccessReviews: {
+        parameters: {
+            query?: {
+                orgId?: string;
+                status?: "open" | "closed";
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReviewPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createAccessReview: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessReviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReview"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    decideAccessReviewItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessReviewDecision"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getOperationsHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpsHealth"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listIncidents: {
+        parameters: {
+            query?: {
+                status?: "open" | "investigating" | "identified" | "monitoring" | "resolved" | "closed";
+                severity?: "SEV1" | "SEV2" | "SEV3" | "SEV4";
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    openIncident: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentCreate"];
+            };
+        };
+        responses: {
+            /** @description Replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            /** @description Opened */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    updateIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAlerts: {
+        parameters: {
+            query?: {
+                state?: "ok" | "firing" | "acknowledged" | "silenced";
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    alertAction: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertAction"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Alert"];
+                };
+            };
+            /** @description Defined */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Alert"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listProviderIncidents: {
+        parameters: {
+            query?: {
+                providerKey?: string;
+                status?: string;
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderIncidentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listRecoveryExercises: {
+        parameters: {
+            query?: {
+                scope?: string;
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryExercisePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    recordRecoveryExercise: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryExerciseCreate"];
+            };
+        };
+        responses: {
+            /** @description Replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryExercise"];
+                };
+            };
+            /** @description Recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryExercise"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listPolicyVersions: {
+        parameters: {
+            query?: {
+                policyKey?: string;
+                history?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyVersionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    publishPolicyVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyVersionPublish"];
+            };
+        };
+        responses: {
+            /** @description Published */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyVersion"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    getAuditRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditRetention"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    putAuditRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditRetentionPut"];
+            };
+        };
+        responses: {
+            /** @description Existing version replayed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicy"];
+                };
+            };
+            /** @description New version */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }

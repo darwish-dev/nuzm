@@ -21,11 +21,15 @@ export class MetadataError extends Error {
 
 const kids = (e: Element, ns: string, name: string): Element[] =>
   Array.from(e.childNodes).filter(
-    (n): n is Element => n.nodeType === 1 && (n as Element).namespaceURI === ns && (n as Element).localName === name,
+    (n): n is Element =>
+      n.nodeType === 1 && (n as Element).namespaceURI === ns && (n as Element).localName === name,
   );
 
 const pem = (b64: string) =>
-  `-----BEGIN CERTIFICATE-----\n${b64.replace(/\s+/g, '').match(/.{1,64}/g)!.join('\n')}\n-----END CERTIFICATE-----\n`;
+  `-----BEGIN CERTIFICATE-----\n${b64
+    .replace(/\s+/g, '')
+    .match(/.{1,64}/g)!
+    .join('\n')}\n-----END CERTIFICATE-----\n`;
 
 export function parseIdpMetadata(xml: string, now = new Date()): IdpMetadata {
   if (xml.length > 512 * 1024) throw new MetadataError('metadata is too large');
@@ -33,15 +37,20 @@ export function parseIdpMetadata(xml: string, now = new Date()): IdpMetadata {
   const problems: string[] = [];
   let doc: Document;
   try {
-    doc = new DOMParser({ onError: (_l, m) => problems.push(m) }).parseFromString(xml, 'text/xml') as unknown as Document;
+    doc = new DOMParser({ onError: (_l, m) => problems.push(m) }).parseFromString(
+      xml,
+      'text/xml',
+    ) as unknown as Document;
   } catch {
     throw new MetadataError('metadata is not well-formed XML');
   }
-  if (problems.length || !doc.documentElement) throw new MetadataError('metadata is not well-formed XML');
-  let root = doc.documentElement;
+  if (problems.length || !doc.documentElement)
+    throw new MetadataError('metadata is not well-formed XML');
+  let root: Element = doc.documentElement;
   if (root.namespaceURI === NS_MD && root.localName === 'EntitiesDescriptor') {
     const all = kids(root, NS_MD, 'EntityDescriptor');
-    if (all.length !== 1) throw new MetadataError('a metadata aggregate must contain exactly one EntityDescriptor');
+    if (all.length !== 1)
+      throw new MetadataError('a metadata aggregate must contain exactly one EntityDescriptor');
     root = all[0]!;
   }
   if (root.namespaceURI !== NS_MD || root.localName !== 'EntityDescriptor')
@@ -53,17 +62,23 @@ export function parseIdpMetadata(xml: string, now = new Date()): IdpMetadata {
 
   const services = kids(idp, NS_MD, 'SingleSignOnService');
   const pick =
-    services.find((s) => s.getAttribute('Binding') === 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect') ??
-    services.find((s) => s.getAttribute('Binding') === 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST');
+    services.find(
+      (s) => s.getAttribute('Binding') === 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
+    ) ??
+    services.find(
+      (s) => s.getAttribute('Binding') === 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+    );
   const ssoUrl = pick?.getAttribute('Location');
-  if (!pick || !ssoUrl) throw new MetadataError('no HTTP-Redirect or HTTP-POST SingleSignOnService');
+  if (!pick || !ssoUrl)
+    throw new MetadataError('no HTTP-Redirect or HTTP-POST SingleSignOnService');
   let u: URL;
   try {
     u = new URL(ssoUrl);
   } catch {
     throw new MetadataError('the SingleSignOnService location is not a URL');
   }
-  if (u.protocol !== 'https:') throw new MetadataError('the SingleSignOnService location must be https');
+  if (u.protocol !== 'https:')
+    throw new MetadataError('the SingleSignOnService location must be https');
 
   const certificates: string[] = [];
   for (const kd of kids(idp, NS_MD, 'KeyDescriptor')) {
@@ -84,7 +99,10 @@ export function parseIdpMetadata(xml: string, now = new Date()): IdpMetadata {
         }
   }
   // An IdP with no signing certificate cannot produce anything we can verify: refuse (the "unsigned" case of the API).
-  if (certificates.length === 0) throw new MetadataError('the metadata declares no signing certificate: nothing could be verified');
+  if (certificates.length === 0)
+    throw new MetadataError(
+      'the metadata declares no signing certificate: nothing could be verified',
+    );
   return {
     entityId,
     ssoUrl,

@@ -124,12 +124,3 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON identity.sso_connections, identity.sso_d
 GRANT SELECT, UPDATE ON identity.sso_connections, identity.sso_domain_proofs TO nuzm_worker;
 GRANT DELETE ON identity.sso_assertion_replays TO nuzm_worker;
 GRANT SELECT ON identity.sso_connections, identity.scim_tokens TO nuzm_readonly_reporting;
-
--- Enforced domains: the account of a user whose email domain is enforced by a verified SSO connection must not sign in with a password.
--- The application checks this at sign-in; this view gives the check (and reporting) one definition.
-CREATE FUNCTION identity.enforced_domain(p_domain text) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
-  SELECT c.id FROM identity.sso_connections c
-   WHERE c.enforce AND c.status = 'active' AND lower(p_domain) = ANY (c.verified_domains) LIMIT 1
-$$;
-REVOKE ALL ON FUNCTION identity.enforced_domain(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION identity.enforced_domain(text) TO nuzm_app;

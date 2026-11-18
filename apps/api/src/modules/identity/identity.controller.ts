@@ -16,7 +16,9 @@ import { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { SlidingWindowLimiter } from '../../common/rate-limit';
 import { AnyAuthenticated } from '../../common/access';
-import { IDENTITY_CONFIG } from '../../common/tokens';
+import { DB, IDENTITY_CONFIG } from '../../common/tokens';
+import type { Db } from '@nuzm/platform';
+import { enforcedConnectionFor } from './internal/sso-enforcement';
 import {
   AllowPreMfa,
   DenyImpersonation,
@@ -51,6 +53,7 @@ export class IdentityController {
     private readonly users: UserService,
     private readonly audit: AuditSink,
     private readonly mfa: MfaService,
+    @Inject(DB) private readonly db: Db,
   ) {}
 
   private cookieOpts(httpOnly: boolean, maxAge: number) {
@@ -141,6 +144,9 @@ export class IdentityController {
       if (e instanceof ProblemException) return fail(e.code, e);
       throw e;
     }
+    // M12: an email domain enforced by an enterprise SSO connection cannot sign in through the platform IdP.
+    if (await enforcedConnectionFor(this.db, claims.email))
+      return fail('sso_enforced', new ProblemException('sso_required'));
     const user = await this.users.upsertFromClaims(this.cfg.issuer, claims);
     if (user.status !== 'active')
       return fail('user_disabled', new ProblemException('idp_user_disabled'));

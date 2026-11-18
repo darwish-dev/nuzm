@@ -114,6 +114,13 @@ export const ERROR_REGISTRY = {
   },
   record_invalid: { status: 422, title: 'One or more DNS records are invalid' },
   consent_required: { status: 422, title: 'A consent is required before this action' },
+  // >>> M12 (S55-S57)
+  sso_required: { status: 403, title: 'Your organization requires single sign-on for this email domain' },
+  domain_claimed: { status: 409, title: 'This email domain is already verified by another organization' },
+  invalid_sso_metadata: { status: 422, title: 'The identity provider metadata is invalid or unsigned' },
+  review_closed: { status: 409, title: 'The access review is closed' },
+  below_minimum_retention: { status: 422, title: 'The retention period is below the minimum set by the retention decision (D-34)' },
+  // <<< M12
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

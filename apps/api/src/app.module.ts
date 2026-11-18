@@ -21,6 +21,10 @@ import { SubscriptionsModule } from './modules/subscriptions';
 import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
 import { TenancyModule } from './modules/tenancy';
+// >>> M12
+import { EnterpriseModule } from './modules/enterprise';
+import { OpsModule } from './modules/ops';
+// <<< M12
 
 @Module({
   imports: [
@@ -46,6 +50,8 @@ import { TenancyModule } from './modules/tenancy';
     TenancyModule,
     AdminModule,
     HealthModule,
+    EnterpriseModule, // M12
+    OpsModule, // M12
   ],
 })
 export class AppModule {}

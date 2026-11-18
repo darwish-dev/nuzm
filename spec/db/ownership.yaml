@@ -58,7 +58,7 @@ schemas:
   cloud:
     owner_module: cloud
     created_by: M05
-    extended_by: [M06, M08]
+    extended_by: [M06, M08, M12]
     tables: [catalog_snapshots, evidence_items, live_verification_runs, provider_accounts, provider_capabilities, provider_jobs, provider_plans, provider_regions, providers, resource_reconciliations, resources, routing_rules]
   compute:
     owner_module: compute
@@ -1564,6 +1564,10 @@ classification:
       result: internal
       action_taken: internal
       actor_user_id: internal
+      tr_type: internal # M12
+      subject_kind: internal # M12
+      subject_ref: internal # M12
+      evidence_mode: internal # M12
     cloud.resources:
       id: internal
       org_id: internal

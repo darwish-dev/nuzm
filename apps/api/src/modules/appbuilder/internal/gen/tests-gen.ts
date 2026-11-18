@@ -56,7 +56,6 @@ import { buildRouter } from '../src/engine.ts';
 import { MemoryStore } from '../src/memory-store.ts';
 import { META } from '../src/meta.ts';
 import { MemoryNotifier } from '../src/notify.ts';
-import { createPool, PgStore } from '../src/pg-store.ts';
 import type { Store } from '../src/types.ts';
 import { SAMPLES } from './fixtures.ts';
 
@@ -72,18 +71,25 @@ export interface Env {
 }
 
 let counter = 0;
-// TEST_DATABASE_URL switches the same tests onto the PostgreSQL store (the data is cleared before each test; run with --test-concurrency=1)
+// TEST_DATABASE_URL switches the same tests onto the PostgreSQL store (the data is cleared before each test; run with --test-concurrency=1).
+// The PostgreSQL store is imported lazily, so the in-memory run needs no installed dependency.
 const dbUrl = process.env['TEST_DATABASE_URL'];
-const pool = dbUrl ? createPool(dbUrl) : null;
+let pool: { query: (sql: string) => Promise<unknown>; end: () => Promise<void> } | null = null;
+let PgStoreClass: (new (p: never, m: typeof META) => Store) | null = null;
 after(async () => {
   await pool?.end();
 });
 export async function newEnv(): Promise<Env> {
   let store: Store = new MemoryStore(META);
-  if (pool) {
+  if (dbUrl) {
+    if (!pool) {
+      const mod = await import('../src/pg-store.ts');
+      pool = mod.createPool(dbUrl);
+      PgStoreClass = mod.PgStore as never;
+    }
     const tables = Object.values(META.entities).map((e) => '"' + e.table + '"').concat(['"audit_log"', '"app_users"']);
     await pool.query('TRUNCATE ' + tables.join(', ') + ' CASCADE');
-    store = new PgStore(pool, META);
+    store = new PgStoreClass!(pool as never, META);
   }
   const notifier = new MemoryNotifier();
   const router = buildRouter({ meta: META, store, notifier, sessionSecret: SECRET });

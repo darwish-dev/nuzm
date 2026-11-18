@@ -2421,3 +2421,33 @@ classification:
       started_at: internal
       terminated_at: internal
       version: internal
+    builder.git_repos:
+      id: internal
+      org_id: internal
+      project_id: internal
+      storage_ref: internal
+      default_branch: internal
+      last_commit: internal
+      data_region: internal
+      created_at: internal
+      updated_at: internal
+    builder.test_runs:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      suite: internal
+      status: internal
+      summary: customer-content
+      logs_ref: internal
+      sandbox_id: internal
+      run_id: internal
+      runtime_kind: internal
+      duration_ms: internal
+      operation_id: internal
+      data_region: internal
+      requested_by: internal
+      created_at: internal
+      started_at: internal
+      finished_at: internal
+      version: internal

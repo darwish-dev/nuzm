@@ -1441,7 +1441,7 @@ classification:
       reason: internal
       steps: internal
       evidence_ids: internal
-      spend_cap_minor: internal
+      spend_cap_minor: financial
       currency: internal
       residual_resources: internal
       recorded_by: internal

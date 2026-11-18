@@ -21,6 +21,8 @@ import { SubscriptionsModule } from './modules/subscriptions';
 import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
 import { TenancyModule } from './modules/tenancy';
+// M11 (appended): automation, marketplace, programs
+import { AutomationModule } from './modules/automation';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { TenancyModule } from './modules/tenancy';
     TenancyModule,
     AdminModule,
     HealthModule,
+    // M11 (appended)
+    AutomationModule,
   ],
 })
 export class AppModule {}

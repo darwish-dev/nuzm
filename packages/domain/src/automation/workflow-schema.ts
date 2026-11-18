@@ -174,15 +174,15 @@ function checkStepParams(s: StepDef, path: string, errors: ValidationIssue[], co
       connector();
       break;
     case 'send_email':
-      requireString(p, 'from', path, errors, 320);
+      // M08 `/v1/email/messages` accepts transactional mail only (marketing/bulk is blocked by policy): the action inherits that rule
+      requireString(p, 'senderId', path, errors, 200);
       if (!Array.isArray(p.to) || p.to.length < 1 || p.to.length > 50)
         errors.push({ code: 'invalid_params', path: `${path}.params.to`, message: 'to must be 1..50 recipients' });
-      requireString(p, 'subject', path, errors, 998);
-      if (p.html === undefined && p.text === undefined && p.templateKey === undefined)
-        errors.push({ code: 'invalid_params', path: `${path}.params`, message: 'one of html, text or templateKey is required' });
-      if (p.category !== undefined && !['transactional', 'marketing'].includes(String(p.category)))
-        errors.push({ code: 'invalid_params', path: `${path}.params.category`, message: "category must be 'transactional' or 'marketing'" });
-      connector();
+      if (p.templateId === undefined) requireString(p, 'subject', path, errors, 998);
+      if (p.html === undefined && p.text === undefined && p.templateId === undefined)
+        errors.push({ code: 'invalid_params', path: `${path}.params`, message: 'one of html, text or templateId is required' });
+      if (p.category !== undefined && p.category !== 'transactional')
+        errors.push({ code: 'invalid_params', path: `${path}.params.category`, message: "only the 'transactional' category is allowed" });
       break;
     case 'start_ai_run':
       if (!['website', 'webapp', 'mobile', 'edit', 'chat', 'test-fix'].includes(String(p.kind)))

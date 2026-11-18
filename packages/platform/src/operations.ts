@@ -377,6 +377,25 @@ export class OperationsService {
     }));
   }
 
+  /**
+   * Put a RUNNING operation back to `pending` due at `runAt` WITHOUT counting a failure (a durable pause: a workflow delay or a step retry backoff, M11).
+   * The lease is released; whoever claims it next resumes from the owner's persisted state.
+   */
+  defer(orgId: string, id: string, workerId: string, runAt: Date): Promise<Operation> {
+    return this.mutate(orgId, id, workerId, 'pending', async () => ({
+      sql: `lease_owner=NULL, lease_expires_at=NULL, next_run_at=$2, attempts=GREATEST(attempts-1, 0)`,
+      params: [runAt.toISOString()],
+    }));
+  }
+
+  /** A running operation whose owner saw `cancel_requested` and stopped: the terminal `cancelled` state (M11 executions). */
+  finishCancelled(orgId: string, id: string, workerId: string): Promise<Operation> {
+    return this.mutate(orgId, id, workerId, 'cancelled', async () => ({
+      sql: `lease_owner=NULL, lease_expires_at=NULL`,
+      params: [],
+    }));
+  }
+
   /** Fail: retry with backoff while attempts remain, else terminal `failed`. */
   async fail(orgId: string, id: string, workerId: string, error: unknown): Promise<Operation> {
     const current = await this.get(orgId, id);

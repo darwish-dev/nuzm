@@ -8,7 +8,7 @@ const ok = (): WorkflowDefinition => ({
   steps: [
     { id: 'fetch', type: 'http_request', params: { method: 'GET', url: 'https://api.example.com/x', connectorId: CONN }, next: 'check' },
     { id: 'check', type: 'condition', params: { expr: 'steps.fetch.output.status == 200' }, onTrue: 'mail', onFalse: 'wait' },
-    { id: 'mail', type: 'send_email', params: { from: 'a@example.com', to: ['{{ input.email }}'], subject: 'Hi', text: 'Body {{ input.name }}' } },
+    { id: 'mail', type: 'send_email', params: { senderId: '0190a000-0000-7000-8000-0000000000aa', to: ['{{ input.email }}'], subject: 'Hi', text: 'Body {{ input.name }}' } },
     { id: 'wait', type: 'delay', params: { seconds: 60 } },
   ],
 });

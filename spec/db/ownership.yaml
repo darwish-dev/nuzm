@@ -109,17 +109,17 @@ schemas:
     owner_module: automation
     created_by: M11
     extended_by: []
-    tables: [connector_authorizations, connectors, dead_letters, execution_steps, executions, webhook_deliveries, webhook_endpoints, workflow_versions, workflows]
+    tables: [anomaly_cases, connector_authorizations, connectors, dead_letters, execution_steps, executions, webhook_deliveries, webhook_endpoints, workflow_versions, workflows]
   marketplace:
     owner_module: marketplace
     created_by: M11
     extended_by: []
-    tables: [entitlements_mkt, installations, listing_versions, listings, moderation_cases, publisher_accounts, purchases, v_entitlements]
+    tables: [entitlements_mkt, installations, listing_versions, listings, moderation_cases, publisher_accounts, publisher_accruals, purchases, v_entitlements]
   programs:
     owner_module: programs
     created_by: M11
     extended_by: []
-    tables: [agencies, agency_clients, delegated_access, reseller_sub_orgs, resellers]
+    tables: [agencies, agency_clients, delegated_access, reseller_statements, reseller_sub_orgs, resellers]
   ops:
     owner_module: ops
     created_by: M12

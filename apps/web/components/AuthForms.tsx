@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Banner, Button, Field, Input } from '@nuzm/ui';
+import { Button, Field, Icon, Input } from '@nuzm/ui';
 import { browserApi } from '../lib/client';
 import {
   clientPasswordIssue,
@@ -281,8 +281,8 @@ export function VerifyEmail({ locale, token }: { locale: Locale; token: string }
   );
 }
 
-/** Banner for the console: shown while the signed-in address is unconfirmed. */
-export function VerifyEmailBanner({ locale }: { locale: Locale }) {
+/** Shown in the console's top bar while the signed-in address is unconfirmed (one row with the rest of the bar). */
+export function VerifyEmailPill({ locale }: { locale: Locale }) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   async function resend() {
@@ -293,22 +293,17 @@ export function VerifyEmailBanner({ locale }: { locale: Locale }) {
     if (r.response.status === 204) window.location.reload();
   }
   return (
-    <Banner tone="warn">
-      {t(locale, 'verify.banner')}{' '}
-      {sent ? (
-        <span role="status">{t(locale, 'verify.resent')}</span>
-      ) : (
-        <button
-          type="button"
-          className="nz-btn"
-          data-variant="secondary"
-          onClick={resend}
-          disabled={busy}
-        >
+    <div className="nzc-pill" role="status">
+      <Icon name="email" size={18} />
+      <span className="nzc-pill-text">
+        {sent ? t(locale, 'verify.resent') : t(locale, 'verify.banner')}
+      </span>
+      {!sent && (
+        <button type="button" onClick={resend} disabled={busy}>
           {t(locale, 'verify.resend')}
         </button>
       )}
-    </Banner>
+    </div>
   );
 }
 

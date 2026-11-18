@@ -69,7 +69,10 @@ describe('payment methods table', () => {
   });
   it('offers no actions to a read-only member', () => {
     render(<MethodsTable locale="en" rows={rows} canManage={false} mfaFactorId={null} />);
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    // the table's Cards / Table view switch is not an action
+    expect(
+      screen.queryAllByRole('button').filter((b) => !b.closest('.nz-view-toggle')),
+    ).toHaveLength(0);
   });
 });
 

@@ -44,6 +44,7 @@ export default async function AdminLedger({
               {
                 key: 'o',
                 header: t(locale, 'abill.f.org'),
+                icon: 'user',
                 render: (a) =>
                   a.orgId ? <Ltr>{a.orgId.slice(0, 8)}</Ltr> : t(locale, 'abill.f.platform'),
               },
@@ -55,6 +56,7 @@ export default async function AdminLedger({
               {
                 key: 'b',
                 header: t(locale, 'bill.f.balance'),
+                icon: 'tag',
                 render: (a) => <Ltr>{formatMinor(a.balanceMinor, a.currency, locale)}</Ltr>,
               },
             ]}
@@ -68,9 +70,15 @@ export default async function AdminLedger({
             {
               key: 'w',
               header: t(locale, 'field.when'),
+              icon: 'calendar',
               render: (x) => formatDateTime(x.occurredAt, locale),
             },
-            { key: 'k', header: t(locale, 'bill.ledger.kind'), render: (x) => <Ltr>{x.kind}</Ltr> },
+            {
+              key: 'k',
+              icon: 'code',
+              header: t(locale, 'bill.ledger.kind'),
+              render: (x) => <Ltr>{x.kind}</Ltr>,
+            },
             { key: 'd', header: t(locale, 'bill.f.description'), render: (x) => x.description },
             {
               key: 'p',

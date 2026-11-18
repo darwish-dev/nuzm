@@ -85,6 +85,7 @@ export default async function RequestDetail({
                 {
                   key: 's',
                   header: t(locale, 'pv.req.task.col.status'),
+                  icon: 'pulse',
                   render: (r2) => tDynamic(locale, `pv.req.task.${r2.status}`, r2.status),
                 },
                 {

@@ -36,6 +36,7 @@ export default async function Nodes({ params }: { params: Promise<{ locale: stri
             {
               key: 'n',
               header: t(locale, 'host.col.node'),
+              icon: 'globe',
               render: (n) => (
                 <a href={`/${locale}/hosting/nodes/${n.id}`}>
                   <Ltr>{n.name}</Ltr>
@@ -45,11 +46,13 @@ export default async function Nodes({ params }: { params: Promise<{ locale: stri
             {
               key: 'g',
               header: t(locale, 'host.col.region'),
+              icon: 'pin',
               render: (n) => <Ltr>{n.dataRegion}</Ltr>,
             },
             {
               key: 's',
               header: t(locale, 'host.col.status'),
+              icon: 'pulse',
               render: (n) => (
                 <Badge
                   tone={
@@ -63,14 +66,21 @@ export default async function Nodes({ params }: { params: Promise<{ locale: stri
             {
               key: 'h',
               header: t(locale, 'host.col.health'),
+              icon: 'pulse',
               render: (n) => (
                 <Badge tone={n.health === 'healthy' ? 'success' : 'warn'}>{n.health}</Badge>
               ),
             },
-            { key: 'a', header: t(locale, 'host.col.agent'), render: (n) => n.agentState ?? '—' },
+            {
+              key: 'a',
+              icon: 'globe',
+              header: t(locale, 'host.col.agent'),
+              render: (n) => n.agentState ?? '—',
+            },
             {
               key: 'v',
               header: t(locale, 'host.col.version'),
+              icon: 'code',
               render: (n) => <Ltr>{n.cloudpanelVersion ?? '—'}</Ltr>,
             },
           ]}

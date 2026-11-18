@@ -1,8 +1,10 @@
 import type { MessageKey } from '@nuzm/i18n';
+import type { IconName } from '@nuzm/ui';
 
 /** The customer's service catalogue: one card on the dashboard per area, shown only when the member may open it. */
 export interface Service {
   id: string;
+  icon: IconName;
   href: string;
   /** Permission needed (any one of these). */
   perm: string[];
@@ -15,6 +17,7 @@ export interface Service {
 export const SERVICES: Service[] = [
   {
     id: 'workspaces',
+    icon: 'projects',
     href: '/workspaces',
     perm: ['workspace:read'],
     label: 'nav.workspaces',
@@ -22,6 +25,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'projects',
+    icon: 'projects',
     href: '/projects',
     perm: ['project:read'],
     label: 'nav.projects',
@@ -29,6 +33,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'resources',
+    icon: 'cloud',
     href: '/resources',
     perm: ['resource:read'],
     label: 'nav.resources',
@@ -36,6 +41,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'hosting',
+    icon: 'hosting',
     href: '/hosting/sites',
     perm: ['hosting:site:read'],
     label: 'nav.hosting',
@@ -44,6 +50,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'domains',
+    icon: 'domains',
     href: '/domains',
     perm: ['domain:read'],
     label: 'nav.domains',
@@ -51,7 +58,16 @@ export const SERVICES: Service[] = [
     flag: 'domains.enabled',
   },
   {
+    id: 'builder',
+    href: '/builder/projects',
+    perm: ['builder:read'],
+    label: 'bld.nav.builder',
+    desc: 'bld.home.desc',
+    flag: 'ai.enabled',
+  },
+  {
     id: 'databases',
+    icon: 'data',
     href: '/databases',
     perm: ['data:db:read'],
     label: 'm8.nav.databases',
@@ -59,6 +75,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'storage',
+    icon: 'data',
     href: '/storage/buckets',
     perm: ['data:storage:read'],
     label: 'm8.nav.storage',
@@ -66,6 +83,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'email',
+    icon: 'email',
     href: '/email/domains',
     perm: ['email:read'],
     label: 'm8.nav.email',
@@ -73,6 +91,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'compute',
+    icon: 'cloud',
     href: '/compute/instances',
     perm: ['compute:instance:read'],
     label: 'm05.web.nav.instances',
@@ -80,7 +99,16 @@ export const SERVICES: Service[] = [
     flag: 'cloud.provisioning',
   },
   {
+    id: 'ai',
+    href: '/ai/usage',
+    perm: ['ai:read'],
+    label: 'aiu.nav.ai',
+    desc: 'home.svc.ai',
+    flag: 'ai.enabled',
+  },
+  {
     id: 'billing',
+    icon: 'finance',
     href: '/billing',
     perm: ['billing:read', 'usage:read'],
     label: 'nav.billing',
@@ -88,28 +116,32 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'privacy',
-    href: '/privacy/requests',
+    icon: 'shield',
+    href: '/privacy#requests',
     perm: ['privacy:dsr:self'],
     label: 'nav.privacy',
     desc: 'home.svc.privacy',
   },
   {
     id: 'members',
-    href: '/settings/members',
+    icon: 'organization',
+    href: '/settings/team#members',
     perm: ['member:read'],
     label: 'nav.members',
     desc: 'home.svc.members',
   },
   {
     id: 'apikeys',
-    href: '/settings/api-keys',
+    icon: 'key',
+    href: '/settings/team#apikeys',
     perm: ['apikey:read'],
     label: 'nav.apiKeys',
     desc: 'home.svc.apikeys',
   },
   {
     id: 'audit',
-    href: '/audit-logs',
+    icon: 'organization',
+    href: '/settings/organization#audit',
     perm: ['audit:read'],
     label: 'nav.audit',
     desc: 'home.svc.audit',

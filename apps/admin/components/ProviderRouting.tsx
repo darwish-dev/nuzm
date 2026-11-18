@@ -69,6 +69,7 @@ export function RulesTable(p: {
         {
           key: 'k',
           header: t(p.locale, 'm05.adm.rt.ruleKey'),
+          icon: 'shield',
           render: (r) => (
             <span>
               <Ltr>{r.ruleKey}</Ltr> <span className="nz-muted">v{r.version}</span>
@@ -83,6 +84,7 @@ export function RulesTable(p: {
         {
           key: 'a',
           header: t(p.locale, 'm05.adm.rt.action'),
+          icon: 'code',
           render: (r) => (
             <span>
               <Badge tone={r.action.type === 'exclude' ? 'warn' : undefined}>
@@ -95,6 +97,7 @@ export function RulesTable(p: {
         {
           key: 'e',
           header: t(p.locale, 'm05.adm.col.status'),
+          icon: 'pulse',
           render: (r) => (
             <Badge tone={r.enabled ? undefined : 'warn'}>
               {t(p.locale, r.enabled ? 'm05.adm.rt.enabled' : 'm05.adm.rt.disabled')}
@@ -106,6 +109,7 @@ export function RulesTable(p: {
               {
                 key: 'x',
                 header: t(p.locale, 'field.action'),
+                icon: 'code',
                 render: (r: RoutingRuleDto) => (
                   <Button
                     variant="secondary"

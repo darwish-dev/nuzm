@@ -97,11 +97,13 @@ export default async function Messages({
               {
                 key: 'c',
                 header: t(locale, 'field.created'),
+                icon: 'calendar',
                 render: (m) => formatDateTime(m.createdAt, locale),
               },
               {
                 key: 'f',
                 header: t(locale, 'm8.ms.sender'),
+                icon: 'mail',
                 render: (m) => (
                   <Ltr>{senders.items.find((x) => x.id === m.senderId)?.fromAddress ?? '—'}</Ltr>
                 ),
@@ -109,6 +111,7 @@ export default async function Messages({
               {
                 key: 's',
                 header: t(locale, 'field.status'),
+                icon: 'pulse',
                 render: (m) => (
                   <>
                     <Badge tone={messageTone(m.status)}>
@@ -125,6 +128,7 @@ export default async function Messages({
               {
                 key: 'r',
                 header: t(locale, 'm8.ms.recipients'),
+                icon: 'mail',
                 render: (m) => <Ltr>{String(m.recipientCount)}</Ltr>,
               },
               {
@@ -135,6 +139,7 @@ export default async function Messages({
               {
                 key: 't',
                 header: t(locale, 'm8.ms.timeline'),
+                icon: 'calendar',
                 render: (m) => <MessageTimeline locale={locale} id={m.id} />,
               },
             ]}

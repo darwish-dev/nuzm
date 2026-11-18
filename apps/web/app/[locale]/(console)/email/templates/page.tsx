@@ -51,6 +51,7 @@ export default async function Templates({
                   {
                     key: 'v',
                     header: t(locale, 'm8.tp.version'),
+                    icon: 'code',
                     render: (v) => <Ltr>{`${gr.key} v${v.version}`}</Ltr>,
                   },
                   { key: 'n', header: t(locale, 'field.name'), render: (v) => v.name },
@@ -62,11 +63,13 @@ export default async function Templates({
                   {
                     key: 'c',
                     header: t(locale, 'field.created'),
+                    icon: 'calendar',
                     render: (v) => formatDateTime(v.createdAt, locale),
                   },
                   {
                     key: 'a',
                     header: t(locale, 'field.action'),
+                    icon: 'code',
                     render: (v) => (
                       <div className="nz-row">
                         <TemplatePreview locale={locale} tpl={v} />

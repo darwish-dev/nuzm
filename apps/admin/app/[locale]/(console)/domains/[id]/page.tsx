@@ -52,6 +52,7 @@ export default async function DomainLookup({
             {
               key: 's',
               header: t(locale, 'dom.col.state'),
+              icon: 'pulse',
               render: (r) => <Badge>{r.state}</Badge>,
             },
             {

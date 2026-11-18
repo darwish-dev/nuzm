@@ -104,11 +104,13 @@ export default async function Submissions({
                   {
                     key: 'o',
                     header: t(locale, 'af.zs.col.org'),
+                    icon: 'user',
                     render: (r) => <Ltr>{r.orgId.slice(0, 8)}</Ltr>,
                   },
                   {
                     key: 't',
                     header: t(locale, 'af.zs.col.type'),
+                    icon: 'code',
                     render: (r) => (
                       <>
                         <Ltr>{r.documentType}</Ltr> ·{' '}
@@ -119,6 +121,7 @@ export default async function Submissions({
                   {
                     key: 's',
                     header: t(locale, 'af.zs.col.state'),
+                    icon: 'pulse',
                     render: (r) => (
                       <span className="nz-row">
                         <Badge tone={submissionTone(r.state, r.deadLetter)}>
@@ -173,6 +176,7 @@ export default async function Submissions({
                   {
                     key: 'x',
                     header: t(locale, 'af.zs.col.actions'),
+                    icon: 'code',
                     render: (r) =>
                       canRetry && r.deadLetter && r.state === 'error' ? (
                         <RetrySubmission locale={locale} id={r.id} mfaFactorId={mfa} />

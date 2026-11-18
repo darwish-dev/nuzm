@@ -64,11 +64,13 @@ export default async function Dunning({
               {
                 key: 'o',
                 header: t(locale, 'af.dn.col.org'),
+                icon: 'user',
                 render: (c) => <Ltr>{c.orgId.slice(0, 8)}</Ltr>,
               },
               {
                 key: 'i',
                 header: t(locale, 'af.dn.col.invoice'),
+                icon: 'tag',
                 render: (c) => <Ltr>{c.invoiceId.slice(0, 8)}</Ltr>,
               },
               {
@@ -105,6 +107,7 @@ export default async function Dunning({
               {
                 key: 't',
                 header: t(locale, 'af.dn.col.state'),
+                icon: 'pulse',
                 render: (c) => (
                   <>
                     {c.closedAt ? (
@@ -134,6 +137,7 @@ export default async function Dunning({
               {
                 key: 'x',
                 header: t(locale, 'af.dn.col.actions'),
+                icon: 'code',
                 render: (c) =>
                   canManage && !c.closedAt ? (
                     <DunningAction locale={locale} id={c.id} hold={c.hold} mfaFactorId={mfa} />

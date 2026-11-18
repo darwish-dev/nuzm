@@ -30,11 +30,13 @@ export default async function Meters({ params }: { params: Promise<{ locale: str
             {
               key: 'd',
               header: t(locale, 'abill.f.dims'),
+              icon: 'data',
               render: (m) => <Ltr>{m.dimensionsAllowed.join(', ')}</Ltr>,
             },
             {
               key: 'e',
               header: t(locale, 'abill.meters.hasEvents'),
+              icon: 'data',
               render: (m) => (m.hasEvents ? <Badge tone="success">✓</Badge> : '—'),
             },
           ]}

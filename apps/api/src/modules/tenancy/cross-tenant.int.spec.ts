@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { emptySiteModel } from '@nuzm/domain';
 import { OperationsService } from '@nuzm/platform';
 import { NotificationService } from '../notifications';
 import { AdapterRegistry } from '../cloud';
@@ -75,6 +76,14 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (o.path.startsWith('/v1/email/domains/')) return A.emailDomain;
   if (o.path.startsWith('/v1/email/mailboxes/')) return A.mailbox;
   if (o.path.startsWith('/v1/email/messages/')) return A.emailMessage;
+  // >>> M09: AI sessions/runs/artifacts, builder projects/versions, deployments
+  if (p === 'artifactId') return A.aiArtifact;
+  if (p === 'vid') return A.bVersion;
+  if (o.path.startsWith('/v1/ai/sessions/')) return A.aiSession;
+  if (o.path.startsWith('/v1/ai/runs/')) return A.aiRun;
+  if (o.path.startsWith('/v1/builder/projects/')) return A.bProject;
+  if (o.path.startsWith('/v1/deployments/')) return A.deployment;
+  // <<< M09
   const root = o.path.split('/')[2]!; // /v1/<root>/...
   return (
     {
@@ -290,6 +299,45 @@ beforeAll(async () => {
     `INSERT INTO hosting.abuse_cases (id, site_id, org_id, source, severity, reason_code) VALUES ($1, $2, $3, 'staff', 'low', 'test_case')`,
     [A.hostingCase, A.hostingSite, orgA],
   );
+  // >>> M09: an AI session + run + artifact, a builder project with its first version and a deployment of org A (rows written directly; the flag is on so the 404s are isolation)
+  await h.env.sql(
+    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'ai.enabled', NULL, 'true')`,
+  );
+  A.aiSession = crypto.randomUUID();
+  A.aiRun = crypto.randomUUID();
+  A.aiArtifact = crypto.randomUUID();
+  A.bProject = crypto.randomUUID();
+  A.bVersion = crypto.randomUUID();
+  A.deployment = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO ai.sessions (id, org_id, title, data_region, created_by) VALUES ($1, $2, 'ct', 'sa-central', $3)`,
+    [A.aiSession, orgA, aliceId],
+  );
+  await h.env.sql(
+    `INSERT INTO ai.runs (id, org_id, session_id, kind, state, data_region, created_by, finished_at) VALUES ($1, $2, $3, 'chat', 'cancelled', 'sa-central', $4, now())`,
+    [A.aiRun, orgA, A.aiSession, aliceId],
+  );
+  await h.env.sql(
+    `INSERT INTO ai.artifacts (id, org_id, run_id, type, payload, data_region) VALUES ($1, $2, $3, 'requirements', '{}', 'sa-central')`,
+    [A.aiArtifact, orgA, A.aiRun],
+  );
+  await h.env.sql(
+    `INSERT INTO builder.projects (id, org_id, name, locales, data_region, created_by) VALUES ($1, $2, 'ct-project', '{ar,en}', 'sa-central', $3)`,
+    [A.bProject, orgA, aliceId],
+  );
+  await h.env.sql(
+    `INSERT INTO builder.project_versions (id, org_id, project_id, seq, site_model, model_hash, source, created_by) VALUES ($1, $2, $3, 1, $5::jsonb, repeat('a', 64), 'system', $4)`,
+    [A.bVersion, orgA, A.bProject, aliceId, JSON.stringify(emptySiteModel({ ar: 'م', en: 'P' }))],
+  );
+  await h.env.sql(`UPDATE builder.projects SET head_version_id = $2 WHERE id = $1`, [
+    A.bProject,
+    A.bVersion,
+  ]);
+  await h.env.sql(
+    `INSERT INTO deploy.deployments (id, org_id, project_id, version_id, target_ref, environment, state, data_region, created_by, finished_at) VALUES ($1, $2, $3, $4, $5, 'production', 'failed', 'sa-central', $6, now())`,
+    [A.deployment, orgA, A.bProject, A.bVersion, crypto.randomUUID(), aliceId],
+  );
+  // <<< M09
   // a live subscription of org A (written directly; the service has its own tests)
   A.subscription = crypto.randomUUID();
   await h.env.sql(
@@ -488,53 +536,66 @@ describe("list routes never leak the other org's rows", () => {
 });
 
 describe("after all the hostile calls, org A's data is untouched", () => {
-  it('fixtures still exist at their original versions (nothing was changed, deleted or revoked)', async () => {
-    const rows = await h.env.sql(
-      `SELECT 'workspace' k, version::int v, deleted_at FROM tenancy.workspaces WHERE id=$1
+  it(
+    'fixtures still exist at their original versions (nothing was changed, deleted or revoked)',
+    { timeout: 120_000 },
+    async () => {
+      const rows = await h.env.sql(
+        `SELECT 'workspace' k, version::int v, deleted_at FROM tenancy.workspaces WHERE id=$1
       UNION ALL SELECT 'project', version::int, deleted_at FROM tenancy.projects WHERE id=$2
       UNION ALL SELECT 'env', version::int, deleted_at FROM tenancy.environments WHERE id=$3`,
-      [A.workspace, A.project, A.env],
-    );
-    for (const r of rows) {
-      expect(r.v, String(r.k)).toBe(1);
-      expect(r.deleted_at, String(r.k)).toBeNull();
-    }
-    expect(
-      (await h.env.sql(`SELECT revoked_at FROM identity.api_keys WHERE id=$1`, [A.apiKey]))[0]!
-        .revoked_at,
-    ).toBeNull();
-    expect(
-      (
-        await h.env.sql(`SELECT revoked_at, accepted_at FROM tenancy.invitations WHERE id=$1`, [
-          A.invitation,
-        ])
-      )[0],
-    ).toEqual({ revoked_at: null, accepted_at: null });
-    expect(
-      (
-        await h.env.sql(`SELECT state, cancel_requested FROM platform.operations WHERE id=$1`, [
-          A.operation,
-        ])
-      )[0],
-    ).toEqual({ state: 'pending', cancel_requested: false });
-    expect(
-      (
-        await h.env.sql(`SELECT count(*)::int n FROM tenancy.memberships WHERE org_id=$1`, [orgA])
-      )[0]!.n,
-    ).toBe(1);
-  });
+        [A.workspace, A.project, A.env],
+      );
+      for (const r of rows) {
+        expect(r.v, String(r.k)).toBe(1);
+        expect(r.deleted_at, String(r.k)).toBeNull();
+      }
+      expect(
+        (await h.env.sql(`SELECT revoked_at FROM identity.api_keys WHERE id=$1`, [A.apiKey]))[0]!
+          .revoked_at,
+      ).toBeNull();
+      expect(
+        (
+          await h.env.sql(`SELECT revoked_at, accepted_at FROM tenancy.invitations WHERE id=$1`, [
+            A.invitation,
+          ])
+        )[0],
+      ).toEqual({ revoked_at: null, accepted_at: null });
+      expect(
+        (
+          await h.env.sql(`SELECT state, cancel_requested FROM platform.operations WHERE id=$1`, [
+            A.operation,
+          ])
+        )[0],
+      ).toEqual({ state: 'pending', cancel_requested: false });
+      expect(
+        (
+          await h.env.sql(`SELECT count(*)::int n FROM tenancy.memberships WHERE org_id=$1`, [orgA])
+        )[0]!.n,
+      ).toBe(1);
+    },
+  );
 
-  it("positive control: the same ids resolve for org A's own owner, so the 404s above were isolation, not bad fixtures", async () => {
-    const alice = await h.sessionFor(app, aliceId);
-    for (const o of withIds.filter((x) => x.method === 'GET' && !x.path.includes('{userId}'))) {
-      const r = await app.inject({
-        method: 'GET',
-        url: urlFor(o),
-        headers: { cookie: cookieHeader(alice), 'x-nuzm-org': orgA },
-      });
-      // the e-invoice XML is 409 by design until the ZATCA module exists; that still proves the id resolved (not a 404)
-      const expected = o.path.endsWith('/invoices/{id}/xml') ? 409 : 200;
-      expect(r.statusCode, `${o.path} → ${r.body.slice(0, 100)}`).toBe(expected);
-    }
-  });
+  it(
+    "positive control: the same ids resolve for org A's own owner, so the 404s above were isolation, not bad fixtures",
+    { timeout: 120_000 },
+    async () => {
+      const alice = await h.sessionFor(app, aliceId);
+      for (const o of withIds.filter((x) => x.method === 'GET' && !x.path.includes('{userId}'))) {
+        const r = await app.inject({
+          method: 'GET',
+          url: urlFor(o),
+          headers: { cookie: cookieHeader(alice), 'x-nuzm-org': orgA },
+        });
+        // the e-invoice XML is 409 by design until the ZATCA module exists; that still proves the id resolved (not a 404)
+        // M09: a file read without ?path= is 422 once the project id resolved (a 404 would mean the fixture is wrong)
+        const expected = o.path.endsWith('/invoices/{id}/xml')
+          ? 409
+          : o.path.endsWith('/files/content')
+            ? 422
+            : 200;
+        expect(r.statusCode, `${o.path} → ${r.body.slice(0, 100)}`).toBe(expected);
+      }
+    },
+  );
 });

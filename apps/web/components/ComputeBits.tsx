@@ -28,7 +28,7 @@ export function ComputeTabs({
     { key: 'approvals', href: `/${locale}/billing/approvals`, perm: 'spend:request' },
   ] as const;
   return (
-    <nav aria-label={t(locale, 'm05.web.nav.label')} className="nz-row">
+    <nav aria-label={t(locale, 'm05.web.nav.label')} className="nz-row nz-subnav">
       {tabs
         .filter((x) => can(x.perm))
         .map((x) => (

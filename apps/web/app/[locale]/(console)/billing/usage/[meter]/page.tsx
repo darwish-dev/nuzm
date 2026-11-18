@@ -58,17 +58,20 @@ export default async function UsageMeter({
               {
                 key: 'p',
                 header: t(locale, 'bill.f.period'),
+                icon: 'calendar',
                 render: (p) => formatDateTime(p.bucketStart, locale),
               },
               {
                 key: 'q',
                 header: t(locale, 'bill.f.quantity'),
+                icon: 'data',
                 render: (p) => <Ltr>{`${trimDec(p.quantity)} ${p.unit}`}</Ltr>,
               },
               { key: 'e', header: t(locale, 'bill.f.events'), render: (p) => p.eventCount },
               {
                 key: 'g',
                 header: t(locale, 'bill.f.region'),
+                icon: 'pin',
                 render: (p) => <Ltr>{p.dataRegion}</Ltr>,
               },
             ]}

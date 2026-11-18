@@ -39,21 +39,25 @@ export default async function Sites({ params }: { params: Promise<{ locale: stri
               {
                 key: 'o',
                 header: t(locale, 'host.col.org'),
+                icon: 'globe',
                 render: (x) => <Ltr>{x.orgId ?? '—'}</Ltr>,
               },
               {
                 key: 'd',
                 header: t(locale, 'host.col.node'),
+                icon: 'globe',
                 render: (x) => <Ltr>{x.nodeName ?? '—'}</Ltr>,
               },
               {
                 key: 'g',
                 header: t(locale, 'host.col.region'),
+                icon: 'pin',
                 render: (x) => <Ltr>{x.dataRegion}</Ltr>,
               },
               {
                 key: 's',
                 header: t(locale, 'host.col.status'),
+                icon: 'pulse',
                 render: (x) => (
                   <Badge
                     tone={

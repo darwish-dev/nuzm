@@ -10,7 +10,8 @@
     "dev": "tsc -p tsconfig.build.json && node dist/main.js",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js",
-    "encrypt:backfill": "tsc -p tsconfig.build.json && node dist/ops/encrypt-backfill.js"
+    "encrypt:backfill": "tsc -p tsconfig.build.json && node dist/ops/encrypt-backfill.js",
+    "set-password": "tsx src/dev/set-password.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
@@ -27,6 +28,7 @@
     "@nuzm/adapter-huawei-ecs": "workspace:*",
     "@nuzm/adapter-live-verify": "workspace:*",
     "@nuzm/adapter-mock-compute": "workspace:*",
+    "@nuzm/adapter-model": "workspace:*",
     "@nuzm/adapter-openprovider": "workspace:*",
     "@nuzm/adapter-resellerclub": "workspace:*",
     "@nuzm/adapter-runtime": "workspace:*",

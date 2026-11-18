@@ -109,6 +109,7 @@ export default async function Invoices({
                 {
                   key: 'o',
                   header: t(locale, 'af.inv.col.org'),
+                  icon: 'user',
                   render: (i) => (
                     <a
                       href={`?${new URLSearchParams({ org: i.orgId }).toString()}`}
@@ -136,6 +137,7 @@ export default async function Invoices({
                 {
                   key: 's',
                   header: t(locale, 'af.inv.col.status'),
+                  icon: 'pulse',
                   render: (i) => (
                     <Badge tone={invoiceTone(i.status)}>
                       {tDynamic(locale, `af.inv.status.${i.status}`, i.status)}
@@ -145,6 +147,7 @@ export default async function Invoices({
                 {
                   key: 't',
                   header: t(locale, 'af.inv.col.total'),
+                  icon: 'tag',
                   render: (i) => <Ltr>{formatMinor(i.totalMinor, i.currency, locale)}</Ltr>,
                 },
                 {
@@ -155,6 +158,7 @@ export default async function Invoices({
                 {
                   key: 'e',
                   header: t(locale, 'af.inv.col.einvoice'),
+                  icon: 'tag',
                   render: (i) => (
                     <>
                       <Badge tone={submissionTone(i.einvoice.state, false)}>
@@ -174,11 +178,13 @@ export default async function Invoices({
                 {
                   key: 'i',
                   header: t(locale, 'af.inv.col.issued'),
+                  icon: 'calendar',
                   render: (i) => formatDateTime(i.issuedAt, locale),
                 },
                 {
                   key: 'd',
                   header: t(locale, 'af.inv.col.due'),
+                  icon: 'calendar',
                   render: (i) => formatDateTime(i.dueAt, locale),
                 },
               ]}

@@ -66,6 +66,7 @@ export default async function Zatca({ params }: { params: Promise<{ locale: stri
                       {
                         key: 't',
                         header: t(locale, 'af.z.col.status'),
+                        icon: 'pulse',
                         render: (x) => (
                           <Badge tone={stepTone(x.status)}>
                             {tDynamic(locale, `af.z.stepStatus.${x.status}`, x.status)}
@@ -75,11 +76,13 @@ export default async function Zatca({ params }: { params: Promise<{ locale: stri
                       {
                         key: 'w',
                         header: t(locale, 'af.z.col.when'),
+                        icon: 'calendar',
                         render: (x) => formatDateTime(x.createdAt, locale),
                       },
                       {
                         key: 'd',
                         header: t(locale, 'af.z.col.actions'),
+                        icon: 'code',
                         render: (x) =>
                           x.status === 'pending_approval' && canDecide ? (
                             <DecideStep
@@ -119,6 +122,7 @@ export default async function Zatca({ params }: { params: Promise<{ locale: stri
                       {
                         key: 'k',
                         header: t(locale, 'af.z.col.kind'),
+                        icon: 'code',
                         render: (c) => <Ltr>{c.kind}</Ltr>,
                       },
                       {
@@ -129,6 +133,7 @@ export default async function Zatca({ params }: { params: Promise<{ locale: stri
                       {
                         key: 'e',
                         header: t(locale, 'af.z.col.expires'),
+                        icon: 'calendar',
                         render: (c) => (c.expiresAt ? formatDateTime(c.expiresAt, locale) : '—'),
                       },
                     ]}

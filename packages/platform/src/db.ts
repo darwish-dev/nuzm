@@ -90,7 +90,13 @@ export class Db {
 
   /** Pre-org lookups that identify the org (API key prefix). */
   withAuthScope<T>(
-    scope: 'api_key_lookup' | 'invitation_accept' | 'psp_webhook' | 'sso_lookup' | 'scim_lookup',
+    scope:
+      | 'api_key_lookup'
+      | 'invitation_accept'
+      | 'psp_webhook'
+      | 'public_form'
+      | 'sso_lookup'
+      | 'scim_lookup',
     fn: (c: PoolClient) => Promise<T>,
   ): Promise<T> {
     return this.tx({ 'app.auth_scope': scope }, fn);

@@ -2,6 +2,9 @@ import fastifyCookie from '@fastify/cookie';
 import type { INestApplication } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ProblemFilter } from './common/problem.filter';
+// >>> M09
+import { installPreviewIsolation } from './modules/builder';
+// <<< M09
 import { enterRequest } from './common/request-context';
 import { httpMetrics, initTelemetry, startServerSpan, type ServerSpan } from '@nuzm/telemetry';
 
@@ -57,5 +60,8 @@ export async function configureApp(app: INestApplication): Promise<void> {
     void reply.header('referrer-policy', 'no-referrer');
     void reply.header('cache-control', 'no-store');
   });
+  // >>> M09: the preview origin can reach nothing but /_preview; the API origin never serves previews
+  installPreviewIsolation(fastify);
+  // <<< M09
   app.useGlobalFilters(new ProblemFilter());
 }

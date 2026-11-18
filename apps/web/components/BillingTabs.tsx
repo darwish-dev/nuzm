@@ -28,7 +28,7 @@ export function BillingTabs({
     { key: 'approvals', href: `${base}/approvals`, perm: 'spend:request' },
   ] as const;
   return (
-    <nav aria-label={t(locale, 'bill.nav')} className="nz-row">
+    <nav aria-label={t(locale, 'bill.nav')} className="nz-row nz-subnav">
       {tabs
         .filter((x) => can(x.perm))
         .map((x) => (

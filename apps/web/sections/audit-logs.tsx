@@ -1,0 +1,117 @@
+import { notFound } from 'next/navigation';
+import { unwrap } from '@nuzm/sdk';
+import { formatDateTime, isLocale, t, tDynamic } from '@nuzm/i18n';
+import {
+  Badge,
+  ButtonLink,
+  EmptyState,
+  Field,
+  Input,
+  Ltr,
+  PageTitle,
+  Table,
+  Button,
+} from '@nuzm/ui';
+import { requireSession } from '../lib/server';
+import { view } from '../lib/view';
+
+export default async function AuditLogs({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ action?: string; cursor?: string }>;
+}) {
+  const { locale } = await params;
+  const q = await searchParams;
+  if (!isLocale(locale)) notFound();
+  const s = await requireSession(locale);
+  const body = await view(
+    locale,
+    async () =>
+      await unwrap(
+        s.api.GET('/v1/audit-logs', {
+          params: {
+            query: { limit: 25, action: q.action || undefined, cursor: q.cursor || undefined },
+          },
+        }),
+      ),
+    (page) => (
+      <>
+        {!s.can('audit:read_all') && <p className="nz-muted">{t(locale, 'audit.billingOnly')}</p>}
+        {page.items.length === 0 ? (
+          <EmptyState title={t(locale, 'state.empty.title')} body={t(locale, 'state.empty.body')} />
+        ) : (
+          <Table
+            caption={t(locale, 'audit.title')}
+            rows={page.items}
+            rowKey={(r) => r.id}
+            columns={[
+              {
+                key: 'when',
+                header: t(locale, 'field.when'),
+                icon: 'calendar',
+                render: (r) => formatDateTime(r.occurredAt, locale),
+              },
+              {
+                key: 'action',
+                header: t(locale, 'field.action'),
+                icon: 'code',
+                render: (r) => <Ltr>{r.action}</Ltr>,
+              },
+              {
+                key: 'actor',
+                header: t(locale, 'field.actor'),
+                icon: 'user',
+                render: (r) => tDynamic(locale, `actor.${r.actor.type ?? ''}`, r.actor.type ?? ''),
+              },
+              {
+                key: 'resource',
+                header: t(locale, 'field.resource'),
+                render: (r) =>
+                  r.resource.type ? (
+                    <Ltr>{`${r.resource.type}${r.resource.id ? `:${r.resource.id.slice(0, 8)}` : ''}`}</Ltr>
+                  ) : (
+                    '—'
+                  ),
+              },
+              {
+                key: 'outcome',
+                header: t(locale, 'field.outcome'),
+                icon: 'pulse',
+                render: (r) => (
+                  <Badge tone={r.outcome === 'success' ? 'success' : 'danger'}>
+                    {t(locale, `outcome.${r.outcome}`)}
+                  </Badge>
+                ),
+              },
+            ]}
+          />
+        )}
+        {page.nextCursor && (
+          <p>
+            <ButtonLink
+              variant="secondary"
+              href={`?${new URLSearchParams({ ...(q.action ? { action: q.action } : {}), cursor: page.nextCursor })}#audit`}
+            >
+              {t(locale, 'action.loadMore')}
+            </ButtonLink>
+          </p>
+        )}
+        <p className="nz-muted">{t(locale, 'audit.integrity')}</p>
+      </>
+    ),
+  );
+  return (
+    <>
+      <PageTitle>{t(locale, 'audit.title')}</PageTitle>
+      <form method="get" action="#audit" className="nz-row" role="search">
+        <Field id="action" label={t(locale, 'audit.filter.action')}>
+          {(a) => <Input name="action" defaultValue={q.action} dir="ltr" {...a} />}
+        </Field>
+        <Button type="submit">{t(locale, 'action.search')}</Button>
+      </form>
+      {body}
+    </>
+  );
+}

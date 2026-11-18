@@ -102,8 +102,10 @@ test('payments: methods, tax profile, subscription, invoices, pay now, wallet to
   await elevate(email);
 
   // --- UI-M03-01/02: payment methods — empty, then add a sandbox card (a token choice; the form has no card-number field)
+  // billing tabs stack their screens: the old routes land on their sections (payment methods → payments page)
   await go('/billing/payment-methods');
-  await expect(page.getByText(T(info, 'pay.methods.none'))).toBeVisible();
+  await expect(page).toHaveURL(/\/billing\/payments#methods$/);
+  await expect(page.locator('#methods').getByText(T(info, 'pay.methods.none'))).toBeVisible();
   await audit(page, info, 'payments-methods-empty');
   await go('/billing/payment-methods/add');
   await expect(page.getByLabel(T(info, 'pay.add.scenario'))).toBeVisible();
@@ -138,14 +140,17 @@ test('payments: methods, tax profile, subscription, invoices, pay now, wallet to
 
   // --- UI-M03-03/04: subscribe (first period is invoiced and paid with the sandbox card), then the detail screen
   await go('/billing/subscriptions');
-  await expect(page.getByText(T(info, 'sub.none'))).toBeVisible();
+  await expect(page.locator('#subscriptions').getByText(T(info, 'sub.none'))).toBeVisible();
   await audit(page, info, 'payments-subscriptions-empty');
   // the priced plan is Starter (the list order is not fixed): choose it by name
   const starter = await page
     .locator('#sub-plan option', { hasText: L === 'ar' ? 'المبتدئ' : 'Starter' })
     .getAttribute('value');
-  await page.getByLabel(T(info, 'sub.pickPlan')).selectOption(starter!);
-  await page.getByRole('button', { name: T(info, 'sub.subscribe') }).click();
+  await page.locator('#subscriptions').getByLabel(T(info, 'sub.pickPlan')).selectOption(starter!);
+  await page
+    .locator('#subscriptions')
+    .getByRole('button', { name: T(info, 'sub.subscribe') })
+    .click();
   // creating the subscription lands on its detail screen: active, with the plan and the cancel action
   await expect(page.getByRole('heading', { name: 'starter' })).toBeVisible();
   await expect(page.getByText(T(info, 'sub.status.active'), { exact: true })).toBeVisible();
@@ -153,13 +158,17 @@ test('payments: methods, tax profile, subscription, invoices, pay now, wallet to
   await page.getByRole('button', { name: T(info, 'sub.cancel') }).click();
   await expect(page.getByText(T(info, 'sub.cancelDone'))).toBeVisible();
   await go('/billing/subscriptions');
-  await expect(page.getByRole('link', { name: 'starter' })).toBeVisible();
+  await expect(page.locator('#subscriptions').getByRole('link', { name: 'starter' })).toBeVisible();
   await audit(page, info, 'payments-subscriptions');
 
   // --- UI-M03-05/06: invoices — the subscription's first invoice is paid; an open one is paid now with the saved card
   await go('/billing/invoices');
   await expect(
-    page.getByRole('table').getByText(T(info, 'inv.status.paid'), { exact: true }).first(),
+    page
+      .locator('#invoices')
+      .getByRole('table')
+      .getByText(T(info, 'inv.status.paid'), { exact: true })
+      .first(),
   ).toBeVisible();
   await audit(page, info, 'payments-invoices');
   const open = await openInvoice(orgId, L === 'ar' ? 9001 : 9002, '11500');
@@ -184,25 +193,31 @@ test('payments: methods, tax profile, subscription, invoices, pay now, wallet to
 
   // --- UI-M03-07: credit notes (none yet)
   await go('/billing/credit-notes');
-  await expect(page.getByText(T(info, 'cn.none'))).toBeVisible();
+  await expect(page).toHaveURL(/\/billing\/invoices#creditNotes$/);
+  await expect(page.locator('#creditNotes').getByText(T(info, 'cn.none'))).toBeVisible();
   await audit(page, info, 'payments-credit-notes');
 
   // --- UI-M03-09: wallet top-up; an amount outside the allowed range is refused on the screen
   await go('/billing/wallet');
-  await page.getByLabel(T(info, 'wallet.amount')).fill('0.50');
-  await page.getByRole('button', { name: T(info, 'wallet.submit') }).click();
-  await expect(page.getByText(T(info, 'wallet.invalid'))).toBeVisible();
-  await page.getByLabel(T(info, 'wallet.amount')).fill('50');
-  await page.getByRole('button', { name: T(info, 'wallet.submit') }).click();
-  await expect(page.getByText(T(info, 'wallet.ok'))).toBeVisible();
+  const wallet = page.locator('#wallet');
+  await wallet.getByLabel(T(info, 'wallet.amount')).fill('0.50');
+  await wallet.getByRole('button', { name: T(info, 'wallet.submit') }).click();
+  await expect(wallet.getByText(T(info, 'wallet.invalid'))).toBeVisible();
+  await wallet.getByLabel(T(info, 'wallet.amount')).fill('50');
+  await wallet.getByRole('button', { name: T(info, 'wallet.submit') }).click();
+  await expect(wallet.getByText(T(info, 'wallet.ok'))).toBeVisible();
   await go('/billing/wallet');
-  await expect(page.getByText(money('5000')).first()).toBeVisible();
+  await expect(page.locator('#wallet').getByText(money('5000')).first()).toBeVisible();
   await audit(page, info, 'payments-wallet');
 
   // --- UI-M03-08: payments list (invoice payments and the top-up)
   await go('/billing/payments');
   await expect(
-    page.getByRole('table').getByText(T(info, 'pay.status.succeeded'), { exact: true }).first(),
+    page
+      .locator('#payments')
+      .getByRole('table')
+      .getByText(T(info, 'pay.status.succeeded'), { exact: true })
+      .first(),
   ).toBeVisible();
   await audit(page, info, 'payments-list');
 

@@ -23,21 +23,29 @@ export default async function EmailDomains({ params }: { params: Promise<{ local
           caption={t(locale, 'm8.em.tab.domains')}
           rows={data.items}
           rowKey={(d) => d.id}
+          cardIcon="mail"
+          rowHref={(d) => `/${locale}/email/domains/${d.id}`}
+          manageLabel={t(locale, 'action.manage')}
           columns={[
             {
               key: 'd',
+              card: 'title',
               header: t(locale, 'm8.emd.domain'),
+              icon: 'globe',
               render: (d) => <a href={`/${locale}/email/domains/${d.id}`}>{d.domain}</a>,
             },
             {
               key: 'p',
+              card: 'subtitle',
               header: t(locale, 'm8.emd.purposes'),
               render: (d) =>
                 d.purposes.map((p) => tDynamic(locale, `m8.emd.purpose.${p}`, p)).join(' · '),
             },
             {
               key: 's',
+              card: 'badge',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (d) => (
                 <Badge tone={domainTone(d.state)}>
                   {tDynamic(locale, `m8.emd.state.${d.state}`, d.state)}
@@ -46,7 +54,9 @@ export default async function EmailDomains({ params }: { params: Promise<{ local
             },
             {
               key: 'r',
+              card: 'chip',
               header: t(locale, 'm8.emd.dns'),
+              icon: 'globe',
               render: (d) => {
                 const sum = recordSummary(d.requiredRecords as DnsRecord[]);
                 return t(locale, 'm8.emd.summary', { ok: sum.ok, total: sum.total });
@@ -54,6 +64,7 @@ export default async function EmailDomains({ params }: { params: Promise<{ local
             },
             {
               key: 'c',
+              card: 'footer',
               header: t(locale, 'm8.emd.col.checked'),
               render: (d) => (d.lastCheckedAt ? formatDateTime(d.lastCheckedAt, locale) : '—'),
             },
@@ -65,7 +76,6 @@ export default async function EmailDomains({ params }: { params: Promise<{ local
     <>
       <PageTitle>{t(locale, 'm8.em.title')}</PageTitle>
       <EmailTabs locale={locale} current="domains" />
-      <p className="nz-muted">{t(locale, 'm8.emd.help')}</p>
       {s.can('email:domain:manage') && (
         <AddDomainForm locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
       )}

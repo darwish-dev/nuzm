@@ -57,6 +57,7 @@ export function WorkspacesPanel(p: {
           {
             key: 'a',
             header: t(p.locale, 'field.action'),
+            icon: 'code',
             render: (r) =>
               p.canDelete ? (
                 <Button
@@ -154,6 +155,7 @@ export function ProjectsPanel(p: {
           {
             key: 'a',
             header: t(p.locale, 'field.action'),
+            icon: 'code',
             render: (r) =>
               p.canDelete ? (
                 <Button
@@ -241,15 +243,22 @@ export function EnvironmentsPanel(p: {
         rowKey={(r) => r.id}
         columns={[
           { key: 'n', header: t(p.locale, 'field.name'), render: (r) => r.name },
-          { key: 'k', header: t(p.locale, 'field.kind'), render: (r) => <Badge>{r.kind}</Badge> },
+          {
+            key: 'k',
+            icon: 'code',
+            header: t(p.locale, 'field.kind'),
+            render: (r) => <Badge>{r.kind}</Badge>,
+          },
           {
             key: 'r',
             header: t(p.locale, 'field.region'),
+            icon: 'pin',
             render: (r) => <Ltr>{r.dataRegion}</Ltr>,
           },
           {
             key: 'a',
             header: t(p.locale, 'field.action'),
+            icon: 'code',
             render: (r) =>
               p.canWrite ? (
                 <Button
@@ -301,8 +310,18 @@ export function OperationsTable(p: {
         rows={p.items}
         rowKey={(r) => r.id}
         columns={[
-          { key: 'k', header: t(p.locale, 'field.kind'), render: (r) => <Ltr>{r.kind}</Ltr> },
-          { key: 's', header: t(p.locale, 'field.state'), render: (r) => <Badge>{r.state}</Badge> },
+          {
+            key: 'k',
+            icon: 'code',
+            header: t(p.locale, 'field.kind'),
+            render: (r) => <Ltr>{r.kind}</Ltr>,
+          },
+          {
+            key: 's',
+            icon: 'pulse',
+            header: t(p.locale, 'field.state'),
+            render: (r) => <Badge>{r.state}</Badge>,
+          },
           {
             key: 'at',
             header: t(p.locale, 'field.attempts'),
@@ -313,10 +332,16 @@ export function OperationsTable(p: {
             header: t(p.locale, 'field.traceId'),
             render: (r) => <Ltr>{r.traceId ?? '—'}</Ltr>,
           },
-          { key: 'c', header: t(p.locale, 'field.created'), render: (r) => p.fmt[r.id] ?? '' },
+          {
+            key: 'c',
+            icon: 'calendar',
+            header: t(p.locale, 'field.created'),
+            render: (r) => p.fmt[r.id] ?? '',
+          },
           {
             key: 'a',
             header: t(p.locale, 'field.action'),
+            icon: 'code',
             render: (r) =>
               p.canCancel && !terminal.has(r.state) && !r.cancelRequested ? (
                 <Button

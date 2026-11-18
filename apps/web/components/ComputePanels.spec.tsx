@@ -157,7 +157,9 @@ describe('instances list (UI-M05-03)', () => {
     expect(screen.getByText(t('en', 'm05.web.status.provisioning'))).toBeTruthy();
     expect(screen.getByText(t('en', 'm05.web.status.failed'))).toBeTruthy();
     expect(screen.getByText(t('en', 'm05.web.drift.drift'))).toBeTruthy();
-    expect(screen.getAllByRole('link').length).toBe(3);
+    // each server: its name links to it, and its card has a Manage button to the same page
+    expect(screen.getAllByRole('link').length).toBe(6);
+    expect(screen.getAllByRole('link', { name: t('en', 'action.manage') })).toHaveLength(3);
   });
 });
 

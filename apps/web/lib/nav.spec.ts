@@ -1,0 +1,180 @@
+import { describe, expect, it } from 'vitest';
+import {
+  CATEGORIES,
+  buildNav,
+  currentCategory,
+  currentItemId,
+  stripLocale,
+  type NavContext,
+} from './nav';
+
+const all = (over: Partial<NavContext> = {}): NavContext => ({
+  can: () => true,
+  flag: () => true,
+  hasOrg: true,
+  orgType: 'customer',
+  ...over,
+});
+const ids = (c: ReturnType<typeof buildNav>) => c.map((x) => x.id);
+
+describe('categories', () => {
+  it('an owner with every flag sees every rail category (and the profile one for the avatar)', () => {
+    expect(ids(buildNav(all()))).toEqual([
+      'dashboard',
+      'projects',
+      'build',
+      'cloud',
+      'hosting',
+      'domains',
+      'data',
+      'email',
+      'finance',
+      'organization',
+      'account',
+    ]);
+  });
+
+  it('flagged capabilities disappear with their flag, and a category left empty with them', () => {
+    const nav = buildNav(all({ flag: () => false }));
+    expect(ids(nav)).not.toContain('hosting');
+    expect(ids(nav)).not.toContain('domains');
+    expect(ids(nav)).toContain('cloud'); // resources and operations do not need a flag, so the category stays
+  });
+
+  it('cloud keeps resources and operations while compute is off', () => {
+    const cloud = buildNav(all({ flag: () => false })).find((c) => c.id === 'cloud')!;
+    expect(cloud.groups.flatMap((g) => g.items.map((i) => i.id))).toEqual([
+      'resources',
+      'operations',
+    ]);
+  });
+
+  it('a member without an organization only gets the dashboard and the profile', () => {
+    expect(ids(buildNav(all({ hasOrg: false })))).toEqual(['dashboard', 'account']);
+  });
+
+  it('shows only what permissions allow and hides empty categories', () => {
+    const can = (p: string) => p === 'data:db:read';
+    expect(ids(buildNav(all({ can })))).toEqual(['dashboard', 'data', 'account']);
+    const data = buildNav(all({ can })).find((c) => c.id === 'data')!;
+    expect(data.groups[0]!.items.map((i) => i.id)).toEqual(['databases']);
+    expect(data.home).toBe('/databases');
+  });
+
+  it('the organization and the account are account-menu categories, the organization as stacked pages', () => {
+    const nav = buildNav(all());
+    expect(nav.filter((c) => c.menu).map((c) => c.id)).toEqual(['organization', 'account']);
+    const org = nav.find((c) => c.id === 'organization')!;
+    expect(org.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
+      '/settings/team',
+      '/settings/organization',
+      '/privacy',
+      '/settings/security/sso', // M12 (flag enterprise.sso)
+    ]);
+    // any one permission of a stacked page's screens lists it
+    const only = (p: string) =>
+      buildNav(all({ can: (x) => x === p }))
+        .find((c) => c.id === 'organization')
+        ?.groups.flatMap((g) => g.items.map((i) => i.id));
+    expect(only('apikey:read')).toEqual(['team']);
+    expect(only('audit:read')).toEqual(['organization']);
+    expect(only('privacy:residency:read')).toEqual(['privacy']);
+  });
+
+  it('the portals appear only for the matching organization type', () => {
+    const items = (t: string) =>
+      buildNav(all({ orgType: t }))
+        .find((c) => c.id === 'organization')!
+        .groups.flatMap((g) => g.items.map((i) => i.id));
+    expect(items('agency')).toContain('agency');
+    expect(items('agency')).not.toContain('reseller');
+    expect(items('customer')).not.toContain('agency');
+  });
+
+  it('finance shows each former dropdown as one tab whose page stacks its screens', () => {
+    const fin = buildNav(all()).find((c) => c.id === 'finance')!;
+    const items = fin.groups[0]!.items;
+    expect(items.some((i) => i.children)).toBe(false);
+    expect(items.map((i) => [i.id, i.href])).toEqual([
+      ['overview', '/billing'],
+      ['plansSubs', '/billing/plans'],
+      ['usageQuotas', '/billing/usage'],
+      ['invoices', '/billing/invoices'],
+      ['payments', '/billing/payments'],
+    ]);
+  });
+
+  it('a group whose pages are all hidden is not shown', () => {
+    const can = (p: string) => p === 'usage:read';
+    const fin = buildNav(all({ can })).find((c) => c.id === 'finance')!;
+    expect(fin.groups[0]!.items.map((i) => i.id)).toEqual(['usageQuotas']);
+    expect(fin.home).toBe('/billing/usage');
+  });
+
+  it('every item path exists as a customer route name and ids are unique per category', () => {
+    for (const c of CATEGORIES) {
+      const seen = new Set<string>();
+      const walk = (xs: { id: string; href?: string; children?: unknown[] }[]) =>
+        xs.forEach((x) => {
+          expect(seen.has(x.id)).toBe(false);
+          seen.add(x.id);
+          if (x.href) expect(x.href.startsWith('/')).toBe(true);
+          if (x.children) walk(x.children as never);
+        });
+      walk(c.groups.flatMap((g) => g.items));
+    }
+  });
+});
+
+describe('current page', () => {
+  const nav = buildNav(all());
+  const cat = (p: string) => currentCategory(nav, p);
+
+  it('strips the locale', () => {
+    expect(stripLocale('/en', 'en')).toBe('/');
+    expect(stripLocale('/ar/billing/invoices?x=1', 'ar')).toBe('/billing/invoices');
+    expect(stripLocale('', 'en')).toBe('/');
+  });
+
+  it('puts every route in the right category', () => {
+    const cases: [string, string][] = [
+      ['/', 'dashboard'],
+      ['/notifications', 'dashboard'],
+      ['/projects', 'projects'],
+      ['/workspaces', 'projects'],
+      ['/compute/instances/abc/metrics', 'cloud'],
+      ['/resources', 'cloud'],
+      ['/hosting/sites/1/ssl', 'hosting'],
+      ['/domains/checkout', 'domains'],
+      ['/domains/1/dns', 'domains'],
+      ['/databases/1/backups', 'data'],
+      ['/storage/buckets/new', 'data'],
+      ['/email/mailboxes', 'email'],
+      ['/billing', 'finance'],
+      ['/billing/checkout/q1', 'finance'],
+      ['/billing/credit-notes/9', 'finance'],
+      ['/settings/members', 'organization'],
+      ['/privacy/requests/new', 'organization'],
+      ['/audit-logs', 'organization'],
+      ['/account/sessions', 'account'],
+      ['/account', 'account'],
+      ['/something-new', 'dashboard'],
+    ];
+    for (const [p, want] of cases) expect([p, cat(p)]).toEqual([p, want]);
+  });
+
+  it('highlights the longest matching item, and the overview only on its own page', () => {
+    const fin = nav.find((c) => c.id === 'finance')!;
+    expect(currentItemId(fin, '/billing')).toBe('overview');
+    expect(currentItemId(fin, '/billing/invoices/5')).toBe('invoices');
+    // the detail pages of a stacked screen highlight the tab of the page it now lives on
+    expect(currentItemId(fin, '/billing/payment-methods/add')).toBe('payments');
+    expect(currentItemId(fin, '/billing/credit-notes/9')).toBe('invoices');
+    expect(currentItemId(fin, '/billing/subscriptions/3')).toBe('plansSubs');
+    expect(currentItemId(fin, '/billing/checkout/q1')).toBeNull();
+    const dom = nav.find((c) => c.id === 'domains')!;
+    expect(currentItemId(dom, '/domains')).toBe('list');
+    expect(currentItemId(dom, '/domains/search')).toBe('search');
+    expect(currentItemId(dom, '/domains/abc')).toBeNull();
+  });
+});

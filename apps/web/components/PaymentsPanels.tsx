@@ -63,11 +63,13 @@ export function MethodsTable(p: {
           {
             key: 'e',
             header: t(p.locale, 'pay.col.expires'),
+            icon: 'calendar',
             render: (m) => <Ltr>{`${String(m.expMonth).padStart(2, '0')}/${m.expYear}`}</Ltr>,
           },
           {
             key: 's',
             header: t(p.locale, 'pay.col.status'),
+            icon: 'pulse',
             render: (m) => {
               const expired = cardState(m.expMonth, m.expYear, now) === 'expired';
               return (
@@ -87,6 +89,7 @@ export function MethodsTable(p: {
           {
             key: 'a',
             header: t(p.locale, 'pay.col.actions'),
+            icon: 'code',
             render: (m) =>
               p.canManage ? (
                 <span className="nz-row">
@@ -161,7 +164,7 @@ export function AddMethodForm(p: { locale: Locale; sandbox: boolean; mfaFactorId
         }),
       () => {
         a.setNotice({ tone: 'ok', text: t(p.locale, 'pay.add.saved') });
-        router.push(`/${p.locale}/billing/payment-methods`);
+        router.push(`/${p.locale}/billing/payments#methods`);
         router.refresh();
       },
       { 409: t(p.locale, 'pay.add.duplicate'), 422: t(p.locale, 'pay.add.refused') },
@@ -890,7 +893,7 @@ export function PaymentReturn(p: { locale: Locale; paymentId: string | null }) {
           </ButtonLink>
         )}
         {pay.walletTopupId && (
-          <ButtonLink variant="secondary" href={`/${p.locale}/billing/wallet`}>
+          <ButtonLink variant="secondary" href={`/${p.locale}/billing/payments#wallet`}>
             {t(p.locale, 'ret.wallet')}
           </ButtonLink>
         )}

@@ -98,6 +98,7 @@ export function ResourcesTable(p: {
         {
           key: 'o',
           header: t(p.locale, 'm05.adm.res.col.org'),
+          icon: 'user',
           render: (r) => (
             <span title={r.orgId}>
               <Ltr>{shortId(r.orgId)}</Ltr>
@@ -128,6 +129,7 @@ export function ResourcesTable(p: {
         {
           key: 's',
           header: t(p.locale, 'm05.adm.res.col.state'),
+          icon: 'pulse',
           render: (r) => (
             <Badge tone={resourceStateTone(r.state)}>
               {tDynamic(p.locale, `m05.adm.res.state.${r.state}`, r.state)}
@@ -137,6 +139,7 @@ export function ResourcesTable(p: {
         {
           key: 'd',
           header: t(p.locale, 'm05.adm.res.col.drift'),
+          icon: 'pulse',
           render: (r) => (
             <Badge tone={driftTone(r.driftState)}>
               {tDynamic(p.locale, `m05.adm.res.drift.${r.driftState}`, r.driftState)}
@@ -170,6 +173,7 @@ export function ResourcesTable(p: {
         {
           key: 'l',
           header: t(p.locale, 'm05.adm.res.col.lastSeen'),
+          icon: 'calendar',
           render: (r) => (r.lastSeenAt ? formatDateTime(r.lastSeenAt, p.locale) : '—'),
         },
         {
@@ -187,6 +191,7 @@ export function ResourcesTable(p: {
               {
                 key: 'x',
                 header: t(p.locale, 'field.action'),
+                icon: 'code',
                 render: (r: CloudResourceDto) => (
                   <ReconcileButton
                     locale={p.locale}

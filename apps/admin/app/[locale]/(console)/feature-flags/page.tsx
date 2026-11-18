@@ -42,16 +42,19 @@ export default async function Flags({ params }: { params: Promise<{ locale: stri
             {
               key: 's',
               header: t(locale, 'field.type'),
+              icon: 'code',
               render: (f) => <Ltr>{f.orgId ? `org:${f.orgId.slice(0, 8)}` : 'global'}</Ltr>,
             },
             {
               key: 'v',
               header: t(locale, 'field.status'),
+              icon: 'pulse',
               render: (f) => <Ltr>{JSON.stringify(f.value)}</Ltr>,
             },
             {
               key: 'u',
               header: t(locale, 'field.created'),
+              icon: 'calendar',
               render: (f) => formatDateTime(f.updatedAt, locale),
             },
           ]}

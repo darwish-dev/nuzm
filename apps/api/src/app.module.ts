@@ -20,6 +20,11 @@ import { PaymentsModule } from './modules/payments';
 import { SubscriptionsModule } from './modules/subscriptions';
 import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
+// >>> M09 modules
+import { AiModule } from './modules/ai';
+import { BuilderModule } from './modules/builder';
+import { DeployModule } from './modules/deploy';
+// <<< M09 modules
 import { TenancyModule } from './modules/tenancy';
 // >>> M12
 import { EnterpriseModule } from './modules/enterprise';
@@ -44,6 +49,11 @@ import { OpsModule } from './modules/ops';
     DataModule,
     EmailModule,
     HostingModule,
+    // >>> M09 modules
+    AiModule,
+    BuilderModule,
+    DeployModule,
+    // <<< M09 modules
     IdentityModule,
     NotificationsModule,
     AccessModule,

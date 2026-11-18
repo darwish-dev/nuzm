@@ -37,6 +37,7 @@ export default async function PaymentEvents({
             {
               key: 't',
               header: t(locale, 'af.pay.ev.col.type'),
+              icon: 'code',
               render: (e) => <Ltr>{e.type}</Ltr>,
             },
             {
@@ -47,6 +48,7 @@ export default async function PaymentEvents({
             {
               key: 's',
               header: t(locale, 'af.pay.ev.col.status'),
+              icon: 'pulse',
               render: (e) => (
                 <>
                   <Badge tone={eventTone(e.status)}>

@@ -47,6 +47,7 @@ export default async function Senders({ params }: { params: Promise<{ locale: st
                 {
                   key: 'd',
                   header: t(locale, 'm8.emd.domain'),
+                  icon: 'globe',
                   render: (x) => (
                     <Ltr>{domains.items.find((d) => d.id === x.domainId)?.domain ?? '—'}</Ltr>
                   ),
@@ -54,6 +55,7 @@ export default async function Senders({ params }: { params: Promise<{ locale: st
                 {
                   key: 's',
                   header: t(locale, 'field.status'),
+                  icon: 'pulse',
                   render: (x) => (
                     <Badge
                       tone={

@@ -1,0 +1,395 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`component snapshots > contact_form (ar) 1`] = `
+"<section id="s-form1" class="sec sec-contact_form bg-default align-start" aria-labelledby="h-form1">
+<div class="wrap">
+<h2 id="h-form1">أرسل لنا رسالة</h2>
+<p>نرد خلال يوم</p>
+<form class="form" method="post" action="/v1/public/forms/contact" data-status="msg-form1" data-success="شكرًا، وصلتنا رسالتك">
+<div class="field">
+<label for="f-form1-name">الاسم<span class="req" aria-hidden="true">*</span></label>
+<input id="f-form1-name" name="name" type="text" autocomplete="name" required>
+</div>
+<div class="field">
+<label for="f-form1-email">البريد<span class="req" aria-hidden="true">*</span></label>
+<input id="f-form1-email" name="email" type="email" autocomplete="email" required>
+</div>
+<div class="field">
+<label for="f-form1-phone">الجوال</label>
+<input id="f-form1-phone" name="phone" type="tel" autocomplete="tel">
+</div>
+<div class="field">
+<label for="f-form1-message">رسالتك<span class="req" aria-hidden="true">*</span></label>
+<textarea id="f-form1-message" name="message" rows="5" required></textarea>
+</div>
+<div class="hp" aria-hidden="true">
+<label for="hp-form1">الموقع الإلكتروني (اتركه فارغًا)</label>
+<input id="hp-form1" name="website_url" type="text" tabindex="-1" autocomplete="off">
+</div>
+<button class="btn" type="submit">إرسال</button>
+</form>
+<div class="form-status" id="msg-form1" role="status" tabindex="-1"></div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > contact_form (en) 1`] = `
+"<section id="s-form1" class="sec sec-contact_form bg-default align-start" aria-labelledby="h-form1">
+<div class="wrap">
+<h2 id="h-form1">Send us a message</h2>
+<p>We reply within a day</p>
+<form class="form" method="post" action="/v1/public/forms/contact" data-status="msg-form1" data-success="Thanks, we got your message">
+<div class="field">
+<label for="f-form1-name">Name<span class="req" aria-hidden="true">*</span></label>
+<input id="f-form1-name" name="name" type="text" autocomplete="name" required>
+</div>
+<div class="field">
+<label for="f-form1-email">Email<span class="req" aria-hidden="true">*</span></label>
+<input id="f-form1-email" name="email" type="email" autocomplete="email" required>
+</div>
+<div class="field">
+<label for="f-form1-phone">Phone</label>
+<input id="f-form1-phone" name="phone" type="tel" autocomplete="tel">
+</div>
+<div class="field">
+<label for="f-form1-message">Message<span class="req" aria-hidden="true">*</span></label>
+<textarea id="f-form1-message" name="message" rows="5" required></textarea>
+</div>
+<div class="hp" aria-hidden="true">
+<label for="hp-form1">Website (leave this empty)</label>
+<input id="hp-form1" name="website_url" type="text" tabindex="-1" autocomplete="off">
+</div>
+<button class="btn" type="submit">Send</button>
+</form>
+<div class="form-status" id="msg-form1" role="status" tabindex="-1"></div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > faq (ar) 1`] = `
+"<section id="s-faq1" class="sec sec-faq bg-default align-start" aria-labelledby="h-faq1">
+<div class="wrap">
+<h2 id="h-faq1">أسئلة شائعة</h2>
+<div class="faq">
+<details class="qa">
+<summary>هل تقبلون الحجز؟</summary>
+<p>نعم، عبر صفحة التواصل.</p>
+</details>
+<details class="qa">
+<summary>هل يوجد موقف؟</summary>
+<p>نعم، مجاني.</p>
+</details>
+</div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > faq (en) 1`] = `
+"<section id="s-faq1" class="sec sec-faq bg-default align-start" aria-labelledby="h-faq1">
+<div class="wrap">
+<h2 id="h-faq1">FAQ</h2>
+<div class="faq">
+<details class="qa">
+<summary>Do you take bookings?</summary>
+<p>Yes, via the contact page.</p>
+</details>
+<details class="qa">
+<summary>Is there parking?</summary>
+<p>Yes, free.</p>
+</details>
+</div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > features (ar) 1`] = `
+"<section id="s-feat" class="sec sec-features bg-muted align-center" aria-labelledby="h-feat">
+<div class="wrap">
+<h2 id="h-feat">لماذا نحن</h2>
+<ul class="cards grid" role="list">
+<li class="card">
+<span class="icon" aria-hidden="true">★</span>
+<h3>جودة</h3>
+<p>أفضل المكونات</p>
+</li>
+<li class="card">
+<span class="icon" aria-hidden="true">⚡</span>
+<h3>سرعة</h3>
+<p>خدمة سريعة</p>
+</li>
+<li class="card">
+<h3>أجواء</h3>
+<p>جلسات عائلية</p>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > features (en) 1`] = `
+"<section id="s-feat" class="sec sec-features bg-muted align-center" aria-labelledby="h-feat">
+<div class="wrap">
+<h2 id="h-feat">Why us</h2>
+<ul class="cards grid" role="list">
+<li class="card">
+<span class="icon" aria-hidden="true">★</span>
+<h3>Quality</h3>
+<p>The best ingredients</p>
+</li>
+<li class="card">
+<span class="icon" aria-hidden="true">⚡</span>
+<h3>Speed</h3>
+<p>Fast service</p>
+</li>
+<li class="card">
+<h3>Ambience</h3>
+<p>Family seating</p>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > gallery (ar) 1`] = `
+"<section id="s-gal" class="sec sec-gallery bg-default align-start" aria-labelledby="h-gal">
+<div class="wrap">
+<h2 id="h-gal" class="sr-only">معرض الصور</h2>
+<ul class="gallery grid" role="list">
+<li>
+<figure>
+<img src="/assets/g1.svg" alt="طبق أول" width="1200" height="675" decoding="async">
+<figcaption>طبق ١</figcaption>
+</figure>
+</li>
+<li>
+<figure>
+<img src="/assets/g2.svg" alt="طبق ثان" width="1200" height="675" loading="lazy" decoding="async">
+</figure>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > gallery (en) 1`] = `
+"<section id="s-gal" class="sec sec-gallery bg-default align-start" aria-labelledby="h-gal">
+<div class="wrap">
+<h2 id="h-gal" class="sr-only">Gallery</h2>
+<ul class="gallery grid" role="list">
+<li>
+<figure>
+<img src="/assets/g1.svg" alt="First dish" width="1200" height="675" decoding="async">
+<figcaption>Dish 1</figcaption>
+</figure>
+</li>
+<li>
+<figure>
+<img src="/assets/g2.svg" alt="Second dish" width="1200" height="675" loading="lazy" decoding="async">
+</figure>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > hero (ar) 1`] = `
+"<section id="s-hero1" class="sec sec-hero bg-primary align-start" aria-labelledby="h-hero1">
+<div class="wrap">
+<div class="hero-grid has-media">
+<div class="hero-copy">
+<h1 id="h-hero1">أهلاً بكم في النخلة</h1>
+<p class="lead">مذاق أصيل منذ ١٩٩٠</p>
+<p><a class="btn" href="/ar/contact/">احجز طاولة</a></p>
+</div>
+<div class="hero-media">
+<img src="/assets/hero.svg" alt="طبق مشاوي" width="1200" height="675" decoding="async">
+</div>
+</div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > hero (en) 1`] = `
+"<section id="s-hero1" class="sec sec-hero bg-primary align-start" aria-labelledby="h-hero1">
+<div class="wrap">
+<div class="hero-grid has-media">
+<div class="hero-copy">
+<h1 id="h-hero1">Welcome to Palm</h1>
+<p class="lead">Authentic taste since 1990</p>
+<p><a class="btn" href="/en/contact/">Book a table</a></p>
+</div>
+<div class="hero-media">
+<img src="/assets/hero.svg" alt="A grilled platter" width="1200" height="675" decoding="async">
+</div>
+</div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > image (ar) 1`] = `
+"<section id="s-pic" class="sec sec-image bg-default align-start">
+<div class="wrap">
+<figure class="fig">
+<img src="/assets/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png" alt="مطبخ المطعم" width="800" height="600" decoding="async">
+<figcaption>مطبخنا</figcaption>
+</figure>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > image (en) 1`] = `
+"<section id="s-pic" class="sec sec-image bg-default align-start">
+<div class="wrap">
+<figure class="fig">
+<img src="/assets/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png" alt="The restaurant kitchen" width="800" height="600" decoding="async">
+<figcaption>Our kitchen</figcaption>
+</figure>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > map (ar) 1`] = `
+"<section id="s-map1" class="sec sec-map bg-default align-start" aria-labelledby="h-map1">
+<div class="wrap">
+<h2 id="h-map1">موقعنا</h2>
+<div class="card map-card">
+<p class="address">شارع الملك فهد، الرياض</p>
+<p><a href="https://www.openstreetmap.org/search?query=King%20Fahd%20Road%20Riyadh" target="_blank" rel="noopener noreferrer">افتح الموقع في خرائط OpenStreetMap<span class="sr-only"> (يفتح في تبويب جديد)</span></a></p>
+</div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > map (en) 1`] = `
+"<section id="s-map1" class="sec sec-map bg-default align-start" aria-labelledby="h-map1">
+<div class="wrap">
+<h2 id="h-map1">Find us</h2>
+<div class="card map-card">
+<p class="address">King Fahd Road, Riyadh</p>
+<p><a href="https://www.openstreetmap.org/search?query=King%20Fahd%20Road%20Riyadh" target="_blank" rel="noopener noreferrer">Open the location in OpenStreetMap<span class="sr-only"> (opens in a new tab)</span></a></p>
+</div>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > pricing (ar) 1`] = `
+"<section id="s-price" class="sec sec-pricing bg-default align-start" aria-labelledby="h-price">
+<div class="wrap">
+<h2 id="h-price">الباقات</h2>
+<ul class="cards grid" role="list">
+<li class="card plan">
+<h3>عائلية</h3>
+<p class="price"><data class="amount" value="1200.50">١٬٢٠٠٫٥٠</data><span class="cur">ر.س</span><span class="period">شهريًا</span></p>
+<p>لأربعة أشخاص</p>
+</li>
+<li class="card plan">
+<h3>فردية</h3>
+<p class="price"><data class="amount" value="99">٩٩</data><span class="cur">USD</span></p>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > pricing (en) 1`] = `
+"<section id="s-price" class="sec sec-pricing bg-default align-start" aria-labelledby="h-price">
+<div class="wrap">
+<h2 id="h-price">Packages</h2>
+<ul class="cards grid" role="list">
+<li class="card plan">
+<h3>Family</h3>
+<p class="price"><data class="amount" value="1200.50">1,200.50</data><span class="cur">SAR</span><span class="period">per month</span></p>
+<p>For four people</p>
+</li>
+<li class="card plan">
+<h3>Single</h3>
+<p class="price"><data class="amount" value="99">99</data><span class="cur">USD</span></p>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > testimonials (ar) 1`] = `
+"<section id="s-test" class="sec sec-testimonials bg-muted align-start" aria-labelledby="h-test">
+<div class="wrap">
+<h2 id="h-test">آراء العملاء</h2>
+<ul class="cards grid" role="list">
+<li class="card">
+<figure>
+<blockquote><p>أفضل مطعم جربته</p></blockquote>
+<figcaption><cite class="author">Sara</cite><span class="role">زبونة</span></figcaption>
+</figure>
+</li>
+<li class="card">
+<figure>
+<blockquote><p>خدمة ممتازة</p></blockquote>
+<figcaption><cite class="author">Omar</cite></figcaption>
+</figure>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > testimonials (en) 1`] = `
+"<section id="s-test" class="sec sec-testimonials bg-muted align-start" aria-labelledby="h-test">
+<div class="wrap">
+<h2 id="h-test">What guests say</h2>
+<ul class="cards grid" role="list">
+<li class="card">
+<figure>
+<blockquote><p>The best restaurant I have tried</p></blockquote>
+<figcaption><cite class="author">Sara</cite><span class="role">Guest</span></figcaption>
+</figure>
+</li>
+<li class="card">
+<figure>
+<blockquote><p>Excellent service</p></blockquote>
+<figcaption><cite class="author">Omar</cite></figcaption>
+</figure>
+</li>
+</ul>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > text (ar) 1`] = `
+"<section id="s-intro" class="sec sec-text bg-default align-start" aria-labelledby="h-intro">
+<div class="wrap">
+<h2 id="h-intro">قصتنا</h2>
+<p>بدأنا بمطبخ صغير.<br>وكبرنا بفضلكم.</p>
+<p>نستخدم مكونات طازجة كل يوم.</p>
+</div>
+</section>
+"
+`;
+
+exports[`component snapshots > text (en) 1`] = `
+"<section id="s-intro" class="sec sec-text bg-default align-start" aria-labelledby="h-intro">
+<div class="wrap">
+<h2 id="h-intro">Our story</h2>
+<p>We started with a small kitchen.<br>We grew thanks to you.</p>
+<p>We use fresh ingredients every day.</p>
+</div>
+</section>
+"
+`;

@@ -123,6 +123,7 @@ export default async function ReconciliationDetail({
               {
                 key: 'k',
                 header: t(locale, 'af.rc.col.kind'),
+                icon: 'code',
                 render: (i) => (
                   <>
                     <Ltr>{i.kind}</Ltr>
@@ -136,11 +137,13 @@ export default async function ReconciliationDetail({
               {
                 key: 'o',
                 header: t(locale, 'af.rc.col.org'),
+                icon: 'user',
                 render: (i) => (i.relatedOrg ? <Ltr>{i.relatedOrg.slice(0, 8)}</Ltr> : '—'),
               },
               {
                 key: 's',
                 header: t(locale, 'af.rc.col.status'),
+                icon: 'pulse',
                 render: (i) => (
                   <span className="nz-row">
                     <Badge tone={itemTone(i.status, i.overSla)}>
@@ -185,6 +188,7 @@ export default async function ReconciliationDetail({
               {
                 key: 'x',
                 header: t(locale, 'af.rc.col.actions'),
+                icon: 'code',
                 render: (i) => (
                   <BreakActions
                     locale={locale}

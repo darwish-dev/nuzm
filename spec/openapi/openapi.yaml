@@ -12,6 +12,8 @@ servers:
   - url: http://127.0.0.1:4000
     description: Local development
 tags:
+  - name: hosting
+    description: Shared hosting sites, nodes and abuse cases
   - name: payments
     description: Payment methods, payments and PSP webhooks
   - name: commerce
@@ -4018,6 +4020,212 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/nodes:
+    get:
+      operationId: listHostingNodes
+      tags: [hosting]
+      summary: List hosting nodes
+      description: 'Platform-operated nodes (CloudPanel nodes managed through the node agent). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [active, draining, maintenance, retired] } }
+        - { name: dataRegion, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingNodeList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createHostingNode
+      tags: [hosting]
+      summary: Register a hosting node on a platform-owned compute instance
+      description: 'Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with a pending agent and a single-use enrolment token (returned ONCE, stored hashed, 15 minutes). A replay with the same computeInstanceId returns the existing node (200) without a token. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingNode' }
+      responses:
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateHostingNodeResult' }
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateHostingNodeResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/nodes/{id}:
+    get:
+
+      operationId: getHostingNode
+      tags: [hosting]
+      summary: Read a hosting node
+      description: 'Returns the node with its agent state and any pending overcommit change; the ETag is the version for If-Match.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingNode' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+
+      operationId: patchHostingNode
+      tags: [hosting]
+      summary: Change a node status or overcommit factor
+      description: 'status is active|draining|maintenance|retired: a node becomes `active` only with an enrolled agent, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatchHostingNode' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingNode' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/nodes/{id}/capacity:
+    get:
+
+      operationId: getHostingNodeCapacity
+      tags: [hosting]
+      summary: Capacity of a node by dimension and its allocations
+      description: 'sellable / reserved / free for cpu_millicores, memory_mb, disk_mb and sites, plus the site allocations. reserved never exceeds sellable (database CHECK and a commit-time ledger trigger).'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingNodeCapacity' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/nodes/{id}/inventory:
+    post:
+
+      operationId: runHostingNodeInventory
+      tags: [hosting]
+      summary: Run the inventory job for a node now
+      description: 'Probe + inventory through the node agent: versions, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The agent must be enrolled (409 otherwise). Permission admin:hosting:manage, MFA step-up.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '201':
+          description: Inventory stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingNode' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/nodes/{id}/enrolment-tokens:
+    post:
+
+      operationId: issueHostingEnrolmentToken
+      tags: [hosting]
+      summary: Issue a single-use agent bootstrap token
+      description: 'Invalidates any earlier unused token of the node. The token is returned once and stored hashed; it expires after 15 minutes and works exactly once. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.agent.enrolment_token.issued`).'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '201':
+          description: Issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingEnrolmentToken' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/nodes/{id}/command-log:
+    get:
+
+      operationId: listHostingNodeCommandLog
+      tags: [hosting]
+      summary: The node agent command audit log
+      description: 'Newest first. Every envelope decision the agent made (accepted, rejected with the reason, executed, failed), shipped hash-chained from the node.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCommandLog' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/agents:
+    get:
+      operationId: listHostingAgents
+      tags: [hosting]
+      summary: List node agents
+      description: 'Agent state, version, last seen and certificate rotation time per node.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAgentList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -6963,3 +7171,130 @@ components:
           type: array
           items:
             type: object
+    HostingNode:
+      type: object
+      required: [id, name, computeInstanceId, region, dataRegion, status, agentState, runtimes, overcommitFactor, health, version, createdAt, pendingOvercommit]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        computeInstanceId: { type: string, description: Opaque id of the M05 compute instance. }
+        region: { type: string }
+        dataRegion: { type: string }
+        status: { type: string, enum: [active, draining, maintenance, retired] }
+        agentId: { type: [string, 'null'], format: uuid }
+        agentState: { type: [string, 'null'], enum: [pending, enrolled, revoked, null] }
+        agentLastSeenAt: { type: [string, 'null'], format: date-time }
+        cloudpanelVersion: { type: [string, 'null'] }
+        runtimes: { type: array, items: { type: string }, description: Runtime ids reported by the node probe. }
+        overcommitFactor: { type: number }
+        health: { type: string, enum: [healthy, degraded, unhealthy, unknown] }
+        lastInventoryAt: { type: [string, 'null'], format: date-time }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+        pendingOvercommit:
+          type: [object, 'null']
+          properties:
+            changeId: { type: string, format: uuid }
+            toFactor: { type: number }
+            requestedBy: { type: string, format: uuid }
+            approverId: { type: string, format: uuid }
+            reason: { type: string }
+    HostingNodeList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingNode' } }
+    CreateHostingNode:
+      type: object
+      required: [name, computeInstanceId]
+      properties:
+        name: { type: string, pattern: '^[a-z0-9][a-z0-9-]{1,62}$' }
+        computeInstanceId: { type: string, minLength: 1, maxLength: 200 }
+    CreateHostingNodeResult:
+      type: object
+      required: [node, enrolmentToken]
+      properties:
+        node: { $ref: '#/components/schemas/HostingNode' }
+        enrolmentToken: { type: [string, 'null'], description: Shown once on creation; null on a replay. }
+    PatchHostingNode:
+      type: object
+      properties:
+        status: { type: string, enum: [active, draining, maintenance, retired] }
+        overcommit:
+          type: object
+          description: 'Either {factor, reason, approverId} (request) or {changeId, decision, note} (the approver decides).'
+          properties:
+            factor: { type: number, minimum: 0.5, maximum: 2 }
+            reason: { type: string, minLength: 10, maxLength: 500 }
+            approverId: { type: string, format: uuid }
+            changeId: { type: string, format: uuid }
+            decision: { type: string, enum: [approve, reject] }
+            note: { type: string, maxLength: 500 }
+    HostingNodeCapacity:
+      type: object
+      required: [nodeId, dimensions, allocations]
+      properties:
+        nodeId: { type: string, format: uuid }
+        dimensions:
+          type: array
+          items:
+            type: object
+            required: [dim, physical, sellable, reserved, free]
+            properties:
+              dim: { type: string, enum: [cpu_millicores, memory_mb, disk_mb, sites] }
+              physical: { type: integer }
+              sellable: { type: integer }
+              reserved: { type: integer }
+              free: { type: integer }
+        allocations:
+          type: array
+          items:
+            type: object
+            required: [siteId, cpuMillicores, memoryMb, diskMb, sites, createdAt]
+            properties:
+              siteId: { type: string, format: uuid }
+              cpuMillicores: { type: integer }
+              memoryMb: { type: integer }
+              diskMb: { type: integer }
+              sites: { type: integer }
+              createdAt: { type: string, format: date-time }
+    HostingEnrolmentToken:
+      type: object
+      required: [token, expiresInMinutes]
+      properties:
+        token: { type: string }
+        expiresInMinutes: { type: integer }
+    HostingCommandLog:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [seq, outcome, occurredAt]
+            properties:
+              seq: { type: integer }
+              operationId: { type: [string, 'null'] }
+              commandId: { type: [string, 'null'] }
+              outcome: { type: string, enum: [accepted, rejected, executed, failed] }
+              reason: { type: [string, 'null'] }
+              occurredAt: { type: string, format: date-time }
+    HostingAgentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, nodeId, nodeName, state]
+            properties:
+              id: { type: string, format: uuid }
+              nodeId: { type: string, format: uuid }
+              nodeName: { type: string }
+              state: { type: string, enum: [pending, enrolled, revoked] }
+              version: { type: [string, 'null'] }
+              enrolledAt: { type: [string, 'null'], format: date-time }
+              lastSeenAt: { type: [string, 'null'], format: date-time }
+              certRotatedAt: { type: [string, 'null'], format: date-time }

@@ -105,8 +105,6 @@ planned:
   - { path: '/v1/hosting/sites/{id}/ssl-certificates', milestone: M06, status: planned }
   - { path: '/v1/hosting/sites/{id}/databases', milestone: M06, status: planned }
   - { path: '/v1/hosting/sites/{id}/usage', milestone: M06, status: planned }
-  - { path: '/v1/admin/hosting/nodes', milestone: M06, status: planned }
-  - { path: '/v1/admin/hosting/nodes/{id}/capacity', milestone: M06, status: planned }
   - { path: '/v1/admin/hosting/abuse-cases', milestone: M06, status: planned }
   - { path: '/v1/domains/search', milestone: M07, status: planned }
   - { path: '/v1/domains', milestone: M07, status: planned }

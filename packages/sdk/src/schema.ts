@@ -2312,6 +2312,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/hosting/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List hosting nodes
+         * @description Platform-operated nodes (CloudPanel nodes managed through the node agent). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.
+         */
+        get: operations["listHostingNodes"];
+        put?: never;
+        /**
+         * Register a hosting node on a platform-owned compute instance
+         * @description Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with a pending agent and a single-use enrolment token (returned ONCE, stored hashed, 15 minutes). A replay with the same computeInstanceId returns the existing node (200) without a token. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).
+         */
+        post: operations["createHostingNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/nodes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a hosting node
+         * @description Returns the node with its agent state and any pending overcommit change; the ETag is the version for If-Match.
+         */
+        get: operations["getHostingNode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a node status or overcommit factor
+         * @description status is active|draining|maintenance|retired: a node becomes `active` only with an enrolled agent, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.
+         */
+        patch: operations["patchHostingNode"];
+        trace?: never;
+    };
+    "/v1/admin/hosting/nodes/{id}/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capacity of a node by dimension and its allocations
+         * @description sellable / reserved / free for cpu_millicores, memory_mb, disk_mb and sites, plus the site allocations. reserved never exceeds sellable (database CHECK and a commit-time ledger trigger).
+         */
+        get: operations["getHostingNodeCapacity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/nodes/{id}/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the inventory job for a node now
+         * @description Probe + inventory through the node agent: versions, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The agent must be enrolled (409 otherwise). Permission admin:hosting:manage, MFA step-up.
+         */
+        post: operations["runHostingNodeInventory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/nodes/{id}/enrolment-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a single-use agent bootstrap token
+         * @description Invalidates any earlier unused token of the node. The token is returned once and stored hashed; it expires after 15 minutes and works exactly once. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.agent.enrolment_token.issued`).
+         */
+        post: operations["issueHostingEnrolmentToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/nodes/{id}/command-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The node agent command audit log
+         * @description Newest first. Every envelope decision the agent made (accepted, rejected with the reason, executed, failed), shipped hash-chained from the node.
+         */
+        get: operations["listHostingNodeCommandLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List node agents
+         * @description Agent state, version, last seen and certificate rotation time per node.
+         */
+        get: operations["listHostingAgents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4581,6 +4729,128 @@ export interface components {
             /** @description Only on `mfa_required` — the caller's active factor to challenge, or null when none is enrolled yet. */
             mfaFactorId?: string | null;
             errors?: Record<string, never>[];
+        };
+        HostingNode: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description Opaque id of the M05 compute instance. */
+            computeInstanceId: string;
+            region: string;
+            dataRegion: string;
+            /** @enum {string} */
+            status: "active" | "draining" | "maintenance" | "retired";
+            /** Format: uuid */
+            agentId?: string | null;
+            /** @enum {string|null} */
+            agentState: "pending" | "enrolled" | "revoked" | null;
+            /** Format: date-time */
+            agentLastSeenAt?: string | null;
+            cloudpanelVersion?: string | null;
+            /** @description Runtime ids reported by the node probe. */
+            runtimes: string[];
+            overcommitFactor: number;
+            /** @enum {string} */
+            health: "healthy" | "degraded" | "unhealthy" | "unknown";
+            /** Format: date-time */
+            lastInventoryAt?: string | null;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            pendingOvercommit: {
+                /** Format: uuid */
+                changeId?: string;
+                toFactor?: number;
+                /** Format: uuid */
+                requestedBy?: string;
+                /** Format: uuid */
+                approverId?: string;
+                reason?: string;
+            } | null;
+        };
+        HostingNodeList: {
+            items: components["schemas"]["HostingNode"][];
+        };
+        CreateHostingNode: {
+            name: string;
+            computeInstanceId: string;
+        };
+        CreateHostingNodeResult: {
+            node: components["schemas"]["HostingNode"];
+            /** @description Shown once on creation; null on a replay. */
+            enrolmentToken: string | null;
+        };
+        PatchHostingNode: {
+            /** @enum {string} */
+            status?: "active" | "draining" | "maintenance" | "retired";
+            /** @description Either {factor, reason, approverId} (request) or {changeId, decision, note} (the approver decides). */
+            overcommit?: {
+                factor?: number;
+                reason?: string;
+                /** Format: uuid */
+                approverId?: string;
+                /** Format: uuid */
+                changeId?: string;
+                /** @enum {string} */
+                decision?: "approve" | "reject";
+                note?: string;
+            };
+        };
+        HostingNodeCapacity: {
+            /** Format: uuid */
+            nodeId: string;
+            dimensions: {
+                /** @enum {string} */
+                dim: "cpu_millicores" | "memory_mb" | "disk_mb" | "sites";
+                physical: number;
+                sellable: number;
+                reserved: number;
+                free: number;
+            }[];
+            allocations: {
+                /** Format: uuid */
+                siteId: string;
+                cpuMillicores: number;
+                memoryMb: number;
+                diskMb: number;
+                sites: number;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        HostingEnrolmentToken: {
+            token: string;
+            expiresInMinutes: number;
+        };
+        HostingCommandLog: {
+            items: {
+                seq: number;
+                operationId?: string | null;
+                commandId?: string | null;
+                /** @enum {string} */
+                outcome: "accepted" | "rejected" | "executed" | "failed";
+                reason?: string | null;
+                /** Format: date-time */
+                occurredAt: string;
+            }[];
+        };
+        HostingAgentList: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                nodeId: string;
+                nodeName: string;
+                /** @enum {string} */
+                state: "pending" | "enrolled" | "revoked";
+                version?: string | null;
+                /** Format: date-time */
+                enrolledAt?: string | null;
+                /** Format: date-time */
+                lastSeenAt?: string | null;
+                /** Format: date-time */
+                certRotatedAt?: string | null;
+            }[];
         };
     };
     responses: {
@@ -9255,6 +9525,262 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    listHostingNodes: {
+        parameters: {
+            query?: {
+                status?: "active" | "draining" | "maintenance" | "retired";
+                dataRegion?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingNodeList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createHostingNode: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingNode"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateHostingNodeResult"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateHostingNodeResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getHostingNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingNode"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    patchHostingNode: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchHostingNode"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingNode"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    getHostingNodeCapacity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingNodeCapacity"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    runHostingNodeInventory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inventory stored */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingNode"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    issueHostingEnrolmentToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issued */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingEnrolmentToken"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listHostingNodeCommandLog: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCommandLog"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listHostingAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAgentList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
 }

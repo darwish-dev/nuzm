@@ -29,6 +29,10 @@ tables:
     { owner: M05, hook: m05-provisioning, note: 'derived from usage events' }
   tenancy.environments:
     { owner: M05, hook: m05-provisioning, note: 'an environment names where its resources run' }
+  hosting.nodes:
+    { owner: M06, hook: m06-node-selection, note: 'a node carries the data_region of its compute instance; sites are placed only on nodes in an allowed region' }
+  hosting.sites:
+    { owner: M06, hook: m06-node-selection, note: 'a site is placed only on a node whose data_region the residency service allows' }
 hooks:
   - {
       id: m03-psp-personal-data,
@@ -98,6 +102,16 @@ hooks:
       processor_kind: hosting,
       enforcement: listed,
       flag: residency.enforce.hosting,
+      call_site: null,
+    }
+  - {
+      id: m06-backup-sink,
+      milestone: M06,
+      where: 'Site backup destination (backup sink region equals the site data_region)',
+      data_classes: [customer-content, personal, credentials],
+      processor_kind: hosting,
+      enforcement: listed,
+      flag: residency.enforce.hosting_backup,
       call_site: null,
     }
   - {

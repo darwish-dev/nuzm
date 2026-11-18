@@ -777,6 +777,14 @@ describe('AC-M11-04: a purchased template installs only for the entitled organiz
         ])
       )[0]!.n,
     );
+    // copies installed earlier by other tests stay by design after a refund or revoke (install = copy): only count what these attempts add
+    const orphansBefore = Number(
+      (
+        await sql(
+          `SELECT count(*) n FROM marketplace.installations WHERE entitlement_id IN (SELECT id FROM marketplace.entitlements_mkt WHERE status <> 'active')`,
+        )
+      )[0]!.n,
+    );
     let successes = 0;
     for (const a of attempts) {
       const r = await install(a.org, a.who, a.version);
@@ -803,7 +811,7 @@ describe('AC-M11-04: a purchased template installs only for the entitled organiz
           )
         )[0]!.n,
       ),
-    ).toBe(0);
+    ).toBe(orphansBefore);
     void sp;
   }, 300_000);
 

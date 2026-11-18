@@ -73,9 +73,16 @@ export interface DnsValidationError {
   field: 'name' | 'type' | 'ttl' | 'value' | 'record';
   message: string;
 }
+/** A validated change with its names and values normalized (what an adapter is told to do). */
+export type DnsNormalizedChange =
+  | { op: 'create'; record: DnsRecord }
+  | { op: 'update'; match: { name: string; type: DnsRecordType }; record: DnsRecord }
+  | { op: 'delete'; match: { name: string; type: DnsRecordType } };
 export interface DnsValidationResult {
   ok: boolean;
   errors: DnsValidationError[];
+  /** One entry per accepted change, in input order (only meaningful when ok). */
+  changes: DnsNormalizedChange[];
   /** The zone after the change-set (only meaningful when ok). */
   resulting: DnsRecord[];
 }
@@ -344,6 +351,7 @@ export function validateChangeSet(
 ): DnsValidationResult {
   const o = { ...DEFAULT_DNS_OPTIONS, ...options };
   const errors: DnsValidationError[] = [];
+  const normalized: DnsNormalizedChange[] = [];
   const working = new Map<string, DnsRecord[]>();
   const add = (r: DnsRecord) => {
     const k = recordKey(r);
@@ -365,7 +373,7 @@ export function validateChangeSet(
     if (ch.op === 'create') {
       const { record, errors: e } = validateRecordInput(zone, ch.record, index, o);
       errors.push(...e);
-      if (!record) return;
+      if (!record || e.length > 0) return;
       if (find(record.name, record.type).some((x) => valueKey(x) === valueKey(record)))
         errors.push({
           index,
@@ -373,7 +381,10 @@ export function validateChangeSet(
           field: 'record',
           message: 'an identical record already exists',
         });
-      else add(record);
+      else {
+        add(record);
+        normalized.push({ op: 'create', record });
+      }
       return;
     }
     const mName = normalizeName(ch.match?.name, zone);
@@ -409,11 +420,12 @@ export function validateChangeSet(
     }
     if (ch.op === 'delete') {
       working.delete(key);
+      normalized.push({ op: 'delete', match: { name: mName, type: mType as DnsRecordType } });
       return;
     }
     const { record, errors: e } = validateRecordInput(zone, ch.record, index, o);
     errors.push(...e);
-    if (!record) return;
+    if (!record || e.length > 0) return;
     working.delete(key);
     if (find(record.name, record.type).some((x) => valueKey(x) === valueKey(record)))
       errors.push({
@@ -422,7 +434,14 @@ export function validateChangeSet(
         field: 'record',
         message: 'an identical record already exists',
       });
-    else add(record);
+    else {
+      add(record);
+      normalized.push({
+        op: 'update',
+        match: { name: mName, type: mType as DnsRecordType },
+        record,
+      });
+    }
   });
 
   const resulting = [...working.values()].flat();
@@ -453,5 +472,5 @@ export function validateChangeSet(
       field: 'record',
       message: `the zone would hold ${resulting.length} records; the limit is ${o.maxRecords}`,
     });
-  return { ok: errors.length === 0, errors, resulting };
+  return { ok: errors.length === 0, errors, changes: normalized, resulting };
 }

@@ -35,6 +35,7 @@ export interface OpenproviderMock {
   url: string;
   controls: RegistrarControls & {
     holdRegistrations(v: boolean): void;
+    dnsFailFrom(k: number | null): void;
     activate(name: string): void;
     webhookBody(type: string, id: string, domain: string, at: Date): string;
   };
@@ -60,6 +61,7 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
   let dnsFailAt: number | null = null;
   let dnsCalls = 0;
   let hold = false;
+  let dnsFailFrom: number | null = null;
 
   const takeFault = (op: FaultOp): FaultKind | null => {
     const f = faults.find((x) => x.op === op && x.left > 0);
@@ -312,6 +314,8 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
           }),
         );
       if (req.method === 'PUT') {
+        if (dnsFailFrom !== null && dnsCalls++ >= dnsFailFrom)
+          return send(err(104, 'invalid record'));
         if (dnsFailAt !== null && dnsCalls++ === dnsFailAt) {
           dnsFailAt = null;
           return send(err(104, 'invalid record'));
@@ -367,6 +371,11 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
     lastRequestBodies: () => bodies,
     /** Registrations answer REQ (pending at the registry) until `activate` is called. */
     holdRegistrations: (v: boolean) => void (hold = v),
+    /** Every zone-modifying call from the k-th on fails (rollback cannot succeed) until `null`. */
+    dnsFailFrom: (k: number | null) => {
+      dnsFailFrom = k;
+      dnsCalls = 0;
+    },
     activate: (name: string) => {
       for (const d of doms.values()) if (full(d) === name) d.status = 'ACT';
     },

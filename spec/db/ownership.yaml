@@ -1483,3 +1483,27 @@ classification:
       created_at: internal
       updated_at: internal
       completed_at: internal
+    domains.dns_zones:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      name: internal
+      state: internal
+      version: internal
+      provider_zone_ref: internal
+      degraded: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    domains.dns_records:
+      id: internal
+      org_id: internal
+      zone_id: internal
+      name: internal
+      type: internal
+      ttl: internal
+      value: customer-content
+      value_hash: internal
+      managed_by: internal
+      created_at: internal
+      updated_at: internal

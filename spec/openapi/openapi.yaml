@@ -4362,6 +4362,129 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/dns/zones:
+    get:
+      operationId: listDnsZones
+      tags: [domains]
+      summary: List DNS zones
+      description: 'Requires dns:read.'
+      x-nuzm-permission: dns:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DnsZonePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createDnsZone
+      tags: [domains]
+      summary: Create a DNS zone for a domain
+      description: "Body {domainId}. DNS is hosted by the domain's registrar adapter only: without a supported dns capability the zone cannot be created (422 unsupported_capability; no Nuzm authoritative DNS in M07). Requires dns:write. Idempotent. Audited."
+      x-nuzm-permission: dns:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DnsZoneCreate' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DnsZone' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/dns/zones/{id}:
+    get:
+      operationId: getDnsZone
+      tags: [domains]
+      summary: Read a DNS zone
+      description: 'ETag = zone version. Requires dns:read.'
+      x-nuzm-permission: dns:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DnsZone' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/dns/zones/{id}/records:
+    get:
+      operationId: listDnsRecords
+      tags: [domains]
+      summary: List DNS records
+      description: 'Filters name, type. ETag = zone version. Requires dns:read.'
+      x-nuzm-permission: dns:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: name, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DnsRecordList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: changeDnsRecords
+      tags: [domains]
+      summary: Apply a DNS change-set atomically
+      description: "Body {create[], update[], delete[]}; If-Match (zone version) required. The whole set is validated first (422 record_invalid with errors[]: type rules, no CNAME at the apex or beside other records, TTL 60..86400, TXT chunking, SRV/MX/CAA fields, IDN, duplicates, quota). Then applied through the registrar's DNS adapter; when the adapter is not atomic the platform snapshots, applies, verifies by re-reading and rolls back on mismatch (zone marked degraded when the rollback is uncertain). Response: per-change results and the new ETag. 412 etag_mismatch. _acme-challenge and records pointing at Nuzm hosting are writable only through DnsLinkagePort. Requires dns:write. Audited (dns.changeset.applied|rolled_back)."
+      x-nuzm-permission: dns:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: If-Match, in: header, required: true, schema: { type: string }, description: 'ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428.' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DnsChangeSet' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DnsChangeSetResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
   # <<< M07 paths
 components:
   parameters:

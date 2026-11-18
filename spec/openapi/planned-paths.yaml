@@ -108,9 +108,6 @@ planned:
   - { path: '/v1/admin/hosting/nodes', milestone: M06, status: planned }
   - { path: '/v1/admin/hosting/nodes/{id}/capacity', milestone: M06, status: planned }
   - { path: '/v1/admin/hosting/abuse-cases', milestone: M06, status: planned }
-  - { path: '/v1/dns/zones', milestone: M07, status: planned }
-  - { path: '/v1/dns/zones/{id}', milestone: M07, status: planned }
-  - { path: '/v1/dns/zones/{id}/records', milestone: M07, status: planned }
   - { path: '/v1/databases', milestone: M08, status: planned }
   - { path: '/v1/databases/{id}', milestone: M08, status: planned }
   - { path: '/v1/databases/{id}/backups', milestone: M08, status: planned }

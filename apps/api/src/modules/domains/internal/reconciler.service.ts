@@ -2,6 +2,7 @@ import type { Db, OperationsService } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { UUID, type Row } from './common';
+import type { DnsService } from './dns.service';
 import type { DomainService } from './domain.service';
 import type { DomainOrderService } from './orders.service';
 
@@ -18,6 +19,7 @@ export class DomainReconcilerService {
     private readonly orders: DomainOrderService,
     private readonly domains: DomainService,
     private readonly audit: AuditSink,
+    private readonly dns?: DnsService,
   ) {}
 
   async force(adminUserId: string, domainId: string, traceId: string) {
@@ -57,6 +59,14 @@ export class DomainReconcilerService {
       results.push(
         s.absent ? 'domain_absent_at_registrar' : s.changed ? 'state_synced' : 'in_sync',
       );
+      const zone = await this.db.withOrg(
+        orgId,
+        async (c) =>
+          (await c.query(`SELECT id FROM domains.dns_zones WHERE domain_id = $1`, [domainId]))
+            .rows[0] as Row | undefined,
+      );
+      if (zone && this.dns)
+        results.push(`dns_${await this.dns.reconcileZone(orgId, zone.id as string, traceId)}`);
       await this.ops.succeed(orgId, op.id, worker, { results });
     }
     await this.audit.record({

@@ -195,7 +195,7 @@ export class RegistrarAccessService {
   async listAccounts(): Promise<RegistrarAccount[]> {
     const rows = await this.db.withoutScope(
       async (c) =>
-        (await c.query(`${SELECT} ORDER BY r.provider_code, a.priority, a.id`)).rows as Row[],
+        (await c.query(`${SELECT} ORDER BY a.priority, r.provider_code, a.id`)).rows as Row[],
     );
     return rows.map(toAccount);
   }

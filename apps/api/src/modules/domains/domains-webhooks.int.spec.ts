@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DomainOrderService } from './internal/orders.service';
 import { startDomainsKit, type DomainsKit } from './testing/domains-kit';
 
+let k: DomainsKit;
 let orders: DomainOrderService;
 let n = 0;
 const nm = (p: string) => `${p}-${Date.now().toString(36)}-${++n}.com`;

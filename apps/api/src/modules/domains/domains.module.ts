@@ -14,6 +14,8 @@ import { ResidencyService } from '../compliance';
 import { AdminDomainsController } from './admin-domains.controller';
 import { AdminRegistrarsController } from './admin-registrars.controller';
 import { DomainsController } from './domains.controller';
+import { DnsController } from './dns.controller';
+import { DnsService } from './internal/dns.service';
 import { RegistrarWebhooksController } from './registrar-webhooks.controller';
 import { DomainService } from './internal/domain.service';
 import { DomainOrderService } from './internal/orders.service';
@@ -47,6 +49,7 @@ import { loadTldPolicy } from './internal/tld-policy';
   controllers: [
     DomainsSearchController,
     DomainsController,
+    DnsController,
     AdminRegistrarsController,
     AdminDomainsController,
     RegistrarWebhooksController,
@@ -184,8 +187,9 @@ import { loadTldPolicy } from './internal/tld-policy';
         o: DomainOrderService,
         d: DomainService,
         au: AuditSink,
-      ) => new DomainReconcilerService(db, ops, o, d, au),
-      inject: [DB, OperationsService, DomainOrderService, DomainService, AuditSink],
+        dns: DnsService,
+      ) => new DomainReconcilerService(db, ops, o, d, au, dns),
+      inject: [DB, OperationsService, DomainOrderService, DomainService, AuditSink, DnsService],
     },
     {
       provide: RegistrarWebhookService,
@@ -205,6 +209,17 @@ import { loadTldPolicy } from './internal/tld-policy';
         AuditSink,
         DOMAINS_CONFIG,
       ],
+    },
+    {
+      provide: DnsService,
+      useFactory: (
+        db: Db,
+        au: AuditSink,
+        a: RegistrarAccessService,
+        ops: OperationsService,
+        cfg: DomainsConfig,
+      ) => new DnsService(db, au, a, ops, cfg),
+      inject: [DB, AuditSink, RegistrarAccessService, OperationsService, DOMAINS_CONFIG],
     },
     {
       provide: DomainPricer,

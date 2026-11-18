@@ -46,6 +46,13 @@ export default async function ConsoleLayout({
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),
+    // M10A: AI run oversight and sandbox fleet (read only)
+    ...(s.can('admin:ai:read')
+      ? [{ href: `${base}/ai/runs`, label: t(locale, 'm10.adm.nav.runs') }]
+      : []),
+    ...(s.can('admin:provider:read')
+      ? [{ href: `${base}/sandboxes`, label: t(locale, 'm10.adm.nav.sandboxes') }]
+      : []),
     // M05: providers, routing, cloud inventory and provider costs (the sections are reachable from the provider tabs)
     ...(s.can('admin:provider:read')
       ? [{ href: `${base}/providers`, label: t(locale, 'nav.admin.providers') }]

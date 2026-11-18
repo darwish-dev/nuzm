@@ -51,6 +51,14 @@ export const SERVICES: Service[] = [
     flag: 'domains.enabled',
   },
   {
+    id: 'builder',
+    href: '/builder/projects',
+    perm: ['builder:read'],
+    label: 'm10.nav.builder',
+    desc: 'm10.home.svc.builder',
+    flag: 'app_builder.enabled',
+  },
+  {
     id: 'databases',
     href: '/databases',
     perm: ['data:db:read'],

@@ -41,6 +41,13 @@ export default async function ConsoleLayout({
     ...(flagEnabled(s.me.featureFlags, 'domains.enabled')
       ? gated('domain:read', '/domains', 'nav.domains')
       : []),
+    // M10A: the app builder is a flagged capability (`app_builder.enabled`, default off; the API answers 404 while it is off)
+    ...(flagEnabled(s.me.featureFlags, 'app_builder.enabled')
+      ? [
+          ...gated('builder:read', '/builder/projects', 'm10.nav.builder'),
+          ...gated('ai:read', '/approvals', 'm10.nav.approvals'),
+        ]
+      : []),
     ...(s.org && (s.can('billing:read') || s.can('usage:read'))
       ? [
           {
@@ -83,6 +90,7 @@ export default async function ConsoleLayout({
         ? path.includes('/privacy/') || path.endsWith('/settings/data-residency')
         : false) ||
       // managed data and email: every sub-page keeps its section entry current
+      (i.href.endsWith('/builder/projects') ? path.startsWith(i.href) : false) ||
       (i.href.endsWith('/databases') ? path.startsWith(i.href) : false) ||
       (i.href.endsWith('/storage/buckets') ? path.startsWith(`${base}/storage/`) : false) ||
       (i.href.endsWith('/email/domains') ? path.startsWith(`${base}/email/`) : false),

@@ -28,3 +28,6 @@ next-env.d.ts
 e2e/test-results/
 e2e/playwright-report/
 .local/
+
+# M10A: generated-app scratch directory of the app-builder tests
+apps/api/.gen-tmp/

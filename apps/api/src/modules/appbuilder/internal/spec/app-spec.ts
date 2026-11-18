@@ -430,7 +430,9 @@ export function validateAppSpec(spec: unknown): SpecCheck {
       )
         add(`${p}.fields[${fi}].references`, `unknown entity ${f.references}`);
     for (const k of ['searchable', 'sortable'] as const)
-      for (const n of e[k]) if (!fieldNames.has(n)) add(`${p}.${k}`, `unknown field ${n}`);
+      for (const n of e[k])
+        if (!fieldNames.has(n) && !(k === 'sortable' && (n === 'createdAt' || n === 'updatedAt')))
+          add(`${p}.${k}`, `unknown field ${n}`);
     if (e.stageField) {
       const sf = e.fields.find((f) => f.name === e.stageField);
       if (!sf || sf.type !== 'enum')

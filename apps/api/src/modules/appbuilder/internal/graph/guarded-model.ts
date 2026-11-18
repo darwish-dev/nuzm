@@ -63,6 +63,8 @@ export class GuardedModel {
     input: unknown;
     schema: Schema;
     maxTokens: number;
+    /** Semantic validation on top of the schema (e.g. the cross-references of an application spec); its messages drive the repair attempts too. */
+    check?: (v: unknown) => string[];
   }): Promise<T> {
     let errors: string[] = [];
     for (let attempt = 0; attempt <= MAX_REPAIRS; attempt++) {
@@ -103,6 +105,7 @@ export class GuardedModel {
         costMinor: resp.costMinor,
       });
       errors = validate(a.schema, resp.output);
+      if (errors.length === 0 && a.check) errors = a.check(resp.output);
       if (errors.length === 0) return resp.output as T;
     }
     throw new ArtifactInvalid(a.purpose, errors);

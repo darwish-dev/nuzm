@@ -2381,3 +2381,15 @@ classification:
       created_at: internal
       approved_by: internal
       approved_at: internal
+    ai.evaluations:
+      id: internal
+      org_id: internal
+      run_id: internal
+      suite: internal
+      agent: internal
+      fixture: internal
+      score: internal
+      details: customer-content
+      mock_model: internal
+      data_region: internal
+      created_at: internal

@@ -11,6 +11,10 @@ import {
 } from '../graph/runner';
 import { AGENTS, type AgentId } from '../core';
 import { SAMPLE_SPEC } from '../fixtures/sample-spec';
+import { AppSpecService } from '../spec/spec.service';
+import { EvaluationService } from '../eval/evaluation';
+import { StaticAdvisoryDb } from '../policy/dependencies';
+import { webappExecutors } from '../agents/webapp-agents';
 import {
   MemoryArtifactStore,
   MemoryProjects,
@@ -99,6 +103,10 @@ export interface EngineEnv {
   model: ScriptedModelGateway;
   orgBudget: StaticOrgBudget;
   approvals: ApprovalService;
+  specs: AppSpecService;
+  evals: EvaluationService;
+  /** Replace the plumbing executors with the real seven agents (scaffolders). */
+  useRealAgents: () => void;
   executors: Map<AgentId, AgentExecutor>;
   runner: (cfg?: Partial<RunnerConfig>) => GraphRunner;
   orgA: string;
@@ -121,6 +129,8 @@ export async function setupEngineEnv(): Promise<EngineEnv> {
   for (const [k, f] of Object.entries(MINIMAL_FIXTURES)) fixtures[k] = () => f();
   const model = new ScriptedModelGateway(fixtures as never);
   const approvals = new ApprovalService(env.app, sink);
+  const specs = new AppSpecService(env.app, sink);
+  const evals = new EvaluationService(env.app);
   const executors = new Map<AgentId, AgentExecutor>();
   const produces: Record<string, string> = {
     requirements: 'requirements',
@@ -142,6 +152,12 @@ export async function setupEngineEnv(): Promise<EngineEnv> {
     model,
     orgBudget,
     approvals,
+    specs,
+    evals,
+    useRealAgents: () => {
+      for (const [k, v] of webappExecutors({ specs, projects, advisories: new StaticAdvisoryDb() }))
+        executors.set(k, v);
+    },
     executors,
     runner: (cfg = {}) =>
       new GraphRunner(env.app, sink, runs, artifacts, model, orgBudget, approvals, executors, {

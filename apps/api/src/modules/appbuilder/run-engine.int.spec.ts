@@ -3,7 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WEBAPP_GRAPH } from './internal/graph/dag';
 import { WorkerCrash } from './internal/graph/runner';
 import { scopeHashOf } from './internal/approvals/approval.service';
-import { ModelFixtureExecutor, setupEngineEnv, type EngineEnv } from './internal/testing/engine-harness';
+import {
+  ModelFixtureExecutor,
+  setupEngineEnv,
+  type EngineEnv,
+} from './internal/testing/engine-harness';
 
 let e: EngineEnv;
 beforeAll(async () => {

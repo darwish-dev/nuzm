@@ -1,7 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import type { Db } from '@nuzm/platform';
-import { CircuitBreaker, SafeHttpClient, SsrfError, TokenBucket, checkUrl } from '@nuzm/domain';
+import {
+  CircuitBreaker,
+  SafeHttpClient,
+  AutomationSsrfError,
+  TokenBucket,
+  checkUrl,
+} from '@nuzm/domain';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { decodeCursor, pageOf, type Page } from '../../../common/pagination';
@@ -119,7 +125,7 @@ export class ConnectorService {
       try {
         checkUrl(v);
       } catch (e) {
-        if (e instanceof SsrfError)
+        if (e instanceof AutomationSsrfError)
           throw new ProblemException('ssrf_denied', `config.${field}: ${e.message}`);
         throw e;
       }
@@ -152,7 +158,7 @@ export class ConnectorService {
         try {
           checkUrl(`https://${h.replace(/^\*\./, 'x.')}/`);
         } catch (e) {
-          if (e instanceof SsrfError)
+          if (e instanceof AutomationSsrfError)
             throw new ProblemException('ssrf_denied', `config.allowedHosts: ${h}: ${e.message}`);
           throw e;
         }
@@ -428,7 +434,7 @@ export class ConnectorService {
           }).toString(),
         });
       } catch (e) {
-        if (e instanceof SsrfError) throw new ProblemException('ssrf_denied', e.message);
+        if (e instanceof AutomationSsrfError) throw new ProblemException('ssrf_denied', e.message);
         throw e;
       }
       let tok: { access_token?: string; refresh_token?: string; expires_in?: number } = {};

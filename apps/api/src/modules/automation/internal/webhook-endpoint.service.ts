@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import type { Db } from '@nuzm/platform';
 import {
-  SsrfError,
+  AutomationSsrfError,
   checkUrl,
   isRetryableStatus,
   signatureHeader,
@@ -99,7 +99,7 @@ export class WebhookEndpointService {
     try {
       return checkUrl(u).url.href;
     } catch (e) {
-      if (e instanceof SsrfError) throw new ProblemException('ssrf_denied', e.message);
+      if (e instanceof AutomationSsrfError) throw new ProblemException('ssrf_denied', e.message);
       throw e;
     }
   }
@@ -286,19 +286,17 @@ export class WebhookEndpointService {
           [endpointId, orgId],
         )
       ).rows as Row[];
-      return rows
-        .slice(0, q.limit)
-        .map((r) => ({
-          endpointId,
-          eventId: r.event_id,
-          topic: r.topic,
-          attempts: r.attempt,
-          status: r.status,
-          statusCode: r.status_code ?? null,
-          error: r.error ?? null,
-          nextAttemptAt: iso(r.next_attempt_at),
-          createdAt: iso(r.created_at)!,
-        }));
+      return rows.slice(0, q.limit).map((r) => ({
+        endpointId,
+        eventId: r.event_id,
+        topic: r.topic,
+        attempts: r.attempt,
+        status: r.status,
+        statusCode: r.status_code ?? null,
+        error: r.error ?? null,
+        nextAttemptAt: iso(r.next_attempt_at),
+        createdAt: iso(r.created_at)!,
+      }));
     });
   }
 
@@ -492,7 +490,7 @@ export class WebhookEndpointService {
         isRetryableStatus(res.status),
       );
     } catch (e) {
-      if (e instanceof SsrfError)
+      if (e instanceof AutomationSsrfError)
         return retryOrDead(
           { error: `${e.code}: ${e.message}` },
           e.code === 'timeout' || e.code === 'transport_error' || e.code === 'dns_failed',

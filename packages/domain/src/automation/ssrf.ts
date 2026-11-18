@@ -24,13 +24,13 @@ export type SsrfCode =
   | 'timeout'
   | 'transport_error';
 
-export class SsrfError extends Error {
+export class AutomationSsrfError extends Error {
   constructor(
     readonly code: SsrfCode,
     message: string,
   ) {
     super(message);
-    this.name = 'SsrfError';
+    this.name = 'AutomationSsrfError';
   }
 }
 
@@ -187,48 +187,49 @@ export interface CheckedUrl {
 
 export function checkUrl(raw: string, policy: EgressPolicy = DEFAULT_EGRESS): CheckedUrl {
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > 2048)
-    throw new SsrfError('url_invalid', 'the URL is empty or too long');
+    throw new AutomationSsrfError('url_invalid', 'the URL is empty or too long');
   // eslint-disable-next-line no-control-regex -- refusing control characters and spaces is the point of this check
   if (/[\u0000-\u001f\u007f]/.test(raw) || /[\u0000- ]/.test(raw.trim()))
-    throw new SsrfError('url_invalid', 'the URL contains control characters or spaces');
+    throw new AutomationSsrfError('url_invalid', 'the URL contains control characters or spaces');
   let url: URL;
   try {
     url = new URL(raw.trim());
   } catch {
-    throw new SsrfError('url_invalid', 'the URL cannot be parsed');
+    throw new AutomationSsrfError('url_invalid', 'the URL cannot be parsed');
   }
   if (url.protocol !== 'https:')
-    throw new SsrfError('scheme_denied', 'only https:// URLs are allowed');
+    throw new AutomationSsrfError('scheme_denied', 'only https:// URLs are allowed');
   if (url.username || url.password)
-    throw new SsrfError('credentials_denied', 'credentials in a URL are not allowed');
+    throw new AutomationSsrfError('credentials_denied', 'credentials in a URL are not allowed');
   const port = url.port === '' ? 443 : Number(url.port);
   if (!policy.allowedPorts.includes(port))
-    throw new SsrfError('port_denied', `port ${port} is not allowed`);
+    throw new AutomationSsrfError('port_denied', `port ${port} is not allowed`);
   let host = url.hostname.toLowerCase();
   if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
   while (host.endsWith('.')) host = host.slice(0, -1);
-  if (host === '') throw new SsrfError('host_denied', 'the URL has no host');
+  if (host === '') throw new AutomationSsrfError('host_denied', 'the URL has no host');
   const literal = isIP(host) !== 0;
   if (literal) {
     if (isDeniedAddress(host))
-      throw new SsrfError('address_denied', 'the address is not a public address');
+      throw new AutomationSsrfError('address_denied', 'the address is not a public address');
   } else {
     if (!host.includes('.'))
-      throw new SsrfError('host_denied', 'single-label host names are not allowed');
+      throw new AutomationSsrfError('host_denied', 'single-label host names are not allowed');
     if (/^[0-9x.]+$/i.test(host))
-      throw new SsrfError('host_denied', 'numeric host names are not allowed');
+      throw new AutomationSsrfError('host_denied', 'numeric host names are not allowed');
     if (
       BLOCKED_NAMES.includes(host) ||
       BLOCKED_SUFFIXES.some((s) => host.endsWith(s)) ||
       policy.denyHosts?.includes(host)
     )
-      throw new SsrfError('host_denied', 'this host name is internal');
+      throw new AutomationSsrfError('host_denied', 'this host name is internal');
   }
   if (policy.allowHosts && policy.allowHosts.length > 0) {
     const ok = policy.allowHosts.some((h) =>
       h.startsWith('*.') ? host.endsWith(h.slice(1)) : host === h,
     );
-    if (!ok) throw new SsrfError('host_denied', 'the host is not on the egress allow-list');
+    if (!ok)
+      throw new AutomationSsrfError('host_denied', 'the host is not on the egress allow-list');
   }
   return { url, host, port, literal };
 }
@@ -247,12 +248,16 @@ export async function resolvePublic(
   try {
     answers = await lookup(c.host);
   } catch {
-    throw new SsrfError('dns_failed', 'the host name did not resolve');
+    throw new AutomationSsrfError('dns_failed', 'the host name did not resolve');
   }
-  if (answers.length === 0) throw new SsrfError('dns_failed', 'the host name did not resolve');
+  if (answers.length === 0)
+    throw new AutomationSsrfError('dns_failed', 'the host name did not resolve');
   // A single non-public answer refuses the whole name: an attacker-controlled name may return several A records and rotate between them.
   if (answers.some((a) => isDeniedAddress(a)))
-    throw new SsrfError('address_denied', 'the host name resolves to a non-public address');
+    throw new AutomationSsrfError(
+      'address_denied',
+      'the host name resolves to a non-public address',
+    );
   return answers;
 }
 
@@ -293,7 +298,9 @@ export const httpsTransport: Transport = (r) =>
         res.on('data', (c: Buffer) => {
           size += c.length;
           if (size > r.maxBytes) {
-            req.destroy(new SsrfError('response_too_large', 'the response is larger than the cap'));
+            req.destroy(
+              new AutomationSsrfError('response_too_large', 'the response is larger than the cap'),
+            );
             return;
           }
           chunks.push(c);
@@ -311,9 +318,15 @@ export const httpsTransport: Transport = (r) =>
         res.on('error', reject);
       },
     );
-    req.on('timeout', () => req.destroy(new SsrfError('timeout', 'the request timed out')));
+    req.on('timeout', () =>
+      req.destroy(new AutomationSsrfError('timeout', 'the request timed out')),
+    );
     req.on('error', (e) =>
-      reject(e instanceof SsrfError ? e : new SsrfError('transport_error', e.message)),
+      reject(
+        e instanceof AutomationSsrfError
+          ? e
+          : new AutomationSsrfError('transport_error', e.message),
+      ),
     );
     if (r.body !== undefined) req.write(r.body);
     req.end();
@@ -347,7 +360,7 @@ export class SafeHttpClient {
       const checked = checkUrl(current, this.policy);
       const addrs = await resolvePublic(checked, this.lookup);
       const left = this.policy.timeoutMs - (this.now() - started);
-      if (left <= 0) throw new SsrfError('timeout', 'the request timed out');
+      if (left <= 0) throw new AutomationSsrfError('timeout', 'the request timed out');
       const res = await this.transport({
         url: checked.url,
         ip: addrs[0]!,
@@ -358,16 +371,16 @@ export class SafeHttpClient {
         maxBytes: this.policy.maxResponseBytes,
       });
       if (Buffer.byteLength(res.body, 'utf8') > this.policy.maxResponseBytes)
-        throw new SsrfError('response_too_large', 'the response is larger than the cap');
+        throw new AutomationSsrfError('response_too_large', 'the response is larger than the cap');
       if (res.status >= 300 && res.status < 400 && res.headers.location) {
         // redirects are followed for safe methods only; a POST/PATCH answer is returned to the caller as it is (never replayed at another URL)
         if (!['GET', 'HEAD'].includes(method)) return { ...res, finalUrl: current, redirects: hop };
         if (hop >= this.policy.maxRedirects)
-          throw new SsrfError('redirect_limit', 'too many redirects');
+          throw new AutomationSsrfError('redirect_limit', 'too many redirects');
         try {
           current = new URL(res.headers.location, checked.url).href; // validated again at the top of the loop, from scratch
         } catch {
-          throw new SsrfError('redirect_denied', 'the redirect target is not a URL');
+          throw new AutomationSsrfError('redirect_denied', 'the redirect target is not a URL');
         }
         body = undefined;
         continue;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_EGRESS,
   SafeHttpClient,
-  SsrfError,
+  AutomationSsrfError,
   checkUrl,
   isDeniedAddress,
   parseIPv6,
@@ -15,7 +15,7 @@ const denied = (u: string) => {
     checkUrl(u);
     return false;
   } catch (e) {
-    return e instanceof SsrfError;
+    return e instanceof AutomationSsrfError;
   }
 };
 
@@ -131,7 +131,7 @@ describe('SSRF: URL and address policy (AC-M11-03)', () => {
     const p = { ...DEFAULT_EGRESS, allowHosts: ['api.example.com', '*.partner.test'] };
     expect(() => checkUrl('https://api.example.com/', p)).not.toThrow();
     expect(() => checkUrl('https://x.partner.test/', p)).not.toThrow();
-    expect(() => checkUrl('https://other.example.com/', p)).toThrow(SsrfError);
+    expect(() => checkUrl('https://other.example.com/', p)).toThrow(AutomationSsrfError);
   });
 });
 
@@ -185,7 +185,7 @@ describe('SSRF: DNS rebinding, redirects, size, time', () => {
         async () => ({ status: 302, headers: { location: loc }, body: '' }),
       );
       await expect(c.request({ url: 'https://a.example.com/' }), loc).rejects.toBeInstanceOf(
-        SsrfError,
+        AutomationSsrfError,
       );
     }
     // a redirect to a name that resolves privately is caught by the per-hop resolution

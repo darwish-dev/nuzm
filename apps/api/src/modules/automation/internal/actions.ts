@@ -1,5 +1,5 @@
 import {
-  SsrfError,
+  AutomationSsrfError,
   renderTemplate,
   evalExpression,
   type SafeResponse,
@@ -229,7 +229,7 @@ export class ActionRunner {
       );
     } catch (e) {
       if (conn) this.connectors.outcome(conn.id, false);
-      if (e instanceof SsrfError) {
+      if (e instanceof AutomationSsrfError) {
         const transient =
           e.code === 'timeout' || e.code === 'transport_error' || e.code === 'dns_failed';
         // a timeout / reset AFTER the request left may have had its effect: uncertain (never retried blindly unless the step is idempotent)

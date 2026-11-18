@@ -11,8 +11,15 @@ const all = () => true;
 const ids = (cats: ReturnType<typeof buildAdminNav>) => cats.map((c) => c.id);
 
 describe('admin navigation', () => {
-  it('a staff member with every permission sees all five categories', () => {
-    expect(ids(buildAdminNav(all))).toEqual(['orgs', 'finance', 'compliance', 'infra', 'platform']);
+  it('a staff member with every permission sees every category', () => {
+    expect(ids(buildAdminNav(all))).toEqual([
+      'orgs',
+      'finance',
+      'compliance',
+      'infra',
+      'ai',
+      'platform',
+    ]);
   });
 
   it('shows only what the roles allow and drops empty categories', () => {
@@ -57,6 +64,7 @@ describe('admin navigation', () => {
       ['/hosting/nodes/1', 'infra'],
       ['/data/providers', 'infra'],
       ['/domains/abc', 'infra'],
+      ['/ai/runs', 'ai'],
       ['/audit-logs', 'platform'],
       ['/feature-flags', 'platform'],
     ];

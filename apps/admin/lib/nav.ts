@@ -13,7 +13,7 @@ import {
  * The admin console's two-level navigation (same model as the customer console). Items are the existing admin screens and their
  * platform permissions; a staff member only sees what their roles allow. Routes are unchanged.
  */
-export type AdminCategoryId = 'orgs' | 'finance' | 'compliance' | 'infra' | 'platform';
+export type AdminCategoryId = 'orgs' | 'finance' | 'compliance' | 'infra' | 'ai' | 'platform';
 type Category = NavCategory<MessageKey, AdminCategoryId>;
 
 const read = (perm: string) => ({ perm: [perm] });
@@ -331,6 +331,34 @@ export const ADMIN_CATEGORIES: Category[] = [
             label: 'dom.admin.recon.title',
             href: '/domains/reconciliation',
             ...read('admin:domains:read'),
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'ai',
+    icon: 'pulse',
+    label: 'aia.nav.ai',
+    title: 'aia.nav.ai',
+    roots: ['/ai'],
+    org: false,
+    groups: [
+      {
+        id: 'main',
+        items: [
+          {
+            id: 'models',
+            label: 'aia.title',
+            href: '/ai/model-providers',
+            ...read('admin:ai:read'),
+          },
+          { id: 'runs', label: 'aia.tab.runs', href: '/ai/runs', ...read('admin:ai:read') },
+          {
+            id: 'quality',
+            label: 'aia.tab.quality',
+            href: '/ai/quality',
+            ...read('admin:ai:read'),
           },
         ],
       },

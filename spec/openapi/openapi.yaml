@@ -66,6 +66,14 @@ tags:
     description: Provider framework and compute - provider registry, accounts (vault references only), capability matrix, verified regions, plans, offers, routing, quotes, instances, reconciliation (M05; live provider checks are BLOCKED until HG-05-01..03)
   - name: domains
     description: Domains, registrars, DNS and domain webhooks (M07)
+  # >>> M09 tags
+  - name: ai
+    description: AI core - model gateway, budgets and credits, sessions and runs, model providers (M09; no provider is enabled by default, D-18/HG-09-01 OPEN)
+  - name: builder
+    description: Website builder - projects, site model, changes, versions, previews, forms and CMS (M09)
+  - name: deploy
+    description: Deployments of builder projects to hosting sites (M09; live publish BLOCKED until HG-05-01/02, HG-06-01)
+  # <<< M09 tags
 paths:
   /healthz:
     get:
@@ -7584,6 +7592,1032 @@ paths:
         '422': { $ref: '#/components/responses/Problem' }
         '428': { $ref: '#/components/responses/Problem' }
   # <<< M07 paths
+  # >>> M09 paths
+  /v1/ai/models:
+    get:
+      operationId: listAiModels
+      tags: [ai]
+      summary: 'List the AI models this organization may use'
+      description: 'Models of ENABLED providers that have a rate card, filtered by the organization residency policy (class `customer-content`): a provider outside the allowed regions is never listed. Empty until a provider is decided (D-18), attested (HG-09-01) and enabled. Requires permission `ai:read`; the whole surface answers 404 while the `ai.enabled` flag is off.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/credits:
+    get:
+      operationId: getAiCredits
+      tags: [ai]
+      summary: 'AI credit balance and usage'
+      description: 'Credits are a projection of the wallet (ledger account 2100) minus open reservations: `availableCredits = floor(wallet / creditUnitMinor) - reserved`. Usage by model and by project for the last 30 days. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCredits' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/budgets:
+    get:
+      operationId: getAiBudgets
+      tags: [ai]
+      summary: 'AI budgets and caps'
+      description: 'Organization budget (daily credits, per-run credits/tokens, totals, alert thresholds, prompt-body logging, auto-apply) and project budgets. The ETag is the budget version (`"0"` = never set). Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiBudgets' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putAiBudgets
+      tags: [ai]
+      summary: 'Replace AI budgets and caps'
+      description: 'Needs `If-Match` (428 if absent, 412 if stale). Caps are non-negative integers or null (no cap). `logBodies=true` needs `bodyRetentionDays` (D-34). Enabling `autoApplyLowRisk` also needs `ai:write` (owner, admin, developer). Audited (`ai.budgets.updated`). Requires permission `ai:budgets:write`.'
+      x-nuzm-permission: ai:budgets:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiBudgetsInput' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiBudgets' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/model-providers:
+    get:
+      operationId: listAiModelProviders
+      tags: [ai]
+      summary: 'List model providers'
+      description: 'Provider rows with region, human-attested data terms, rate card, enable state and whether an adapter is registered. Only the vault REFERENCE of a credential is ever returned. Nothing is seeded. Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelProviderList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: actOnAiModelProvider
+      tags: [ai]
+      summary: 'Configure, attest, enable or disable a model provider; kill switch'
+      description: 'Body {action: configure|attest|request_enable|enable|disable|kill_switch, ...}. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiModelProviderAction' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelProvider' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/ai/sessions:
+    post:
+      operationId: createAiSession
+      tags: [ai]
+      summary: 'Create an AI session'
+      description: 'Body {title, projectId?}. A session holds the conversation and its runs; message bodies are stored sealed. Requires permission `ai:write`. Audited (`ai.session.created`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiSessionInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiSession' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listAiSessions
+      tags: [ai]
+      summary: 'List AI sessions'
+      description: 'Newest first. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiSessionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/sessions/{id}/messages:
+    get:
+      operationId: listAiMessages
+      tags: [ai]
+      summary: 'List the messages of a session'
+      description: 'Oldest first. Requires permission `ai:read`. 404 for another organization.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiMessagePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: addAiMessage
+      tags: [ai]
+      summary: 'Add a user message'
+      description: 'Body {content, attachments?: [{kind:url,url}|{kind:text,name,text}]}. The content passes the moderation hook (422 `content_blocked`, placeholder deny-list: the policy is an owner decision) and the secret scan (422 `secret_detected`) BEFORE anything is stored. Attachments are references: URLs are fetched later by the SSRF-safe fetcher inside a run, and everything enters prompts only inside delimited data blocks. Requires permission `ai:write`.'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiMessageInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiMessage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs:
+    post:
+      operationId: createAiRun
+      tags: [ai]
+      summary: 'Start an AI run'
+      description: 'Body {sessionId, kind: website|edit|chat, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. webapp|mobile|test-fix answer 422 `unsupported_kind` until M10. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiRunInput' }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRun' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listAiRuns
+      tags: [ai]
+      summary: 'List AI runs'
+      description: 'Newest first, optionally for one session or project. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: sessionId, in: query, required: false, schema: { type: string } }
+        - { name: projectId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRunPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}:
+    get:
+      operationId: getAiRun
+      tags: [ai]
+      summary: 'Get an AI run'
+      description: 'State (queued, running, waiting_approval, succeeded, failed, cancelled, budget_exceeded), step, usage and cost, the pending approval if any, artifact ids. 404 for another organization.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRun' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/artifacts/{artifactId}:
+    get:
+      operationId: getAiRunArtifact
+      tags: [ai]
+      summary: 'Get an artifact of a run'
+      description: 'Artifact payloads (requirements, architecture, page, change_set, site_model) are immutable JSON validated against their schema.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: artifactId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiArtifact' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/events:
+    get:
+      operationId: streamAiRunEvents
+      tags: [ai]
+      summary: 'Stream run events (SSE)'
+      description: 'Server-sent events `{seq,type,data,at}` with `id: <seq>`; persisted, so a dropped client resumes with `Last-Event-ID`. The stream ends when the run is finished or waits for an approval (reconnect after the decision), or after 120 s. Requires permission `ai:read`.'
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: lastEventId, in: query, required: false, schema: { type: string } }
+        - {
+            name: Last-Event-ID,
+            in: header,
+            required: false,
+            schema: { type: string },
+            description: 'Resume after this event sequence number',
+          }
+      responses:
+        '200':
+          description: 'Server-sent events (text/event-stream)'
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/cancellation:
+    post:
+      operationId: cancelAiRun
+      tags: [ai]
+      summary: 'Cancel a run'
+      description: 'A queued or waiting run is cancelled at once; a running run is flagged and stops at its next step (the model call in flight is aborted and its reservation released). 409 `invalid_state` when the run is already finished. Audited (`ai.run.cancelled`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCancellation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/ai/runs/{id}/approvals:
+    post:
+      operationId: decideAiRunApproval
+      tags: [ai]
+      summary: 'Approve or deny a pending run approval'
+      description: 'Body {approvalId, decision: approve|deny, note?}. Approval kinds: plan, apply_changes, publish, delete, spend, auto_apply; each is bound to the run and to the SHA-256 of the exact action and expires (24 h proposal): 409 `approval_expired`. The approver is a human member with a write role (403 otherwise); there is no AI identity in this path. Approve starts the next run segment; deny cancels the run unless the kind has its own handler. Audited (`ai.approval.granted|denied`).'
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiApprovalDecision' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRun' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/runs:
+    get:
+      operationId: listAdminAiRuns
+      tags: [ai]
+      summary: 'Run oversight (metadata only)'
+      description: 'Run metadata across organizations: state, kind, tokens, credits, model, region, error code. NEVER prompts, outputs, artifacts, checkpoints or inputs: content access would need break-glass with consent (not built). Every read is audited (`ai.admin.cross_org_read`). Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: orgId, in: query, required: false, schema: { type: string } }
+        - { name: state, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiAdminRunPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects:
+    post:
+      operationId: createBuilderProject
+      tags: [builder]
+      summary: 'Create a website project'
+      description: 'Body {type: website, name, locale: [ar|en…], templateId?}. Starts from one of the bilingual templates or an empty site and creates version 1 with its rendered files. 422 `quota_exceeded` beyond the project limit, 403 `residency_denied`, 409 `name_taken`. Requires permission `builder:write`. Audited (`builder.project.created`). The whole builder surface answers 404 while the `ai.enabled` flag is off.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderProjectInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderProjectDetail' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listBuilderProjects
+      tags: [builder]
+      summary: 'List website projects'
+      description: 'Newest first, with the last deployment. Requires permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderProjectPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}:
+    get:
+      operationId: getBuilderProject
+      tags: [builder]
+      summary: 'Get a project with its site model'
+      description: 'The project, the site model of the head (or `versionId`), the SEO score report of that model and, with `compareTo`, the diff between two versions. The ETag is the project version (If-Match for PATCH). 404 for another organization.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: versionId, in: query, required: false, schema: { type: string } }
+        - { name: compareTo, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderProjectDetail' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateBuilderProject
+      tags: [builder]
+      summary: 'Rename a project'
+      description: 'Only `name` can change (locales are fixed in v1). 412 `etag_mismatch`, 428, 409 `name_taken`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderProjectPatch' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderProject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteBuilderProject
+      tags: [builder]
+      summary: 'Delete a project (soft, with retention)'
+      description: '`confirmName` (query or body) must equal the project name: a human typed it, which is the approval of this destructive action. The project is soft-deleted for the retention window (30 days proposal), its previews stop working. 409 `in_use` while a deployment is in progress. Audited (`builder.project.deleted`).'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: confirmName, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderProjectDeleted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/files:
+    get:
+      operationId: listBuilderProjectFiles
+      tags: [builder]
+      summary: 'List the rendered files of a version'
+      description: 'Path, size, mime and SHA-256 of every generated file of the head (or `versionId`).'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: versionId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderFileList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/files/content:
+    get:
+      operationId: getBuilderProjectFileContent
+      tags: [builder]
+      summary: 'Read one rendered file'
+      description: 'Text files as UTF-8, binary files as base64; 413 `payload_too_large` above 1 MiB.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: path, in: query, required: false, schema: { type: string } }
+        - { name: versionId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderFileContent' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/changes:
+    post:
+      operationId: applyBuilderChanges
+      tags: [builder]
+      summary: 'Apply an ordered set of editor operations'
+      description: 'Body {baseVersion, ops[], source: user, label?, assetData?}. Ops: insertComponent, updateProps, moveComponent, deleteComponent, setTokens, setText, addPage, deletePage, updatePage, setSeo, setNav, addAsset, removeAsset. Validated against the schema, applied atomically, answered with the SAFE DIFF (structural + rendered-text changes), risk flags (deletes_page, deletes_component, changes_seo, changes_slug, …), the new version and the INVERSE ops (undo). 409 `base_outdated` carries rebase info (head version, changed pages); 422 `op_invalid` lists the issues. Empty `ops` with a `label` names the current version. `source=ai` answers 403 `approval_required`: AI change sets are applied only through a run approval. Single writer per project (row lock, ETag). Audited (`builder.change.applied`).'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderChangeInput' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderChangeResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/versions:
+    get:
+      operationId: listBuilderProjectVersions
+      tags: [builder]
+      summary: 'List versions'
+      description: 'Newest first; history is immutable. `isHead` marks the current head.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderVersionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/versions/{vid}/restoration:
+    post:
+      operationId: restoreBuilderProjectVersion
+      tags: [builder]
+      summary: 'Restore a version'
+      description: 'Creates a NEW head version from the chosen one; history is never rewritten. 409 `conflict` when the version already is the head. Audited (`builder.version.restored`).'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: vid, in: path, required: true, schema: { type: string } }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderRestoration' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/previews:
+    post:
+      operationId: createBuilderPreview
+      tags: [builder]
+      summary: 'Create a preview'
+      description: 'Body {viewport?: mobile|tablet|desktop, versionId?}. Returns an unguessable URL (160-bit token in the host name) on the ISOLATED preview origin, a different registrable domain from the console and the API, expiring (30 min proposal). The token is shown only here. 429 beyond the active-preview limit.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderPreviewInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderPreview' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listBuilderPreviews
+      tags: [builder]
+      summary: 'List previews'
+      description: 'Ids, versions and expiry; never a usable URL.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderPreviewList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/forms:
+    get:
+      operationId: listBuilderForms
+      tags: [builder]
+      summary: 'List forms'
+      description: 'Forms of the project (those of the site model are registered automatically) with submission and blocked-spam counts and the public endpoint.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderFormList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createBuilderForm
+      tags: [builder]
+      summary: 'Register a form'
+      description: 'Body {formKey, name, fields: [{name, type: text|email|tel|textarea, required?}], notifyEmail?, retentionDays?}. The notification address is stored sealed. 409 `name_taken`.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderFormInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderForm' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/form-submissions:
+    get:
+      operationId: listBuilderFormSubmissions
+      tags: [builder]
+      summary: 'List form submissions'
+      description: 'Class `personal`, stored sealed. Roles without `builder:submissions:read` (viewer) get every value masked; unmasked reads are audited.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: formId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderSubmissionPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/cms-collections:
+    get:
+      operationId: listBuilderCmsCollections
+      tags: [builder]
+      summary: 'List CMS collections and items'
+      description: 'Typed collections with their items and publish state.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderCmsList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: upsertBuilderCmsCollection
+      tags: [builder]
+      summary: 'Create a collection and/or add items'
+      description: 'Body {collectionKey, name?, fields?, items?: [{data, state?: draft|published}]}. A new collection needs name and fields (text, number, boolean, date, localized_text); items are validated against them. Only PUBLISHED items are consumed by a build (sections with `props.collection`).'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderCmsInput' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderCmsList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/deployments:
+    post:
+      operationId: createDeployment
+      tags: [deploy]
+      summary: 'Publish a project to a hosting site'
+      description: 'Body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). Audited (`deploy.deployment.*`).'
+      x-nuzm-permission: deploy:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeploymentInput' }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deployment' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listDeployments
+      tags: [deploy]
+      summary: 'List deployments'
+      description: 'Newest first.'
+      x-nuzm-permission: deploy:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: projectId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeploymentPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/deployments/{id}:
+    get:
+      operationId: getDeployment
+      tags: [deploy]
+      summary: 'Get a deployment'
+      description: 'State (queued, building, deploying, smoke_checking, succeeded, failed, rolled_back), artifact hash, smoke results, URL, error.'
+      x-nuzm-permission: deploy:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deployment' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/deployments/{id}/logs:
+    get:
+      operationId: getDeploymentLogs
+      tags: [deploy]
+      summary: 'Deployment logs'
+      description: 'Append-only log lines `{seq, level, message, data, at}`.'
+      x-nuzm-permission: deploy:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: after, in: query, required: false, schema: { type: integer } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeploymentLogs' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/deployments/{id}/rollback:
+    post:
+      operationId: rollbackDeployment
+      tags: [deploy]
+      summary: 'Roll back to the previous artifact'
+      description: 'Restores the artifact that served before this deployment (its artifact hash) and creates a new deployment with `rollbackOf`. 409 `invalid_state` unless the deployment succeeded and has a predecessor.'
+      x-nuzm-permission: deploy:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deployment' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /_preview/{token}/*:
+    get:
+      operationId: servePreviewFile
+      tags: [builder]
+      summary: 'Serve a preview file (isolated origin only)'
+      description: 'Served ONLY on the host `<token>.<previewDomain>`; any other host, a wrong or expired token, or a deleted project is a plain 404. Strict CSP (`default-src self`, frame-ancestors limited to the console origin), `nosniff`, no cookies, no CORS, no credentials. The edge maps `https://<token>.<previewDomain>/<path>` to this route.'
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            text/html:
+              schema: { type: string }
+        '404': { $ref: '#/components/responses/Problem' }
+  /p/{projectId}/v1/public/forms/{formKey}:
+    post:
+      operationId: submitPublicForm
+      tags: [builder]
+      summary: 'Public form ingest of a published site'
+      description: 'Posted by the generated pages. A filled honeypot field `website_url` is accepted silently and counted as spam; per-IP rate limit (429), size limit (413), field validation (422). Stores a sealed `personal` submission. No authentication, no third-party trackers; the answer reveals nothing beyond `received`.'
+      security: []
+      parameters:
+        - { name: projectId, in: path, required: true, schema: { type: string } }
+        - { name: formKey, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PublicFormInput' }
+      responses:
+        '202': { description: 'Success' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /_preview/{token}:
+    get:
+      operationId: servePreviewRoot
+      tags: [builder]
+      summary: 'Serve the preview entry page (isolated origin only)'
+      description: 'Same rules as the file route: only on the host `<token>.<previewDomain>`; the entry page redirects to the default locale.'
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            text/html:
+              schema: { type: string }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/quality:
+    get:
+      operationId: getAiQuality
+      tags: [ai]
+      summary: 'Evaluation reports vs thresholds'
+      description: 'Evaluation harness reports (40 prompts, 20 Arabic and 20 English, 8 site categories) with the PROPOSED thresholds (owner approval pending) and the breaches. Every report states `modelQuality`: reports from the scripted mock are `NOT VERIFIED` and prove plumbing only; the human rubric is a separate record and is never filled in by the harness. a11y, SEO and performance figures are proxies, not Lighthouse. Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiQuality' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  # <<< M09 paths
 components:
   parameters:
     OrgHeader:
@@ -13030,3 +14064,547 @@ components:
         results: { type: array, items: { type: object, additionalProperties: true } }
         version: { type: integer }
     # <<< M07 schemas
+    # >>> M09 schemas
+    # >>> S37 schemas
+    AiModel:
+      type: object
+      required:
+        [
+          providerCode,
+          modelId,
+          region,
+          capabilities,
+          contextTokens,
+          maxOutputTokens,
+          latencyClass,
+          dataTermsAttested,
+          creditsPerMillionInput,
+          creditsPerMillionOutput,
+        ]
+      properties:
+        providerCode: { type: string }
+        modelId: { type: string }
+        region: { type: string }
+        capabilities:
+          {
+            type: array,
+            items:
+              { type: string, enum: [chat, structured-output, long-context, embeddings, vision] },
+          }
+        contextTokens: { type: integer }
+        maxOutputTokens: { type: integer }
+        latencyClass: { type: string, enum: [low, medium, high] }
+        dataTermsAttested: { type: boolean }
+        creditsPerMillionInput: { type: string, description: 'integer string' }
+        creditsPerMillionOutput: { type: string, description: 'integer string' }
+    AiModelList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiModel' } }
+    AiCredits:
+      type: object
+      required:
+        [
+          currency,
+          creditUnitMinor,
+          walletCredits,
+          reservedCredits,
+          availableCredits,
+          last30DaysCredits,
+          lowCredit,
+          usage,
+        ]
+      properties:
+        currency: { type: string }
+        creditUnitMinor: { type: integer }
+        walletCredits: { type: string }
+        reservedCredits: { type: string }
+        availableCredits: { type: string }
+        last30DaysCredits: { type: string }
+        lowCredit: { type: boolean }
+        usage:
+          type: object
+          required: [byModel, byProject]
+          properties:
+            byModel: { type: array, items: { type: object, additionalProperties: true } }
+            byProject: { type: array, items: { type: object, additionalProperties: true } }
+    AiBudgetDoc:
+      type: object
+      properties:
+        dailyCredits: { type: [integer, 'null'] }
+        runMaxCredits: { type: [integer, 'null'] }
+        runMaxTokens: { type: [integer, 'null'] }
+        totalCredits: { type: [integer, 'null'] }
+        totalTokens: { type: [integer, 'null'] }
+        alertThresholds: { type: array, items: { type: integer, minimum: 1, maximum: 100 } }
+        logBodies: { type: boolean }
+        bodyRetentionDays: { type: [integer, 'null'] }
+        autoApplyLowRisk: { type: boolean }
+    AiBudgets:
+      type: object
+      required: [org, projects, version]
+      properties:
+        org: { $ref: '#/components/schemas/AiBudgetDoc' }
+        projects: { type: array, items: { type: object, additionalProperties: true } }
+        version: { type: integer }
+    AiBudgetsInput:
+      type: object
+      properties:
+        org: { $ref: '#/components/schemas/AiBudgetDoc' }
+        projects:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [projectId],
+                properties:
+                  {
+                    projectId: { type: string, format: uuid },
+                    totalCredits: { type: [integer, 'null'] },
+                    totalTokens: { type: [integer, 'null'] },
+                  },
+              },
+          }
+    AiModelProvider:
+      type: object
+      required:
+        [id, code, adapter, displayName, region, dataTerms, enabled, adapterRegistered, version]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        adapter: { type: string }
+        displayName: { type: string }
+        region: { type: string }
+        dataTerms: { type: object, additionalProperties: true }
+        attestationRef: { type: [string, 'null'] }
+        vaultRef: { type: [string, 'null'] }
+        rateCardVersion: { type: string }
+        rateCard: { type: object, additionalProperties: true }
+        enabled: { type: boolean }
+        enableRequestedBy: { type: [string, 'null'] }
+        enabledBy: { type: [string, 'null'] }
+        adapterRegistered: { type: boolean }
+        version: { type: integer }
+    AiModelProviderList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiModelProvider' } }
+    AiModelProviderAction:
+      type: object
+      required: [action]
+      properties:
+        action:
+          { type: string, enum: [configure, attest, request_enable, enable, disable, kill_switch] }
+        id: { type: string, format: uuid }
+        code: { type: string }
+        adapter: { type: string }
+        displayName: { type: string }
+        region: { type: string }
+        vaultRef: { type: string }
+        rateCard: { type: object, additionalProperties: true }
+        rateCardVersion: { type: string }
+        egressAllow: { type: array, items: { type: string } }
+        dataTerms: { type: object, additionalProperties: true }
+        attestationRef: { type: string }
+        on: { type: boolean }
+        orgId: { type: string, format: uuid }
+    # <<< S37 schemas
+    # >>> S38 schemas
+    AiSessionInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        projectId: { type: string, format: uuid }
+    AiSession:
+      type: object
+      required: [id, title, state, dataRegion, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        projectId: { type: [string, 'null'] }
+        state: { type: string }
+        dataRegion: { type: string }
+        createdAt: { type: string, format: date-time }
+    AiSessionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiSession' } }
+        nextCursor: { type: [string, 'null'] }
+    AiMessageInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 20000 }
+        attachments:
+          { type: array, maxItems: 10, items: { type: object, additionalProperties: true } }
+    AiMessage:
+      type: object
+      required: [id, sessionId, role, content, classification, attachments, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        runId: { type: [string, 'null'] }
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string }
+        classification: { type: string }
+        attachments: { type: array, items: { type: object, additionalProperties: true } }
+        createdAt: { type: string, format: date-time }
+    AiMessagePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiMessage' } }
+        nextCursor: { type: [string, 'null'] }
+    AiRunInput:
+      type: object
+      required: [sessionId, kind]
+      properties:
+        sessionId: { type: string, format: uuid }
+        kind: { type: string, enum: [website, edit, chat, webapp, mobile, test-fix] }
+        projectId: { type: string, format: uuid }
+        input: { type: object, additionalProperties: true }
+        budget:
+          type: object
+          properties:
+            maxTokens: { type: integer, minimum: 1 }
+            maxCredits: { type: integer, minimum: 1 }
+    AiRun:
+      type: object
+      required: [id, sessionId, kind, state, usage, dataRegion, artifacts, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        projectId: { type: [string, 'null'] }
+        kind: { type: string }
+        state:
+          {
+            type: string,
+            enum:
+              [queued, running, waiting_approval, succeeded, failed, cancelled, budget_exceeded],
+          }
+        operationId: { type: [string, 'null'] }
+        step: { type: [string, 'null'] }
+        budget: { type: object, additionalProperties: true }
+        usage: { type: object, additionalProperties: true }
+        dataRegion: { type: string }
+        result: { type: [object, 'null'], additionalProperties: true }
+        error: { type: [object, 'null'], additionalProperties: true }
+        pendingApproval: { type: [object, 'null'], additionalProperties: true }
+        artifacts: { type: array, items: { type: object, additionalProperties: true } }
+        createdAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'] }
+    AiRunPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AiRun' } }
+        nextCursor: { type: [string, 'null'] }
+    AiArtifact:
+      type: object
+      required: [id, type, payload, approved]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        payload: { type: object, additionalProperties: true }
+        approved: { type: boolean }
+    AiCancellation:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [cancelling, cancelled] }
+    AiApprovalDecision:
+      type: object
+      required: [approvalId, decision]
+      properties:
+        approvalId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, deny] }
+        note: { type: string, maxLength: 500 }
+    AiAdminRunPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        nextCursor: { type: [string, 'null'] }
+    # <<< S38 schemas
+    # >>> S39-41 schemas
+    BuilderProjectInput:
+      type: object
+      required: [name]
+      properties:
+        type: { type: string, enum: [website] }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        locale: { type: array, minItems: 1, maxItems: 2, items: { type: string, enum: [ar, en] } }
+        templateId: { type: string }
+    BuilderProjectPatch:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+    BuilderProject:
+      type: object
+      required: [id, type, name, locales, dataRegion, etag, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        name: { type: string }
+        locales: { type: array, items: { type: string } }
+        templateId: { type: [string, 'null'] }
+        headVersionId: { type: [string, 'null'] }
+        headSeq: { type: [integer, 'null'] }
+        dataRegion: { type: string }
+        etag: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        lastDeployment: { type: [object, 'null'], additionalProperties: true }
+    BuilderProjectDetail:
+      allOf:
+        - { $ref: '#/components/schemas/BuilderProject' }
+        - type: object
+          properties:
+            versionId: { type: string, format: uuid }
+            versionSeq: { type: integer }
+            siteModel:
+              {
+                type: object,
+                additionalProperties: true,
+                description: 'Site model v1 (packages/domain builder/site-model)',
+              }
+            seo: { type: object, additionalProperties: true }
+            diff: { type: [object, 'null'], additionalProperties: true }
+    BuilderProjectPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/BuilderProject' } }
+        nextCursor: { type: [string, 'null'] }
+    BuilderProjectDeleted:
+      type: object
+      required: [id, purgeAfter]
+      properties:
+        id: { type: string, format: uuid }
+        purgeAfter: { type: string, format: date-time }
+    BuilderFileList:
+      type: object
+      required: [versionId, items]
+      properties:
+        versionId: { type: string, format: uuid }
+        items: { type: array, items: { type: object, additionalProperties: true } }
+    BuilderFileContent:
+      type: object
+      required: [path, mime, size, encoding, content]
+      properties:
+        path: { type: string }
+        mime: { type: string }
+        size: { type: integer }
+        encoding: { type: string, enum: [utf8, base64] }
+        content: { type: string }
+    BuilderChangeInput:
+      type: object
+      required: [baseVersion, ops]
+      properties:
+        baseVersion: { type: string, format: uuid }
+        ops:
+          {
+            type: array,
+            maxItems: 200,
+            items:
+              {
+                type: object,
+                required: [op],
+                additionalProperties: true,
+                properties:
+                  {
+                    op:
+                      {
+                        type: string,
+                        enum:
+                          [
+                            insertComponent,
+                            updateProps,
+                            moveComponent,
+                            deleteComponent,
+                            setTokens,
+                            setText,
+                            addPage,
+                            deletePage,
+                            updatePage,
+                            setSeo,
+                            setNav,
+                            addAsset,
+                            removeAsset,
+                          ],
+                      },
+                  },
+              },
+          }
+        source: { type: string, enum: [user, ai] }
+        label: { type: string, maxLength: 100 }
+        assetData:
+          {
+            type: object,
+            additionalProperties: { type: string },
+            description: 'base64 image bytes by SHA-256 (PNG, JPEG, WebP, up to 512 KiB)',
+          }
+    BuilderChangeResult:
+      type: object
+      required: [diff, risks, newVersion, inverseOps]
+      properties:
+        diff: { type: object, additionalProperties: true }
+        risks: { type: array, items: { type: object, additionalProperties: true } }
+        newVersion: { type: object, additionalProperties: true }
+        inverseOps: { type: array, items: { type: object, additionalProperties: true } }
+        etag: { type: integer }
+        changeId: { type: [string, 'null'] }
+    BuilderVersionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        nextCursor: { type: [string, 'null'] }
+    BuilderRestoration:
+      type: object
+      required: [versionId, seq, restoredFrom]
+      properties:
+        versionId: { type: string, format: uuid }
+        seq: { type: integer }
+        restoredFrom: { type: string, format: uuid }
+        restoredSeq: { type: integer }
+    BuilderPreviewInput:
+      type: object
+      properties:
+        viewport: { type: string, enum: [mobile, tablet, desktop] }
+        versionId: { type: string, format: uuid }
+    BuilderPreview:
+      type: object
+      required: [id, projectId, versionId, viewport, url, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        versionId: { type: string, format: uuid }
+        viewport: { type: string }
+        url: { type: string }
+        expiresAt: { type: string, format: date-time }
+        revoked: { type: boolean }
+    BuilderPreviewList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+    BuilderFormInput:
+      type: object
+      required: [formKey, name, fields]
+      properties:
+        formKey: { type: string }
+        name: { type: string }
+        fields: { type: array, items: { type: object, additionalProperties: true } }
+        notifyEmail: { type: string }
+        retentionDays: { type: integer }
+    BuilderForm:
+      type: object
+      required:
+        [
+          id,
+          projectId,
+          formKey,
+          name,
+          fields,
+          enabled,
+          retentionDays,
+          submissions,
+          spamBlocked,
+          endpoint,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        formKey: { type: string }
+        name: { type: string }
+        fields: { type: array, items: { type: object, additionalProperties: true } }
+        enabled: { type: boolean }
+        retentionDays: { type: integer }
+        notifyEmailSet: { type: boolean }
+        submissions: { type: integer }
+        spamBlocked: { type: integer }
+        endpoint: { type: string }
+    BuilderFormList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/BuilderForm' } }
+    BuilderSubmissionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        nextCursor: { type: [string, 'null'] }
+    BuilderCmsInput:
+      type: object
+      required: [collectionKey]
+      properties:
+        collectionKey: { type: string }
+        name: { type: string }
+        fields: { type: array, items: { type: object, additionalProperties: true } }
+        items: { type: array, maxItems: 200, items: { type: object, additionalProperties: true } }
+    BuilderCmsList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+    PublicFormInput:
+      type: object
+      additionalProperties: { type: string }
+    DeploymentInput:
+      type: object
+      required: [projectId, target]
+      properties:
+        projectId: { type: string, format: uuid }
+        target: { type: string, format: uuid, description: 'hosting site id' }
+        environment: { type: string, enum: [production, staging] }
+        approvalId: { type: string, format: uuid }
+    Deployment:
+      type: object
+      required: [id, projectId, versionId, target, environment, state, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        versionId: { type: string, format: uuid }
+        target: { type: object, additionalProperties: true }
+        environment: { type: string }
+        state:
+          {
+            type: string,
+            enum: [queued, building, deploying, smoke_checking, succeeded, failed, rolled_back],
+          }
+        operationId: { type: [string, 'null'] }
+        artifactHash: { type: [string, 'null'] }
+        previousDeploymentId: { type: [string, 'null'] }
+        rollbackOf: { type: [string, 'null'] }
+        url: { type: [string, 'null'] }
+        smoke: { type: [object, 'null'], additionalProperties: true }
+        error: { type: [object, 'null'], additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'] }
+    DeploymentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Deployment' } }
+        nextCursor: { type: [string, 'null'] }
+    DeploymentLogs:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+    AiQuality:
+      type: object
+      required: [thresholds, reports]
+      properties:
+        thresholds: { type: object, additionalProperties: { type: number } }
+        reports: { type: array, items: { type: object, additionalProperties: true } }
+    # <<< S39-41 schemas
+    # <<< M09 schemas

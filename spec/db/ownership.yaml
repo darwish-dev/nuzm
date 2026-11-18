@@ -89,7 +89,7 @@ schemas:
     owner_module: ai
     created_by: M09
     extended_by: [M10]
-    tables: [artifacts, budgets, credit_balances, evaluations, messages, model_providers, model_usage, run_steps, runs, sessions, tool_calls]
+    tables: [approvals, artifacts, budgets, credit_balances, evaluations, messages, model_providers, model_usage, reservations, run_events, run_steps, runs, sessions, tool_calls]
   builder:
     owner_module: builder
     created_by: M09
@@ -208,6 +208,10 @@ tenant_less:
   - hosting.plan_definitions
   - hosting.site_allocations
   - hosting.site_migrations
+  # >>> M09 tenant-less
+  # model provider registry (M09 S37): admin console scope; runtime roles read only ENABLED rows (through the gateway)
+  - ai.model_providers
+  # <<< M09 tenant-less
 # isolated by RLS on their own key instead of an org_id column
 rls_keyed:
   - tenancy.organizations
@@ -255,6 +259,16 @@ classification:
     cloud.provider_plans.provider_price_minor: the provider's list price for a plan (our cost input), not a customer's money
     cloud.provider_regions.display_name: the provider's own name of a region, not a person's name
     cloud.resources.provision_token: a deterministic sha256 idempotency key for the provider call (orgId|operationId|stepId), not a credential
+    # >>> M09 exceptions
+    ai.budgets.run_max_tokens: a cap on LLM tokens (a count of text units), not an authentication token
+    ai.budgets.total_tokens: a cap on LLM tokens (a count of text units), not an authentication token
+    ai.model_providers.display_name: the model vendor's own product name, not a person's name
+    ai.model_usage.tokens_in: a count of LLM input tokens (text units), not an authentication token
+    ai.model_usage.tokens_out: a count of LLM output tokens (text units), not an authentication token
+    ai.reservations.tokens: a count of reserved LLM tokens (text units), not an authentication token
+    ai.runs.tokens_in: a count of LLM input tokens (text units), not an authentication token
+    ai.runs.tokens_out: a count of LLM output tokens (text units), not an authentication token
+    # <<< M09 exceptions
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
   #   hash      = one-way hash; the secret itself is never stored          vault_ref = a vault:// reference, the secret lives in the vault
@@ -291,6 +305,14 @@ classification:
     domains.domain_contacts.payload_enc: encrypted
     domains.registrar_accounts.webhook_secret_ref: vault_ref
     domains.registrar_accounts.vault_ref: vault_ref
+    # >>> M09 protection
+    ai.model_providers.vault_ref: vault_ref
+    builder.previews.token_hash: hash
+    builder.form_submissions.payload_enc: encrypted
+    builder.forms.notify_email_enc: encrypted
+    ai.messages.content_enc: encrypted
+    ai.model_usage.body_enc: encrypted
+    # <<< M09 protection
   columns:
     audit.audit_checkpoints:
       id: internal
@@ -2311,3 +2333,353 @@ classification:
       managed_by: internal
       created_at: internal
       updated_at: internal
+    ai.budgets:
+      id: internal
+      org_id: internal
+      scope: internal
+      project_id: internal
+      daily_credits: financial
+      run_max_credits: financial
+      run_max_tokens: internal
+      total_credits: financial
+      total_tokens: internal
+      alert_thresholds: internal
+      log_bodies: internal
+      body_retention_days: internal
+      auto_apply_low_risk: internal
+      updated_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    ai.credit_balances:
+      org_id: internal
+      currency: internal
+      wallet_minor: financial
+      credit_unit_minor: financial
+      reserved_credits: financial
+      refreshed_at: internal
+    ai.model_providers:
+      id: internal
+      code: internal
+      adapter: internal
+      display_name: internal
+      region: internal
+      data_terms: internal
+      attestation_ref: internal
+      attested_by: internal
+      attested_at: internal
+      vault_ref: credentials
+      egress_allow: internal
+      rate_card_version: internal
+      rate_card: internal
+      enabled: internal
+      enable_requested_by: internal
+      enabled_by: internal
+      enabled_at: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    ai.model_usage:
+      id: internal
+      org_id: internal
+      run_id: internal
+      project_id: internal
+      call_id: internal
+      provider_code: internal
+      model_ref: internal
+      task: internal
+      run_kind: internal
+      tokens_in: internal
+      tokens_out: internal
+      estimated: internal
+      cost_minor: financial
+      cost_currency: financial
+      credits: financial
+      outcome: internal
+      error_code: internal
+      latency_ms: internal
+      data_region: internal
+      residency_evidence: internal
+      body_enc: customer-content
+      body_expires_at: internal
+      created_at: internal
+    ai.reservations:
+      id: internal
+      org_id: internal
+      run_id: internal
+      project_id: internal
+      call_id: internal
+      credits: financial
+      tokens: internal
+      state: internal
+      settled_credits: financial
+      created_at: internal
+      expires_at: internal
+      closed_at: internal
+    ai.approvals:
+      id: internal
+      org_id: internal
+      run_id: internal
+      project_id: internal
+      kind: internal
+      action_hash: internal
+      summary: internal
+      state: internal
+      requested_by: internal
+      requested_at: internal
+      expires_at: internal
+      decided_by: internal
+      decided_at: internal
+      note: customer-content
+    ai.artifacts:
+      id: internal
+      org_id: internal
+      run_id: internal
+      project_id: internal
+      type: internal
+      payload: customer-content
+      schema_version: internal
+      data_region: internal
+      approved_by: internal
+      approved_at: internal
+      created_at: internal
+    ai.messages:
+      id: internal
+      org_id: internal
+      session_id: internal
+      run_id: internal
+      role: internal
+      content_enc: customer-content
+      content_hash: internal
+      classification: internal
+      attachments: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+    ai.run_events:
+      run_id: internal
+      seq: internal
+      org_id: internal
+      type: internal
+      data: customer-content
+      created_at: internal
+    ai.runs:
+      id: internal
+      org_id: internal
+      session_id: internal
+      project_id: internal
+      kind: internal
+      state: internal
+      operation_id: internal
+      input: customer-content
+      budget: internal
+      reserved_credits: financial
+      spent_credits: financial
+      tokens_in: internal
+      tokens_out: internal
+      model_ref: internal
+      data_region: internal
+      checkpoint: customer-content
+      step: internal
+      result: internal
+      error: internal
+      cancel_requested: internal
+      idempotency_key: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      started_at: internal
+      finished_at: internal
+      version: internal
+    ai.sessions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      title: customer-content
+      state: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    builder.changes:
+      id: internal
+      org_id: internal
+      project_id: internal
+      base_version_id: internal
+      ops: customer-content
+      diff: customer-content
+      risks: internal
+      status: internal
+      result_version_id: internal
+      source: internal
+      run_id: internal
+      inverse_ops: internal
+      created_by: internal
+      created_at: internal
+      decided_at: internal
+    builder.cms_collections:
+      id: internal
+      org_id: internal
+      project_id: internal
+      collection_key: internal
+      name: customer-content
+      fields: customer-content
+      created_by: internal
+      created_at: internal
+    builder.cms_items:
+      id: internal
+      org_id: internal
+      collection_id: internal
+      data: customer-content
+      state: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      published_at: internal
+      version: internal
+    builder.form_submissions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      form_id: internal
+      payload_enc: personal
+      ip_hash: personal
+      classification: internal
+      data_region: internal
+      notified: internal
+      expires_at: internal
+      created_at: internal
+    builder.forms:
+      id: internal
+      org_id: internal
+      project_id: internal
+      form_key: internal
+      name: customer-content
+      fields: customer-content
+      enabled: internal
+      notify_email_enc: personal
+      retention_days: internal
+      spam_count: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    builder.pages:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      page_id: internal
+      locale: internal
+      slug: customer-content
+      path: internal
+      title: customer-content
+      seo: internal
+    builder.previews:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      token_hash: credentials
+      viewport: internal
+      origin: internal
+      expires_at: internal
+      revoked_at: internal
+      created_by: internal
+      created_at: internal
+    builder.project_files:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      path: internal
+      content_hash: internal
+      storage_ref: internal
+      size: internal
+      mime: internal
+      content: customer-content
+      created_at: internal
+    builder.project_versions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      parent_id: internal
+      seq: internal
+      site_model: customer-content
+      model_hash: internal
+      label: customer-content
+      named: internal
+      source: internal
+      run_id: internal
+      restored_from: internal
+      created_by: internal
+      created_at: internal
+    builder.projects:
+      id: internal
+      org_id: internal
+      workspace_id: internal
+      type: internal
+      name: customer-content
+      locales: internal
+      template_id: internal
+      head_version_id: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+      deleted_purge_after: internal
+      version: internal
+    deploy.builds:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      state: internal
+      base_url: internal
+      artifact_hash: internal
+      artifact: internal
+      file_count: internal
+      size_bytes: internal
+      issues: internal
+      build_ms: internal
+      error: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      finished_at: internal
+    deploy.deployment_logs:
+      id: internal
+      org_id: internal
+      deployment_id: internal
+      seq: internal
+      level: internal
+      message: customer-content
+      data: customer-content
+      created_at: internal
+    deploy.deployments:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      target_kind: internal
+      target_ref: internal
+      environment: internal
+      state: internal
+      operation_id: internal
+      build_id: internal
+      artifact_hash: internal
+      previous_deployment_id: internal
+      rollback_of: internal
+      url: internal
+      smoke: internal
+      error: internal
+      approval_id: internal
+      idempotency_key: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      finished_at: internal
+      version: internal

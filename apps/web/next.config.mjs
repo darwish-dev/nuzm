@@ -1,5 +1,10 @@
 const api = process.env.API_ORIGIN ?? 'http://127.0.0.1:4000';
 const dev = process.env.NODE_ENV !== 'production';
+// The builder preview runs on an ISOLATED origin `<token>.<previewDomain>` (ADR-021; same variables as the API). Only that registrable domain may be framed.
+const previewDomain = (
+  process.env.BUILDER_PREVIEW_DOMAIN ?? 'preview.nuzm-preview.test'
+).toLowerCase();
+const previewScheme = process.env.BUILDER_PREVIEW_SCHEME === 'http' ? 'http' : 'https';
 
 /**
  * Security headers (M01 §9.7). The CSP keeps `'unsafe-inline'` for scripts because Next.js emits inline hydration
@@ -13,6 +18,7 @@ const csp = [
   "img-src 'self' data:",
   "font-src 'self'",
   "connect-src 'self'",
+  `frame-src 'self' ${previewScheme}://*.${previewDomain}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

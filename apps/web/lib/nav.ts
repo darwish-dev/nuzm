@@ -19,6 +19,7 @@ import {
 export type CategoryId =
   | 'dashboard'
   | 'projects'
+  | 'build'
   | 'cloud'
   | 'hosting'
   | 'domains'
@@ -65,6 +66,48 @@ export const CATEGORIES: Category[] = [
             label: 'nav.workspaces',
             href: '/workspaces',
             perm: ['workspace:read'],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'build',
+    icon: 'code',
+    label: 'nc.cat.build',
+    title: 'nc.cat.build',
+    roots: ['/builder', '/ai'],
+    org: true,
+    groups: [
+      {
+        id: 'builder',
+        items: [
+          {
+            id: 'builder',
+            label: 'bld.nav.builder',
+            href: '/builder/projects',
+            perm: ['builder:read'],
+            flag: 'ai.enabled',
+          },
+        ],
+      },
+      {
+        id: 'ai',
+        title: 'aiu.nav.ai',
+        items: [
+          {
+            id: 'aiUsage',
+            label: 'aiu.tab.usage',
+            href: '/ai/usage',
+            perm: ['ai:read'],
+            flag: 'ai.enabled',
+          },
+          {
+            id: 'aiBudgets',
+            label: 'aiu.tab.budgets',
+            href: '/ai/budgets',
+            perm: ['ai:read'],
+            flag: 'ai.enabled',
           },
         ],
       },

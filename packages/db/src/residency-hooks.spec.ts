@@ -56,6 +56,8 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
       'm08-mailbox',
       'm08-object-storage',
       'm08-transactional-email',
+      'm09-builder-assets',
+      'm09-model-gateway',
     ]);
     expect(reg.hooks.filter((h) => h.enforcement === 'exempt').map((h) => h.id)).toEqual([
       'm03-zatca-submission',
@@ -66,8 +68,10 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
 describe('hook registry rules', () => {
   it('a table with a data_region column and no registration fails', () => {
     expect(
-      evaluateHooks(reg, [...tables, 'ai.runs'], kinds, none).map((x) => `${x.kind} ${x.object}`),
-    ).toEqual(['table_without_hook ai.runs']);
+      evaluateHooks(reg, [...tables, 'mobile.builds'], kinds, none).map(
+        (x) => `${x.kind} ${x.object}`,
+      ),
+    ).toEqual(['table_without_hook mobile.builds']);
   });
   it('a registered table that no longer has the column, and an unknown hook, fail', () => {
     const r = clone();

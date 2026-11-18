@@ -18,10 +18,11 @@ const all = (over: Partial<NavContext> = {}): NavContext => ({
 const ids = (c: ReturnType<typeof buildNav>) => c.map((x) => x.id);
 
 describe('categories', () => {
-  it('an owner with every flag sees all nine rail categories (and the profile one for the avatar)', () => {
+  it('an owner with every flag sees every rail category (and the profile one for the avatar)', () => {
     expect(ids(buildNav(all()))).toEqual([
       'dashboard',
       'projects',
+      'build',
       'cloud',
       'hosting',
       'domains',

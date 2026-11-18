@@ -1,4 +1,13 @@
-import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, verify, generateKeyPairSync, type KeyObject } from 'node:crypto';
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  randomBytes,
+  sign,
+  verify,
+  generateKeyPairSync,
+  type KeyObject,
+} from 'node:crypto';
 
 /** Signed command envelope (docs/runbooks/node-agent-threat-model.md §2). Ed25519 over `nuzm-agent-cmd-v1\n` + canonical JSON of the body. */
 export interface EnvelopeBody {
@@ -27,7 +36,8 @@ const DOMAIN_SEP = 'nuzm-agent-cmd-v1\n';
 /** Canonical JSON: keys sorted at every level, no whitespace. `undefined` members are dropped (they do not exist in JSON). */
 export function canonicalize(v: unknown): string {
   if (v === null || typeof v !== 'object') return JSON.stringify(v);
-  if (Array.isArray(v)) return `[${v.map((x) => canonicalize(x === undefined ? null : x)).join(',')}]`;
+  if (Array.isArray(v))
+    return `[${v.map((x) => canonicalize(x === undefined ? null : x)).join(',')}]`;
   const o = v as Record<string, unknown>;
   return `{${Object.keys(o)
     .filter((k) => o[k] !== undefined)
@@ -53,7 +63,11 @@ export const publicKeyFromPem = (pem: string): KeyObject => createPublicKey(pem)
 
 export function signEnvelope(
   key: SigningKey,
-  fields: Omit<EnvelopeBody, 'v' | 'keyId' | 'nonce' | 'issuedAt' | 'expiresAt'> & { ttlMs?: number; now?: Date; nonce?: string },
+  fields: Omit<EnvelopeBody, 'v' | 'keyId' | 'nonce' | 'issuedAt' | 'expiresAt'> & {
+    ttlMs?: number;
+    now?: Date;
+    nonce?: string;
+  },
 ): Envelope {
   const now = fields.now ?? new Date();
   const ttl = Math.min(fields.ttlMs ?? 120_000, MAX_TTL_MS);
@@ -69,7 +83,11 @@ export function signEnvelope(
     commandId: fields.commandId,
     args: fields.args,
   };
-  const signature = sign(null, Buffer.from(DOMAIN_SEP + canonicalize(body)), key.privateKey).toString('base64');
+  const signature = sign(
+    null,
+    Buffer.from(DOMAIN_SEP + canonicalize(body)),
+    key.privateKey,
+  ).toString('base64');
   return { body, signature };
 }
 
@@ -112,7 +130,7 @@ export function verifyEnvelope(
   if (text.length > MAX_ENVELOPE_BYTES) return { ok: false, reason: 'oversize' };
   const key = opts.keys.get(body.keyId);
   if (!key) return { ok: false, reason: 'unknown_key' };
-  let good = false;
+  let good: boolean;
   try {
     good = verify(null, Buffer.from(DOMAIN_SEP + text), key, Buffer.from(env.signature, 'base64'));
   } catch {
@@ -123,7 +141,8 @@ export function verifyEnvelope(
   if (body.nodeId !== opts.nodeId) return { ok: false, reason: 'wrong_node' };
   const issued = Date.parse(body.issuedAt);
   const expires = Date.parse(body.expiresAt);
-  if (!Number.isFinite(issued) || !Number.isFinite(expires)) return { ok: false, reason: 'malformed' };
+  if (!Number.isFinite(issued) || !Number.isFinite(expires))
+    return { ok: false, reason: 'malformed' };
   if (expires - issued > MAX_TTL_MS) return { ok: false, reason: 'ttl_too_long' };
   const t = opts.now.getTime();
   if (t > expires) return { ok: false, reason: 'expired' };

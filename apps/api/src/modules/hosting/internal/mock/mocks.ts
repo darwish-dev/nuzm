@@ -18,10 +18,20 @@ export class MemoryBackupSink implements BackupSink {
   readonly kind = 'node-local-segregated' as const;
   readonly productionReady = false;
   readonly store = new Map<string, Buffer>();
-  async put(region: string, siteName: string, backupId: string, data: Buffer): Promise<BackupSinkPut> {
+  async put(
+    region: string,
+    siteName: string,
+    backupId: string,
+    data: Buffer,
+  ): Promise<BackupSinkPut> {
     const ref = sinkRefOf(region, siteName, backupId);
     this.store.set(ref, Buffer.from(data));
-    return { ref, sizeBytes: data.length, checksum: createHash('sha256').update(data).digest('hex'), region };
+    return {
+      ref,
+      sizeBytes: data.length,
+      checksum: createHash('sha256').update(data).digest('hex'),
+      region,
+    };
   }
   async get(ref: string) {
     return this.store.get(ref) ?? null;
@@ -73,7 +83,14 @@ export class MemoryVault implements VaultPort {
 export class MockDomainOwnershipVerifier implements DomainOwnershipVerifier {
   readonly confirmed = new Set<string>();
   challenge(_orgId: string, _siteId: string, domain: string, token: string): DomainChallenge {
-    return { method: 'dns_txt', record: { name: `_nuzm-challenge.${domain}`, type: 'TXT', value: `nuzm-site-verification=${token}` } };
+    return {
+      method: 'dns_txt',
+      record: {
+        name: `_nuzm-challenge.${domain}`,
+        type: 'TXT',
+        value: `nuzm-site-verification=${token}`,
+      },
+    };
   }
   async verify(orgId: string, siteId: string, domain: string, token: string) {
     return this.confirmed.has(`${orgId}|${siteId}|${domain}|${token}`);
@@ -108,11 +125,25 @@ export class InMemoryComputeProvisioning implements ComputeProvisioningPort {
   async describe(id: string) {
     return this.instances.get(id) ?? null;
   }
-  async provision(req: { idempotencyToken: string; dataRegion: string; vcpu: number; memoryMb: number; diskGb: number }) {
+  async provision(req: {
+    idempotencyToken: string;
+    dataRegion: string;
+    vcpu: number;
+    memoryMb: number;
+    diskGb: number;
+  }) {
     const existing = this.byToken.get(req.idempotencyToken);
     if (existing) return this.instances.get(existing)!;
     const id = `fake-i-${this.instances.size + 1}`;
-    const info: ComputeInstanceInfo = { computeInstanceId: id, region: req.dataRegion, dataRegion: req.dataRegion, vcpu: req.vcpu, memoryMb: req.memoryMb, diskGb: req.diskGb, status: 'running' };
+    const info: ComputeInstanceInfo = {
+      computeInstanceId: id,
+      region: req.dataRegion,
+      dataRegion: req.dataRegion,
+      vcpu: req.vcpu,
+      memoryMb: req.memoryMb,
+      diskGb: req.diskGb,
+      status: 'running',
+    };
     this.instances.set(id, info);
     this.byToken.set(req.idempotencyToken, id);
     return info;
@@ -122,6 +153,11 @@ export class InMemoryComputeProvisioning implements ComputeProvisioningPort {
   }
 }
 
-export const testCtx = (traceId = 'trace-test'): AccountContext => ({ providerAccountId: 'platform-hosting', credentialRef: 'vault://hosting/test-agent', traceId, deadlineMs: 5000 });
+export const testCtx = (traceId = 'trace-test'): AccountContext => ({
+  providerAccountId: 'platform-hosting',
+  credentialRef: 'vault://hosting/test-agent',
+  traceId,
+  deadlineMs: 5000,
+});
 
 export type { AcmeClient };

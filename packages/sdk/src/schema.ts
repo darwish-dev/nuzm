@@ -2460,6 +2460,410 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/hosting/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List hosting plans that have capacity
+         * @description Plan definitions (quotas, runtimes, price, region) offered to the organization: only plans with at least one eligible node region that has room AND that the data residency policy allows; plans without capacity are hidden. A plan price marked placeholder is not a published price. `/v1/offers?kind=hosting` is what can be bought now (SI-M06-2).
+         */
+        get: operations["listHostingPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the organization hosting sites
+         * @description Newest first; deleted sites are not listed. The node is never part of a customer response.
+         */
+        get: operations["listHostingSites"];
+        put?: never;
+        /**
+         * Create a hosting site from a quote
+         * @description Consumes a `hosting` quote (409 quote_expired when expired; one site per quote: a replay returns the same site), checks the spend/quota authorization, the hosting.sites.max entitlement (422 quota_exceeded), the residency policy (403 residency_denied) and capacity (409 no_capacity: never oversold), reserves capacity atomically and starts the creation operation (202). The runtime must be one the chosen node reports (422 unsupported_runtime). Needs Idempotency-Key. Audited.
+         */
+        post: operations["createHostingSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a hosting site
+         * @description Site with status, plan, data region, runtime, domains, quotas and usage summary; the ETag is the version for If-Match. An id of another organization is 404.
+         */
+        get: operations["getHostingSite"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete (offboard) a hosting site
+         * @description Needs the header `X-Confirm-Delete: <siteName>`. Starts the offboarding operation: an export window (default 14 days, proposal) and then a verified wipe (files, database, user, vhost, certificates, cron, vault secrets); backups are kept until their retention expires. 409 legal_hold_active while a legal hold covers the site.
+         */
+        delete: operations["deleteHostingSite"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a hosting site
+         * @description name, settings, planId (a plan change re-checks capacity: 409 no_capacity when the node cannot take it) and runtime (must be offered by the plan and the node). Only an active site can change (409 site_not_active). Needs If-Match.
+         */
+        patch: operations["patchHostingSite"];
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the domains of a site
+         * @description Bindings with state pending|verified|active and, while pending, the verification record.
+         */
+        get: operations["listHostingSiteDomains"];
+        put?: never;
+        /**
+         * Bind a domain to a site
+         * @description The first call for a domain creates a pending binding (201) and returns the verification record to publish; later calls re-check: verified -> 202 with the vhost operation, still unverified -> 422 ownership_unverified (with the record). A domain is unique among verified bindings across organizations (409 domain_in_use). Nothing unverified reaches the node. Needs Idempotency-Key.
+         */
+        post: operations["bindHostingSiteDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/ssl-certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the certificates of a site
+         * @description Status, expiry, days to expiry, attempts and the last error code (never key material).
+         */
+        get: operations["listHostingSiteCertificates"];
+        put?: never;
+        /**
+         * Request a TLS certificate
+         * @description mode managed: issued ON THE NODE for domains that are active bindings of the site, renewed 30 days before expiry (proposal), failures back off. mode custom: certificate + privateKey (or a vault certRef): the private key goes to the vault only and is never stored in the database, logs, audit or responses. 202 + operation. Needs Idempotency-Key.
+         */
+        post: operations["requestHostingSiteCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the database bindings of a site
+         * @description `available` is false until a database provider (M08) is enabled.
+         */
+        get: operations["listHostingSiteDatabases"];
+        put?: never;
+        /**
+         * Bind a managed database to a site
+         * @description 422 unsupported_capability until a database provider (M08) is enabled: never a silent no-op.
+         */
+        post: operations["bindHostingSiteDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search hosting sites across organizations
+         * @description Staff search (filters orgId, status, q = name or node site name). Every read is audited as `hosting.admin.cross_org_read`. Permission admin:hosting:read.
+         */
+        get: operations["adminListHostingSites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/sites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a site as staff
+         * @description Includes the organization and the node. Audited as a cross-organization read.
+         */
+        get: operations["adminGetHostingSite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Suspend or reinstate a site
+         * @description {status: suspended|active, reason}: needs admin:hosting:manage, MFA step-up and a reason (5..200 characters). The node must confirm before the state changes (503 otherwise, nothing changed). Audited (`hosting.site.suspended|resumed`). SI-M06-3 / PA-14.
+         */
+        patch: operations["adminPatchHostingSite"];
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the backups of a site
+         * @description Newest first; size, checksum, status and expiry (retention). Never keys or file content.
+         */
+        get: operations["listHostingSiteBackups"];
+        put?: never;
+        /**
+         * Create a backup of a site
+         * @description Encrypted on the node with the PER-SITE key and stored in the backup sink of the site region (residency checked, 403 residency_denied). 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.
+         */
+        post: operations["createHostingSiteBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/backups/{backupId}/download-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an expiring download link for a backup
+         * @description The link is HMAC-signed and bound to the organization, site and backup; it expires (default 5 minutes). Only an available backup. Another organization backup id is 404.
+         */
+        post: operations["createHostingBackupDownloadLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/backup-downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a backup archive
+         * @description Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the encrypted per-site archive.
+         */
+        get: operations["downloadHostingBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/restores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a site from a backup
+         * @description Makes a PRE-RESTORE SAFETY BACKUP first, restores, then verifies the checksum; the site is `restoring` meanwhile (409 restore_in_progress for a second request). A corrupt backup is detected before anything is overwritten and marked corrupt. 202 + operation. Needs Idempotency-Key.
+         */
+        post: operations["restoreHostingSiteBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage and quota state of a site
+         * @description Latest reported disk, inodes, monthly bandwidth, backup size and processes with the state (ok|soft|hard) of every quota. Soft threshold 80 % and hard 100 % of the plan limits (proposals).
+         */
+        get: operations["getHostingSiteUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/sites/{id}/migrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Migrations of a site
+         * @description State per migration: pending|backing_up|restoring|verifying|switched|failed|rolled_back.
+         */
+        get: operations["listHostingSiteMigrations"];
+        put?: never;
+        /**
+         * Migrate a site to another node
+         * @description Drain/maintenance: backup, create on the target (same data region), restore, verify the checksum, switch, then remove from the source. The source serves until verified; a failure leaves it untouched. Needs Idempotency-Key, admin:hosting:manage, MFA step-up.
+         */
+        post: operations["migrateHostingSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/abuse-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List hosting abuse cases
+         * @description The abuse queue (SI-M06-1 / PA-14): filters state, severity, siteId. Includes evidence references. Permission admin:hosting:read.
+         */
+        get: operations["listHostingAbuseCases"];
+        put?: never;
+        /**
+         * Open an abuse case
+         * @description {siteId, source: detector|report|staff, severity, reasonCode, evidenceRefs[], action?: notify|throttle|suspend}. Evidence by reference only. The action (and its reason code) is audited. Needs Idempotency-Key, admin:hosting:abuse, MFA step-up. 201 when opened, 200 on a replay.
+         */
+        post: operations["openHostingAbuseCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/abuse-cases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an abuse case
+         * @description Case with actions, evidence references and the appeal.
+         */
+        get: operations["getHostingAbuseCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Action, close or decide the appeal of an abuse case
+         * @description {action: notify|throttle|suspend|close, note?} or {decision: upheld|overturned, note?} (the appeal; 403 for the person who actioned the case; overturned lifts the suspension/throttle). Needs admin:hosting:abuse and MFA step-up. Audited (`hosting.abuse.case.actioned|appeal_decided|closed`).
+         */
+        patch: operations["patchHostingAbuseCase"];
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/abuse-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Abuse cases of a site (customer view)
+         * @description Reason code, state, actions and the appeal; never the evidence references.
+         */
+        get: operations["listHostingSiteAbuseCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/abuse-cases/{caseId}/appeals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Appeal an actioned abuse case
+         * @description Only an actioned case that was not appealed yet (409 otherwise); 10..2000 characters. Staff decide (never the person who actioned the case). Needs Idempotency-Key.
+         */
+        post: operations["appealHostingAbuseCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4851,6 +5255,362 @@ export interface components {
                 /** Format: date-time */
                 certRotatedAt?: string | null;
             }[];
+        };
+        HostingPlan: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            quotas: {
+                diskMb: number;
+                inodes: number;
+                bandwidthGb: number;
+                dbCount: number;
+                sitesCount: number;
+                maxProcesses?: number;
+            };
+            price?: {
+                amountMinor?: string;
+                currency?: string;
+                placeholder?: boolean;
+            } | null;
+            runtimes: string[];
+            regions: string[];
+            country?: string | null;
+        };
+        HostingPlanList: {
+            items: components["schemas"]["HostingPlan"][];
+        };
+        HostingSite: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "creating" | "active" | "suspended" | "restoring" | "deleting" | "deleted" | "failed";
+            plan: {
+                /** Format: uuid */
+                id: string;
+                key: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            dataRegion: string;
+            runtime: string;
+            primaryDomain?: string | null;
+            domains: {
+                /** Format: uuid */
+                id: string;
+                domain: string;
+                state: string;
+                primary: boolean;
+            }[];
+            quotas: {
+                dim: string;
+                limit: number;
+                soft: number;
+            }[];
+            usageSummary?: {
+                diskMb?: number;
+                inodes?: number;
+            } | null;
+            suspension?: {
+                reason?: string | null;
+                by?: string;
+            } | null;
+            failureReason?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+            settings?: Record<string, never>;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description Staff responses only.
+             */
+            orgId?: string;
+            /**
+             * Format: uuid
+             * @description Staff responses only.
+             */
+            nodeId?: string | null;
+            /** @description Staff responses only. */
+            nodeName?: string | null;
+        };
+        HostingSitePage: {
+            items: components["schemas"]["HostingSite"][];
+            nextCursor: string | null;
+        };
+        CreateHostingSite: {
+            /** Format: uuid */
+            quoteId: string;
+            /** Format: uuid */
+            planId: string;
+            name: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            environmentId?: string;
+            /** @description A runtime id reported by a node */
+            runtime: string;
+            primaryDomain?: string;
+        };
+        CreateHostingSiteResult: {
+            site: components["schemas"]["HostingSite"];
+            /** Format: uuid */
+            operationId: string;
+        };
+        PatchHostingSite: {
+            name?: string;
+            /** Format: uuid */
+            planId?: string;
+            runtime?: string;
+            settings?: Record<string, never>;
+        };
+        DeleteHostingSiteResult: {
+            /** Format: uuid */
+            operationId: string;
+            site: components["schemas"]["HostingSite"];
+        };
+        HostingDomainBinding: {
+            /** Format: uuid */
+            id: string;
+            domain: string;
+            /** @enum {string} */
+            state: "pending" | "verified" | "active" | "removed";
+            primary: boolean;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            verification?: {
+                /** @enum {string} */
+                method?: "dns_txt" | "http";
+                record?: Record<string, never>;
+            } | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        BindHostingDomain: {
+            domain: string;
+            primary?: boolean;
+        };
+        BindHostingDomainResult: {
+            binding: components["schemas"]["HostingDomainBinding"];
+            /** Format: uuid */
+            operationId?: string | null;
+        };
+        HostingDomainList: {
+            items: components["schemas"]["HostingDomainBinding"][];
+        };
+        HostingCertificate: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            mode: "managed" | "custom";
+            domains: string[];
+            /** @enum {string} */
+            status: "pending" | "issued" | "failed" | "removed";
+            /** Format: date-time */
+            notAfter?: string | null;
+            /** Format: date-time */
+            renewAfter?: string | null;
+            attempts: number;
+            /** Format: date-time */
+            nextAttemptAt?: string | null;
+            lastError?: string | null;
+            expiresInDays?: number | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RequestHostingCertificate: {
+            /** @enum {string} */
+            mode: "managed" | "custom";
+            domains: string[];
+            /** @description A vault reference of an already uploaded certificate (custom). */
+            certRef?: string;
+            /** @description PEM certificate (custom). */
+            certificate?: string;
+            /** @description PEM private key (custom). Goes to the vault only; never returned or stored elsewhere. */
+            privateKey?: string;
+            chain?: string;
+        };
+        RequestHostingCertificateResult: {
+            certificate: components["schemas"]["HostingCertificate"];
+            /** Format: uuid */
+            operationId: string;
+        };
+        HostingCertificateList: {
+            items: components["schemas"]["HostingCertificate"][];
+        };
+        HostingDatabaseList: {
+            items: Record<string, never>[];
+            available: boolean;
+        };
+        AdminPatchHostingSite: {
+            /** @enum {string} */
+            status: "suspended" | "active";
+            reason: string;
+        };
+        HostingBackup: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "scheduled" | "on_demand" | "pre_restore" | "pre_migration" | "export";
+            label?: string | null;
+            /** @enum {string} */
+            status: "creating" | "available" | "failed" | "corrupt" | "deleted";
+            sizeBytes?: number | null;
+            /** @description SHA-256 of the encrypted archive. */
+            checksum?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt?: string | null;
+            failureReason?: string | null;
+        };
+        CreateHostingBackup: {
+            label?: string;
+        };
+        CreateHostingBackupResult: {
+            backup: components["schemas"]["HostingBackup"];
+            /** Format: uuid */
+            operationId: string;
+        };
+        HostingBackupList: {
+            items: components["schemas"]["HostingBackup"][];
+        };
+        HostingBackupDownloadLink: {
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        RestoreHostingBackup: {
+            /** Format: uuid */
+            backupId: string;
+        };
+        RestoreHostingBackupResult: {
+            /** Format: uuid */
+            operationId: string;
+            site: {
+                /** Format: uuid */
+                id?: string;
+                status?: string;
+            };
+        };
+        HostingSiteUsage: {
+            /** @description UTC month, 2026-11. */
+            period: string;
+            diskMb: number;
+            inodes: number;
+            bandwidthGbMonth: number;
+            backupGb: number;
+            processes: number;
+            /** Format: date-time */
+            observedAt?: string | null;
+            quotas: {
+                dim: string;
+                used: number;
+                soft: number;
+                limit: number;
+                /** @enum {string} */
+                state: "ok" | "soft" | "hard";
+            }[];
+        };
+        MigrateHostingSite: {
+            /** Format: uuid */
+            targetNodeId: string;
+        };
+        MigrateHostingSiteResult: {
+            /** Format: uuid */
+            migrationId: string;
+            /** Format: uuid */
+            operationId: string;
+        };
+        HostingMigrationList: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                siteId: string;
+                /** Format: uuid */
+                fromNodeId: string;
+                /** Format: uuid */
+                toNodeId: string;
+                state: string;
+                error?: string | null;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        HostingAbuseCase: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            siteId: string;
+            /**
+             * Format: uuid
+             * @description Staff responses only.
+             */
+            orgId?: string;
+            /** @enum {string} */
+            source: "detector" | "report" | "staff";
+            detector?: string | null;
+            /** @enum {string} */
+            severity: "low" | "medium" | "high" | "critical";
+            /** @enum {string} */
+            state: "open" | "actioned" | "appealed" | "closed";
+            reasonCode: string;
+            actions: {
+                action: string;
+                by?: string | null;
+                /** Format: date-time */
+                at: string;
+                note?: string;
+            }[];
+            /** @description Staff responses only. */
+            evidenceRefs?: string[];
+            appeal?: {
+                text?: string;
+                /** Format: date-time */
+                at?: string;
+                /** @enum {string|null} */
+                decision?: "upheld" | "overturned" | null;
+                /** Format: date-time */
+                decidedAt?: string | null;
+            } | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            closedAt?: string | null;
+        };
+        HostingAbuseCaseList: {
+            items: components["schemas"]["HostingAbuseCase"][];
+        };
+        OpenHostingAbuseCase: {
+            /** Format: uuid */
+            siteId: string;
+            /** @enum {string} */
+            source: "detector" | "report" | "staff";
+            /** @enum {string} */
+            severity: "low" | "medium" | "high" | "critical";
+            reasonCode: string;
+            evidenceRefs?: string[];
+            /** @enum {string} */
+            action?: "notify" | "throttle" | "suspend";
+        };
+        PatchHostingAbuseCase: {
+            /** @enum {string} */
+            action?: "notify" | "throttle" | "suspend" | "close";
+            /** @enum {string} */
+            decision?: "upheld" | "overturned";
+            note?: string;
+        };
+        AppealHostingAbuseCase: {
+            text: string;
         };
     };
     responses: {
@@ -9781,6 +10541,935 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+        };
+    };
+    listHostingPlans: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingPlanList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listHostingSites: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingSitePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createHostingSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingSite"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateHostingSiteResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getHostingSite: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingSite"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                "X-Confirm-Delete": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteHostingSiteResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    patchHostingSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchHostingSite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingSite"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingSiteDomains: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingDomainList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    bindHostingSiteDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BindHostingDomain"];
+            };
+        };
+        responses: {
+            /** @description Binding already exists */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BindHostingDomainResult"];
+                };
+            };
+            /** @description Pending binding created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BindHostingDomainResult"];
+                };
+            };
+            /** @description Verified: the vhost operation started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BindHostingDomainResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listHostingSiteCertificates: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCertificateList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    requestHostingSiteCertificate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestHostingCertificate"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestHostingCertificateResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listHostingSiteDatabases: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingDatabaseList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    bindHostingSiteDatabase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminListHostingSites: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                orgId?: string;
+                nodeId?: string;
+                status?: string;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingSitePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminGetHostingSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingSite"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminPatchHostingSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPatchHostingSite"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingSite"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingSiteBackups: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingBackupList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createHostingSiteBackup: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingBackup"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateHostingBackupResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createHostingBackupDownloadLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingBackupDownloadLink"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    downloadHostingBackup: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The encrypted archive (application/octet-stream) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+        };
+    };
+    restoreHostingSiteBackup: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreHostingBackup"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreHostingBackupResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getHostingSiteUsage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingSiteUsage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listHostingSiteMigrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMigrationList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    migrateHostingSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MigrateHostingSite"];
+            };
+        };
+        responses: {
+            /** @description Started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrateHostingSiteResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listHostingAbuseCases: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                state?: "open" | "actioned" | "appealed" | "closed";
+                severity?: "low" | "medium" | "high" | "critical";
+                siteId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAbuseCaseList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    openHostingAbuseCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenHostingAbuseCase"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAbuseCase"];
+                };
+            };
+            /** @description Opened */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAbuseCase"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getHostingAbuseCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAbuseCase"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    patchHostingAbuseCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchHostingAbuseCase"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAbuseCase"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingSiteAbuseCases: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAbuseCaseList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    appealHostingAbuseCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppealHostingAbuseCase"];
+            };
+        };
+        responses: {
+            /** @description Appealed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAbuseCase"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }

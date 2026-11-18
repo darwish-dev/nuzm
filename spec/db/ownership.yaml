@@ -69,7 +69,7 @@ schemas:
     owner_module: hosting
     created_by: M06
     extended_by: [M10]
-    tables: [abuse_cases, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, site_allocations, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports]
+    tables: [abuse_cases, metering_marks, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, site_allocations, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports]
   domains:
     owner_module: domains
     created_by: M07
@@ -217,6 +217,7 @@ classification:
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
     hosting.plan_definitions.price_minor: an entry of the public hosting price list (PLACEHOLDER until published), not a customer's money
+    hosting.site_domain_bindings.verification_token: a random domain-ownership challenge value that the customer publishes in their own DNS; proves nothing about us and grants no access
     hosting.sites.token: the deterministic idempotency token sha256(orgId|operationId|stepId) that names the site on its node; derived from ids, grants no access
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
@@ -233,6 +234,8 @@ classification:
     hosting.node_enrolment_tokens.token_hash: hash
     hosting.sites.credentials_ref: vault_ref
     hosting.sites.backup_key_ref: vault_ref
+    hosting.ssl_certificates.secret_ref: vault_ref
+    hosting.site_backups.enc_key_ref: vault_ref
     invoicing.zatca_credentials_refs.key_ref: vault_ref
     invoicing.zatca_credentials_refs.token_ref: vault_ref
     invoicing.zatca_credentials_refs.secret_ref: vault_ref
@@ -1490,4 +1493,137 @@ classification:
       disk_mb: internal
       sites: internal
       created_at: internal
+      updated_at: internal
+    hosting.site_domain_bindings:
+      id: internal
+      site_id: internal
+      org_id: internal
+      domain: personal
+      state: internal
+      is_primary: internal
+      verification_method: internal
+      verification_token: internal
+      verified_at: internal
+      last_checked_at: internal
+      removed_at: internal
+      operation_id: internal
+      created_at: internal
+      updated_at: internal
+    hosting.ssl_certificates:
+      id: internal
+      site_id: internal
+      org_id: internal
+      domains: personal
+      mode: internal
+      status: internal
+      not_after: internal
+      issued_at: internal
+      renew_after: internal
+      secret_ref: credentials
+      node_cert_id: internal
+      attempts: internal
+      next_attempt_at: internal
+      last_error: internal
+      operation_id: internal
+      created_at: internal
+      updated_at: internal
+    hosting.site_quotas:
+      site_id: internal
+      org_id: internal
+      dim: internal
+      limit_value: internal
+      soft_limit: internal
+      state: internal
+      enforced_at: internal
+    hosting.quota_events:
+      id: internal
+      site_id: internal
+      org_id: internal
+      dim: internal
+      threshold: internal
+      period: internal
+      observed: internal
+      created_at: internal
+    hosting.site_usage_reports:
+      site_id: internal
+      org_id: internal
+      period_start: internal
+      disk_bytes: internal
+      inodes: internal
+      bandwidth_bytes_month: internal
+      backup_bytes: internal
+      processes: internal
+      cpu_seconds: internal
+      reported_at: internal
+    hosting.site_backups:
+      id: internal
+      site_id: internal
+      org_id: internal
+      kind: internal
+      label: customer-content
+      status: internal
+      size_bytes: internal
+      checksum: internal
+      manifest: customer-content
+      enc_key_ref: credentials
+      sink_kind: internal
+      sink_ref: internal
+      data_region: internal
+      failure_reason: internal
+      created_by: internal
+      created_at: internal
+      expires_at: internal
+      deleted_at: internal
+    hosting.site_migrations:
+      id: internal
+      site_id: internal
+      from_node_id: internal
+      to_node_id: internal
+      state: internal
+      backup_id: internal
+      operation_id: internal
+      error: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    hosting.abuse_cases:
+      id: internal
+      site_id: internal
+      org_id: internal
+      source: internal
+      detector: internal
+      severity: internal
+      state: internal
+      reason_code: internal
+      actions: internal
+      evidence_refs: internal
+      appeal_text: personal
+      appealed_at: internal
+      appeal_decision: internal
+      appeal_decided_by: internal
+      appeal_decided_at: internal
+      actioned_by: internal
+      created_by: internal
+      idempotency_key: internal
+      created_at: internal
+      updated_at: internal
+      closed_at: internal
+    hosting.wipe_reports:
+      id: internal
+      site_id: internal
+      org_id: internal
+      node_residual: internal
+      backups_remaining: internal
+      vault_refs_remaining: internal
+      verified: internal
+      residual_total: internal
+      note: internal
+      created_at: internal
+    hosting.metering_marks:
+      site_id: internal
+      org_id: internal
+      meter_id: internal
+      emitted_until: internal
+      last_value: internal
+      period: internal
       updated_at: internal

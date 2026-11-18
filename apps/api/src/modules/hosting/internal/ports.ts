@@ -39,7 +39,8 @@ export interface HostingCapabilityReport {
   probedAt: string;
   evidence: RawEvidence[];
 }
-export const RUNTIME_ID = /^(php|nodejs|python):[0-9]{1,2}(\.[0-9]{1,2})?$|^static$|^reverse-proxy$/;
+export const RUNTIME_ID =
+  /^(php|nodejs|python):[0-9]{1,2}(\.[0-9]{1,2})?$|^static$|^reverse-proxy$/;
 
 /* ───────────── HostingAdapter (docs/09 §3) ───────────── */
 export interface NodeRef {
@@ -96,6 +97,8 @@ export interface BackupRef {
   backupId: string;
   sizeBytes: number;
   checksum: string;
+  /** where the (already encrypted) archive was stored */
+  sinkRef?: string;
   manifest: { path: string; sha256: string; bytes: number }[];
 }
 export interface SiteUsage {
@@ -106,6 +109,9 @@ export interface SiteUsage {
   bandwidthBytesMonth: number;
   cpuSeconds: number;
   processes: number;
+  /** abuse signals measured on the node (egress policy counters, process names): optional, absent = unknown */
+  smtpEgressAttempts?: number;
+  processNames?: string[];
 }
 export interface SiteWipeReport {
   site: string;
@@ -171,7 +177,7 @@ export interface HostingAdapter {
     ctx: AccountContext,
     node: NodeRef,
     siteName: string,
-    t: { idempotencyToken: string; operationId: string },
+    t: { idempotencyToken: string; operationId: string; backupId?: string },
   ): Promise<OperationResult<BackupRef>>;
   restore(
     ctx: AccountContext,
@@ -181,6 +187,12 @@ export interface HostingAdapter {
     t: { idempotencyToken: string; operationId: string },
   ): Promise<OperationResult<{ verified: boolean; checksum: string }>>;
   usage(ctx: AccountContext, node: NodeRef, siteName: string): Promise<OperationResult<SiteUsage>>;
+  /** Read-only residual check after a delete (files, DB, user, vhost, certificates, cron entries left on the node). */
+  verifyWipe(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+  ): Promise<OperationResult<SiteWipeReport>>;
 }
 
 /* ───────────── CloudPanelTransport: how the adapter reaches a node (ADR-020: the node agent) ───────────── */

@@ -4030,7 +4030,11 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: status, in: query, schema: { type: string, enum: [active, draining, maintenance, retired] } }
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [active, draining, maintenance, retired] },
+          }
         - { name: dataRegion, in: query, schema: { type: string } }
       responses:
         '200':
@@ -4072,7 +4076,6 @@ paths:
         '422': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/nodes/{id}:
     get:
-
       operationId: getHostingNode
       tags: [hosting]
       summary: Read a hosting node
@@ -4092,7 +4095,6 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
     patch:
-
       operationId: patchHostingNode
       tags: [hosting]
       summary: Change a node status or overcommit factor
@@ -4123,7 +4125,6 @@ paths:
         '428': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/nodes/{id}/capacity:
     get:
-
       operationId: getHostingNodeCapacity
       tags: [hosting]
       summary: Capacity of a node by dimension and its allocations
@@ -4144,7 +4145,6 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/nodes/{id}/inventory:
     post:
-
       operationId: runHostingNodeInventory
       tags: [hosting]
       summary: Run the inventory job for a node now
@@ -4166,7 +4166,6 @@ paths:
         '409': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/nodes/{id}/enrolment-tokens:
     post:
-
       operationId: issueHostingEnrolmentToken
       tags: [hosting]
       summary: Issue a single-use agent bootstrap token
@@ -4189,7 +4188,6 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/nodes/{id}/command-log:
     get:
-
       operationId: listHostingNodeCommandLog
       tags: [hosting]
       summary: The node agent command audit log
@@ -4226,6 +4224,707 @@ paths:
               schema: { $ref: '#/components/schemas/HostingAgentList' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/plans:
+    get:
+      operationId: listHostingPlans
+      tags: [hosting]
+      summary: List hosting plans that have capacity
+      description: 'Plan definitions (quotas, runtimes, price, region) offered to the organization: only plans with at least one eligible node region that has room AND that the data residency policy allows; plans without capacity are hidden. A plan price marked placeholder is not a published price. `/v1/offers?kind=hosting` is what can be bought now (SI-M06-2).'
+      x-nuzm-permission: hosting:plan:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingPlanList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites:
+    post:
+      operationId: createHostingSite
+      tags: [hosting]
+      summary: Create a hosting site from a quote
+      description: 'Consumes a `hosting` quote (409 quote_expired when expired; one site per quote: a replay returns the same site), checks the spend/quota authorization, the hosting.sites.max entitlement (422 quota_exceeded), the residency policy (403 residency_denied) and capacity (409 no_capacity: never oversold), reserves capacity atomically and starts the creation operation (202). The runtime must be one the chosen node reports (422 unsupported_runtime). Needs Idempotency-Key. Audited.'
+      x-nuzm-permission: hosting:site:create
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingSite' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateHostingSiteResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listHostingSites
+      tags: [hosting]
+      summary: List the organization hosting sites
+      description: 'Newest first; deleted sites are not listed. The node is never part of a customer response.'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingSitePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}:
+    get:
+      operationId: getHostingSite
+      tags: [hosting]
+      summary: Read a hosting site
+      description: 'Site with status, plan, data region, runtime, domains, quotas and usage summary; the ETag is the version for If-Match. An id of another organization is 404.'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingSite' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: patchHostingSite
+      tags: [hosting]
+      summary: Change a hosting site
+      description: 'name, settings, planId (a plan change re-checks capacity: 409 no_capacity when the node cannot take it) and runtime (must be offered by the plan and the node). Only an active site can change (409 site_not_active). Needs If-Match.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatchHostingSite' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingSite' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteHostingSite
+      tags: [hosting]
+      summary: Delete (offboard) a hosting site
+      description: 'Needs the header `X-Confirm-Delete: <siteName>`. Starts the offboarding operation: an export window (default 14 days, proposal) and then a verified wipe (files, database, user, vhost, certificates, cron, vault secrets); backups are kept until their retention expires. 409 legal_hold_active while a legal hold covers the site.'
+      x-nuzm-permission: hosting:site:delete
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: X-Confirm-Delete, in: header, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteHostingSiteResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/domains:
+    post:
+      operationId: bindHostingSiteDomain
+      tags: [hosting]
+      summary: Bind a domain to a site
+      description: 'The first call for a domain creates a pending binding (201) and returns the verification record to publish; later calls re-check: verified -> 202 with the vhost operation, still unverified -> 422 ownership_unverified (with the record). A domain is unique among verified bindings across organizations (409 domain_in_use). Nothing unverified reaches the node. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:domain:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BindHostingDomain' }
+      responses:
+        '202':
+          description: 'Verified: the vhost operation started'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BindHostingDomainResult' }
+        '201':
+          description: 'Pending binding created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BindHostingDomainResult' }
+        '200':
+          description: 'Binding already exists'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BindHostingDomainResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listHostingSiteDomains
+      tags: [hosting]
+      summary: List the domains of a site
+      description: 'Bindings with state pending|verified|active and, while pending, the verification record.'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingDomainList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/ssl-certificates:
+    post:
+      operationId: requestHostingSiteCertificate
+      tags: [hosting]
+      summary: Request a TLS certificate
+      description: 'mode managed: issued ON THE NODE for domains that are active bindings of the site, renewed 30 days before expiry (proposal), failures back off. mode custom: certificate + privateKey (or a vault certRef): the private key goes to the vault only and is never stored in the database, logs, audit or responses. 202 + operation. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:ssl:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RequestHostingCertificate' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequestHostingCertificateResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listHostingSiteCertificates
+      tags: [hosting]
+      summary: List the certificates of a site
+      description: 'Status, expiry, days to expiry, attempts and the last error code (never key material).'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCertificateList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/databases:
+    post:
+      operationId: bindHostingSiteDatabase
+      tags: [hosting]
+      summary: Bind a managed database to a site
+      description: '422 unsupported_capability until a database provider (M08) is enabled: never a silent no-op.'
+      x-nuzm-permission: hosting:database:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '201':
+          description: 'Created'
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listHostingSiteDatabases
+      tags: [hosting]
+      summary: List the database bindings of a site
+      description: '`available` is false until a database provider (M08) is enabled.'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingDatabaseList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/sites:
+    get:
+      operationId: adminListHostingSites
+      tags: [hosting]
+      summary: Search hosting sites across organizations
+      description: 'Staff search (filters orgId, status, q = name or node site name). Every read is audited as `hosting.admin.cross_org_read`. Permission admin:hosting:read.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: orgId, in: query, schema: { type: string, format: uuid } }
+        - { name: nodeId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingSitePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/sites/{id}:
+    get:
+      operationId: adminGetHostingSite
+      tags: [hosting]
+      summary: Read a site as staff
+      description: 'Includes the organization and the node. Audited as a cross-organization read.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingSite' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: adminPatchHostingSite
+      tags: [hosting]
+      summary: Suspend or reinstate a site
+      description: '{status: suspended|active, reason}: needs admin:hosting:manage, MFA step-up and a reason (5..200 characters). The node must confirm before the state changes (503 otherwise, nothing changed). Audited (`hosting.site.suspended|resumed`). SI-M06-3 / PA-14.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPatchHostingSite' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingSite' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/backups:
+    post:
+      operationId: createHostingSiteBackup
+      tags: [hosting]
+      summary: Create a backup of a site
+      description: 'Encrypted on the node with the PER-SITE key and stored in the backup sink of the site region (residency checked, 403 residency_denied). 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:backup:create
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingBackup' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateHostingBackupResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listHostingSiteBackups
+      tags: [hosting]
+      summary: List the backups of a site
+      description: 'Newest first; size, checksum, status and expiry (retention). Never keys or file content.'
+      x-nuzm-permission: hosting:backup:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingBackupList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/backups/{backupId}/download-links:
+    post:
+      operationId: createHostingBackupDownloadLink
+      tags: [hosting]
+      summary: Create an expiring download link for a backup
+      description: 'The link is HMAC-signed and bound to the organization, site and backup; it expires (default 5 minutes). Only an available backup. Another organization backup id is 404.'
+      x-nuzm-permission: hosting:backup:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: backupId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingBackupDownloadLink' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/backup-downloads:
+    get:
+      operationId: downloadHostingBackup
+      tags: [hosting]
+      summary: Download a backup archive
+      description: 'Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the encrypted per-site archive.'
+      x-nuzm-permission: hosting:backup:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: token, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'The encrypted archive (application/octet-stream)'
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/restores:
+    post:
+      operationId: restoreHostingSiteBackup
+      tags: [hosting]
+      summary: Restore a site from a backup
+      description: 'Makes a PRE-RESTORE SAFETY BACKUP first, restores, then verifies the checksum; the site is `restoring` meanwhile (409 restore_in_progress for a second request). A corrupt backup is detected before anything is overwritten and marked corrupt. 202 + operation. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:backup:restore
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RestoreHostingBackup' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestoreHostingBackupResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/usage:
+    get:
+      operationId: getHostingSiteUsage
+      tags: [hosting]
+      summary: Usage and quota state of a site
+      description: 'Latest reported disk, inodes, monthly bandwidth, backup size and processes with the state (ok|soft|hard) of every quota. Soft threshold 80 % and hard 100 % of the plan limits (proposals).'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingSiteUsage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/sites/{id}/migrations:
+    post:
+      operationId: migrateHostingSite
+      tags: [hosting]
+      summary: Migrate a site to another node
+      description: 'Drain/maintenance: backup, create on the target (same data region), restore, verify the checksum, switch, then remove from the source. The source serves until verified; a failure leaves it untouched. Needs Idempotency-Key, admin:hosting:manage, MFA step-up.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MigrateHostingSite' }
+      responses:
+        '201':
+          description: 'Started'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MigrateHostingSiteResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listHostingSiteMigrations
+      tags: [hosting]
+      summary: Migrations of a site
+      description: 'State per migration: pending|backing_up|restoring|verifying|switched|failed|rolled_back.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMigrationList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/abuse-cases:
+    get:
+      operationId: listHostingAbuseCases
+      tags: [hosting]
+      summary: List hosting abuse cases
+      description: 'The abuse queue (SI-M06-1 / PA-14): filters state, severity, siteId. Includes evidence references. Permission admin:hosting:read.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - {
+            name: state,
+            in: query,
+            schema: { type: string, enum: [open, actioned, appealed, closed] },
+          }
+        - {
+            name: severity,
+            in: query,
+            schema: { type: string, enum: [low, medium, high, critical] },
+          }
+        - { name: siteId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAbuseCaseList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: openHostingAbuseCase
+      tags: [hosting]
+      summary: Open an abuse case
+      description: '{siteId, source: detector|report|staff, severity, reasonCode, evidenceRefs[], action?: notify|throttle|suspend}. Evidence by reference only. The action (and its reason code) is audited. Needs Idempotency-Key, admin:hosting:abuse, MFA step-up. 201 when opened, 200 on a replay.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenHostingAbuseCase' }
+      responses:
+        '201':
+          description: 'Opened'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAbuseCase' }
+        '200':
+          description: 'Idempotent replay'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAbuseCase' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/abuse-cases/{id}:
+    get:
+      operationId: getHostingAbuseCase
+      tags: [hosting]
+      summary: Read an abuse case
+      description: 'Case with actions, evidence references and the appeal.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAbuseCase' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: patchHostingAbuseCase
+      tags: [hosting]
+      summary: Action, close or decide the appeal of an abuse case
+      description: '{action: notify|throttle|suspend|close, note?} or {decision: upheld|overturned, note?} (the appeal; 403 for the person who actioned the case; overturned lifts the suspension/throttle). Needs admin:hosting:abuse and MFA step-up. Audited (`hosting.abuse.case.actioned|appeal_decided|closed`).'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatchHostingAbuseCase' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAbuseCase' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/abuse-cases:
+    get:
+      operationId: listHostingSiteAbuseCases
+      tags: [hosting]
+      summary: Abuse cases of a site (customer view)
+      description: 'Reason code, state, actions and the appeal; never the evidence references.'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAbuseCaseList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/abuse-cases/{caseId}/appeals:
+    post:
+      operationId: appealHostingAbuseCase
+      tags: [hosting]
+      summary: Appeal an actioned abuse case
+      description: 'Only an actioned case that was not appealed yet (409 otherwise); 10..2000 characters. Staff decide (never the person who actioned the case). Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: caseId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppealHostingAbuseCase' }
+      responses:
+        '200':
+          description: 'Appealed'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAbuseCase' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -7173,7 +7872,22 @@ components:
             type: object
     HostingNode:
       type: object
-      required: [id, name, computeInstanceId, region, dataRegion, status, agentState, runtimes, overcommitFactor, health, version, createdAt, pendingOvercommit]
+      required:
+        [
+          id,
+          name,
+          computeInstanceId,
+          region,
+          dataRegion,
+          status,
+          agentState,
+          runtimes,
+          overcommitFactor,
+          health,
+          version,
+          createdAt,
+          pendingOvercommit,
+        ]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -7185,7 +7899,12 @@ components:
         agentState: { type: [string, 'null'], enum: [pending, enrolled, revoked, null] }
         agentLastSeenAt: { type: [string, 'null'], format: date-time }
         cloudpanelVersion: { type: [string, 'null'] }
-        runtimes: { type: array, items: { type: string }, description: Runtime ids reported by the node probe. }
+        runtimes:
+          {
+            type: array,
+            items: { type: string },
+            description: Runtime ids reported by the node probe.,
+          }
         overcommitFactor: { type: number }
         health: { type: string, enum: [healthy, degraded, unhealthy, unknown] }
         lastInventoryAt: { type: [string, 'null'], format: date-time }
@@ -7215,7 +7934,8 @@ components:
       required: [node, enrolmentToken]
       properties:
         node: { $ref: '#/components/schemas/HostingNode' }
-        enrolmentToken: { type: [string, 'null'], description: Shown once on creation; null on a replay. }
+        enrolmentToken:
+          { type: [string, 'null'], description: Shown once on creation; null on a replay. }
     PatchHostingNode:
       type: object
       properties:
@@ -7298,3 +8018,385 @@ components:
               enrolledAt: { type: [string, 'null'], format: date-time }
               lastSeenAt: { type: [string, 'null'], format: date-time }
               certRotatedAt: { type: [string, 'null'], format: date-time }
+    HostingPlan:
+      type: object
+      required: [id, key, name, quotas, runtimes, regions]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        name:
+          {
+            type: object,
+            required: [ar, en],
+            properties: { ar: { type: string }, en: { type: string } },
+          }
+        quotas:
+          type: object
+          required: [diskMb, inodes, bandwidthGb, dbCount, sitesCount]
+          properties:
+            diskMb: { type: integer }
+            inodes: { type: integer }
+            bandwidthGb: { type: integer }
+            dbCount: { type: integer }
+            sitesCount: { type: integer }
+            maxProcesses: { type: integer }
+        price:
+          type: [object, 'null']
+          properties:
+            amountMinor: { type: string }
+            currency: { type: string }
+            placeholder: { type: boolean }
+        runtimes: { type: array, items: { type: string } }
+        regions: { type: array, items: { type: string } }
+        country: { type: [string, 'null'] }
+    HostingPlanList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingPlan' } }
+    HostingSite:
+      type: object
+      required: [id, name, status, plan, dataRegion, runtime, domains, quotas, version, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          {
+            type: string,
+            enum: [creating, active, suspended, restoring, deleting, deleted, failed],
+          }
+        plan:
+          type: object
+          required: [id, key, name]
+          properties:
+            id: { type: string, format: uuid }
+            key: { type: string }
+            name:
+              type: object
+              required: [ar, en]
+              properties: { ar: { type: string }, en: { type: string } }
+        dataRegion: { type: string }
+        runtime: { type: string }
+        primaryDomain: { type: [string, 'null'] }
+        domains:
+          type: array
+          items:
+            type: object
+            required: [id, domain, state, primary]
+            properties:
+              id: { type: string, format: uuid }
+              domain: { type: string }
+              state: { type: string }
+              primary: { type: boolean }
+        quotas:
+          type: array
+          items:
+            type: object
+            required: [dim, limit, soft]
+            properties: { dim: { type: string }, limit: { type: integer }, soft: { type: integer } }
+        usageSummary:
+          {
+            type: [object, 'null'],
+            properties: { diskMb: { type: integer }, inodes: { type: integer } },
+          }
+        suspension:
+          {
+            type: [object, 'null'],
+            properties: { reason: { type: [string, 'null'] }, by: { type: string } },
+          }
+        failureReason: { type: [string, 'null'] }
+        operationId: { type: [string, 'null'], format: uuid }
+        settings: { type: object }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+        orgId: { type: string, format: uuid, description: Staff responses only. }
+        nodeId: { type: [string, 'null'], format: uuid, description: Staff responses only. }
+        nodeName: { type: [string, 'null'], description: Staff responses only. }
+    HostingSitePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingSite' } }
+        nextCursor: { type: [string, 'null'] }
+    CreateHostingSite:
+      type: object
+      required: [quoteId, planId, name, projectId, runtime]
+      properties:
+        quoteId: { type: string, format: uuid }
+        planId: { type: string, format: uuid }
+        name: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9 ._-]{0,62}$' }
+        projectId: { type: string, format: uuid }
+        environmentId: { type: string, format: uuid }
+        runtime:
+          {
+            type: string,
+            description: A runtime id reported by a node,
+            such as php:8.3,
+            nodejs:22 or static.,
+          }
+        primaryDomain: { type: string }
+    CreateHostingSiteResult:
+      type: object
+      required: [site, operationId]
+      properties:
+        site: { $ref: '#/components/schemas/HostingSite' }
+        operationId: { type: string, format: uuid }
+    PatchHostingSite:
+      type: object
+      properties:
+        name: { type: string }
+        planId: { type: string, format: uuid }
+        runtime: { type: string }
+        settings: { type: object }
+    DeleteHostingSiteResult:
+      type: object
+      required: [operationId, site]
+      properties:
+        operationId: { type: string, format: uuid }
+        site: { $ref: '#/components/schemas/HostingSite' }
+    HostingDomainBinding:
+      type: object
+      required: [id, domain, state, primary, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        domain: { type: string }
+        state: { type: string, enum: [pending, verified, active, removed] }
+        primary: { type: boolean }
+        verifiedAt: { type: [string, 'null'], format: date-time }
+        verification:
+          type: [object, 'null']
+          properties:
+            method: { type: string, enum: [dns_txt, http] }
+            record: { type: object }
+        createdAt: { type: string, format: date-time }
+    BindHostingDomain:
+      type: object
+      required: [domain]
+      properties:
+        domain: { type: string }
+        primary: { type: boolean }
+    BindHostingDomainResult:
+      type: object
+      required: [binding]
+      properties:
+        binding: { $ref: '#/components/schemas/HostingDomainBinding' }
+        operationId: { type: [string, 'null'], format: uuid }
+    HostingDomainList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingDomainBinding' } }
+    HostingCertificate:
+      type: object
+      required: [id, mode, domains, status, attempts, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        mode: { type: string, enum: [managed, custom] }
+        domains: { type: array, items: { type: string } }
+        status: { type: string, enum: [pending, issued, failed, removed] }
+        notAfter: { type: [string, 'null'], format: date-time }
+        renewAfter: { type: [string, 'null'], format: date-time }
+        attempts: { type: integer }
+        nextAttemptAt: { type: [string, 'null'], format: date-time }
+        lastError: { type: [string, 'null'] }
+        expiresInDays: { type: [integer, 'null'] }
+        createdAt: { type: string, format: date-time }
+    RequestHostingCertificate:
+      type: object
+      required: [mode, domains]
+      properties:
+        mode: { type: string, enum: [managed, custom] }
+        domains: { type: array, items: { type: string }, minItems: 1, maxItems: 20 }
+        certRef:
+          {
+            type: string,
+            description: A vault reference of an already uploaded certificate (custom).,
+          }
+        certificate: { type: string, description: PEM certificate (custom). }
+        privateKey:
+          {
+            type: string,
+            writeOnly: true,
+            description: PEM private key (custom). Goes to the vault only; never returned or stored elsewhere.,
+          }
+        chain: { type: string }
+    RequestHostingCertificateResult:
+      type: object
+      required: [certificate, operationId]
+      properties:
+        certificate: { $ref: '#/components/schemas/HostingCertificate' }
+        operationId: { type: string, format: uuid }
+    HostingCertificateList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingCertificate' } }
+    HostingDatabaseList:
+      type: object
+      required: [items, available]
+      properties:
+        items: { type: array, items: { type: object } }
+        available: { type: boolean }
+    AdminPatchHostingSite:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { type: string, enum: [suspended, active] }
+        reason: { type: string, minLength: 5, maxLength: 200 }
+    HostingBackup:
+      type: object
+      required: [id, kind, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [scheduled, on_demand, pre_restore, pre_migration, export] }
+        label: { type: [string, 'null'] }
+        status: { type: string, enum: [creating, available, failed, corrupt, deleted] }
+        sizeBytes: { type: [integer, 'null'] }
+        checksum: { type: [string, 'null'], description: SHA-256 of the encrypted archive. }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        failureReason: { type: [string, 'null'] }
+    CreateHostingBackup:
+      type: object
+      properties:
+        label: { type: string, minLength: 1, maxLength: 100 }
+    CreateHostingBackupResult:
+      type: object
+      required: [backup, operationId]
+      properties:
+        backup: { $ref: '#/components/schemas/HostingBackup' }
+        operationId: { type: string, format: uuid }
+    HostingBackupList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingBackup' } }
+    HostingBackupDownloadLink:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url: { type: string }
+        expiresAt: { type: string, format: date-time }
+    RestoreHostingBackup:
+      type: object
+      required: [backupId]
+      properties:
+        backupId: { type: string, format: uuid }
+    RestoreHostingBackupResult:
+      type: object
+      required: [operationId, site]
+      properties:
+        operationId: { type: string, format: uuid }
+        site:
+          {
+            type: object,
+            properties: { id: { type: string, format: uuid }, status: { type: string } },
+          }
+    HostingSiteUsage:
+      type: object
+      required: [period, diskMb, inodes, bandwidthGbMonth, backupGb, processes, quotas]
+      properties:
+        period: { type: string, description: 'UTC month, 2026-11.' }
+        diskMb: { type: integer }
+        inodes: { type: integer }
+        bandwidthGbMonth: { type: number }
+        backupGb: { type: number }
+        processes: { type: integer }
+        observedAt: { type: [string, 'null'], format: date-time }
+        quotas:
+          type: array
+          items:
+            type: object
+            required: [dim, used, soft, limit, state]
+            properties:
+              dim: { type: string }
+              used: { type: number }
+              soft: { type: integer }
+              limit: { type: integer }
+              state: { type: string, enum: [ok, soft, hard] }
+    MigrateHostingSite:
+      type: object
+      required: [targetNodeId]
+      properties:
+        targetNodeId: { type: string, format: uuid }
+    MigrateHostingSiteResult:
+      type: object
+      required: [migrationId, operationId]
+      properties:
+        migrationId: { type: string, format: uuid }
+        operationId: { type: string, format: uuid }
+    HostingMigrationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, siteId, fromNodeId, toNodeId, state, createdAt]
+            properties:
+              id: { type: string, format: uuid }
+              siteId: { type: string, format: uuid }
+              fromNodeId: { type: string, format: uuid }
+              toNodeId: { type: string, format: uuid }
+              state: { type: string }
+              error: { type: [string, 'null'] }
+              createdAt: { type: string, format: date-time }
+    HostingAbuseCase:
+      type: object
+      required: [id, siteId, source, severity, state, reasonCode, actions, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        siteId: { type: string, format: uuid }
+        orgId: { type: string, format: uuid, description: Staff responses only. }
+        source: { type: string, enum: [detector, report, staff] }
+        detector: { type: [string, 'null'] }
+        severity: { type: string, enum: [low, medium, high, critical] }
+        state: { type: string, enum: [open, actioned, appealed, closed] }
+        reasonCode: { type: string }
+        actions:
+          type: array
+          items:
+            type: object
+            required: [action, at]
+            properties:
+              action: { type: string }
+              by: { type: [string, 'null'] }
+              at: { type: string, format: date-time }
+              note: { type: string }
+        evidenceRefs: { type: array, items: { type: string }, description: Staff responses only. }
+        appeal:
+          type: [object, 'null']
+          properties:
+            text: { type: string }
+            at: { type: string, format: date-time }
+            decision: { type: [string, 'null'], enum: [upheld, overturned, null] }
+            decidedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+    HostingAbuseCaseList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingAbuseCase' } }
+    OpenHostingAbuseCase:
+      type: object
+      required: [siteId, source, severity, reasonCode]
+      properties:
+        siteId: { type: string, format: uuid }
+        source: { type: string, enum: [detector, report, staff] }
+        severity: { type: string, enum: [low, medium, high, critical] }
+        reasonCode: { type: string, pattern: '^[a-z_]{3,60}$' }
+        evidenceRefs: { type: array, items: { type: string }, maxItems: 20 }
+        action: { type: string, enum: [notify, throttle, suspend] }
+    PatchHostingAbuseCase:
+      type: object
+      properties:
+        action: { type: string, enum: [notify, throttle, suspend, close] }
+        decision: { type: string, enum: [upheld, overturned] }
+        note: { type: string, maxLength: 300 }
+    AppealHostingAbuseCase:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 10, maxLength: 2000 }

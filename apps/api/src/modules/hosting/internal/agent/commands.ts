@@ -85,7 +85,11 @@ export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
       {
         type: 'object',
         required: ['site'],
-        properties: { site: siteName, limits, runtime: { type: 'string', pattern: RUNTIME_ID.source } },
+        properties: {
+          site: siteName,
+          limits,
+          runtime: { type: 'string', pattern: RUNTIME_ID.source },
+        },
       },
       true,
     ),
@@ -127,38 +131,61 @@ export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
       true,
       'site:install:certificate',
     ),
-    def('backup.create', { type: 'object', required: ['site', 'backupId'], properties: { site: siteName, backupId: { type: 'string', pattern: BACKUP_ID } } }, true),
+    def(
+      'backup.create',
+      {
+        type: 'object',
+        required: ['site', 'backupId'],
+        properties: { site: siteName, backupId: { type: 'string', pattern: BACKUP_ID } },
+      },
+      true,
+    ),
     def(
       'backup.restore',
       {
         type: 'object',
         required: ['site', 'backupId', 'checksum'],
-        properties: { site: siteName, backupId: { type: 'string', pattern: BACKUP_ID }, checksum: { type: 'string', pattern: SHA256 } },
+        properties: {
+          site: siteName,
+          backupId: { type: 'string', pattern: BACKUP_ID },
+          checksum: { type: 'string', pattern: SHA256 },
+        },
       },
       true,
     ),
     def('usage.report', bySite, false),
-    def('quota.apply', { type: 'object', required: ['site', 'limits'], properties: { site: siteName, limits } }, true),
-    def('db.binding.apply', { type: 'object', required: ['site'], properties: { site: siteName } }, true),
+    def(
+      'quota.apply',
+      { type: 'object', required: ['site', 'limits'], properties: { site: siteName, limits } },
+      true,
+    ),
+    def(
+      'db.binding.apply',
+      { type: 'object', required: ['site'], properties: { site: siteName } },
+      true,
+    ),
   ].map((d) => [d.id, d]),
 );
 
 export function validateArgs(schema: Schema, value: unknown, path = 'args'): string | null {
   if (schema.type === 'object') {
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) return `${path}: must be an object`;
+    if (typeof value !== 'object' || value === null || Array.isArray(value))
+      return `${path}: must be an object`;
     const o = value as Record<string, unknown>;
     const props = schema.properties ?? {};
     for (const k of Object.keys(o)) if (!(k in props)) return `${path}.${k}: unknown member`;
     for (const r of schema.required ?? []) if (!(r in o)) return `${path}.${r}: required`;
-    for (const [k, s] of Object.entries(props)) if (k in o) {
-      const e = validateArgs(s, o[k], `${path}.${k}`);
-      if (e) return e;
-    }
+    for (const [k, s] of Object.entries(props))
+      if (k in o) {
+        const e = validateArgs(s, o[k], `${path}.${k}`);
+        if (e) return e;
+      }
     return null;
   }
   if (schema.type === 'array') {
     if (!Array.isArray(value)) return `${path}: must be an array`;
-    if (schema.maxItems !== undefined && value.length > schema.maxItems) return `${path}: too many items`;
+    if (schema.maxItems !== undefined && value.length > schema.maxItems)
+      return `${path}: too many items`;
     for (let i = 0; i < value.length; i++) {
       const e = validateArgs(schema.items!, value[i], `${path}[${i}]`);
       if (e) return e;
@@ -168,7 +195,8 @@ export function validateArgs(schema: Schema, value: unknown, path = 'args'): str
   if (schema.type === 'string') {
     if (typeof value !== 'string') return `${path}: must be a string`;
     if (value.length > (schema.maxLength ?? 500)) return `${path}: too long`;
-    if (schema.pattern && !new RegExp(schema.pattern).test(value)) return `${path}: does not match the allowed pattern`;
+    if (schema.pattern && !new RegExp(schema.pattern).test(value))
+      return `${path}: does not match the allowed pattern`;
     if (schema.enum && !schema.enum.includes(value)) return `${path}: not an allowed value`;
     return null;
   }
@@ -178,7 +206,8 @@ export function validateArgs(schema: Schema, value: unknown, path = 'args'): str
     if (schema.maximum !== undefined && value > schema.maximum) return `${path}: above maximum`;
     return null;
   }
-  if (schema.type === 'boolean') return typeof value === 'boolean' ? null : `${path}: must be a boolean`;
+  if (schema.type === 'boolean')
+    return typeof value === 'boolean' ? null : `${path}: must be a boolean`;
   return `${path}: unsupported schema`;
 }
 
@@ -192,29 +221,91 @@ export function validateArgs(schema: Schema, value: unknown, path = 'args'): str
 export function clpctlArgv(
   what:
     | { op: 'site.add.php'; domain: string; phpVersion: string; siteUser: string; password: string }
-    | { op: 'site.add.nodejs'; domain: string; nodejsVersion: string; appPort: number; siteUser: string; password: string }
+    | {
+        op: 'site.add.nodejs';
+        domain: string;
+        nodejsVersion: string;
+        appPort: number;
+        siteUser: string;
+        password: string;
+      }
     | { op: 'site.add.static'; domain: string; siteUser: string; password: string }
-    | { op: 'site.add.python'; domain: string; pythonVersion: string; appPort: number; siteUser: string; password: string }
+    | {
+        op: 'site.add.python';
+        domain: string;
+        pythonVersion: string;
+        appPort: number;
+        siteUser: string;
+        password: string;
+      }
     | { op: 'site.delete'; domain: string }
     | { op: 'cert.issue'; domain: string; sans: string[] }
-    | { op: 'cert.install'; domain: string; privateKeyFile: string; certificateFile: string; chainFile?: string },
+    | {
+        op: 'cert.install';
+        domain: string;
+        privateKeyFile: string;
+        certificateFile: string;
+        chainFile?: string;
+      },
 ): string[] {
   const DOM = new RegExp(DOMAIN_RE);
   if (!DOM.test(what.domain)) throw new Error('refusing to build argv: invalid domain');
   switch (what.op) {
     case 'site.add.php':
-      return ['clpctl', 'site:add:php', `--domainName=${what.domain}`, `--phpVersion=${what.phpVersion}`, '--vhostTemplate=Generic', `--siteUser=${what.siteUser}`, `--siteUserPassword=${what.password}`];
+      return [
+        'clpctl',
+        'site:add:php',
+        `--domainName=${what.domain}`,
+        `--phpVersion=${what.phpVersion}`,
+        '--vhostTemplate=Generic',
+        `--siteUser=${what.siteUser}`,
+        `--siteUserPassword=${what.password}`,
+      ];
     case 'site.add.nodejs':
-      return ['clpctl', 'site:add:nodejs', `--domainName=${what.domain}`, `--nodejsVersion=${what.nodejsVersion}`, `--appPort=${what.appPort}`, `--siteUser=${what.siteUser}`, `--siteUserPassword=${what.password}`];
+      return [
+        'clpctl',
+        'site:add:nodejs',
+        `--domainName=${what.domain}`,
+        `--nodejsVersion=${what.nodejsVersion}`,
+        `--appPort=${what.appPort}`,
+        `--siteUser=${what.siteUser}`,
+        `--siteUserPassword=${what.password}`,
+      ];
     case 'site.add.static':
-      return ['clpctl', 'site:add:static', `--domainName=${what.domain}`, `--siteUser=${what.siteUser}`, `--siteUserPassword=${what.password}`];
+      return [
+        'clpctl',
+        'site:add:static',
+        `--domainName=${what.domain}`,
+        `--siteUser=${what.siteUser}`,
+        `--siteUserPassword=${what.password}`,
+      ];
     case 'site.add.python':
-      return ['clpctl', 'site:add:python', `--domainName=${what.domain}`, `--pythonVersion=${what.pythonVersion}`, `--appPort=${what.appPort}`, `--siteUser=${what.siteUser}`, `--siteUserPassword=${what.password}`];
+      return [
+        'clpctl',
+        'site:add:python',
+        `--domainName=${what.domain}`,
+        `--pythonVersion=${what.pythonVersion}`,
+        `--appPort=${what.appPort}`,
+        `--siteUser=${what.siteUser}`,
+        `--siteUserPassword=${what.password}`,
+      ];
     case 'site.delete':
       return ['clpctl', 'site:delete', `--domainName=${what.domain}`, '--force'];
     case 'cert.issue':
-      return ['clpctl', 'lets-encrypt:install:certificate', `--domainName=${what.domain}`, ...(what.sans.length ? [`--subjectAlternativeName=${what.sans.join(',')}`] : [])];
+      return [
+        'clpctl',
+        'lets-encrypt:install:certificate',
+        `--domainName=${what.domain}`,
+        ...(what.sans.length ? [`--subjectAlternativeName=${what.sans.join(',')}`] : []),
+      ];
     case 'cert.install':
-      return ['clpctl', 'site:install:certificate', `--domainName=${what.domain}`, `--privateKey=${what.privateKeyFile}`, `--certificate=${what.certificateFile}`, ...(what.chainFile ? [`--certificateChain=${what.chainFile}`] : [])];
+      return [
+        'clpctl',
+        'site:install:certificate',
+        `--domainName=${what.domain}`,
+        `--privateKey=${what.privateKeyFile}`,
+        `--certificate=${what.certificateFile}`,
+        ...(what.chainFile ? [`--certificateChain=${what.chainFile}`] : []),
+      ];
   }
 }

@@ -7,11 +7,13 @@ import { RealmOnly, StepUp } from '../identity';
 import { NodesService } from './internal/nodes.service';
 
 const need = (who: PlatformContext, p: string) => {
-  if (!who.permissions.has(p)) throw new ProblemException('forbidden', `permission ${p} is required`);
+  if (!who.permissions.has(p))
+    throw new ProblemException('forbidden', `permission ${p} is required`);
 };
 const idemKey = (req: FastifyRequest) => {
   const k = req.headers['idempotency-key'];
-  if (typeof k !== 'string' || k.length < 1 || k.length > 255) throw new ProblemException('idempotency_key_required', 'Send an Idempotency-Key header');
+  if (typeof k !== 'string' || k.length < 1 || k.length > 255)
+    throw new ProblemException('idempotency_key_required', 'Send an Idempotency-Key header');
   return k;
 };
 
@@ -31,7 +33,12 @@ export class AdminNodesController {
   @RequirePlatformPermission('admin:hosting:read')
   @StepUp()
   @Post()
-  async create(@Platform() who: PlatformContext, @Body() body: Record<string, unknown> | undefined, @Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+  async create(
+    @Platform() who: PlatformContext,
+    @Body() body: Record<string, unknown> | undefined,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     need(who, 'admin:hosting:manage');
     idemKey(req);
     const r = await this.nodes.create(who.userId, body ?? {});
@@ -51,13 +58,23 @@ export class AdminNodesController {
   @RequirePlatformPermission('admin:hosting:read')
   @StepUp()
   @Patch(':id')
-  async patch(@Platform() who: PlatformContext, @Param('id') id: string, @Body() body: Record<string, unknown> | undefined, @Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+  async patch(
+    @Platform() who: PlatformContext,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown> | undefined,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     const b = body ?? {};
     // the approver of an overcommit change holds admin:hosting:approve; every other change needs admin:hosting:manage
-    const decides = typeof b.overcommit === 'object' && b.overcommit !== null && 'decision' in (b.overcommit as object);
+    const decides =
+      typeof b.overcommit === 'object' &&
+      b.overcommit !== null &&
+      'decision' in (b.overcommit as object);
     need(who, decides ? 'admin:hosting:approve' : 'admin:hosting:manage');
     const v = parseIfMatch(req.headers['if-match']);
-    if (v === null) throw new ProblemException('precondition_required', 'Send If-Match with the node version');
+    if (v === null)
+      throw new ProblemException('precondition_required', 'Send If-Match with the node version');
     const n = await this.nodes.patch(who.userId, id, v, b);
     void reply.header('etag', etag(n.version));
     return n;
@@ -81,7 +98,11 @@ export class AdminNodesController {
   @RequirePlatformPermission('admin:hosting:read')
   @StepUp()
   @Post(':id/enrolment-tokens')
-  async enrolmentToken(@Platform() who: PlatformContext, @Param('id') id: string, @Req() req: FastifyRequest) {
+  async enrolmentToken(
+    @Platform() who: PlatformContext,
+    @Param('id') id: string,
+    @Req() req: FastifyRequest,
+  ) {
     need(who, 'admin:hosting:manage');
     idemKey(req);
     return this.nodes.issueEnrolmentToken(who.userId, id);

@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
 import type { KeyObject } from 'node:crypto';
 import { COMMANDS, validateArgs } from './commands';
-import { MAX_ENVELOPE_BYTES, canonicalize, hashEnvelope, verifyEnvelope, type EnvelopeRejection } from './envelope';
+import {
+  MAX_ENVELOPE_BYTES,
+  canonicalize,
+  hashEnvelope,
+  verifyEnvelope,
+  type EnvelopeRejection,
+} from './envelope';
 import type { CommandExecutor } from './executor';
 
 export type AgentRejection =
@@ -34,7 +40,18 @@ export interface AuditEntry {
 export const ZERO_HASH = '0'.repeat(64);
 export const auditHash = (e: Omit<AuditEntry, 'hash'>): string =>
   createHash('sha256')
-    .update([e.seq, e.occurredAt, e.operationId ?? '', e.commandId ?? '', e.outcome, e.reason ?? '', e.envelopeHash, e.prevHash].join('|'))
+    .update(
+      [
+        e.seq,
+        e.occurredAt,
+        e.operationId ?? '',
+        e.commandId ?? '',
+        e.outcome,
+        e.reason ?? '',
+        e.envelopeHash,
+        e.prevHash,
+      ].join('|'),
+    )
     .digest('hex');
 
 /** What survives an agent restart (persisted on the node in production). */
@@ -51,7 +68,13 @@ export interface LedgerState {
 export class AgentRuntime {
   private state: LedgerState;
   constructor(
-    private readonly cfg: { nodeId: string; keys: Map<string, KeyObject>; executor: CommandExecutor; now?: () => Date; active?: () => boolean },
+    private readonly cfg: {
+      nodeId: string;
+      keys: Map<string, KeyObject>;
+      executor: CommandExecutor;
+      now?: () => Date;
+      active?: () => boolean;
+    },
     state?: LedgerState,
   ) {
     this.state = state ?? { nonces: {}, results: {}, audit: [] };
@@ -65,12 +88,32 @@ export class AgentRuntime {
   get auditLog(): readonly AuditEntry[] {
     return this.state.audit;
   }
-  private log(outcome: AuditEntry['outcome'], envHash: string, operationId: string | null, commandId: string | null, reason: string | null) {
+  private log(
+    outcome: AuditEntry['outcome'],
+    envHash: string,
+    operationId: string | null,
+    commandId: string | null,
+    reason: string | null,
+  ) {
     const prev = this.state.audit[this.state.audit.length - 1]?.hash ?? ZERO_HASH;
-    const base = { seq: this.state.audit.length + 1, occurredAt: this.now().toISOString(), operationId, commandId, outcome, reason, envelopeHash: envHash, prevHash: prev };
+    const base = {
+      seq: this.state.audit.length + 1,
+      occurredAt: this.now().toISOString(),
+      operationId,
+      commandId,
+      outcome,
+      reason,
+      envelopeHash: envHash,
+      prevHash: prev,
+    };
     this.state.audit.push({ ...base, hash: auditHash(base) });
   }
-  private reject(reason: AgentRejection, envHash: string, op: string | null, cmd: string | null): AgentReply {
+  private reject(
+    reason: AgentRejection,
+    envHash: string,
+    op: string | null,
+    cmd: string | null,
+  ): AgentReply {
     this.log('rejected', envHash, op, cmd, reason);
     return { status: 'rejected', reason };
   }
@@ -78,18 +121,23 @@ export class AgentRuntime {
   async handle(raw: unknown): Promise<AgentReply> {
     const now = this.now();
     const rawHash = createHash('sha256').update(safeJson(raw)).digest('hex');
-    if (safeJson(raw).length > MAX_ENVELOPE_BYTES) return this.reject('oversize', rawHash, null, null);
-    if (this.cfg.active && !this.cfg.active()) return this.reject('node_not_active', rawHash, null, null);
+    if (safeJson(raw).length > MAX_ENVELOPE_BYTES)
+      return this.reject('oversize', rawHash, null, null);
+    if (this.cfg.active && !this.cfg.active())
+      return this.reject('node_not_active', rawHash, null, null);
     const v = verifyEnvelope(raw, { nodeId: this.cfg.nodeId, keys: this.cfg.keys, now });
     if (!v.ok) return this.reject(v.reason, rawHash, null, null);
     const env = v.envelope;
     const b = env.body;
     const eh = hashEnvelope(env);
     // replay: a nonce is single-use until it can no longer be valid (expiry + skew)
-    for (const [n, exp] of Object.entries(this.state.nonces)) if (exp < now.getTime() - 60_000) delete this.state.nonces[n];
-    if (this.state.nonces[b.nonce] !== undefined) return this.reject('replayed', eh, b.operationId, b.commandId);
+    for (const [n, exp] of Object.entries(this.state.nonces))
+      if (exp < now.getTime() - 60_000) delete this.state.nonces[n];
+    if (this.state.nonces[b.nonce] !== undefined)
+      return this.reject('replayed', eh, b.operationId, b.commandId);
     this.state.nonces[b.nonce] = Date.parse(b.expiresAt);
-    if (!Object.prototype.hasOwnProperty.call(COMMANDS, b.commandId)) return this.reject('unknown_command', eh, b.operationId, b.commandId);
+    if (!Object.prototype.hasOwnProperty.call(COMMANDS, b.commandId))
+      return this.reject('unknown_command', eh, b.operationId, b.commandId);
     const def = COMMANDS[b.commandId]!;
     const bad = validateArgs(def.schema, b.args);
     if (bad) {
@@ -101,7 +149,8 @@ export class AgentRuntime {
     if (def.mutating) {
       const prior = this.state.results[key];
       if (prior) {
-        if (prior.argsHash !== argsHash) return this.reject('token_reuse', eh, b.operationId, b.commandId);
+        if (prior.argsHash !== argsHash)
+          return this.reject('token_reuse', eh, b.operationId, b.commandId);
         this.log('accepted', eh, b.operationId, b.commandId, 'recorded_result');
         return { ...prior.reply, recorded: true };
       }
@@ -109,15 +158,34 @@ export class AgentRuntime {
     this.log('accepted', eh, b.operationId, b.commandId, null);
     let reply: AgentReply;
     try {
-      const r = await withTimeout(this.cfg.executor.execute(b.commandId, b.args, { idempotencyToken: b.idempotencyToken, operationId: b.operationId, now }), def.timeoutMs);
-      if (r === TIMEOUT) reply = { status: 'failed', reason: 'timeout', message: 'command timed out' };
+      const r = await withTimeout(
+        this.cfg.executor.execute(b.commandId, b.args, {
+          idempotencyToken: b.idempotencyToken,
+          operationId: b.operationId,
+          now,
+        }),
+        def.timeoutMs,
+      );
+      if (r === TIMEOUT)
+        reply = { status: 'failed', reason: 'timeout', message: 'command timed out' };
       else if (!r.ok) reply = { status: 'failed', category: r.category, message: r.message };
-      else if (safeJson(r.result).length > def.maxOutputBytes) reply = { status: 'failed', reason: 'output_too_large' };
+      else if (safeJson(r.result).length > def.maxOutputBytes)
+        reply = { status: 'failed', reason: 'output_too_large' };
       else reply = { status: 'ok', result: r.result };
     } catch (e) {
-      reply = { status: 'failed', reason: 'executor_error', message: (e as Error).message.slice(0, 200) };
+      reply = {
+        status: 'failed',
+        reason: 'executor_error',
+        message: (e as Error).message.slice(0, 200),
+      };
     }
-    this.log(reply.status === 'ok' ? 'executed' : 'failed', eh, b.operationId, b.commandId, reply.reason ?? reply.category ?? null);
+    this.log(
+      reply.status === 'ok' ? 'executed' : 'failed',
+      eh,
+      b.operationId,
+      b.commandId,
+      reply.reason ?? reply.category ?? null,
+    );
     // only a SUCCESS is recorded as the result of a token: a failed attempt may be retried with the same token
     if (def.mutating && reply.status === 'ok') this.state.results[key] = { argsHash, reply };
     return reply;
@@ -127,7 +195,16 @@ const TIMEOUT = Symbol('timeout');
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | typeof TIMEOUT> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => resolve(TIMEOUT), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
   });
 }
 function safeJson(v: unknown): string {
@@ -139,7 +216,10 @@ function safeJson(v: unknown): string {
 }
 
 /** Verifies the hash chain of an audit log (control-plane side of "shipped to the control plane"). */
-export function verifyAuditChain(entries: readonly AuditEntry[]): { ok: boolean; brokenAt?: number } {
+export function verifyAuditChain(entries: readonly AuditEntry[]): {
+  ok: boolean;
+  brokenAt?: number;
+} {
   let prev = ZERO_HASH;
   for (const e of entries) {
     const { hash, ...base } = e;

@@ -27,6 +27,7 @@ export default async function ConsoleLayout({
     ...gated('project:read', '/projects', 'nav.projects'),
     ...gated('operation:read', '/operations', 'nav.operations'),
     ...gated('resource:read', '/resources', 'nav.resources'),
+    ...gated('hosting:site:read', '/hosting/sites', 'nav.hosting'),
     ...(s.org && (s.can('billing:read') || s.can('usage:read'))
       ? [
           {

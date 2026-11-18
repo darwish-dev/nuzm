@@ -8,7 +8,16 @@ const node = (nodeId: string) => ({ nodeId, computeInstanceId: 'i-1' });
 const spec = (n: string) => {
   const token = tokenFor('org', 'op-' + n, 'create_site');
   const name = siteNameFor(token);
-  return { name, runtime: 'php:8.3', domain: `${name}.sites.example.test`, limits: LIMITS, credentialsRef: `vault://hosting/c-${n}`, backupKeyRef: `vault://hosting/b-${n}`, idempotencyToken: token, operationId: 'op-' + n };
+  return {
+    name,
+    runtime: 'php:8.3',
+    domain: `${name}.sites.example.test`,
+    limits: LIMITS,
+    credentialsRef: `vault://hosting/c-${n}`,
+    backupKeyRef: `vault://hosting/b-${n}`,
+    idempotencyToken: token,
+    operationId: 'op-' + n,
+  };
 };
 
 describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, results are NOT VERIFIED against a real node)', () => {
@@ -32,7 +41,11 @@ describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, resul
     const s = mockStack();
     const r = await s.adapter.inventory(testCtx(), node(s.nodeId));
     expect(r.status).toBe('succeeded');
-    expect(r.data).toMatchObject({ cloudpanelVersion: '2.5.4', health: { state: 'healthy' }, capacity: { cpuMillicores: 4000 } });
+    expect(r.data).toMatchObject({
+      cloudpanelVersion: '2.5.4',
+      health: { state: 'healthy' },
+      capacity: { cpuMillicores: 4000 },
+    });
   });
   it('create is idempotent per token, findByToken adopts, unsupported runtime is a normalized failure', async () => {
     const s = mockStack();
@@ -43,25 +56,53 @@ describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, resul
     expect(s.node.sites.size).toBe(1);
     const f = await s.adapter.findByToken(testCtx(), node(s.nodeId), spec('1').name);
     expect(f.data?.name).toBe(spec('1').name);
-    const none = await s.adapter.findByToken(testCtx(), node(s.nodeId), siteNameFor(tokenFor('o', 'zzz', 'x')));
+    const none = await s.adapter.findByToken(
+      testCtx(),
+      node(s.nodeId),
+      siteNameFor(tokenFor('o', 'zzz', 'x')),
+    );
     expect(none).toMatchObject({ status: 'succeeded', data: null });
-    const bad = await s.adapter.createSite(testCtx(), node(s.nodeId), { ...spec('2'), runtime: 'python:3.12' });
-    expect(bad).toMatchObject({ status: 'failed', error: { category: 'unsupported', retryable: false } });
+    const bad = await s.adapter.createSite(testCtx(), node(s.nodeId), {
+      ...spec('2'),
+      runtime: 'python:3.12',
+    });
+    expect(bad).toMatchObject({
+      status: 'failed',
+      error: { category: 'unsupported', retryable: false },
+    });
   });
   it('suspend / resume / update / usage / delete round trip; delete returns an empty wipe report and is idempotent', async () => {
     const s = mockStack();
     const sp = spec('3');
     await s.adapter.createSite(testCtx(), node(s.nodeId), sp);
     const t = (k: string) => ({ idempotencyToken: tokenFor('o', k, 's'), operationId: k });
-    expect((await s.adapter.suspendSite(testCtx(), node(s.nodeId), sp.name, t('s1'))).status).toBe('succeeded');
+    expect((await s.adapter.suspendSite(testCtx(), node(s.nodeId), sp.name, t('s1'))).status).toBe(
+      'succeeded',
+    );
     expect(s.node.sites.get(sp.name)!.suspended).toBe(true);
-    expect((await s.adapter.resumeSite(testCtx(), node(s.nodeId), sp.name, t('s2'))).status).toBe('succeeded');
-    const u = await s.adapter.updateSite(testCtx(), node(s.nodeId), sp.name, { limits: { ...LIMITS, diskMb: 500 } }, t('s3'));
+    expect((await s.adapter.resumeSite(testCtx(), node(s.nodeId), sp.name, t('s2'))).status).toBe(
+      'succeeded',
+    );
+    const u = await s.adapter.updateSite(
+      testCtx(),
+      node(s.nodeId),
+      sp.name,
+      { limits: { ...LIMITS, diskMb: 500 } },
+      t('s3'),
+    );
     expect(u.data?.limits.diskMb).toBe(500);
     expect((await s.adapter.usage(testCtx(), node(s.nodeId), sp.name)).data?.processes).toBe(1);
     const d = await s.adapter.deleteSite(testCtx(), node(s.nodeId), sp.name, t('s4'));
-    expect(d.data).toMatchObject({ filesRemaining: 0, usersRemaining: 0, databasesRemaining: 0, certificatesRemaining: 0, cronEntriesRemaining: 0 });
-    expect((await s.adapter.deleteSite(testCtx(), node(s.nodeId), sp.name, t('s5'))).status).toBe('succeeded');
+    expect(d.data).toMatchObject({
+      filesRemaining: 0,
+      usersRemaining: 0,
+      databasesRemaining: 0,
+      certificatesRemaining: 0,
+      cronEntriesRemaining: 0,
+    });
+    expect((await s.adapter.deleteSite(testCtx(), node(s.nodeId), sp.name, t('s5'))).status).toBe(
+      'succeeded',
+    );
   });
   it('backup → mutate → restore returns identical content; a corrupt archive is rejected', async () => {
     const s = mockStack();
@@ -69,10 +110,16 @@ describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, resul
     s.vault.newKey(sp.backupKeyRef);
     await s.adapter.createSite(testCtx(), node(s.nodeId), sp);
     s.node.seed(sp.name, 'htdocs/index.html', 'v1');
-    const bk = await s.adapter.backup(testCtx(), node(s.nodeId), sp.name, { idempotencyToken: tokenFor('o', 'bk', '1'), operationId: 'bk' });
+    const bk = await s.adapter.backup(testCtx(), node(s.nodeId), sp.name, {
+      idempotencyToken: tokenFor('o', 'bk', '1'),
+      operationId: 'bk',
+    });
     expect(bk.status).toBe('succeeded');
     s.node.seed(sp.name, 'htdocs/index.html', 'MUTATED');
-    const rs = await s.adapter.restore(testCtx(), node(s.nodeId), sp.name, bk.data!, { idempotencyToken: tokenFor('o', 'rs', '1'), operationId: 'rs' });
+    const rs = await s.adapter.restore(testCtx(), node(s.nodeId), sp.name, bk.data!, {
+      idempotencyToken: tokenFor('o', 'rs', '1'),
+      operationId: 'rs',
+    });
     expect(rs.data?.verified).toBe(true);
     expect(s.node.actor(sp.name).readFile(`/home/${sp.name}/htdocs/index.html`)).toBe('v1');
     // corrupt the stored archive: restore must fail on the checksum
@@ -80,14 +127,20 @@ describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, resul
     const blob = Buffer.from(s.sink.store.get(ref)!);
     blob[20] = blob[20]! ^ 0xff;
     s.sink.store.set(ref, blob);
-    const bad = await s.adapter.restore(testCtx(), node(s.nodeId), sp.name, bk.data!, { idempotencyToken: tokenFor('o', 'rs', '2'), operationId: 'rs2' });
+    const bad = await s.adapter.restore(testCtx(), node(s.nodeId), sp.name, bk.data!, {
+      idempotencyToken: tokenFor('o', 'rs', '2'),
+      operationId: 'rs2',
+    });
     expect(bad).toMatchObject({ status: 'failed', error: { category: 'validation' } });
   });
   it('a missing backup-key reference fails without writing anything to the sink', async () => {
     const s = mockStack();
     const sp = spec('5');
     await s.adapter.createSite(testCtx(), node(s.nodeId), sp);
-    const bk = await s.adapter.backup(testCtx(), node(s.nodeId), sp.name, { idempotencyToken: tokenFor('o', 'bk', '9'), operationId: 'bk' });
+    const bk = await s.adapter.backup(testCtx(), node(s.nodeId), sp.name, {
+      idempotencyToken: tokenFor('o', 'bk', '9'),
+      operationId: 'bk',
+    });
     expect(bk.status).toBe('failed');
     expect(s.sink.store.size).toBe(0);
   });
@@ -95,7 +148,13 @@ describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, resul
     const s = mockStack();
     const sp = spec('6');
     await s.adapter.createSite(testCtx(), node(s.nodeId), sp);
-    const c = await s.adapter.issueCertificate(testCtx(), node(s.nodeId), sp.name, { domains: ['www.customer-example.test'], mode: 'managed' }, { idempotencyToken: tokenFor('o', 'c', '1'), operationId: 'c1' });
+    const c = await s.adapter.issueCertificate(
+      testCtx(),
+      node(s.nodeId),
+      sp.name,
+      { domains: ['www.customer-example.test'], mode: 'managed' },
+      { idempotencyToken: tokenFor('o', 'c', '1'), operationId: 'c1' },
+    );
     expect(c.status).toBe('succeeded');
     expect(c.data!.domains).toEqual(['www.customer-example.test']);
     expect(Date.parse(c.data!.notAfter)).toBeGreaterThan(Date.now());
@@ -136,7 +195,9 @@ describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, resul
   });
   it('AdapterTimeoutError from the channel is `uncertain`, not failed', async () => {
     const s = mockStack();
-    s.channel.deliver = async () => { throw new AdapterTimeoutError(); };
+    s.channel.deliver = async () => {
+      throw new AdapterTimeoutError();
+    };
     expect((await s.adapter.inventory(testCtx(), node(s.nodeId))).status).toBe('uncertain');
   });
 });

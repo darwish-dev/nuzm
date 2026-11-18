@@ -4020,6 +4020,354 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/domains/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search domain availability and price
+         * @description Query q (a label or a full name; IDN is converted to punycode), tlds (comma list, default: every TLD that policy and a verified registrar allow), country. Returns per name: availability (true|false|unknown|null when the TLD is not sold), premium, price {amountMinor,currency} in the platform currency (registrar cost converted exactly + markup, rounded up), eligibility {state,rule,reason}, purchasable, cacheTtl. Only verified registrar capabilities are used; a TLD outside the policy (every Saudi TLD today, HG-07-02) is listed as blocked without a vendor call. Cached: availability 60 s, catalogue 15 min (proposals). Rate limited per organization (429). Search terms are internal data, not personal. Requires domain:search. Feature flag domains.enabled (404 when off). Vendor behaviour is NOT VERIFIED (HG-07-01).
+         */
+        get: operations["searchDomains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List domains
+         * @description Filters state, q (substring of the name), limit, cursor. Requires domain:read.
+         */
+        get: operations["listDomains"];
+        put?: never;
+        /**
+         * Order a domain from a quote
+         * @description Body {quoteId, contacts:{registrant, admin?, tech?, billing?}, nameservers?, autoRenew?, privacy?}. The quote (kind domain, ONE register item) must be valid (409 quote_expired), eligible, and covered by the spend cap or an approved spend approval (403 approval_required); the wallet must cover it (402 payment_required: nothing is reserved). Funds are reserved in the ledger, the registrar is called through a platform operation with a deterministic token, the order is confirmed (ledger record, meter event) only after the registrar did. Registrant contacts are personal data: sealed at rest, residency-checked before they leave (403 residency_denied), and without privacy protection the consent domain_registrant_disclosure is required (422 consent_required). A taken name is 409 domain_unavailable. Answers 202 with operationId and the pending domain. Idempotent per Idempotency-Key and per quote. Requires domain:write. Audited.
+         */
+        post: operations["orderDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/domains/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List domain transfers
+         * @description Newest first. The auth code reference is never returned. Requires domain:read.
+         */
+        get: operations["listDomainTransfers"];
+        put?: never;
+        /**
+         * Transfer a domain in
+         * @description Body {name, quoteId (action transfer_in), authCode (write-only) or authCodeRef (vault://), contacts, nameservers?, privacy?}. The auth code goes to the vault and only its reference is kept; it is never returned, logged or audited. 422 transfer_locked when the registrar reports the domain locked. Same funds, residency, consent and spend rules as an order. 202 with operationId and transferId. Requires domain:write. Audited.
+         */
+        post: operations["transferDomainIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/domains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a domain
+         * @description Returns the domain with its capability flags (what the registrar can do for it) and contacts: full for callers with domain:write, MASKED for others. ETag = version. Requires domain:read.
+         */
+        get: operations["getDomain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change contacts, nameservers, lock or auto-renew
+         * @description Body any of {contacts, nameservers, lock, autoRenew}; If-Match required. Fields the registrar cannot change are 422 unsupported_capability (never a silent no-op). Contacts are residency- and consent-checked. autoRenew is the PLATFORM's renewal flag (the vendor's own auto-renew stays off). 200 when applied, 202 with operationId when the registrar did not answer in time (reconciled). Requires domain:write. Audited.
+         */
+        patch: operations["updateDomain"];
+        trace?: never;
+    };
+    "/v1/domains/{id}/renewals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew a domain
+         * @description Body {quoteId (action renew), years}. Funds are reserved first (402), the spend cap applies (403 approval_required). A replayed run never extends the registration twice. 202 with operationId. Requires domain:renew (owner, admin, billing_admin). Idempotent. Audited.
+         */
+        post: operations["renewDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/domains/{id}/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest eligibility evaluation of a domain
+         * @description The last stored evaluation {rule,state,reason,ruleSetVersion,evidence}. Requires domain:read.
+         */
+        get: operations["getDomainEligibility"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/registrars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List registrars and registrar accounts
+         * @description Accounts carry the probe matrix, health, data region and the evidence kind; anything probed on a mock or recorded fixtures is shown NOT VERIFIED (only live evidence can be LIVE-VERIFIED, HG-07-01). Requires admin:domains:read.
+         */
+        get: operations["listRegistrars"];
+        put?: never;
+        /**
+         * Register a registrar account (vault reference only)
+         * @description Body {providerCode, label, environment, vaultRef (vault://…), webhookSecretRef?, dataRegion, currency?, priority?}. Credential VALUES are refused (422 credential_value_rejected). The account starts disabled. Needs admin:domains:manage and a recent MFA check. Audited.
+         */
+        post: operations["createRegistrarAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/registrars/{id}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Probe a registrar account
+         * @description Runs the adapter probe (read-only), stores the capability matrix and TLD support and the evidence kind. Body {enable?: boolean} also enables the account, but only when search and register are supported AND the evidence is live (or the profile explicitly allows non-live registrars: never production). Needs admin:domains:manage and a recent MFA check. Audited (registrar.account.verified).
+         */
+        post: operations["verifyRegistrarAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/domains/{id}/reconciliations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Force a domain reconciliation
+         * @description Looks at the registrar, finishes orders parked in needs_reconcile/provider_pending and brings the domain in line with the registrar. 202 with the operation. Needs admin:domains:manage and a recent MFA check. Audited.
+         */
+        post: operations["reconcileDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/registrars/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a registrar webhook
+         * @description Unauthenticated by design: the HMAC signature over the RAW body and the replay window (5 min) authenticate it. Deduplicated on the provider's event id: a duplicate answers 200 {outcome:duplicate} and changes nothing. 401 bad signature, 409 outside the replay window, 404 unknown provider or a provider without webhooks. Unknown event types are stored and ignored.
+         */
+        post: operations["registrarWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/domains/{id}/hosting-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform-managed DNS records of a domain
+         * @description ADDITION M07-ADD-2 (approved by the owner). The records written by the platform (hosting linkage, certificate challenges) in the domain's zone. Requires domain:read.
+         */
+        get: operations["getDomainHostingLinks"];
+        put?: never;
+        /**
+         * Preview or apply the DNS records that link a domain to a hosting site
+         * @description ADDITION M07-ADD-2 (approved by the owner; needed by UI-M07-08 until M06 calls DnsLinkagePort itself). Body {siteId, apply?}. Without apply the response is a PREVIEW {outcome:preview, proposal:{records, changes, replaces, ssl}} built from the site's real targets (read through the M06 HostingSiteReadPort; an in-memory fake until M06 lands: NOT VERIFIED). With apply:true the records are written through the atomic DNS change-set as platform-managed (linkage) records and the approver is audited; applying again is {outcome:unchanged}. Requires domain:write and a DNS zone for the domain.
+         */
+        post: operations["linkDomainToSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Domains and their latest order across organizations
+         * @description ADDITION M07-ADD-1 (approved by the owner; needed by UI-M07-10/12). Filters state, needsReconcile=true (orders waiting on the registrar), q, limit, cursor. Metadata only. Requires admin:domains:read.
+         */
+        get: operations["listAdminDomains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/domains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Support lookup of one domain (contacts masked)
+         * @description ADDITION M07-ADD-1 (approved by the owner). Metadata and the order history; contacts are ALWAYS masked (no break-glass in this milestone). Requires admin:domains:read.
+         */
+        get: operations["getAdminDomain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dns/zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List DNS zones
+         * @description Requires dns:read.
+         */
+        get: operations["listDnsZones"];
+        put?: never;
+        /**
+         * Create a DNS zone for a domain
+         * @description Body {domainId}. DNS is hosted by the domain's registrar adapter only: without a supported dns capability the zone cannot be created (422 unsupported_capability; no Nuzm authoritative DNS in M07). Requires dns:write. Idempotent. Audited.
+         */
+        post: operations["createDnsZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dns/zones/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a DNS zone
+         * @description ETag = zone version. Requires dns:read.
+         */
+        get: operations["getDnsZone"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dns/zones/{id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List DNS records
+         * @description Filters name, type. ETag = zone version. Requires dns:read.
+         */
+        get: operations["listDnsRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Apply a DNS change-set atomically
+         * @description Body {create[], update[], delete[]}; If-Match (zone version) required. The whole set is validated first (422 record_invalid with errors[]: type rules, no CNAME at the apex or beside other records, TTL 60..86400, TXT chunking, SRV/MX/CAA fields, IDN, duplicates, quota). Then applied through the registrar's DNS adapter; when the adapter is not atomic the platform snapshots, applies, verifies by re-reading and rolls back on mismatch (zone marked degraded when the rollback is uncertain). Response: per-change results and the new ETag. 412 etag_mismatch. _acme-challenge and records pointing at Nuzm hosting are writable only through DnsLinkagePort. Requires dns:write. Audited (dns.changeset.applied|rolled_back).
+         */
+        patch: operations["changeDnsRecords"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7816,6 +8164,318 @@ export interface components {
         };
         AppealHostingAbuseCase: {
             text: string;
+        };
+        DomainSearchItem: {
+            name: string;
+            tld: string;
+            available: boolean | "unknown" | null;
+            premium: boolean;
+            price: null | {
+                amountMinor: string;
+                currency: string;
+            };
+            eligibility: {
+                /** @enum {string} */
+                state: "allowed" | "blocked";
+                rule: string;
+                reason: string;
+            };
+            purchasable: boolean;
+            cacheTtl: number;
+            stale: boolean;
+        };
+        DomainSearchResult: {
+            items: components["schemas"]["DomainSearchItem"][];
+            ruleSetVersion: string;
+        };
+        Contact: {
+            firstName: string;
+            lastName: string;
+            organization?: string;
+            email: string;
+            /** @description E.164 */
+            phone: string;
+            address: {
+                street: string;
+                city: string;
+                state?: string;
+                postalCode: string;
+                country: string;
+            };
+            extra?: {
+                [key: string]: string;
+            };
+        };
+        ContactSet: {
+            registrant: components["schemas"]["Contact"];
+            admin?: components["schemas"]["Contact"];
+            tech?: components["schemas"]["Contact"];
+            billing?: components["schemas"]["Contact"];
+        };
+        DomainOrderRequest: {
+            /** Format: uuid */
+            quoteId: string;
+            contacts: components["schemas"]["ContactSet"];
+            nameservers?: string[];
+            autoRenew?: boolean;
+            privacy?: boolean;
+        };
+        TransferRequest: {
+            /** Format: uuid */
+            quoteId: string;
+            name?: string;
+            /** @description Write-only; stored in the vault and never returned. */
+            authCode?: string;
+            /** @description A vault:// reference to the auth code. */
+            authCodeRef?: string;
+            contacts: components["schemas"]["ContactSet"];
+            nameservers?: string[];
+            privacy?: boolean;
+        };
+        DomainRenewalRequest: {
+            /** Format: uuid */
+            quoteId: string;
+            years?: number;
+        };
+        DomainOrderAccepted: {
+            /** Format: uuid */
+            operationId: string | null;
+            /** Format: uuid */
+            orderId: string;
+            /** Format: uuid */
+            transferId?: string;
+            replay?: boolean;
+            domain: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                status: string;
+            };
+        };
+        Domain: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            tld: string;
+            /** @enum {string} */
+            state: "pending" | "active" | "expired" | "redemption" | "transferring" | "failed" | "renewal_at_risk";
+            /** Format: date-time */
+            expiresAt?: string | null;
+            /** Format: date-time */
+            registeredAt?: string | null;
+            autoRenew: boolean;
+            locked: boolean;
+            /** @enum {string} */
+            privacyState: "on" | "off" | "unsupported" | "unknown";
+            nameservers: string[];
+            dataRegion: string;
+            providerRegionId?: string | null;
+            renewalAtRisk?: boolean;
+            version: number;
+            capabilities: {
+                [key: string]: boolean;
+            };
+            contacts?: {
+                [key: string]: unknown;
+            };
+            contactsMasked?: boolean;
+            /** Format: uuid */
+            operationId?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DomainPage: {
+            items: components["schemas"]["Domain"][];
+            nextCursor: string | null;
+        };
+        DomainPatch: {
+            contacts?: components["schemas"]["ContactSet"];
+            nameservers?: string[];
+            lock?: boolean;
+            autoRenew?: boolean;
+        };
+        TransferPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        EligibilityEvaluation: {
+            rule: string;
+            /** @enum {string} */
+            state: "allowed" | "blocked" | "needs_info";
+            reason: string;
+            action?: string;
+            ruleSetVersion?: string;
+            /** Format: date-time */
+            evaluatedAt?: string;
+            evidence?: {
+                [key: string]: unknown;
+            };
+        };
+        RegistrarAccount: {
+            /** Format: uuid */
+            id: string;
+            providerCode: string;
+            label: string;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            vaultRef?: string;
+            dataRegion?: string;
+            providerRegionId?: string | null;
+            currency?: string;
+            priority?: number;
+            enabled: boolean;
+            registrarEnabled?: boolean;
+            health: string;
+            capabilities: {
+                [key: string]: "supported" | "unsupported" | "unknown";
+            };
+            tldCount?: number;
+            /** @enum {string|null} */
+            evidenceKind?: "mock" | "fixture" | "live" | null;
+            /** @enum {string} */
+            verification: "NOT PROBED" | "NOT VERIFIED" | "LIVE-VERIFIED";
+            /** Format: date-time */
+            probedAt?: string | null;
+        };
+        RegistrarList: {
+            registrars: {
+                [key: string]: unknown;
+            }[];
+            accounts: components["schemas"]["RegistrarAccount"][];
+        };
+        RegistrarAccountCreate: {
+            providerCode: string;
+            label: string;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            /** @description A vault:// reference; credential values are refused. */
+            vaultRef: string;
+            webhookSecretRef?: string;
+            dataRegion: string;
+            currency?: string;
+            priority?: number;
+        };
+        RegistrarVerificationRequest: {
+            enable?: boolean;
+        };
+        RegistrarVerification: {
+            account: components["schemas"]["RegistrarAccount"];
+            capabilities: {
+                [key: string]: string;
+            };
+            evidenceKind: string;
+            evidenceCount?: number;
+            tlds?: number;
+        };
+        ReconciliationStarted: {
+            /** Format: uuid */
+            operationId: string;
+            results: string[];
+        };
+        WebhookOutcome: {
+            /** @enum {string} */
+            outcome: "processed" | "duplicate" | "ignored";
+        };
+        HostingLinkRequest: {
+            /** Format: uuid */
+            siteId: string;
+            apply?: boolean;
+        };
+        HostingLinkResult: {
+            /** @enum {string} */
+            outcome: "preview" | "applied" | "unchanged";
+            proposal?: {
+                [key: string]: unknown;
+            };
+            version?: number;
+        };
+        HostingLinks: {
+            zone: {
+                [key: string]: unknown;
+            };
+            records: components["schemas"]["DnsRecord"][];
+        };
+        AdminDomainPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        AdminDomain: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            name: string;
+            state: string;
+            contactsMasked: boolean;
+            orders: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        DnsZone: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            domainId: string;
+            name: string;
+            /** @enum {string} */
+            state: "active" | "degraded" | "creating" | "failed";
+            version: number;
+            degraded: boolean;
+            dnssec?: {
+                [key: string]: unknown;
+            };
+            recordCount?: number;
+        };
+        DnsZoneCreate: {
+            /** Format: uuid */
+            domainId: string;
+        };
+        DnsZonePage: {
+            items: components["schemas"]["DnsZone"][];
+            nextCursor: string | null;
+        };
+        DnsRecord: {
+            /** Format: uuid */
+            id?: string;
+            name: string;
+            /** @enum {string} */
+            type: "A" | "AAAA" | "CNAME" | "MX" | "TXT" | "SRV" | "CAA" | "NS";
+            ttl: number;
+            value: unknown;
+            /** @enum {string} */
+            managedBy?: "user" | "linkage" | "email-verification";
+        };
+        DnsRecordList: {
+            items: components["schemas"]["DnsRecord"][];
+            version: number;
+        };
+        DnsChangeSet: {
+            create?: components["schemas"]["DnsRecord"][];
+            update?: {
+                match: {
+                    name?: string;
+                    type?: string;
+                };
+                record: components["schemas"]["DnsRecord"];
+            }[];
+            delete?: {
+                name?: string;
+                type?: string;
+            }[];
+        };
+        DnsChangeSetResult: {
+            /** @enum {string} */
+            outcome: "applied" | "rolled_back" | "degraded";
+            results: {
+                [key: string]: unknown;
+            }[];
+            version: number;
         };
     };
     responses: {
@@ -16058,6 +16718,729 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    searchDomains: {
+        parameters: {
+            query: {
+                q: string;
+                tlds?: string;
+                country?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainSearchResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listDomains: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                state?: "pending" | "active" | "expired" | "redemption" | "transferring" | "failed" | "renewal_at_risk";
+                q?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    orderDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainOrderAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDomainTransfers: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    transferDomainIn: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainOrderAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDomain: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Domain"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428. */
+                "If-Match": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainPatch"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Domain"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    renewDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainRenewalRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainOrderAccepted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDomainEligibility: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EligibilityEvaluation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listRegistrars: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrarList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createRegistrarAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrarAccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrarAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    verifyRegistrarAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Registrar account id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrarVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrarVerification"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    reconcileDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationStarted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    registrarWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookOutcome"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDomainHostingLinks: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingLinks"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    linkDomainToSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostingLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingLinkResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAdminDomains: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                state?: string;
+                needsReconcile?: boolean;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDomainPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getAdminDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDomain"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listDnsZones: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsZonePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDnsZone: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsZoneCreate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsZone"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDnsZone: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsZone"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listDnsRecords: {
+        parameters: {
+            query?: {
+                name?: string;
+                type?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsRecordList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    changeDnsRecords: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428. */
+                "If-Match": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsChangeSet"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsChangeSetResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
         };
     };
 }

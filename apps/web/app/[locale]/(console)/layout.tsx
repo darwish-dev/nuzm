@@ -37,6 +37,7 @@ export default async function ConsoleLayout({
     ...gated('data:db:read', '/databases', 'm8.nav.databases'),
     ...gated('data:storage:read', '/storage/buckets', 'm8.nav.storage'),
     ...gated('email:read', '/email/domains', 'm8.nav.email'),
+    ...gated('domain:read', '/domains', 'nav.domains'),
     ...(s.org && (s.can('billing:read') || s.can('usage:read'))
       ? [
           {

@@ -47,6 +47,11 @@ export default defineConfig({
         DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/${E2E_DB}`,
         DEV_IDP_USERS: JSON.stringify(USERS),
         DATA_LOCAL_REFERENCE: 'true', // M08: in-memory dev-reference adapters (mock-*, NOT VERIFIED) so the managed-data screens can be exercised; never production
+        // M07: local MOCK registrars (Openprovider/ResellerClub shaped from their docs: NOT VERIFIED vendor behaviour) behind the real adapters, dev only
+        DOMAINS_DEV_MOCKS: 'true',
+        DOMAINS_ENABLED: 'true',
+        DOMAINS_ALLOW_NON_LIVE_REGISTRARS: 'true',
+        DOMAINS_FX_JSON: JSON.stringify({ SAR: '1', USD: '3.75', EUR: '4.10' }),
         ZATCA_MODE: 'simulation', // e-invoicing admin screens; nothing is generated until ZATCA_GENERATE_FROM is set
         METERING_SOURCE_KEYS: JSON.stringify([
           {

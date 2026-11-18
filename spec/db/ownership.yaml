@@ -179,6 +179,8 @@ tenant_less:
   - compliance.evidence_items
   - compliance.regulatory_validations
   - compliance.breach_cases
+  - domains.registrar_accounts
+  - domains.registrars
   # provider selection config for managed data and email (M08 S32): platform register, admin scope only; nothing is seeded, nothing is enabled by default
   - data.data_providers
   # provider registry, accounts (vault REFERENCES only), verified regions, plans, capability matrix, evidence, catalog snapshots, platform jobs (M05 S16):
@@ -245,6 +247,7 @@ classification:
     invoicing.billing_entities.legal_name_ar: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
+    domains.domain_orders.idempotency_token: a sha256 of org, operation and step ids, a deterministic business dedupe key sent to the registrar, not a credential
     hosting.plan_definitions.price_minor: an entry of the public hosting price list (PLACEHOLDER until published), not a customer's money
     hosting.site_domain_bindings.verification_token: a random domain-ownership challenge value that the customer publishes in their own DNS; proves nothing about us and grants no access
     hosting.sites.token: the deterministic idempotency token sha256(orgId|operationId|stepId) that names the site on its node; derived from ids, grants no access
@@ -284,6 +287,10 @@ classification:
     tenancy.invitations.token_hash: hash
     invoicing.tax_profiles.pii_enc: encrypted
     compliance.dsr_requests.details_enc: encrypted
+    domains.domain_transfers.auth_code_ref: vault_ref
+    domains.domain_contacts.payload_enc: encrypted
+    domains.registrar_accounts.webhook_secret_ref: vault_ref
+    domains.registrar_accounts.vault_ref: vault_ref
   columns:
     audit.audit_checkpoints:
       id: internal
@@ -2157,4 +2164,150 @@ classification:
       emitted_until: internal
       last_value: internal
       period: internal
+      updated_at: internal
+    domains.registrars:
+      id: internal
+      provider_code: internal
+      title: internal
+      contract_version: internal
+      enabled: internal
+      created_at: internal
+      updated_at: internal
+    domains.registrar_accounts:
+      id: internal
+      registrar_id: internal
+      provider_account_id: internal
+      label: internal
+      environment: internal
+      vault_ref: credentials
+      webhook_secret_ref: credentials
+      data_region: internal
+      provider_region_id: internal
+      currency: internal
+      priority: internal
+      enabled: internal
+      health: internal
+      capabilities: internal
+      tld_support: internal
+      evidence_kind: internal
+      probed_at: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    domains.domains:
+      id: internal
+      org_id: internal
+      name: internal
+      tld: internal
+      state: internal
+      registrar_account_id: internal
+      provider_ref: internal
+      registered_at: internal
+      expires_at: internal
+      auto_renew: internal
+      locked: internal
+      privacy_state: internal
+      nameservers: internal
+      data_region: internal
+      provider_region_id: internal
+      last_provider_state: internal
+      last_synced_at: internal
+      version: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    domains.domain_orders:
+      id: internal
+      org_id: internal
+      type: internal
+      domain_id: internal
+      name: internal
+      registrar_account_id: internal
+      quote_id: internal
+      commerce_order_id: internal
+      operation_id: internal
+      idempotency_token: internal
+      state: internal
+      years: internal
+      price_minor: financial
+      tax_minor: financial
+      currency: financial
+      provider_cost_minor: financial
+      provider_cost_currency: financial
+      provider_order_ref: internal
+      authorization_state: internal
+      ledger_authorize_tx: internal
+      ledger_record_tx: internal
+      ledger_release_tx: internal
+      residency: internal
+      consent_refs: internal
+      failure_code: internal
+      attempts: internal
+      version: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      completed_at: internal
+    domains.eligibility_checks:
+      id: internal
+      org_id: internal
+      quote_id: internal
+      domain_id: internal
+      name: internal
+      tld: internal
+      action: internal
+      rule_set_version: internal
+      result: internal
+      rule: internal
+      reason: internal
+      error_code: internal
+      evidence: personal
+      created_at: internal
+    domains.domain_contacts:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      role: internal
+      payload_enc: personal
+      version: internal
+      created_at: internal
+      updated_at: internal
+    domains.domain_transfers:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      order_id: internal
+      name: internal
+      registrar_account_id: internal
+      auth_code_ref: credentials
+      state: internal
+      provider_ref: internal
+      failure_code: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      completed_at: internal
+    domains.dns_zones:
+      id: internal
+      org_id: internal
+      domain_id: internal
+      name: internal
+      state: internal
+      version: internal
+      provider_zone_ref: internal
+      degraded: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    domains.dns_records:
+      id: internal
+      org_id: internal
+      zone_id: internal
+      name: internal
+      type: internal
+      ttl: internal
+      value: customer-content
+      value_hash: internal
+      managed_by: internal
+      created_at: internal
       updated_at: internal

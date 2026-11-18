@@ -34,13 +34,15 @@ export interface PriceContext {
   currency: string;
   now: Date;
   actorUserId?: string;
+  /** The id the quote will get (generated before pricing, so a pricer can tie evidence to it, e.g. M07 eligibility checks). */
+  quoteId?: string;
 }
 export interface PricerResult {
   items: PricedItem[];
   priceBookVersionId: string | null;
   /** The kind's own residency evaluation (M04 hook), stored in the immutable quote. Absent = `{status:'not_evaluated'}`. */
   residency?: Record<string, unknown>;
-  /** Internal, admin-visible decisions stored with the quote (e.g. the compute routing decision); NEVER returned to customers. */
+  /** Stored with the quote. The key `eligibility` (an array) is customer-visible (M07); everything else is internal and NEVER returned to customers. */
   preferences?: Record<string, unknown>;
 }
 /** One pricer per quote kind. The owning milestone registers it (compute M05, hosting M06, domain M07, ...). */

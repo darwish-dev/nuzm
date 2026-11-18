@@ -9,6 +9,7 @@ import { FinrecService, finrecOptsFromEnv } from './internal/finrec.service';
 import { ReportService } from './internal/reports.service';
 import { AdminRevenueReportsController } from './admin-revenue-reports.controller';
 import type { Sources } from './internal/reconcilers';
+import { BillSourceRegistry } from './internal/bill-sources';
 
 /**
  * Financial reconciliation (M03 S12). Sources: PSP settlement reports from every adapter that has one (RC-01) and provider bills (RC-04), which
@@ -18,16 +19,23 @@ import type { Sources } from './internal/reconcilers';
 @Module({
   controllers: [AdminReconciliationsController, AdminRevenueReportsController],
   providers: [
+    { provide: BillSourceRegistry, useFactory: () => new BillSourceRegistry() },
     {
       provide: FinrecService,
-      useFactory: (db: Db, a: AuditSink, psp: PspRegistry, z: ZatcaDocumentService) => {
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        psp: PspRegistry,
+        z: ZatcaDocumentService,
+        bills: BillSourceRegistry,
+      ) => {
         const sources: Sources = {
           settlements: async (from, to) => {
             const adapters = psp.all().filter((x) => typeof x.listSettlements === 'function');
             if (!adapters.length) return null;
             return (await Promise.all(adapters.map((x) => x.listSettlements!(from, to)))).flat();
           },
-          bills: async () => null,
+          bills: (from, to) => bills.collect(from, to),
         };
         const from = process.env.ZATCA_GENERATE_FROM
           ? new Date(process.env.ZATCA_GENERATE_FROM)
@@ -40,7 +48,7 @@ import type { Sources } from './internal/reconcilers';
           finrecOptsFromEnv(),
         );
       },
-      inject: [DB, AuditSink, PspRegistry, ZatcaDocumentService],
+      inject: [DB, AuditSink, PspRegistry, ZatcaDocumentService, BillSourceRegistry],
     },
     {
       provide: ReportService,
@@ -48,6 +56,6 @@ import type { Sources } from './internal/reconcilers';
       inject: [DB, AuditSink],
     },
   ],
-  exports: [FinrecService, ReportService],
+  exports: [FinrecService, ReportService, BillSourceRegistry],
 })
 export class FinrecModule {}

@@ -55,3 +55,14 @@ purposes:
     text:
       ar: COUNSEL-TEXT-REQUIRED
       en: COUNSEL-TEXT-REQUIRED
+  - id: domain_registrant_disclosure
+    category: domains
+    textVersion: placeholder-1
+    label:
+      {
+        ar: عرض بيانات المسجّل علنًا عند عدم توفر حماية الخصوصية,
+        en: Publishing registrant details where privacy protection is not available,
+      }
+    text:
+      ar: COUNSEL-TEXT-REQUIRED
+      en: COUNSEL-TEXT-REQUIRED

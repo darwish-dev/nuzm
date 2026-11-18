@@ -99,6 +99,21 @@ export const ERROR_REGISTRY = {
   suppressed: { status: 422, title: 'A recipient is on the suppression list' },
   sender_not_verified: { status: 422, title: 'The sender identity is not verified' },
   domain_not_owned: { status: 422, title: 'The domain is not owned by this account' },
+  eligibility_blocked: { status: 422, title: 'The domain is not eligible for this action' },
+  domain_unavailable: { status: 409, title: 'The domain name is not available' },
+  quote_conflict: { status: 409, title: 'The quote conflicts with the request' },
+  approval_required: { status: 403, title: 'A spend approval is required for this order' },
+  payment_required: {
+    status: 402,
+    title: 'Payment is required: the wallet balance does not cover this order',
+  },
+  transfer_locked: { status: 422, title: 'The domain is locked at the current registrar' },
+  etag_mismatch: {
+    status: 412,
+    title: 'The resource changed since it was read (If-Match mismatch)',
+  },
+  record_invalid: { status: 422, title: 'One or more DNS records are invalid' },
+  consent_required: { status: 422, title: 'A consent is required before this action' },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

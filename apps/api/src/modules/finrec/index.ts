@@ -6,3 +6,5 @@ export { RECON_TYPES } from './internal/reconcilers';
 export type { ReconType, Sources, Settlement, BillLine } from './internal/reconcilers';
 export { ReportService, REPORTS, toCsv } from './internal/reports.service';
 export type { Report, ReportName } from './internal/reports.service';
+export { BillSourceRegistry } from './internal/bill-sources';
+export type { BillSource } from './internal/bill-sources';

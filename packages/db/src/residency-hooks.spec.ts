@@ -50,6 +50,7 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
       'm05-provisioning',
       'm06-backup-sink',
       'm06-node-selection',
+      'm07-registrant-contacts',
       'm08-cache-placement',
       'm08-data-placement',
       'm08-mailbox',

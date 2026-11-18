@@ -13,6 +13,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { AppModule } from '../app.module';
 import { configureApp } from '../app.setup';
 import { TestIdp } from '../modules/identity/testing/test-idp';
+import { startDomainsDevMocks } from './domains-dev';
 
 if (process.env.NODE_ENV === 'production') throw new Error('dev stack must not run in production');
 
@@ -58,6 +59,7 @@ async function main() {
     rawBody: true, // webhook signatures are computed over the exact request bytes
   });
   await configureApp(app);
+  const mocks = process.env.DOMAINS_DEV_MOCKS === 'true' ? await startDomainsDevMocks(app) : null;
   await app.listen(Number(process.env.PORT ?? 4000), '127.0.0.1');
   console.log(
     JSON.stringify({
@@ -66,6 +68,7 @@ async function main() {
       idp: idp.issuer,
       web,
       admin,
+      ...(mocks ? { domainMocks: mocks } : {}),
     }),
   );
 }

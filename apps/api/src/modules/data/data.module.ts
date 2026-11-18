@@ -39,6 +39,10 @@ import { DatabasePricer } from './internal/pricers';
 import { DataProviderService } from './internal/provider.service';
 import { RestoreService } from './internal/restore.service';
 import { RotationService } from './internal/rotation.service';
+import { StorageFlow } from './internal/storage-flow';
+import { StoragePricer } from './internal/storage-pricer';
+import { StorageService } from './internal/storage.service';
+import { StorageController } from './storage.controller';
 
 const PRICERS = Symbol('DATA_PRICERS');
 
@@ -50,7 +54,7 @@ const PRICERS = Symbol('DATA_PRICERS');
 @Global()
 @Module({
   imports: [IdentityModule],
-  controllers: [DatabasesController, AdminDataProvidersController],
+  controllers: [DatabasesController, StorageController, AdminDataProvidersController],
   providers: [
     { provide: DATA_CONFIG, useFactory: () => loadDataConfig() },
     {
@@ -202,6 +206,42 @@ const PRICERS = Symbol('DATA_PRICERS');
         DataJobs,
       ],
     },
+    {
+      provide: StorageService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        o: DataOperations,
+        p: DataProviderService,
+        r: DataAdapterRegistry,
+        ord: OrderService,
+        e: EntitlementService,
+        res: ResidencyService,
+        cfg: DataConfig,
+        jobs: DataJobs,
+      ) => {
+        const s = new StorageService(db, a, o, p, r, ord, e, res, cfg);
+        s.setKicker((org, id) => jobs.kick(org, id));
+        return s;
+      },
+      inject: [
+        DB,
+        AuditSink,
+        DataOperations,
+        DataProviderService,
+        DataAdapterRegistry,
+        OrderService,
+        EntitlementService,
+        ResidencyService,
+        DATA_CONFIG,
+        DataJobs,
+      ],
+    },
+    {
+      provide: StorageFlow,
+      useFactory: (f: DatabaseFlow, s: StorageService, al: DataAlerts) => new StorageFlow(f, s, al),
+      inject: [DatabaseFlow, StorageService, DataAlerts],
+    },
     { provide: DataMetering, useFactory: (db: Db) => new DataMetering(db), inject: [DB] },
     {
       provide: DataJobs,
@@ -219,8 +259,10 @@ const PRICERS = Symbol('DATA_PRICERS');
         c: DatabaseCatalog,
         res: ResidencyService,
         cfg: DataConfig,
+        storage: StorageService,
       ) => {
         reg.register(new DatabasePricer(db, prices, p, c, res, cfg.hoursPerMonth));
+        reg.register(new StoragePricer(db, prices, storage, res));
         return true;
       },
       inject: [
@@ -231,10 +273,13 @@ const PRICERS = Symbol('DATA_PRICERS');
         DatabaseCatalog,
         ResidencyService,
         DATA_CONFIG,
+        StorageService,
       ],
     },
   ],
   exports: [
+    StorageService,
+    StorageFlow,
     DataProviderService,
     DataAdapterRegistry,
     DatabaseService,
@@ -253,6 +298,7 @@ export class DataModule implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly jobs: DataJobs,
     private readonly restores: RestoreService,
     private readonly rotations: RotationService,
+    private readonly storageFlow: StorageFlow,
     @Inject(PRICERS) _pricers: boolean,
   ) {
     void _pricers;
@@ -261,6 +307,10 @@ export class DataModule implements OnApplicationBootstrap, OnApplicationShutdown
     // background tasks that need services which depend on the jobs object are attached here (no constructor cycle)
     this.jobs.addTask({ name: 'restore-verification', run: (n) => this.restores.verifyDue(n) });
     this.jobs.addTask({ name: 'rotation-window-end', run: (n) => this.rotations.endWindows(n) });
+    this.jobs.addTask({
+      name: 'storage-usage',
+      run: (n) => this.storageFlow.collectUsage(new Date(n.getTime() - 86_400_000)),
+    });
     this.jobs.start(DataJobs.intervalFromEnv());
   }
   onApplicationShutdown() {

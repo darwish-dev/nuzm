@@ -41,6 +41,12 @@ tables:
       hook: m08-data-placement,
       note: 'a backup stays in the data_region of its instance; evaluated before every backup',
     }
+  data.storage_buckets:
+    {
+      owner: M08,
+      hook: m08-object-storage,
+      note: 'placement is evaluated at quote, create and every execution (storage.service.ts, storage-flow.ts, storage-pricer.ts); system buckets stay in the data_region of the databases they protect',
+    }
   data.database_restores:
     {
       owner: M08,
@@ -154,9 +160,9 @@ hooks:
       where: 'Object storage placement and signed-URL regions',
       data_classes: [customer-content],
       processor_kind: object-storage,
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.storage,
-      call_site: null,
+      call_site: apps/api/src/modules/data/internal/storage-flow.ts,
     }
   - {
       id: m08-transactional-email,

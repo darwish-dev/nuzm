@@ -93,6 +93,7 @@ export class DataJobs {
             await c.query(
               `SELECT org_id, operation_id FROM data.database_instances WHERE state IN ('provisioning','deleting','unknown') AND operation_id IS NOT NULL
                UNION SELECT org_id, operation_id FROM data.database_backups WHERE state = 'creating' AND operation_id IS NOT NULL
+               UNION SELECT org_id, operation_id FROM data.storage_buckets WHERE state IN ('provisioning','deleting','unknown') AND operation_id IS NOT NULL
                UNION SELECT org_id, operation_id FROM data.database_restores WHERE state IN ('requested','running','needs_reconcile') AND operation_id IS NOT NULL
                LIMIT 200`,
             )

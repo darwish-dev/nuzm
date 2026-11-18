@@ -1,4 +1,9 @@
-import { MockCacheAdapter, MockDatabaseAdapter, ManualClock } from '@nuzm/adapter-data';
+import {
+  MockCacheAdapter,
+  MockDatabaseAdapter,
+  MockObjectStorageAdapter,
+  ManualClock,
+} from '@nuzm/adapter-data';
 import { Harness, cookieHeader, type App } from '../../identity/testing/app-harness';
 import { DataAdapterRegistry } from '../index';
 import { DataJobs } from '../internal/jobs';
@@ -46,6 +51,18 @@ export async function seedDataPrices(h: Harness) {
 /** A database adapter whose catalog lists a European region (for the residency-denial tests). */
 export class EuDatabaseAdapter extends MockDatabaseAdapter {
   override async catalog(ctx: Parameters<MockDatabaseAdapter['catalog']>[0]) {
+    const c = await super.catalog(ctx);
+    return {
+      ...c,
+      regions: [{ ...c.regions[0]!, providerRegionId: 'de-frankfurt', countryCode: 'DE' }],
+      plans: c.plans.map((p) => ({ ...p, providerRegionId: 'de-frankfurt' })),
+    };
+  }
+}
+
+/** An object-storage adapter whose catalog lists a European region (for the residency-denial tests). */
+export class EuObjectStorageAdapter extends MockObjectStorageAdapter {
+  override async catalog(ctx: Parameters<MockObjectStorageAdapter['catalog']>[0]) {
     const c = await super.catalog(ctx);
     return {
       ...c,

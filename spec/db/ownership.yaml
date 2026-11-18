@@ -209,6 +209,7 @@ classification:
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.address: the seller's own registered business address, printed on every invoice
     data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+    data.storage_buckets.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     data.database_backups.idempotency_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
   # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
   # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
@@ -230,6 +231,7 @@ classification:
     invoicing.tax_profiles.pii_enc: encrypted
     compliance.dsr_requests.details_enc: encrypted
     data.database_instances.vault_ref: vault_ref
+    data.storage_buckets.credential_vault_ref: vault_ref
   columns:
     audit.audit_checkpoints:
       id: internal
@@ -1450,3 +1452,41 @@ classification:
       created_at: internal
       updated_at: internal
       finished_at: internal
+    data.bucket_policies:
+      id: internal
+      org_id: internal
+      bucket_id: internal
+      policy: customer-content
+      etag: internal
+      updated_by: internal
+      created_at: internal
+      updated_at: internal
+    data.storage_buckets:
+      id: internal
+      org_id: internal
+      name: customer-content
+      name_global: customer-content
+      system: internal
+      state: internal
+      endpoint: internal
+      versioning: internal
+      public: internal
+      public_confirmed_by: internal
+      public_confirmed_at: internal
+      lifecycle: customer-content
+      quota_bytes: internal
+      credential_vault_ref: credentials
+      data_region: internal
+      provider_region_id: internal
+      provider_id: internal
+      provider_ref: internal
+      create_token: internal
+      quote_id: internal
+      order_id: internal
+      usage: internal
+      operation_id: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal

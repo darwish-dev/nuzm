@@ -12,3 +12,5 @@ export { DataJobs } from './internal/jobs';
 export { DataMetering } from './internal/metering';
 export { DataAlerts } from './internal/alerts';
 export { DataOperations } from './internal/operations-port';
+export { StorageService } from './internal/storage.service';
+export { StorageFlow, SYSTEM_ORG } from './internal/storage-flow';

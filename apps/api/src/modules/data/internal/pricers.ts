@@ -3,12 +3,7 @@ import { ProblemException } from '../../../common/errors';
 import { productionPricing, toRatingItem } from '../../../common/pricing';
 import { formatDec, parseDec, rateSegment } from '../../../common/rating';
 import type { PriceBookService } from '../../billing';
-import type {
-  PriceContext,
-  PricedItem,
-  PricerResult,
-  QuotePricer,
-} from '../../commerce';
+import type { PriceContext, PricedItem, PricerResult, QuotePricer } from '../../commerce';
 import type { ResidencyService } from '../../compliance';
 import type { DataProviderService } from './provider.service';
 import { serviceOfEngine, type Engine, ENGINES } from './model';

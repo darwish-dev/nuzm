@@ -4300,6 +4300,260 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets:
+    post:
+      operationId: createBucket
+      tags: [data]
+      summary: 'Create a bucket'
+      description: 'Body {name, quoteId (a quote of kind `storage`), region?, versioning?}. The bucket is named `nz-<orgShort>-<name>` (the namespace comes from the organization, never from input), PRIVATE by default (`public`, `policy` or an organization cannot be set here) and gets its own bucket-scoped credential stored in the vault. 202 + operation. 409 `name_taken` (the same answer whoever holds the name: names of other organizations cannot be enumerated); 422 `unsupported_capability` when no object-storage provider is enabled or the probe does not report buckets supported; 422 `quota_exceeded` beyond the entitlement bucket count; 403 `residency_denied`. Idempotent per Idempotency-Key. Requires permission `data:storage:write`. Audited.'
+      x-nuzm-permission: data:storage:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBucket' }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Bucket' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listBuckets
+      tags: [data]
+      summary: 'List buckets'
+      description: 'Newest first. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}:
+    get:
+      operationId: getBucket
+      tags: [data]
+      summary: 'Get a bucket'
+      description: 'State, endpoint, `dataRegion`, `public`, versioning, quota, lifecycle, last usage (with which figures the provider could report), the vault REFERENCE of the bucket credential (never the secret) and the ETag. 404 for another organization, identical to a bucket that does not exist. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Bucket' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateBucket
+      tags: [data]
+      summary: 'Update a bucket'
+      description: 'Body {quotaBytes}. Requires If-Match (428/412); bounded by the entitlement. Requires permission `data:storage:admin`.'
+      x-nuzm-permission: data:storage:admin
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateBucket' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Bucket' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteBucket
+      tags: [data]
+      summary: 'Delete a bucket'
+      description: '`confirmName` (query or JSON body) must equal the bucket name. An EMPTY bucket only (409 otherwise); `force=true` deletes the objects too and needs `data:storage:admin` plus a recent MFA verification. 202 + operation. Requires permission `data:storage:write`. Audited.'
+      x-nuzm-permission: data:storage:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: confirmName, in: query, schema: { type: string } }
+        - { name: force, in: query, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketDeletion' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}/access-policy:
+    get:
+      operationId: getBucketAccessPolicy
+      tags: [data]
+      summary: 'Get the access policy'
+      description: 'The policy document (deny-by-default subset) and its ETag. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketAccessPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putBucketAccessPolicy
+      tags: [data]
+      summary: 'Replace the access policy'
+      description: 'Body {policy: {version: 1, access: private|public-read, statements: [{effect: allow, actions, prefix, principal: bucket-credentials}], cors?}, confirmPublic?} (the policy may also be the body itself). Requires If-Match with the policy ETag. Only the documented subset is accepted: anything else is 422 `policy_invalid`. `access=public-read` needs `confirmPublic=true` (else 422 `policy_invalid`), a recent MFA verification, and is audited (`data.bucket.made_public`); the console shows a warning. Requires permission `data:storage:admin`.'
+      x-nuzm-permission: data:storage:admin
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutBucketAccessPolicy' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketAccessPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}/signed-urls:
+    post:
+      operationId: createBucketSignedUrl
+      tags: [data]
+      summary: 'Issue a signed URL'
+      description: 'Body {key, method: GET|HEAD|PUT|DELETE, ttlSeconds?}. Method-scoped: GET and HEAD need `data:storage:read`, PUT and DELETE also need `data:storage:write`. Default TTL 900 s, maximum 604800 s (7 days): 422 `ttl_too_long`. The URL is returned once and is never logged; the audit event carries a hash of the key. 422 `unsupported_capability` when the provider cannot sign. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSignedUrl' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignedUrl' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/storage/buckets/{id}/lifecycle:
+    get:
+      operationId: getBucketLifecycle
+      tags: [data]
+      summary: 'Get lifecycle rules'
+      description: 'The rules and which actions the provider supports (expiry, multipart abort, transitions): unsupported actions are hidden by the console. Requires permission `data:storage:read`.'
+      x-nuzm-permission: data:storage:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketLifecycle' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putBucketLifecycle
+      tags: [data]
+      summary: 'Replace lifecycle rules'
+      description: 'Body {rules: [{id, prefix, expireDays?, abortIncompleteMultipartDays?, transition?}]}. Expiry and multipart-abort need their capability; transitions only if the probe says so: otherwise 422 `unsupported_capability` (never a silent no-op). Requires permission `data:storage:write`.'
+      x-nuzm-permission: data:storage:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutBucketLifecycle' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BucketLifecycleRules' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   parameters:
     OrgHeader:
@@ -7581,4 +7835,243 @@ components:
             'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/DataProvider' } },
           },
         'required': ['items'],
+      }
+    CreateBucket:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'name': { 'type': 'string' },
+            'quoteId': { 'type': 'string', 'format': 'uuid' },
+            'region': { 'type': 'string' },
+            'versioning': { 'type': 'boolean' },
+          },
+        'required': ['name', 'quoteId'],
+      }
+    UpdateBucket:
+      {
+        'type': 'object',
+        'properties': { 'quotaBytes': { 'type': 'integer' } },
+        'required': ['quotaBytes'],
+      }
+    Bucket:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'name': { 'type': 'string' },
+            'bucketName': { 'type': 'string' },
+            'status':
+              {
+                'type': 'string',
+                'enum': ['provisioning', 'active', 'failed', 'deleting', 'deleted', 'unknown'],
+              },
+            'endpoint': { 'type': ['string', 'null'] },
+            'dataRegion': { 'type': 'string' },
+            'providerRegionId': { 'type': 'string' },
+            'versioning': { 'type': 'boolean' },
+            'public': { 'type': 'boolean' },
+            'quotaBytes': { 'type': ['integer', 'null'] },
+            'lifecycle':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/LifecycleRule' } },
+            'usage':
+              { 'oneOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'credentialVaultRef':
+              {
+                'type': ['string', 'null'],
+                'description': 'Metadata only: the bucket-scoped credential lives in the vault. The secret is never returned.',
+              },
+            'operationId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'etag': { 'type': 'integer' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+        'required':
+          [
+            'id',
+            'name',
+            'bucketName',
+            'status',
+            'dataRegion',
+            'providerRegionId',
+            'versioning',
+            'public',
+            'lifecycle',
+            'etag',
+            'createdAt',
+          ],
+      }
+    BucketPage:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/Bucket' } },
+            'nextCursor': { 'type': ['string', 'null'] },
+          },
+        'required': ['items', 'nextCursor'],
+      }
+    BucketDeletion:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/Bucket' },
+            {
+              'type': 'object',
+              'properties': { 'operationId': { 'type': 'string', 'format': 'uuid' } },
+              'required': ['operationId'],
+            },
+          ],
+      }
+    LifecycleRule:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'id': { 'type': 'string' },
+            'prefix': { 'type': 'string' },
+            'expireDays': { 'type': 'integer' },
+            'abortIncompleteMultipartDays': { 'type': 'integer' },
+            'transition':
+              {
+                'type': 'object',
+                'properties':
+                  { 'days': { 'type': 'integer' }, 'storageClass': { 'type': 'string' } },
+              },
+          },
+        'required': ['id', 'prefix'],
+      }
+    BucketLifecycleRules:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'rules': { 'type': 'array', 'items': { '$ref': '#/components/schemas/LifecycleRule' } },
+          },
+        'required': ['rules'],
+      }
+    BucketLifecycle:
+      {
+        'allOf':
+          [
+            { '$ref': '#/components/schemas/BucketLifecycleRules' },
+            {
+              'type': 'object',
+              'properties':
+                {
+                  'capabilities':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'expiry': { 'type': 'boolean' },
+                          'abortMultipart': { 'type': 'boolean' },
+                          'transition': { 'type': 'boolean' },
+                        },
+                    },
+                },
+              'required': ['capabilities'],
+            },
+          ],
+      }
+    PutBucketLifecycle:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'rules': { 'type': 'array', 'items': { '$ref': '#/components/schemas/LifecycleRule' } },
+          },
+        'required': ['rules'],
+      }
+    BucketPolicyDocument:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'version': { 'type': 'integer', 'const': 1 },
+            'access': { 'type': 'string', 'enum': ['private', 'public-read'] },
+            'statements':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'properties':
+                      {
+                        'effect': { 'type': 'string', 'enum': ['allow'] },
+                        'actions':
+                          {
+                            'type': 'array',
+                            'items':
+                              { 'type': 'string', 'enum': ['read', 'write', 'delete', 'list'] },
+                          },
+                        'prefix': { 'type': 'string' },
+                        'principal': { 'type': 'string', 'enum': ['bucket-credentials'] },
+                      },
+                    'required': ['effect', 'actions', 'principal'],
+                  },
+              },
+            'cors':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'properties':
+                      {
+                        'origins': { 'type': 'array', 'items': { 'type': 'string' } },
+                        'methods':
+                          {
+                            'type': 'array',
+                            'items': { 'type': 'string', 'enum': ['GET', 'PUT', 'HEAD'] },
+                          },
+                        'maxAgeSeconds': { 'type': 'integer' },
+                      },
+                    'required': ['origins', 'methods', 'maxAgeSeconds'],
+                  },
+              },
+          },
+        'required': ['version', 'access'],
+      }
+    PutBucketAccessPolicy:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'policy': { '$ref': '#/components/schemas/BucketPolicyDocument' },
+            'confirmPublic': { 'type': 'boolean' },
+          },
+      }
+    BucketAccessPolicy:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'policy': { '$ref': '#/components/schemas/BucketPolicyDocument' },
+            'etag': { 'type': 'string' },
+            'public': { 'type': 'boolean' },
+          },
+        'required': ['policy', 'etag', 'public'],
+      }
+    CreateSignedUrl:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'key': { 'type': 'string' },
+            'method': { 'type': 'string', 'enum': ['GET', 'HEAD', 'PUT', 'DELETE'] },
+            'ttlSeconds': { 'type': 'integer', 'minimum': 1, 'maximum': 604800 },
+          },
+        'required': ['key', 'method'],
+      }
+    SignedUrl:
+      {
+        'type': 'object',
+        'properties':
+          {
+            'url': { 'type': 'string' },
+            'expiresAt': { 'type': 'string', 'format': 'date-time' },
+            'method': { 'type': 'string' },
+          },
+        'required': ['url', 'expiresAt', 'method'],
       }

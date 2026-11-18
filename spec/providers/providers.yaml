@@ -14,8 +14,8 @@ providers:
     kind: compute
     adapter: alibaba-ecs
     environment_policy: any
-    egress: { hosts: [], allow_loopback: false }
-    note: 'Adapter arrives in S18/S19 (needs HG-05-01). No Saudi-region assumption: offers appear only if a live probe lists the region.'
+    egress: { hosts: ['*.aliyuncs.com'], allow_loopback: false } # ecs.<region>.aliyuncs.com, business.ap-southeast-1.aliyuncs.com (docs read 2026-11-18)
+    note: 'Adapter built from the official docs (S18/S19), NOT VERIFIED: needs HG-05-01 for any live call. No Saudi-region assumption: offers appear only if a live probe lists the region.'
   - key: huawei
     kind: compute
     adapter: huawei-ecs
@@ -26,8 +26,8 @@ providers:
     kind: compute
     adapter: contabo-vps
     environment_policy: any
-    egress: { hosts: [], allow_loopback: false }
-    note: 'Adapter arrives in S22 (needs HG-05-03). Per-account, per-plan capability detection.'
+    egress: { hosts: ['api.contabo.com', 'auth.contabo.com'], allow_loopback: false } # docs read 2026-11-18
+    note: 'Adapter built from the official docs (S22), NOT VERIFIED: needs HG-05-03 for any live call. Per-account, per-plan capability detection; no price/availability API, so no offers until established elsewhere.'
   - key: cloudpanel
     kind: hosting
     adapter: cloudpanel-node

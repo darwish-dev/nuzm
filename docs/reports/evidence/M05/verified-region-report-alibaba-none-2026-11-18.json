@@ -1,0 +1,13 @@
+{
+  "provider": "alibaba",
+  "adapterId": "alibaba-ecs",
+  "account": "none",
+  "date": "2026-11-18",
+  "status": "NOT VERIFIED",
+  "reason": "HG-05-01 is PENDING: no account or credential exists, no live probe was run",
+  "gate": "HG-05-01",
+  "gateEvidence": null,
+  "verifiedRegions": [],
+  "saudiArabia": "NOT VERIFIED",
+  "listedButNotVerified": []
+}

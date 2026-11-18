@@ -266,7 +266,7 @@ describe('access: the archive reaches the member who asked, and only theirs', ()
     expect(r.identityVerifiedAt).toBeTruthy();
     expect(r.closedAt).toBeTruthy();
     expect(r.tasks.map((t: Row) => t.handler).sort()).toEqual(
-      ['billing', 'consent', 'flaky', 'identity', 'tenancy'].sort(),
+      ['billing', 'consent', 'domain-contacts', 'flaky', 'identity', 'tenancy'].sort(),
     );
     expect(task(r, 'identity')).toMatchObject({ action: 'export', status: 'succeeded' });
     expect(r.outcome.exportId).toBeTruthy();

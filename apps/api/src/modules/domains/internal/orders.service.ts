@@ -505,7 +505,6 @@ export class DomainOrderService {
     traceId: string,
   ) {
     if (!UUID.test(domainId)) throw new ProblemException('not_found');
-    const { q, item } = await this.loadQuote(orgId, body.quoteId, 'renew');
     const dom = await this.d.db.withOrg(
       orgId,
       async (c) =>
@@ -513,6 +512,7 @@ export class DomainOrderService {
           Row | undefined,
     );
     if (!dom) throw new ProblemException('not_found');
+    const { q, item } = await this.loadQuote(orgId, body.quoteId, 'renew');
     if (dom.name !== item.name || item.domainId !== domainId)
       throw badRequest('the quote is for a different domain');
     if (!['active', 'renewal_at_risk', 'expired'].includes(dom.state as string))

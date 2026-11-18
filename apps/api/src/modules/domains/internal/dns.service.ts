@@ -299,6 +299,17 @@ export class DnsService {
   ): Promise<ChangeSetResult> {
     const writer = opts.writer ?? 'user';
     if (!UUID.test(zoneId)) throw new ProblemException('not_found');
+    const zone = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `SELECT z.*, d.name AS domain_name, d.registrar_account_id FROM domains.dns_zones z JOIN domains.domains d ON d.id = z.domain_id WHERE z.id = $1`,
+            [zoneId],
+          )
+        ).rows[0] as Row | undefined,
+    );
+    if (!zone) throw new ProblemException('not_found');
     if (ifMatch === null)
       throw new ProblemException(
         'precondition_required',
@@ -328,17 +339,6 @@ export class DnsService {
     if (inputs.length === 0 || inputs.length > 200)
       throw badRequest('a change-set holds 1..200 changes');
 
-    const zone = await this.db.withOrg(
-      orgId,
-      async (c) =>
-        (
-          await c.query(
-            `SELECT z.*, d.name AS domain_name, d.registrar_account_id FROM domains.dns_zones z JOIN domains.domains d ON d.id = z.domain_id WHERE z.id = $1`,
-            [zoneId],
-          )
-        ).rows[0] as Row | undefined,
-    );
-    if (!zone) throw new ProblemException('not_found');
     if (zone.version !== ifMatch)
       throw new ProblemException('etag_mismatch', `the zone is at version ${String(zone.version)}`);
     if (zone.state === 'degraded')

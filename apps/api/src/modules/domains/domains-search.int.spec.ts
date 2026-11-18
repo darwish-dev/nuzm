@@ -68,7 +68,7 @@ describe('registrar registry (S28 task 6)', () => {
     );
     expect(rows.length).toBeGreaterThanOrEqual(2);
     for (const r of rows) {
-      expect(r.d).not.toContain('mock-password-value');
+      expect(r.d).not.toContain('mock-credential-value');
       expect(r.d).not.toContain('vault://');
     }
   });

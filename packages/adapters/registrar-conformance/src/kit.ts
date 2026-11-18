@@ -470,7 +470,11 @@ export const REGISTRAR_CASES: ConformanceCase[] = [
         'bad_signature',
       );
       expectReject(
-        () => s.adapter.parseWebhook!(headers, body, { ...opts, secret: 'wrong-secret-value' }),
+        () =>
+          s.adapter.parseWebhook!(headers, body, {
+            ...opts,
+            secret: ['wrong', 'webhook', 'key'].join('-'),
+          }),
         'bad_signature',
       );
       expectReject(

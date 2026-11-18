@@ -63,6 +63,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (o.path.includes('/compliance/consents/')) return A.consent;
   if (o.path.includes('/compliance/data-subject-requests/')) return A.dsr;
   if (o.path.includes('/spend-approvals/')) return A.approval;
+  if (o.path.includes('/dns/zones/')) return A.zone;
   const root = o.path.split('/')[2]!; // /v1/<root>/...
   return (
     {
@@ -73,6 +74,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
       operations: A.operation,
       notifications: A.notification,
       quotes: A.quote,
+      domains: A.domain,
     } as Record<string, string>
   )[root];
 };
@@ -143,6 +145,25 @@ beforeAll(async () => {
   A.quote = (
     await a('POST', '/v1/quotes', { kind: 'ai-credit', items: [{ credits: '10' }] })
   ).json().id;
+  // M07: a domain and its DNS zone of org A (rows written directly: ordering one needs a registrar; the isolation check does not). The feature flag is on so the
+  // positive control resolves them; every hostile call must still be a 404.
+  process.env.DOMAINS_ENABLED = 'true';
+  const acct = crypto.randomUUID();
+  A.domain = crypto.randomUUID();
+  A.zone = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO domains.registrar_accounts (id, registrar_id, label, environment, vault_ref, data_region, enabled)
+     SELECT $1, id, 'ct-account', 'sandbox', 'vault://ct/account', 'NL', false FROM domains.registrars WHERE provider_code = 'openprovider'`,
+    [acct],
+  );
+  await h.env.sql(
+    `INSERT INTO domains.domains (id, org_id, name, tld, state, registrar_account_id, provider_ref, data_region) VALUES ($1, $2, 'ct-tenant-alpha.com', 'com', 'active', $3, 'ct-ref', 'sa-pending')`,
+    [A.domain, orgA, acct],
+  );
+  await h.env.sql(
+    `INSERT INTO domains.dns_zones (id, org_id, domain_id, name) VALUES ($1, $2, $3, 'ct-tenant-alpha.com')`,
+    [A.zone, orgA, A.domain],
+  );
   A.approval = (
     await a('POST', '/v1/billing/spend-approvals', {
       quoteId: crypto.randomUUID(),

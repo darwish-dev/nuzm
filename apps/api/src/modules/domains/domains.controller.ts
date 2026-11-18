@@ -145,6 +145,7 @@ export class DomainsController {
     @Body() body: Record<string, unknown> | undefined,
   ) {
     await this.flags.assert(orgId);
+    await this.domains.get(orgId, id, false); // 404 for a domain that is not yours, before the body is judged
     const siteId = body?.siteId;
     if (typeof siteId !== 'string')
       throw new ProblemException('validation_failed', 'siteId is required');

@@ -34,6 +34,9 @@ export default async function ConsoleLayout({
     ...(s.can('admin:compliance:read')
       ? [{ href: `${base}/compliance/controls`, label: t(locale, 'nav.admin.compliance') }]
       : []),
+    ...(s.can('admin:domains:read')
+      ? [{ href: `${base}/domains/registrars`, label: t(locale, 'nav.admin.domains') }]
+      : []),
     ...(s.can('admin:flags:manage')
       ? [{ href: `${base}/feature-flags`, label: t(locale, 'nav.admin.flags') }]
       : []),
@@ -42,7 +45,8 @@ export default async function ConsoleLayout({
     current:
       path === i.href ||
       (i.href.endsWith('/billing/ledger') && path.includes('/billing/')) ||
-      (i.href.endsWith('/compliance/controls') && path.includes('/compliance/')),
+      (i.href.endsWith('/compliance/controls') && path.includes('/compliance/')) ||
+      (i.href.endsWith('/domains/registrars') && path.includes('/domains/')),
   }));
   return (
     <Shell

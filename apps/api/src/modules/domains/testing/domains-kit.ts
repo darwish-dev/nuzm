@@ -57,6 +57,8 @@ export async function startDomainsKit(): Promise<DomainsKit> {
   process.env.DOMAINS_ALLOW_NON_LIVE_REGISTRARS = 'true';
   process.env.DOMAINS_FX_JSON = JSON.stringify({ SAR: '1', USD: '3.75', EUR: '4.10' });
   process.env.DOMAINS_SEARCH_RATE_PER_MINUTE = '100000';
+  process.env.DOMAINS_ACCOUNT_BURST = '5000'; // the per-account limiter is real; the tests drive far more calls per second than a person would
+  process.env.DOMAINS_ACCOUNT_RATE_PER_SECOND = '5000';
   const h = new Harness();
   await h.init();
   const op = await startOpenproviderMock();

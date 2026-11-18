@@ -4088,7 +4088,15 @@ paths:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { $ref: '#/components/parameters/Limit' }
         - { $ref: '#/components/parameters/Cursor' }
-        - { name: state, in: query, schema: { type: string, enum: [pending, active, expired, redemption, transferring, failed, renewal_at_risk] } }
+        - {
+            name: state,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum: [pending, active, expired, redemption, transferring, failed, renewal_at_risk],
+              },
+          }
         - { name: q, in: query, schema: { type: string } }
       responses:
         '200':
@@ -4181,7 +4189,13 @@ paths:
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
-        - { name: If-Match, in: header, required: true, schema: { type: string }, description: 'ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428.' }
+        - {
+            name: If-Match,
+            in: header,
+            required: true,
+            schema: { type: string },
+            description: 'ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428.',
+          }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
         required: true
@@ -4305,7 +4319,13 @@ paths:
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: Registrar account id. }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+            description: Registrar account id.,
+          }
       requestBody:
         required: true
         content:
@@ -4558,7 +4578,13 @@ paths:
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
-        - { name: If-Match, in: header, required: true, schema: { type: string }, description: 'ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428.' }
+        - {
+            name: If-Match,
+            in: header,
+            required: true,
+            schema: { type: string },
+            description: 'ETag (version) of the resource as read; stale = 412 etag_mismatch, missing = 428.',
+          }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
         required: true
@@ -7531,7 +7557,8 @@ components:
       properties:
         name: { type: string }
         tld: { type: string }
-        available: { oneOf: [{ type: boolean }, { type: string, enum: [unknown] }, { type: 'null' }] }
+        available:
+          { oneOf: [{ type: boolean }, { type: string, enum: [unknown] }, { type: 'null' }] }
         premium: { type: boolean }
         price:
           oneOf:
@@ -7542,7 +7569,12 @@ components:
         eligibility:
           type: object
           required: [state, rule, reason]
-          properties: { state: { type: string, enum: [allowed, blocked] }, rule: { type: string }, reason: { type: string } }
+          properties:
+            {
+              state: { type: string, enum: [allowed, blocked] },
+              rule: { type: string },
+              reason: { type: string },
+            }
         purchasable: { type: boolean }
         cacheTtl: { type: integer }
         stale: { type: boolean }
@@ -7564,7 +7596,14 @@ components:
         address:
           type: object
           required: [street, city, postalCode, country]
-          properties: { street: { type: string }, city: { type: string }, state: { type: string }, postalCode: { type: string }, country: { type: string } }
+          properties:
+            {
+              street: { type: string },
+              city: { type: string },
+              state: { type: string },
+              postalCode: { type: string },
+              country: { type: string },
+            }
         extra: { type: object, additionalProperties: { type: string } }
     ContactSet:
       type: object
@@ -7589,7 +7628,12 @@ components:
       properties:
         quoteId: { type: string, format: uuid }
         name: { type: string }
-        authCode: { type: string, writeOnly: true, description: Write-only; stored in the vault and never returned. }
+        authCode:
+          {
+            type: string,
+            writeOnly: true,
+            description: Write-only; stored in the vault and never returned.,
+          }
         authCodeRef: { type: string, description: A vault:// reference to the auth code. }
         contacts: { $ref: '#/components/schemas/ContactSet' }
         nameservers: { type: array, items: { type: string } }
@@ -7597,7 +7641,11 @@ components:
     DomainRenewalRequest:
       type: object
       required: [quoteId]
-      properties: { quoteId: { type: string, format: uuid }, years: { type: integer, minimum: 1, maximum: 10 } }
+      properties:
+        {
+          quoteId: { type: string, format: uuid },
+          years: { type: integer, minimum: 1, maximum: 10 },
+        }
     DomainOrderAccepted:
       type: object
       required: [operationId, orderId, domain]
@@ -7609,15 +7657,34 @@ components:
         domain:
           type: object
           required: [id, name, status]
-          properties: { id: { type: string, format: uuid }, name: { type: string }, status: { type: string } }
+          properties:
+            { id: { type: string, format: uuid }, name: { type: string }, status: { type: string } }
     Domain:
       type: object
-      required: [id, name, tld, state, autoRenew, locked, privacyState, nameservers, dataRegion, version, capabilities, createdAt]
+      required:
+        [
+          id,
+          name,
+          tld,
+          state,
+          autoRenew,
+          locked,
+          privacyState,
+          nameservers,
+          dataRegion,
+          version,
+          capabilities,
+          createdAt,
+        ]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
         tld: { type: string }
-        state: { type: string, enum: [pending, active, expired, redemption, transferring, failed, renewal_at_risk] }
+        state:
+          {
+            type: string,
+            enum: [pending, active, expired, redemption, transferring, failed, renewal_at_risk],
+          }
         expiresAt: { type: [string, 'null'], format: date-time }
         registeredAt: { type: [string, 'null'], format: date-time }
         autoRenew: { type: boolean }
@@ -7679,7 +7746,11 @@ components:
         enabled: { type: boolean }
         registrarEnabled: { type: boolean }
         health: { type: string }
-        capabilities: { type: object, additionalProperties: { type: string, enum: [supported, unsupported, unknown] } }
+        capabilities:
+          {
+            type: object,
+            additionalProperties: { type: string, enum: [supported, unsupported, unknown] },
+          }
         tldCount: { type: integer }
         evidenceKind: { type: [string, 'null'], enum: [mock, fixture, live, null] }
         verification: { type: string, enum: [NOT PROBED, NOT VERIFIED, LIVE-VERIFIED] }
@@ -7697,7 +7768,8 @@ components:
         providerCode: { type: string }
         label: { type: string }
         environment: { type: string, enum: [sandbox, production] }
-        vaultRef: { type: string, description: A vault:// reference; credential values are refused. }
+        vaultRef:
+          { type: string, description: A vault:// reference; credential values are refused. }
         webhookSecretRef: { type: string }
         dataRegion: { type: string }
         currency: { type: string }
@@ -7717,7 +7789,11 @@ components:
     ReconciliationStarted:
       type: object
       required: [operationId, results]
-      properties: { operationId: { type: string, format: uuid }, results: { type: array, items: { type: string } } }
+      properties:
+        {
+          operationId: { type: string, format: uuid },
+          results: { type: array, items: { type: string } },
+        }
     WebhookOutcome:
       type: object
       required: [outcome]
@@ -7736,16 +7812,32 @@ components:
     HostingLinks:
       type: object
       required: [zone, records]
-      properties: { zone: { type: object, additionalProperties: true }, records: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } } }
+      properties:
+        {
+          zone: { type: object, additionalProperties: true },
+          records: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } },
+        }
     AdminDomainPage:
       type: object
       required: [items, nextCursor]
-      properties: { items: { type: array, items: { type: object, additionalProperties: true } }, nextCursor: { type: [string, 'null'] } }
+      properties:
+        {
+          items: { type: array, items: { type: object, additionalProperties: true } },
+          nextCursor: { type: [string, 'null'] },
+        }
     AdminDomain:
       type: object
       additionalProperties: true
       required: [id, orgId, name, state, contactsMasked, orders]
-      properties: { id: { type: string, format: uuid }, orgId: { type: string, format: uuid }, name: { type: string }, state: { type: string }, contactsMasked: { type: boolean }, orders: { type: array, items: { type: object, additionalProperties: true } } }
+      properties:
+        {
+          id: { type: string, format: uuid },
+          orgId: { type: string, format: uuid },
+          name: { type: string },
+          state: { type: string },
+          contactsMasked: { type: boolean },
+          orders: { type: array, items: { type: object, additionalProperties: true } },
+        }
     DnsZone:
       type: object
       required: [id, domainId, name, state, version, degraded]
@@ -7765,7 +7857,11 @@ components:
     DnsZonePage:
       type: object
       required: [items, nextCursor]
-      properties: { items: { type: array, items: { $ref: '#/components/schemas/DnsZone' } }, nextCursor: { type: [string, 'null'] } }
+      properties:
+        {
+          items: { type: array, items: { $ref: '#/components/schemas/DnsZone' } },
+          nextCursor: { type: [string, 'null'] },
+        }
     DnsRecord:
       type: object
       required: [name, type, ttl, value]
@@ -7779,13 +7875,38 @@ components:
     DnsRecordList:
       type: object
       required: [items, version]
-      properties: { items: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } }, version: { type: integer } }
+      properties:
+        {
+          items: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } },
+          version: { type: integer },
+        }
     DnsChangeSet:
       type: object
       properties:
         create: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } }
-        update: { type: array, items: { type: object, required: [match, record], properties: { match: { type: object, properties: { name: { type: string }, type: { type: string } } }, record: { $ref: '#/components/schemas/DnsRecord' } } } }
-        delete: { type: array, items: { type: object, properties: { name: { type: string }, type: { type: string } } } }
+        update:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [match, record],
+                properties:
+                  {
+                    match:
+                      {
+                        type: object,
+                        properties: { name: { type: string }, type: { type: string } },
+                      },
+                    record: { $ref: '#/components/schemas/DnsRecord' },
+                  },
+              },
+          }
+        delete:
+          {
+            type: array,
+            items: { type: object, properties: { name: { type: string }, type: { type: string } } },
+          }
     DnsChangeSetResult:
       type: object
       required: [outcome, results, version]

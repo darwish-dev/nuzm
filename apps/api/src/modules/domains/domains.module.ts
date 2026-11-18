@@ -75,9 +75,19 @@ import { loadTldPolicy } from './internal/tld-policy';
     { provide: DomainsFlags, useFactory: (db: Db) => new DomainsFlags(db), inject: [DB] },
     {
       provide: RegistrarAccessService,
-      useFactory: (db: Db, f: Record<string, AdapterFactory>, v: DomainsVaultClient) =>
-        new RegistrarAccessService(db, f, v),
-      inject: [DB, ADAPTER_FACTORIES, DOMAINS_VAULT],
+      useFactory: (
+        db: Db,
+        f: Record<string, AdapterFactory>,
+        v: DomainsVaultClient,
+        cfg: DomainsConfig,
+      ) =>
+        new RegistrarAccessService(db, f, v, undefined, {
+          failureThreshold: 5,
+          cooldownMs: 30_000,
+          burst: cfg.accountBurst,
+          perSecond: cfg.accountRatePerSecond,
+        }),
+      inject: [DB, ADAPTER_FACTORIES, DOMAINS_VAULT, DOMAINS_CONFIG],
     },
     {
       provide: EligibilityService,
@@ -341,7 +351,7 @@ export class DomainsModule implements OnModuleInit {
       );
       t.unref();
     }
-    if (!this.dsr.get('domains.contacts'))
+    if (!this.dsr.get('domain-contacts'))
       this.dsr.register(new DomainContactsDsrHandler(this.cipher));
   }
 }

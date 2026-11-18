@@ -201,3 +201,19 @@ NOT DOCUMENTED -- capability treated as unsupported. No push/webhook or signatur
 14. Contacts: modify is deprecated; plan for create-new-contact-and-attach. Contact modification on an existing domain order (KB-777 "Contacts" under Modify) was indexed but not read.
 15. Idempotent read-after-write: not stated whether `orderid.json`/details return the new order immediately after a timed-out register call; adapter must retry reads with back-off before concluding "not created".
 16. Test environment fidelity: test host behaviour (GET for everything, HTTP 500 errors) differs from production; contract tests must not assume it matches production.
+
+## 6. Operations the adapter (`packages/adapters/resellerclub`) actually uses
+
+Everything else in §3 is NOT used. Status of every row: NOT VERIFIED (HG-07-01); tested only against a local mock shaped from this document. Capabilities the vendor does not document are `unsupported`: webhooks, DNS, contact change, standalone auto-renew, auth-code retrieval, eligibility.
+
+| Adapter method | Vendor call(s) | Notes |
+|---|---|---|
+| `probe` / `supportedTlds` | `POST /api/domains/tld-info.json`, `GET domaincheck…/api/domains/available.json`, `GET /api/products/reseller-cost-price.json`, `GET /api/billing/my-transactions/search.json` | ccTLDs are treated as `restricted` (conservative); prices from the cost API in the account currency (the currency is not stated by the vendor: configured per account) |
+| `search` | `GET domaincheck…/api/domains/available.json` | |
+| `register` | `POST /api/contacts/add.json` (per distinct contact), `POST /api/domains/register.json` (`invoice-option=NoInvoice`, `auto-renew=false`) | no client token: lookup is by domain name under our customer id; the final state is read back with `details-by-name` |
+| `findByToken` | `GET /api/domains/search.json` | the documented count makes absence provable |
+| `inspect` | `GET /api/domains/details-by-name.json` | an error whose text looks like "not found" is read as absent (message text is not documented: assumption) |
+| `renew` | `POST /api/domains/renew.json` | `exp-date` guard + expiry comparison |
+| `transferIn` | `GET /api/domains/validate-transfer.json`, `POST /api/domains/transfer.json` | `auth-code` read from the vault |
+| `setNameservers`, `setLock` | `POST /api/domains/modify-ns.json`, `…/enable|disable-theft-protection.json` | |
+| `fetchBilling` | `GET /api/billing/my-transactions/search.json` | symbols `$ € £` mapped to codes; unknown symbols are skipped |

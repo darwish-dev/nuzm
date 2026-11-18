@@ -10,7 +10,14 @@ const kinds = adapterKindsFromDocs(
   readFileSync(join(root, 'docs/09-provider-adapter-interfaces.md'), 'utf8'),
 );
 const tables = Object.keys(reg.tables);
-const none = () => null;
+/** Reads the real source of an enforced hook's call site (a hook is only enforced when its file really calls the residency service); other paths are unreadable. */
+const none = (p: string) => {
+  try {
+    return readFileSync(join(root, p), 'utf8');
+  } catch {
+    return null;
+  }
+};
 const kindsOf = (r: HookRegistry) =>
   evaluateHooks(r, tables, kinds, none).map((x) => `${x.kind} ${x.object}`);
 const clone = (): HookRegistry => JSON.parse(JSON.stringify(reg)) as HookRegistry;
@@ -32,8 +39,10 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
         k,
       ).toBe(true);
   });
-  it('starts with nothing enforced: the hooks are required, owned by their milestone, and not yet built', () => {
-    expect(reg.hooks.filter((h) => h.enforcement === 'enforced')).toEqual([]);
+  it('enforces only the hooks whose milestone built them (M07 registrant contacts); the others are required and not yet built', () => {
+    expect(reg.hooks.filter((h) => h.enforcement === 'enforced').map((h) => h.id)).toEqual([
+      'm07-registrant-contacts',
+    ]);
     expect(reg.hooks.filter((h) => h.enforcement === 'exempt').map((h) => h.id)).toEqual([
       'm03-zatca-submission',
     ]);
@@ -66,9 +75,11 @@ describe('hook registry rules', () => {
         (x) => x.kind === 'enforced_without_call_site',
       ),
     ).toEqual([]);
-    expect(evaluateHooks(r, tables, kinds, () => 'export const x = 1').map((x) => x.kind)).toEqual([
-      'enforced_without_call_site',
-    ]);
+    expect(
+      evaluateHooks(r, tables, kinds, () => 'export const x = 1')
+        .filter((x) => x.object === r.hooks[0]!.id)
+        .map((x) => x.kind),
+    ).toEqual(['enforced_without_call_site']);
   });
   it('an exempt hook needs its reason', () => {
     const r = clone();

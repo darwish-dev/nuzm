@@ -13,7 +13,7 @@ const RETAINED = ['pending', 'active', 'renewal_at_risk', 'transferring', 'redem
  * live registrations with `retention_mandatory` (registry retention rules: documented per TLD, to be confirmed with counsel). Idempotent.
  */
 export class DomainContactsDsrHandler implements DsrHandler {
-  readonly name = 'domains.contacts';
+  readonly name = 'domain-contacts';
   readonly datasets = ['domains.domain_contacts'] as const;
   constructor(private readonly cipher: FieldCipher) {}
 
@@ -58,7 +58,8 @@ export class DomainContactsDsrHandler implements DsrHandler {
     return r.deleted === 0 ? NA : { outcome: 'done', summary: { deleted: r.deleted } };
   }
 
+  /** Registrant details are corrected through `PATCH /v1/domains/{id}` (registrar and platform stay consistent), not through a data-subject patch: nothing to do here. */
   async rectify(): Promise<HandlerResult> {
-    return { outcome: 'refused', reason: 'unsupported', summary: {} };
+    return NA;
   }
 }

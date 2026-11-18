@@ -31,6 +31,9 @@ export interface DomainsConfig {
   /** Targets under these suffixes belong to Nuzm hosting (DNS takeover protection). */
   protectedTargetSuffixes: string[];
   maxRecordsPerZone: number;
+  /** Per registrar account: local token bucket (docs/09 §1 rule 5). */
+  accountBurst: number;
+  accountRatePerSecond: number;
   defaultNameservers: string[];
 }
 export function domainsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DomainsConfig {
@@ -52,6 +55,8 @@ export function domainsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Doma
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean),
     maxRecordsPerZone: Number(env.DOMAINS_MAX_RECORDS_PER_ZONE ?? 500),
+    accountBurst: Number(env.DOMAINS_ACCOUNT_BURST ?? 20),
+    accountRatePerSecond: Number(env.DOMAINS_ACCOUNT_RATE_PER_SECOND ?? 10),
     defaultNameservers: (
       env.DOMAINS_DEFAULT_NAMESERVERS ?? 'ns1.nuzm-dns.invalid,ns2.nuzm-dns.invalid'
     )

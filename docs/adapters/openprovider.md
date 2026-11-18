@@ -268,3 +268,22 @@ Items we need that the docs read do not state (all: NOT DOCUMENTED — capabilit
 16. Domains created via `/contacts` vs `/customers`: assumption (from the Spec) that registrants are customer handles; verify in sandbox.
 17. Version drift: Spec title says "1.0.0-beta" while the paths are `/v1`; `/v1beta` ends 30 June 2027. Adapter should use `/v1` for production and confirm what the sandbox accepts.
 18. Source reliability: the Help examples contain typos and the Spec summaries were read through a lossy fetch. Re-validate all field names against the raw Spec and sandbox before shipping; until then every row here is NOT VERIFIED.
+
+## 6. Operations the adapter (`packages/adapters/openprovider`) actually uses
+
+Everything else in §3 is NOT used. Status of every row: NOT VERIFIED (HG-07-01); the adapter is tested only against a local mock shaped from this document.
+
+| Adapter method | Vendor call(s) | Notes |
+|---|---|---|
+| `probe` | `GET /tlds?limit=1`, `POST /domains/check` (read-only), `GET /dns/zones?limit=1`, `GET /transactions?limit=1` | register/renew/transfer/contacts/lock/privacy/auth-code/find-by-token are derived from the TLD catalogue (no `register_available` flag exists); `dnssec` and `webhooks` stay `unknown`; `eligibility` is `unsupported` |
+| `supportedTlds` | `GET /tlds?status=ACT&with_price=true&with_restrictions=true` | non-empty `restrictions` ⇒ `restricted: true` |
+| `search` | `POST /domains/check` (≤ 15 per call) | only `free` is available; premium is shown but not sold |
+| `register` | `POST /customers` (handles), `POST /domains` | token in `comments` (`nuzm:<token>`); lookup before create |
+| `findByToken` / `inspect` | `GET /domains?comment_pattern=` / `?full_name=` | absence is proven by a clean name lookup |
+| `renew` | `GET /domains` then `POST /domains/{id}/renew` | double-renew guard compares the expiry with the order baseline |
+| `transferIn` | `POST /domains/transfer` | auth code read from the vault; `REQ` ⇒ `accepted` |
+| `setNameservers`, `setLock`, `setAutoRenew`, `setContacts` | `PUT /domains/{id}` (+ `POST /customers` for contacts) | |
+| `authCode` | `GET /domains/{id}/authcode` | the code goes straight to the vault store, never returned |
+| `dns.*` | `POST /dns/zones`, `GET /dns/zones/{name}`, `PUT /dns/zones/{name}` | one modifier per call (non-atomic); MX/SRV/CAA value formats are an assumption |
+| `fetchBilling` | `GET /transactions` | doubles converted to minor units without float arithmetic; lines with an unknown currency are skipped |
+| `parseWebhook` | — | HMAC-SHA256 over `<t>.<raw body>`, header `t=…,v1=…` (serialization is an assumption); the event-name classification is an assumption |

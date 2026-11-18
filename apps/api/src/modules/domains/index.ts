@@ -15,3 +15,4 @@ export {
 } from './internal/ports';
 export type { DomainsConfig, HostingSiteReadPort, HostingSiteView } from './internal/ports';
 export { loadTldPolicy, parseTldPolicy } from './internal/tld-policy';
+export { RegistrarAdminService } from './internal/registrar-admin.service';

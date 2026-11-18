@@ -184,11 +184,17 @@ export class RegistrarAccessService {
     private readonly factories: Record<string, AdapterFactory>,
     private readonly vault: VaultClient,
     private readonly clock: () => number = () => Date.now(),
+    private readonly guardOpts?: {
+      failureThreshold: number;
+      cooldownMs: number;
+      burst: number;
+      perSecond: number;
+    },
   ) {}
 
   guardFor(accountId: string): AccountGuard {
     let g = this.guards.get(accountId);
-    if (!g) this.guards.set(accountId, (g = new AccountGuard(this.clock)));
+    if (!g) this.guards.set(accountId, (g = new AccountGuard(this.clock, this.guardOpts)));
     return g;
   }
 

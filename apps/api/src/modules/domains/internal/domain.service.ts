@@ -205,6 +205,13 @@ export class DomainService {
     traceId: string,
   ): Promise<{ status: 200 | 202; domain: DomainDto; operationId?: string }> {
     if (!UUID.test(id)) throw new ProblemException('not_found');
+    const row = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (await c.query(`SELECT * FROM domains.domains WHERE id = $1`, [id])).rows[0] as
+          Row | undefined,
+    );
+    if (!row) throw new ProblemException('not_found'); // existence is answered before anything about the request is judged
     if (ifMatch === null)
       throw new ProblemException(
         'precondition_required',
@@ -219,13 +226,6 @@ export class DomainService {
         'unsupported_capability',
         'privacy protection can only be chosen when the domain is ordered',
       );
-    const row = await this.db.withOrg(
-      orgId,
-      async (c) =>
-        (await c.query(`SELECT * FROM domains.domains WHERE id = $1`, [id])).rows[0] as
-          Row | undefined,
-    );
-    if (!row) throw new ProblemException('not_found');
     if (row.version !== ifMatch)
       throw new ProblemException(
         'etag_mismatch',

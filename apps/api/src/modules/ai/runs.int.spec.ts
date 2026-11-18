@@ -7,6 +7,7 @@ import {
   AI_CONFIG,
   RunKindRegistry,
   RunService,
+  SessionService,
   UrlFetchPort,
   WorkerCrash,
   type AiConfig,
@@ -101,11 +102,6 @@ const drive = async (runId: string, org = A()) => {
   const r = (await e.sql(`SELECT operation_id FROM ai.runs WHERE id=$1`, [runId]))[0]!;
   await runs.runOne(org, r.operation_id as string);
   const out = (await e.call('alice', 'GET', `/v1/ai/runs/${runId}`, undefined, org)).json() as Row;
-  if (out.state === 'failed')
-    require('node:fs').appendFileSync(
-      '/private/tmp/claude-501/-Users-elaf-Projects-nuzm--claude-worktrees-m09-ai-builder-a33bbe/8c45b6ca-5db7-4263-a7f0-856d5fec2d9f/scratchpad/err.txt',
-      JSON.stringify(out.error) + '\n',
-    );
   return out;
 };
 const state = async (id: string) =>
@@ -256,7 +252,7 @@ describe('requirements discovery (chat run, mode=requirements)', () => {
     // the sealed placeholder above cannot be opened, so read through a fresh session with a real assistant message instead
     const sid2 = await session();
     await say(sid2, 'a clinic');
-    const svc = e.app.get((await import('./index')).SessionService);
+    const svc = e.app.get(SessionService);
     for (let i = 0; i < 6; i++)
       await svc.store(A(), null, sid2, null, 'assistant', 'questions', [
         { kind: 'questions', ids: [`a${i}`, `b${i}`] },

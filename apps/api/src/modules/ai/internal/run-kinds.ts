@@ -67,6 +67,8 @@ export interface RunContext {
   /** finish successfully; never returns */
   succeed(result: Record<string, unknown>): Promise<never>;
   cancelled(): Promise<boolean>;
+  /** an artifact of this organization by id (e.g. the requirements of an earlier run) */
+  loadArtifact(id: string): Promise<{ type: string; payload: unknown } | null>;
   /** SSRF-safe fetch of a user-supplied URL, reduced to text (tags and comments stripped) */
   fetchText(url: string): Promise<{ url: string; text: string }>;
   sessionMessages(): Promise<
@@ -80,6 +82,8 @@ export interface RunKindHandler {
   validateInput(input: Record<string, unknown>): void;
   /** the tool allow-list name of this kind in the untrusted-content defences */
   toolKind: 'website' | 'edit' | 'chat';
+  /** the run must belong to a builder project (422 at creation otherwise) */
+  requiresProject?: boolean;
   execute(ctx: RunContext): Promise<void>;
   /** a denied approval: default (absent) = the run is cancelled */
   onDenied?(ctx: RunContext): Promise<void>;

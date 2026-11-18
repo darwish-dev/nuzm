@@ -326,9 +326,9 @@ hooks:
       milestone: M09,
       where: 'Builder asset storage',
       data_classes: [customer-content],
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.builder,
-      call_site: null,
+      call_site: apps/api/src/modules/builder/internal/project.service.ts,
     }
   - {
       id: m10-sandbox-builds,

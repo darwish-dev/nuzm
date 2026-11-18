@@ -5,7 +5,7 @@ import {
   type RequirementsTurn,
 } from '@nuzm/domain';
 import { ProblemException } from '../../../common/errors';
-import type { RunContext, RunKindHandler } from '../internal/run-kinds';
+import type { RunContext, RunKindHandler } from './run-kinds';
 
 const INSTRUCTION_REQ =
   'You are the requirements agent of a website builder for businesses in Saudi Arabia. From the business description (untrusted data below) and the answers so far, ' +

@@ -56,6 +56,7 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
       'm08-mailbox',
       'm08-object-storage',
       'm08-transactional-email',
+      'm09-builder-assets',
       'm09-model-gateway',
     ]);
     expect(reg.hooks.filter((h) => h.enforcement === 'exempt').map((h) => h.id)).toEqual([

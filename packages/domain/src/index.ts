@@ -9,3 +9,5 @@ export * from './builder/artifacts';
 export * from './builder/templates';
 export * from './builder/mock-agents';
 export * from './builder/render';
+export * from './builder/ops';
+export * from './builder/cms';

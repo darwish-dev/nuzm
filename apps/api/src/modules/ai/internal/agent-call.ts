@@ -100,7 +100,7 @@ export async function runAgent<T>(
       );
     }
     let parsed: unknown;
-    let errors: string[] = [];
+    let errors: string[];
     try {
       parsed = JSON.parse(stripFences(r.text));
       errors = validateSchema(schema, parsed).map((e) => `${e.path} ${e.message}`);

@@ -19,6 +19,7 @@ export function applyAiTestEnv() {
   process.env.BUILDER_KICK = 'off';
   process.env.DEPLOY_KICK = 'off';
   process.env.FORM_RATE_LIMIT_PER_MINUTE = '5';
+  process.env.BUILDER_TRUST_FORWARDED = 'true';
 }
 
 export interface AiEnv {

@@ -19,7 +19,7 @@ import { AdminAiRunsController } from './admin-ai-runs.controller';
 import { AiModelsController } from './ai-models.controller';
 import { AiRunsController } from './ai-runs.controller';
 import { AiSessionsController } from './ai-sessions.controller';
-import { ChatRunHandler } from './handlers/chat.handler';
+import { ChatRunHandler } from './internal/chat.handler';
 import { AiJobs } from './internal/jobs';
 import { RunKindRegistry, StaticRunKindRegistry } from './internal/run-kinds';
 import { RunService } from './internal/run.service';

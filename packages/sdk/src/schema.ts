@@ -4648,6 +4648,394 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/builder/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List website projects
+         * @description Newest first, with the last deployment. Requires permission `builder:read`.
+         */
+        get: operations["listBuilderProjects"];
+        put?: never;
+        /**
+         * Create a website project
+         * @description Body {type: website, name, locale: [ar|en…], templateId?}. Starts from one of the bilingual templates or an empty site and creates version 1 with its rendered files. 422 `quota_exceeded` beyond the project limit, 403 `residency_denied`, 409 `name_taken`. Requires permission `builder:write`. Audited (`builder.project.created`). The whole builder surface answers 404 while the `ai.enabled` flag is off.
+         */
+        post: operations["createBuilderProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a project with its site model
+         * @description The project, the site model of the head (or `versionId`), the SEO score report of that model and, with `compareTo`, the diff between two versions. The ETag is the project version (If-Match for PATCH). 404 for another organization.
+         */
+        get: operations["getBuilderProject"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a project (soft, with retention)
+         * @description `confirmName` (query or body) must equal the project name: a human typed it, which is the approval of this destructive action. The project is soft-deleted for the retention window (30 days proposal), its previews stop working. 409 `in_use` while a deployment is in progress. Audited (`builder.project.deleted`).
+         */
+        delete: operations["deleteBuilderProject"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a project
+         * @description Only `name` can change (locales are fixed in v1). 412 `etag_mismatch`, 428, 409 `name_taken`. Audited.
+         */
+        patch: operations["updateBuilderProject"];
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the rendered files of a version
+         * @description Path, size, mime and SHA-256 of every generated file of the head (or `versionId`).
+         */
+        get: operations["listBuilderProjectFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one rendered file
+         * @description Text files as UTF-8, binary files as base64; 413 `payload_too_large` above 1 MiB.
+         */
+        get: operations["getBuilderProjectFileContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply an ordered set of editor operations
+         * @description Body {baseVersion, ops[], source: user, label?, assetData?}. Ops: insertComponent, updateProps, moveComponent, deleteComponent, setTokens, setText, addPage, deletePage, updatePage, setSeo, setNav, addAsset, removeAsset. Validated against the schema, applied atomically, answered with the SAFE DIFF (structural + rendered-text changes), risk flags (deletes_page, deletes_component, changes_seo, changes_slug, …), the new version and the INVERSE ops (undo). 409 `base_outdated` carries rebase info (head version, changed pages); 422 `op_invalid` lists the issues. Empty `ops` with a `label` names the current version. `source=ai` answers 403 `approval_required`: AI change sets are applied only through a run approval. Single writer per project (row lock, ETag). Audited (`builder.change.applied`).
+         */
+        post: operations["applyBuilderChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List versions
+         * @description Newest first; history is immutable. `isHead` marks the current head.
+         */
+        get: operations["listBuilderProjectVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/versions/{vid}/restoration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a version
+         * @description Creates a NEW head version from the chosen one; history is never rewritten. 409 `conflict` when the version already is the head. Audited (`builder.version.restored`).
+         */
+        post: operations["restoreBuilderProjectVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List previews
+         * @description Ids, versions and expiry; never a usable URL.
+         */
+        get: operations["listBuilderPreviews"];
+        put?: never;
+        /**
+         * Create a preview
+         * @description Body {viewport?: mobile|tablet|desktop, versionId?}. Returns an unguessable URL (160-bit token in the host name) on the ISOLATED preview origin, a different registrable domain from the console and the API, expiring (30 min proposal). The token is shown only here. 429 beyond the active-preview limit.
+         */
+        post: operations["createBuilderPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/forms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List forms
+         * @description Forms of the project (those of the site model are registered automatically) with submission and blocked-spam counts and the public endpoint.
+         */
+        get: operations["listBuilderForms"];
+        put?: never;
+        /**
+         * Register a form
+         * @description Body {formKey, name, fields: [{name, type: text|email|tel|textarea, required?}], notifyEmail?, retentionDays?}. The notification address is stored sealed. 409 `name_taken`.
+         */
+        post: operations["createBuilderForm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/form-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List form submissions
+         * @description Class `personal`, stored sealed. Roles without `builder:submissions:read` (viewer) get every value masked; unmasked reads are audited.
+         */
+        get: operations["listBuilderFormSubmissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/cms-collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List CMS collections and items
+         * @description Typed collections with their items and publish state.
+         */
+        get: operations["listBuilderCmsCollections"];
+        put?: never;
+        /**
+         * Create a collection and/or add items
+         * @description Body {collectionKey, name?, fields?, items?: [{data, state?: draft|published}]}. A new collection needs name and fields (text, number, boolean, date, localized_text); items are validated against them. Only PUBLISHED items are consumed by a build (sections with `props.collection`).
+         */
+        post: operations["upsertBuilderCmsCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deployments
+         * @description Newest first.
+         */
+        get: operations["listDeployments"];
+        put?: never;
+        /**
+         * Publish a project to a hosting site
+         * @description Body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). Audited (`deploy.deployment.*`).
+         */
+        post: operations["createDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a deployment
+         * @description State (queued, building, deploying, smoke_checking, succeeded, failed, rolled_back), artifact hash, smoke results, URL, error.
+         */
+        get: operations["getDeployment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deployment logs
+         * @description Append-only log lines `{seq, level, message, data, at}`.
+         */
+        get: operations["getDeploymentLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/{id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll back to the previous artifact
+         * @description Restores the artifact that served before this deployment (its artifact hash) and creates a new deployment with `rollbackOf`. 409 `invalid_state` unless the deployment succeeded and has a predecessor.
+         */
+        post: operations["rollbackDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/_preview/{token}/*": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve a preview file (isolated origin only)
+         * @description Served ONLY on the host `<token>.<previewDomain>`; any other host, a wrong or expired token, or a deleted project is a plain 404. Strict CSP (`default-src self`, frame-ancestors limited to the console origin), `nosniff`, no cookies, no CORS, no credentials. The edge maps `https://<token>.<previewDomain>/<path>` to this route.
+         */
+        get: operations["servePreviewFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/p/{projectId}/v1/public/forms/{formKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public form ingest of a published site
+         * @description Posted by the generated pages. A filled honeypot field `website_url` is accepted silently and counted as spam; per-IP rate limit (429), size limit (413), field validation (422). Stores a sealed `personal` submission. No authentication, no third-party trackers; the answer reveals nothing beyond `received`.
+         */
+        post: operations["submitPublicForm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/_preview/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve the preview entry page (isolated origin only)
+         * @description Same rules as the file route: only on the host `<token>.<previewDomain>`; the entry page redirects to the default locale.
+         */
+        get: operations["servePreviewRoot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8990,6 +9378,249 @@ export interface components {
                 [key: string]: unknown;
             }[];
             nextCursor: string | null;
+        };
+        BuilderProjectInput: {
+            /** @enum {string} */
+            type?: "website";
+            name: string;
+            locale?: ("ar" | "en")[];
+            templateId?: string;
+        };
+        BuilderProjectPatch: {
+            name: string;
+        };
+        BuilderProject: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            name: string;
+            locales: string[];
+            templateId?: string | null;
+            headVersionId?: string | null;
+            headSeq?: number | null;
+            dataRegion: string;
+            etag: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            lastDeployment?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        BuilderProjectDetail: components["schemas"]["BuilderProject"] & {
+            /** Format: uuid */
+            versionId?: string;
+            versionSeq?: number;
+            /** @description Site model v1 (packages/domain builder/site-model) */
+            siteModel?: {
+                [key: string]: unknown;
+            };
+            seo?: {
+                [key: string]: unknown;
+            };
+            diff?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        BuilderProjectPage: {
+            items: components["schemas"]["BuilderProject"][];
+            nextCursor: string | null;
+        };
+        BuilderProjectDeleted: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            purgeAfter: string;
+        };
+        BuilderFileList: {
+            /** Format: uuid */
+            versionId: string;
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderFileContent: {
+            path: string;
+            mime: string;
+            size: number;
+            /** @enum {string} */
+            encoding: "utf8" | "base64";
+            content: string;
+        };
+        BuilderChangeInput: {
+            /** Format: uuid */
+            baseVersion: string;
+            ops: ({
+                /** @enum {string} */
+                op: "insertComponent" | "updateProps" | "moveComponent" | "deleteComponent" | "setTokens" | "setText" | "addPage" | "deletePage" | "updatePage" | "setSeo" | "setNav" | "addAsset" | "removeAsset";
+            } & {
+                [key: string]: unknown;
+            })[];
+            /** @enum {string} */
+            source?: "user" | "ai";
+            label?: string;
+            /** @description base64 image bytes by SHA-256 (PNG, JPEG, WebP, up to 512 KiB) */
+            assetData?: {
+                [key: string]: string;
+            };
+        };
+        BuilderChangeResult: {
+            diff: {
+                [key: string]: unknown;
+            };
+            risks: {
+                [key: string]: unknown;
+            }[];
+            newVersion: {
+                [key: string]: unknown;
+            };
+            inverseOps: {
+                [key: string]: unknown;
+            }[];
+            etag?: number;
+            changeId?: string | null;
+        };
+        BuilderVersionPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        BuilderRestoration: {
+            /** Format: uuid */
+            versionId: string;
+            seq: number;
+            /** Format: uuid */
+            restoredFrom: string;
+            restoredSeq?: number;
+        };
+        BuilderPreviewInput: {
+            /** @enum {string} */
+            viewport?: "mobile" | "tablet" | "desktop";
+            /** Format: uuid */
+            versionId?: string;
+        };
+        BuilderPreview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            versionId: string;
+            viewport: string;
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+            revoked?: boolean;
+        };
+        BuilderPreviewList: {
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderFormInput: {
+            formKey: string;
+            name: string;
+            fields: {
+                [key: string]: unknown;
+            }[];
+            notifyEmail?: string;
+            retentionDays?: number;
+        };
+        BuilderForm: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            formKey: string;
+            name: string;
+            fields: {
+                [key: string]: unknown;
+            }[];
+            enabled: boolean;
+            retentionDays: number;
+            notifyEmailSet?: boolean;
+            submissions: number;
+            spamBlocked: number;
+            endpoint: string;
+        };
+        BuilderFormList: {
+            items: components["schemas"]["BuilderForm"][];
+        };
+        BuilderSubmissionPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        BuilderCmsInput: {
+            collectionKey: string;
+            name?: string;
+            fields?: {
+                [key: string]: unknown;
+            }[];
+            items?: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderCmsList: {
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        PublicFormInput: {
+            [key: string]: string;
+        };
+        DeploymentInput: {
+            /** Format: uuid */
+            projectId: string;
+            /**
+             * Format: uuid
+             * @description hosting site id
+             */
+            target: string;
+            /** @enum {string} */
+            environment?: "production" | "staging";
+            /** Format: uuid */
+            approvalId?: string;
+        };
+        Deployment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            versionId: string;
+            target: {
+                [key: string]: unknown;
+            };
+            environment: string;
+            /** @enum {string} */
+            state: "queued" | "building" | "deploying" | "smoke_checking" | "succeeded" | "failed" | "rolled_back";
+            operationId?: string | null;
+            artifactHash?: string | null;
+            previousDeploymentId?: string | null;
+            rollbackOf?: string | null;
+            url?: string | null;
+            smoke?: {
+                [key: string]: unknown;
+            } | null;
+            error?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            createdAt: string;
+            finishedAt?: string | null;
+        };
+        DeploymentPage: {
+            items: components["schemas"]["Deployment"][];
+            nextCursor: string | null;
+        };
+        DeploymentLogs: {
+            items: {
+                [key: string]: unknown;
+            }[];
         };
     };
     responses: {
@@ -18502,6 +19133,783 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+        };
+    };
+    listBuilderProjects: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createBuilderProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderProjectInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBuilderProject: {
+        parameters: {
+            query?: {
+                versionId?: string;
+                compareTo?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteBuilderProject: {
+        parameters: {
+            query?: {
+                confirmName?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProjectDeleted"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    updateBuilderProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderProjectPatch"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderProject"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    listBuilderProjectFiles: {
+        parameters: {
+            query?: {
+                versionId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFileList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderProjectFileContent: {
+        parameters: {
+            query?: {
+                path?: string;
+                versionId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFileContent"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    applyBuilderChanges: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderChangeInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderChangeResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listBuilderProjectVersions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderVersionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    restoreBuilderProjectVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderRestoration"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listBuilderPreviews: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderPreviewList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createBuilderPreview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BuilderPreviewInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderPreview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    listBuilderForms: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFormList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createBuilderForm: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderFormInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderForm"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listBuilderFormSubmissions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                formId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderSubmissionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listBuilderCmsCollections: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderCmsList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    upsertBuilderCmsCollection: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderCmsInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderCmsList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDeployments: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDeployment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getDeploymentLogs: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentLogs"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    rollbackDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deployment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    servePreviewFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    submitPublicForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                formKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicFormInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    servePreviewRoot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            404: components["responses"]["Problem"];
         };
     };
 }

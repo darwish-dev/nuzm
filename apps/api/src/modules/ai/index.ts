@@ -22,3 +22,4 @@ export type {
   ApprovalKind,
 } from './internal/run-kinds';
 export { UrlFetchPort, SafeUrlFetcher } from './internal/url-fetcher';
+export type { AgentTask } from './internal/run-kinds';

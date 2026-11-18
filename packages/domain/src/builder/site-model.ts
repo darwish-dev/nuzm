@@ -406,10 +406,12 @@ export const SECTION_SPECS: Record<SectionType, SectionSpec> = {
   },
   features: {
     locOpt: { heading: 120 },
+    strings: { collection: 40 },
     items: { prop: 'items', max: 12, min: 1, loc: { title: 80, text: 400 }, strings: { icon: 24 } },
   },
   pricing: {
     locOpt: { heading: 120 },
+    strings: { collection: 40 },
     items: {
       prop: 'plans',
       max: 8,
@@ -421,6 +423,7 @@ export const SECTION_SPECS: Record<SectionType, SectionSpec> = {
   },
   testimonials: {
     locOpt: { heading: 120 },
+    strings: { collection: 40 },
     items: {
       prop: 'items',
       max: 12,
@@ -432,6 +435,7 @@ export const SECTION_SPECS: Record<SectionType, SectionSpec> = {
   },
   faq: {
     locOpt: { heading: 120 },
+    strings: { collection: 40 },
     items: { prop: 'items', max: 20, min: 1, loc: { question: 200, answer: 1000 } },
   },
   contact_form: { locOpt: { heading: 120, intro: 400 }, form: 'formId' },

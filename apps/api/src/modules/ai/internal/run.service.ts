@@ -153,6 +153,8 @@ export class RunService {
     await this.gateway.assertAvailable(orgId); // 503 kill switch, 422 unsupported_capability, 403 residency_denied, 402 insufficient_credits
     const sess = await this.sessions.get(orgId, b.sessionId as string);
     const projectId = (b.projectId as string | undefined) ?? sess.projectId ?? null;
+    if (handler.requiresProject && !projectId)
+      throw new ProblemException('validation_failed', `a ${kind} run needs a projectId`);
     const id = uuidv7();
     try {
       await this.db.withOrg(orgId, async (c) => {
@@ -719,6 +721,7 @@ export class RunService {
     const orgId = run.orgId;
     const toolKind = (this.registry.get(run.kind)?.toolKind ?? 'chat') as RunKind;
     let seq = 0;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the context object literal below needs the service
     const self = this;
     const emit = (type: string, data?: Record<string, unknown>) =>
       this.event(orgId, run.id, type, data ?? {});
@@ -804,6 +807,15 @@ export class RunService {
             (await c.query(`SELECT cancel_requested FROM ai.runs WHERE id=$1`, [run.id])).rows[0],
         )) as Row | undefined;
         return Boolean(r?.cancel_requested);
+      },
+      async loadArtifact(id) {
+        if (!isUuid(id)) return null;
+        const a = (await self.db.withOrg(
+          orgId,
+          async (c) =>
+            (await c.query(`SELECT type, payload FROM ai.artifacts WHERE id=$1`, [id])).rows[0],
+        )) as Row | undefined;
+        return a ? { type: a.type as string, payload: a.payload } : null;
       },
       async fetchText(url) {
         const r = await self.fetcher.fetch(url);

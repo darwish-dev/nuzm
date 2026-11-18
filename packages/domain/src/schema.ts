@@ -31,6 +31,12 @@ export interface SchemaError {
   message: string;
 }
 
+const RE_CACHE = new Map<string, RegExp>();
+const re = (p: string): RegExp => {
+  let r = RE_CACHE.get(p);
+  if (!r) RE_CACHE.set(p, (r = new RegExp(p, 'u')));
+  return r;
+};
 const typeOf = (v: unknown): string =>
   v === null ? 'null' : Array.isArray(v) ? 'array' : Number.isInteger(v) ? 'integer' : typeof v;
 const typeOk = (t: string, v: unknown): boolean => {
@@ -61,7 +67,7 @@ export function validateSchema(
       err(`shorter than ${schema.minLength}`);
     if (schema.maxLength !== undefined && value.length > schema.maxLength)
       err(`longer than ${schema.maxLength}`);
-    if (schema.pattern !== undefined && !new RegExp(schema.pattern, 'u').test(value))
+    if (schema.pattern !== undefined && !re(schema.pattern).test(value))
       err(`does not match ${schema.pattern}`);
   }
   if (typeof value === 'number') {

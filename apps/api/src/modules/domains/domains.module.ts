@@ -16,6 +16,13 @@ import { AdminRegistrarsController } from './admin-registrars.controller';
 import { DomainsController } from './domains.controller';
 import { DnsController } from './dns.controller';
 import { DnsService } from './internal/dns.service';
+import { DnsLinkageService } from './internal/linkage.service';
+import { DomainAdminReadService } from './internal/admin-read.service';
+import { DomainCostReconService } from './internal/cost-recon.service';
+import { DomainJobs } from './internal/renewal.service';
+import { BillSourceRegistry } from '../finrec';
+import { QuoteService } from '../commerce';
+import { SpendService } from '../billing';
 import { RegistrarWebhooksController } from './registrar-webhooks.controller';
 import { DomainService } from './internal/domain.service';
 import { DomainOrderService } from './internal/orders.service';
@@ -29,6 +36,9 @@ import { productionFactories, UnavailableVault } from './internal/factories';
 import { DomainsFlags } from './internal/flags';
 import {
   ADAPTER_FACTORIES,
+  HOSTING_READ_PORT,
+  InMemoryHostingReadPort,
+  type HostingSiteReadPort,
   DOMAINS_CONFIG,
   DOMAINS_VAULT,
   domainsConfigFromEnv,
@@ -210,6 +220,55 @@ import { loadTldPolicy } from './internal/tld-policy';
         DOMAINS_CONFIG,
       ],
     },
+    { provide: HOSTING_READ_PORT, useFactory: () => new InMemoryHostingReadPort() },
+    {
+      provide: DnsLinkageService,
+      useFactory: (db: Db, dns: DnsService, h: HostingSiteReadPort, au: AuditSink) =>
+        new DnsLinkageService(db, dns, h, au),
+      inject: [DB, DnsService, HOSTING_READ_PORT, AuditSink],
+    },
+    {
+      provide: DomainAdminReadService,
+      useFactory: (db: Db, ci: FieldCipher) => new DomainAdminReadService(db, ci),
+      inject: [DB, FieldCipher],
+    },
+    {
+      provide: DomainCostReconService,
+      useFactory: (db: Db, a: RegistrarAccessService) => new DomainCostReconService(db, a),
+      inject: [DB, RegistrarAccessService],
+    },
+    {
+      provide: DomainJobs,
+      useFactory: (
+        db: Db,
+        au: AuditSink,
+        q: QuoteService,
+        sp: SpendService,
+        o: DomainOrderService,
+        n: NotificationService,
+      ) =>
+        new DomainJobs({
+          db,
+          audit: au,
+          quotes: q,
+          spend: sp,
+          orders: o,
+          notify: async (orgId, kind, params) => {
+            const rows = await db.withOrg(
+              orgId,
+              async (cl) =>
+                (
+                  await cl.query(
+                    `SELECT user_id FROM tenancy.memberships WHERE org_id = $1 AND role IN ('owner','admin','billing_admin')`,
+                    [orgId],
+                  )
+                ).rows as { user_id: string }[],
+            );
+            for (const r of rows) await n.notify({ orgId, userId: r.user_id, kind, params });
+          },
+        }),
+      inject: [DB, AuditSink, QuoteService, SpendService, DomainOrderService, NotificationService],
+    },
     {
       provide: DnsService,
       useFactory: (
@@ -260,9 +319,28 @@ export class DomainsModule implements OnModuleInit {
     @Inject(DomainPricer) private readonly pricer: DomainPricer,
     @Inject(DsrRegistry) private readonly dsr: DsrRegistry,
     @Inject(FieldCipher) private readonly cipher: FieldCipher,
+    @Inject(BillSourceRegistry) private readonly bills: BillSourceRegistry,
+    @Inject(DomainCostReconService) private readonly cost: DomainCostReconService,
+    @Inject(DomainJobs) private readonly jobs: DomainJobs,
+    @Inject(DomainOrderService) private readonly orders: DomainOrderService,
   ) {}
   onModuleInit(): void {
     if (!this.pricers.kinds().includes('domain')) this.pricers.register(this.pricer);
+    this.bills.register('domains', (from, to) => this.cost.billLines(from, to));
+    if (process.env.DOMAINS_JOBS_ENABLED === 'true') {
+      // daily renewals/reminders/zone accrual and the nightly technical sweep (single-process timer; a worker-scheduled run replaces it with M12 ops)
+      const t = setInterval(
+        () =>
+          void this.jobs
+            .runDaily()
+            .then(() => this.orders.sweep())
+            .catch((e) =>
+              console.error(JSON.stringify({ domains_job_error: (e as Error).message })),
+            ),
+        3_600_000,
+      );
+      t.unref();
+    }
     if (!this.dsr.get('domains.contacts'))
       this.dsr.register(new DomainContactsDsrHandler(this.cipher));
   }

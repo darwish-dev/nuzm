@@ -4362,6 +4362,99 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/domains/{id}/hosting-links:
+    post:
+      operationId: linkDomainToSite
+      tags: [domains]
+      summary: Preview or apply the DNS records that link a domain to a hosting site
+      description: "PROPOSED ADDITION M07-ADD-2 (owner approval pending; needed by UI-M07-08 until M06 calls DnsLinkagePort itself). Body {siteId, apply?}. Without apply the response is a PREVIEW {outcome:preview, proposal:{records, changes, replaces, ssl}} built from the site's real targets (read through the M06 HostingSiteReadPort; an in-memory fake until M06 lands: NOT VERIFIED). With apply:true the records are written through the atomic DNS change-set as platform-managed (linkage) records and the approver is audited; applying again is {outcome:unchanged}. Requires domain:write and a DNS zone for the domain."
+      x-nuzm-permission: domain:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HostingLinkRequest' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingLinkResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: getDomainHostingLinks
+      tags: [domains]
+      summary: Platform-managed DNS records of a domain
+      description: "PROPOSED ADDITION M07-ADD-2. The records written by the platform (hosting linkage, certificate challenges) in the domain's zone. Requires domain:read."
+      x-nuzm-permission: domain:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingLinks' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/domains:
+    get:
+      operationId: listAdminDomains
+      tags: [domains]
+      summary: Domains and their latest order across organizations
+      description: 'PROPOSED ADDITION M07-ADD-1 (owner approval pending; needed by UI-M07-10/12). Filters state, needsReconcile=true (orders waiting on the registrar), q, limit, cursor. Metadata only. Requires admin:domains:read.'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: needsReconcile, in: query, schema: { type: boolean } }
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDomainPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/domains/{id}:
+    get:
+      operationId: getAdminDomain
+      tags: [domains]
+      summary: Support lookup of one domain (contacts masked)
+      description: 'PROPOSED ADDITION M07-ADD-1. Metadata and the order history; contacts are ALWAYS masked (no break-glass in this milestone). Requires admin:domains:read.'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDomain' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /v1/dns/zones:
     get:
       operationId: listDnsZones
@@ -7629,6 +7722,30 @@ components:
       type: object
       required: [outcome]
       properties: { outcome: { type: string, enum: [processed, duplicate, ignored] } }
+    HostingLinkRequest:
+      type: object
+      required: [siteId]
+      properties: { siteId: { type: string, format: uuid }, apply: { type: boolean } }
+    HostingLinkResult:
+      type: object
+      required: [outcome]
+      properties:
+        outcome: { type: string, enum: [preview, applied, unchanged] }
+        proposal: { type: object, additionalProperties: true }
+        version: { type: integer }
+    HostingLinks:
+      type: object
+      required: [zone, records]
+      properties: { zone: { type: object, additionalProperties: true }, records: { type: array, items: { $ref: '#/components/schemas/DnsRecord' } } }
+    AdminDomainPage:
+      type: object
+      required: [items, nextCursor]
+      properties: { items: { type: array, items: { type: object, additionalProperties: true } }, nextCursor: { type: [string, 'null'] } }
+    AdminDomain:
+      type: object
+      additionalProperties: true
+      required: [id, orgId, name, state, contactsMasked, orders]
+      properties: { id: { type: string, format: uuid }, orgId: { type: string, format: uuid }, name: { type: string }, state: { type: string }, contactsMasked: { type: boolean }, orders: { type: array, items: { type: object, additionalProperties: true } } }
     DnsZone:
       type: object
       required: [id, domainId, name, state, version, degraded]

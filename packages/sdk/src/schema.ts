@@ -2528,6 +2528,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/domains/{id}/hosting-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform-managed DNS records of a domain
+         * @description PROPOSED ADDITION M07-ADD-2. The records written by the platform (hosting linkage, certificate challenges) in the domain's zone. Requires domain:read.
+         */
+        get: operations["getDomainHostingLinks"];
+        put?: never;
+        /**
+         * Preview or apply the DNS records that link a domain to a hosting site
+         * @description PROPOSED ADDITION M07-ADD-2 (owner approval pending; needed by UI-M07-08 until M06 calls DnsLinkagePort itself). Body {siteId, apply?}. Without apply the response is a PREVIEW {outcome:preview, proposal:{records, changes, replaces, ssl}} built from the site's real targets (read through the M06 HostingSiteReadPort; an in-memory fake until M06 lands: NOT VERIFIED). With apply:true the records are written through the atomic DNS change-set as platform-managed (linkage) records and the approver is audited; applying again is {outcome:unchanged}. Requires domain:write and a DNS zone for the domain.
+         */
+        post: operations["linkDomainToSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Domains and their latest order across organizations
+         * @description PROPOSED ADDITION M07-ADD-1 (owner approval pending; needed by UI-M07-10/12). Filters state, needsReconcile=true (orders waiting on the registrar), q, limit, cursor. Metadata only. Requires admin:domains:read.
+         */
+        get: operations["listAdminDomains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/domains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Support lookup of one domain (contacts masked)
+         * @description PROPOSED ADDITION M07-ADD-1. Metadata and the order history; contacts are ALWAYS masked (no break-glass in this milestone). Requires admin:domains:read.
+         */
+        get: operations["getAdminDomain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dns/zones": {
         parameters: {
             query?: never;
@@ -5078,6 +5142,45 @@ export interface components {
         WebhookOutcome: {
             /** @enum {string} */
             outcome: "processed" | "duplicate" | "ignored";
+        };
+        HostingLinkRequest: {
+            /** Format: uuid */
+            siteId: string;
+            apply?: boolean;
+        };
+        HostingLinkResult: {
+            /** @enum {string} */
+            outcome: "preview" | "applied" | "unchanged";
+            proposal?: {
+                [key: string]: unknown;
+            };
+            version?: number;
+        };
+        HostingLinks: {
+            zone: {
+                [key: string]: unknown;
+            };
+            records: components["schemas"]["DnsRecord"][];
+        };
+        AdminDomainPage: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor: string | null;
+        };
+        AdminDomain: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orgId: string;
+            name: string;
+            state: string;
+            contactsMasked: boolean;
+            orders: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
         };
         DnsZone: {
             /** Format: uuid */
@@ -10253,6 +10356,126 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    getDomainHostingLinks: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingLinks"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    linkDomainToSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostingLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingLinkResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAdminDomains: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                state?: string;
+                needsReconcile?: boolean;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDomainPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getAdminDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDomain"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
     listDnsZones: {

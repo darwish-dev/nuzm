@@ -36,6 +36,7 @@ export interface OpenproviderMock {
   controls: RegistrarControls & {
     holdRegistrations(v: boolean): void;
     dnsFailFrom(k: number | null): void;
+    mutateTransactions(fn: (t: Record<string, unknown>[]) => void): void;
     activate(name: string): void;
     webhookBody(type: string, id: string, domain: string, at: Date): string;
   };
@@ -371,6 +372,8 @@ export async function startOpenproviderMock(): Promise<OpenproviderMock> {
     lastRequestBodies: () => bodies,
     /** Registrations answer REQ (pending at the registry) until `activate` is called. */
     holdRegistrations: (v: boolean) => void (hold = v),
+    /** Lets a test change what the vendor statement shows (injected variances for RC-04). */
+    mutateTransactions: (fn: (t: Obj[]) => void) => fn(txs),
     /** Every zone-modifying call from the k-th on fails (rollback cannot succeed) until `null`. */
     dnsFailFrom: (k: number | null) => {
       dnsFailFrom = k;

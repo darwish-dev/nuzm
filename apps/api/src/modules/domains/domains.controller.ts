@@ -11,6 +11,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
+import { ProblemException } from '../../common/errors';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { etag, parseIfMatch } from '../../common/etag';
 import { Idempotent } from '../../common/idempotency';
@@ -18,6 +19,7 @@ import { DomainService } from './internal/domain.service';
 import { DomainsFlags } from './internal/flags';
 import { DomainOrderService } from './internal/orders.service';
 import { TransferService } from './internal/transfer.service';
+import { DnsLinkageService } from './internal/linkage.service';
 
 /** Domains (docs/04 §2.7): orders from a quote, list, read, change, renew, eligibility, transfers. Everything is feature-flagged (404 when off). */
 @Controller('v1/domains')
@@ -27,6 +29,7 @@ export class DomainsController {
     private readonly domains: DomainService,
     private readonly orders: DomainOrderService,
     private readonly transfers: TransferService,
+    private readonly linkage: DnsLinkageService,
   ) {}
 
   @RequirePermission('domain:write')
@@ -128,5 +131,34 @@ export class DomainsController {
   async eligibility(@Org() orgId: string, @Param('id') id: string) {
     await this.flags.assert(orgId);
     return this.domains.eligibilityOf(orgId, id);
+  }
+
+  /** Preview (apply false/absent) or apply the DNS records that link this domain to a hosting site (DnsLinkagePort). */
+  @RequirePermission('domain:write')
+  @Idempotent()
+  @Post(':id/hosting-links')
+  @HttpCode(200)
+  async link(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown> | undefined,
+  ) {
+    await this.flags.assert(orgId);
+    const siteId = body?.siteId;
+    if (typeof siteId !== 'string')
+      throw new ProblemException('validation_failed', 'siteId is required');
+    if (body?.apply === true) return this.linkage.applyLinkage(orgId, siteId, id, a.actor.userId);
+    return {
+      outcome: 'preview',
+      proposal: await this.linkage.proposeRecordsForSite(orgId, siteId, id),
+    };
+  }
+
+  @RequirePermission('domain:read')
+  @Get(':id/hosting-links')
+  async links(@Org() orgId: string, @Param('id') id: string) {
+    await this.flags.assert(orgId);
+    return this.linkage.current(orgId, id);
   }
 }

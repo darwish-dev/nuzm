@@ -2,6 +2,7 @@ export * from './operations';
 export * from './residency';
 export * from './dns-validate';
 export * from './cloud';
+export * from './automation';
 export * from './schema';
 export * from './ai';
 export * from './builder/site-model';

@@ -138,17 +138,42 @@ schemas:
     owner_module: automation
     created_by: M11
     extended_by: []
-    tables: [ connector_authorizations, connectors, dead_letters, execution_steps, executions, webhook_deliveries, webhook_endpoints, workflow_versions, workflows ]
+    tables:
+      - anomaly_cases
+      - connector_authorizations
+      - connectors
+      - dead_letters
+      - execution_steps
+      - executions
+      - webhook_deliveries
+      - webhook_endpoints
+      - workflow_versions
+      - workflows
   marketplace:
     owner_module: marketplace
     created_by: M11
     extended_by: []
-    tables: [ entitlements_mkt, installations, listing_versions, listings, moderation_cases, publisher_accounts, purchases, v_entitlements ]
+    tables:
+      - entitlements_mkt
+      - installations
+      - listing_versions
+      - listings
+      - moderation_cases
+      - publisher_accounts
+      - publisher_accruals
+      - purchases
+      - v_entitlements
   programs:
     owner_module: programs
     created_by: M11
     extended_by: []
-    tables: [ agencies, agency_clients, delegated_access, reseller_sub_orgs, resellers ]
+    tables:
+      - agencies
+      - agency_clients
+      - delegated_access
+      - reseller_statements
+      - reseller_sub_orgs
+      - resellers
   ops:
     owner_module: ops
     created_by: M12
@@ -290,6 +315,8 @@ classification:
     ai.runs.tokens_in: a count of LLM input tokens (text units), not an authentication token
     ai.runs.tokens_out: a count of LLM output tokens (text units), not an authentication token
     identity.sso_domain_proofs.token: the public DNS TXT challenge value (published in DNS by design, proves domain ownership only), not a secret
+    automation.webhook_endpoints.previous_secret_expires_at: the time until which the PREVIOUS signing secret still signs (rotation overlap); a timestamp, not a secret
+    automation.execution_steps.idempotency_key: sha256(rootExecutionId|stepKey|attemptGroup), a deterministic dedupe key sent to receivers; derived from ids and grants no access
     # <<< M09 exceptions
     # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
     # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
@@ -337,6 +364,13 @@ classification:
     identity.sso_connections.vault_ref: vault_ref
     identity.scim_tokens.prefix: lookup
     identity.scim_tokens.token_hash: hash
+    automation.connector_authorizations.vault_ref: vault_ref
+    automation.connector_authorizations.pkce_verifier_ref: vault_ref
+    automation.connector_authorizations.oauth_state_hash: hash
+    automation.workflows.webhook_secret_ref: vault_ref
+    automation.workflows.webhook_token_hash: hash
+    automation.webhook_endpoints.secret_vault_ref: vault_ref
+    automation.webhook_endpoints.previous_secret_vault_ref: vault_ref
     # <<< M09 protection
   columns:
     audit.audit_checkpoints:
@@ -795,6 +829,7 @@ classification:
       placeholder: internal
       status: internal
       created_at: internal
+      issuer_model: internal
     invoicing.credit_notes:
       id: internal
       org_id: internal
@@ -2897,3 +2932,362 @@ classification:
       decided_at: internal
       note: internal
       created_at: internal
+    automation.anomaly_cases:
+      id: internal
+      org_id: internal
+      workflow_id: internal
+      kind: internal
+      details: customer-content
+      status: internal
+      resolved_by: internal
+      resolved_at: internal
+      created_at: internal
+    automation.connector_authorizations:
+      id: internal
+      org_id: internal
+      connector_id: internal
+      vault_ref: credentials
+      scopes: internal
+      status: internal
+      expires_at: internal
+      authorized_by: internal
+      oauth_state_hash: credentials
+      pkce_verifier_ref: credentials
+      revoked_at: internal
+      revoked_by: internal
+      created_at: internal
+    automation.connectors:
+      id: internal
+      org_id: internal
+      type: internal
+      name: customer-content
+      scopes: customer-content
+      rate_limit: customer-content
+      config: customer-content
+      status: internal
+      data_region: internal
+      transfer_assessment_id: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    automation.dead_letters:
+      id: internal
+      org_id: internal
+      execution_id: internal
+      step_key: internal
+      reason: customer-content
+      error: customer-content
+      payload: customer-content
+      replayed_at: internal
+      replayed_by: internal
+      created_at: internal
+    automation.execution_steps:
+      id: internal
+      org_id: internal
+      execution_id: internal
+      step_key: internal
+      attempt_group: internal
+      step_type: internal
+      attempt: internal
+      status: internal
+      idempotent: internal
+      idempotency_key: internal
+      input: customer-content
+      output: customer-content
+      error: customer-content
+      started_at: internal
+      finished_at: internal
+    automation.executions:
+      id: internal
+      org_id: internal
+      workflow_id: internal
+      version_id: internal
+      trigger: internal
+      trigger_ref: internal
+      dedupe_key: internal
+      input: customer-content
+      status: internal
+      cursor: customer-content
+      error: customer-content
+      operation_id: internal
+      origin_execution_id: internal
+      key_root_id: internal
+      chain_depth: internal
+      wake_at: internal
+      steps_run: internal
+      data_region: internal
+      started_at: internal
+      finished_at: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    automation.webhook_deliveries:
+      id: internal
+      org_id: internal
+      endpoint_id: internal
+      event_id: internal
+      topic: internal
+      attempt: internal
+      status: internal
+      status_code: internal
+      error: customer-content
+      payload: customer-content
+      next_attempt_at: internal
+      duration_ms: internal
+      created_at: internal
+    automation.webhook_endpoints:
+      id: internal
+      org_id: internal
+      url: customer-content
+      events: customer-content
+      description: customer-content
+      secret_vault_ref: credentials
+      previous_secret_vault_ref: credentials
+      previous_secret_expires_at: internal
+      status: internal
+      consecutive_failures: internal
+      data_region: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    automation.workflow_versions:
+      id: internal
+      org_id: internal
+      workflow_id: internal
+      version: internal
+      definition: customer-content
+      definition_hash: internal
+      notes: customer-content
+      validation: customer-content
+      validated_at: internal
+      created_by: internal
+      created_at: internal
+    automation.workflows:
+      id: internal
+      org_id: internal
+      name: customer-content
+      status: internal
+      active_version_id: internal
+      owner_user_id: internal
+      triggers: customer-content
+      webhook_token_hash: credentials
+      webhook_secret_ref: credentials
+      data_region: internal
+      next_run_at: internal
+      last_run_at: internal
+      paused_reason: internal
+      paused_at: internal
+      paused_by_admin: internal
+      source_listing_version_id: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    billing.reseller_price_rules:
+      id: internal
+      org_id: internal
+      reseller_id: internal
+      scope: internal
+      scope_key: internal
+      markup: financial
+      effective_from: internal
+      rule_set_version: internal
+      created_by: internal
+      created_at: internal
+    marketplace.entitlements_mkt:
+      id: internal
+      org_id: internal
+      listing_id: internal
+      purchase_id: internal
+      version_range: internal
+      licence: internal
+      seats: internal
+      status: internal
+      revoked_at: internal
+      revoke_reason: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    marketplace.installations:
+      id: internal
+      org_id: internal
+      entitlement_id: internal
+      listing_id: internal
+      listing_version_id: internal
+      target_type: internal
+      target_id: internal
+      workspace_id: internal
+      status: internal
+      error: customer-content
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    marketplace.listing_versions:
+      id: internal
+      org_id: internal
+      listing_id: internal
+      version: public
+      artifact_ref: internal
+      sbom_ref: internal
+      content_hash: internal
+      changelog: public
+      moderation_status: internal
+      created_by: internal
+      created_at: internal
+    marketplace.listings:
+      id: internal
+      org_id: internal
+      publisher_id: internal
+      type: internal
+      title_ar: public
+      title_en: public
+      description_ar: public
+      description_en: public
+      status: internal
+      licence: internal
+      seats: internal
+      price_minor: financial
+      currency: internal
+      data_region: internal
+      version_lock: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+    marketplace.moderation_cases:
+      id: internal
+      org_id: internal
+      listing_id: internal
+      listing_version_id: internal
+      scan_results: customer-content
+      scan_verdict: internal
+      decision: internal
+      reason_code: internal
+      notes: customer-content
+      decided_by: internal
+      decided_at: internal
+      version_lock: internal
+      created_at: internal
+    marketplace.publisher_accounts:
+      id: internal
+      org_id: internal
+      display_name_ar: customer-content
+      display_name_en: customer-content
+      status: internal
+      verified_by: internal
+      verified_at: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    marketplace.publisher_accruals:
+      id: internal
+      org_id: internal
+      publisher_id: internal
+      listing_id: internal
+      purchase_id: internal
+      invoice_id: internal
+      kind: internal
+      gross_minor: financial
+      share_minor: financial
+      currency: internal
+      ledger_transaction_id: internal
+      created_at: internal
+    marketplace.purchases:
+      id: internal
+      org_id: internal
+      listing_id: internal
+      listing_version_id: internal
+      publisher_id: internal
+      publisher_org_id: internal
+      quote_id: internal
+      order_id: internal
+      invoice_id: internal
+      status: internal
+      amount_minor: financial
+      currency: internal
+      publisher_share_minor: financial
+      paid_at: internal
+      refunded_at: internal
+      created_by: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    programs.agencies:
+      id: internal
+      org_id: internal
+      name: customer-content
+      status: internal
+      consolidated_billing: internal
+      created_by: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    programs.agency_clients:
+      id: internal
+      org_id: internal
+      agency_id: internal
+      client_org_id: internal
+      status: internal
+      invited_by: internal
+      accepted_by: internal
+      accepted_at: internal
+      revoked_at: internal
+      revoked_by: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    programs.delegated_access:
+      id: internal
+      org_id: internal
+      agency_id: internal
+      client_org_id: internal
+      scopes: internal
+      expires_at: internal
+      status: internal
+      proposed_by: internal
+      granted_by: internal
+      granted_at: internal
+      revoked_at: internal
+      revoked_by: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    programs.reseller_statements:
+      id: internal
+      org_id: internal
+      reseller_id: internal
+      period_start: internal
+      period_end: internal
+      currency: internal
+      wholesale_minor: financial
+      retail_minor: financial
+      margin_minor: financial
+      tax_minor: financial
+      lines: financial
+      rule_set_version: internal
+      issuer_model: internal
+      ledger_wholesale_minor: financial
+      created_at: internal
+    programs.reseller_sub_orgs:
+      id: internal
+      org_id: internal
+      reseller_id: internal
+      sub_org_id: internal
+      price_book_ref: internal
+      status: internal
+      invited_by: internal
+      accepted_by: internal
+      accepted_at: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal
+    programs.resellers:
+      id: internal
+      org_id: internal
+      name: customer-content
+      status: internal
+      currency: internal
+      created_by: internal
+      version_lock: internal
+      created_at: internal
+      updated_at: internal

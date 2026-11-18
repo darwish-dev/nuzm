@@ -70,6 +70,7 @@ describe('categories', () => {
       '/settings/organization',
       '/privacy',
       '/settings/security/sso', // M12 (flag enterprise.sso)
+      '/settings/partners', // M11: the client side of agency links and reseller relationships
     ]);
     // any one permission of a stacked page's screens lists it
     const only = (p: string) =>
@@ -176,5 +177,24 @@ describe('current page', () => {
     expect(currentItemId(dom, '/domains')).toBe('list');
     expect(currentItemId(dom, '/domains/search')).toBe('search');
     expect(currentItemId(dom, '/domains/abc')).toBeNull();
+  });
+});
+
+describe('M11 entries', () => {
+  const hrefs = (ctx: NavContext) =>
+    buildNav(ctx)
+      .find((c) => c.id === 'build')!
+      .groups.flatMap((g) => g.items.map((i) => i.href));
+  it('automation and marketplace entries are hidden while their flags are off', () => {
+    const h = hrefs(all({ flag: (k) => k === 'ai.enabled' }));
+    expect(h.some((x) => x?.startsWith('/automation') || x === '/marketplace')).toBe(false);
+  });
+  it('each entry needs its own flag and permission', () => {
+    const h = hrefs(all({ flag: (k) => k === 'marketplace.enabled' }));
+    expect(h).toContain('/marketplace');
+    expect(h).not.toContain('/automation/workflows');
+    const none = hrefs(all({ can: (p) => p === 'marketplace:read' }));
+    expect(none).toContain('/marketplace');
+    expect(none).not.toContain('/settings/webhooks');
   });
 });

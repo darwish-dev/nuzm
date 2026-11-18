@@ -30,6 +30,10 @@ import { TenancyModule } from './modules/tenancy';
 import { EnterpriseModule } from './modules/enterprise';
 import { OpsModule } from './modules/ops';
 // <<< M12
+// M11 (appended): automation, marketplace, programs
+import { AutomationModule } from './modules/automation';
+import { MarketplaceModule } from './modules/marketplace';
+import { ProgramsModule } from './modules/programs';
 
 @Module({
   imports: [
@@ -62,6 +66,10 @@ import { OpsModule } from './modules/ops';
     HealthModule,
     EnterpriseModule, // M12
     OpsModule, // M12
+    // M11 (appended)
+    AutomationModule,
+    MarketplaceModule,
+    ProgramsModule,
   ],
 })
 export class AppModule {}

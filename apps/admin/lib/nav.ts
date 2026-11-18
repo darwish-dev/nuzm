@@ -458,7 +458,7 @@ export const ADMIN_CATEGORIES: Category[] = [
     icon: 'dashboard',
     label: 'anc.cat.platform',
     title: 'anc.cat.platform',
-    roots: ['/audit-logs', '/feature-flags'],
+    roots: ['/audit-logs', '/feature-flags', '/marketplace', '/programs', '/automation'],
     org: false,
     groups: [
       {
@@ -475,6 +475,31 @@ export const ADMIN_CATEGORIES: Category[] = [
             label: 'nav.admin.flags',
             href: '/feature-flags',
             ...read('admin:flags:manage'),
+          },
+        ],
+      },
+      // M11: marketplace moderation, agencies and resellers, automation abuse (BLOCKED states where the list routes are not approved yet: SCR-M11-05)
+      {
+        id: 'm11',
+        title: 'm11.nav.admin.group',
+        items: [
+          {
+            id: 'moderation',
+            label: 'm11.nav.admin.moderation',
+            href: '/marketplace/moderation',
+            perm: ['admin:marketplace'],
+          },
+          {
+            id: 'programs',
+            label: 'm11.nav.admin.programs',
+            href: '/programs',
+            perm: ['admin:org:read', 'admin:programs'],
+          },
+          {
+            id: 'automationAbuse',
+            label: 'm11.nav.admin.abuse',
+            href: '/automation/abuse',
+            perm: ['admin:automation', 'admin:ops'],
           },
         ],
       },

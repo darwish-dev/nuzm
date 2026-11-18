@@ -76,7 +76,7 @@ export const CATEGORIES: Category[] = [
     icon: 'code',
     label: 'nc.cat.build',
     title: 'nc.cat.build',
-    roots: ['/builder', '/ai'],
+    roots: ['/builder', '/ai', '/automation', '/marketplace'],
     org: true,
     groups: [
       {
@@ -88,6 +88,42 @@ export const CATEGORIES: Category[] = [
             href: '/builder/projects',
             perm: ['builder:read'],
             flag: 'ai.enabled',
+          },
+        ],
+      },
+      // M11: each entry shows only when its feature flag is on for the organization and the member holds the permission
+      {
+        id: 'automation',
+        title: 'm11.nav.automation',
+        items: [
+          {
+            id: 'workflows',
+            label: 'm11.nav.workflows',
+            href: '/automation/workflows',
+            perm: ['automation:read'],
+            flag: 'automation.enabled',
+            also: ['/automation/executions'],
+          },
+          {
+            id: 'connectors',
+            label: 'm11.nav.connectors',
+            href: '/automation/connectors',
+            perm: ['connector:manage'],
+            flag: 'automation.enabled',
+          },
+          {
+            id: 'webhooks',
+            label: 'm11.nav.webhooks',
+            href: '/settings/webhooks',
+            perm: ['webhook:manage'],
+            flag: 'automation.enabled',
+          },
+          {
+            id: 'marketplace',
+            label: 'm11.nav.marketplace',
+            href: '/marketplace',
+            perm: ['marketplace:read'],
+            flag: 'marketplace.enabled',
           },
         ],
       },
@@ -421,8 +457,27 @@ export const CATEGORIES: Category[] = [
             perm: ['org:security'],
             flag: 'enterprise.sso',
           },
-          { id: 'agency', label: 'nav.agency', href: '/agency', orgType: 'agency' },
-          { id: 'reseller', label: 'nav.reseller', href: '/reseller', orgType: 'reseller' },
+          {
+            id: 'agency',
+            label: 'nav.agency',
+            href: '/agency',
+            orgType: 'agency',
+            flag: 'agency.enabled',
+          },
+          {
+            id: 'reseller',
+            label: 'nav.reseller',
+            href: '/reseller',
+            orgType: 'reseller',
+            flag: 'reseller.enabled',
+          },
+          // M11: the client side of agency links and reseller relationships (the page handles each flag itself)
+          {
+            id: 'partners',
+            label: 'm11.nav.partners',
+            href: '/settings/partners',
+            perm: ['partners:manage'],
+          },
         ],
       },
     ],

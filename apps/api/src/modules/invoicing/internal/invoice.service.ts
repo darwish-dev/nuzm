@@ -311,6 +311,93 @@ export class InvoiceService {
     return { invoice: await this.ensureLedger(orgId, id, actorUserId), created };
   }
 
+  /**
+   * Issue the invoice for an ORDER (M11 marketplace purchase): one document, idempotent on `sourceKey`, lines of kind `order` recognized to the given revenue account (4400 for the
+   * marketplace). The same key returns the invoice that already exists, so a retry after a crash never issues a second legal document.
+   */
+  async issueOrderCharge(
+    orgId: string,
+    input: {
+      sourceKey: string;
+      currency: string;
+      lines: {
+        description: string;
+        quantity: string;
+        unit: string;
+        netMinor: string;
+        sourceId: string;
+        revenueAccount?: RevenueAccount;
+      }[];
+    },
+    actorUserId: string | null = null,
+    now = new Date(),
+  ): Promise<{ invoice: InvoiceDto; created: boolean }> {
+    if (!CURRENCY.test(input.currency))
+      throw new ProblemException('validation_failed', 'currency must be an ISO 4217 code');
+    if (input.lines.length < 1 || input.lines.some((l) => !/^[1-9]\d{0,17}$/.test(l.netMinor)))
+      throw new ProblemException('validation_failed', 'an order invoice needs positive lines');
+    const entity = await this.entity();
+    const existing = await this.findByKey(orgId, entity.id as string, input.sourceKey);
+    if (existing)
+      return {
+        invoice: await this.ensureLedger(orgId, existing.id as string, actorUserId),
+        created: false,
+      };
+    const periodStart = now.toISOString().slice(0, 10);
+    const { id, created } = await this.issue(
+      orgId,
+      entity,
+      {
+        periodStart,
+        periodEnd: periodStart,
+        sourceKey: input.sourceKey,
+        currency: input.currency,
+        lines: input.lines.map((l) => ({
+          kind: 'order' as const,
+          description: l.description,
+          meterId: null,
+          quantity: l.quantity,
+          unit: l.unit,
+          netMinor: BigInt(l.netMinor),
+          revenueAccount: l.revenueAccount ?? ('4400' as RevenueAccount),
+          sourceId: l.sourceId,
+        })),
+      },
+      actorUserId,
+      now,
+    );
+    return { invoice: await this.ensureLedger(orgId, id, actorUserId), created };
+  }
+
+  /** What the LEDGER-posted invoices of one organization show as USAGE net for a billing period (M11 reseller statements compare their wholesale figure with it: variance 0). Void invoices are excluded. */
+  async usageNetForPeriod(orgId: string, periodStart: string, currency: string): Promise<bigint> {
+    return this.db.withOrg(orgId, async (c) =>
+      BigInt(
+        (
+          await c.query(
+            `SELECT coalesce(sum(l.net_minor), 0)::text AS n FROM invoicing.invoice_lines l JOIN invoicing.invoices i ON i.id = l.invoice_id
+              WHERE i.org_id = $1 AND i.period_start = $2::date AND i.currency = $3 AND i.status <> 'void' AND l.kind = 'usage' AND i.ledger_transaction_id IS NOT NULL`,
+            [orgId, periodStart, currency],
+          )
+        ).rows[0]!.n as string,
+      ),
+    );
+  }
+
+  /** Total of the credit notes issued against an invoice (a refund of a purchase shows up here). Minor units, 0 when none. */
+  async creditedMinor(orgId: string, invoiceId: string): Promise<bigint> {
+    return this.db.withOrg(orgId, async (c) =>
+      BigInt(
+        (
+          await c.query(
+            `SELECT coalesce(sum(total_minor), 0)::text AS n FROM invoicing.credit_notes WHERE invoice_id = $1 AND org_id = $2 AND status IN ('issued','applied','refunded')`,
+            [invoiceId, orgId],
+          )
+        ).rows[0]!.n as string,
+      ),
+    );
+  }
+
   /** Rated usage (grouped by meter) plus order items not yet invoiced; zero-priced usage stays on the usage statement. */
   private async collect(
     orgId: string,

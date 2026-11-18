@@ -5464,6 +5464,498 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List workflows
+         * @description Newest first; filter status. Requires permission `automation:read`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.
+         */
+        get: operations["listWorkflows"];
+        put?: never;
+        /**
+         * Create a workflow (version 1)
+         * @description Body {name, definition, triggers[]}. The definition is a JSON DAG (steps http_request, nuzm_api, send_email, start_ai_run, create_deployment, delay, condition, bounded loop, transform) validated against the schema, with every expression parsed by the restricted expression language (no eval, no code), literal credentials refused, and every connector reference checked to be authorized in the organization: 422 `validation_failed` with errors[] (schema, cycle, unauthorized connector). Triggers: schedule (cron + IANA zone), webhook (the secret URL and HMAC secret are returned ONCE), platform_event (allow-listed outbox topics) and manual. The workflow starts as `draft`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.
+         */
+        post: operations["createWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workflows/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a workflow with its active definition and versions
+         * @description Returns the active version's definition and the version list; ETag header. Another organization's workflow answers 404.
+         */
+        get: operations["getWorkflow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, activate, pause or disable a workflow
+         * @description PATCH changes `name` and `status` only (the definition changes through versions). `If-Match` is required (412 `etag_mismatch`). Activating needs a published version; an administrator pause cannot be lifted by the organization (403); a disabled workflow stays disabled.
+         */
+        patch: operations["patchWorkflow"];
+        trace?: never;
+    };
+    "/v1/workflows/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish an immutable workflow version
+         * @description Body {definition, notes?}. Versions are immutable (a database trigger refuses UPDATE and DELETE); an identical definition returns the current version with `unchanged: true`. The new version becomes the active one; running executions keep the version they started with. 422 for an invalid definition or an unauthorized connector.
+         */
+        post: operations["createWorkflowVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workflows/{id}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the executions of a workflow
+         * @description Newest first; filter status.
+         */
+        get: operations["listWorkflowExecutions"];
+        put?: never;
+        /**
+         * Start an execution
+         * @description Body {versionId?, input, dedupeKey}. 202 with the execution and its durable operation (`operationId`). A repeated dedupeKey answers 200 with the ORIGINAL execution and `duplicate: true` (never a second run). 429 `rate_limited` when the plan quota or the per-minute start rate is exhausted; 409 `invalid_state` for a paused or disabled workflow. Idempotency-Key is required. Requires permission `automation:run`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.
+         */
+        post: operations["startWorkflowExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workflow-executions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an execution with its steps, attempts, redacted logs and dead letters
+         * @description Steps carry per-attempt status, idempotency flag, input and output (secrets removed before storage), errors; `deadLetters` lists failed steps with their replay state. Another organization's execution answers 404.
+         */
+        get: operations["getWorkflowExecution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List connectors
+         * @description Newest first, with the authorization state (never a vault reference). Requires permission `connector:manage`.
+         */
+        get: operations["listConnectors"];
+        put?: never;
+        /**
+         * Create a connector
+         * @description Body {type: nuzm|http|oauth2|email, name, scopes[], rateLimit?: {perMinute, burst}, config}. Only first-party, generic HTTP, generic OAuth2 (authorization code + PKCE) and email connectors exist; named third-party connectors are out of scope. URLs in the config are checked by the SSRF policy (422 `ssrf_denied`); a body that carries a credential value is refused (422 `credential_value_rejected`). Requires permission `connector:manage`.
+         */
+        post: operations["createConnector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connectors/{id}/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authorize a connector
+         * @description Body {kind: credential, vaultRef, scopes?, expiresAt?} stores a reference to a secret of THIS organization (vault://…/tenant-<orgId>-…; any other reference or a raw value is 422 `credential_value_rejected`); {kind: oauth2_start, redirectUri} returns the authorization URL with PKCE (S256) and state; {kind: oauth2_complete, state, code} exchanges the code at the tenant-supplied token endpoint through the SSRF-guarded client. Granted scopes can never exceed the connector's declared scopes (403 `connector_not_authorized`).
+         */
+        post: operations["authorizeConnector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhook-endpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List outbound webhook endpoints
+         * @description Newest first; secrets are never returned.
+         */
+        get: operations["listWebhookEndpoints"];
+        put?: never;
+        /**
+         * Create an outbound webhook endpoint (or rotate its secret)
+         * @description Body {url, events[], description?, secretRotation?: {overlapHours}}. The URL must be https and public (422 `ssrf_denied` for private, loopback, link-local, metadata and rebinding targets). The signing secret (`whsec_…`) is shown ONCE. Deliveries carry `X-Nuzm-Signature: t=<unix>,v1=<hmac>` = HMAC-SHA256(secret, `<t>.<body>`) (receivers must reject timestamps older than 5 minutes and dedupe on `X-Nuzm-Event-Id`); failed deliveries retry on an exponential schedule for up to 24 hours, then are dead-lettered. Sending `secretRotation` for an existing URL rotates the secret: both secrets sign during the overlap. The delivery log read and the replay route are SCR-M11-02 (not exposed).
+         */
+        post: operations["createWebhookEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/workflows/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inbound workflow trigger
+         * @description Unauthenticated by design: the secret URL token, `X-Nuzm-Signature` (HMAC-SHA256 over `<t>.<raw body>` with the per-workflow secret, 5 minute timestamp window) and the mandatory `X-Nuzm-Event-Id` (dedupe) are the authentication. 202 with the execution; a repeated event id answers 200 with the original; 401 `invalid_signature`; 404 for an unknown token (no oracle). Convention: docs/04 §1 inbound webhooks.
+         */
+        post: operations["receiveWorkflowWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/marketplace/listings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse listings (or the publisher's own)
+         * @description Default: published listings with APPROVED versions only (artifact references and scan findings are never shown). `mine=true`: the publisher's own listings in every state with all versions, scan findings and the revenue accrual summary (accrued, not paid out). `filter[id]` returns one listing (the detail view) with a provisional VAT estimate. Filters: type, q. Requires permission `marketplace:read`. The dedicated detail GET is SCR-M11-03 (not exposed).
+         */
+        get: operations["listMarketplaceListings"];
+        put?: never;
+        /**
+         * Create a listing (and its first version)
+         * @description Body {type: website-template|app-template|workflow-template, title: {ar, en}, description?: {ar, en}, price: {amount, currency}, licence: single_org|multi_seat, seats?, artifactRef?, sbomRef?, version?}. The organization must be a VERIFIED publisher (403 `publisher_not_verified`; an unverified account is registered for the ops verification step). A submitted version is hashed, scanned (secrets, malware signatures, dependencies, personal data, licence, SBOM, workflow schema) and enters moderation as `pending`: it is neither listed nor purchasable until a person approves it. The artifact reference must lie inside the publisher's own namespace. Requires permission `marketplace:publish`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.
+         */
+        post: operations["createMarketplaceListing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/marketplace/listings/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a new listing version
+         * @description Body {version (semver), artifactRef, sbomRef?, changelog?}. Immutable once stored; hashed and scanned at submission; enters moderation as `pending`. 409 for a duplicate version string.
+         */
+        post: operations["createMarketplaceListingVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/marketplace/purchases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purchase a listing from a quote
+         * @description Body {listingId, versionId?, quoteId} where the quote has kind `marketplace` (POST /v1/quotes). The quote becomes an order (spend limits and quotas apply) and an invoice through M03; the buyer pays the invoice with POST /v1/billing/payments (or at once with the default payment method). The entitlement is `pending` until the invoice is PAID, then `active`, and the publisher's share is ACCRUED on the ledger (account 2600; never paid out: D-26 open). 202 while payment is pending, 200 when paid. 409 `already_entitled`, 409 `not_purchasable`, 409 `price_changed`, 409 `quote_expired`, 409 `quote_conflict`, 402 `payment_required` when the immediate payment is declined (the invoice stays open), 403 `residency_denied`. A repeated request (same quote) returns the same purchase: exactly one order, invoice, entitlement and accrual. Requires permission `marketplace:buy`.
+         */
+        post: operations["purchaseMarketplaceListing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/marketplace/purchases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a purchase
+         * @description Brings the purchase up to date with its invoice first (payment webhooks update the invoice; a refund shows as a credit note and revokes the entitlement). Another organization's purchase answers 404.
+         */
+        get: operations["getMarketplacePurchase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/marketplace/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List installations
+         * @description The organization's own installations, newest first.
+         */
+        get: operations["listMarketplaceInstallations"];
+        put?: never;
+        /**
+         * Install a purchased listing
+         * @description Body {listingVersionId, workspaceId?}. Requires an ACTIVE entitlement of the SAME organization whose version range covers the version (403 `not_entitled` otherwise, whatever the listing or version); the install is a COPY owned by the buyer (a new workflow or builder project with a new id). Website and app templates need the builder (M09/M10) and a workspace: 422 `unsupported_capability` where it is not wired. 403 `residency_denied`; 409 when already installed. Requires permission `marketplace:install`.
+         */
+        post: operations["installMarketplaceListing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketplace/listings/{id}/moderation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide a listing version (admin)
+         * @description Body {decision: approve|reject|suspend, reasonCode, notes?, versionId?}. `approve` makes a PENDING version purchasable and publishes the listing (a version flagged by the scans needs reasonCode `scan_override`); `reject` refuses a pending version; `suspend` takes an approved version down and suspends the listing. 409 stale when the version is no longer in the state the decision needs or `If-Match` (the case version) differs. Needs a recent MFA verification. Platform permission `admin:marketplace`. The moderation queue read is SCR-M11-05 (not exposed).
+         */
+        post: operations["moderateMarketplaceListing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the agency profile of the organization and the agencies linked to it
+         * @description For an agency organization: its own profile (`role: agency`). For any other organization: the agencies that hold a link to it (`role: client`).
+         */
+        get: operations["listAgencies"];
+        put?: never;
+        /**
+         * Create the agency profile of the current organization
+         * @description The organization must be of type `agency`. One profile per organization (409). Requires permission `agency:manage`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.
+         */
+        post: operations["createAgency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agencies/{id}/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List client links
+         * @description The agency sees all its links; a client sees its own.
+         */
+        get: operations["listAgencyClients"];
+        put?: never;
+        /**
+         * Invite a client (agency) or answer an invitation (client)
+         * @description Agency side (the agency's own organization, `agency:manage`): body {clientOrgId} creates a link in `pending_acceptance` (status `pending`). Client side (a linked organization, `partners:manage`): body {linkId, decision: accept|decline}; ONLY the client can accept, and an unknown client id stays pending (no existence oracle). 409 for a duplicate live link. The caller's organization decides the side; a stranger gets 404. Revocation is SCR-M11-01 (not exposed).
+         */
+        post: operations["postAgencyClient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agencies/{id}/delegated-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List delegated-access grants
+         * @description The agency sees all its grants; a client sees the grants made to it. A grant past its expiry shows as `expired`.
+         */
+        get: operations["listAgencyDelegatedAccess"];
+        put?: never;
+        /**
+         * Propose a delegated-access grant (agency) or answer it (client)
+         * @description Agency side (`agency:manage`): body {clientOrgId, scopes[], expiresAt} needs an ACTIVE link; scopes come from the delegable catalogue (never billing, members, keys, privacy, audit, partner programs, deletion); `expiresAt` is MANDATORY and at most 365 days away (422 when missing or too far). Client side (`partners:manage`): {grantId, decision: accept|decline}; an accepted grant never exceeds the scopes the accepting administrator holds. Scopes and expiry never change after creation. Acting with a grant: `X-Nuzm-Acting-Org` on delegable routes; effective permissions = intersection(agency member role, grant scopes); every request is re-validated (no cache). Revocation is SCR-M11-01 (not exposed).
+         */
+        post: operations["postAgencyDelegatedAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resellers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the reseller profile (or the reseller of a linked sub-organization)
+         * @description For a reseller organization: its own profile (`role: reseller`); for a linked sub-organization: the reseller it belongs to (`role: sub_organization`), read only.
+         */
+        get: operations["listResellers"];
+        put?: never;
+        /**
+         * Create the reseller profile of the current organization
+         * @description The organization must be of type `reseller`. Requires permission `reseller:manage`. Default OFF: 403 `feature_disabled` until the flag is on for the organization.
+         */
+        post: operations["createReseller"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resellers/{id}/sub-organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sub-organization links
+         * @description The reseller sees its links (with the organization name for active ones); a sub-organization sees its own link.
+         */
+        get: operations["listResellerSubOrganizations"];
+        put?: never;
+        /**
+         * Link a sub-organization (reseller) or answer the link (sub-organization)
+         * @description Reseller side (`reseller:manage`): body {subOrgId, priceBookRef?} links an EXISTING organization (pending); the sub-organization's administrator answers {linkId, decision: accept|decline}. Creating a brand-new sub-organization is NOT available (422 `unsupported_capability`): who owns it afterwards is an open product/legal decision. An organization belongs to one reseller at a time (409). A reseller sees aggregates and metadata only, never sub-organization content.
+         */
+        post: operations["postResellerSubOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resellers/{id}/price-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the current price rule set and its history
+         * @description The rule set is versioned and append-only; the ETag is the current version (0 when none). Reseller only (a sub-organization gets 404). Requires permission `reseller:pricing`.
+         */
+        get: operations["getResellerPriceRules"];
+        /**
+         * Replace the price rule set with a new version
+         * @description Body {rules: [{scope: plan|meter, scopeKey, markup: {type: percent, bps} | {type: fixed, amountMinor, currency}, effectiveFrom}]}. `If-Match` = the current version (412 `etag_mismatch`, 428 when missing). effectiveFrom must be at least one day away (422); a negative markup would sell below the wholesale cost: 422 `below_cost`. Money is integer minor units. Requires permission `reseller:pricing`.
+         */
+        put: operations["putResellerPriceRules"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resellers/{id}/statements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a reseller statement for a period (JSON or CSV)
+         * @description ?period=YYYY-MM (default: the previous month), ?format=csv. Per sub-organization and meter: wholesale cost (the platform's own rating), retail (the price rule in force at the end of the period), margin, a provisional VAT estimate, and the ledger figure for the same organizations (variance). A closed period is stored once and never changes. The statement carries the invoice-issuer model: `disabled` / BLOCKED while D-24 is open (no retail invoice exists). Requires permission `reseller:finance`.
+         */
+        get: operations["getResellerStatement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10482,6 +10974,122 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** @description A JSON object; the fields are described in the operation. */
+        M11Object: {
+            [key: string]: unknown;
+        };
+        M11Page: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            nextCursor?: string | null;
+        };
+        M11Workflow: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "paused" | "disabled";
+            activeVersionId?: string | null;
+            activeVersion?: number | null;
+            triggers: {
+                [key: string]: unknown;
+            }[];
+            definition?: {
+                [key: string]: unknown;
+            };
+            versions?: {
+                [key: string]: unknown;
+            }[];
+            /** @description Shown once at creation: {path, secret}. */
+            webhook?: {
+                [key: string]: unknown;
+            };
+            nextRunAt?: string | null;
+            lastRunAt?: string | null;
+            pausedReason?: string | null;
+            pausedByAdmin?: boolean;
+            etag: number;
+            createdAt?: string;
+        };
+        M11Execution: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workflowId: string;
+            /** Format: uuid */
+            versionId?: string;
+            /** @enum {string} */
+            trigger?: "manual" | "schedule" | "webhook" | "platform_event" | "replay";
+            /** @enum {string} */
+            status: "queued" | "running" | "waiting" | "succeeded" | "failed" | "cancelled";
+            operationId?: string | null;
+            duplicate?: boolean;
+            steps?: {
+                [key: string]: unknown;
+            }[];
+            deadLetters?: {
+                [key: string]: unknown;
+            }[];
+        };
+        M11Connector: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "nuzm" | "http" | "oauth2" | "email";
+            name: string;
+            scopes?: string[];
+            /** @enum {string} */
+            status: "pending" | "active" | "revoked" | "disabled";
+            authorization?: {
+                [key: string]: unknown;
+            };
+        };
+        M11WebhookEndpoint: {
+            /** Format: uuid */
+            id: string;
+            url: string;
+            events: string[];
+            /** @enum {string} */
+            status: "active" | "paused" | "disabled";
+            /** @description Shown once at creation or rotation. */
+            secret?: string;
+            rotated?: boolean;
+        };
+        M11Listing: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "website-template" | "app-template" | "workflow-template";
+            /** @enum {string} */
+            status: "draft" | "published" | "suspended" | "archived";
+            price: {
+                [key: string]: unknown;
+            };
+            versions?: {
+                [key: string]: unknown;
+            }[];
+        };
+        M11Purchase: {
+            /** Format: uuid */
+            purchaseId: string;
+            invoiceId?: string | null;
+            /** Format: uuid */
+            entitlementId?: string;
+            /** @enum {string} */
+            status: "pending_payment" | "paid" | "failed" | "refunded";
+            /** @enum {string} */
+            entitlementStatus: "pending" | "active" | "revoked";
+        };
+        M11Installation: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            targetType?: "workflow" | "project";
+            targetId?: string | null;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed";
+        };
     };
     responses: {
         /** @description RFC 9457 problem details */
@@ -10505,6 +11113,8 @@ export interface components {
         Limit: number;
         /** @description Opaque cursor from nextCursor. */
         Cursor: string;
+        /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+        ActingOrgHeader: string;
     };
     requestBodies: never;
     headers: never;
@@ -21711,6 +22321,1189 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listWorkflows: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createWorkflow: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Workflow"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getWorkflow: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Workflow"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    patchWorkflow: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Workflow"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    createWorkflowVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listWorkflowExecutions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    startWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Duplicate dedupeKey: the original execution */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Execution"];
+                };
+            };
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Execution"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description A client organization an AGENCY member acts in (with X-Nuzm-Org = the agency organization). Honoured only on routes marked x-nuzm-delegable, for cookie sessions, and only under an active, unexpired delegated-access grant; the effective permissions are the intersection of the member's role and the grant scopes. Everything else answers 403. */
+                "X-Nuzm-Acting-Org"?: components["parameters"]["ActingOrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Execution"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listConnectors: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createConnector: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Connector"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    authorizeConnector: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listWebhookEndpoints: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createWebhookEndpoint: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11WebhookEndpoint"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    receiveWorkflowWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Nuzm-Signature": string;
+                "X-Nuzm-Event-Id": string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Duplicate event id: the original execution */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listMarketplaceListings: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                mine?: boolean;
+                type?: string;
+                q?: string;
+                "filter[id]"?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createMarketplaceListing: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Listing"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createMarketplaceListingVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    purchaseMarketplaceListing: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Paid */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Purchase"];
+                };
+            };
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Purchase"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getMarketplacePurchase: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Purchase"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listMarketplaceInstallations: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    installMarketplaceListing: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Installation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    moderateMarketplaceListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAgencies: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createAgency: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAgencyClients: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    postAgencyClient: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listAgencyDelegatedAccess: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    postAgencyDelegatedAccess: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listResellers: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createReseller: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listResellerSubOrganizations: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Page"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    postResellerSubOrganization: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getResellerPriceRules: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    putResellerPriceRules: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description ETag of the version being modified; stale values return 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["M11Object"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    getResellerStatement: {
+        parameters: {
+            query?: {
+                period?: string;
+                format?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/json": components["schemas"]["M11Object"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

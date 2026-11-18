@@ -52,7 +52,8 @@ export class DbAuditSink extends AuditSink {
     const row = {
       id: uuidv7(),
       orgId: e.orgId ?? null,
-      actingOrgId: e.actingOrgId ?? null,
+      // M11: a delegated (agency) request records the agency as the actor organization automatically
+      actingOrgId: e.actingOrgId ?? access?.acting?.agencyOrgId ?? null,
       actorType,
       userId: userId ?? null,
       apiKeyId: apiKeyId ?? null,

@@ -1,11 +1,13 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, Optional } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 import {
   ANY_AUTHENTICATED,
+  DELEGABLE,
   REQUIRE_PERMISSION,
   REQUIRE_PLATFORM_PERMISSION,
 } from '../../common/access';
+import { ActingOrgPort } from '../../common/acting';
 import { ProblemException } from '../../common/errors';
 import { ApiKeyService, PUBLIC, SessionAuthenticator, permissionCovers } from '../identity';
 import { PolicyService } from './policy.service';
@@ -23,6 +25,8 @@ export class AccessGuard implements CanActivate {
     private readonly sessions: SessionAuthenticator,
     private readonly apiKeys: ApiKeyService,
     private readonly policy: PolicyService,
+    /** M11 S54: present when the programs module is loaded. */
+    @Optional() private readonly acting?: ActingOrgPort,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -39,9 +43,26 @@ export class AccessGuard implements CanActivate {
     );
     const req = ctx.switchToHttp().getRequest<FastifyRequest>();
 
-    // Agency/reseller delegation arrives with M11; until then the header is refused, never trusted.
-    if (req.headers['x-nuzm-acting-org'] !== undefined)
-      throw new ProblemException('forbidden', 'delegated access is not available');
+    // M11 S54 delegated access: `X-Nuzm-Acting-Org` is honoured ONLY on routes marked @Delegable(), for cookie sessions (never API keys, never admin routes), and every such request is
+    // re-validated against an active, unexpired grant (ActingOrgService). Everywhere else the header is refused, never trusted.
+    const actingHeader = req.headers['x-nuzm-acting-org'];
+    if (actingHeader !== undefined) {
+      const bearer =
+        typeof req.headers.authorization === 'string' &&
+        /^Bearer\s+/i.test(req.headers.authorization);
+      if (
+        !this.acting ||
+        bearer ||
+        platformNeeded ||
+        !needed ||
+        typeof actingHeader !== 'string' ||
+        !this.reflector.getAllAndOverride<boolean>(DELEGABLE, targets)
+      )
+        throw new ProblemException(
+          'forbidden',
+          'delegated access is not available for this request',
+        );
+    }
 
     const auth = req.headers.authorization;
     if (platformNeeded) {
@@ -80,6 +101,30 @@ export class AccessGuard implements CanActivate {
     }
 
     const principal = await this.sessions.authenticate(ctx);
+    if (typeof actingHeader === 'string') {
+      const agencyRaw = req.headers['x-nuzm-org'];
+      if (typeof agencyRaw !== 'string' || !UUID.test(agencyRaw))
+        throw new ProblemException(
+          'forbidden',
+          'delegated access is not available for this request',
+        );
+      const am = await this.policy.membership(principal.userId, agencyRaw.toLowerCase());
+      if (!am)
+        throw new ProblemException(
+          'forbidden',
+          'delegated access is not available for this request',
+        ); // never "not found": no oracle for agency membership either
+      req.access = await this.acting!.authorize({
+        userId: principal.userId,
+        agencyOrgId: agencyRaw.toLowerCase(),
+        agencyOrgStatus: am.orgStatus,
+        agencyMemberPermissions: am.permissions,
+        clientOrgId: actingHeader.toLowerCase(),
+        needed: needed!,
+      });
+      req.orgId = req.access.orgId;
+      return true;
+    }
     if (!needed && !anyAuth)
       throw new ProblemException('forbidden', 'route has no access declaration'); // deny by default
     if (!needed) return true;

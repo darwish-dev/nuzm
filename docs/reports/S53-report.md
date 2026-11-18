@@ -1,0 +1,21 @@
+# S53 report — Marketplace (M11)
+
+Status: **IMPLEMENTED for everything that does not need an artifact store, the builder, a PSP or a person; local evidence only. NO payout path exists (D-26 / HG-11-01 open).**
+
+## Built (`apps/api/src/modules/marketplace`, migration 1602)
+- **Publishers** (`publisher_accounts`): an organization that tries to publish is registered `unverified`; verification is a HUMAN/ops step (service `PublisherService.verify`; admin endpoint = SCR-M11-05, not approved) → 403 `publisher_not_verified`.
+- **Listings and immutable versions**: types website/app/workflow template; titles ar+en; price `{amount, currency}` integer minor units; licence `single_org|multi_seat`; artifact reference must lie in the publisher's own namespace; a version is hashed (sha256), scanned (secrets, malware signatures, dependency deny-list, personal data, licence, SBOM, workflow schema without connectors) and enters moderation `pending`; versions cannot be edited or deleted (trigger).
+- **Moderation** (`POST /v1/admin/marketplace/listings/{id}/moderation`): approve (flagged scans need `scan_override`), reject, suspend; stale decision = 409; audited. Browse shows only published listings with APPROVED versions and never artifact references or scan findings.
+- **Purchase** (`purchase.service.ts`): quote kind `marketplace` (priced from the listing, VAT estimated by the quote service) → order (spend/quota/dunning rules) → invoice via the new owner method `InvoiceService.issueOrderCharge` (revenue 4400, idempotent on `marketplace:<purchaseId>`) → buyer pays via `/v1/billing/payments`; purchase/entitlement follow the invoice (`sync`, also run on `GET purchases/{id}` and by an optional job). The purchase id is a deterministic function of (buyer, quote): duplicate/concurrent requests and callbacks give exactly one order, invoice, entitlement and accrual.
+- **Entitlements** (`entitlements_mkt`, view `marketplace.v_entitlements` read by `EntitlementService.resolve` → `GET /v1/billing/entitlements` `marketplace[]`): pending → active when paid; revoked on a full credit note (refund) or by `revokeEntitlement`; one live entitlement per (buyer, listing).
+- **Install**: requires an ACTIVE entitlement of the SAME organization (RLS hides foreign ones), version range (`^`, `~`, comparators), seats, residency; creates a COPY in the buyer's organization (workflow templates: new workflow with a new id; website/app templates through `ProjectInstallPort`). A database trigger refuses an installation row without an active entitlement of that organization.
+- **Revenue accounting**: publisher share (`floor(net × bps/10000)`, bps a PLACEHOLDER = 7000 pending D-26) is ACCRUED on paid: Dr 4400 / Cr 2600 (sub-ledger = publisher id) through the billing posting service (new recipe `publisherAccrual`), reversed once on refund; `publisher_accruals` is append-only and carries no buyer identity. No payout table, column, route, recipe or configuration key exists (asserted by test: schema, config, source scan, OpenAPI).
+
+## Evidence (`marketplace.int.spec.ts` 20 tests, `scan.spec.ts` 7, `semver.spec.ts` 3)
+- **AC-M11-04**: 62 non-entitled / pending / revoked / out-of-range / suspended / unapproved / cross-tenant / hostile-id attempts: 0 successes, 0 installation rows for non-entitled organizations.
+- **AC-M11-05**: 4 concurrent identical purchase requests + 9 concurrent syncs → 1 purchase, 1 order, 1 invoice, 1 entitlement, 1 accrual, 1 ledger transaction.
+- **AC-M11-07**: accrual transaction = Dr 4400 / Cr 2600 of floor(12345 × 70 %) = 8641; every ledger transaction balances (imbalance 0); refund → net accrual 0 (accrual + reversal rows).
+- **AC-M11-08**: no payout in schema/config/code/OpenAPI.
+
+## Not verified / blocked
+Artifact store and website/app installer (ports, unavailable by default); real malware scanning (pattern scanner only); real PSP payments (the test applies a payment to the invoice directly); listing `data_region` is the unverified `sa-pending` unless `MARKETPLACE_ARTIFACT_REGION` is set (the residency hook then DENIES fail-closed — by design until M05/M08 provide a verified region); publisher terms, tax treatment of marketplace invoices (principal vs agent) and publisher verification are HUMAN gates.

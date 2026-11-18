@@ -17,3 +17,6 @@ export {
   type ChainReport,
 } from './audit';
 export { emitUsage, usageEventId, type UsageEvent } from './metering';
+
+// M11 (appended): UUIDv7 ids for packages that do not depend on uuid themselves (the worker)
+export { v7 as uuidv7 } from 'uuid';

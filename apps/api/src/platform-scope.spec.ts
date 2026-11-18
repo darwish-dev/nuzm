@@ -38,6 +38,9 @@ describe('platform scope usage', () => {
           !f.startsWith('modules/data/') &&
           !f.startsWith('modules/email/') &&
           !f.startsWith('modules/hosting/') &&
+          !f.startsWith('modules/automation/') &&
+          !f.startsWith('modules/marketplace/') &&
+          !f.startsWith('modules/programs/') &&
           !f.startsWith('modules/domains/') &&
           // >>> M09: model provider registry, run oversight and sweepers (admin console register tables, service-level callers)
           !f.startsWith('modules/ai/') &&

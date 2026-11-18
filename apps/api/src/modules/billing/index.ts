@@ -33,3 +33,7 @@ export {
   STAGES as DUNNING_STAGES,
 } from './internal/dunning-policy';
 export type { DunningPolicy, DunningStage } from './internal/dunning-policy';
+
+// M11 S54 (owner PR): reseller price rules
+export { ResellerPriceRuleService } from './internal/reseller-price-rules.service';
+export type { ResellerRuleRow } from './internal/reseller-price-rules.service';

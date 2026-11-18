@@ -122,6 +122,38 @@ tables:
       hook: m06-node-selection,
       note: 'a site is placed only on a node whose data_region the residency service allows',
     }
+  # >>> M11 tables (appended): control-plane records of automation and the marketplace carry the organization's data_region ('sa-pending' until M05 supplies verified regions)
+  automation.workflows:
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'workflow definitions are customer content; the region is the organization default (sa-pending until M05)',
+    }
+  automation.executions:
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'execution inputs and step data inherit the workflow region',
+    }
+  automation.connectors:
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'a connector names the declared region of its target host; every call is evaluated by the residency hook before it leaves',
+    }
+  automation.webhook_endpoints:
+    {
+      owner: M11,
+      hook: m11-connectors,
+      note: 'outbound webhooks carry event payloads to a tenant-chosen URL',
+    }
+  marketplace.listings:
+    {
+      owner: M11,
+      hook: m11-marketplace,
+      note: 'the region where the listing artifacts live; purchase and install evaluate it against the buyer policy (fail closed)',
+    }
+  # <<< M11 tables
   # >>> M09 tables
   ai.sessions:
     {
@@ -342,11 +374,20 @@ hooks:
   - {
       id: m11-connectors,
       milestone: M11,
-      where: 'Connectors to third-party systems and marketplace installs',
+      where: 'Connectors and workflow HTTP actions to tenant-chosen hosts (the declared region of the target is evaluated before the call)',
       data_classes: [customer-content, personal],
-      enforcement: listed,
+      enforcement: enforced,
       flag: residency.enforce.connectors,
-      call_site: null,
+      call_site: apps/api/src/modules/automation/internal/default-ports.ts,
+    }
+  - {
+      id: m11-marketplace,
+      milestone: M11,
+      where: 'Marketplace purchase (listing region against the buyer policy) and install (copy of an artifact into the buyer organization)',
+      data_classes: [customer-content],
+      enforcement: enforced,
+      flag: residency.enforce.marketplace,
+      call_site: apps/api/src/modules/marketplace/internal/install.service.ts,
     }
   - {
       id: m12-audit-archive,

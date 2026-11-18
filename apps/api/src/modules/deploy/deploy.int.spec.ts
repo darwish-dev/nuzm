@@ -4,7 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MockModelAdapter } from '@nuzm/adapter-model';
 import { mockModelHandler } from '@nuzm/domain';
 import { setupAiEnv, type AiEnv, type Row } from '../ai/testing/ai-harness';
-import { DeployService, InMemorySitePublisher, SitePublisherPort } from './index';
+import {
+  DeployService,
+  InMemorySitePublisher,
+  SitePublisherPort,
+  UnavailableSitePublisher,
+} from './index';
 
 let e: AiEnv;
 let deploys: DeployService;

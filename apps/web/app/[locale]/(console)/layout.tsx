@@ -24,6 +24,8 @@ import {
   stripLocale,
   type ResolvedItem,
 } from '../../../lib/nav';
+import { ActingBanner } from '../../../components/ProgramsPanels';
+import { actingOrgOf } from '../../../lib/m11-server';
 import { requireSession } from '../../../lib/server';
 import { flagEnabled } from '../../../lib/services';
 
@@ -60,6 +62,8 @@ export default async function ConsoleLayout({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const s = await requireSession(locale);
+  // M11: the client organization an agency member is acting in (UI-M11-13); the banner is shown on every page while it is set
+  const actingClient = await actingOrgOf(s);
   const base = `/${locale}`;
   const path = stripLocale((await headers()).get('x-pathname') ?? base, locale);
   const theme = (await cookies()).get('nuzm_theme')?.value === 'light' ? 'light' : 'dark';
@@ -219,6 +223,7 @@ export default async function ConsoleLayout({
           {s.org?.status === 'suspended' && (
             <Banner tone="warn">{t(locale, 'banner.suspended')}</Banner>
           )}
+          {actingClient && <ActingBanner locale={locale} clientOrgId={actingClient} />}
         </>
       }
     >

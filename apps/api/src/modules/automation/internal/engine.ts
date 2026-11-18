@@ -49,8 +49,13 @@ export class ExecutionEngine {
     private readonly actions: ActionRunner,
     private readonly cfg: AutomationConfig,
     private readonly random: () => number = Math.random,
-    private readonly now: () => Date = () => new Date(),
+    private now: () => Date = () => new Date(),
   ) {}
+
+  /** Tests only: a controllable clock for delays and retry backoff. */
+  useClock(fn: () => Date) {
+    this.now = fn;
+  }
 
   private async crash(point: CrashPoint, ctx: { executionId: string; stepKey: string; attempt: number }) {
     await this.hooks.at?.(point, ctx);

@@ -72,6 +72,7 @@ export class BackupService {
     siteId: string,
     body: Record<string, unknown>,
   ): Promise<{ backup: BackupDto; operationId: string }> {
+    await this.sites.row(orgId, siteId); // the site first: another organization's id is a 404 whatever the body says
     for (const k of Object.keys(body))
       if (k !== 'label') throw new ProblemException('validation_failed', `unknown member ${k}`);
     const label = body.label;
@@ -336,6 +337,7 @@ export class BackupService {
     siteId: string,
     body: Record<string, unknown>,
   ): Promise<{ operationId: string; site: { id: string; status: string } }> {
+    await this.sites.row(orgId, siteId); // the site first: another organization's id is a 404 whatever the body says
     for (const k of Object.keys(body))
       if (k !== 'backupId') throw new ProblemException('validation_failed', `unknown member ${k}`);
     if (typeof body.backupId !== 'string' || !UUID.test(body.backupId))

@@ -352,9 +352,9 @@ export class AbuseService {
     caseId: string,
     text: unknown,
   ): Promise<AbuseCaseDto> {
+    await this.sites.row(orgId, siteId); // the site first: another organization's id is a 404 whatever the text says
     if (typeof text !== 'string' || text.trim().length < 10 || text.length > 2000)
       throw new ProblemException('validation_failed', 'the appeal needs 10..2000 characters');
-    await this.sites.row(orgId, siteId);
     if (!UUID.test(caseId)) throw new ProblemException('not_found', 'case not found');
     const row = await this.db.withOrg(
       orgId,

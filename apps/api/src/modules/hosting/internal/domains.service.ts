@@ -83,6 +83,7 @@ export class DomainsService {
     siteId: string,
     body: Record<string, unknown>,
   ): Promise<{ binding: BindingDto; operationId: string | null; created: boolean }> {
+    await this.sites.row(orgId, siteId); // the site first: another organization's id is a 404 whatever the body says
     const allowed = new Set(['domain', 'primary']);
     for (const k of Object.keys(body))
       if (!allowed.has(k)) throw new ProblemException('validation_failed', `unknown member ${k}`);

@@ -54,6 +54,10 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'orgId') return orgA;
   if (p === 'userId') return aliceId;
   if (p === 'envId') return A.env;
+  // hosting (M06): site id, backup id, abuse-case id
+  if (p === 'backupId') return A.hostingBackup;
+  if (p === 'caseId') return A.hostingCase;
+  if (o.path.startsWith('/v1/hosting/sites/') && p === 'id') return A.hostingSite;
   // billing routes carry three kinds of ids: choose by the path segment that precedes `{id}`
   if (o.path.includes('/payment-methods/')) return A.paymentMethod;
   if (o.path.includes('/payments/')) return A.payment;
@@ -194,6 +198,30 @@ beforeAll(async () => {
     `INSERT INTO payments.payment_intents (id, org_id, psp_account_id, invoice_id, payment_method_id, amount_minor, currency, status, merchant_reference, failure_code)
      SELECT $1::uuid, $2, id, $3, $4, 115, 'SAR', 'failed', 'nuzm_pi_' || ($1::uuid)::text, 'card_declined' FROM payments.psp_accounts LIMIT 1`,
     [A.payment, orgA, A.invoice, A.paymentMethod],
+  );
+  // a hosting site, a backup and an abuse case of org A (rows written directly; the feature flag is on so the 404s below are isolation, not a closed flag)
+  A.hostingSite = crypto.randomUUID();
+  A.hostingBackup = crypto.randomUUID();
+  A.hostingCase = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'hosting.enabled', NULL, 'true')`,
+  );
+  await h.env.sql(
+    `INSERT INTO hosting.plan_definitions (id, key, name_ar, name_en, status, quotas, runtimes, reservation) VALUES ($1, 'ct-plan', 'خطة', 'Plan', 'active', '{"diskMb":1,"inodes":1000,"bandwidthGb":1,"dbCount":1,"sitesCount":1}', '["php"]', '{"cpu_millicores":1,"memory_mb":1,"disk_mb":1}')`,
+    [crypto.randomUUID()],
+  );
+  await h.env.sql(
+    `INSERT INTO hosting.sites (id, org_id, name, token, node_name, plan_id, runtime, status, data_region, created_by, credentials_ref, backup_key_ref)
+     SELECT $1, $2, 'ct-site', $4, 's-ct0000000001', id, 'php:8.3', 'active', 'sa-central', $3, 'vault://ct/c', 'vault://ct/b' FROM hosting.plan_definitions LIMIT 1`,
+    [A.hostingSite, orgA, aliceId, 'c'.repeat(64)],
+  );
+  await h.env.sql(
+    `INSERT INTO hosting.site_backups (id, site_id, org_id, enc_key_ref, data_region) VALUES ($1, $2, $3, 'vault://ct/b', 'sa-central')`,
+    [A.hostingBackup, A.hostingSite, orgA],
+  );
+  await h.env.sql(
+    `INSERT INTO hosting.abuse_cases (id, site_id, org_id, source, severity, reason_code) VALUES ($1, $2, $3, 'staff', 'low', 'test_case')`,
+    [A.hostingCase, A.hostingSite, orgA],
   );
   // a live subscription of org A (written directly; the service has its own tests)
   A.subscription = crypto.randomUUID();

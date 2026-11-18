@@ -148,16 +148,8 @@ describe('quotes', () => {
     expect((await call('erin', 'GET', '/v1/quotes/not-a-uuid')).statusCode).toBe(404);
   });
 
-  it('kinds without a registered pricer answer kind_not_available (no invented prices); plan is refused honestly', async () => {
-    for (const kind of [
-      'compute',
-      'hosting',
-      'domain',
-      'database',
-      'storage',
-      'email',
-      'marketplace',
-    ]) {
+  it('kinds without a registered pricer answer kind_not_available (no invented prices; `hosting` is priced by M06); plan is refused honestly', async () => {
+    for (const kind of ['compute', 'domain', 'database', 'storage', 'email', 'marketplace']) {
       const r = await call('erin', 'POST', '/v1/quotes', { kind, items: [{ x: 1 }] });
       expect(r.statusCode, kind).toBe(422);
       expect(r.json().code, kind).toBe('kind_not_available');

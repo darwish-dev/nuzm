@@ -474,6 +474,7 @@ export class SitesService {
     ifMatch: number,
     body: Record<string, unknown>,
   ): Promise<SiteDto> {
+    await this.row(orgId, id); // the site first: another organization's id is a 404 whatever the body says
     const allowed = new Set(['name', 'planId', 'runtime', 'settings']);
     for (const k of Object.keys(body))
       if (!allowed.has(k)) throw new ProblemException('validation_failed', `unknown member ${k}`);

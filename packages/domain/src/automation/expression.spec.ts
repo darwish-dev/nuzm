@@ -33,6 +33,7 @@ describe('expression language', () => {
     expect(() => ev('eval("1")')).toThrow(/unknown function/);
     expect(() => ev('process.exit()')).toThrow(ExpressionError);
     expect(() => ev('require("fs")')).toThrow(/unknown function/);
+    for (const inherited of ['valueOf', 'hasOwnProperty', 'constructor', 'toLocaleString', '__defineGetter__']) expect(() => ev(`${inherited}(1)`), inherited).toThrow(ExpressionError);
   });
   it('refuses prototype-chain access in every spelling', () => {
     for (const bad of ['input.__proto__', 'input.constructor', 'input["constructor"]', 'input.constructor.prototype', 'constructor', '__proto__.x', 'input["__proto__"]']) {

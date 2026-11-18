@@ -268,7 +268,7 @@ const arr = (v: Json, f: string): Json[] => {
   return v;
 };
 /** The complete function library. Every function is pure and total over its declared types. */
-const FUNCTIONS: Record<string, Fn> = {
+const FUNCTIONS: Record<string, Fn> = Object.assign(Object.create(null) as Record<string, Fn>, {
   len: (v) => (typeof v === 'string' || Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0),
   lower: (v) => str(v!, 'lower').toLowerCase(),
   upper: (v) => str(v!, 'upper').toUpperCase(),
@@ -287,7 +287,7 @@ const FUNCTIONS: Record<string, Fn> = {
   abs: (v) => Math.abs(num(v!, 'abs')),
   min: (...a) => Math.min(...a.map((x) => num(x, 'min'))),
   max: (...a) => Math.max(...a.map((x) => num(x, 'max'))),
-  toString: (v) => (v === null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)),
+  toString: (v: Json) => (v === null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)),
   toNumber: (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
@@ -300,7 +300,7 @@ const FUNCTIONS: Record<string, Fn> = {
     return x[x.length - 1] ?? null;
   },
   slice: (a, from, to) => arr(a!, 'slice').slice(num(from!, 'slice'), to === undefined ? undefined : num(to, 'slice')),
-};
+} satisfies Record<string, Fn>);
 export const EXPRESSION_FUNCTIONS: readonly string[] = Object.keys(FUNCTIONS);
 
 const get = (base: Json | undefined, key: string | number): Json => {

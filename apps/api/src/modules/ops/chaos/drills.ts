@@ -50,8 +50,13 @@ export const DRILLS: Drill[] = [
     status: 'BLOCKED',
     realInfra: 'BLOCKED',
     blockedBy:
-      'needs a replicated Postgres on staging (HG-01-xx / D-03); the local single-node cluster cannot fail over. The ledger imbalance invariant is asserted continuously by billing/ledger.int.spec.ts',
-    tests: [{ file: 'apps/api/src/modules/billing/ledger.int.spec.ts', phrase: 'imbalance' }],
+      'needs a replicated Postgres on staging (HG-01-xx / D-03); the local single-node cluster cannot fail over. The ledger append-only and balanced-posting guards are asserted by billing/ledger.int.spec.ts (a DB-level guarantee, not a failover test)',
+    tests: [
+      {
+        file: 'apps/api/src/modules/billing/ledger.int.spec.ts',
+        phrase: 'runtime roles cannot insert, update or delete ledger tables directly',
+      },
+    ],
   },
   {
     id: 'CH-04',

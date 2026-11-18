@@ -391,17 +391,13 @@ export class ScimService {
   async deprovision(p: ScimPrincipal, userId: string): Promise<{ elapsedMs: number }> {
     const t0 = Date.now();
     await this.getUser(p, userId);
-    try {
-      await this.members
-        .remove(p.orgId, { userId, role: 'owner' }, userId)
-        .catch((e: { code?: string }) => {
-          if (e.code === 'conflict')
-            throw new ScimError(409, 'mutability', 'the last owner cannot be deprovisioned');
-          if (e.code !== 'not_found') throw e;
-        });
-    } catch (e) {
-      throw e;
-    }
+    await this.members
+      .remove(p.orgId, { userId, role: 'owner' }, userId)
+      .catch((e: { code?: string }) => {
+        if (e.code === 'conflict')
+          throw new ScimError(409, 'mutability', 'the last owner cannot be deprovisioned');
+        if (e.code !== 'not_found') throw e;
+      });
     await this.db.withOrg(p.orgId, async (c) => {
       await c.query(
         `UPDATE identity.api_keys SET revoked_at = now() WHERE org_id = $1 AND created_by = $2 AND revoked_at IS NULL`,

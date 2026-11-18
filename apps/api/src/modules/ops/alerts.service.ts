@@ -194,7 +194,7 @@ export class AlertService {
           continue; // NOT EVALUATED
         }
         const breach = OPS[rule.op]!(v, rule.threshold);
-        let next = state;
+        let next: string;
         if (state === 'silenced') next = 'silenced';
         else if (breach) next = state === 'acknowledged' ? 'acknowledged' : 'firing';
         else next = 'ok';

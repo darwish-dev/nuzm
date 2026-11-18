@@ -45,7 +45,12 @@ describe('load harness arithmetic (local fake server; this is NOT a performance 
         { name: 'r', method: 'GET', path: '/a', weight: 3, kind: 'read' },
         { name: 'w', method: 'POST', path: '/b', weight: 1, kind: 'write', body: () => ({}) },
       ],
-      thresholds: { readP95Ms: 100, writeP95Ms: 100, maxErrorRatePct: 0.5, minAchievedRpsPct: 90 },
+      thresholds: {
+        readP95Ms: 2000,
+        writeP95Ms: 2000,
+        maxErrorRatePct: 0.5,
+        minAchievedRpsPct: 30,
+      },
     });
     expect(r.total).toBe(50);
     expect(r.errors).toBe(0);

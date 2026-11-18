@@ -8010,7 +8010,15 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: status, in: query, schema: { type: string, enum: [open, investigating, identified, monitoring, resolved, closed] } }
+        - {
+            name: status,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum: [open, investigating, identified, monitoring, resolved, closed],
+              },
+          }
         - { name: severity, in: query, schema: { type: string, enum: [SEV1, SEV2, SEV3, SEV4] } }
         - { $ref: '#/components/parameters/Limit' }
         - { $ref: '#/components/parameters/Cursor' }
@@ -8089,7 +8097,11 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: state, in: query, schema: { type: string, enum: [ok, firing, acknowledged, silenced] } }
+        - {
+            name: state,
+            in: query,
+            schema: { type: string, enum: [ok, firing, acknowledged, silenced] },
+          }
         - { $ref: '#/components/parameters/Limit' }
         - { $ref: '#/components/parameters/Cursor' }
       responses:
@@ -13759,7 +13771,15 @@ components:
         issuer: { type: string, format: uri }
         clientId: { type: string }
         clientSecretRef: { type: string, pattern: '^vault://' }
-        jit: { type: object, properties: { enabled: { type: boolean }, defaultRole: { type: string, enum: [viewer, developer, billing_admin] } } }
+        jit:
+          {
+            type: object,
+            properties:
+              {
+                enabled: { type: boolean },
+                defaultRole: { type: string, enum: [viewer, developer, billing_admin] },
+              },
+          }
         enforce: { type: boolean }
         idpInitiated: { type: boolean }
         enabled: { type: boolean }
@@ -13836,7 +13856,16 @@ components:
       required: [scope, reviewers, dueAt]
       additionalProperties: false
       properties:
-        scope: { type: object, properties: { orgId: { type: string, format: uuid }, kinds: { type: array, items: { type: string, enum: [members] } } }, required: [orgId] }
+        scope:
+          {
+            type: object,
+            properties:
+              {
+                orgId: { type: string, format: uuid },
+                kinds: { type: array, items: { type: string, enum: [members] } },
+              },
+            required: [orgId],
+          }
         reviewers: { type: array, items: { type: string, format: uuid }, minItems: 1, maxItems: 20 }
         dueAt: { type: string, format: date-time }
     AccessReviewDecision:
@@ -13897,7 +13926,8 @@ components:
       type: object
       additionalProperties: false
       properties:
-        status: { type: string, enum: [open, investigating, identified, monitoring, resolved, closed] }
+        status:
+          { type: string, enum: [open, investigating, identified, monitoring, resolved, closed] }
         severity: { type: string, enum: [SEV1, SEV2, SEV3, SEV4] }
         note: { type: string, maxLength: 4000 }
         commsDraft: { type: string, maxLength: 4000 }
@@ -13993,7 +14023,19 @@ components:
       required: [scope, environment, startedAt, restoredAt, rpoSeconds, rtoSeconds, evidenceRefs]
       additionalProperties: false
       properties:
-        scope: { type: string, enum: [control_plane_db, object_storage, hosting_site, managed_db, secrets_kms, regional_loss_tabletop] }
+        scope:
+          {
+            type: string,
+            enum:
+              [
+                control_plane_db,
+                object_storage,
+                hosting_site,
+                managed_db,
+                secrets_kms,
+                regional_loss_tabletop,
+              ],
+          }
         environment: { type: string, enum: [local, staging, production] }
         startedAt: { type: string, format: date-time }
         restoredAt: { type: string, format: date-time }

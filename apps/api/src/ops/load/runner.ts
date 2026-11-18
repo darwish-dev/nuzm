@@ -103,7 +103,7 @@ export async function runScenario(cfg: ScenarioConfig): Promise<ScenarioResult> 
       ...(typeof r.headers === 'function' ? r.headers() : (r.headers ?? {})),
     };
     const s = performance.now();
-    let bad = false;
+    let bad: boolean;
     try {
       const res = await fetcher(url, {
         method: r.method,

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
 import { SessionService } from '../identity';
 import { DnsTxtResolver, MetadataFetcher } from './ports';
+import { SCIM_RATE_PER_MINUTE } from './scim/scim.controller';
 import { ScimTokenService } from './scim/scim-tokens.service';
 import { SsoConnectionService } from './sso-connections.service';
 import { makeTestKey } from './testing/saml-test-idp';
@@ -629,8 +630,7 @@ describe('SCIM 2.0', () => {
     }
   });
   it('rate limits per token (429)', async () => {
-    const mod = await import('./scim/scim.controller');
-    expect(mod.SCIM_RATE_PER_MINUTE).toBeGreaterThan(0);
+    expect(SCIM_RATE_PER_MINUTE).toBeGreaterThan(0);
   });
 });
 

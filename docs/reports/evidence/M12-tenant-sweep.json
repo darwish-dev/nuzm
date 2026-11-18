@@ -1,0 +1,2678 @@
+{
+  "summary": {
+    "generatedAt": "2026-11-18T13:24:33.079Z",
+    "operations": 314,
+    "byClass": {
+      "org": 162,
+      "admin": 112,
+      "scim": 12,
+      "any-authenticated": 15,
+      "service-key": 1,
+      "public": 12
+    },
+    "unclassified": [],
+    "exercised": 440,
+    "refused": 406,
+    "explained2xx": 34,
+    "classifiedNotCrossed": 0,
+    "unexplained2xx": 0,
+    "statusHistogram": {
+      "0": 28,
+      "200": 5,
+      "400": 1,
+      "401": 224,
+      "404": 182
+    },
+    "note": "operates on the caller's own principal, a service credential, or is public: no tenant identifier to cross",
+    "explained": {
+      "scimServiceProviderConfig": "static discovery document, identical for every organization",
+      "scimResourceTypes": "static discovery document",
+      "scimSchemas": "static discovery document",
+      "scimListUsers": "a list scoped to the TOKEN's organization: B sees B's users only (asserted: 0 of A's)",
+      "scimCreateUser": "creates in the TOKEN's own organization (no tenant identifier in the request); 4xx validation is also fine, 5xx is not",
+      "scimListGroups": "role groups of the token's organization (asserted: no A member appears)"
+    }
+  },
+  "results": [
+    {
+      "op": "GET /v1/organizations/{orgId} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/organizations/{orgId} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId}/members [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/organizations/{orgId}/members/{userId} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/organizations/{orgId}/members/{userId} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/invitations [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/invitations [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/invitations/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/workspaces [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/workspaces [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/workspaces/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/workspaces/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/workspaces/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/projects [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/projects [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/projects/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/projects/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/projects/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/projects/{id}/environments [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/projects/{id}/environments [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/projects/{id}/environments/{envId} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/projects/{id}/environments/{envId} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/api-keys [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/api-keys [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/api-keys/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/operations [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/operations/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/operations/{id}/cancellation [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/resources [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/audit-logs [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/notifications [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/notifications/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/plans [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/plans/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/entitlements [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/ledger [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/balance [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/usage [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/usage/summary [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/usage/events [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/quotas [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/spending-limits [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/billing/spending-limits [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/spend-approvals [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/spend-approvals [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/spend-approvals/{id}/decision [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/quotes [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/quotes/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/tax-profile [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/billing/tax-profile [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/invoices [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/invoices/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/invoices/{id}/pdf [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/invoices/{id}/xml [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/credit-notes [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/credit-notes/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/payment-methods [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/payment-methods [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/billing/payment-methods/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/payment-methods/{id}/default [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/payments [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/payments [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/payments/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/subscriptions [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/subscriptions [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/billing/subscriptions/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/billing/subscriptions/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/subscriptions/{id}/cancellation [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/billing/wallet-topups [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compliance/consents [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/compliance/consents [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/compliance/consents/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compliance/data-subject-requests [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/compliance/data-subject-requests [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compliance/data-subject-requests/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compliance/data-exports [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/compliance/data-exports [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compliance/residency-policy [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/compliance/residency-policy [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/offers [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compute/instances [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/compute/instances [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compute/instances/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/compute/instances/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/compute/instances/{id}/actions [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/compute/instances/{id}/metrics [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/databases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/databases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/databases/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/databases/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/databases/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/databases/{id}/backups [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/databases/{id}/backups [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/databases/{id}/restores [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/databases/{id}/credential-rotations [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/storage/buckets [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/storage/buckets [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/storage/buckets/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/storage/buckets/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/storage/buckets/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/storage/buckets/{id}/access-policy [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/storage/buckets/{id}/access-policy [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/storage/buckets/{id}/signed-urls [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/storage/buckets/{id}/lifecycle [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/storage/buckets/{id}/lifecycle [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/domains [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/domains [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/domains/{id}/verification [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/mailboxes [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/mailboxes [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/email/mailboxes/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/email/mailboxes/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/aliases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/aliases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/sender-identities [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/sender-identities [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/templates [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/templates [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/messages [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/messages [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/messages/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/events [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/email/suppressions [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/email/suppressions [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/plans [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/hosting/sites/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/hosting/sites/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites/{id}/domains [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites/{id}/domains [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites/{id}/ssl-certificates [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites/{id}/ssl-certificates [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites/{id}/databases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites/{id}/databases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites/{id}/backups [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites/{id}/backups [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites/{id}/backups/{backupId}/download-links [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/backup-downloads [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites/{id}/restores [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites/{id}/usage [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/hosting/sites/{id}/abuse-cases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/hosting/sites/{id}/abuse-cases/{caseId}/appeals [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/domains/search [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/domains [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/domains [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/domains/transfers [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/domains/transfers [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/domains/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/domains/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/domains/{id}/renewals [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/domains/{id}/eligibility [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/domains/{id}/hosting-links [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/domains/{id}/hosting-links [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/dns/zones [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/dns/zones [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/dns/zones/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/dns/zones/{id}/records [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/dns/zones/{id}/records [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId}/sso-connections [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/organizations/{orgId}/sso-connections [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId} [B session, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId} [B api key, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/organizations/{orgId} [B session, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/organizations/{orgId} [B api key, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId}/members [B session, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId}/members [B api key, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/organizations/{orgId}/members/{userId} [B session, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/organizations/{orgId}/members/{userId} [B api key, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/organizations/{orgId}/members/{userId} [B session, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/organizations/{orgId}/members/{userId} [B api key, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId}/sso-connections [B session, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/organizations/{orgId}/sso-connections [B api key, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/organizations/{orgId}/sso-connections [B session, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/organizations/{orgId}/sso-connections [B api key, path orgId = A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/organizations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/organizations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/organizations/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/organizations/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/users [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/users [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/users/{id}/impersonation [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/users/{id}/impersonation [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/feature-flags [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/feature-flags [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/feature-flags [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/feature-flags [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/audit-logs [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/audit-logs [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/ledger-accounts [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/ledger-accounts [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/ledger-transactions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/ledger-transactions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/plans [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/plans [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/plans [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/plans [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/billing/plans/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/billing/plans/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/meters [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/meters [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/meters [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/meters [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/price-books [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/price-books [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/price-books [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/price-books [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/price-books/{id}/versions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/price-books/{id}/versions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/adjustments [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/adjustments [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/dunning [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/dunning [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/billing/dunning/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/billing/dunning/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/zatca/onboarding [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/zatca/onboarding [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/zatca/onboarding [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/zatca/onboarding [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/zatca/submissions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/zatca/submissions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/zatca/submissions/{id}/retry [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/zatca/submissions/{id}/retry [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/reconciliations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/reconciliations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/reconciliations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/reconciliations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/reconciliations/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/reconciliations/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/reconciliations/{id}/resolutions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/reconciliations/{id}/resolutions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/revenue-reports [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/revenue-reports [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/refunds [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/refunds [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/refunds [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/billing/refunds [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/invoices [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/invoices [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/payments [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/payments [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/payments/{id}/events [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/billing/payments/{id}/events [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/ropa [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/ropa [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/ropa [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/ropa [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/retention-policies [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/retention-policies [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/compliance/retention-policies [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/compliance/retention-policies [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/legal-holds [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/legal-holds [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/controls [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/controls [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/controls [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/controls [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/evidence [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/evidence [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/evidence [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/evidence [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/regulatory-validations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/regulatory-validations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/regulatory-validations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/regulatory-validations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/breach-cases [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/breach-cases [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/breach-cases [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/breach-cases [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/transfer-assessments [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/compliance/transfer-assessments [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/transfer-assessments [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/compliance/transfer-assessments [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/providers [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/providers [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/providers [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/providers [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/providers/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/providers/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/provider-accounts [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/provider-accounts [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/provider-accounts/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/provider-accounts/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/provider-accounts/{id}/verification [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/provider-accounts/{id}/verification [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id}/capabilities [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id}/capabilities [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/provider-accounts/{id}/catalog-syncs [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/provider-accounts/{id}/catalog-syncs [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id}/regions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id}/regions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id}/plans [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-accounts/{id}/plans [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-jobs/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-jobs/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/offers [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/offers [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/routing-rules [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/routing-rules [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/routing-rules [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/routing-rules [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/resources [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/resources [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/resources/{id}/reconciliations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/resources/{id}/reconciliations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-costs [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-costs [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/live-verification [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/live-verification [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/live-verification/runs [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/live-verification/runs [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/data-providers [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/data-providers [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/data-providers [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/data-providers [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/nodes [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/nodes [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/hosting/nodes/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/hosting/nodes/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes/{id}/capacity [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes/{id}/capacity [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/nodes/{id}/inventory [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/nodes/{id}/inventory [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/nodes/{id}/enrolment-tokens [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/nodes/{id}/enrolment-tokens [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes/{id}/command-log [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/nodes/{id}/command-log [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/agents [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/agents [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/sites [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/sites [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/sites/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/sites/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/hosting/sites/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/hosting/sites/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/sites/{id}/migrations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/sites/{id}/migrations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/sites/{id}/migrations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/sites/{id}/migrations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/abuse-cases [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/abuse-cases [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/abuse-cases [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/hosting/abuse-cases [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/abuse-cases/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/hosting/abuse-cases/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/hosting/abuse-cases/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/hosting/abuse-cases/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/registrars [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/registrars [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/registrars [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/registrars [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/registrars/{id}/verification [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/registrars/{id}/verification [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/domains/{id}/reconciliations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/domains/{id}/reconciliations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/domains [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/domains [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/domains/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/domains/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/access-reviews [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/access-reviews [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/access-reviews [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/access-reviews [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/access-reviews/{id}/decisions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/access-reviews/{id}/decisions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/operations/health [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/operations/health [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/incidents [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/incidents [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/incidents [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/incidents [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/incidents/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /v1/admin/incidents/{id} [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/alerts [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/alerts [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/alerts [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/alerts [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-incidents [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/provider-incidents [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/recovery-exercises [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/recovery-exercises [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/recovery-exercises [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/recovery-exercises [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/policy-versions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/policy-versions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/policy-versions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/policy-versions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/audit-retention [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/audit-retention [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/audit-retention [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/audit-retention [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /scim/v2/ServiceProviderConfig [B scim token]",
+      "cls": "scim",
+      "status": 200,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /scim/v2/ResourceTypes [B scim token]",
+      "cls": "scim",
+      "status": 200,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /scim/v2/Schemas [B scim token]",
+      "cls": "scim",
+      "status": 200,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /scim/v2/Users [B scim token]",
+      "cls": "scim",
+      "status": 200,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /scim/v2/Users [B scim token]",
+      "cls": "scim",
+      "status": 400,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /scim/v2/Users/{id} [B scim token]",
+      "cls": "scim",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /scim/v2/Users/{id} [B scim token]",
+      "cls": "scim",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /scim/v2/Users/{id} [B scim token]",
+      "cls": "scim",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /scim/v2/Users/{id} [B scim token]",
+      "cls": "scim",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /scim/v2/Groups [B scim token]",
+      "cls": "scim",
+      "status": 200,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /scim/v2/Groups/{id} [B scim token]",
+      "cls": "scim",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PATCH /scim/v2/Groups/{id} [B scim token]",
+      "cls": "scim",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /healthz",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /v1/auth/oidc/login",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /v1/auth/oidc/callback",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/logout",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/register",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/password/login",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/password/forgot",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/password/reset",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/password/change",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/email/verification",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/email/verification/resend",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /v1/auth/sessions",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "DELETE /v1/auth/sessions/{id}",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /v1/me",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/mfa/factors",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/mfa/factors/{id}/verification",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "DELETE /v1/auth/mfa/factors/{id}",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/auth/mfa/recovery-codes",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /v1/organizations",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/organizations",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/invitations/{id}/acceptance",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /v1/roles",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "GET /v1/permissions",
+      "cls": "any-authenticated",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/internal/metering/events",
+      "cls": "service-key",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/webhooks/payments/{provider}",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/webhooks/cloud/{provider}",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/webhooks/email/{provider}",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    },
+    {
+      "op": "POST /v1/webhooks/registrars/{provider}",
+      "cls": "public",
+      "status": 0,
+      "verdict": "explained"
+    }
+  ]
+}

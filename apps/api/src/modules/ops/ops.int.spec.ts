@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
 import { AlertService } from './alerts.service';
@@ -362,7 +363,7 @@ describe('technical reconciliation TR-01..TR-04 (fixtures: NOT VERIFIED against 
   const dom = uuid();
   const dom2 = uuid();
   let sources: TrSources;
-  const mk = () => new TechnicalReconciliationService(app.get(DB), { record() {} } as any, sources);
+  const mk = () => new TechnicalReconciliationService(app.get(DB), app.get(AuditSink), sources);
 
   beforeAll(async () => {
     await fixture(async (c) => {
@@ -465,7 +466,9 @@ describe('technical reconciliation TR-01..TR-04 (fixtures: NOT VERIFIED against 
     const rows = await sql(
       `SELECT tr_type, result, evidence_mode FROM cloud.resource_reconciliations WHERE tr_type IS NOT NULL`,
     );
-    expect(rows.filter((r) => r.tr_type === 'TR-03' && r.evidence_mode === 'fixture').length).toBe(4); // 3 findings + the run summary row
+    expect(rows.filter((r) => r.tr_type === 'TR-03' && r.evidence_mode === 'fixture').length).toBe(
+      4,
+    ); // 3 findings + the run summary row
     expect(
       rows.every((r) => ['fixture', 'database_only'].includes(r.evidence_mode as string)),
     ).toBe(true);

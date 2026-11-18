@@ -154,6 +154,141 @@ paths:
         '204': { description: Logged out }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+  /v1/auth/register:
+    post:
+      operationId: registerAccount
+      tags: [auth]
+      summary: Register a customer account with email and password
+      description: >-
+        Creates a user (issuer `nuzm:local`, status active, email NOT verified) and signs it in (session and CSRF cookies,
+        web realm). The password is stored only as a salted hash (ADR-008). Password policy: 12 to 128 characters, not the
+        email address, not a very common password. Sends an email-verification message (`email_verified` stays false until the
+        link is used; where mail cannot be sent the account is still created). Rate limited per client address.
+        Never creates platform (staff) users. Audited (auth.account.registered).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterAccountRequest' }
+      responses:
+        '201':
+          description: Account created and signed in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthUser' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/auth/password/login:
+    post:
+      operationId: passwordLogin
+      tags: [auth]
+      summary: Sign in with email and password
+      description: >-
+        Web realm only. An unknown email, a wrong password, a locked account, a disabled user and a platform (staff) user all
+        answer the same 401 `invalid_credentials` (no account enumeration; an unknown email costs the same time). After 5
+        consecutive failures the account is locked for 15 minutes (proposal). Success mints a new session (a presented session
+        cookie is revoked first) and sets the session and CSRF cookies. Audited (auth.login.succeeded, auth.login.failed).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordLoginRequest' }
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthUser' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/auth/password/forgot:
+    post:
+      operationId: requestPasswordReset
+      tags: [auth]
+      summary: Ask for a password-reset email
+      description: >-
+        Always answers 202, whether or not the address belongs to an account (no enumeration). When it does, a single-use token
+        valid for 1 hour is emailed and any earlier reset token is cancelled. Rate limited. Audited (auth.password.reset_requested).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ForgotPasswordRequest' }
+      responses:
+        '202': { description: Accepted }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/auth/password/reset:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Set a new password with a reset token
+      description: >-
+        Consumes the token (single use, 1 hour), stores the new password, clears the lockout and revokes EVERY session of the
+        user. Audited (auth.password.reset).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPasswordRequest' }
+      responses:
+        '204': { description: Password changed }
+        '400': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/auth/password/change:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change the signed-in user's password
+      description: >-
+        Needs the current password (a wrong one counts toward the lockout) and a CSRF header. Refused while impersonating.
+        Revokes every OTHER session of the user. Audited (auth.password.changed).
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '204': { description: Password changed }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/auth/email/verification:
+    post:
+      operationId: verifyEmail
+      tags: [auth]
+      summary: Confirm an email address with the emailed token
+      description: Single use, valid 24 hours. Sets `emailVerified`. Audited (auth.email.verified).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
+      responses:
+        '204': { description: Email verified }
+        '400': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/auth/email/verification/resend:
+    post:
+      operationId: resendEmailVerification
+      tags: [auth]
+      summary: Send the verification email again
+      description: Signed-in users only; cancels earlier tokens. 204 when the address is already verified.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '202': { description: Accepted }
+        '204': { description: Already verified }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
   /v1/auth/sessions:
     get:
       operationId: listSessions
@@ -9733,6 +9868,57 @@ components:
         userAgent: { type: [string, 'null'] }
         ip: { type: [string, 'null'] }
         current: { type: boolean }
+    RegisterAccountRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 128, writeOnly: true }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        locale: { type: string, enum: [ar, en] }
+    PasswordLoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email: { type: string, maxLength: 254 }
+        password: { type: string, maxLength: 128, writeOnly: true }
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      additionalProperties: false
+      properties:
+        email: { type: string, maxLength: 254 }
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      additionalProperties: false
+      properties:
+        token: { type: string, maxLength: 200 }
+        newPassword: { type: string, minLength: 12, maxLength: 128, writeOnly: true }
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      additionalProperties: false
+      properties:
+        currentPassword: { type: string, maxLength: 128, writeOnly: true }
+        newPassword: { type: string, minLength: 12, maxLength: 128, writeOnly: true }
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      additionalProperties: false
+      properties:
+        token: { type: string, maxLength: 200 }
+    AuthUser:
+      type: object
+      required: [id, email, emailVerified, locale]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        emailVerified: { type: boolean }
+        displayName: { type: string, nullable: true }
+        locale: { type: string, enum: [ar, en] }
     Me:
       type: object
       required:

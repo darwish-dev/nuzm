@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { ButtonLink, Card, LocaleSwitch, PageTitle } from '@nuzm/ui';
+import { LoginForm } from '../../../components/AuthForms';
+import { safeNext } from '../../../lib/auth';
 
 export default async function Login({
   params,
@@ -12,9 +14,9 @@ export default async function Login({
   const { locale } = await params;
   const { error, returnTo: rt } = await searchParams;
   if (!isLocale(locale)) notFound();
-  // only same-site relative paths are offered back to the API (which validates returnTo again)
-  const safe = rt && rt.startsWith('/') && !rt.startsWith('//') ? rt : `/${locale}`;
-  const returnTo = encodeURIComponent(safe);
+  // only same-site relative paths are followed (the API validates returnTo again for the identity-provider flow)
+  const next = safeNext(rt, `/${locale}`);
+  const returnTo = encodeURIComponent(next);
   return (
     <main className="nz-main" style={{ maxInlineSize: 480, marginInline: 'auto' }}>
       <PageTitle>{t(locale, 'login.title')}</PageTitle>
@@ -25,8 +27,17 @@ export default async function Login({
             {t(locale, 'login.error')}
           </p>
         )}
-        <ButtonLink href={`/v1/auth/oidc/login?returnTo=${returnTo}`}>
-          {t(locale, 'action.signin')}
+        <LoginForm locale={locale} next={next} />
+        <p>
+          <a href={`/${locale}/forgot-password`}>{t(locale, 'login.forgot')}</a>
+        </p>
+        <p>
+          {t(locale, 'login.noAccount')}{' '}
+          <a href={`/${locale}/register`}>{t(locale, 'login.register')}</a>
+        </p>
+        <hr />
+        <ButtonLink variant="secondary" href={`/v1/auth/oidc/login?returnTo=${returnTo}`}>
+          {t(locale, 'login.sso')}
         </ButtonLink>
       </Card>
       <p>

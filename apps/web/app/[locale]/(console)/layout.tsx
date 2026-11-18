@@ -3,9 +3,11 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { isLocale, locales, t, formatDateTime } from '@nuzm/i18n';
 import { Banner, Ltr, LocaleSwitch, NavList, Shell } from '@nuzm/ui';
+import { VerifyEmailBanner } from '../../../components/AuthForms';
 import { ActiveOrgCookie, OrgSwitcher, SignOut } from '../../../components/ConsoleChrome';
 import { CLOUD_FLAG, flagOn } from '../../../lib/compute';
 import { requireSession } from '../../../lib/server';
+import { flagEnabled } from '../../../lib/services';
 
 export default async function ConsoleLayout({
   children,
@@ -28,7 +30,10 @@ export default async function ConsoleLayout({
     ...gated('project:read', '/projects', 'nav.projects'),
     ...gated('operation:read', '/operations', 'nav.operations'),
     ...gated('resource:read', '/resources', 'nav.resources'),
-    ...gated('hosting:site:read', '/hosting/sites', 'nav.hosting'),
+    // hosting is a flagged capability (`hosting.enabled`, default off); the API answers 404 while it is off
+    ...(flagEnabled(s.me.featureFlags, 'hosting.enabled')
+      ? gated('hosting:site:read', '/hosting/sites', 'nav.hosting')
+      : []),
     ...gated('data:db:read', '/databases', 'm8.nav.databases'),
     ...gated('data:storage:read', '/storage/buckets', 'm8.nav.storage'),
     ...gated('email:read', '/email/domains', 'm8.nav.email'),
@@ -55,6 +60,7 @@ export default async function ConsoleLayout({
     ...gated('org:update', '/settings/organization', 'nav.orgSettings'),
     { href: `${base}/account/sessions`, label: t(locale, 'nav.sessions') },
     { href: `${base}/account/security/mfa`, label: t(locale, 'nav.security') },
+    { href: `${base}/account/security/password`, label: t(locale, 'nav.password') },
     { href: `${base}/account/security/recovery-codes`, label: t(locale, 'nav.recovery') },
     ...(s.org?.type === 'agency'
       ? [{ href: `${base}/agency`, label: t(locale, 'nav.agency') }]
@@ -116,6 +122,7 @@ export default async function ConsoleLayout({
               })}
             </Banner>
           )}
+          {!s.me.emailVerified && !imp && <VerifyEmailBanner locale={locale} />}
           {s.org?.status === 'suspended' && (
             <Banner tone="warn">{t(locale, 'banner.suspended')}</Banner>
           )}

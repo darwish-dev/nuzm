@@ -9,7 +9,7 @@ schemas:
     owner_module: identity
     created_by: M01
     extended_by: [M12]
-    tables: [api_keys, credentials_refs, mfa_factors, recovery_codes, scim_tokens, sessions, sso_connections, users]
+    tables: [api_keys, auth_tokens, credentials, credentials_refs, mfa_factors, recovery_codes, scim_tokens, sessions, sso_connections, users]
   tenancy:
     owner_module: tenancy
     created_by: M01
@@ -128,6 +128,8 @@ schemas:
 tenant_less:
   # user-scoped identity data (hashes/refs only); access via session/token hash lookups
   - identity.users
+  - identity.credentials
+  - identity.auth_tokens
   - identity.sessions
   - identity.mfa_factors
   - identity.recovery_codes
@@ -238,6 +240,7 @@ classification:
     data.database_backups.idempotency_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     audit.audit_logs.actor_api_key_id: the opaque id of the API key that acted, never the key or its secret
     billing.price_items.unit_price_minor: an entry of the public price list, not a customer's money
+    identity.credentials.password_set_at: the time the password was last changed, not the password or any part of it
     identity.users.email_verified: a boolean flag; the address itself is identity.users.email (personal)
     invoicing.billing_entities.legal_name_ar: the seller's own registered company name, printed on every invoice
     invoicing.billing_entities.legal_name_en: the seller's own registered company name, printed on every invoice
@@ -265,6 +268,8 @@ classification:
     identity.mfa_factors.secret_ref: vault_ref
     identity.recovery_codes.code_hash: hash
     identity.sessions.token_hash: hash
+    identity.credentials.password_hash: hash
+    identity.auth_tokens.token_hash: hash
     identity.sessions.csrf_hash: hash
     hosting.node_enrolment_tokens.token_hash: hash
     hosting.sites.credentials_ref: vault_ref
@@ -661,6 +666,21 @@ classification:
       last_used_at: internal
       revoked_at: internal
       created_at: internal
+    identity.auth_tokens:
+      id: internal
+      user_id: internal
+      purpose: internal
+      token_hash: credentials
+      expires_at: internal
+      used_at: internal
+      created_at: internal
+    identity.credentials:
+      user_id: internal
+      password_hash: credentials
+      password_set_at: internal
+      failed_attempts: internal
+      last_failed_at: internal
+      locked_until: internal
     identity.mfa_factors:
       id: internal
       user_id: internal

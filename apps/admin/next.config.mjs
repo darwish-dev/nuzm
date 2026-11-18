@@ -23,6 +23,9 @@ const csp = [
 const nextConfig = {
   transpilePackages: ['@nuzm/i18n', '@nuzm/ui', '@nuzm/sdk'],
   poweredByHeader: false,
+  // dev only: the local stack is opened at 127.0.0.1 (the OIDC redirect and cookies use it); without this Next blocks its
+  // client scripts there, the pages never hydrate and the dev hot-reload socket fails.
+  allowedDevOrigins: ['127.0.0.1'],
   // The browser talks to the API through this origin, so session cookies are first-party and no CORS is needed.
   async rewrites() {
     return [{ source: '/v1/:path*', destination: `${api}/v1/:path*` }];

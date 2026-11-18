@@ -198,6 +198,20 @@ export class SessionService {
     );
   }
 
+  /** Revoke every live session of a user, optionally keeping one (a password change keeps the current one). Returns the count. */
+  async revokeAllForUser(userId: string, exceptSessionId?: string): Promise<number> {
+    return this.db.withoutScope(
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE identity.sessions SET revoked_at = now()
+              WHERE user_id=$1 AND revoked_at IS NULL AND ($2::uuid IS NULL OR id <> $2::uuid)`,
+            [userId, exceptSessionId ?? null],
+          )
+        ).rowCount ?? 0,
+    );
+  }
+
   async revokeByToken(token: string): Promise<void> {
     await this.db.withoutScope((c) =>
       c.query(

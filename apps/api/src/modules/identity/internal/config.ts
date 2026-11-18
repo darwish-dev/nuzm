@@ -15,6 +15,13 @@ export interface IdentityConfig {
   mfaLockThreshold: number; // proposal 5 consecutive failures
   mfaLockSeconds: number; // proposal 15 min
   stepUpMaxAgeSeconds: number; // proposal 5 min
+  /** Built-in password sign-in (ADR-008). */
+  passwordLockThreshold: number; // proposal 5 consecutive failures
+  passwordLockSeconds: number; // proposal 15 min
+  /** log2(N) of new scrypt hashes; 17 in production. */
+  scryptLogN: number;
+  verifyTokenHours: number;
+  resetTokenMinutes: number;
 }
 
 export function loadIdentityConfig(env: NodeJS.ProcessEnv = process.env): IdentityConfig {
@@ -43,5 +50,10 @@ export function loadIdentityConfig(env: NodeJS.ProcessEnv = process.env): Identi
     mfaLockThreshold: Number(env.MFA_LOCK_THRESHOLD ?? 5),
     mfaLockSeconds: Number(env.MFA_LOCK_SECONDS ?? 900),
     stepUpMaxAgeSeconds: Number(env.STEP_UP_MAX_AGE_SECONDS ?? 300),
+    passwordLockThreshold: Number(env.PASSWORD_LOCK_THRESHOLD ?? 5),
+    passwordLockSeconds: Number(env.PASSWORD_LOCK_SECONDS ?? 900),
+    scryptLogN: Number(env.PASSWORD_SCRYPT_LOG_N ?? 17),
+    verifyTokenHours: Number(env.EMAIL_VERIFY_TOKEN_HOURS ?? 24),
+    resetTokenMinutes: Number(env.PASSWORD_RESET_TOKEN_MINUTES ?? 60),
   };
 }

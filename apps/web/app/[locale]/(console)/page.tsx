@@ -3,6 +3,7 @@ import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, isLocale, t } from '@nuzm/i18n';
 import { ButtonLink, Card, EmptyState, Ltr, PageTitle, Table } from '@nuzm/ui';
 import { requireSession } from '../../../lib/server';
+import { flagEnabled, visibleServices } from '../../../lib/services';
 import { view } from '../../../lib/view';
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
@@ -66,6 +67,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           ),
       )
     : null;
+  const services = visibleServices(s.can, (f) => flagEnabled(s.me.featureFlags, f));
   return (
     <>
       <PageTitle>{t(locale, 'home.title', { name })}</PageTitle>
@@ -80,6 +82,26 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           {unread}
         </Card>
       </div>
+      {services.length > 0 && (
+        <section aria-labelledby="svc-h" style={{ marginBlockStart: 'var(--nuzm-space-6)' }}>
+          <h2 id="svc-h" className="nz-h2">
+            {t(locale, 'home.services')}
+          </h2>
+          <p className="nz-muted">{t(locale, 'home.services.sub')}</p>
+          <ul className="nz-grid" style={{ listStyle: 'none', padding: 0 }}>
+            {services.map((svc) => (
+              <li key={svc.id}>
+                <Card aria-labelledby={`svc-${svc.id}`}>
+                  <h3 id={`svc-${svc.id}`} className="nz-h3">
+                    <a href={`/${locale}${svc.href}`}>{t(locale, svc.label)}</a>
+                  </h3>
+                  <p className="nz-muted">{t(locale, svc.desc)}</p>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {recent && <div style={{ marginBlockStart: 'var(--nuzm-space-6)' }}>{recent}</div>}
     </>
   );

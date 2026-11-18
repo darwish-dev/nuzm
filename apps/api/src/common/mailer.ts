@@ -19,6 +19,11 @@ export type MailMessage =
       };
     })
   | (MailBase & {
+      /** Account emails (ADR-008): the token is single use and expires; the provider renders the link from the web origin. */
+      template: 'email_verification' | 'password_reset';
+      data: { token: string; expiresAt: string };
+    })
+  | (MailBase & {
       /** Rendered per locale by the mail provider integration (M08); params carry only non-sensitive facts. */
       template: 'notification';
       data: { kind: string; params: Record<string, unknown> };

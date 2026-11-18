@@ -13,6 +13,10 @@ errors:
   oidc_state_mismatch: { status: 400, title: OIDC state mismatch or missing login context }
   oidc_token_invalid: { status: 400, title: OIDC token exchange or validation failed }
   idp_user_disabled: { status: 403, title: User is disabled }
+  invalid_credentials: { status: 401, title: Email or password is incorrect }
+  email_in_use: { status: 409, title: An account with this email already exists }
+  weak_password: { status: 422, title: Password does not meet the policy }
+  invalid_token: { status: 400, title: Token is invalid or no longer usable }
   not_found: { status: 404, title: Not found }
   validation_failed: { status: 422, title: Validation failed }
   idempotency_key_required: { status: 400, title: Idempotency-Key header required }

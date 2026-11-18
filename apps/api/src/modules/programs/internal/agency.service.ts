@@ -178,8 +178,8 @@ export class AgencyService {
     agencyId: string,
     body: Record<string, unknown>,
   ): Promise<LinkDto> {
+    const { side, agency } = await this.side(orgId, agencyId.toLowerCase()); // existence first: a foreign id is 404 whatever the flag says
     await this.enabled(orgId);
-    const { side, agency } = await this.side(orgId, agencyId.toLowerCase());
     if (side === 'agency') {
       this.need(perms, 'agency:manage');
       for (const k of Object.keys(body))
@@ -255,8 +255,8 @@ export class AgencyService {
     orgId: string,
     agencyId: string,
   ): Promise<{ items: LinkDto[]; nextCursor: null }> {
-    await this.enabled(orgId);
     const { agency } = await this.side(orgId, agencyId.toLowerCase());
+    await this.enabled(orgId);
     const rows = await this.db.withOrg(
       orgId,
       async (c) =>
@@ -282,8 +282,8 @@ export class AgencyService {
     agencyId: string,
     body: Record<string, unknown>,
   ): Promise<GrantDto> {
+    const { side, agency } = await this.side(orgId, agencyId.toLowerCase()); // existence first: a foreign id is 404 whatever the flag says
     await this.enabled(orgId);
-    const { side, agency } = await this.side(orgId, agencyId.toLowerCase());
     const now = this.now();
     if (side === 'agency') {
       this.need(perms, 'agency:manage');
@@ -399,8 +399,8 @@ export class AgencyService {
     orgId: string,
     agencyId: string,
   ): Promise<{ items: GrantDto[]; nextCursor: null }> {
-    await this.enabled(orgId);
     const { agency } = await this.side(orgId, agencyId.toLowerCase());
+    await this.enabled(orgId);
     const rows = await this.db.withOrg(
       orgId,
       async (c) =>

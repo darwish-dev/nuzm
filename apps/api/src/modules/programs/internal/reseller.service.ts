@@ -149,8 +149,8 @@ export class ResellerService {
     resellerId: string,
     body: Record<string, unknown>,
   ): Promise<SubOrgDto> {
+    const { side, reseller } = await this.side(orgId, resellerId.toLowerCase()); // existence first: a foreign id is 404 whatever the flag says
     await this.enabled(orgId);
-    const { side, reseller } = await this.side(orgId, resellerId.toLowerCase());
     if (side === 'reseller') {
       this.need(perms, 'reseller:manage');
       for (const k of Object.keys(body))
@@ -255,8 +255,8 @@ export class ResellerService {
     orgId: string,
     resellerId: string,
   ): Promise<{ items: SubOrgDto[]; nextCursor: null }> {
-    await this.enabled(orgId);
     const { reseller } = await this.side(orgId, resellerId.toLowerCase());
+    await this.enabled(orgId);
     const rows = await this.db.withOrg(
       orgId,
       async (c) =>
@@ -294,8 +294,8 @@ export class ResellerService {
 
   // ---- price rules --------------------------------------------------------------------------------------------------------
   async rules(orgId: string, resellerId: string): Promise<RuleSetDto> {
-    await this.enabled(orgId);
     const reseller = await this.ownOnly(orgId, resellerId);
+    await this.enabled(orgId);
     return this.ruleSet(orgId, reseller.id);
   }
   private async ruleSet(orgId: string, resellerId: string): Promise<RuleSetDto> {
@@ -334,10 +334,10 @@ export class ResellerService {
     ifMatch: number,
     body: Record<string, unknown>,
   ): Promise<RuleSetDto> {
+    const reseller = await this.ownOnly(orgId, resellerId);
     await this.enabled(orgId);
     this.need(perms, 'reseller:pricing');
     for (const k of Object.keys(body)) if (k !== 'rules') throw badRequest(`unknown field ${k}`);
-    const reseller = await this.ownOnly(orgId, resellerId);
     const rules = validateRules(body.rules, this.now(), (reseller.currency as string).trim());
     // serialize concurrent PUTs of one reseller on its own profile row
     await this.priceRules.replace(orgId, actor, reseller.id, ifMatch, rules, {

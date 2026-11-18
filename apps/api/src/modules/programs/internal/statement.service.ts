@@ -77,6 +77,7 @@ export class StatementService {
     resellerId: string,
     periodIn?: string,
   ): Promise<StatementDto> {
+    const reseller = await this.resellers.ownOnly(orgId, resellerId); // existence first: a foreign id is 404 whatever the flag says
     if (!(await this.flags.enabled(orgId, RESELLER_FLAG)))
       throw new ProblemException(
         'feature_disabled',
@@ -84,7 +85,6 @@ export class StatementService {
       );
     if (!perms.has('reseller:finance') && !perms.has('*'))
       throw new ProblemException('forbidden', 'requires reseller:finance');
-    const reseller = await this.resellers.ownOnly(orgId, resellerId);
     const period = periodIn ?? this.defaultPeriod();
     if (!PERIOD.test(period)) throw badRequest('period must be YYYY-MM');
     const periodStart = `${period}-01`;

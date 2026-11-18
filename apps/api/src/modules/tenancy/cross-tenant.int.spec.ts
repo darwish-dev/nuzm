@@ -59,6 +59,14 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'backupId') return A.hostingBackup;
   if (p === 'caseId') return A.hostingCase;
   if (o.path.startsWith('/v1/hosting/sites/') && p === 'id') return A.hostingSite;
+  // automation, marketplace and programs (M11)
+  if (o.path.startsWith('/v1/workflow-executions/')) return A.execution;
+  if (o.path.startsWith('/v1/workflows/')) return A.workflow;
+  if (o.path.startsWith('/v1/connectors/')) return A.connector;
+  if (o.path.startsWith('/v1/agencies/')) return A.agency;
+  if (o.path.startsWith('/v1/resellers/')) return A.reseller;
+  if (o.path.startsWith('/v1/marketplace/listings/')) return A.listing;
+  if (o.path.startsWith('/v1/marketplace/purchases/')) return A.purchase;
   // billing routes carry three kinds of ids: choose by the path segment that precedes `{id}`
   if (o.path.includes('/payment-methods/')) return A.paymentMethod;
   if (o.path.includes('/payments/')) return A.payment;
@@ -97,6 +105,7 @@ const bodyFor = (o: Op): unknown => {
     if (o.path.startsWith('/v1/billing/subscriptions/')) return { quantity: 2 }; // a VALID change: only the id may differ
     return o.path.includes('/members/') ? { role: 'viewer' } : { name: 'hijack' };
   }
+  if (o.method === 'POST' && o.path.endsWith('/executions')) return { dedupeKey: 'ct-run' }; // a VALID body (M11): only the workflow id may differ
   if (o.method === 'POST' && o.path.endsWith('/decision')) return { decision: 'approve' }; // a VALID body: only the id may differ
   if (o.method === 'POST' && o.path.endsWith('/restores')) return { backupId: crypto.randomUUID() }; // a VALID body (M08): only the database id may differ
   if (o.method === 'POST')
@@ -265,6 +274,54 @@ beforeAll(async () => {
     `INSERT INTO payments.payment_intents (id, org_id, psp_account_id, invoice_id, payment_method_id, amount_minor, currency, status, merchant_reference, failure_code)
      SELECT $1::uuid, $2, id, $3, $4, 115, 'SAR', 'failed', 'nuzm_pi_' || ($1::uuid)::text, 'card_declined' FROM payments.psp_accounts LIMIT 1`,
     [A.payment, orgA, A.invoice, A.paymentMethod],
+  );
+  // M11: a workflow (+ version + execution), a connector, an agency profile and a reseller profile of org A (rows written directly, flags on so the 404s are isolation); a listing and a
+  // purchase id that exist nowhere for org B (the purchase chain needs a ledger-backed invoice: its isolation is proven in marketplace.int.spec)
+  A.workflow = crypto.randomUUID();
+  A.workflowVersion = crypto.randomUUID();
+  A.execution = crypto.randomUUID();
+  A.connector = crypto.randomUUID();
+  A.agency = crypto.randomUUID();
+  A.reseller = crypto.randomUUID();
+  A.listing = crypto.randomUUID();
+  A.purchase = crypto.randomUUID();
+  for (const k of [
+    'automation.enabled',
+    'marketplace.enabled',
+    'agency.enabled',
+    'reseller.enabled',
+  ])
+    await h.env.sql(
+      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, NULL, 'true')`,
+      [k],
+    );
+  await h.env.sql(
+    `INSERT INTO automation.workflows (id, org_id, name, status, triggers, data_region) VALUES ($1, $2, 'ct-workflow', 'draft', '[{"type":"manual"}]', 'sa-pending')`,
+    [A.workflow, orgA],
+  );
+  await h.env.sql(
+    `INSERT INTO automation.workflow_versions (id, org_id, workflow_id, version, definition, definition_hash) VALUES ($1, $2, $3, 1, '{}', $4)`,
+    [A.workflowVersion, orgA, A.workflow, 'c'.repeat(64)],
+  );
+  await h.env.sql(`UPDATE automation.workflows SET active_version_id = $2 WHERE id = $1`, [
+    A.workflow,
+    A.workflowVersion,
+  ]);
+  await h.env.sql(
+    `INSERT INTO automation.executions (id, org_id, workflow_id, version_id, trigger, dedupe_key, status, finished_at, data_region) VALUES ($1, $2, $3, $4, 'manual', 'ct-dedupe', 'succeeded', now(), 'sa-pending')`,
+    [A.execution, orgA, A.workflow, A.workflowVersion],
+  );
+  await h.env.sql(
+    `INSERT INTO automation.connectors (id, org_id, type, name, data_region) VALUES ($1, $2, 'http', 'ct-connector', 'sa-pending')`,
+    [A.connector, orgA],
+  );
+  await h.env.sql(`INSERT INTO programs.agencies (id, org_id, name) VALUES ($1, $2, 'ct-agency')`, [
+    A.agency,
+    orgA,
+  ]);
+  await h.env.sql(
+    `INSERT INTO programs.resellers (id, org_id, name) VALUES ($1, $2, 'ct-reseller')`,
+    [A.reseller, orgA],
   );
   // a hosting site, a backup and an abuse case of org A (rows written directly; the feature flag is on so the 404s below are isolation, not a closed flag)
   A.hostingSite = crypto.randomUUID();
@@ -526,7 +583,12 @@ describe("after all the hostile calls, org A's data is untouched", () => {
 
   it("positive control: the same ids resolve for org A's own owner, so the 404s above were isolation, not bad fixtures", async () => {
     const alice = await h.sessionFor(app, aliceId);
-    for (const o of withIds.filter((x) => x.method === 'GET' && !x.path.includes('{userId}'))) {
+    for (const o of withIds.filter(
+      (x) =>
+        x.method === 'GET' &&
+        !x.path.includes('{userId}') &&
+        !x.path.startsWith('/v1/marketplace/purchases/'), // needs the ledger-backed invoice chain: see marketplace.int.spec
+    )) {
       const r = await app.inject({
         method: 'GET',
         url: urlFor(o),

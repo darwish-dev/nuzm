@@ -219,7 +219,6 @@ export class ListingService {
       if (!['version', 'artifactRef', 'sbomRef', 'changelog'].includes(k))
         throw badRequest(`unknown field ${k}`);
     if (!isUuid(listingId)) throw new ProblemException('not_found');
-    await this.publishers.requireVerified(orgId);
     const listing = (await this.db.withOrg(
       orgId,
       async (c) =>
@@ -230,7 +229,8 @@ export class ListingService {
           ])
         ).rows[0],
     )) as Row | undefined;
-    if (!listing) throw new ProblemException('not_found');
+    if (!listing) throw new ProblemException('not_found'); // existence first: another organization's listing is 404
+    await this.publishers.requireVerified(orgId);
     if (listing.status === 'archived' || listing.status === 'suspended')
       throw new ProblemException('invalid_state', `the listing is ${listing.status}`);
     const version = text(body.version, 'version', 60)!;

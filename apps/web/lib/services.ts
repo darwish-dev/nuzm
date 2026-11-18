@@ -59,6 +59,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'builder',
+    icon: 'panel',
     href: '/builder/projects',
     perm: ['builder:read'],
     label: 'bld.nav.builder',
@@ -100,6 +101,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'ai',
+    icon: 'pulse',
     href: '/ai/usage',
     perm: ['ai:read'],
     label: 'aiu.nav.ai',

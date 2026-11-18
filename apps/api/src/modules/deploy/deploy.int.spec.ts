@@ -389,9 +389,7 @@ describe('idempotency, isolation, capability (AC-M09-09)', () => {
   });
   it('without a publish path the endpoint answers 422 unsupported_capability (production default: live publish is BLOCKED)', async () => {
     const real = (deploys as unknown as { publisher: SitePublisherPort }).publisher;
-    (deploys as unknown as { publisher: unknown }).publisher = new (
-      await import('./internal/ports')
-    ).UnavailableSitePublisher();
+    (deploys as unknown as { publisher: unknown }).publisher = new UnavailableSitePublisher();
     const p = await mkProject('Deploy Blocked');
     const site = await mkSite(A(), 'alice', 'blocked-site');
     const r = await req({ projectId: p.id, target: site, environment: 'production' });

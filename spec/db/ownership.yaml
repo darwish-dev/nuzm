@@ -99,7 +99,7 @@ schemas:
     owner_module: deploy
     created_by: M09
     extended_by: [M10]
-    tables: [builds, deployment_logs, deployments, hosting]
+    tables: [app_deployment_logs, app_deployments, builds, deployment_logs, deployments, hosting]
   mobile:
     owner_module: mobile
     created_by: M10
@@ -2449,5 +2449,61 @@ classification:
       requested_by: internal
       created_at: internal
       started_at: internal
+      finished_at: internal
+      version: internal
+    deploy.app_deployments:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      environment: internal
+      target_type: internal
+      target_id: internal
+      state: internal
+      failure_code: internal
+      artifact_sha256: internal
+      artifact_ref: internal
+      release_ref: internal
+      url: internal
+      health_check: internal
+      migrations: internal
+      previous_deployment_id: internal
+      rollback_of: internal
+      approval_ids: internal
+      operation_id: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      started_at: internal
+      finished_at: internal
+      duration_ms: internal
+      version: internal
+    deploy.app_deployment_logs:
+      id: internal
+      org_id: internal
+      deployment_id: internal
+      seq: internal
+      level: internal
+      message: internal
+      data_region: internal
+      at: internal
+    builder.exports:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      status: internal
+      archive_ref: internal
+      sha256: internal
+      sbom_ref: internal
+      size_bytes: internal
+      file_count: internal
+      blocked_reasons: internal
+      flags: internal
+      expires_at: internal
+      operation_id: internal
+      data_region: internal
+      requested_by: internal
+      created_at: internal
       finished_at: internal
       version: internal

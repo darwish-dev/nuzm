@@ -59,7 +59,7 @@ import { MemoryNotifier } from '../src/notify.ts';
 import type { Store } from '../src/types.ts';
 import { SAMPLES } from './fixtures.ts';
 
-export const SECRET = 'test-secret-test-secret-test-secret-0123456789';
+export const SECRET = randomUUID() + randomUUID(); // a fresh random signing key per test process
 export const PASSWORD = 'correct horse battery 1';
 
 export interface Env {

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Banner, Icon } from '@nuzm/ui';
 import type { Message, Page_, Run, Session } from '../lib/builder';
@@ -20,6 +20,7 @@ export function Chat({
   refreshKey,
   activeRun,
   onRun,
+  thread,
 }: {
   locale: Locale;
   projectId: string;
@@ -32,6 +33,8 @@ export function Chat({
   /** a run is queued, running or waiting: a second one cannot start (one active run per session) */
   activeRun: boolean;
   onRun: (run: Run) => void;
+  /** the live run card, shown inside the scrolling thread after the messages */
+  thread?: ReactNode;
 }) {
   const call = useBuilderCall();
   const [sessionId, setSessionId] = useState(session?.id ?? null);
@@ -51,8 +54,10 @@ export function Chat({
       });
   }, [sessionId, refreshKey]);
   useEffect(() => {
-    log.current?.querySelector('li:last-child')?.scrollIntoView?.({ block: 'nearest' });
-  }, [messages.length]);
+    // keep the newest message and the live run card in view
+    const el = log.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length, refreshKey, activeRun]);
 
   async function send(e: FormEvent) {
     e.preventDefault();
@@ -114,25 +119,25 @@ export function Chat({
   return (
     <div className="bld-chat">
       <h2 className="bld-chat-title">{t(locale, 'bld.chat.title')}</h2>
-      {messages.length === 0 ? (
-        <p className="nz-muted bld-chat-empty">{t(locale, 'bld.chat.empty')}</p>
-      ) : (
-        <div role="log" aria-label={t(locale, 'bld.chat.log')} ref={log} className="bld-chat-log">
+      <div className="bld-chat-scroll" role="log" aria-label={t(locale, 'bld.chat.log')} ref={log}>
+        {messages.length === 0 && !thread ? (
+          <p className="nz-muted bld-chat-empty">{t(locale, 'bld.chat.empty')}</p>
+        ) : (
           <ol className="bld-list">
             {messages.map((m) => (
               <li key={m.id} className="bld-msg" data-role={m.role}>
-                <strong>{t(locale, `bld.chat.role.${m.role}`)}</strong>{' '}
-                <span className="nz-muted">{when(m.createdAt, locale)}</span>
-                <div>
-                  <bdi dir="auto" style={{ whiteSpace: 'pre-wrap' }}>
-                    {m.content}
-                  </bdi>
-                </div>
+                <span className="bld-msg-meta">
+                  {t(locale, `bld.chat.role.${m.role}`)} · {when(m.createdAt, locale)}
+                </span>
+                <bdi dir="auto" className="bld-msg-body">
+                  {m.content}
+                </bdi>
               </li>
             ))}
           </ol>
-        </div>
-      )}
+        )}
+        {thread}
+      </div>
       {canWrite ? (
         <form className="bld-composer" onSubmit={(e) => void send(e)}>
           {activeRun && <Banner tone="warn">{t(locale, 'bld.chat.runActive')}</Banner>}

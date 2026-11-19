@@ -30,7 +30,7 @@ export function eventLine(locale: Locale, e: RunEvent): string {
 }
 
 /** The pending approval of a run: what the AI proposes (plan or change set, with its diff and risks) and the Approve / Deny decision of a human member. */
-function ApprovalCard({
+export function ApprovalCard({
   locale,
   runId,
   approval,

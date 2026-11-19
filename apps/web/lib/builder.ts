@@ -1061,3 +1061,82 @@ export function cmsItemLabel(fields: CmsField[], data: Record<string, unknown>, 
 
 /** Absolute label of a form field for a table header. */
 export const LOCALE_LABEL: Record<SiteLocale, string> = { ar: 'العربية', en: 'English' };
+
+// ---- the run as a few human steps (the live card in the chat) --------------------------------------------------------------------------------
+
+export type StageState = 'done' | 'active' | 'pending' | 'failed';
+export interface Stage {
+  /** `requirements`, `plan`, `approval`, `pages`, `build`, `prepare`, `apply`, `reply`, `work` (the label is looked up as `bld.stage.<id>`) */
+  id: string;
+  state: StageState;
+  /** a short extra, e.g. `2/5` for pages written */
+  detail?: string;
+}
+
+const TERMINAL_BAD = ['failed', 'cancelled', 'budget_exceeded'];
+
+/**
+ * The run's events as the handful of steps a person understands. Only what the events say is shown: a step is reached when its first event has arrived, so the
+ * card never claims progress that did not happen. `pagesTotal` (from the plan awaiting approval) turns "pages" into `written/total`.
+ */
+export function runStages(
+  kind: string,
+  state: string,
+  events: RunEvent[],
+  pagesTotal: number | null,
+): Stage[] {
+  const started = (task: string) =>
+    events.some((e) => e.type === 'step_started' && e.data.task === task);
+  const has = (type: string) => events.some((e) => e.type === type);
+  const written = events.filter((e) => e.type === 'page_generated').length;
+  const ids =
+    kind === 'website'
+      ? ['requirements', 'plan', 'approval', 'pages', 'build']
+      : kind === 'edit'
+        ? ['prepare', 'approval', 'apply']
+        : kind === 'chat'
+          ? ['reply']
+          : ['work'];
+  const reached = (id: string): boolean => {
+    switch (id) {
+      case 'requirements':
+      case 'prepare':
+      case 'reply':
+      case 'work':
+        return true;
+      case 'plan':
+        return started('architecture') || has('approval_requested') || has('approval_approved');
+      case 'approval':
+        return (
+          has('approval_requested') || has('approval_approved') || state === 'waiting_approval'
+        );
+      case 'pages':
+        return has('approval_approved') || written > 0 || started('page');
+      case 'build':
+        return has('version_created') || state === 'succeeded';
+      case 'apply':
+        return has('approval_approved') || has('version_created') || state === 'succeeded';
+      default:
+        return false;
+    }
+  };
+  let current = 0;
+  ids.forEach((id, i) => {
+    if (reached(id)) current = i;
+  });
+  const finished = state === 'succeeded';
+  const bad = TERMINAL_BAD.includes(state);
+  return ids.map((id, i) => {
+    const detail =
+      id === 'pages' && written > 0
+        ? pagesTotal
+          ? `${Math.min(written, pagesTotal)}/${pagesTotal}`
+          : String(written)
+        : undefined;
+    const base = { id, ...(detail ? { detail } : {}) };
+    if (finished) return { ...base, state: 'done' as const };
+    if (i < current) return { ...base, state: 'done' as const };
+    if (i === current) return { ...base, state: bad ? ('failed' as const) : ('active' as const) };
+    return { ...base, state: 'pending' as const };
+  });
+}

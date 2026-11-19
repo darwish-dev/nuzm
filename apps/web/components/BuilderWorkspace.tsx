@@ -30,7 +30,7 @@ import { Chat } from './BuilderChat';
 import { CodePane } from './BuilderCode';
 import { Inspector, type Selection } from './BuilderInspector';
 import { PreviewPane } from './BuilderPreview';
-import { RunPanel } from './BuilderRun';
+import { RunCard, type RunProgress } from './BuilderRunCard';
 
 type Mode = 'edit' | 'undo' | 'redo';
 
@@ -77,7 +77,8 @@ export function Workspace({
   const [siteLocale, setSiteLocale] = useState<SiteLocale>(
     (initial.siteModel.locales[0] as SiteLocale | undefined) ?? 'ar',
   );
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [progress, setProgress] = useState<RunProgress>({ active: false, label: '' });
   const [runId, setRunId] = useState<string | null>(initialRun?.id ?? null);
   const [runActive, setRunActive] = useState(initialRun ? isRunActive(initialRun.state) : false);
   const [chatKey, setChatKey] = useState(0);
@@ -189,10 +190,11 @@ export function Workspace({
         <h2 className="bws-title">
           <bdi dir="auto">{detail.name}</bdi>
         </h2>
-        <span className="bws-chip">{t(locale, 'bld.ws.version', { seq: detail.versionSeq })}</span>
-        <span className="bws-state" role="status">
-          {call.busy ? t(locale, 'bld.ws.saving') : t(locale, 'bld.ws.saved')}
-        </span>
+        {call.busy && (
+          <span className="bws-state" role="status">
+            {t(locale, 'bld.ws.saving')}
+          </span>
+        )}
         <div className="bws-seg" role="group" aria-label={t(locale, 'bld.ws.view')}>
           <button
             type="button"
@@ -266,28 +268,28 @@ export function Workspace({
         )}
         <button
           type="button"
-          className="bws-icon-btn"
+          className="bws-edit"
           aria-pressed={inspectorOpen}
-          aria-label={t(locale, inspectorOpen ? 'bld.ws.hideProps' : 'bld.ws.showProps')}
-          title={t(locale, inspectorOpen ? 'bld.ws.hideProps' : 'bld.ws.showProps')}
           onClick={() => setInspectorOpen((o) => !o)}
         >
-          <Icon name="panel" size={18} />
+          <Icon name="panel" size={16} />
+          {t(locale, 'bld.ws.edit')}
         </button>
-        {more.length > 0 && (
-          <details className="bws-more">
-            <summary aria-label={t(locale, 'bld.ws.more')} title={t(locale, 'bld.ws.more')}>
-              <Icon name="more" size={18} />
-            </summary>
-            <ul>
-              {more.map((l) => (
-                <li key={l.key}>
-                  <a href={l.href}>{l.label}</a>
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
+        <details className="bws-more">
+          <summary aria-label={t(locale, 'bld.ws.more')} title={t(locale, 'bld.ws.more')}>
+            <Icon name="more" size={18} />
+          </summary>
+          <ul>
+            <li className="bws-more-meta">
+              {t(locale, 'bld.ws.version', { seq: detail.versionSeq })}
+            </li>
+            {more.map((l) => (
+              <li key={l.key}>
+                <a href={l.href}>{l.label}</a>
+              </li>
+            ))}
+          </ul>
+        </details>
         {publish && (
           <a className="bws-publish" href={publish.href}>
             {t(locale, 'bld.ws.publish')}
@@ -310,19 +312,29 @@ export function Workspace({
               setRunId(run.id);
               setRunActive(true);
             }}
+            thread={
+              runId ? (
+                <RunCard
+                  key={runId}
+                  locale={locale}
+                  runId={runId}
+                  canWrite={canAi}
+                  onRun={onRun}
+                  onProgress={setProgress}
+                />
+              ) : undefined
+            }
           />
-          <details className="bws-run" open={runActive || undefined}>
-            <summary>{t(locale, 'bld.run.title')}</summary>
-            {runId ? (
-              <RunPanel locale={locale} runId={runId} canWrite={canAi} onRun={onRun} compact />
-            ) : (
-              <p className="nz-muted">{t(locale, 'bld.run.none')}</p>
-            )}
-          </details>
         </section>
 
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {reloadError && <Banner tone="danger">{t(locale, 'bld.ws.reloadFailed')}</Banner>}
+          {progress.active && (
+            <div className="bws-working" role="status">
+              <span className="bld-spinner" aria-hidden="true" />
+              {progress.label || t(locale, 'bld.card.working')}
+            </div>
+          )}
           {view === 'preview' ? (
             <PreviewPane
               bare

@@ -115,14 +115,14 @@ describe('builder workspace shell', () => {
       screen.getByRole('button', { name: t('en', 'bld.ws.code') }).getAttribute('aria-pressed'),
     ).toBe('true');
   });
-  it('the properties panel can be hidden and shown again', () => {
+  it('the properties panel starts closed (a simple canvas) and opens with Edit', () => {
     ws();
     const aside = () => screen.getByLabelText(t('en', 'bld.ws.inspector'), { selector: 'aside' });
-    expect(aside().hasAttribute('hidden')).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.ws.hideProps') }));
     expect(aside().hasAttribute('hidden')).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.ws.showProps') }));
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.ws.edit') }));
     expect(aside().hasAttribute('hidden')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.ws.edit') }));
+    expect(aside().hasAttribute('hidden')).toBe(true);
   });
   it('Publish goes to deployments; the other project screens sit under More', () => {
     const { container } = ws();

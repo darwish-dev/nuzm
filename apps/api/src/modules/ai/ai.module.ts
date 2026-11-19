@@ -5,7 +5,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { MockModelAdapter } from '@nuzm/adapter-model';
+import { AnthropicModelAdapter, CLAUDE_PROVIDER_ID, MockModelAdapter } from '@nuzm/adapter-model';
 import { mockModelHandler } from '@nuzm/domain';
 import { OperationsService, type Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
@@ -57,16 +57,36 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     { provide: AI_CONFIG, useFactory: () => loadAiConfig() },
     {
       provide: ModelAdapterRegistry,
-      useFactory: (cfg: AiConfig) => {
+      useFactory: (cfg: AiConfig, db: Db, secrets: SecretStore) => {
         const r = new StaticModelAdapterRegistry();
         if (cfg.localReference)
           r.register(
             'mock-model',
             new MockModelAdapter({ id: 'mock-model', handler: (req) => mockModelHandler(req) }),
           );
+        // Claude: registered only OUTSIDE production. A key can be stored only there (the production vault is not decided, D-12), and the adapter is not
+        // enough to serve a request: the provider still needs a rate card, a human attestation, a second person's approval and a residency assessment.
+        if (process.env.NODE_ENV !== 'production')
+          r.register(
+            CLAUDE_PROVIDER_ID,
+            new AnthropicModelAdapter({
+              getApiKey: async () => {
+                const row = await db.withPlatformScope(
+                  async (c) =>
+                    (
+                      await c.query(`SELECT vault_ref FROM ai.model_providers WHERE code=$1`, [
+                        CLAUDE_PROVIDER_ID,
+                      ])
+                    ).rows[0] as { vault_ref: string | null } | undefined,
+                );
+                const ref = row?.vault_ref ?? null;
+                return ref && /^vault:\/\/(dev|mem)\/ai-/.test(ref) ? secrets.get(ref) : null;
+              },
+            }),
+          );
         return r;
       },
-      inject: [AI_CONFIG],
+      inject: [AI_CONFIG, DB, SecretStore],
     },
     { provide: AiFlags, useFactory: (db: Db) => new AiFlags(db), inject: [DB] },
     AiEnabledGuard,

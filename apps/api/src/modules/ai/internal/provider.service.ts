@@ -208,7 +208,7 @@ export class ModelProviderService {
       const regionChanged = cur.region !== region;
       return (
         await c.query(
-          `UPDATE ai.model_providers SET adapter=$2, display_name=$3, region=$4, vault_ref=$5, egress_allow=$6, rate_card_version=$7, rate_card=$8,
+          `UPDATE ai.model_providers SET adapter=$2, display_name=$3, region=$4, vault_ref=COALESCE($5, vault_ref), egress_allow=$6, rate_card_version=$7, rate_card=$8,
                   enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL,
                   data_terms = CASE WHEN $9 THEN '{"attested":false,"retainsPrompts":"unknown","trainsOnData":"unknown"}'::jsonb ELSE data_terms END,
                   attestation_ref = CASE WHEN $9 THEN NULL ELSE attestation_ref END, attested_by = CASE WHEN $9 THEN NULL ELSE attested_by END, attested_at = CASE WHEN $9 THEN NULL ELSE attested_at END,

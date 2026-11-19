@@ -209,6 +209,20 @@ describe('provider enabling rules (HG-09-01, two-person)', () => {
     expect(
       JSON.stringify((await e.admin('padmin', 'GET', '/v1/admin/ai/model-providers')).json()),
     ).not.toContain(key);
+    // the Claude adapter is registered outside production (a rate card, attestation and approvals are still needed before it serves anything)
+    const listed = (await e.admin('padmin', 'GET', '/v1/admin/ai/model-providers')).json();
+    const row = (listed.items ?? listed).find((x: { code: string }) => x.code === 'claude');
+    expect(row.adapterRegistered).toBe(true);
+    // editing the provider (here: only the display name) must not drop the stored key
+    const edited = await act({
+      action: 'configure',
+      code: 'claude',
+      adapter: 'anthropic',
+      displayName: 'Claude (edited)',
+      region: 'unspecified',
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().vaultRef).toBe(first.json().vaultRef);
   });
   it('the connection test refuses before any network call: no key stored, a provider other than Claude, an unknown id, and an org user', async () => {
     const act = (body: object) => e.admin('padmin', 'POST', '/v1/admin/ai/model-providers', body);

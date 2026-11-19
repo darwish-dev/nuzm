@@ -11,7 +11,8 @@
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js",
     "encrypt:backfill": "tsc -p tsconfig.build.json && node dist/ops/encrypt-backfill.js",
-    "set-password": "tsx src/dev/set-password.ts"
+    "set-password": "tsx src/dev/set-password.ts",
+    "grant-ai-credits": "tsx src/dev/grant-ai-credits.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.8.0",

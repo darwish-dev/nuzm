@@ -78,7 +78,7 @@ export const CATEGORIES: Category[] = [
     icon: 'code',
     label: 'nc.cat.build',
     title: 'nc.cat.build',
-    roots: ['/builder', '/mobile', '/approvals', '/ai'],
+    roots: ['/builder', '/mobile', '/ai'],
     org: true,
     // the start screen is full screen with no tab bar: usage and credits open from the AI credits chip in the top bar (its page links to budgets)
     noTabs: true,

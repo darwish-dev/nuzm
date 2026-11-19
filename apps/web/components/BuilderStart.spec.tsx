@@ -86,6 +86,28 @@ describe('start a project (one prompt, no steps)', () => {
     expect(new Set(keys).size).toBe(3);
   });
 
+  it('a mobile app can be started when the organization has the mobile builder: a mobile project and run, then the mobile preview opens', async () => {
+    mockFetch((url) =>
+      url === '/v1/builder/projects'
+        ? json(201, { id: 'm1', name: 'x' })
+        : url === '/v1/ai/sessions'
+          ? json(201, { id: 's1' })
+          : json(202, { id: 'r1' }),
+    );
+    render(<BuilderStart locale="en" credits={wallet} canRun mobileEnabled />);
+    fireEvent.click(screen.getByLabelText(new RegExp(t('en', 'bld.start.type.mobile'))));
+    typeIn('A mobile app for booking padel courts');
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/mobile/m1/preview'));
+    expect(calls[0]!.body).toMatchObject({ type: 'mobile' });
+    expect(calls[2]!.body).toMatchObject({
+      kind: 'mobile',
+      projectId: 'm1',
+      input: { description: 'A mobile app for booking padel courts' },
+    });
+    expect(screen.queryByText(t('en', 'bld.start.soon'))).not.toBe(null); // the web-app tile is still "coming soon" here (its flag is off)
+  });
+
   it('an empty prompt is refused on the screen and calls nothing', () => {
     mockFetch(() => json(500, {}));
     screenUnderTest();

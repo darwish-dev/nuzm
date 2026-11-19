@@ -5,6 +5,10 @@ import { isPreviewUrl, LOCALE_LABEL, type Project, type SiteLocale } from '../li
 import { DeployBadge, when } from './BuilderBits';
 
 /** UI-M09-01: one card per website project; an empty list offers the first one. */
+/** A mobile app opens in the mobile workspace; every other project in the builder workspace. */
+export const projectHref = (locale: Locale, p: Pick<Project, 'id' | 'type'>) =>
+  p.type === 'mobile' ? `/${locale}/mobile/${p.id}` : `/${locale}/builder/projects/${p.id}`;
+
 export function ProjectCards({
   locale,
   items,
@@ -54,7 +58,7 @@ export function ProjectCards({
               </div>
               <div className="nzc-project-content">
                 <h2 className="nz-h2" id={`bld-p-${p.id}`}>
-                  <a href={`/${locale}/builder/projects/${p.id}`}>{p.name}</a>
+                  <a href={projectHref(locale, p)}>{p.name}</a>
                 </h2>
                 <p>
                   <Badge>{tDynamic(locale, `m10.proj.type.${p.type}`, p.type)}</Badge>
@@ -80,7 +84,7 @@ export function ProjectCards({
                   <dt>{t(locale, 'bld.projects.updated')}</dt>
                   <dd>{when(p.updatedAt, locale)}</dd>
                 </dl>
-                <ButtonLink variant="secondary" href={`/${locale}/builder/projects/${p.id}`}>
+                <ButtonLink variant="secondary" href={projectHref(locale, p)}>
                   {t(locale, 'action.manage')}
                   <Icon name="arrow" size={16} />
                 </ButtonLink>

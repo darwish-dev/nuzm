@@ -16,8 +16,8 @@ import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
 import { ProblemNote } from './BuilderBits';
 
 /**
- * What can be started. `website` always; `webapp` only while the organization has the app builder on (flag `app_builder.enabled`); `mobile` has no creation path
- * from this screen (M10B): while `mobile_builder.enabled` is on its tile opens the mobile start page (`/mobile/new`), otherwise it is shown honestly marked "coming soon".
+ * What can be started. `website` always; `webapp` only while the organization has the app builder on (flag `app_builder.enabled`); `mobile` only while it has
+ * `mobile_builder.enabled`. A type that cannot be started is shown, honestly marked "coming soon", never faked.
  */
 export const PROJECT_TYPES = [
   { id: 'website', available: true },
@@ -79,7 +79,7 @@ export function BuilderStart({
   canRun: boolean;
   /** the organization has `app_builder.enabled`: the web-app tile can be started */
   appsEnabled?: boolean;
-  /** the organization has `mobile_builder.enabled`: the mobile tile opens the mobile start page */
+  /** the organization has `mobile_builder.enabled`: the mobile-app tile can be started (it opens the mobile preview) */
   mobileEnabled?: boolean;
   initialType?: StartType;
 }) {
@@ -119,11 +119,6 @@ export function BuilderStart({
   async function submit(e?: FormEvent) {
     e?.preventDefault();
     if (call.busy || !startable) return;
-    // the mobile app has its own start page (name, languages, description); nothing is created from here
-    if (type === 'mobile') {
-      router.push(`/${locale}/mobile/new`);
-      return;
-    }
     const text = prompt.trim();
     if (text.length < 1 || text.length > MAX_PROMPT) {
       setErr(t(locale, 'bld.start.promptErr', { max: MAX_PROMPT }));
@@ -207,7 +202,12 @@ export function BuilderStart({
           },
           idempotencyKey: keys.current.run,
         }),
-      () => router.push(`/${locale}/builder/projects/${c.projectId}`),
+      () =>
+        router.push(
+          type === 'mobile'
+            ? `/${locale}/mobile/${c.projectId}/preview`
+            : `/${locale}/builder/projects/${c.projectId}`,
+        ),
       (p) => {
         // a definitive refusal frees the key (the next attempt is a new request); an uncertain network failure keeps it so a retry cannot start a second run
         if (p.status !== 599) keys.current.run = newKey();

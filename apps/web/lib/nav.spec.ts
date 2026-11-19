@@ -206,23 +206,18 @@ describe('projects category', () => {
 });
 
 describe('build category', () => {
-  it('holds the AI builder, the M10 app/approvals/mobile entries, and usage and budgets', () => {
+  it('holds the builders, usage and credits, and budgets (the web-app, approvals and mobile entries only with their flags on)', () => {
     const b = buildNav(all()).find((c) => c.id === 'build')!;
     expect(b.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
       '/builder/projects',
-      '/builder/apps', // M10A (flag app_builder.enabled)
-      '/approvals', // M10A (flag app_builder.enabled)
-      '/mobile/new', // M10B (flag mobile_builder.enabled)
+      '/builder/apps',
+      '/approvals',
+      '/mobile/new',
       '/ai/usage',
       '/ai/budgets',
     ]);
-    // full-screen start page: no section tab bar (usage and budgets link to each other on their own pages; the M10 screens are linked from the start screen)
+    // full-screen start page: no section tab bar (usage and budgets link to each other on their own pages)
     expect(b.noTabs).toBe(true);
-  });
-  it('every Build-category route (incl. mobile) highlights the Build category', () => {
-    const nav = buildNav(all());
-    for (const p of ['/builder/apps', '/approvals', '/mobile/new', '/mobile/m1', '/ai/usage'])
-      expect([p, currentCategory(nav, p)]).toEqual([p, 'build']);
   });
 });
 

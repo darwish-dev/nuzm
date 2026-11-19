@@ -69,6 +69,7 @@ export class PreviewService {
       throw new ProblemException('validation_failed', 'versionId must be a uuid');
     const token = newPreviewToken();
     const id = uuidv7();
+    let retired = 0;
     const out = await this.db.withOrg(orgId, async (c) => {
       const p = (
         await c.query(
@@ -91,11 +92,16 @@ export class PreviewService {
           )
         ).rows[0]!.n,
       );
-      if (active >= this.cfg.maxActivePreviews)
-        throw new ProblemException(
-          'rate_limited',
-          `at most ${this.cfg.maxActivePreviews} active previews per project`,
+      // The cap bounds how many live preview addresses a project has. An editor makes a new preview for every version and every reload, so hitting the cap must not
+      // lock it out: the OLDEST ones are retired (revoked) to make room, and the live count never exceeds the cap.
+      if (active >= this.cfg.maxActivePreviews) {
+        retired = active - this.cfg.maxActivePreviews + 1;
+        await c.query(
+          `UPDATE builder.previews SET revoked_at = now()
+            WHERE id IN (SELECT id FROM builder.previews WHERE project_id=$1 AND revoked_at IS NULL AND expires_at > now() ORDER BY created_at ASC LIMIT $2)`,
+          [projectId, retired],
         );
+      }
       const vid = (b.versionId as string | undefined) ?? (p.head_version_id as string);
       if (
         !(
@@ -135,7 +141,7 @@ export class PreviewService {
       orgId,
       resource: { type: 'builder_preview', id },
       outcome: 'success',
-      detail: { projectId },
+      detail: { projectId, ...(retired > 0 ? { retiredOldest: retired } : {}) },
     });
     return {
       id,

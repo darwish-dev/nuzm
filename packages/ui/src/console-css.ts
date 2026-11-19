@@ -1244,6 +1244,7 @@ a.nzc-navcard:hover, .nzc-tile:hover { background: var(--nzc-card); }
 .bws-more ul { position: absolute; inset-inline-end: 0; margin: 6px 0 0; padding: 6px; min-inline-size: 190px; list-style: none; border-radius: 14px; background: var(--nzc-elev); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35); z-index: 30; }
 .bws-more li a { display: block; padding: 9px 12px; border-radius: 9px; color: var(--nzc-fg); text-decoration: none; font-size: 13px; }
 .bws-more li a:hover { background: var(--nzc-field); }
+.bws .bws-publish, .bws a.bws-publish:hover, .bws a.bws-publish:visited { color: var(--nzc-card); }
 .bws-publish { padding: 8px 18px; border-radius: 10px; background: var(--nzc-accent); color: var(--nzc-card); font-size: 13px; font-weight: 650; text-decoration: none; white-space: nowrap; }
 .bws-body { flex: 1; min-block-size: 0; display: grid; grid-template-columns: 360px minmax(0, 1fr) 320px; grid-template-areas: 'chat canvas insp'; gap: 12px; padding: 12px; }
 .bws[data-inspector='closed'] .bws-body { grid-template-columns: 360px minmax(0, 1fr); grid-template-areas: 'chat canvas'; }

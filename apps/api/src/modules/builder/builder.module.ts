@@ -10,6 +10,7 @@ import { CmsService } from './internal/cms.service';
 import { EditRunHandler } from './internal/edit.handler';
 import { FormNotifier, FormsService, NoopFormNotifier } from './internal/forms.service';
 import { ProjectDelegates } from './internal/delegates';
+import { MobileProjectService } from './internal/mobile-project.service';
 import { PreviewService } from './internal/preview.service';
 import { ProjectService } from './internal/project.service';
 import { WebsiteRunHandler } from './internal/website.handler';
@@ -26,10 +27,21 @@ import { PreviewServeController } from './public.controller';
     { provide: FormNotifier, useClass: NoopFormNotifier },
     { provide: ProjectDelegates, useFactory: () => new ProjectDelegates() },
     {
-      provide: ProjectService,
+      provide: MobileProjectService,
       useFactory: (db: Db, a: AuditSink, r: ResidencyService, c: BuilderConfig) =>
-        new ProjectService(db, a, r, c),
+        new MobileProjectService(db, a, r, c),
       inject: [DB, AuditSink, ResidencyService, BUILDER_CONFIG],
+    },
+    {
+      provide: ProjectService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        r: ResidencyService,
+        c: BuilderConfig,
+        m: MobileProjectService,
+      ) => new ProjectService(db, a, r, c, m),
+      inject: [DB, AuditSink, ResidencyService, BUILDER_CONFIG, MobileProjectService],
     },
     {
       provide: PreviewService,
@@ -50,6 +62,7 @@ import { PreviewServeController } from './public.controller';
   ],
   exports: [
     ProjectService,
+    MobileProjectService,
     PreviewService,
     FormsService,
     CmsService,

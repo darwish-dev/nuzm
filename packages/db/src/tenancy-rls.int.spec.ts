@@ -232,13 +232,16 @@ describe('RBAC seed data invariants', () => {
       JOIN tenancy.roles r ON r.name = rp.role JOIN tenancy.permissions p ON p.name = rp.permission WHERE r.scope <> p.scope`);
     expect(bad).toEqual([]);
   });
-  it('owner has every org permission; admin lacks only org:delete', async () => {
+  it('owner has every org permission; admin lacks only org:delete and the owner-only mobile:release:approve (M10B)', async () => {
     const all = (
       await root<{ name: string }>(`SELECT name FROM tenancy.permissions WHERE scope='org'`)
     ).map((r) => r.name);
     expect((await perms('owner')).sort()).toEqual(all.sort());
     const admin = await perms('admin');
-    expect(all.filter((p) => !admin.includes(p))).toEqual(['org:delete']);
+    expect(all.filter((p) => !admin.includes(p)).sort()).toEqual([
+      'mobile:release:approve',
+      'org:delete',
+    ]);
   });
   it('viewer is read-only; billing_admin cannot mutate resources; developer cannot manage members or billing', async () => {
     const mutating = /:(create|update|delete|manage|invite|cancel|security)$/;

@@ -88,9 +88,9 @@ describe('projects (S39)', () => {
     expect(
       (
         await e.call('alice', 'POST', '/v1/builder/projects', { type: 'mobile', name: 'x' })
-      ) // mobile arrives with M10B (webapp is served since M10A)
+      ) // mobile (M10B) needs the org flag mobile_builder.enabled (default off): 404; webapp is served since M10A
       .statusCode,
-    ).toBe(422);
+    ).toBe(404);
     expect(
       (await e.call('alice', 'POST', '/v1/builder/projects', { name: 'x', locale: ['fr'] }))
         .statusCode,

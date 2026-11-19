@@ -1,9 +1,9 @@
 {
   "summary": {
-    "generatedAt": "2026-11-19T12:40:41.750Z",
-    "operations": 406,
+    "generatedAt": "2026-11-19T13:39:17.798Z",
+    "operations": 414,
     "byClass": {
-      "org": 245,
+      "org": 253,
       "admin": 117,
       "scim": 12,
       "any-authenticated": 15,
@@ -11,8 +11,8 @@
       "public": 16
     },
     "unclassified": [],
-    "exercised": 537,
-    "refused": 499,
+    "exercised": 545,
+    "refused": 507,
     "explained2xx": 38,
     "classifiedNotCrossed": 0,
     "unexplained2xx": 0,
@@ -21,7 +21,7 @@
       "200": 5,
       "400": 1,
       "401": 234,
-      "404": 265
+      "404": 273
     },
     "note": "operates on the caller's own principal, a service credential, or is public: no tenant identifier to cross",
     "explained": {
@@ -1500,6 +1500,54 @@
     },
     {
       "op": "POST /v1/ai/approvals/{approvalId}/decisions [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/mobile/builds [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/mobile/builds [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/mobile/builds/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/mobile/builds/{id}/artifacts [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/mobile/signing-credentials [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/mobile/signing-credentials [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/mobile/releases [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/mobile/releases [B session, X-Nuzm-Org: A]",
       "cls": "org",
       "status": 404,
       "verdict": "refused"

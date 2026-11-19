@@ -165,11 +165,11 @@ describe('web-app projects on the M09 builder tables', () => {
       (await call('carol', 'POST', '/v1/builder/projects', { type: 'webapp', name: 'x' }))
         .statusCode,
     ).toBe(403);
-    // mobile is not available before M10B
+    // mobile projects (M10B) exist only while the org flag mobile_builder.enabled is on (default off): 404 otherwise
     expect(
       (await call('alice', 'POST', '/v1/builder/projects', { type: 'mobile', name: 'm' }))
         .statusCode,
-    ).toBe(422);
+    ).toBe(404);
   });
 
   it('ProjectsPort commits immutable versions with optimistic concurrency and reads them back', async () => {
@@ -217,7 +217,7 @@ describe('web-app projects on the M09 builder tables', () => {
 describe('a webapp run through M09 /v1/ai/runs (segment engine), real gateway, real artifacts', () => {
   let projectId = '';
   let runId = '';
-  it('is accepted (202) as a run kind; mobile stays unsupported_kind; input is validated', async () => {
+  it('is accepted (202) as a run kind; mobile needs a mobile project; input is validated', async () => {
     projectId = (await newProject('Generated CRM')).id as string;
     const sessionId = await newSession(projectId);
     const bad = await call('alice', 'POST', '/v1/ai/runs', {
@@ -227,10 +227,11 @@ describe('a webapp run through M09 /v1/ai/runs (segment engine), real gateway, r
       input: { maxMinutes: 500 },
     });
     expect(bad.statusCode).toBe(422);
+    // `mobile` is served by M10B: a web-app project is not a mobile project, so the run is refused on its input (not as an unsupported kind)
     expect(
       (await call('alice', 'POST', '/v1/ai/runs', { sessionId, projectId, kind: 'mobile' })).json()
         .code,
-    ).toBe('unsupported_kind');
+    ).toBe('validation_failed');
     const r = await call('alice', 'POST', '/v1/ai/runs', {
       sessionId,
       projectId,

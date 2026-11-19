@@ -76,7 +76,7 @@ export const CATEGORIES: Category[] = [
     icon: 'code',
     label: 'nc.cat.build',
     title: 'nc.cat.build',
-    roots: ['/builder', '/ai', '/automation', '/marketplace'],
+    roots: ['/builder', '/mobile', '/ai', '/automation', '/marketplace'],
     org: true,
     groups: [
       {
@@ -103,6 +103,15 @@ export const CATEGORIES: Category[] = [
             href: '/approvals',
             perm: ['ai:read'],
             flag: 'app_builder.enabled',
+          },
+          // M10B: the mobile builder shows only while its own flag is on (default off)
+          {
+            id: 'mobile',
+            label: 'mobile.nav.mobile',
+            href: '/mobile/new',
+            perm: ['builder:read'],
+            flag: 'mobile_builder.enabled',
+            also: ['/mobile'],
           },
         ],
       },

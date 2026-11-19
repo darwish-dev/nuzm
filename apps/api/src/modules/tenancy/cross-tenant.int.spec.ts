@@ -93,6 +93,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'testRunId') return A.m10TestRun;
   if (p === 'exportId') return A.m10Export;
   if (p === 'vid') return A.bVersion;
+  if (o.path.startsWith('/v1/mobile/builds/')) return A.mobileBuild; // M10B
   if (o.path.startsWith('/v1/ai/sessions/')) return A.aiSession;
   if (o.path.startsWith('/v1/ai/runs/')) return A.aiRun;
   if (o.path.startsWith('/v1/builder/projects/')) return A.bProject;
@@ -426,6 +427,17 @@ beforeAll(async () => {
     [A.m10Export, orgA, A.m10Project, A.bVersion, aliceId],
   );
   // <<< M10A
+  // >>> M10B: a mobile build of org A (written directly) and the GLOBAL flag, so org B's 404 is isolation and not a switched-off flag
+  A.mobileBuild = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO mobile.builds (id, org_id, project_id, version_id, platform, profile, status, data_region, requested_by, finished_at)
+     VALUES ($1, $2, $3, $4, 'android', 'debug', 'failed', 'sa-central', $5, now())`,
+    [A.mobileBuild, orgA, A.bProject, A.bVersion, aliceId],
+  );
+  await h.env.sql(
+    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'mobile_builder.enabled', NULL, 'true')`,
+  );
+  // <<< M10B
   await h.env.sql(
     `INSERT INTO builder.projects (id, org_id, name, locales, data_region, created_by) VALUES ($1, $2, 'ct-project', '{ar,en}', 'sa-central', $3)`,
     [A.bProject, orgA, aliceId],

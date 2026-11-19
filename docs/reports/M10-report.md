@@ -49,3 +49,13 @@ D-21 (sandbox technology), HG-10-02 (security review), HG-09-01/D-18 (model prov
 
 ## I. Handoff
 Next: owner decisions in §G; M09 integration per the assumptions doc; then M10A gate review signature; only then M10B.
+
+---
+
+# M10B section (S48–S50: Flutter mobile app builder) — summary
+
+**Owner exception (recorded 2026-11-19):** the M10 prompt requires the M10A Gate Review to be signed before M10B starts. The owner waived that ordering on 2026-11-19 ("Both now, in parallel"). The waiver changes only the order of work; the M10A gate is still PREPARED, NOT SIGNED and nothing in M10B depends on it being passed. M10B was built on branch `claude/m10b-flutter-97131d` (from main `7d0d7b0`) while `m10a-finish` completes M10A.
+
+Full report: `M10B-report.md` (CLAUDE.md §10 A–I); sprints `S48-report.md`, `S49-report.md`, `S50-report.md`; M10 gate review (prepared, NOT SIGNED) `M10-gate-review.md`; spec change requests `M10B-spec-change-requests.md`.
+
+Headline status: Flutter generation (scripted model; quality NOT VERIFIED) and release preparation records PASS at the API level; an Android debug APK was built **locally, unsigned and non-isolated** (not CI evidence: AC-M10-10 NOT VERIFIED); signed Android release **BLOCKED (HG-10-01)**; iOS **BLOCKED (D-22, HG-10-01)**; IAP/external-checkout assessment **BLOCKED (legal)**; web preview not implemented (SCR-M10B-03); store submission is a human gate and no submission action exists. Pinned toolchain: Flutter 3.35.7, Dart 3.9.2.

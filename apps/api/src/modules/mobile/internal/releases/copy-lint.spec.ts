@@ -39,9 +39,9 @@ describe('copy lint (AC-M10-14)', () => {
   it('no mobile console string and no mobile doc/template promises store approval', () => {
     const files = [
       ...walk(join(ROOT, 'apps/api/templates/flutter-core')),
-      join(ROOT, 'docs/reports/M10B-report.md'),
-      join(ROOT, 'docs/reports/S50-report.md'),
+      ...['M10B-report', 'M10B-spec-change-requests', 'M10-gate-review', 'S48-report', 'S49-report', 'S50-report'].map((n) => join(ROOT, `docs/reports/${n}.md`)),
       join(ROOT, 'docs/runbooks/mobile-signing.md'),
+      join(ROOT, 'docs/runbooks/demo-m10b.md'),
     ].filter((f) => {
       try {
         statSync(f);
@@ -59,7 +59,6 @@ describe('copy lint (AC-M10-14)', () => {
       ...files.flatMap((f) => copyLint(readFileSync(f, 'utf8')).map((h) => `${relative(ROOT, f)}: ${h.rule}`)),
       ...copyLint(msgs).map((h) => `messages: ${h.rule}`),
     ];
-    // the reports and runbook quote forbidden phrases only inside this lint's own documentation; none is expected in generated text
-    expect(hits.filter((h) => !/docs\//.test(h))).toEqual([]);
+    expect(hits).toEqual([]);
   });
 });

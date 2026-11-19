@@ -7,7 +7,7 @@ import { DB } from '../../common/tokens';
 import { ResidencyService } from '../compliance';
 import { MobileProjectService } from '../builder';
 import { setupAiEnv, type AiEnv, type Row } from '../ai/testing/ai-harness';
-import { ArtifactBytesPort, MemoryArtifactBytes } from './internal/builds/blobs';
+import { ArtifactBytesPort, MemoryArtifactBytes, UnavailableArtifactBytes } from './internal/builds/blobs';
 import { BuildService, DEFAULT_BUILD_CONFIG, redactLog } from './internal/builds/build.service';
 import { BuildRunnerPort, buildEnv, MockBuildRunner, type BuildInput, type BuildOutput } from './internal/builds/runner';
 import { SAMPLE_MOBILE_SPEC } from './internal/fixtures/sample-spec';
@@ -238,7 +238,7 @@ describe('S49: builds (mock runner: plumbing only), iOS BLOCKED, signing stage a
   });
 
   it('a failing runner records a failed build with its code and still meters; the supply-chain gate blocks a bad lockfile before compiling', async () => {
-    const mk = async (runner: BuildRunnerPort) => {
+    const mk = async (runner: BuildRunnerPort, store: ArtifactBytesPort = bytes()) => {
       const svc = new BuildService(
         e.app.get(DB, { strict: false }),
         e.app.get(AuditSink, { strict: false }),
@@ -246,7 +246,7 @@ describe('S49: builds (mock runner: plumbing only), iOS BLOCKED, signing stage a
         e.app.get(SigningService, { strict: false }),
         e.app.get(SigningStagePort, { strict: false }),
         runner,
-        bytes(),
+        store,
         e.app.get(PubAdvisoryPort, { strict: false }),
         e.app.get(ResidencyService, { strict: false }),
         DEFAULT_BUILD_CONFIG,
@@ -259,6 +259,10 @@ describe('S49: builds (mock runner: plumbing only), iOS BLOCKED, signing stage a
     expect(fd).toMatchObject({ status: 'failed', errorCode: 'build_timeout' });
     expect((await f.svc.artifacts(A(), f.b.id)).length).toBe(0);
     expect(Number((await e.sql(`SELECT count(*) n FROM platform.outbox WHERE topic='usage.recorded' AND payload->>'resourceId'=$1`, [f.b.id]))[0]!.n)).toBe(1);
+    // artifact storage down: the build FAILS (never stuck in `building`)
+    const st = await mk(new MockBuildRunner(), new UnavailableArtifactBytes());
+    expect(await st.svc.execute(A(), st.b.id)).toMatchObject({ status: 'failed', errorCode: 'storage_unavailable' });
+    expect((await st.svc.artifacts(A(), st.b.id)).length).toBe(0);
     // a runner whose resolved lock comes from a git source
     class BadLock extends MockBuildRunner {
       override async run(i: BuildInput): Promise<BuildOutput> {

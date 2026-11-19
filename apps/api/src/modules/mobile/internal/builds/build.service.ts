@@ -242,6 +242,19 @@ export class BuildService {
       log(`build failed: ${code}`);
       outcome = { ok: false, code };
     }
+    // artifact bytes are stored BEFORE the result transaction: a storage failure becomes a failed build, never a build stuck in `building`
+    const stored: { kind: string; fileName: string; storageRef: string; sha256: string; size: number }[] = [];
+    if (outcome.ok) {
+      try {
+        for (const a of outcome.out.artifacts) {
+          const r = await this.bytes.put(orgId, buildId, a.fileName, a.bytes);
+          stored.push({ kind: a.kind, fileName: a.fileName, storageRef: r.storageRef, sha256: r.sha256, size: a.bytes.length });
+        }
+      } catch {
+        log('build failed: storage_unavailable');
+        outcome = { ok: false, code: 'storage_unavailable' };
+      }
+    }
     const finished = Date.now();
     const minutes = Math.max(0.000001, (finished - started) / 60000);
     const logText = redactLog(lines, (process.env.AI_SECRET_CANARIES ?? '').split(',').filter((x) => x.length >= 8)).slice(-this.cfg.logCap);
@@ -252,14 +265,12 @@ export class BuildService {
         toolchain = outcome.out.toolchain;
         signed = outcome.out.signed;
         const days = this.cfg.retentionDays[claimed.profile as Profile];
-        for (const a of outcome.out.artifacts) {
-          const stored = await this.bytes.put(orgId, buildId, a.fileName, a.bytes);
+        for (const a of stored)
           await c.query(
             `INSERT INTO mobile.artifacts (id, org_id, build_id, kind, file_name, storage_ref, sha256, size_bytes, signed, retention_until, data_region)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now() + make_interval(days => $10), $11)`,
-            [newId(), orgId, buildId, a.kind, a.fileName, stored.storageRef, stored.sha256, a.bytes.length, signed, days, claimed.data_region],
+            [newId(), orgId, buildId, a.kind, a.fileName, a.storageRef, a.sha256, a.size, signed, days, claimed.data_region],
           );
-        }
       }
       const r = (
         await c.query(

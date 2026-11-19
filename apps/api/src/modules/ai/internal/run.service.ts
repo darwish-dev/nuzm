@@ -753,6 +753,10 @@ export class RunService {
               e instanceof AgentOutputInvalid
                 ? e.errors.join('; ').slice(0, 300)
                 : (e as Error).message.slice(0, 200),
+            // the reasons a handler gave (e.g. which rules a generated design broke), so the run page can say why it failed; short strings only, never raw model output
+            ...(e instanceof ProblemException && Array.isArray(e.errors) && e.errors.length
+              ? { details: e.errors.slice(0, 8).map((x) => String(x).slice(0, 160)) }
+              : {}),
           },
         });
         await this.ops

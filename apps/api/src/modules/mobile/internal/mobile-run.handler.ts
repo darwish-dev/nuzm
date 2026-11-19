@@ -9,7 +9,12 @@ import type { MobileProjectService } from '../../builder';
 const INSTR_DESIGN =
   'You are the mobile design agent of an app builder for businesses in Saudi Arabia. From the description, design a Flutter mobile app as a STRUCTURED SPEC: screens (kind home, list, form, detail or settings), ' +
   'bilingual Arabic and English texts for every label (Arabic is a first-class language, not a translation), a bottom navigation of 1-5 tabs, a primary colour with readable contrast, whether sign-in is needed, ' +
-  'and the few Android permissions the app really needs (default none beyond internet). Use only the allowed enumerations. No code, no URLs, no credentials. result = the spec object.';
+  'and the few Android permissions the app really needs (default none beyond internet). Use only the allowed enumerations. No code, no URLs, no credentials. result = the spec object. ' +
+  'HARD RULES (the design is rejected otherwise): every screen id and field id is lowercase letters, digits and underscores, starts with a letter, at most 31 characters, and is unique; ' +
+  'never use the ids login, splash, app, main or routes (a login screen is created for you when auth.enabled is true) nor the words class, enum, new, null, this, true, false, var, void, with; ' +
+  'navigation.initial and every navigation.tabs entry must be the id of a screen you defined, tabs are unique, 1 to 5 of them; a screen of kind form must have at least one field and no other kind may have fields; ' +
+  'only a screen of kind list may have items; a field of type choice needs at least two options and no other type has options; permissions come only from internet, camera, location, notifications, photos, without duplicates; ' +
+  'colours are #RRGGBB; every text has both ar and en.';
 
 /**
  * `kind=mobile` (M10 S48): description -> structured mobile spec (design agent) -> human approval of the design (`plan`, bound to the exact spec) -> the trusted template renderer writes the
@@ -55,19 +60,33 @@ export class MobileRunHandler implements RunKindHandler {
     // 1. the design agent
     if (!ctx.checkpoint.spec) {
       const description = String(ctx.run.input.description ?? '');
-      const spec = await ctx.call<MobileSpec>({
-        task: 'mobile_design',
-        instruction: INSTR_DESIGN,
-        params: { toolchain: PINNED_TOOLCHAIN.templateSet },
-        data: [{ label: 'description', text: description }],
-        schema: MOBILE_SPEC_SCHEMA,
-        maxTokens: 6000,
-      });
-      const errs = validateMobileSpec(spec);
+      const ask = (extra: { label: string; text: string }[]) =>
+        ctx.call<MobileSpec>({
+          task: 'mobile_design',
+          instruction: INSTR_DESIGN,
+          params: { toolchain: PINNED_TOOLCHAIN.templateSet },
+          data: [{ label: 'description', text: description }, ...extra],
+          schema: MOBILE_SPEC_SCHEMA,
+          maxTokens: 6000,
+        });
+      let spec = await ask([]);
+      let errs = validateMobileSpec(spec);
+      // the schema is already enforced (with repair) by the agent call; these are the SEMANTIC rules (reserved ids, navigation that points at no screen, ...).
+      // A model usually fixes them when told exactly what is wrong, so give it up to two corrections before the run fails.
+      for (let attempt = 1; errs.length && attempt <= 2; attempt++) {
+        spec = await ask([
+          { label: 'previous_design', text: JSON.stringify(spec).slice(0, 12000) },
+          {
+            label: 'problems_to_fix',
+            text: `Return the COMPLETE corrected spec. Problems: ${errs.slice(0, 12).join('; ')}`,
+          },
+        ]);
+        errs = validateMobileSpec(spec);
+      }
       if (errs.length)
         throw new ProblemException(
           'validation_failed',
-          'the design is not a valid mobile spec',
+          `the design is not a valid mobile spec: ${errs.slice(0, 4).join('; ')}`.slice(0, 190),
           errs,
         );
       const artifactId = await ctx.artifact('architecture', spec);

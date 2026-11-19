@@ -2,6 +2,7 @@ import { formatDateTime, t, tDynamic, type Locale, type MessageKey } from '@nuzm
 import { Badge, Banner, ButtonLink, EmptyState, Ltr, Table } from '@nuzm/ui';
 import { runTone } from '../lib/appbuilder';
 import { manifestView, declaredPermissions, type ScreenView } from '../lib/mobile';
+import { RunAutoRefresh } from './RunAutoRefresh';
 
 /**
  * UI-M10-13: what was generated for a mobile project. There is no web preview of a Flutter app yet (it needs a web build worker), so the screen says that plainly,
@@ -23,6 +24,7 @@ export function MobileOverview({
   return (
     <>
       <Banner tone="warn">{t(locale, 'mobile.preview.notice')}</Banner>
+      {run && (run.state === 'queued' || run.state === 'running') && <RunAutoRefresh />}
       {run && (
         <section aria-labelledby="mobile-run-h">
           <h2 className="nz-h2" id="mobile-run-h">

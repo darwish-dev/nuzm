@@ -36,7 +36,7 @@ import {
 /**
  * THE REAL M09 SIDE OF THE BOUNDARY (replaces the in-memory stand-ins of `m09-mock.ts` whenever the organization does not have the dev flag `app_builder.m09_stubs`).
  * Everything here reads and writes the tables of M09 (`ai.runs`, `ai.artifacts`, `builder.projects|project_versions|project_files`) or calls M09's services
- * (`GatewayService`, `BudgetService`); no table of M09 is altered by M10 beyond the two CHECK lists extended in migrations 1450/1451.
+ * (`GatewayService`, `BudgetService`); no table of M09 is altered by M10 beyond the two CHECK lists extended in migrations 1800/1801.
  */
 
 const iso = (d: unknown): string | null => (d ? new Date(d as string).toISOString() : null);
@@ -330,7 +330,7 @@ const MIME: Record<string, string> = {
   txt: 'text/plain',
 };
 const mimeOf = (path: string) => MIME[path.split('.').pop()?.toLowerCase() ?? ''] ?? 'text/plain';
-/** `site_model` of a web-app version: the files are the source of truth, the column is NOT NULL, so it carries a fixed marker (migration 1450). */
+/** `site_model` of a web-app version: the files are the source of truth, the column is NOT NULL, so it carries a fixed marker (migration 1800). */
 export const WEBAPP_MODEL = { kind: 'webapp', schemaVersion: 1 } as const;
 const WEBAPP_MODEL_HASH = sha256(JSON.stringify(WEBAPP_MODEL));
 

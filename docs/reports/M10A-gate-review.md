@@ -12,6 +12,6 @@ Gate (M10 prompt): Reference CRM passes the INDEPENDENT E2E suite; export, deplo
 | Model quality | **NOT VERIFIED** | only M09's deterministic mock provider exists (D-18/HG-09-01 open) |
 | UI: screens, 4 states, ar + en, axe, screenshots, browser E2E | **NOT VERIFIED** | screens implemented; web unit tests PASS; `e2e/tests/10-app-builder.spec.ts` written, **NOT RUN** (the owner's app occupies the E2E ports); axe and screenshots NOT RUN |
 
-Open owner decisions: D-21 (sandbox technology), HG-10-02 (review), HG-09-01/D-18 (providers), PROPOSED-HG-10-03 (CRM spec owner + independent author), SCR-M10-01 (Git paths), PA-M10-01 (terminal), PA-M10-02 (approvals inbox routes), HG-05-04 (node-pool quota), D-34 (retention), HG-04-01 (generated-code licensing text), A-07 (release storage on M08), compute-instance publish path (M05/M06), migration numbering for populated databases (1450/1451).
+Open owner decisions: D-21 (sandbox technology), HG-10-02 (review), HG-09-01/D-18 (providers), PROPOSED-HG-10-03 (CRM spec owner + independent author), SCR-M10-01 (Git paths), PA-M10-01 (terminal), PA-M10-02 (approvals inbox routes), HG-05-04 (node-pool quota), D-34 (retention), HG-04-01 (generated-code licensing text), A-07 (release storage on M08), compute-instance publish path (M05/M06).
 
 Sections A–I of CLAUDE.md §10 are in `M10-report.md`. Owner signature: ______  Date: ______ (M10B may not be integrated before this is signed).

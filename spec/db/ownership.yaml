@@ -139,7 +139,7 @@ schemas:
   builder:
     owner_module: builder
     created_by: M09
-    extended_by: [ M10, M10-INT ]
+    extended_by: [ M10, M10-INT, M10B-INT ]
     tables: [ app_specs, changes, cms_collections, cms_items, exports, form_submissions, forms, git_repos, pages, previews, project_files, project_versions, projects, sandboxes, test_runs ]
   deploy:
     owner_module: deploy
@@ -156,7 +156,7 @@ schemas:
   mobile:
     owner_module: mobile
     created_by: M10
-    extended_by: []
+    extended_by: [ M10B-INT ]
     tables: [ artifacts, builds, releases, signing_credential_refs ]
   automation:
     owner_module: automation
@@ -300,6 +300,8 @@ migration_ranges:
   M12: "1700-1799"
   # M10A integration migrations that extend M09 tables and must apply on databases that already applied M11/M12 (the runner is forward-only): above every applied ordinal
   M10-INT: "1800-1819"
+  # M10B (Flutter mobile builder) migrations, numbered above every applied ordinal for the same reason (originally 1500-1502 and 1510, which a database already at 17xx could not apply)
+  M10B-INT: "1820-1839"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.

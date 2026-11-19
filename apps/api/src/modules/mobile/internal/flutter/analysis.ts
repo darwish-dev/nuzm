@@ -19,13 +19,20 @@ export interface AnalysisIssue {
   path?: string;
   detail: string;
 }
-const REQUIRED = ['pubspec.yaml', 'analysis_options.yaml', 'lib/main.dart', 'test/widget_test.dart'];
+const REQUIRED = [
+  'pubspec.yaml',
+  'analysis_options.yaml',
+  'lib/main.dart',
+  'test/widget_test.dart',
+];
 /** libraries and calls a generated app has no use for and that widen the attack surface */
 const FORBIDDEN_IMPORT = /import\s+['"]dart:(ffi|mirrors|isolate)['"]/;
 const FORBIDDEN_CALL = /\b(Process\.(run|start|runSync)|Platform\.executable|dart:cli)\b/;
 const CLEARTEXT = /['"]http:\/\/(?!localhost|127\.0\.0\.1|10\.0\.2\.2)[^'"\s]+/;
-const SIGNING_FILE = /(^|\/)(key\.properties|local\.properties|[^/]+\.(jks|keystore|p12|pfx|mobileprovision|p8))$/i;
-const SIGNING_TEXT = /(storePassword|keyPassword|keystorePassword|signingConfigs\s*\{|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY)/;
+const SIGNING_FILE =
+  /(^|\/)(key\.properties|local\.properties|[^/]+\.(jks|keystore|p12|pfx|mobileprovision|p8))$/i;
+const SIGNING_TEXT =
+  /(storePassword|keyPassword|keystorePassword|signingConfigs\s*\{|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY)/;
 export const MAX_TOTAL_BYTES = 8 * 1024 * 1024;
 
 export function analyzeProject(files: Record<string, string>): AnalysisIssue[] {
@@ -40,16 +47,32 @@ export function analyzeProject(files: Record<string, string>): AnalysisIssue[] {
       continue;
     }
     if (SIGNING_FILE.test(path)) {
-      out.push({ rule: 'signing_material', path, detail: 'signing material never belongs in a project' });
+      out.push({
+        rule: 'signing_material',
+        path,
+        detail: 'signing material never belongs in a project',
+      });
       continue;
     }
-    for (const f of scanForSecrets(text)) out.push({ rule: 'secret', path, detail: `secret pattern: ${f.kind}` });
+    for (const f of scanForSecrets(text))
+      out.push({ rule: 'secret', path, detail: `secret pattern: ${f.kind}` });
     if (SIGNING_TEXT.test(text) && !path.endsWith('.gitignore'))
-      out.push({ rule: 'signing_material', path, detail: 'signing configuration or key material in a file' });
+      out.push({
+        rule: 'signing_material',
+        path,
+        detail: 'signing configuration or key material in a file',
+      });
     if (path.endsWith('.dart')) {
-      if (FORBIDDEN_IMPORT.test(text)) out.push({ rule: 'forbidden_import', path, detail: 'dart:ffi, dart:mirrors and dart:isolate are not allowed' });
-      if (FORBIDDEN_CALL.test(text)) out.push({ rule: 'forbidden_call', path, detail: 'process execution is not allowed' });
-      if (CLEARTEXT.test(text)) out.push({ rule: 'cleartext_url', path, detail: 'cleartext http:// URL (use https)' });
+      if (FORBIDDEN_IMPORT.test(text))
+        out.push({
+          rule: 'forbidden_import',
+          path,
+          detail: 'dart:ffi, dart:mirrors and dart:isolate are not allowed',
+        });
+      if (FORBIDDEN_CALL.test(text))
+        out.push({ rule: 'forbidden_call', path, detail: 'process execution is not allowed' });
+      if (CLEARTEXT.test(text))
+        out.push({ rule: 'cleartext_url', path, detail: 'cleartext http:// URL (use https)' });
     }
   }
   if (total > MAX_TOTAL_BYTES) out.push({ rule: 'too_large', detail: `project is ${total} bytes` });

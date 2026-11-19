@@ -96,7 +96,10 @@ export class MobileProjectService {
         ).rows as Row[],
     );
     const v = rows[rows.length - 1]?.value as unknown;
-    return v === true || (typeof v === 'object' && v !== null && (v as { enabled?: unknown }).enabled === true);
+    return (
+      v === true ||
+      (typeof v === 'object' && v !== null && (v as { enabled?: unknown }).enabled === true)
+    );
   }
 
   private view(r: Row, seq: number | null): MobileProjectView {
@@ -116,9 +119,8 @@ export class MobileProjectService {
   }
   private async seqOf(c: PoolClient, versionId: unknown): Promise<number | null> {
     if (!versionId) return null;
-    const v = (
-      await c.query(`SELECT seq FROM builder.project_versions WHERE id=$1`, [versionId])
-    ).rows[0] as Row | undefined;
+    const v = (await c.query(`SELECT seq FROM builder.project_versions WHERE id=$1`, [versionId]))
+      .rows[0] as Row | undefined;
     return v ? Number(v.seq) : null;
   }
 
@@ -128,7 +130,10 @@ export class MobileProjectService {
     b: Record<string, unknown>,
   ): Promise<MobileProjectView & { manifest: MobileManifest }> {
     if (!(await this.mobileEnabled(orgId)))
-      throw new ProblemException('not_found', 'the mobile builder is not enabled for this organization');
+      throw new ProblemException(
+        'not_found',
+        'the mobile builder is not enabled for this organization',
+      );
     const name = typeof b.name === 'string' ? b.name.trim() : '';
     if (name.length < 1 || name.length > 100)
       throw new ProblemException('validation_failed', 'name must be 1..100 characters');
@@ -176,8 +181,8 @@ export class MobileProjectService {
     try {
       view = await this.db.withOrg(orgId, async (c) => {
         const n = Number(
-          (await c.query(`SELECT count(*) n FROM builder.projects WHERE deleted_at IS NULL`)).rows[0]!
-            .n,
+          (await c.query(`SELECT count(*) n FROM builder.projects WHERE deleted_at IS NULL`))
+            .rows[0]!.n,
         );
         if (n >= this.cfg.maxProjects)
           throw new ProblemException(
@@ -343,7 +348,8 @@ export class MobileProjectService {
             [c.projectId, c.runId],
           )
         ).rows[0] as Row | undefined;
-        if (dup) return { versionId: dup.id as string, seq: Number(dup.seq), fileCount: entries.length };
+        if (dup)
+          return { versionId: dup.id as string, seq: Number(dup.seq), fileCount: entries.length };
       }
       const hashes: string[] = [];
       const bytes = entries.map(([path, text]) => {
@@ -376,7 +382,11 @@ export class MobileProjectService {
     orgId: string,
     projectId: string,
     versionId?: string,
-  ): Promise<{ versionId: string; files: Record<string, string>; manifest: MobileManifest } | null> {
+  ): Promise<{
+    versionId: string;
+    files: Record<string, string>;
+    manifest: MobileManifest;
+  } | null> {
     if (!isUuid(projectId) || (versionId !== undefined && !isUuid(versionId))) return null;
     return this.db.withOrg(orgId, async (c) => {
       const p = (

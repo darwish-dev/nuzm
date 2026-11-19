@@ -25,6 +25,8 @@ export class ReleasesController {
   @RequirePermission('mobile:release')
   @Get()
   async list(@Org() orgId: string, @Query() q: { projectId?: string }) {
-    return { items: await this.releases.list(orgId, q.projectId ? { projectId: q.projectId } : {}) };
+    return {
+      items: await this.releases.list(orgId, q.projectId ? { projectId: q.projectId } : {}),
+    };
   }
 }

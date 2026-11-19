@@ -21,7 +21,8 @@ let cache: Record<string, string> | null = null;
 export function staticTemplateFiles(): Record<string, string> {
   if (cache) return cache;
   const out: Record<string, string> = {};
-  for (const f of walk(TEMPLATE_DIR)) out[relative(TEMPLATE_DIR, f).split('\\').join('/')] = readFileSync(f, 'utf8');
+  for (const f of walk(TEMPLATE_DIR))
+    out[relative(TEMPLATE_DIR, f).split('\\').join('/')] = readFileSync(f, 'utf8');
   return (cache = out);
 }
 
@@ -55,7 +56,9 @@ const screen = (s: ScreenSpec) =>
     ...(s.items?.length
       ? [
           `    items: [`,
-          ...s.items.map((i) => `      ItemDef(${L(i.title)}${i.subtitle ? `, ${L(i.subtitle)}` : ''}),`),
+          ...s.items.map(
+            (i) => `      ItemDef(${L(i.title)}${i.subtitle ? `, ${L(i.subtitle)}` : ''}),`,
+          ),
           `    ],`,
         ]
       : []),
@@ -77,8 +80,12 @@ function pubspec(spec: MobileSpec): string {
       ? `  ${name}:\n    ${e.constraint}`
       : `  ${name}: ${e.constraint}`;
   };
-  const direct = Object.entries(PUB_ALLOWLIST).filter(([, e]) => e.kind === 'dependency').map(([n]) => n);
-  const dev = Object.entries(PUB_ALLOWLIST).filter(([, e]) => e.kind === 'dev').map(([n]) => n);
+  const direct = Object.entries(PUB_ALLOWLIST)
+    .filter(([, e]) => e.kind === 'dependency')
+    .map(([n]) => n);
+  const dev = Object.entries(PUB_ALLOWLIST)
+    .filter(([, e]) => e.kind === 'dev')
+    .map(([n]) => n);
   return [
     `name: ${packageNameOf(spec)}`,
     `description: ${JSON.stringify(spec.app.name.en)}`,
@@ -154,7 +161,8 @@ function readme(spec: MobileSpec): string {
 export function generateFlutterProject(spec: MobileSpec): Record<string, string> {
   const pkg = packageNameOf(spec);
   const files: Record<string, string> = {};
-  for (const [path, text] of Object.entries(staticTemplateFiles())) files[path] = text.split(PLACEHOLDER).join(pkg);
+  for (const [path, text] of Object.entries(staticTemplateFiles()))
+    files[path] = text.split(PLACEHOLDER).join(pkg);
   files['pubspec.yaml'] = pubspec(spec);
   files['lib/generated/app_spec.dart'] = appSpecDart(spec);
   files['README.md'] = readme(spec);

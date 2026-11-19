@@ -6,7 +6,12 @@ import { sha256 } from '../core';
 /** Where artifact bytes live (production: the M08 object store bucket in the project's region: NOT CONNECTED, so `UnavailableArtifactStore` fails honestly). */
 export abstract class ArtifactBytesPort {
   abstract readonly kind: string;
-  abstract put(orgId: string, buildId: string, fileName: string, bytes: Buffer): Promise<{ storageRef: string; sha256: string }>;
+  abstract put(
+    orgId: string,
+    buildId: string,
+    fileName: string,
+    bytes: Buffer,
+  ): Promise<{ storageRef: string; sha256: string }>;
   abstract get(storageRef: string): Promise<Buffer | null>;
 }
 export class MemoryArtifactBytes extends ArtifactBytesPort {

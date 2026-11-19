@@ -25,7 +25,8 @@ describe('copy lint (AC-M10-14)', () => {
     'لا تقدم نظم أي ضمان بشأن نتيجة مراجعة المتجر.',
     'Prepare your release record',
   ])('allows: %s', (t) => expect(copyLint(t)).toEqual([]));
-  it('stringsOf walks nested values', () => expect(stringsOf({ a: ['x', { b: 'y' }], c: 1 })).toEqual(['x', 'y']));
+  it('stringsOf walks nested values', () =>
+    expect(stringsOf({ a: ['x', { b: 'y' }], c: 1 })).toEqual(['x', 'y']));
 
   const walk = (dir: string, out: string[] = []): string[] => {
     for (const n of readdirSync(dir)) {
@@ -39,7 +40,14 @@ describe('copy lint (AC-M10-14)', () => {
   it('no mobile console string and no mobile doc/template promises store approval', () => {
     const files = [
       ...walk(join(ROOT, 'apps/api/templates/flutter-core')),
-      ...['M10B-report', 'M10B-spec-change-requests', 'M10-gate-review', 'S48-report', 'S49-report', 'S50-report'].map((n) => join(ROOT, `docs/reports/${n}.md`)),
+      ...[
+        'M10B-report',
+        'M10B-spec-change-requests',
+        'M10-gate-review',
+        'S48-report',
+        'S49-report',
+        'S50-report',
+      ].map((n) => join(ROOT, `docs/reports/${n}.md`)),
       join(ROOT, 'docs/runbooks/mobile-signing.md'),
       join(ROOT, 'docs/runbooks/demo-m10b.md'),
     ].filter((f) => {
@@ -56,7 +64,9 @@ describe('copy lint (AC-M10-14)', () => {
       .filter((l) => /mobile\./.test(l))
       .join('\n');
     const hits = [
-      ...files.flatMap((f) => copyLint(readFileSync(f, 'utf8')).map((h) => `${relative(ROOT, f)}: ${h.rule}`)),
+      ...files.flatMap((f) =>
+        copyLint(readFileSync(f, 'utf8')).map((h) => `${relative(ROOT, f)}: ${h.rule}`),
+      ),
       ...copyLint(msgs).map((h) => `messages: ${h.rule}`),
     ];
     expect(hits).toEqual([]);

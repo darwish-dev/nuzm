@@ -152,7 +152,8 @@ describe('sessions and messages', () => {
 describe('creating runs', () => {
   it('rejects unknown and not-yet-available kinds (422 unsupported_kind) and malformed input', async () => {
     const sid = await session();
-    for (const kind of ['webapp', 'mobile', 'test-fix'])
+    for (const kind of ['webapp', 'test-fix'])
+      // `mobile` is served since M10B (needs a project: see mobile.int.spec.ts)
       expect((await mkRun({ sessionId: sid, kind })).json().code).toBe('unsupported_kind');
     expect((await mkRun({ sessionId: sid, kind: 'nope' })).statusCode).toBe(422);
     expect(

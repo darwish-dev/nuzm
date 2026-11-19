@@ -13,7 +13,10 @@ export class MobileBuilderEnabledGuard implements CanActivate {
     const orgId = ctx.switchToHttp().getRequest<FastifyRequest>().access?.orgId;
     if (!orgId) return true; // the access guard decides authentication
     if (!(await this.projects.mobileEnabled(orgId)))
-      throw new ProblemException('not_found', 'the mobile builder is not enabled for this organization');
+      throw new ProblemException(
+        'not_found',
+        'the mobile builder is not enabled for this organization',
+      );
     return true;
   }
 }

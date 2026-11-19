@@ -62,7 +62,16 @@ const bi = (max = 120): Schema => ({
 });
 export const MOBILE_SPEC_SCHEMA: Schema = {
   type: 'object',
-  required: ['schemaVersion', 'app', 'theme', 'defaultLocale', 'auth', 'screens', 'navigation', 'permissions'],
+  required: [
+    'schemaVersion',
+    'app',
+    'theme',
+    'defaultLocale',
+    'auth',
+    'screens',
+    'navigation',
+    'permissions',
+  ],
   additionalProperties: false,
   properties: {
     schemaVersion: { const: 1 },
@@ -72,7 +81,11 @@ export const MOBILE_SPEC_SCHEMA: Schema = {
       additionalProperties: false,
       properties: {
         name: bi(40),
-        packageId: { type: 'string', pattern: '^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*){2,4}$', maxLength: 80 },
+        packageId: {
+          type: 'string',
+          pattern: '^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*){2,4}$',
+          maxLength: 80,
+        },
         description: bi(300),
       },
     },
@@ -87,7 +100,12 @@ export const MOBILE_SPEC_SCHEMA: Schema = {
       },
     },
     defaultLocale: { enum: ['ar', 'en'] },
-    auth: { type: 'object', required: ['enabled'], additionalProperties: false, properties: { enabled: { type: 'boolean' } } },
+    auth: {
+      type: 'object',
+      required: ['enabled'],
+      additionalProperties: false,
+      properties: { enabled: { type: 'boolean' } },
+    },
     screens: {
       type: 'array',
       minItems: 1,
@@ -156,7 +174,18 @@ export const MOBILE_SPEC_SCHEMA: Schema = {
 // eslint-disable-next-line no-control-regex
 const BAD_TEXT = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f‪-‮⁦-⁩]/;
 const RESERVED = new Set(['login', 'splash', 'app', 'main', 'routes']);
-const DART_KEYWORDS = new Set(['class', 'enum', 'new', 'null', 'this', 'true', 'false', 'var', 'void', 'with']);
+const DART_KEYWORDS = new Set([
+  'class',
+  'enum',
+  'new',
+  'null',
+  'this',
+  'true',
+  'false',
+  'var',
+  'void',
+  'with',
+]);
 
 /** Schema + semantic checks; returns messages ([] = valid). */
 export function validateMobileSpec(spec: unknown): string[] {
@@ -166,20 +195,28 @@ export function validateMobileSpec(spec: unknown): string[] {
   const out: string[] = [];
   const ids = s.screens.map((x) => x.id);
   if (new Set(ids).size !== ids.length) out.push('screen ids must be unique');
-  for (const id of ids) if (RESERVED.has(id) || DART_KEYWORDS.has(id)) out.push(`screen id ${id} is reserved`);
+  for (const id of ids)
+    if (RESERVED.has(id) || DART_KEYWORDS.has(id)) out.push(`screen id ${id} is reserved`);
   if (!ids.includes(s.navigation.initial)) out.push('navigation.initial is not a screen');
-  for (const t of s.navigation.tabs) if (!ids.includes(t)) out.push(`navigation tab ${t} is not a screen`);
-  if (new Set(s.navigation.tabs).size !== s.navigation.tabs.length) out.push('navigation tabs must be unique');
+  for (const t of s.navigation.tabs)
+    if (!ids.includes(t)) out.push(`navigation tab ${t} is not a screen`);
+  if (new Set(s.navigation.tabs).size !== s.navigation.tabs.length)
+    out.push('navigation tabs must be unique');
   if (s.navigation.tabs.length < 1) out.push('navigation needs a tab');
   for (const sc of s.screens) {
-    if (sc.kind === 'form' && (!sc.fields || sc.fields.length < 1)) out.push(`form screen ${sc.id} needs fields`);
-    if (sc.kind !== 'form' && sc.fields && sc.fields.length) out.push(`screen ${sc.id}: only form screens have fields`);
-    if (sc.kind !== 'list' && sc.items && sc.items.length) out.push(`screen ${sc.id}: only list screens have items`);
+    if (sc.kind === 'form' && (!sc.fields || sc.fields.length < 1))
+      out.push(`form screen ${sc.id} needs fields`);
+    if (sc.kind !== 'form' && sc.fields && sc.fields.length)
+      out.push(`screen ${sc.id}: only form screens have fields`);
+    if (sc.kind !== 'list' && sc.items && sc.items.length)
+      out.push(`screen ${sc.id}: only list screens have items`);
     const fids = (sc.fields ?? []).map((f) => f.id);
     if (new Set(fids).size !== fids.length) out.push(`screen ${sc.id}: field ids must be unique`);
     for (const f of sc.fields ?? []) {
-      if (f.type === 'choice' && (!f.options || f.options.length < 2)) out.push(`field ${sc.id}.${f.id}: a choice needs 2+ options`);
-      if (f.type !== 'choice' && f.options?.length) out.push(`field ${sc.id}.${f.id}: only a choice has options`);
+      if (f.type === 'choice' && (!f.options || f.options.length < 2))
+        out.push(`field ${sc.id}.${f.id}: a choice needs 2+ options`);
+      if (f.type !== 'choice' && f.options?.length)
+        out.push(`field ${sc.id}.${f.id}: only a choice has options`);
     }
   }
   if (new Set(s.permissions).size !== s.permissions.length) out.push('permissions must be unique');
@@ -190,6 +227,7 @@ export function validateMobileSpec(spec: unknown): string[] {
     else if (v && typeof v === 'object') Object.values(v as object).forEach(walk);
   };
   walk(s);
-  if (texts.some((t) => BAD_TEXT.test(t))) out.push('text contains control or bidi-override characters');
+  if (texts.some((t) => BAD_TEXT.test(t)))
+    out.push('text contains control or bidi-override characters');
   return out;
 }

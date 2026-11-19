@@ -1,12 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { ANDROID_PERMISSION, MockBuildRunner, UnavailableBuildRunner, applyAndroidPermissions, buildEnv } from './runner';
+import {
+  ANDROID_PERMISSION,
+  MockBuildRunner,
+  UnavailableBuildRunner,
+  applyAndroidPermissions,
+  buildEnv,
+} from './runner';
 
-const MANIFEST = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <application android:label="x"/>\n</manifest>\n';
+const MANIFEST =
+  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <application android:label="x"/>\n</manifest>\n';
 
 describe('build runner helpers', () => {
   it('buildEnv passes only the allow-list: no database URL, token or secret ever reaches a build process', () => {
-    const e = buildEnv({ PATH: '/bin', HOME: '/h', JAVA_HOME: '/j', DATABASE_URL: 'postgres://u:p@h/d', AI_SECRET_CANARIES: 'CANARY-X-0001', NUZM_API_TOKEN: 't', AWS_SECRET_ACCESS_KEY: 'k' });
-    expect(Object.keys(e).sort()).toEqual(['CI', 'CLI_DISABLE_ANALYTICS', 'FLUTTER_SUPPRESS_ANALYTICS', 'HOME', 'JAVA_HOME', 'PATH']);
+    const e = buildEnv({
+      PATH: '/bin',
+      HOME: '/h',
+      JAVA_HOME: '/j',
+      DATABASE_URL: 'postgres://u:p@h/d',
+      AI_SECRET_CANARIES: 'CANARY-X-0001',
+      NUZM_API_TOKEN: 't',
+      AWS_SECRET_ACCESS_KEY: 'k',
+    });
+    expect(Object.keys(e).sort()).toEqual([
+      'CI',
+      'CLI_DISABLE_ANALYTICS',
+      'FLUTTER_SUPPRESS_ANALYTICS',
+      'HOME',
+      'JAVA_HOME',
+      'PATH',
+    ]);
   });
   it('adds only declared permissions to the manifest, idempotently', () => {
     const once = applyAndroidPermissions(MANIFEST, ['internet', 'camera']);

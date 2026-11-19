@@ -26,18 +26,31 @@ export class MobileRunHandler implements RunKindHandler {
   validateInput(input: Record<string, unknown>): void {
     const d = input.description;
     if (typeof d !== 'string' || d.trim().length < 3 || d.length > 600)
-      throw new ProblemException('validation_failed', 'input.description must be 3 to 600 characters');
+      throw new ProblemException(
+        'validation_failed',
+        'input.description must be 3 to 600 characters',
+      );
     const extra = Object.keys(input).filter((k) => k !== 'description');
     if (extra.length)
-      throw new ProblemException('validation_failed', `unknown input members: ${extra.slice(0, 5).join(', ')}`);
+      throw new ProblemException(
+        'validation_failed',
+        `unknown input members: ${extra.slice(0, 5).join(', ')}`,
+      );
   }
 
   async execute(ctx: RunContext): Promise<void> {
     const projectId = ctx.run.projectId!;
     if (!(await this.projects.mobileEnabled(ctx.orgId)))
-      throw new ProblemException('not_found', 'the mobile builder is not enabled for this organization');
+      throw new ProblemException(
+        'not_found',
+        'the mobile builder is not enabled for this organization',
+      );
     const src = await this.projects.sourceOf(ctx.orgId, projectId);
-    if (!src) throw new ProblemException('validation_failed', 'a mobile run needs a project of type mobile');
+    if (!src)
+      throw new ProblemException(
+        'validation_failed',
+        'a mobile run needs a project of type mobile',
+      );
 
     // 1. the design agent
     if (!ctx.checkpoint.spec) {
@@ -52,7 +65,11 @@ export class MobileRunHandler implements RunKindHandler {
       });
       const errs = validateMobileSpec(spec);
       if (errs.length)
-        throw new ProblemException('validation_failed', 'the design is not a valid mobile spec', errs);
+        throw new ProblemException(
+          'validation_failed',
+          'the design is not a valid mobile spec',
+          errs,
+        );
       const artifactId = await ctx.artifact('architecture', spec);
       await ctx.save({ spec, specArtifactId: artifactId }, 'design');
     }
@@ -84,7 +101,11 @@ export class MobileRunHandler implements RunKindHandler {
       const files = generateFlutterProject(spec);
       const issues = analyzeProject(files);
       if (issues.length)
-        throw new ProblemException('validation_failed', 'the generated project failed the analysis gate', issues);
+        throw new ProblemException(
+          'validation_failed',
+          'the generated project failed the analysis gate',
+          issues,
+        );
       const v = await this.projects.commit({
         orgId: ctx.orgId,
         projectId,
@@ -98,7 +119,10 @@ export class MobileRunHandler implements RunKindHandler {
         label: 'AI generated Flutter project',
         userId: ctx.userId,
       });
-      await ctx.save({ versionId: v.versionId, versionSeq: v.seq, fileCount: v.fileCount }, 'committed');
+      await ctx.save(
+        { versionId: v.versionId, versionSeq: v.seq, fileCount: v.fileCount },
+        'committed',
+      );
     }
     return ctx.succeed({
       projectId,

@@ -9,14 +9,28 @@ import { IdentityModule } from '../identity';
 import { BuildsController } from './builds.controller';
 import { ReleasesController } from './releases.controller';
 import { SigningController } from './signing.controller';
-import { ArtifactBytesPort, LocalDirArtifactBytes, MemoryArtifactBytes, UnavailableArtifactBytes } from './internal/builds/blobs';
+import {
+  ArtifactBytesPort,
+  LocalDirArtifactBytes,
+  MemoryArtifactBytes,
+  UnavailableArtifactBytes,
+} from './internal/builds/blobs';
 import { BuildService, DEFAULT_BUILD_CONFIG } from './internal/builds/build.service';
-import { BuildRunnerPort, LocalAndroidRunner, MockBuildRunner, UnavailableBuildRunner } from './internal/builds/runner';
+import {
+  BuildRunnerPort,
+  LocalAndroidRunner,
+  MockBuildRunner,
+  UnavailableBuildRunner,
+} from './internal/builds/runner';
 import { MobileBuilderEnabledGuard } from './internal/flag.guard';
 import { MobileRunHandler } from './internal/mobile-run.handler';
 import { PubAdvisoryPort, StaticPubAdvisories } from './internal/policy/pub-policy';
 import { ReleaseService } from './internal/releases/release.service';
-import { SigningService, SigningStagePort, UnavailableSigningStage } from './internal/signing/signing.service';
+import {
+  SigningService,
+  SigningStagePort,
+  UnavailableSigningStage,
+} from './internal/signing/signing.service';
 
 /**
  * Build runner selection. Production (and any unset environment) has NO runner: D-21 (sandbox technology) and D-22 / HG-10-01 (macOS capacity, accounts, signing material) are open, so the
@@ -68,11 +82,22 @@ export const makeArtifactBytes = (env: NodeJS.ProcessEnv = process.env): Artifac
         adv: PubAdvisoryPort,
         res: ResidencyService,
       ) => new BuildService(db, a, p, s, st, r, b, adv, res, DEFAULT_BUILD_CONFIG),
-      inject: [DB, AuditSink, MobileProjectService, SigningService, SigningStagePort, BuildRunnerPort, ArtifactBytesPort, PubAdvisoryPort, ResidencyService],
+      inject: [
+        DB,
+        AuditSink,
+        MobileProjectService,
+        SigningService,
+        SigningStagePort,
+        BuildRunnerPort,
+        ArtifactBytesPort,
+        PubAdvisoryPort,
+        ResidencyService,
+      ],
     },
     {
       provide: ReleaseService,
-      useFactory: (db: Db, a: AuditSink, p: MobileProjectService) => new ReleaseService(db, a, p, DEFAULT_BUILD_CONFIG.region),
+      useFactory: (db: Db, a: AuditSink, p: MobileProjectService) =>
+        new ReleaseService(db, a, p, DEFAULT_BUILD_CONFIG.region),
       inject: [DB, AuditSink, MobileProjectService],
     },
   ],

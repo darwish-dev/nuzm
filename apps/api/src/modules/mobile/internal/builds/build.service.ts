@@ -76,7 +76,8 @@ const dto = (r: Row, canIos: boolean): BuildDto => {
   if (r.isolation === 'none' || r.runner_kind === 'local-android')
     notices.push('not isolated: a local development runner is never isolation evidence');
   if (r.runner_kind === 'mock') notices.push('mock runner: not a real build');
-  if (r.platform === 'ios' && !canIos) notices.push('iOS builds need macOS capacity (D-22 / HG-10-01)');
+  if (r.platform === 'ios' && !canIos)
+    notices.push('iOS builds need macOS capacity (D-22 / HG-10-01)');
   return {
     id: r.id as string,
     projectId: r.project_id as string,
@@ -133,12 +134,17 @@ export class BuildService {
 
   async create(orgId: string, userId: string, b: Record<string, unknown>): Promise<BuildDto> {
     const extra = onlyKeys(b, BODY);
-    if (extra.length) throw new ProblemException('validation_failed', `unknown member(s): ${extra.slice(0, 5).join(', ')}`);
+    if (extra.length)
+      throw new ProblemException(
+        'validation_failed',
+        `unknown member(s): ${extra.slice(0, 5).join(', ')}`,
+      );
     if (b.platform !== 'android' && b.platform !== 'ios')
       throw new ProblemException('validation_failed', 'platform must be android or ios');
     if (b.profile !== 'debug' && b.profile !== 'release')
       throw new ProblemException('validation_failed', 'profile must be debug or release');
-    if (!isUuid(b.projectId)) throw new ProblemException('validation_failed', 'projectId must be a uuid');
+    if (!isUuid(b.projectId))
+      throw new ProblemException('validation_failed', 'projectId must be a uuid');
     if (b.versionId !== undefined && !isUuid(b.versionId))
       throw new ProblemException('validation_failed', 'versionId must be a uuid');
     const platform = b.platform as Platform;
@@ -149,30 +155,60 @@ export class BuildService {
     const src = versionId ? await this.projects.sourceOf(orgId, project.id, versionId) : null;
     if (!src) throw new ProblemException('not_found', 'project version not found');
     if (Object.keys(src.files).length < 2 || !src.manifest.spec)
-      throw new ProblemException('validation_failed', 'the version has no generated Flutter project yet (run kind=mobile first)');
+      throw new ProblemException(
+        'validation_failed',
+        'the version has no generated Flutter project yet (run kind=mobile first)',
+      );
 
-    if (platform === 'ios') throw new ProblemException('no_macos_capacity', 'iOS builds need macOS capacity (D-22 / HG-10-01); none is connected');
+    if (platform === 'ios')
+      throw new ProblemException(
+        'no_macos_capacity',
+        'iOS builds need macOS capacity (D-22 / HG-10-01); none is connected',
+      );
     let credentialId: string | null = null;
     if (profile === 'release') {
       const cred = await this.signing.activeFor(orgId, platform);
       if (!cred)
-        throw new ProblemException('signing_not_authorized', 'no signing credential reference authorized by an owner or admin exists for this platform');
+        throw new ProblemException(
+          'signing_not_authorized',
+          'no signing credential reference authorized by an owner or admin exists for this platform',
+        );
       if (!this.stage.available())
-        throw new ProblemException('signing_unavailable', 'no signing stage is connected (HG-10-01 pending): a release build cannot be signed');
+        throw new ProblemException(
+          'signing_unavailable',
+          'no signing stage is connected (HG-10-01 pending): a release build cannot be signed',
+        );
       credentialId = cred.id;
     }
     if (!this.runner.supports(platform, profile))
-      throw new ProblemException('build_runner_unavailable', `no build worker is available for ${platform}/${profile}`);
+      throw new ProblemException(
+        'build_runner_unavailable',
+        `no build worker is available for ${platform}/${profile}`,
+      );
 
     const id = newId();
-    const row = await this.db.withOrg(orgId, async (c) =>
-      (
-        await c.query(
-          `INSERT INTO mobile.builds (id, org_id, project_id, version_id, platform, profile, runner_kind, isolation, signing_credential_id, data_region, requested_by, operation_id)
+    const row = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `INSERT INTO mobile.builds (id, org_id, project_id, version_id, platform, profile, runner_kind, isolation, signing_credential_id, data_region, requested_by, operation_id)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$1) RETURNING *`,
-          [id, orgId, project.id, versionId, platform, profile, this.runner.kind, this.runner.isolation, credentialId, this.cfg.region, userId],
-        )
-      ).rows[0] as Row,
+            [
+              id,
+              orgId,
+              project.id,
+              versionId,
+              platform,
+              profile,
+              this.runner.kind,
+              this.runner.isolation,
+              credentialId,
+              this.cfg.region,
+              userId,
+            ],
+          )
+        ).rows[0] as Row,
     );
     await this.audit.record({
       action: 'mobile.build.requested',
@@ -188,13 +224,15 @@ export class BuildService {
 
   /** Run a queued build to its end. Safe to call twice: only one caller wins the claim. */
   async execute(orgId: string, buildId: string): Promise<BuildDto | null> {
-    const claimed = await this.db.withOrg(orgId, async (c) =>
-      (
-        await c.query(
-          `UPDATE mobile.builds SET status='building', started_at=now(), worker_ref=$2 WHERE id=$1 AND status='queued' RETURNING *`,
-          [buildId, `${this.runner.kind}:${process.pid}`],
-        )
-      ).rows[0] as Row | undefined,
+    const claimed = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE mobile.builds SET status='building', started_at=now(), worker_ref=$2 WHERE id=$1 AND status='queued' RETURNING *`,
+            [buildId, `${this.runner.kind}:${process.pid}`],
+          )
+        ).rows[0] as Row | undefined,
     );
     if (!claimed) return null;
     const started = Date.now();
@@ -202,9 +240,14 @@ export class BuildService {
     const log = (l: string) => {
       if (lines.length < 4000) lines.push(l);
     };
-    let outcome: { ok: true; out: Awaited<ReturnType<BuildRunnerPort['run']>> } | { ok: false; code: string };
+    let outcome:
+      { ok: true; out: Awaited<ReturnType<BuildRunnerPort['run']>> } | { ok: false; code: string };
     try {
-      const src = await this.projects.sourceOf(orgId, claimed.project_id as string, claimed.version_id as string);
+      const src = await this.projects.sourceOf(
+        orgId,
+        claimed.project_id as string,
+        claimed.version_id as string,
+      );
       if (!src) throw new BuildFailure('source_missing', 'the project version is gone');
       const issues = analyzeProject(src.files);
       if (issues.length) {
@@ -218,7 +261,11 @@ export class BuildService {
         purpose: 'mobile_artifact_storage',
         operation: 'write',
       });
-      if (res.decision !== 'allow') throw new BuildFailure('residency_denied', 'artifact storage is not allowed in this region');
+      if (res.decision !== 'allow')
+        throw new BuildFailure(
+          'residency_denied',
+          'artifact storage is not allowed in this region',
+        );
       const out = await this.runner.run(
         {
           buildId,
@@ -226,10 +273,17 @@ export class BuildService {
           profile: claimed.profile as Profile,
           files: src.files,
           verifyLock: async (lock) => {
-            const r = await evaluatePubLock(lock, { allowedHosts: this.cfg.lockHosts, advisories: this.advisories });
+            const r = await evaluatePubLock(lock, {
+              allowedHosts: this.cfg.lockHosts,
+              advisories: this.advisories,
+            });
             if (r.issues.length) {
-              for (const i of r.issues.slice(0, 20)) log(`supply-chain: ${i.rule} ${i.package ?? ''} ${i.detail}`);
-              throw new BuildFailure('dependency_blocked', `${r.issues.length} supply-chain issue(s) in the resolved lockfile`);
+              for (const i of r.issues.slice(0, 20))
+                log(`supply-chain: ${i.rule} ${i.package ?? ''} ${i.detail}`);
+              throw new BuildFailure(
+                'dependency_blocked',
+                `${r.issues.length} supply-chain issue(s) in the resolved lockfile`,
+              );
             }
             log(`lockfile ok: ${r.packages.length} packages`);
           },
@@ -243,12 +297,24 @@ export class BuildService {
       outcome = { ok: false, code };
     }
     // artifact bytes are stored BEFORE the result transaction: a storage failure becomes a failed build, never a build stuck in `building`
-    const stored: { kind: string; fileName: string; storageRef: string; sha256: string; size: number }[] = [];
+    const stored: {
+      kind: string;
+      fileName: string;
+      storageRef: string;
+      sha256: string;
+      size: number;
+    }[] = [];
     if (outcome.ok) {
       try {
         for (const a of outcome.out.artifacts) {
           const r = await this.bytes.put(orgId, buildId, a.fileName, a.bytes);
-          stored.push({ kind: a.kind, fileName: a.fileName, storageRef: r.storageRef, sha256: r.sha256, size: a.bytes.length });
+          stored.push({
+            kind: a.kind,
+            fileName: a.fileName,
+            storageRef: r.storageRef,
+            sha256: r.sha256,
+            size: a.bytes.length,
+          });
         }
       } catch {
         log('build failed: storage_unavailable');
@@ -257,7 +323,10 @@ export class BuildService {
     }
     const finished = Date.now();
     const minutes = Math.max(0.000001, (finished - started) / 60000);
-    const logText = redactLog(lines, (process.env.AI_SECRET_CANARIES ?? '').split(',').filter((x) => x.length >= 8)).slice(-this.cfg.logCap);
+    const logText = redactLog(
+      lines,
+      (process.env.AI_SECRET_CANARIES ?? '').split(',').filter((x) => x.length >= 8),
+    ).slice(-this.cfg.logCap);
     const done = await this.db.withOrg(orgId, async (c) => {
       let toolchain: Record<string, unknown> = {};
       let signed = false;
@@ -269,18 +338,43 @@ export class BuildService {
           await c.query(
             `INSERT INTO mobile.artifacts (id, org_id, build_id, kind, file_name, storage_ref, sha256, size_bytes, signed, retention_until, data_region)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now() + make_interval(days => $10), $11)`,
-            [newId(), orgId, buildId, a.kind, a.fileName, a.storageRef, a.sha256, a.size, signed, days, claimed.data_region],
+            [
+              newId(),
+              orgId,
+              buildId,
+              a.kind,
+              a.fileName,
+              a.storageRef,
+              a.sha256,
+              a.size,
+              signed,
+              days,
+              claimed.data_region,
+            ],
           );
       }
       const r = (
         await c.query(
           `UPDATE mobile.builds SET status=$2, error_code=$3, log_excerpt=$4, minutes_billed=$5, toolchain=$6, signed=$7, finished_at=now() WHERE id=$1 RETURNING *`,
-          [buildId, outcome.ok ? 'succeeded' : 'failed', outcome.ok ? null : outcome.code, logText, minutes.toFixed(6), JSON.stringify(toolchain), signed],
+          [
+            buildId,
+            outcome.ok ? 'succeeded' : 'failed',
+            outcome.ok ? null : outcome.code,
+            logText,
+            minutes.toFixed(6),
+            JSON.stringify(toolchain),
+            signed,
+          ],
         )
       ).rows[0] as Row;
       // one metering event per build, deterministic id, same transaction as the result (macOS minutes are flagged by the platform dimension)
       await emitUsage(c, {
-        eventId: usageEventId({ orgId, meterId: 'mobile.build_minutes', resourceId: buildId, windowStart: new Date(started).toISOString() }),
+        eventId: usageEventId({
+          orgId,
+          meterId: 'mobile.build_minutes',
+          resourceId: buildId,
+          windowStart: new Date(started).toISOString(),
+        }),
         orgId,
         meterId: 'mobile.build_minutes',
         quantity: minutes.toFixed(6),
@@ -302,7 +396,12 @@ export class BuildService {
       orgId,
       resource: { type: 'mobile_build', id: buildId },
       outcome: outcome.ok ? 'success' : 'failure',
-      detail: { platform: claimed.platform, profile: claimed.profile, runner: this.runner.kind, code: outcome.ok ? null : outcome.code },
+      detail: {
+        platform: claimed.platform,
+        profile: claimed.profile,
+        runner: this.runner.kind,
+        code: outcome.ok ? null : outcome.code,
+      },
     });
     return dto(done, false);
   }
@@ -319,14 +418,23 @@ export class BuildService {
   }
   async get(orgId: string, id: string): Promise<BuildDto> {
     if (!isUuid(id)) throw new ProblemException('not_found');
-    const r = await this.db.withOrg(orgId, async (c) => (await c.query(`SELECT * FROM mobile.builds WHERE id=$1`, [id.toLowerCase()])).rows[0] as Row | undefined);
+    const r = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (await c.query(`SELECT * FROM mobile.builds WHERE id=$1`, [id.toLowerCase()])).rows[0] as
+          Row | undefined,
+    );
     if (!r) throw new ProblemException('not_found');
     return dto(r, false);
   }
   async artifacts(orgId: string, buildId: string): Promise<ArtifactDto[]> {
     await this.get(orgId, buildId);
     return this.db.withOrg(orgId, async (c) =>
-      (await c.query(`SELECT * FROM mobile.artifacts WHERE build_id=$1 ORDER BY created_at, id`, [buildId.toLowerCase()])).rows.map((r) => adto(r as Row)),
+      (
+        await c.query(`SELECT * FROM mobile.artifacts WHERE build_id=$1 ORDER BY created_at, id`, [
+          buildId.toLowerCase(),
+        ])
+      ).rows.map((r) => adto(r as Row)),
     );
   }
 }

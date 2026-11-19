@@ -58,7 +58,14 @@ import { PreviewServeController } from './public.controller';
       inject: [DB, AuditSink],
     },
   ],
-  exports: [ProjectService, MobileProjectService, PreviewService, FormsService, CmsService, BUILDER_CONFIG],
+  exports: [
+    ProjectService,
+    MobileProjectService,
+    PreviewService,
+    FormsService,
+    CmsService,
+    BUILDER_CONFIG,
+  ],
 })
 export class BuilderModule implements OnApplicationBootstrap {
   constructor(

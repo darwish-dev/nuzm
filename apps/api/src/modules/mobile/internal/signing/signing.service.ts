@@ -47,7 +47,10 @@ export interface SigningRequest {
 export abstract class SigningStagePort {
   abstract readonly kind: string;
   abstract available(): boolean;
-  abstract sign(r: SigningRequest, log: (line: string) => void): Promise<{ signedSha256: string; verified: boolean }>;
+  abstract sign(
+    r: SigningRequest,
+    log: (line: string) => void,
+  ): Promise<{ signedSha256: string; verified: boolean }>;
 }
 export class UnavailableSigningStage extends SigningStagePort {
   readonly kind = 'unavailable';
@@ -55,7 +58,10 @@ export class UnavailableSigningStage extends SigningStagePort {
     return false;
   }
   async sign(): Promise<never> {
-    throw new ProblemException('signing_unavailable', 'no signing stage is connected (HG-10-01 pending)');
+    throw new ProblemException(
+      'signing_unavailable',
+      'no signing stage is connected (HG-10-01 pending)',
+    );
   }
 }
 
@@ -77,7 +83,10 @@ export class SigningService {
     if (extra.length)
       throw new ProblemException(
         'raw_secret_rejected',
-        `unknown member(s) ${extra.slice(0, 5).map((k) => k.slice(0, 30)).join(', ')}: only a vault reference is accepted, never key material`,
+        `unknown member(s) ${extra
+          .slice(0, 5)
+          .map((k) => k.slice(0, 30))
+          .join(', ')}: only a vault reference is accepted, never key material`,
       );
     const platform = b.platform;
     if (platform !== 'android' && platform !== 'ios')
@@ -95,28 +104,43 @@ export class SigningService {
     ];
     for (const [member, v] of flat)
       if (scanForSecrets(v).length > 0 || BLOB.test(v) || /-----BEGIN/.test(v))
-        throw new ProblemException('raw_secret_rejected', `${member} looks like a secret or key material; send a vault reference only`);
+        throw new ProblemException(
+          'raw_secret_rejected',
+          `${member} looks like a secret or key material; send a vault reference only`,
+        );
     if (b.authorizedBy !== userId)
-      throw new ProblemException('validation_failed', 'authorizedBy must be the authenticated user');
+      throw new ProblemException(
+        'validation_failed',
+        'authorizedBy must be the authenticated user',
+      );
     return { platform: platform as Platform, label, vaultRef };
   }
 
-  async create(orgId: string, userId: string, b: Record<string, unknown>): Promise<SigningCredentialDto> {
+  async create(
+    orgId: string,
+    userId: string,
+    b: Record<string, unknown>,
+  ): Promise<SigningCredentialDto> {
     const v = this.validate(userId, b);
     const id = newId();
     let row: Row;
     try {
-      row = await this.db.withOrg(orgId, async (c) =>
-        (
-          await c.query(
-            `INSERT INTO mobile.signing_credential_refs (id, org_id, platform, label, vault_ref, authorized_by, data_region) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-            [id, orgId, v.platform, v.label, v.vaultRef, userId, this.region],
-          )
-        ).rows[0] as Row,
+      row = await this.db.withOrg(
+        orgId,
+        async (c) =>
+          (
+            await c.query(
+              `INSERT INTO mobile.signing_credential_refs (id, org_id, platform, label, vault_ref, authorized_by, data_region) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+              [id, orgId, v.platform, v.label, v.vaultRef, userId, this.region],
+            )
+          ).rows[0] as Row,
       );
     } catch (e) {
       if ((e as { code?: string }).code === '23505')
-        throw new ProblemException('conflict', 'an active credential with this label already exists for the platform');
+        throw new ProblemException(
+          'conflict',
+          'an active credential with this label already exists for the platform',
+        );
       throw e;
     }
     await this.audit.record({
@@ -134,7 +158,9 @@ export class SigningService {
   async list(orgId: string): Promise<SigningCredentialDto[]> {
     return this.db.withOrg(orgId, async (c) =>
       (
-        await c.query(`SELECT * FROM mobile.signing_credential_refs ORDER BY created_at DESC, id DESC LIMIT 200`)
+        await c.query(
+          `SELECT * FROM mobile.signing_credential_refs ORDER BY created_at DESC, id DESC LIMIT 200`,
+        )
       ).rows.map((r) => dto(r as Row)),
     );
   }
@@ -154,7 +180,11 @@ export class SigningService {
   async get(orgId: string, id: string): Promise<SigningCredentialDto | null> {
     if (!isUuid(id)) return null;
     return this.db.withOrg(orgId, async (c) => {
-      const r = (await c.query(`SELECT * FROM mobile.signing_credential_refs WHERE id=$1`, [id.toLowerCase()])).rows[0] as Row | undefined;
+      const r = (
+        await c.query(`SELECT * FROM mobile.signing_credential_refs WHERE id=$1`, [
+          id.toLowerCase(),
+        ])
+      ).rows[0] as Row | undefined;
       return r ? dto(r) : null;
     });
   }

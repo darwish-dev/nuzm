@@ -19,15 +19,24 @@ export const SAMPLE_MOBILE_SPEC: MobileSpec = {
       id: 'home',
       title: { ar: 'الرئيسية', en: 'Home' },
       kind: 'home',
-      body: { ar: 'مرحبًا بك. هنا ملخص مهامك لهذا اليوم.', en: "Welcome. Here is a summary of today's tasks." },
+      body: {
+        ar: 'مرحبًا بك. هنا ملخص مهامك لهذا اليوم.',
+        en: "Welcome. Here is a summary of today's tasks.",
+      },
     },
     {
       id: 'tasks',
       title: { ar: 'المهام', en: 'Tasks' },
       kind: 'list',
       items: [
-        { title: { ar: 'زيارة موقع العميل', en: 'Visit the customer site' }, subtitle: { ar: 'اليوم ٢:٠٠ م', en: 'Today 2:00 PM' } },
-        { title: { ar: 'تسليم التقرير', en: 'Hand in the report' }, subtitle: { ar: 'غدًا', en: 'Tomorrow' } },
+        {
+          title: { ar: 'زيارة موقع العميل', en: 'Visit the customer site' },
+          subtitle: { ar: 'اليوم ٢:٠٠ م', en: 'Today 2:00 PM' },
+        },
+        {
+          title: { ar: 'تسليم التقرير', en: 'Hand in the report' },
+          subtitle: { ar: 'غدًا', en: 'Tomorrow' },
+        },
       ],
     },
     {
@@ -36,8 +45,16 @@ export const SAMPLE_MOBILE_SPEC: MobileSpec = {
       kind: 'form',
       fields: [
         { id: 'title', label: { ar: 'العنوان', en: 'Title' }, type: 'text', required: true },
-        { id: 'contact_email', label: { ar: 'بريد جهة الاتصال', en: 'Contact email' }, type: 'email' },
-        { id: 'contact_phone', label: { ar: 'هاتف جهة الاتصال', en: 'Contact phone' }, type: 'phone' },
+        {
+          id: 'contact_email',
+          label: { ar: 'بريد جهة الاتصال', en: 'Contact email' },
+          type: 'email',
+        },
+        {
+          id: 'contact_phone',
+          label: { ar: 'هاتف جهة الاتصال', en: 'Contact phone' },
+          type: 'phone',
+        },
         { id: 'budget', label: { ar: 'الميزانية', en: 'Budget' }, type: 'number' },
         {
           id: 'priority',
@@ -57,7 +74,10 @@ export const SAMPLE_MOBILE_SPEC: MobileSpec = {
       id: 'about',
       title: { ar: 'عن التطبيق', en: 'About' },
       kind: 'detail',
-      body: { ar: "نسخة تجريبية مولّدة. لا تعتمد على المعاينة وحدها؛ اختبر على جهاز حقيقي.", en: 'A generated demo build. Do not rely on the preview alone; test on a real device.' },
+      body: {
+        ar: 'نسخة تجريبية مولّدة. لا تعتمد على المعاينة وحدها؛ اختبر على جهاز حقيقي.',
+        en: 'A generated demo build. Do not rely on the preview alone; test on a real device.',
+      },
     },
     { id: 'settings', title: { ar: 'الإعدادات', en: 'Settings' }, kind: 'settings' },
   ],

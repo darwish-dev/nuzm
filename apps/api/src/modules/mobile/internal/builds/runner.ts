@@ -58,13 +58,14 @@ export class UnavailableBuildRunner extends BuildRunnerPort {
 export class MockBuildRunner extends BuildRunnerPort {
   readonly kind = 'mock';
   readonly isolation = 'none' as const;
-  constructor(
-    private readonly opts: { fail?: string; android?: boolean; ios?: boolean } = {},
-  ) {
+  constructor(private readonly opts: { fail?: string; android?: boolean; ios?: boolean } = {}) {
     super();
   }
   supports(platform: Platform, profile: Profile): boolean {
-    return profile === 'debug' && (platform === 'android' ? this.opts.android !== false : this.opts.ios === true);
+    return (
+      profile === 'debug' &&
+      (platform === 'android' ? this.opts.android !== false : this.opts.ios === true)
+    );
   }
   async run(i: BuildInput, log: (l: string) => void): Promise<BuildOutput> {
     log(`mock build ${i.buildId} (${i.platform}/${i.profile}): not a real build`);
@@ -73,7 +74,13 @@ export class MockBuildRunner extends BuildRunnerPort {
     );
     if (this.opts.fail) throw new BuildFailure(this.opts.fail, `mock failure ${this.opts.fail}`);
     return {
-      artifacts: [{ kind: 'apk', fileName: 'app-debug.apk', bytes: Buffer.from(`MOCK-NOT-A-REAL-APK:${i.buildId}`) }],
+      artifacts: [
+        {
+          kind: 'apk',
+          fileName: 'app-debug.apk',
+          bytes: Buffer.from(`MOCK-NOT-A-REAL-APK:${i.buildId}`),
+        },
+      ],
       toolchain: { mock: true, runner: 'mock', flutter: PINNED_TOOLCHAIN.flutter },
       signed: false,
     };
@@ -100,7 +107,11 @@ const ENV_ALLOW = [
   'no_proxy',
 ];
 export const buildEnv = (src: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv => {
-  const out: NodeJS.ProcessEnv = { CI: 'true', FLUTTER_SUPPRESS_ANALYTICS: 'true', CLI_DISABLE_ANALYTICS: '1' };
+  const out: NodeJS.ProcessEnv = {
+    CI: 'true',
+    FLUTTER_SUPPRESS_ANALYTICS: 'true',
+    CLI_DISABLE_ANALYTICS: '1',
+  };
   for (const k of ENV_ALLOW) if (src[k] !== undefined) out[k] = src[k];
   return out;
 };
@@ -162,11 +173,16 @@ export const ANDROID_PERMISSION: Record<string, string> = {
   photos: 'android.permission.READ_MEDIA_IMAGES',
 };
 export function applyAndroidPermissions(manifestXml: string, permissions: string[]): string {
-  const wanted = permissions.map((p) => ANDROID_PERMISSION[p]).filter((x): x is string => Boolean(x));
+  const wanted = permissions
+    .map((p) => ANDROID_PERMISSION[p])
+    .filter((x): x is string => Boolean(x));
   let xml = manifestXml;
   for (const name of wanted) {
     if (xml.includes(`android:name="${name}"`)) continue;
-    xml = xml.replace(/<manifest([^>]*)>/, (m) => `${m}\n    <uses-permission android:name="${name}"/>`);
+    xml = xml.replace(
+      /<manifest([^>]*)>/,
+      (m) => `${m}\n    <uses-permission android:name="${name}"/>`,
+    );
   }
   return xml;
 }
@@ -180,7 +196,12 @@ export class LocalAndroidRunner extends BuildRunnerPort {
   readonly kind = 'local-android';
   readonly isolation = 'none' as const;
   constructor(
-    private readonly o: { flutter?: string; timeoutMs?: number; workRoot?: string; env?: NodeJS.ProcessEnv } = {},
+    private readonly o: {
+      flutter?: string;
+      timeoutMs?: number;
+      workRoot?: string;
+      env?: NodeJS.ProcessEnv;
+    } = {},
   ) {
     super();
   }
@@ -191,30 +212,50 @@ export class LocalAndroidRunner extends BuildRunnerPort {
     const flutter = this.o.flutter ?? 'flutter';
     const timeout = this.o.timeoutMs ?? 20 * 60_000;
     const env = buildEnv(this.o.env);
-    const root = await mkdtemp(join(this.o.workRoot ?? tmpdir(), `nuzm-mobile-${i.buildId.slice(0, 8)}-`));
+    const root = await mkdtemp(
+      join(this.o.workRoot ?? tmpdir(), `nuzm-mobile-${i.buildId.slice(0, 8)}-`),
+    );
     const started = Date.now();
     try {
       const step = async (args: string[], what: string, ms = timeout - (Date.now() - started)) => {
         log(`$ flutter ${args.join(' ')}`);
         const r = await exec(flutter, args, root, env, log, Math.max(1000, ms), i.signal);
         if (r.timedOut) throw new BuildFailure('build_timeout', `${what} timed out`);
-        if (r.code !== 0) throw new BuildFailure(`${what.replace(/\s+/g, '_')}_failed`, `${what} failed (exit ${String(r.code)})`);
+        if (r.code !== 0)
+          throw new BuildFailure(
+            `${what.replace(/\s+/g, '_')}_failed`,
+            `${what} failed (exit ${String(r.code)})`,
+          );
         return r.out;
       };
       // 1. toolchain: exactly the pinned Flutter
-      const v = await exec(flutter, ['--version', '--machine'], root, env, () => undefined, 60_000, i.signal);
+      const v = await exec(
+        flutter,
+        ['--version', '--machine'],
+        root,
+        env,
+        () => undefined,
+        60_000,
+        i.signal,
+      );
       let version = '';
       try {
-        version = (JSON.parse(v.out.slice(v.out.indexOf('{'))) as { frameworkVersion?: string }).frameworkVersion ?? '';
+        version =
+          (JSON.parse(v.out.slice(v.out.indexOf('{'))) as { frameworkVersion?: string })
+            .frameworkVersion ?? '';
       } catch {
         /* handled below */
       }
       if (version !== PINNED_TOOLCHAIN.flutter)
-        throw new BuildFailure('toolchain_mismatch', `Flutter ${version || 'unknown'} is not the pinned ${PINNED_TOOLCHAIN.flutter}`);
+        throw new BuildFailure(
+          'toolchain_mismatch',
+          `Flutter ${version || 'unknown'} is not the pinned ${PINNED_TOOLCHAIN.flutter}`,
+        );
       // 2. sources
       for (const [p, text] of Object.entries(i.files)) {
         const dst = join(root, p);
-        if (!dst.startsWith(root + '/')) throw new BuildFailure('unsafe_path', 'a file path leaves the project');
+        if (!dst.startsWith(root + '/'))
+          throw new BuildFailure('unsafe_path', 'a file path leaves the project');
         await mkdir(dirname(dst), { recursive: true });
         await writeFile(dst, text);
       }
@@ -224,12 +265,29 @@ export class LocalAndroidRunner extends BuildRunnerPort {
         permissions?: string[];
       };
       if (!manifest.applicationId || !manifest.packageName)
-        throw new BuildFailure('manifest_missing', 'tool/nuzm-mobile.json is missing or incomplete');
+        throw new BuildFailure(
+          'manifest_missing',
+          'tool/nuzm-mobile.json is missing or incomplete',
+        );
       const org = manifest.applicationId.split('.').slice(0, -1).join('.');
       // 3. platform folder from the pinned toolchain, declared permissions, dependency resolution
-      await step(['create', '--platforms=android', '--org', org, '--project-name', manifest.packageName, '.'], 'flutter create');
+      await step(
+        [
+          'create',
+          '--platforms=android',
+          '--org',
+          org,
+          '--project-name',
+          manifest.packageName,
+          '.',
+        ],
+        'flutter create',
+      );
       const mf = join(root, 'android/app/src/main/AndroidManifest.xml');
-      await writeFile(mf, applyAndroidPermissions(await readFile(mf, 'utf8'), manifest.permissions ?? ['internet']));
+      await writeFile(
+        mf,
+        applyAndroidPermissions(await readFile(mf, 'utf8'), manifest.permissions ?? ['internet']),
+      );
       await step(['pub', 'get'], 'pub get');
       // 4. the supply-chain gate sees the resolved lockfile before anything is compiled
       const lock = await readFile(join(root, 'pubspec.lock'), 'utf8').catch(() => '');
@@ -239,7 +297,9 @@ export class LocalAndroidRunner extends BuildRunnerPort {
       await step(['test'], 'flutter test');
       await step(['build', 'apk', '--debug'], 'flutter build apk');
       const dir = join(root, 'build/app/outputs/flutter-apk');
-      const apk = (await readdir(dir).catch(() => [] as string[])).find((f) => f === 'app-debug.apk');
+      const apk = (await readdir(dir).catch(() => [] as string[])).find(
+        (f) => f === 'app-debug.apk',
+      );
       if (!apk) throw new BuildFailure('artifact_missing', 'the build produced no app-debug.apk');
       return {
         artifacts: [{ kind: 'apk', fileName: apk, bytes: await readFile(join(dir, apk)) }],

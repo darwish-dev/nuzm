@@ -6,7 +6,8 @@ export type Row = Record<string, unknown>;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (s: unknown): s is string => typeof s === 'string' && UUID.test(s);
 export const newId = (): string => uuidv7();
-export const sha256 = (s: string | Uint8Array): string => createHash('sha256').update(s).digest('hex');
+export const sha256 = (s: string | Uint8Array): string =>
+  createHash('sha256').update(s).digest('hex');
 export const iso = (v: unknown): string | null => (v ? new Date(v as string).toISOString() : null);
 
 /** Deterministic JSON (keys sorted) for hashes that bind an approval to exact content. */

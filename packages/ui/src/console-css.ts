@@ -925,8 +925,7 @@ a.nzc-method:hover { border-color: var(--nzc-accent); transform: translateY(-2px
 }
 .nzc-yp-head { margin-block: 8px 12px; font-size: 18px; font-weight: 650; }
 @media (max-width: 640px) { .nzc-prompt-foot { flex-wrap: wrap; } }
-/* ================= flat surfaces =================
-   Cards and chips are told apart by their FILL (page < card < raised), never by a stroke or a shadow. A selected card is a stronger tint instead of an
+/* ================= flat surfaces ==========   Cards and chips are told apart by their FILL (page < card < raised), never by a stroke or a shadow. A selected card is a stronger tint instead of an
    outline. Inputs keep their border (it is what says "type here"), overlays (menus, tooltips) keep a soft shadow (they float over content), and
    keyboard focus keeps its outline: removing that would make the console unusable without a mouse. */
 .nzc .nz-card, .nzc .nz-table-wrap, .nzc-hero, .nzc-dsearch, .nzc .nzc-tlds label.nzc-tld, .nzc-dres-best, .nzc-dres-list, .nzc-rhead, .nzc-facts,
@@ -943,7 +942,6 @@ a.nzc-method:hover { border-color: var(--nzc-accent); transform: translateY(-2px
 .nzc-shop-chip, .nzc-method-soon { background: var(--nzc-elev); }
 .nzc-shop-tabs { background: var(--nzc-card); }
 /* selected cards: a stronger tint, plus the filled radio / check inside them */
-.nzc .nzc-tlds label.nzc-tld:has(input:checked), .nzc .nzc-plans label.nzc-plan:has(input:checked), .nzc div.nz-row:has(> input[type="radio"]:checked),
 .nzc label:has(> input[type="radio"]:checked) { background: color-mix(in srgb, var(--nzc-accent) 20%, var(--nzc-card)); }
 .nzc-method[data-featured="true"] { background: color-mix(in srgb, var(--nzc-accent) 12%, var(--nzc-card)); }
 .nzc-shop-plan { background: var(--nzc-card-hi); }
@@ -955,7 +953,6 @@ a.nzc-method:hover { border-color: var(--nzc-accent); transform: translateY(-2px
 
 /* hover: the card keeps its own fill (no grey) and a thin stroke appears; an outline draws it without moving anything */
 .nzc .nz-table-wrap[data-view="cards"] tbody tr:hover, .nzc .nz-table-wrap[data-view="cards"][data-card="rich"] tbody tr:hover, .nzc .nzc-tlds label.nzc-tld:hover,
-.nzc .nzc-plans label.nzc-plan:hover, a.nzc-method:hover, a.nzc-navcard:hover, .nzc-tile:hover, .nzc-shop-plan:hover { outline: 1.5px solid color-mix(in srgb, var(--nzc-accent) 60%, transparent); outline-offset: -1.5px; }
 a.nzc-navcard:hover, .nzc-tile:hover { background: var(--nzc-card); }
 /* list cards (servers, sites, databases, domains...): the icon with the status label beside it on top, the name under the icon, then the details */
 .nzc .nz-table-wrap[data-view="cards"] tbody tr { border: 0; box-shadow: none; background: var(--nzc-card); border-radius: 22px; transition: background-color 120ms ease; }
@@ -977,7 +974,6 @@ a.nzc-navcard:hover, .nzc-tile:hover { background: var(--nzc-card); }
 /* Service images retain the original illustration footprint. */
 .nzc-art-render { object-fit:contain; border-radius:0; }
 .nzc-hero-art.nzc-art-render { max-inline-size:360px; inline-size:100%; justify-self:center; }
-.nzc-dsearch-art.nzc-art-render { max-inline-size:160px; }
 .nzc-shop-type .nzc-art-render { max-inline-size:180px; justify-self:center; }
 /* ================= page transitions =================
    Moving between pages: the old content clears out, then the new page's blocks rise in one after another and the dashboard figures count up.
@@ -1181,4 +1177,21 @@ a.nzc-navcard:hover, .nzc-tile:hover { background: var(--nzc-card); }
 .nzc-dashboard .nzc-tile { min-block-size:110px; border:1px solid var(--nzc-border); }
 @media(max-width:900px) { .nzc-dashboard .nzc-split { grid-template-columns:1fr; } }
 @media(max-width:600px) { .nzc-dashboard .nzc-list li { align-items:start; flex-direction:column; gap:6px; } }
+
+/* Branded dimensional service panels: teal surfaces, mint highlights. */
+.nzc-service-banner { display:grid; grid-template-columns: 1.3fr 1fr; align-items:center; gap:28px; overflow:hidden; padding:36px; margin-block:20px 28px; border-radius:24px; color:#f2fff9; background:radial-gradient(ellipse at 90% 20%, #428f80 0%, transparent 55%), linear-gradient(120deg,#103e38,#21685c); }
+.nzc-service-copy { position:relative; z-index:1; max-inline-size:560px; }
+.nzc-service-copy h2 { font-size:clamp(25px,3vw,36px); line-height:1.2; letter-spacing:-.025em; margin:0 0 16px; }
+.nzc-service-copy p { color:#d0e9e0; line-height:1.75; margin:0 0 24px; }
+.nzc-service-banner .nz-btn { background:#c5ebd6; color:#123e35; border-color:#c5ebd6; box-shadow:0 6px 20px #082e3433; }
+.nzc-service-art { position:relative; block-size:240px; inline-size:100%; max-inline-size:360px; justify-self:center; perspective:700px; }
+.nzc-service-orbit { position:absolute; inset:0; border:1px solid #b5efd84d; border-radius:50%; transform:rotate(-25deg) scaleY(.8); }
+.nzc-service-tile { position:absolute; inset:30px 65px; display:grid; place-items:center; border-radius:32px; color:#164f43; background:linear-gradient(140deg,#e2ffec,#83c9b4); border:1px solid #edfff0; transform:rotate(-9deg) rotateY(-16deg); box-shadow:14px 20px 0 #062e3440,0 26px 45px #062e3455,inset 0 2px 2px #ffffff; }
+.nzc-service-layer { position:absolute; display:flex; gap:10px; align-items:center; padding:18px; border:1px solid #d6f9e9; border-radius:16px; background:#e4f9ee; color:#246b5c; box-shadow:0 16px 30px #062e3440; }
+.nzc-service-layer span { inline-size:32px; block-size:6px; background:#74ad9e; border-radius:4px; }
+.nzc-service-layer--back { inset-block-start:6px; inset-inline-end:0; transform:rotate(7deg); }
+.nzc-service-layer--front { inset-block-end:12px; inset-inline-start:12px; transform:rotate(-5deg); }
+.nzc-service-art--compute .nzc-service-tile { transform:rotate(8deg) rotateY(-18deg); border-radius:24px; }
+@media(max-width:640px) { .nzc-service-banner { grid-template-columns:1fr; padding:24px; gap:14px; } .nzc-service-art { block-size:190px; max-inline-size:280px; } }
+
 `;

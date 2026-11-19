@@ -79,38 +79,49 @@ function KillSwitchCard({ locale, mfaFactorId }: { locale: Locale; mfaFactorId: 
     );
   }
   return (
-    <section className="nz-card" aria-labelledby="aia-ks-h" style={{ marginBlockEnd: 16 }}>
-      <h2 id="aia-ks-h" className="nz-h2">
-        {t(locale, 'aia.ks.title')}
-      </h2>
-      <p>{t(locale, 'aia.ks.explain')}</p>
-      <Field
-        id="aia-ks-org"
-        label={t(locale, 'aia.ks.org')}
-        help={t(locale, 'aia.ks.orgHelp')}
-        error={orgErr ? t(locale, 'aia.ks.orgInvalid') : undefined}
-      >
-        {(x) => (
-          <Input
-            {...x}
-            dir="ltr"
-            autoComplete="off"
-            value={org}
-            disabled={pending !== null}
-            onChange={(e) => setOrg(e.target.value)}
-          />
-        )}
-      </Field>
-      {pending === null ? (
-        <div className="nz-row">
-          <Button variant="danger" disabled={a.busy} onClick={() => ask(true)}>
-            {t(locale, 'aia.ks.engage')}
-          </Button>
-          <Button variant="secondary" disabled={a.busy} onClick={() => ask(false)}>
-            {t(locale, 'aia.ks.release')}
-          </Button>
+    <section
+      className="nz-card nzc-dense"
+      aria-labelledby="aia-ks-h"
+      style={{ marginBlockEnd: 16 }}
+    >
+      <div className="nzc-panel-head">
+        <div>
+          <h2 id="aia-ks-h" className="nz-h2">
+            {t(locale, 'aia.ks.title')}
+          </h2>
+          <p className="nz-muted">{t(locale, 'aia.ks.explain')}</p>
         </div>
-      ) : (
+      </div>
+      <div className="nzc-inline-row">
+        <Field
+          id="aia-ks-org"
+          label={t(locale, 'aia.ks.org')}
+          help={t(locale, 'aia.ks.orgHelp')}
+          error={orgErr ? t(locale, 'aia.ks.orgInvalid') : undefined}
+        >
+          {(x) => (
+            <Input
+              {...x}
+              dir="ltr"
+              autoComplete="off"
+              value={org}
+              disabled={pending !== null}
+              onChange={(e) => setOrg(e.target.value)}
+            />
+          )}
+        </Field>
+        {pending === null && (
+          <div className="nz-row">
+            <Button variant="danger" disabled={a.busy} onClick={() => ask(true)}>
+              {t(locale, 'aia.ks.engage')}
+            </Button>
+            <Button variant="secondary" disabled={a.busy} onClick={() => ask(false)}>
+              {t(locale, 'aia.ks.release')}
+            </Button>
+          </div>
+        )}
+      </div>
+      {pending === null ? null : (
         <div role="group" aria-labelledby="aia-ks-confirm-h" className="nz-card">
           <h3 id="aia-ks-confirm-h" className="nz-h3">
             {t(locale, 'aia.ks.confirmTitle')}
@@ -174,96 +185,114 @@ function ConfigureCard(p: {
       <form
         onSubmit={submit}
         noValidate
-        className="nz-card"
+        className="nz-card nzc-dense"
         aria-label={t(locale, 'aia.cfg.title')}
-        style={{ maxInlineSize: 680, marginBlockEnd: 16 }}
+        style={{ marginBlockEnd: 16 }}
       >
-        <h2 className="nz-h2">
-          {p.edit
-            ? t(locale, 'aia.cfg.editing', { code: p.edit.code })
-            : t(locale, 'aia.cfg.title')}
-        </h2>
-        <p className="nz-muted">{t(locale, 'aia.cfg.help')}</p>
-        <Field id="aia-code" label={t(locale, 'aia.cfg.code')} help={t(locale, 'aia.cfg.codeHelp')}>
-          {(x) => (
-            <Input {...x} dir="ltr" value={f.code} disabled={!!p.edit} onChange={set('code')} />
-          )}
-        </Field>
-        <Field id="aia-adapter" label={t(locale, 'aia.cfg.adapter')}>
-          {(x) => <Input {...x} dir="ltr" value={f.adapter} onChange={set('adapter')} />}
-        </Field>
-        <Field id="aia-name" label={t(locale, 'aia.cfg.displayName')}>
-          {(x) => <Input {...x} value={f.displayName} onChange={set('displayName')} />}
-        </Field>
-        <Field
-          id="aia-region"
-          label={t(locale, 'aia.cfg.region')}
-          help={t(locale, 'aia.cfg.regionHelp')}
-        >
-          {(x) => <Input {...x} dir="ltr" value={f.region} onChange={set('region')} />}
-        </Field>
-        <Field
-          id="aia-vault"
-          label={t(locale, 'aia.cfg.vault')}
-          help={t(locale, 'aia.cfg.vaultHelp')}
-        >
-          {(x) => (
-            <Input
-              {...x}
-              dir="ltr"
-              autoComplete="off"
-              placeholder="vault://…"
-              value={f.vaultRef}
-              onChange={set('vaultRef')}
-            />
-          )}
-        </Field>
-        <Field id="aia-rcv" label={t(locale, 'aia.cfg.rateVersion')}>
-          {(x) => (
-            <Input {...x} dir="ltr" value={f.rateCardVersion} onChange={set('rateCardVersion')} />
-          )}
-        </Field>
-        <Field
-          id="aia-rc"
-          label={t(locale, 'aia.cfg.rateCard')}
-          help={t(locale, 'aia.cfg.rateCardHelp')}
-        >
-          {(x) => (
-            <textarea
-              {...x}
-              className="nz-input"
-              dir="ltr"
-              rows={6}
-              value={f.rateCard}
-              placeholder='{"models":{"model-id":{"creditsPerMillionInput":"0","creditsPerMillionOutput":"0"}}}'
-              onChange={set('rateCard')}
-            />
-          )}
-        </Field>
-        <Field
-          id="aia-egress"
-          label={t(locale, 'aia.cfg.egress')}
-          help={t(locale, 'aia.cfg.egressHelp')}
-        >
-          {(x) => <Input {...x} dir="ltr" value={f.egress} onChange={set('egress')} />}
-        </Field>
-        <p className="nz-muted">{t(locale, 'aia.cfg.resets')}</p>
-        {err && (
-          <p role="alert" className="nz-error-text">
-            {t(locale, CONFIGURE_ERROR[err])}
-          </p>
-        )}
-        <div className="nz-row">
-          <Button type="submit" disabled={a.busy}>
-            {t(locale, 'action.save')}
-          </Button>
-          {p.edit && (
-            <Button variant="secondary" onClick={p.onDone}>
-              {t(locale, 'action.cancel')}
-            </Button>
-          )}
+        <div className="nzc-panel-head">
+          <div>
+            <h2 className="nz-h2">
+              {p.edit
+                ? t(locale, 'aia.cfg.editing', { code: p.edit.code })
+                : t(locale, 'aia.cfg.title')}
+            </h2>
+            <p className="nz-muted">{t(locale, 'aia.cfg.help')}</p>
+          </div>
         </div>
-        <Note n={a.notice} />
+        <div className="nzc-form-grid nzc-form-grid--3">
+          <Field
+            id="aia-code"
+            label={t(locale, 'aia.cfg.code')}
+            help={t(locale, 'aia.cfg.codeHelp')}
+          >
+            {(x) => (
+              <Input {...x} dir="ltr" value={f.code} disabled={!!p.edit} onChange={set('code')} />
+            )}
+          </Field>
+          <Field id="aia-adapter" label={t(locale, 'aia.cfg.adapter')}>
+            {(x) => <Input {...x} dir="ltr" value={f.adapter} onChange={set('adapter')} />}
+          </Field>
+          <Field id="aia-name" label={t(locale, 'aia.cfg.displayName')}>
+            {(x) => <Input {...x} value={f.displayName} onChange={set('displayName')} />}
+          </Field>
+          <Field
+            id="aia-region"
+            label={t(locale, 'aia.cfg.region')}
+            help={t(locale, 'aia.cfg.regionHelp')}
+          >
+            {(x) => <Input {...x} dir="ltr" value={f.region} onChange={set('region')} />}
+          </Field>
+          <Field
+            id="aia-vault"
+            label={t(locale, 'aia.cfg.vault')}
+            help={t(locale, 'aia.cfg.vaultHelp')}
+          >
+            {(x) => (
+              <Input
+                {...x}
+                dir="ltr"
+                autoComplete="off"
+                placeholder="vault://…"
+                value={f.vaultRef}
+                onChange={set('vaultRef')}
+              />
+            )}
+          </Field>
+          <Field id="aia-rcv" label={t(locale, 'aia.cfg.rateVersion')}>
+            {(x) => (
+              <Input {...x} dir="ltr" value={f.rateCardVersion} onChange={set('rateCardVersion')} />
+            )}
+          </Field>
+          <Field
+            id="aia-egress"
+            label={t(locale, 'aia.cfg.egress')}
+            help={t(locale, 'aia.cfg.egressHelp')}
+          >
+            {(x) => <Input {...x} dir="ltr" value={f.egress} onChange={set('egress')} />}
+          </Field>
+          <div className="nzc-span-2">
+            <Field
+              id="aia-rc"
+              label={t(locale, 'aia.cfg.rateCard')}
+              help={t(locale, 'aia.cfg.rateCardHelp')}
+            >
+              {(x) => (
+                <textarea
+                  {...x}
+                  className="nz-input"
+                  dir="ltr"
+                  rows={4}
+                  value={f.rateCard}
+                  placeholder='{"models":{"model-id":{"creditsPerMillionInput":"0","creditsPerMillionOutput":"0"}}}'
+                  onChange={set('rateCard')}
+                />
+              )}
+            </Field>
+          </div>
+        </div>
+        <div className="nzc-form-foot">
+          <div>
+            <p className="nz-muted" style={{ margin: 0, fontSize: 12 }}>
+              {t(locale, 'aia.cfg.resets')}
+            </p>
+            {err && (
+              <p role="alert" className="nz-error-text" style={{ margin: '4px 0 0' }}>
+                {t(locale, CONFIGURE_ERROR[err])}
+              </p>
+            )}
+            <Note n={a.notice} />
+          </div>
+          <div className="nz-row">
+            {p.edit && (
+              <Button variant="secondary" onClick={p.onDone}>
+                {t(locale, 'action.cancel')}
+              </Button>
+            )}
+            <Button type="submit" disabled={a.busy}>
+              {t(locale, 'action.save')}
+            </Button>
+          </div>
+        </div>
       </form>
       {a.panel}
     </>
@@ -331,28 +360,57 @@ function ClaudeKeyCard(p: { locale: Locale; row?: ProviderRow; mfaFactorId: stri
   }
   return (
     <>
-      <form onSubmit={save} noValidate aria-label={t(locale, 'aia.claude.title')}>
-        <h2 className="nz-h2">{t(locale, 'aia.claude.title')}</h2>
-        <p className="nz-muted">{t(locale, 'aia.claude.help')}</p>
-        <p className="nz-muted" role="status">
-          {row?.vaultRef ? t(locale, 'aia.claude.stored') : t(locale, 'aia.claude.none')}
-        </p>
-        <Field id="claude-key" label={t(locale, 'aia.claude.field')}>
-          {(x) => (
-            <Input
-              {...x}
-              type="password"
-              dir="ltr"
-              autoComplete="new-password"
-              spellCheck={false}
-              maxLength={400}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-          )}
-        </Field>
+      <form
+        onSubmit={save}
+        noValidate
+        className="nz-card nzc-dense"
+        aria-label={t(locale, 'aia.claude.title')}
+        style={{ marginBlockEnd: 16 }}
+      >
+        <div className="nzc-panel-head">
+          <div>
+            <h2 className="nz-h2">{t(locale, 'aia.claude.title')}</h2>
+            <p className="nz-muted">{t(locale, 'aia.claude.help')}</p>
+          </div>
+          <span role="status">
+            <Badge tone={row?.vaultRef ? 'success' : 'warn'}>
+              {row?.vaultRef ? t(locale, 'aia.claude.stored') : t(locale, 'aia.claude.none')}
+            </Badge>
+          </span>
+        </div>
+        <div className="nzc-inline-row">
+          <Field id="claude-key" label={t(locale, 'aia.claude.field')}>
+            {(x) => (
+              <Input
+                {...x}
+                type="password"
+                dir="ltr"
+                autoComplete="new-password"
+                spellCheck={false}
+                maxLength={400}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+            )}
+          </Field>
+          <div className="nz-row">
+            <Button type="submit" disabled={a.busy || apiKey.trim() === ''}>
+              {t(locale, 'aia.claude.save')}
+            </Button>
+            {row?.vaultRef && (
+              <Button variant="secondary" disabled={a.busy} onClick={testConnection}>
+                {a.busy ? t(locale, 'aia.test.running') : t(locale, 'aia.test.button')}
+              </Button>
+            )}
+            {row?.vaultRef && (
+              <Button variant="danger" disabled={a.busy} onClick={remove}>
+                {t(locale, 'aia.claude.remove')}
+              </Button>
+            )}
+          </div>
+        </div>
         {err && (
-          <p role="alert" className="nz-error-text">
+          <p role="alert" className="nz-error-text" style={{ margin: 0 }}>
             {err}
           </p>
         )}
@@ -365,21 +423,6 @@ function ClaudeKeyCard(p: { locale: Locale; row?: ProviderRow; mfaFactorId: stri
             })}
           </p>
         )}
-        <div className="nz-row">
-          <Button type="submit" disabled={a.busy || apiKey.trim() === ''}>
-            {t(locale, 'aia.claude.save')}
-          </Button>
-          {row?.vaultRef && (
-            <Button variant="secondary" disabled={a.busy} onClick={testConnection}>
-              {a.busy ? t(locale, 'aia.test.running') : t(locale, 'aia.test.button')}
-            </Button>
-          )}
-          {row?.vaultRef && (
-            <Button variant="danger" disabled={a.busy} onClick={remove}>
-              {t(locale, 'aia.claude.remove')}
-            </Button>
-          )}
-        </div>
       </form>
       {a.panel}
     </>
@@ -615,7 +658,7 @@ export function AiProvidersPanel(p: {
         />
       )}
       {p.canManage && (
-        <details open={edit !== null}>
+        <details className="nzc-adv" open={edit !== null} style={{ marginBlockEnd: 16 }}>
           <summary>{t(locale, 'aia.advanced')}</summary>
           <KillSwitchCard locale={locale} mfaFactorId={p.mfaFactorId} />
           <ConfigureCard

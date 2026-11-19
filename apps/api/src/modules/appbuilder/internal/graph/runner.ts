@@ -553,7 +553,13 @@ export class GraphRunner {
             ? 'no_capacity'
             : 'agent_error';
     await this.finishStep(orgId, stepId, { status: 'failed', error: reason });
-    await this.runs.transition(orgId, runId, 'failed', reason);
+    await this.runs.transition(
+      orgId,
+      runId,
+      'failed',
+      reason,
+      err instanceof ArtifactInvalid ? err.errors.slice(0, 8) : [],
+    );
     await this.audit.record({
       action: 'ai.run.failed',
       orgId,

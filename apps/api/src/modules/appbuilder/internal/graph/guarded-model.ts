@@ -84,6 +84,7 @@ export class GuardedModel {
             purpose: a.purpose,
             input,
             maxTokens: a.maxTokens,
+            schema: a.schema,
             timeoutMs: this.cfg.timeoutMs,
             dataClass: 'customer-content',
             dataRegion: this.base.dataRegion,

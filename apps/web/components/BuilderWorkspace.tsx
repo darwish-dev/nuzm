@@ -1,7 +1,7 @@
 'use client';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Banner, Button } from '@nuzm/ui';
+import { Banner, Icon, type IconName } from '@nuzm/ui';
 import {
   emptyHistory,
   finishRedo,
@@ -21,13 +21,18 @@ import {
   type Run,
   type Session,
   type SiteLocale,
+  type Viewport,
+  VIEWPORTS,
 } from '../lib/builder';
 import { bapi, useBuilderCall } from '../lib/builder-client';
+import { BrandMark } from './BrandLogo';
+import { BuildingScene } from './BuildingScene';
 import { Chat } from './BuilderChat';
 import { CodePane } from './BuilderCode';
+import { DataPane } from './BuilderData';
 import { Inspector, type Selection } from './BuilderInspector';
 import { PreviewPane } from './BuilderPreview';
-import { RunPanel } from './BuilderRun';
+import { RunCard, type RunProgress } from './BuilderRunCard';
 
 type Mode = 'edit' | 'undo' | 'redo';
 
@@ -45,6 +50,7 @@ export function Workspace({
   initialRun,
   canWrite,
   canAi,
+  links = [],
 }: {
   locale: Locale;
   initial: ProjectDetail;
@@ -53,6 +59,8 @@ export function Workspace({
   initialRun: Run | null;
   canWrite: boolean;
   canAi: boolean;
+  /** the project's other screens (versions, SEO, forms, CMS, deployments) the person may open: shown under "More"; `publish` is the deployments link */
+  links?: { key: string; href: string; label: string }[];
 }) {
   const call = useBuilderCall();
   const [detail, setDetail] = useState(initial);
@@ -66,7 +74,21 @@ export function Workspace({
     ops: Op[];
     mode: Mode;
   } | null>(null);
-  const [view, setView] = useState<'preview' | 'code'>('preview');
+  const [view, setView] = useState<'preview' | 'code' | 'data'>('preview');
+  const [viewport, setViewport] = useState<Viewport>('desktop');
+  const [siteLocale, setSiteLocale] = useState<SiteLocale>(
+    (initial.siteModel.locales[0] as SiteLocale | undefined) ?? 'ar',
+  );
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [progress, setProgress] = useState<RunProgress>({ active: false, label: '' });
+  // the "site being built" scene stays a moment after the run ends so it fades out instead of vanishing
+  const [scene, setScene] = useState<'off' | 'on' | 'leaving'>('off');
+  useEffect(() => {
+    if (progress.active) return setScene('on');
+    setScene((s) => (s === 'on' ? 'leaving' : s));
+    const h = setTimeout(() => setScene((s) => (s === 'leaving' ? 'off' : s)), 700);
+    return () => clearTimeout(h);
+  }, [progress.active]);
   const [runId, setRunId] = useState<string | null>(initialRun?.id ?? null);
   const [runActive, setRunActive] = useState(initialRun ? isRunActive(initialRun.state) : false);
   const [chatKey, setChatKey] = useState(0);
@@ -158,13 +180,147 @@ export function Workspace({
   );
 
   const model = detail.siteModel;
+  const siteLocales = model.locales as SiteLocale[];
+  const DEVICES: { id: Viewport; icon: IconName }[] = [
+    { id: 'desktop', icon: 'desktop' },
+    { id: 'tablet', icon: 'tablet' },
+    { id: 'mobile', icon: 'phone' },
+  ];
+  const publish = links.find((l) => l.key === 'deployments');
+  const more = links.filter((l) => l.key !== 'deployments');
   return (
-    <>
-      <h2 className="nz-h2">
-        <bdi dir="auto">{detail.name}</bdi>
-      </h2>
-      <div className="bld-ws">
-        <section aria-label={t(locale, 'bld.ws.chat')}>
+    <div className="bws" data-inspector={inspectorOpen ? 'open' : 'closed'}>
+      <header className="bws-top">
+        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
+          <BrandMark />
+        </a>
+        <a className="bws-back" href={`/${locale}/builder/projects`}>
+          {t(locale, 'bld.ws.back')}
+        </a>
+        <h2 className="bws-title">
+          <bdi dir="auto">{detail.name}</bdi>
+        </h2>
+        {call.busy && (
+          <span className="bws-state" role="status">
+            {t(locale, 'bld.ws.saving')}
+          </span>
+        )}
+        <div className="bws-seg" role="group" aria-label={t(locale, 'bld.ws.view')}>
+          <button
+            type="button"
+            aria-pressed={view === 'preview'}
+            onClick={() => setView('preview')}
+          >
+            <Icon name="eye" size={16} />
+            {t(locale, 'bld.ws.preview')}
+          </button>
+          <button type="button" aria-pressed={view === 'code'} onClick={() => setView('code')}>
+            <Icon name="code" size={16} />
+            {t(locale, 'bld.ws.code')}
+          </button>
+          <button type="button" aria-pressed={view === 'data'} onClick={() => setView('data')}>
+            <Icon name="data" size={16} />
+            {t(locale, 'bld.ws.data')}
+          </button>
+        </div>
+        <span className="bws-spacer" />
+        {view === 'preview' && (
+          <div
+            className="bws-seg bws-seg-icons"
+            role="group"
+            aria-label={t(locale, 'bld.ws.device')}
+          >
+            {DEVICES.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                aria-pressed={viewport === d.id}
+                aria-label={t(locale, `bld.preview.${d.id}`, { width: VIEWPORTS[d.id] })}
+                title={t(locale, `bld.preview.${d.id}`, { width: VIEWPORTS[d.id] })}
+                onClick={() => setViewport(d.id)}
+              >
+                <Icon name={d.icon} size={17} />
+              </button>
+            ))}
+          </div>
+        )}
+        {view === 'preview' && siteLocales.length > 1 && (
+          <div className="bws-seg" role="group" aria-label={t(locale, 'bld.ws.lang')}>
+            {siteLocales.map((l) => (
+              <button
+                key={l}
+                type="button"
+                aria-pressed={siteLocale === l}
+                onClick={() => setSiteLocale(l)}
+              >
+                {t(locale, `bld.lang.${l}`)}
+              </button>
+            ))}
+          </div>
+        )}
+        {canWrite && (
+          <div className="bws-seg bws-seg-icons">
+            <button
+              type="button"
+              disabled={call.busy || nextUndo(history) === null}
+              aria-label={t(locale, 'bld.ws.undo')}
+              title={t(locale, 'bld.ws.undo')}
+              onClick={undo}
+            >
+              <Icon name="undo" size={17} />
+            </button>
+            <button
+              type="button"
+              disabled={call.busy || nextRedo(history) === null}
+              aria-label={t(locale, 'bld.ws.redo')}
+              title={t(locale, 'bld.ws.redo')}
+              onClick={redo}
+            >
+              <Icon name="redo" size={17} />
+            </button>
+          </div>
+        )}
+        <button
+          type="button"
+          className="bws-edit"
+          aria-pressed={inspectorOpen}
+          onClick={() => setInspectorOpen((o) => !o)}
+        >
+          <Icon name="panel" size={16} />
+          {t(locale, 'bld.ws.edit')}
+        </button>
+        <details className="bws-more">
+          <summary aria-label={t(locale, 'bld.ws.more')} title={t(locale, 'bld.ws.more')}>
+            <Icon name="more" size={18} />
+          </summary>
+          <ul>
+            <li className="bws-more-meta">
+              {t(locale, 'bld.ws.version', { seq: detail.versionSeq })}
+            </li>
+            {more.map((l) => (
+              <li key={l.key}>
+                <a href={l.href}>{l.label}</a>
+              </li>
+            ))}
+          </ul>
+        </details>
+        {publish && (
+          <a className="bws-publish" href={publish.href}>
+            {t(locale, 'bld.ws.publish')}
+          </a>
+        )}
+        <a
+          className="bws-exit"
+          href={`/${locale}`}
+          aria-label={t(locale, 'bld.ws.exit')}
+          title={t(locale, 'bld.ws.exit')}
+        >
+          <Icon name="close" size={18} />
+        </a>
+      </header>
+
+      <div className="bws-body">
+        <section className="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
           <Chat
             locale={locale}
             projectId={detail.id}
@@ -178,50 +334,64 @@ export function Workspace({
               setRunId(run.id);
               setRunActive(true);
             }}
+            thread={
+              runId ? (
+                <RunCard
+                  key={runId}
+                  locale={locale}
+                  runId={runId}
+                  canWrite={canAi}
+                  onRun={onRun}
+                  onProgress={setProgress}
+                />
+              ) : undefined
+            }
           />
-          <h2 className="nz-h2">{t(locale, 'bld.run.title')}</h2>
-          {runId ? (
-            <RunPanel locale={locale} runId={runId} canWrite={canAi} onRun={onRun} compact />
-          ) : (
-            <p className="nz-muted">{t(locale, 'bld.run.none')}</p>
-          )}
         </section>
 
-        <section aria-label={t(locale, 'bld.ws.canvas')}>
-          <div className="nz-row" role="group" aria-label={t(locale, 'bld.ws.view')}>
-            <Button
-              variant={view === 'preview' ? 'primary' : 'secondary'}
-              aria-pressed={view === 'preview'}
-              onClick={() => setView('preview')}
-            >
-              {t(locale, 'bld.ws.preview')}
-            </Button>
-            <Button
-              variant={view === 'code' ? 'primary' : 'secondary'}
-              aria-pressed={view === 'code'}
-              onClick={() => setView('code')}
-            >
-              {t(locale, 'bld.ws.code')}
-            </Button>
-            <span className="nz-muted">
-              {t(locale, 'bld.ws.version', { seq: detail.versionSeq })}
-            </span>
-          </div>
+        <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {reloadError && <Banner tone="danger">{t(locale, 'bld.ws.reloadFailed')}</Banner>}
+          {view === 'preview' && scene !== 'off' && (
+            <div className="bscene-wrap" data-leaving={scene === 'leaving' ? 'true' : undefined}>
+              <BuildingScene locale={locale} label={progress.label} />
+            </div>
+          )}
+          {progress.active && (
+            <div className="bws-working" role="status">
+              <span className="bld-spinner" aria-hidden="true" />
+              {progress.label || t(locale, 'bld.card.working')}
+            </div>
+          )}
           {view === 'preview' ? (
             <PreviewPane
+              bare
               locale={locale}
               projectId={detail.id}
               versionId={detail.versionId}
-              siteLocales={model.locales as SiteLocale[]}
+              siteLocales={siteLocales}
               canWrite={canWrite}
+              viewport={viewport}
+              onViewport={setViewport}
+              siteLocale={siteLocale}
+              onSiteLocale={setSiteLocale}
+            />
+          ) : view === 'code' ? (
+            <CodePane
+              locale={locale}
+              projectId={detail.id}
+              versionId={detail.versionId}
+              model={model}
             />
           ) : (
-            <CodePane locale={locale} projectId={detail.id} versionId={detail.versionId} />
+            <DataPane locale={locale} projectId={detail.id} model={model} siteLocale={siteLocale} />
           )}
         </section>
 
-        <section aria-label={t(locale, 'bld.ws.inspector')}>
+        <aside
+          className="bws-insp"
+          aria-label={t(locale, 'bld.ws.inspector')}
+          hidden={!inspectorOpen}
+        >
           <Inspector
             locale={locale}
             model={model}
@@ -241,8 +411,8 @@ export function Workspace({
             onReload={() => void reloadDiscard()}
             onRebase={() => void rebase()}
           />
-        </section>
+        </aside>
       </div>
-    </>
+    </div>
   );
 }

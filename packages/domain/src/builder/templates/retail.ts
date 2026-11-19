@@ -113,6 +113,15 @@ export const retail = defineTemplate({
             ],
             { bg: 'muted' },
           ),
+          k.cta('home-cta', {
+            h: L('تسوّق ما يعجبك اليوم', 'Shop what you love today'),
+            sub: L(
+              'تصفّح منتجاتنا واختر الأنسب لك',
+              'Browse our products and choose what suits you',
+            ),
+            label: L('تصفّح المنتجات', 'Browse products'),
+            to: 'products',
+          }),
         ],
       ),
       k.page(

@@ -4,7 +4,7 @@ import { csp, type SiteModel } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
-import { isUuid, previewHost, type BuilderConfig, type Row } from './model';
+import { isUuid, previewHost, previewUrl, type BuilderConfig, type Row } from './model';
 
 const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
 /** 160-bit token as a DNS-safe lower-case base32 label (32 characters): the unguessable part of the preview host. */
@@ -53,7 +53,7 @@ export class PreviewService {
     private readonly cfg: BuilderConfig,
   ) {}
   private url(token: string, locale: string) {
-    return `${this.cfg.previewScheme}://${previewHost(token, this.cfg)}/${locale}/`;
+    return previewUrl(token, locale, this.cfg);
   }
   async create(
     orgId: string,
@@ -69,6 +69,7 @@ export class PreviewService {
       throw new ProblemException('validation_failed', 'versionId must be a uuid');
     const token = newPreviewToken();
     const id = uuidv7();
+    let retired = 0;
     const out = await this.db.withOrg(orgId, async (c) => {
       const p = (
         await c.query(
@@ -91,11 +92,16 @@ export class PreviewService {
           )
         ).rows[0]!.n,
       );
-      if (active >= this.cfg.maxActivePreviews)
-        throw new ProblemException(
-          'rate_limited',
-          `at most ${this.cfg.maxActivePreviews} active previews per project`,
+      // The cap bounds how many live preview addresses a project has. An editor makes a new preview for every version and every reload, so hitting the cap must not
+      // lock it out: the OLDEST ones are retired (revoked) to make room, and the live count never exceeds the cap.
+      if (active >= this.cfg.maxActivePreviews) {
+        retired = active - this.cfg.maxActivePreviews + 1;
+        await c.query(
+          `UPDATE builder.previews SET revoked_at = now()
+            WHERE id IN (SELECT id FROM builder.previews WHERE project_id=$1 AND revoked_at IS NULL AND expires_at > now() ORDER BY created_at ASC LIMIT $2)`,
+          [projectId, retired],
         );
+      }
       const vid = (b.versionId as string | undefined) ?? (p.head_version_id as string);
       if (
         !(
@@ -135,7 +141,7 @@ export class PreviewService {
       orgId,
       resource: { type: 'builder_preview', id },
       outcome: 'success',
-      detail: { projectId },
+      detail: { projectId, ...(retired > 0 ? { retiredOldest: retired } : {}) },
     });
     return {
       id,
@@ -232,7 +238,11 @@ export class PreviewService {
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',
         'cross-origin-opener-policy': 'same-origin',
-        'cross-origin-resource-policy': 'same-origin',
+        // the page itself is a navigation (CORP does not apply) and stays same-origin; its stylesheet, script and images are loaded by a SANDBOXED frame, whose origin is
+        // opaque, so `same-origin` would make the browser refuse them and the site would render unstyled. They carry no secret beyond what the unguessable URL already guards.
+        'cross-origin-resource-policy': String(row.f.mime).startsWith('text/html')
+          ? 'same-origin'
+          : 'cross-origin',
         'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
         'cache-control': 'no-store',
         'x-robots-tag': 'noindex, nofollow',

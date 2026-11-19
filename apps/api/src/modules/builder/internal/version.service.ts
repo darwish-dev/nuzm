@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import type { PoolClient } from 'pg';
-import { renderSite, validateSiteModel, type SiteModel } from '@nuzm/domain';
+import { validateSiteModel, type SiteModel } from '@nuzm/domain';
 import { emitUsage, usageEventId } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
+import { renderSiteCss } from '../../../common/site-css';
 import type { BuilderConfig, Row } from './model';
 
 const canonical = (v: unknown): string =>
@@ -71,7 +72,7 @@ export async function commitVersion(
       throw new ProblemException('op_invalid', `the bytes of uploaded asset ${a.id} are missing`);
     assetBytes[a.contentHash] = f.content as Uint8Array;
   }
-  const out = renderSite(i.model, {
+  const out = await renderSiteCss(i.model, {
     ...(i.model.seo.baseUrl ? { baseUrl: i.model.seo.baseUrl } : {}),
     formsBaseUrl: `${cfg.formsBaseUrl}/p/${i.projectId}`,
     assetBytes,

@@ -172,6 +172,39 @@ export function richModel(): SiteModel {
               ],
             },
           },
+          {
+            id: 'nums',
+            type: 'stats',
+            props: {
+              heading: both('بالأرقام', 'By the numbers'),
+              stats: [
+                { value: '12+', label: both('سنة خبرة', 'Years of experience') },
+                { value: '5,000', label: both('عميل سعيد', 'Happy guests') },
+              ],
+            },
+          },
+          {
+            id: 'how',
+            type: 'steps',
+            props: {
+              heading: both('كيف نعمل', 'How we work'),
+              steps: [
+                { title: both('احجز', 'Book'), text: both('اختر الوقت', 'Pick a time') },
+                { title: both('استمتع', 'Enjoy'), text: both('نحن نهتم', 'We take care') },
+              ],
+            },
+          },
+          {
+            id: 'cta1',
+            type: 'cta',
+            style: { background: 'primary', align: 'center' },
+            props: {
+              heading: both('جاهزون لخدمتك', 'Ready to serve you'),
+              subheading: both('احجز طاولتك اليوم', 'Book your table today'),
+              ctaLabel: both('احجز الآن', 'Book now'),
+              cta: { pageId: 'contact' },
+            },
+          },
         ],
       },
       {

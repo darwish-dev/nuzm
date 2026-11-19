@@ -26,6 +26,8 @@ export const UI = {
   headingGallery: P('معرض الصور', 'Gallery'),
   headingContact: P('تواصل معنا', 'Contact us'),
   headingMap: P('الموقع', 'Location'),
+  headingStats: P('بالأرقام', 'In numbers'),
+  headingSteps: P('كيف نعمل', 'How it works'),
 } as const;
 
 export const dirOf = (l: Locale): 'rtl' | 'ltr' => (l === 'ar' ? 'rtl' : 'ltr');

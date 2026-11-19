@@ -175,6 +175,25 @@ export interface Kit {
     rows: [string, string, string, string][],
     o?: SectionOpts,
   ): Section;
+  /** rows: [value, labelAr, labelEn]; the values are SAMPLE figures the owner replaces with the business's own */
+  stats(
+    id: string,
+    heading: Localized | undefined,
+    rows: [string, string, string][],
+    o?: SectionOpts,
+  ): Section;
+  /** rows: [titleAr, titleEn, textAr, textEn] */
+  steps(
+    id: string,
+    heading: Localized | undefined,
+    rows: [string, string, string, string][],
+    o?: SectionOpts,
+  ): Section;
+  /** a closing call-to-action band */
+  cta(
+    id: string,
+    o: { h: Localized; sub?: Localized; label: Localized; to: string } & SectionOpts,
+  ): Section;
   contactForm(id: string, heading?: Localized, intro?: Localized, o?: SectionOpts): Section;
   map(id: string, heading?: Localized, o?: SectionOpts): Section;
   img(id: string, label: Localized, alt: Localized): Asset;
@@ -266,6 +285,33 @@ export function makeKit(lang: Locale): Kit {
           items: rows.map(([qa, qe, aa, ae]) => ({ question: L(qa, qe), answer: L(aa, ae) })),
         }),
         o,
+      ),
+    stats: (id, heading, rows, o) =>
+      mk(
+        id,
+        'stats',
+        defined({
+          heading,
+          stats: rows.map(([value, la, le]) => ({ value, label: L(la, le) })),
+        }),
+        o,
+      ),
+    steps: (id, heading, rows, o) =>
+      mk(
+        id,
+        'steps',
+        defined({
+          heading,
+          steps: rows.map(([ta, te, xa, xe]) => ({ title: L(ta, te), text: L(xa, xe) })),
+        }),
+        o,
+      ),
+    cta: (id, o) =>
+      mk(
+        id,
+        'cta',
+        defined({ heading: o.h, subheading: o.sub, ctaLabel: o.label, cta: link(o.to) }),
+        { bg: 'primary', align: 'center', ...o },
       ),
     contactForm: (id, heading, intro, o) =>
       mk(id, 'contact_form', defined({ heading, intro, formId: 'contact' }), o),

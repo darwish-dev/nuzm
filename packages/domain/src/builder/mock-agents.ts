@@ -342,6 +342,9 @@ const INTENTS: Record<(typeof SECTION_TYPES)[number], string> = {
   faq: 'Common questions with concise answers',
   contact_form: 'The contact form',
   map: 'The business location on a map',
+  stats: 'Three or four key numbers with a short label each',
+  cta: 'A closing call to action with one button',
+  steps: 'Three or four numbered steps of how the service works',
 };
 
 function templateFor(req: Requirements, arch?: Architecture): SiteTemplate {
@@ -499,7 +502,7 @@ function resolvePage(arch: Architecture, pageId: string, req: Requirements): Res
   const sectionIds = new Set(sections.map((s) => s.id));
   sections = sections.map((s) => {
     const props: Rec = { ...s.props };
-    if (s.type === 'hero' && isRec(props.cta)) {
+    if ((s.type === 'hero' || s.type === 'cta') && isRec(props.cta)) {
       const cta = props.cta;
       const ok =
         typeof cta.pageId === 'string'

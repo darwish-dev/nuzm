@@ -12,14 +12,19 @@ import {
 import { ProblemException } from '../../../common/errors';
 import type { RunContext, RunKindHandler } from '../../ai';
 import { assembleGenerated, type PageResult } from './assemble';
+import { DESIGN_RULES, checkPageResult, sectionGuide } from './page-guide';
 import type { ProjectService } from './project.service';
 
 const INSTR_ARCH =
   'You are the architecture agent of a website builder for businesses in Saudi Arabia. From the approved requirements, design the site: pages (siteMap with sections from the allowed component types), ' +
-  'design tokens and colours (readable contrast), and an SEO plan per page. Arabic and English are equal. result = the architecture object.';
+  'design tokens and colours (readable contrast), and an SEO plan per page. Plan a rich home page of 6 to 8 sections that tells a story (hero, proof such as stats or features, how it works, testimonials, faq, a closing cta) and 3 to 5 sections on inner pages; ' +
+  'choose a confident primary colour and a distinct accent. Arabic and English are equal. result = the architecture object.';
 const INSTR_PAGE =
-  'You write ONE page of the website as structured site-model sections (hero, text, image, gallery, features, pricing, testimonials, faq, contact_form, map) with Arabic and English copy ' +
-  'for every text. No HTML, no scripts, no links except {pageId} or https/mailto/tel URLs. Use only placeholder image ids. result = {pageId,title,seo?,sections,assets?,forms?}.';
+  'You are the page designer and copywriter of a website builder. You write ONE page of the website as structured site-model sections with Arabic and English copy for every text. ' +
+  'No HTML, no scripts, no links except {pageId} or https/mailto/tel URLs. Use only placeholder image ids. result = {pageId,title,seo?,sections,assets?,forms?}, ' +
+  'each section {"id","type","props","style"?:{"background":"default|muted|primary","align":"start|center"}}.\n' +
+  `COMPONENTS (use exactly these prop names; "text" means a localized object):\n${sectionGuide()}\n` +
+  `DESIGN RULES:\n${DESIGN_RULES}`;
 
 /** `kind=website` (M09 S38/S39): requirements → architecture → **plan approval** → per-page copy/layout → assembled site model → validated → new project version. Resumable per step. */
 export class WebsiteRunHandler implements RunKindHandler {
@@ -149,7 +154,15 @@ export class WebsiteRunHandler implements RunKindHandler {
         instruction: INSTR_PAGE,
         params: { architecture: arch, pageId: ap.pageId, requirements: req, locales },
         schema: PAGE_RESULT_SCHEMA,
-        maxTokens: 6000,
+        // the same validation the finished site gets, on this one page: what is wrong goes back to the model instead of failing the run at the end
+        check: (res) =>
+          checkPageResult(
+            (page) =>
+              assembleGenerated({ name: projectName, locales }, req, arch, [page as PageResult]),
+            { ...(res as PageResult), pageId: ap.pageId },
+            arch.siteMap.map((x) => x.pageId),
+          ),
+        maxTokens: 8000,
       });
       if (r.pageId !== ap.pageId)
         throw new ProblemException('validation_failed', 'the page result names another page');

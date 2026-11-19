@@ -244,6 +244,44 @@ const PATHS: Record<string, ReactNode> = {
       <path d="M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" />
     </>
   ),
+  undo: (
+    <>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </>
+  ),
+  desktop: (
+    <>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+    </>
+  ),
+  tablet: (
+    <>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M11 17.5h2" />
+    </>
+  ),
+  phone: (
+    <>
+      <rect x="7" y="2.5" width="10" height="19" rx="2.2" />
+      <path d="M11 18.5h2" />
+    </>
+  ),
+  send: <path d="M12 19V5M6 11l6-6 6 6" />,
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.2" />
+      <circle cx="12" cy="12" r="1.2" />
+      <circle cx="19" cy="12" r="1.2" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof PATHS;

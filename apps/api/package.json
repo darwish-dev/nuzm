@@ -45,6 +45,7 @@
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "tailwindcss": "4.3.5",
     "uuid": "^14.0.3",
     "xml-crypto": "^6.4.0",
     "yaml": "^2.9.1"

@@ -1,9 +1,7 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
-import { PageTitle } from '@nuzm/ui';
 import { AppRunProgress } from '../../../../../../components/AppProgress';
 import { AppSummary } from '../../../../../../components/AppBlueprint';
-import { BuilderTabs } from '../../../../../../components/BuilderBits';
 import { BuilderTabs as AppTabs, NotEnabledState } from '../../../../../../components/BuilderParts';
 import { Workspace } from '../../../../../../components/BuilderWorkspace';
 import { APP_BUILDER_FLAG } from '../../../../../../lib/appbuilder';
@@ -79,7 +77,6 @@ export default async function ProjectWorkspace({
         )
       ) : (
         <>
-          <BuilderTabs locale={locale} projectId={id} current="workspace" can={g.s.can} />
           <Workspace
             locale={locale}
             initial={d.detail}
@@ -88,13 +85,26 @@ export default async function ProjectWorkspace({
             initialRun={d.run}
             canWrite={g.s.can('builder:write')}
             canAi={g.s.can('ai:write')}
+            links={[
+              { key: 'versions', perm: 'builder:read' },
+              { key: 'seo', perm: 'builder:read' },
+              { key: 'forms', perm: 'builder:read' },
+              { key: 'cms', perm: 'builder:read' },
+              { key: 'deployments', perm: 'deploy:read' },
+            ]
+              .filter((x) => g.s.can(x.perm))
+              .map((x) => ({
+                key: x.key,
+                href: `/${locale}/builder/projects/${id}/${x.key}`,
+                label: t(locale, `bld.tab.${x.key}` as 'bld.tab.versions'),
+              }))}
           />
         </>
       ),
   );
   return (
     <>
-      <PageTitle>{t(locale, 'bld.title.workspace')}</PageTitle>
+      <h1 className="nz-sr">{t(locale, 'bld.title.workspace')}</h1>
       {body}
     </>
   );

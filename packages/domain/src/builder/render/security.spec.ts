@@ -192,7 +192,7 @@ describe('defence in depth: the components do not trust a model that skipped val
       ctx(),
       hero({}, { style: { background: 'x" onload="y' as never, align: 'z y' as never } }),
     );
-    expect(html).toContain('class="sec sec-hero bg-default align-start"');
+    expect(html).toContain('class="sec sec-hero tone-default align-start ');
     expect(html).not.toContain('onload');
   });
   it('unknown section types render nothing', () => {

@@ -22,6 +22,9 @@ export const SECTION_TYPES = [
   'faq',
   'contact_form',
   'map',
+  'stats',
+  'cta',
+  'steps',
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
@@ -440,6 +443,15 @@ export const SECTION_SPECS: Record<SectionType, SectionSpec> = {
   },
   contact_form: { locOpt: { heading: 120, intro: 400 }, form: 'formId' },
   map: { locOpt: { heading: 120, address: 200 }, strings: { query: 200 } },
+  stats: {
+    locOpt: { heading: 120 },
+    items: { prop: 'stats', max: 6, min: 2, loc: { label: 60 }, strings: { value: 20 } },
+  },
+  cta: { loc: { heading: 120 }, locOpt: { subheading: 300, ctaLabel: 40 }, link: ['cta'] },
+  steps: {
+    locOpt: { heading: 120 },
+    items: { prop: 'steps', max: 8, min: 2, loc: { title: 80, text: 300 } },
+  },
 };
 
 const SAFE_URL =
@@ -617,7 +629,9 @@ export function validateSiteModel(model: unknown): ModelIssue[] {
                   ? k === 'price'
                   : it.prop === 'testimonials'
                     ? k === 'author'
-                    : false;
+                    : it.prop === 'stats'
+                      ? k === 'value'
+                      : false;
               if (
                 (x[k] === undefined && required) ||
                 (x[k] !== undefined && (typeof x[k] !== 'string' || (x[k] as string).length > max))

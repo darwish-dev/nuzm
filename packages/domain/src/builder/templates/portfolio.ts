@@ -85,6 +85,15 @@ export const portfolio = defineTemplate({
             ],
             { bg: 'muted' },
           ),
+          k.cta('home-cta', {
+            h: L('لديك مشروع في بالك؟', 'Have a project in mind?'),
+            sub: L(
+              'شاهد أعمالنا ثم لنتحدث عن مشروعك',
+              'See our work, then let us talk about yours',
+            ),
+            label: L('شاهد المشاريع', 'See the projects'),
+            to: 'projects',
+          }),
         ],
       ),
       k.page(

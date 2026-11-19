@@ -419,7 +419,11 @@ describe('previews on the isolated origin (S39.4, AC-M09-04)', () => {
     expect(r.headers['referrer-policy']).toBe('no-referrer');
     expect(r.headers['cross-origin-resource-policy']).toBe('same-origin');
     expect(r.body).not.toMatch(/<script(?![^>]*(ld\+json|src=))/);
-    expect((await previewGet(url, 'assets/styles.css')).statusCode).toBe(200);
+    const css = await previewGet(url, 'assets/styles.css');
+    expect(css.statusCode).toBe(200);
+    // assets are loaded by the sandboxed (opaque-origin) frame: they must be loadable cross-origin, or the site renders unstyled
+    expect(css.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    expect(css.headers['access-control-allow-origin']).toBeUndefined();
   });
   it('cannot be reached through another host, with a wrong or tampered token, or with traversal; cookies from the console are ignored', async () => {
     const t = token(url);
@@ -482,7 +486,7 @@ describe('previews on the isolated origin (S39.4, AC-M09-04)', () => {
       ).statusCode,
     ).toBe(404);
   });
-  it('expires, and the active-preview limit answers 429; a viewer cannot create one; another org cannot use the project', async () => {
+  it('expires, and at the active-preview limit the oldest is retired instead of failing; a viewer cannot create one; another org cannot use the project', async () => {
     await e.sql(
       `UPDATE builder.previews SET expires_at = now() - interval '1 minute' WHERE project_id=$1`,
       [p.id],
@@ -490,15 +494,20 @@ describe('previews on the isolated origin (S39.4, AC-M09-04)', () => {
     expect((await previewGet(url)).statusCode).toBe(404);
     const cfg = e.app.get(PreviewService) as unknown as { cfg: { maxActivePreviews: number } };
     cfg.cfg.maxActivePreviews = 2;
-    expect(
-      (await e.call('alice', 'POST', `/v1/builder/projects/${p.id}/previews`, {})).statusCode,
-    ).toBe(201);
-    expect(
-      (await e.call('alice', 'POST', `/v1/builder/projects/${p.id}/previews`, {})).statusCode,
-    ).toBe(201);
-    expect(
-      (await e.call('alice', 'POST', `/v1/builder/projects/${p.id}/previews`, {})).statusCode,
-    ).toBe(429);
+    const make = () => e.call('alice', 'POST', `/v1/builder/projects/${p.id}/previews`, {});
+    const first = await make();
+    expect(first.statusCode).toBe(201);
+    expect((await make()).statusCode).toBe(201);
+    // the third would exceed the cap of 2: it still succeeds and the OLDEST is retired, so an editor is never locked out
+    const third = await make();
+    expect(third.statusCode).toBe(201);
+    const live = await e.sql(
+      `SELECT count(*)::int AS n FROM builder.previews WHERE project_id=$1 AND revoked_at IS NULL AND expires_at > now()`,
+      [p.id],
+    );
+    expect((live[0] as { n: number }).n).toBe(2); // the cap still holds
+    expect((await previewGet(first.json().url)).statusCode).toBe(404); // the retired one no longer serves
+    expect((await previewGet(third.json().url)).statusCode).toBe(200);
     cfg.cfg.maxActivePreviews = 10;
     expect(
       (await e.call('carol', 'POST', `/v1/builder/projects/${p.id}/previews`, {})).statusCode,

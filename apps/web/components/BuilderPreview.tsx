@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Banner, Button } from '@nuzm/ui';
+import { Banner, Button, Icon } from '@nuzm/ui';
 import {
   VIEWPORTS,
   isPreviewUrl,
@@ -28,17 +28,32 @@ export function PreviewPane({
   versionId,
   siteLocales,
   canWrite,
+  viewport: viewportProp,
+  onViewport,
+  siteLocale: siteLocaleProp,
+  onSiteLocale,
+  bare = false,
 }: {
   locale: Locale;
   projectId: string;
   versionId: string;
   siteLocales: SiteLocale[];
   canWrite: boolean;
+  /** controlled device and site language: the workspace's top bar owns them (and then `bare` hides this pane's own toolbar) */
+  viewport?: Viewport;
+  onViewport?: (v: Viewport) => void;
+  siteLocale?: SiteLocale;
+  onSiteLocale?: (l: SiteLocale) => void;
+  bare?: boolean;
 }) {
   const call = useBuilderCall();
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [viewport, setViewport] = useState<Viewport>('desktop');
-  const [siteLocale, setSiteLocale] = useState<SiteLocale>(siteLocales[0] ?? 'ar');
+  const [viewportState, setViewportState] = useState<Viewport>('desktop');
+  const [siteLocaleState, setSiteLocaleState] = useState<SiteLocale>(siteLocales[0] ?? 'ar');
+  const viewport = viewportProp ?? viewportState;
+  const siteLocale = siteLocaleProp ?? siteLocaleState;
+  const setViewport = (v: Viewport) => (onViewport ? onViewport(v) : setViewportState(v));
+  const setSiteLocale = (l: SiteLocale) => (onSiteLocale ? onSiteLocale(l) : setSiteLocaleState(l));
   const [expired, setExpired] = useState(false);
   const runRef = useRef(call.run);
   runRef.current = call.run;
@@ -81,35 +96,49 @@ export function PreviewPane({
   const src =
     preview && isPreviewUrl(preview.url) ? previewForLocale(preview.url, siteLocale) : null;
   return (
-    <div>
-      <div className="nz-row" role="toolbar" aria-label={t(locale, 'bld.preview.toolbar')}>
-        {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => (
-          <Button
-            key={v}
-            variant={viewport === v ? 'primary' : 'secondary'}
-            aria-pressed={viewport === v}
-            onClick={() => setViewport(v)}
-          >
-            {t(locale, `bld.preview.${v}`, { width: VIEWPORTS[v] })}
-          </Button>
-        ))}
-        {siteLocales.length > 1 &&
-          siteLocales.map((l) => (
+    <div className={bare ? 'bld-preview-bare' : undefined}>
+      {!bare && (
+        <div className="nz-row" role="toolbar" aria-label={t(locale, 'bld.preview.toolbar')}>
+          {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => (
             <Button
-              key={l}
-              variant={siteLocale === l ? 'primary' : 'secondary'}
-              aria-pressed={siteLocale === l}
-              onClick={() => setSiteLocale(l)}
+              key={v}
+              variant={viewport === v ? 'primary' : 'secondary'}
+              aria-pressed={viewport === v}
+              onClick={() => setViewport(v)}
             >
-              {t(locale, `bld.lang.${l}`)}
+              {t(locale, `bld.preview.${v}`, { width: VIEWPORTS[v] })}
             </Button>
           ))}
-        {canWrite && (
-          <Button variant="secondary" disabled={call.busy} onClick={() => create(versionId)}>
-            {t(locale, 'bld.preview.refresh')}
-          </Button>
-        )}
-      </div>
+          {siteLocales.length > 1 &&
+            siteLocales.map((l) => (
+              <Button
+                key={l}
+                variant={siteLocale === l ? 'primary' : 'secondary'}
+                aria-pressed={siteLocale === l}
+                onClick={() => setSiteLocale(l)}
+              >
+                {t(locale, `bld.lang.${l}`)}
+              </Button>
+            ))}
+          {canWrite && (
+            <Button variant="secondary" disabled={call.busy} onClick={() => create(versionId)}>
+              {t(locale, 'bld.preview.refresh')}
+            </Button>
+          )}
+        </div>
+      )}
+      {bare && canWrite && (
+        <button
+          type="button"
+          className="bws-refresh"
+          disabled={call.busy}
+          aria-label={t(locale, 'bld.preview.refresh')}
+          title={t(locale, 'bld.preview.refresh')}
+          onClick={() => create(versionId)}
+        >
+          <Icon name="refresh" size={16} />
+        </button>
+      )}
       {!canWrite && <Banner tone="warn">{t(locale, 'bld.preview.needsWriter')}</Banner>}
       {expired && <Banner tone="warn">{t(locale, 'bld.preview.expired')}</Banner>}
       {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
@@ -127,6 +156,7 @@ export function PreviewPane({
             src={src}
             sandbox="allow-scripts"
             referrerPolicy="no-referrer"
+            data-viewport={viewport}
             style={{ inlineSize: VIEWPORTS[viewport] }}
           />
         ) : (

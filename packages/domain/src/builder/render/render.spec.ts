@@ -105,24 +105,24 @@ describe('structure and accessibility of the generated pages', () => {
   const about = read(r, 'en/about/index.html');
 
   it('has skip link, banner, nav with aria-current, language switcher, main, footer', () => {
-    expect(home).toContain('<a class="skip" href="#main">');
-    expect(home).toContain('<header class="site-header">');
-    expect(home).toContain('<nav aria-label="التنقل الرئيسي">');
-    expect(home).toContain('<a href="/ar/" aria-current="page">');
-    expect(home).toContain('<a class="lang" href="/en/" lang="en" hreflang="en"');
-    expect(about).toContain('<a class="lang" href="/ar/about/" lang="ar" hreflang="ar"');
-    expect(about).toContain('<a href="/en/about/" aria-current="page">About</a>');
+    expect(home).toMatch(/<a class="skip [^"]*" href="#main">/);
+    expect(home).toMatch(/<header class="site-header [^"]*">/);
+    expect(home).toMatch(/<nav class="[^"]*" aria-label="التنقل الرئيسي">/);
+    expect(home).toMatch(/<a class="[^"]*" href="\/ar\/" aria-current="page">/);
+    expect(home).toMatch(/<a class="lang ms-auto" href="\/en\/" lang="en" hreflang="en"/);
+    expect(about).toContain('<a class="lang ms-auto" href="/ar/about/" lang="ar" hreflang="ar"');
+    expect(about).toMatch(/<a class="[^"]*" href="\/en\/about\/" aria-current="page">About<\/a>/);
     expect(home).toContain('<main id="main">');
-    expect(home).toContain('<footer class="site-footer">');
+    expect(home).toMatch(/<footer class="site-footer [^"]*">/);
   });
   it('nav label falls back to the page title', () => {
     expect(home).toContain('<a href="/ar/contact/">تواصل معنا</a>');
   });
   it('uses exactly one h1: the first hero, otherwise the page title', () => {
     expect(home.match(/<h1[\s>]/g)).toHaveLength(1);
-    expect(home).toContain('<h1 id="h-hero1">');
+    expect(home).toMatch(/<h1 id="h-hero1" class="[^"]*">/);
     expect(about.match(/<h1[\s>]/g)).toHaveLength(1);
-    expect(about).toContain('<h1>About us</h1>');
+    expect(about).toMatch(/<h1 class="[^"]*">About us<\/h1>/);
   });
   it('a hero that is not the first section becomes an h2', () => {
     const m = richModel();
@@ -131,22 +131,26 @@ describe('structure and accessibility of the generated pages', () => {
     const out = renderSite(m, { assetBytes });
     expect(out.issues).toEqual([]);
     const html = read(out, 'en/index.html');
-    expect(html).toContain('<h1>Home</h1>');
-    expect(html).toContain('<h2 id="h-hero1">Welcome to Palm</h2>');
+    expect(html).toMatch(/<h1 class="[^"]*">Home<\/h1>/);
+    expect(html).toMatch(/<h2 id="h-hero1" class="[^"]*">Welcome to Palm<\/h2>/);
   });
   it('the contact form is accessible and carries a honeypot', () => {
     const html = read(r, 'en/contact/index.html');
-    expect(html).toContain('<form class="form" method="post" action="/v1/public/forms/contact"');
-    for (const f of ['name', 'email', 'phone', 'message'])
-      expect(html).toContain(`<label for="f-form1-${f}">`);
     expect(html).toMatch(
-      /<input id="f-form1-email" name="email" type="email" autocomplete="email" required>/,
+      /<form class="form [^"]*" method="post" action="\/v1\/public\/forms\/contact"/,
     );
-    expect(html).toMatch(/<input id="f-form1-phone" name="phone" type="tel" autocomplete="tel">/);
-    expect(html).toContain(
-      '<textarea id="f-form1-message" name="message" rows="5" required></textarea>',
+    for (const f of ['name', 'email', 'phone', 'message'])
+      expect(html).toContain(`<label for="f-form1-${f}" class="font-semibold">`);
+    expect(html).toMatch(
+      /<input id="f-form1-email" name="email" class="[^"]*" type="email" autocomplete="email" required>/,
     );
-    expect(html).toContain('<div class="hp" aria-hidden="true">');
+    expect(html).toMatch(
+      /<input id="f-form1-phone" name="phone" class="[^"]*" type="tel" autocomplete="tel">/,
+    );
+    expect(html).toMatch(
+      /<textarea id="f-form1-message" name="message" class="[^"]*" rows="5" required><\/textarea>/,
+    );
+    expect(html).toContain('<div class="hp sr-only" aria-hidden="true">');
     expect(html).toContain('name="website_url" type="text" tabindex="-1" autocomplete="off"');
     expect(html).toContain('role="status"');
   });
@@ -172,33 +176,35 @@ describe('structure and accessibility of the generated pages', () => {
     expect(html).toContain('(opens in a new tab)');
   });
   it('faq uses native details/summary', () => {
-    expect(home).toContain('<details class="qa">');
-    expect(home).toContain('<summary>');
+    expect(home).toMatch(/<details class="qa [^"]*">/);
+    expect(home).toMatch(/<summary class="[^"]*">/);
   });
   it('images: alt always, size attributes, lazy except the first', () => {
     const imgs = home.match(/<img [^>]*>/g)!;
     expect(imgs.length).toBeGreaterThan(0);
     for (const i of imgs) expect(i).toMatch(/ alt="[^"]+"/);
-    const content = imgs.filter((i) => !i.includes('class="logo"'));
+    const content = imgs.filter((i) => !i.includes('class="logo '));
     expect(content[0]).not.toContain('loading=');
     const aboutImgs = read(r, 'ar/about/index.html')
       .match(/<img [^>]*>/g)!
-      .filter((i) => !i.includes('class="logo"'));
+      .filter((i) => !i.includes('class="logo '));
     expect(aboutImgs[0]).toContain('width="800" height="600"');
     expect(aboutImgs[0]).not.toContain('loading=');
     for (const i of aboutImgs.slice(1)) expect(i).toContain('loading="lazy"');
   });
   it('pricing digits: Arabic-Indic in ar, Latin in en; machine-readable value kept', () => {
-    expect(home).toContain('<data class="amount" value="1200.50">١٬٢٠٠٫٥٠</data>');
-    expect(read(r, 'en/index.html')).toContain(
-      '<data class="amount" value="1200.50">1,200.50</data>',
+    expect(home).toMatch(/<data class="amount [^"]*" value="1200.50">١٬٢٠٠٫٥٠<\/data>/);
+    expect(read(r, 'en/index.html')).toMatch(
+      /<data class="amount [^"]*" value="1200.50">1,200.50<\/data>/,
     );
-    expect(read(r, 'en/index.html')).toContain('<span class="cur">SAR</span>');
-    expect(home).toContain('<span class="cur">ر.س</span>');
-    expect(read(r, 'en/index.html')).toContain('<span class="cur">USD</span>');
+    expect(read(r, 'en/index.html')).toMatch(/<span class="cur [^"]*">SAR<\/span>/);
+    expect(home).toMatch(/<span class="cur [^"]*">ر.س<\/span>/);
+    expect(read(r, 'en/index.html')).toMatch(/<span class="cur [^"]*">USD<\/span>/);
   });
   it('section ids are s-{id} and style options become classes, never inline styles', () => {
-    expect(home).toContain('<section id="s-feat" class="sec sec-features bg-muted align-center"');
+    expect(home).toMatch(
+      /<section id="s-feat" class="sec sec-features tone-muted align-center [^"]*bg-soft[^"]*text-center/,
+    );
     expect(home).not.toMatch(/\sstyle=/);
   });
   it('emits site.js without eval, dynamic code or HTML injection', () => {
@@ -232,7 +238,7 @@ describe('structure and accessibility of the generated pages', () => {
   it('preview mode adds a banner and noindex', () => {
     const out = renderSite(richModel(), { assetBytes, previewBanner: true });
     const html = read(out, 'en/index.html');
-    expect(html).toContain('class="preview-banner" role="note"');
+    expect(html).toMatch(/class="preview-banner [^"]*" role="note"/);
     expect(html).toContain('<meta name="robots" content="noindex">');
     expect(out.issues).toEqual([]);
   });

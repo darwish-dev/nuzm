@@ -5,7 +5,6 @@ import {
   ResidencyDenied,
   assertResidency,
   bindCollections,
-  renderSite,
   validateSiteModel,
   type ResidencyEvaluator,
   type SiteModel,
@@ -13,6 +12,7 @@ import {
 import { OperationsService, emitUsage, usageEventId, type Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
+import { renderSiteCss } from '../../../common/site-css';
 import { decodeCursor, pageOf } from '../../../common/pagination';
 import { actionHash } from '../../ai';
 import type { CmsService } from '../../builder';
@@ -569,7 +569,7 @@ export class DeployService {
               ).rows[0],
           )) as Row
         ).content as Uint8Array;
-    const out = renderSite(model, {
+    const out = await renderSiteCss(model, {
       ...(baseUrl ? { baseUrl } : {}),
       formsBaseUrl: `${this.cfg.formsBaseUrl}/p/${d.project_id}`,
       assetBytes,

@@ -33,6 +33,24 @@ export interface PageResult {
   assets?: Asset[];
   forms?: FormDef[];
 }
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+/**
+ * A model's sections as the assembler can rely on them: only objects, each with a string id (made unique when missing) and a props object. The page schema asks for
+ * all of this and the repair loop enforces it, so this is the last line of defence: a malformed section must never crash a run that has already spent its credits.
+ */
+export function normalizeSections(pageId: string, sections: unknown): Section[] {
+  const used = new Set<string>();
+  const out: Section[] = [];
+  (Array.isArray(sections) ? sections : []).forEach((raw, i) => {
+    if (!isObj(raw)) return;
+    let id = typeof raw.id === 'string' && raw.id !== '' ? raw.id : `${pageId}-${i + 1}`;
+    for (let n = 2; used.has(id); n++) id = `${id.replace(/-\d+$/, '')}-${n}`;
+    used.add(id);
+    out.push({ ...raw, id, props: isObj(raw.props) ? raw.props : {} } as unknown as Section);
+  });
+  return out;
+}
 const assetRefs = (s: Section): string[] => {
   const p = s.props;
   const out: string[] = [];
@@ -86,7 +104,7 @@ export function assembleGenerated(
       id: ap.pageId,
       slug: ap.slug,
       title: keepLocales(r.title, locales) as Localized,
-      sections: keepLocales(r.sections, locales) as Section[],
+      sections: keepLocales(normalizeSections(ap.pageId, r.sections), locales) as Section[],
     };
     const seo = {
       ...(r.seo ?? {}),

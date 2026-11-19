@@ -6,11 +6,14 @@
  */
 import 'reflect-metadata';
 import { randomBytes } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
+import type { Http2ServerRequest } from 'node:http2';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../app.module';
+import { rewritePreviewUrl } from '../modules/builder/isolation';
 import { configureApp } from '../app.setup';
 import { TestIdp } from '../modules/identity/testing/test-idp';
 import { startDomainsDevMocks } from './domains-dev';
@@ -54,10 +57,24 @@ async function main() {
     SESSION_SEAL_KEY: devSealKey(),
     LOGIN_RATE_PER_MINUTE: '1000',
   });
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
-    logger: ['error', 'warn'],
-    rawBody: true, // webhook signatures are computed over the exact request bytes
-  });
+  // The builder preview needs an address the browser can resolve and an edge that maps it to the preview path: `*.localhost` resolves to this machine in every
+  // modern browser, and the rewrite below is the edge. (Production keeps its own domain, https and a real edge.)
+  process.env.BUILDER_PREVIEW_DOMAIN ??= 'preview.localhost';
+  process.env.BUILDER_PREVIEW_SCHEME ??= 'http';
+  process.env.BUILDER_PREVIEW_PORT ??= String(process.env.PORT ?? 4000);
+  process.env.BUILDER_CONSOLE_ORIGIN ??= 'http://localhost:3000 http://127.0.0.1:3000';
+  const previewDomain = process.env.BUILDER_PREVIEW_DOMAIN;
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({
+      rewriteUrl: (req: IncomingMessage | Http2ServerRequest) =>
+        rewritePreviewUrl(req.headers.host, req.url ?? '/', previewDomain),
+    }),
+    {
+      logger: ['error', 'warn'],
+      rawBody: true, // webhook signatures are computed over the exact request bytes
+    },
+  );
   await configureApp(app);
   const mocks = process.env.DOMAINS_DEV_MOCKS === 'true' ? await startDomainsDevMocks(app) : null;
   await app.listen(Number(process.env.PORT ?? 4000), '127.0.0.1');

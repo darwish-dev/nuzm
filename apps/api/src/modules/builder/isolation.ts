@@ -26,3 +26,19 @@ export function installPreviewIsolation(
     return undefined;
   });
 }
+
+/**
+ * The edge stand-in of the DEV stack. In a real deployment an edge proxy maps the preview host's paths to `/_preview/<token>/...`; a local stack has none, so the dev
+ * stack calls this from Fastify's `rewriteUrl`. Only a host that is exactly `<32-character token>.<domain>` is rewritten, and only to the preview path: nothing else
+ * ever changes (the isolation hook above still decides what the preview host may reach).
+ */
+export function rewritePreviewUrl(host: string | undefined, url: string, domain: string): string {
+  const suffix = `.${domain.toLowerCase()}`;
+  const h = String(host ?? '')
+    .toLowerCase()
+    .replace(/:\d+$/, '');
+  if (!h.endsWith(suffix)) return url;
+  const token = h.slice(0, -suffix.length);
+  if (!/^[a-z2-7]{32}$/.test(token) || url.startsWith('/_preview/')) return url;
+  return `/_preview/${token}${url.startsWith('/') ? url : `/${url}`}`;
+}

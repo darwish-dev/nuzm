@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Banner, Button } from '@nuzm/ui';
+import { Banner, Button, Icon } from '@nuzm/ui';
 import {
   VIEWPORTS,
   isPreviewUrl,
@@ -97,39 +97,48 @@ export function PreviewPane({
     preview && isPreviewUrl(preview.url) ? previewForLocale(preview.url, siteLocale) : null;
   return (
     <div className={bare ? 'bld-preview-bare' : undefined}>
-      <div
-        className="nz-row"
-        role="toolbar"
-        aria-label={t(locale, 'bld.preview.toolbar')}
-        hidden={bare}
-      >
-        {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => (
-          <Button
-            key={v}
-            variant={viewport === v ? 'primary' : 'secondary'}
-            aria-pressed={viewport === v}
-            onClick={() => setViewport(v)}
-          >
-            {t(locale, `bld.preview.${v}`, { width: VIEWPORTS[v] })}
-          </Button>
-        ))}
-        {siteLocales.length > 1 &&
-          siteLocales.map((l) => (
+      {!bare && (
+        <div className="nz-row" role="toolbar" aria-label={t(locale, 'bld.preview.toolbar')}>
+          {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => (
             <Button
-              key={l}
-              variant={siteLocale === l ? 'primary' : 'secondary'}
-              aria-pressed={siteLocale === l}
-              onClick={() => setSiteLocale(l)}
+              key={v}
+              variant={viewport === v ? 'primary' : 'secondary'}
+              aria-pressed={viewport === v}
+              onClick={() => setViewport(v)}
             >
-              {t(locale, `bld.lang.${l}`)}
+              {t(locale, `bld.preview.${v}`, { width: VIEWPORTS[v] })}
             </Button>
           ))}
-        {canWrite && (
-          <Button variant="secondary" disabled={call.busy} onClick={() => create(versionId)}>
-            {t(locale, 'bld.preview.refresh')}
-          </Button>
-        )}
-      </div>
+          {siteLocales.length > 1 &&
+            siteLocales.map((l) => (
+              <Button
+                key={l}
+                variant={siteLocale === l ? 'primary' : 'secondary'}
+                aria-pressed={siteLocale === l}
+                onClick={() => setSiteLocale(l)}
+              >
+                {t(locale, `bld.lang.${l}`)}
+              </Button>
+            ))}
+          {canWrite && (
+            <Button variant="secondary" disabled={call.busy} onClick={() => create(versionId)}>
+              {t(locale, 'bld.preview.refresh')}
+            </Button>
+          )}
+        </div>
+      )}
+      {bare && canWrite && (
+        <button
+          type="button"
+          className="bws-refresh"
+          disabled={call.busy}
+          aria-label={t(locale, 'bld.preview.refresh')}
+          title={t(locale, 'bld.preview.refresh')}
+          onClick={() => create(versionId)}
+        >
+          <Icon name="refresh" size={16} />
+        </button>
+      )}
       {!canWrite && <Banner tone="warn">{t(locale, 'bld.preview.needsWriter')}</Banner>}
       {expired && <Banner tone="warn">{t(locale, 'bld.preview.expired')}</Banner>}
       {call.problem && <ProblemNote locale={locale} problem={call.problem} />}

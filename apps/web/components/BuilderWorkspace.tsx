@@ -25,6 +25,7 @@ import {
   VIEWPORTS,
 } from '../lib/builder';
 import { bapi, useBuilderCall } from '../lib/builder-client';
+import { BrandMark } from './BrandLogo';
 import { Chat } from './BuilderChat';
 import { CodePane } from './BuilderCode';
 import { Inspector, type Selection } from './BuilderInspector';
@@ -179,6 +180,9 @@ export function Workspace({
   return (
     <div className="bws" data-inspector={inspectorOpen ? 'open' : 'closed'}>
       <header className="bws-top">
+        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
+          <BrandMark />
+        </a>
         <a className="bws-back" href={`/${locale}/builder/projects`}>
           {t(locale, 'bld.ws.back')}
         </a>

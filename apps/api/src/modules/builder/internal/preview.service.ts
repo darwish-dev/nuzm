@@ -4,7 +4,7 @@ import { csp, type SiteModel } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
-import { isUuid, previewHost, type BuilderConfig, type Row } from './model';
+import { isUuid, previewHost, previewUrl, type BuilderConfig, type Row } from './model';
 
 const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
 /** 160-bit token as a DNS-safe lower-case base32 label (32 characters): the unguessable part of the preview host. */
@@ -53,7 +53,7 @@ export class PreviewService {
     private readonly cfg: BuilderConfig,
   ) {}
   private url(token: string, locale: string) {
-    return `${this.cfg.previewScheme}://${previewHost(token, this.cfg)}/${locale}/`;
+    return previewUrl(token, locale, this.cfg);
   }
   async create(
     orgId: string,

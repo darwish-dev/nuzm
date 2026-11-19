@@ -4780,6 +4780,7 @@ export const messages = {
     'bld.wiz.noRunPermission':
       'دوركم يتيح إنشاء المشاريع لكنه لا يتيح بدء تشغيلات الذكاء الاصطناعي. اطلبوا ذلك من مالك أو مسؤول أو مطوّر.',
     'bld.ws.back': 'كل المشاريع',
+    'bld.ws.home': 'الصفحة الرئيسية',
     'bld.ws.saving': 'جارٍ الحفظ…',
     'bld.ws.saved': 'كل التغييرات محفوظة',
     'bld.ws.device': 'حجم الشاشة',
@@ -11271,6 +11272,7 @@ export const messages = {
     'bld.wiz.noRunPermission':
       'Your role can create projects but cannot start AI runs. Ask an owner, admin or developer.',
     'bld.ws.back': 'All projects',
+    'bld.ws.home': 'Home',
     'bld.ws.saving': 'Saving…',
     'bld.ws.saved': 'All changes saved',
     'bld.ws.device': 'Screen size',

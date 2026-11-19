@@ -68,6 +68,27 @@ describe('model providers (UI-M09-12)', () => {
     expect(screen.getByText(t('en', 'aia.emptyBody')).textContent).toMatch(/D-18.*HG-09-01/);
     expect(screen.queryByRole('table')).toBeNull();
   });
+  it('the provider form is one dense three-column grid holding all eight labelled fields', () => {
+    const { container } = panel([]);
+    const grid = container.querySelector('form[aria-label] .nzc-form-grid--3')!;
+    expect(grid).toBeTruthy();
+    expect(container.querySelector('.nzc-dense')).toBeTruthy();
+    for (const key of [
+      'aia.cfg.code',
+      'aia.cfg.adapter',
+      'aia.cfg.displayName',
+      'aia.cfg.region',
+      'aia.cfg.vault',
+      'aia.cfg.rateVersion',
+      'aia.cfg.rateCard',
+      'aia.cfg.egress',
+    ] as const) {
+      const field = screen.getByLabelText(t('en', key));
+      expect(grid.contains(field)).toBe(true);
+    }
+    // the rate card JSON spans two columns, so the form is three rows tall
+    expect(grid.querySelector('.nzc-span-2 textarea')).toBeTruthy();
+  });
   it('the credential field takes a vault reference only: no secret input exists', () => {
     const { container } = panel([]);
     // the provider setup form (under "Advanced") has no secret input; the only password field on the page is the Claude key card, which is write-only

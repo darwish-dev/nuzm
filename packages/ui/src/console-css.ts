@@ -322,6 +322,30 @@ export const consoleCss = `
 .nzc-form-grid .nzc-span { grid-column: 1 / -1; }
 .nzc-form-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px 20px; flex-wrap: wrap; margin-block-start: 4px; padding-block-start: 18px; border-block-start: 1px solid var(--nzc-border); }
 .nzc .nzc-form-foot .nz-btn { min-block-size: 46px; padding-inline: 22px; }
+/* dense data entry: three fields per row and tighter controls (admin settings forms); 2 columns <= 1000px, 1 column <= 560px */
+.nzc-form-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
+.nzc-form-grid--3 .nzc-span-2 { grid-column: span 2; }
+.nzc .nzc-dense .nz-field { gap: 6px; margin-block-end: 14px; }
+.nzc .nzc-dense .nz-field label { font-size: 13px; }
+.nzc .nzc-dense .nz-help { font-size: 12px; line-height: 1.45; }
+.nzc .nzc-dense .nz-input, .nzc .nzc-dense select, .nzc .nzc-dense input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-block-size: 42px; padding-inline: 12px; font-size: 14px; border-radius: 11px; }
+.nzc .nzc-dense textarea { min-block-size: 0; padding: 10px 12px; font-size: 13px; line-height: 1.5; border-radius: 11px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.nzc .nzc-dense .nzc-form-foot .nz-btn { min-block-size: 42px; padding-inline: 20px; }
+.nzc .nz-card.nzc-dense { padding: 18px 20px; }
+.nzc-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 20px; flex-wrap: wrap; margin-block-end: 16px; padding-block-end: 12px; border-block-end: 1px solid var(--nzc-border); }
+.nzc-panel-head h2, .nzc-panel-head h3 { margin: 0; font-size: 16px; }
+.nzc-panel-head p { margin: 4px 0 0; max-inline-size: 72ch; font-size: 13px; }
+.nzc-inline-row { display: grid; grid-template-columns: minmax(0, 2fr) auto; align-items: start; gap: 0 12px; }
+.nzc-inline-row > .nz-row { padding-block-start: 26px; }
+@media (max-width: 1000px) { .nzc-form-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nzc-form-grid--3 .nzc-span-2 { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .nzc-form-grid--3 { grid-template-columns: minmax(0, 1fr); } .nzc-inline-row { grid-template-columns: minmax(0, 1fr); } .nzc-inline-row > .nz-row { padding-block-start: 0; } }
+.nzc details.nzc-adv > summary { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid var(--nzc-border); border-radius: 14px; background: var(--nzc-card); cursor: pointer; font-weight: 600; font-size: 14px; list-style: none; }
+.nzc details.nzc-adv > summary::-webkit-details-marker { display: none; }
+.nzc details.nzc-adv > summary::before { content: ""; inline-size: 7px; block-size: 7px; border-inline-end: 2px solid var(--nzc-muted); border-block-end: 2px solid var(--nzc-muted); transform: rotate(-45deg); transition: transform 120ms ease; }
+[dir="rtl"] .nzc details.nzc-adv > summary::before { transform: rotate(45deg); }
+.nzc details.nzc-adv[open] > summary::before { transform: rotate(45deg); }
+.nzc details.nzc-adv[open] > summary { margin-block-end: 14px; border-end-start-radius: 14px; }
+.nzc details.nzc-adv > summary:focus-visible { outline: 2px solid var(--nzc-accent); outline-offset: 2px; }
 
 .nzc-dres-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 4px 0 12px; }
 .nzc-dres-head h2, .nzc-dres-head h3 { margin: 0; font-size: 16px; font-weight: 650; }

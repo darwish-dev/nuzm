@@ -1,5 +1,5 @@
 import type { Locale, Page, SiteModel } from '../site-model';
-import { renderImage, renderSection } from './components';
+import { TW, renderImage, renderSection } from './components';
 import { dirOf, UI } from './ui';
 import { assetPath, pageDescription, pagePath, pageTitle, text } from './common';
 import { jsonLd } from './seo';
@@ -69,30 +69,33 @@ function absoluteHead(ctx: RenderCtx, title: string, description: string): strin
   return lines;
 }
 
+const NAV_LINK =
+  'inline-block py-1 aria-[current=page]:border-b-2 aria-[current=page]:border-current aria-[current=page]:font-bold aria-[current=page]:no-underline';
+
 function header(ctx: RenderCtx): string {
   const { model, locale, page } = ctx;
   const logo = model.brand.logoAssetId
-    ? renderImage(ctx, model.brand.logoAssetId, 'logo', false)
+    ? renderImage(ctx, model.brand.logoAssetId, 'logo h-9 w-auto', false)
     : '';
   const items = model.nav.items
     .map((n) => {
       const target = model.pages.find((p) => p.id === n.pageId);
       if (!target) return '';
       const label = text(n.label, locale) || text(target.title, locale);
-      return `<li><a href="${pagePath(locale, target.slug)}"${target.id === page.id ? ' aria-current="page"' : ''}>${esc(label)}</a></li>`;
+      return `<li><a class="${NAV_LINK}" href="${pagePath(locale, target.slug)}"${target.id === page.id ? ' aria-current="page"' : ''}>${esc(label)}</a></li>`;
     })
     .filter(Boolean);
   const other = model.locales.find((l) => l !== locale);
   return [
-    `<header class="site-header">`,
-    `<div class="wrap bar">`,
-    `<a class="brand" href="${pagePath(locale, 'home')}">${logo}<span>${esc(text(model.brand.name, locale))}</span></a>`,
-    `<nav aria-label="${esc(UI.navLabel[locale])}">`,
-    `<button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">${esc(UI.menu[locale])}</button>`,
-    `<ul class="nav-list" id="site-nav">\n${items.join('\n')}\n</ul>`,
+    `<header class="site-header sticky top-0 z-10 border-b border-line bg-page/95 backdrop-blur">`,
+    `<div class="${TW.wrap} flex flex-wrap items-center gap-x-6 gap-y-3 py-3.5">`,
+    `<a class="brand inline-flex items-center gap-2 text-lg font-bold text-ink no-underline" href="${pagePath(locale, 'home')}">${logo}<span>${esc(text(model.brand.name, locale))}</span></a>`,
+    `<nav class="max-md:order-last max-md:basis-full" aria-label="${esc(UI.navLabel[locale])}">`,
+    `<button class="nav-toggle hidden cursor-pointer rounded-site border border-ink bg-page px-3.5 py-1.5 text-ink max-md:in-[.js]:inline-block" type="button" aria-expanded="false" aria-controls="site-nav">${esc(UI.menu[locale])}</button>`,
+    `<ul class="nav-list flex flex-wrap gap-x-5 gap-y-1 max-md:w-full max-md:flex-col max-md:in-[.js]:data-[open=false]:hidden" id="site-nav">\n${items.join('\n')}\n</ul>`,
     `</nav>`,
     other
-      ? `<a class="lang" href="${pagePath(other, page.slug)}" lang="${other}" hreflang="${other}" aria-label="${esc(UI.switchLabel[locale])}">${esc(UI.switchTo[other])}</a>`
+      ? `<a class="lang ms-auto" href="${pagePath(other, page.slug)}" lang="${other}" hreflang="${other}" aria-label="${esc(UI.switchLabel[locale])}">${esc(UI.switchTo[other])}</a>`
       : '',
     `</div>`,
     `</header>`,
@@ -112,11 +115,11 @@ function footer(ctx: RenderCtx): string {
     })
     .filter(Boolean);
   return [
-    `<footer class="site-footer">`,
-    `<div class="wrap">`,
+    `<footer class="site-footer border-t border-line bg-soft py-8 text-ink">`,
+    `<div class="${TW.wrap}">`,
     `<p>${esc(text(model.footer.text, locale))}</p>`,
     links.length
-      ? `<nav aria-label="${esc(UI.footerNav[locale])}">\n<ul>\n${links.join('\n')}\n</ul>\n</nav>`
+      ? `<nav aria-label="${esc(UI.footerNav[locale])}">\n<ul class="flex flex-wrap gap-x-5 gap-y-1">\n${links.join('\n')}\n</ul>\n</nav>`
       : '',
     `</div>`,
     `</footer>`,
@@ -135,7 +138,7 @@ export function renderPage(ctx: RenderCtx): { html: string; title: string } {
   const sections = page.sections.map((s) => renderSection(ctx, s));
   const pageHead = ctx.state.heroH1
     ? ''
-    : `<div class="page-head">\n<div class="wrap">\n<h1>${esc(text(page.title, locale))}</h1>\n</div>\n</div>\n`;
+    : `<div class="page-head pt-section">\n<div class="${TW.wrap}">\n<h1 class="${TW.h1}">${esc(text(page.title, locale))}</h1>\n</div>\n</div>\n`;
   const head = [
     `<meta charset="utf-8">`,
     `<meta name="viewport" content="width=device-width, initial-scale=1">`,
@@ -150,9 +153,9 @@ export function renderPage(ctx: RenderCtx): { html: string; title: string } {
     .join('\n');
   const body = [
     ctx.opts.previewBanner
-      ? `<div class="preview-banner" role="note">${esc(UI.preview[locale])}</div>`
+      ? `<div class="preview-banner bg-ink px-4 py-2 text-center font-semibold text-page" role="note">${esc(UI.preview[locale])}</div>`
       : '',
-    `<a class="skip" href="#main">${esc(UI.skip[locale])}</a>`,
+    `<a class="skip absolute start-2 -top-20 z-20 bg-ink px-4 py-2 text-page focus:top-2" href="#main">${esc(UI.skip[locale])}</a>`,
     header(ctx),
     `<main id="main">\n${pageHead}${sections.join('\n')}\n</main>`,
     footer(ctx),
@@ -181,7 +184,7 @@ export function renderRedirect(model: SiteModel, baseUrl: string | undefined): s
 ${baseUrl ? `<link rel="canonical" href="${esc(baseUrl + target)}">\n` : ''}<link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
-<main id="main" class="wrap">
+<main id="main" class="mx-auto w-full max-w-3xl p-4">
 <h1>${esc(name)}</h1>
 <p><a href="${target}">${esc(UI.continue[l])}</a></p>
 </main>

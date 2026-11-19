@@ -88,7 +88,9 @@ describe('every component', () => {
       props: { heading: { ar: 'ع', en: 'H' }, cta: { pageId: 'about' } },
     };
     const ctx = makeCtx(model, 'ar', model.pages[0]!, { formsBase: '', previewBanner: false }, []);
-    expect(renderSection(ctx, hero)).toContain('<a class="btn" href="/ar/about/">اعرف المزيد</a>');
+    expect(renderSection(ctx, hero)).toMatch(
+      /<a class="btn [^"]*" href="\/ar\/about\/">اعرف المزيد<\/a>/,
+    );
   });
   it('contact_form action follows formsBase', () => {
     expect(render('contact_form', 'en', 'https://f.example.com')).toContain(

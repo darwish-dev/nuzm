@@ -36,6 +36,11 @@ export interface RenderResult {
   /** `path` is the generated file path, e.g. `ar/about/index.html` */
   pages: { pageId: string; locale: Locale; path: string; title: string }[];
   issues: RenderIssue[];
+  /**
+   * `assets/styles.css` in `files` is the Tailwind SOURCE until the server compiles it: `compile(source, candidates)` (apps/api) yields the final stylesheet, which
+   * replaces that file. Candidates are every class used by the generated pages, sorted.
+   */
+  tailwind: { source: string; candidates: string[] };
 }
 
 /** Options after validation/normalisation. */

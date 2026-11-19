@@ -163,5 +163,11 @@ export function renderSite(model: SiteModel, options: RenderOptions = {}): Rende
       file: 'assets/styles.css',
     });
 
-  return { files, pages, issues };
+  // the utility classes the pages use: the server compiles exactly these from the Tailwind source (deterministic: unique and sorted)
+  const used = new Set<string>();
+  for (const f of htmlFiles)
+    for (const m of (f.content as string).matchAll(/\sclass="([^"]*)"/g))
+      for (const c of (m[1] ?? '').split(/\s+/)) if (c) used.add(c);
+
+  return { files, pages, issues, tailwind: { source: css, candidates: [...used].sort() } };
 }

@@ -653,6 +653,19 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
   },
   contact_form: { loc: [], locOpt: ['heading', 'intro'], strings: [] },
   map: { loc: [], locOpt: ['heading', 'address'], strings: ['query'] },
+  stats: {
+    loc: [],
+    locOpt: ['heading'],
+    strings: [],
+    items: { prop: 'stats', loc: ['label'], locOpt: [], strings: ['value'] },
+  },
+  cta: { loc: ['heading'], locOpt: ['subheading', 'ctaLabel'], strings: [] },
+  steps: {
+    loc: [],
+    locOpt: ['heading'],
+    strings: [],
+    items: { prop: 'steps', loc: ['title', 'text'], locOpt: [], strings: [] },
+  },
 };
 export const SECTION_TYPES = Object.keys(SECTION_SPECS);
 const LONG_TEXT = new Set([
@@ -867,6 +880,9 @@ export const INSERTABLE = [
   'faq',
   'pricing',
   'testimonials',
+  'stats',
+  'steps',
+  'cta',
   'map',
   'contact_form',
 ] as const;
@@ -894,6 +910,30 @@ export function sampleSection(model: SiteModel, type: string, id: string): Secti
       return { id, type, props: { plans: [{ name: L, price: '0', currency: 'SAR' }] } };
     case 'testimonials':
       return { id, type, props: { items: [{ quote: L, author: SAMPLE.en }] } };
+    case 'stats':
+      return {
+        id,
+        type,
+        props: {
+          stats: [
+            { value: '00', label: L },
+            { value: '00', label: L },
+          ],
+        },
+      };
+    case 'steps':
+      return {
+        id,
+        type,
+        props: {
+          steps: [
+            { title: L, text: L },
+            { title: L, text: L },
+          ],
+        },
+      };
+    case 'cta':
+      return { id, type, props: { heading: L } };
     case 'map':
       return { id, type, props: {} };
     case 'contact_form': {

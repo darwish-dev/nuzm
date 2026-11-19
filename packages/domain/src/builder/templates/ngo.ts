@@ -94,6 +94,18 @@ export const ngo = defineTemplate({
             L('رسالتنا', 'Our mission'),
             { bg: 'muted', align: 'center' },
           ),
+          // SAMPLE figures: the owner replaces them with the business's own numbers
+          k.stats('home-stats', L('أثرنا بالأرقام', 'Our impact in numbers'), [
+            ['000', 'مستفيد (عدّلها)', 'Beneficiaries (edit)'],
+            ['00', 'مبادرة (عدّلها)', 'Initiatives (edit)'],
+            ['000', 'متطوع (عدّلها)', 'Volunteers (edit)'],
+          ]),
+          k.cta('home-cta', {
+            h: L('كن جزءًا من الأثر', 'Be part of the impact'),
+            sub: L('انضم إلينا وساهم في مبادراتنا', 'Join us and support our initiatives'),
+            label: L('تواصل معنا', 'Get in touch'),
+            to: 'contact',
+          }),
         ],
       ),
       k.page(

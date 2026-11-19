@@ -113,6 +113,15 @@ export const restaurant = defineTemplate({
             ],
             { bg: 'muted' },
           ),
+          k.cta('home-cta', {
+            h: L('جاهزون لاستقبالك', 'We are ready to serve you'),
+            sub: L(
+              'اطلع على قائمتنا واختر ما تشتهي',
+              'Look through our menu and pick what you like',
+            ),
+            label: L('اطلع على القائمة', 'See the menu'),
+            to: 'menu',
+          }),
         ],
       ),
       k.page(

@@ -25,6 +25,9 @@ const TYPES = new Set<string>([
   'faq',
   'contact_form',
   'map',
+  'stats',
+  'cta',
+  'steps',
 ] satisfies SectionType[]);
 
 const T = (ctx: RenderCtx, v: unknown): string => text(loc(v), ctx.locale);
@@ -264,6 +267,44 @@ function map(ctx: RenderCtx, s: Section): string {
   return wrap(s, `${heading(ctx, s, 'headingMap')}\n${card}`, true);
 }
 
+function stats(ctx: RenderCtx, s: Section): string {
+  const items = list(s.props.stats).map(
+    (it) =>
+      `<li class="stat">\n<strong class="stat-value">${esc(str(it.value))}</strong>\n<span class="stat-label">${E(ctx, it.label)}</span>\n</li>`,
+  );
+  return wrap(
+    s,
+    `${heading(ctx, s, 'headingStats')}\n<ul class="stats-grid" role="list">\n${items.join('\n')}\n</ul>`,
+    true,
+  );
+}
+
+function cta(ctx: RenderCtx, s: Section): string {
+  const p = s.props;
+  const link = resolveLink(ctx, p.cta, `section ${s.id} cta`);
+  const label = E(ctx, p.ctaLabel) || esc(UI.ctaDefault[ctx.locale]);
+  const sub = E(ctx, p.subheading);
+  const inner = [
+    `<h2 id="h-${sid(s)}">${E(ctx, p.heading)}</h2>`,
+    sub ? `<p class="lead">${sub}</p>` : '',
+    link ? `<p>${anchor(ctx, link, label, 'btn')}</p>` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return wrap(s, `<div class="cta-box">\n${inner}\n</div>`, true);
+}
+
+function steps(ctx: RenderCtx, s: Section): string {
+  const items = list(s.props.steps).map(
+    (it) => `<li class="step">\n<h3>${E(ctx, it.title)}</h3>\n<p>${E(ctx, it.text)}</p>\n</li>`,
+  );
+  return wrap(
+    s,
+    `${heading(ctx, s, 'headingSteps')}\n<ol class="steps-list" role="list">\n${items.join('\n')}\n</ol>`,
+    true,
+  );
+}
+
 const RENDERERS: Record<SectionType, (ctx: RenderCtx, s: Section) => string> = {
   hero,
   text: textSection,
@@ -275,10 +316,48 @@ const RENDERERS: Record<SectionType, (ctx: RenderCtx, s: Section) => string> = {
   faq,
   contact_form: contactForm,
   map,
+  stats,
+  cta,
+  steps,
 };
+
+/** The other background than the previous section's, unless the next section explicitly asks for that very one (then keep the previous, so the explicit band stands out). */
+function alternate(prev: string, next: Section | undefined): string {
+  const want = prev === 'default' ? 'muted' : 'default';
+  return next?.style?.background === want ? prev : want;
+}
+
+/**
+ * The background a section gets. An explicit choice (`style.background`) always wins. Otherwise the page keeps a rhythm of its own: a hero starts on the page
+ * background, a call to action is a primary band, and every other section alternates between the page background and the muted one, so two neighbouring
+ * sections never melt into each other.
+ */
+export function effectiveBackground(sections: Section[], index: number): string {
+  let prev = 'default';
+  let bg = 'default';
+  sections.slice(0, index + 1).forEach((x) => {
+    const explicit = x.style?.background;
+    bg = BACKGROUNDS.has(explicit ?? '')
+      ? explicit!
+      : x.type === 'cta'
+        ? 'primary'
+        : x.type === 'hero'
+          ? 'default'
+          : alternate(prev, sections[sections.indexOf(x) + 1]);
+    prev = bg;
+  });
+  return bg;
+}
 
 /** Render one section (a `<section>` element). Unknown types render nothing: the model is validated before rendering. */
 export function renderSection(ctx: RenderCtx, s: Section): string {
   const fn = RENDERERS[s.type];
-  return fn ? fn(ctx, s) : '';
+  if (!fn) return '';
+  const i = ctx.page.sections.findIndex((x) => x.id === s.id);
+  const bg =
+    i >= 0 ? effectiveBackground(ctx.page.sections, i) : (s.style?.background ?? 'default');
+  return fn(ctx, {
+    ...s,
+    style: { ...s.style, background: bg as 'default' | 'muted' | 'primary' },
+  });
 }

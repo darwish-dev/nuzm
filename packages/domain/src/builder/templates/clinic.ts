@@ -98,6 +98,22 @@ export const clinic = defineTemplate({
             ],
             { bg: 'muted' },
           ),
+          k.steps('home-steps', L('كيف تتم الزيارة', 'How your visit works'), [
+            ['احجز', 'Book', 'اختر الموعد المناسب لك', 'Choose a time that suits you'],
+            [
+              'زرنا',
+              'Visit',
+              'يستقبلك فريقنا ويفحص حالتك',
+              'Our team welcomes you and assesses your case',
+            ],
+            ['تابع', 'Follow up', 'نتابع معك بعد الزيارة', 'We follow up with you after the visit'],
+          ]),
+          k.cta('home-cta', {
+            h: L('احجز موعدك بسهولة', 'Book your visit with ease'),
+            sub: L('فريقنا جاهز لاستقبالك', 'Our team is ready to welcome you'),
+            label: L('احجز موعدًا', 'Book an appointment'),
+            to: 'contact',
+          }),
         ],
       ),
       k.page(

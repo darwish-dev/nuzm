@@ -105,6 +105,38 @@ export const services = defineTemplate({
             ],
             { bg: 'muted' },
           ),
+          // SAMPLE figures: the owner replaces them with the business's own numbers
+          k.stats('home-stats', L('بالأرقام', 'In numbers'), [
+            ['00+', 'سنة خبرة (عدّلها)', 'Years of experience (edit)'],
+            ['000', 'مشروع منجز (عدّلها)', 'Projects completed (edit)'],
+            ['000', 'عميل (عدّلها)', 'Clients (edit)'],
+          ]),
+          k.steps('home-steps', L('كيف نعمل', 'How we work'), [
+            [
+              'اطلب',
+              'Request',
+              'أرسل لنا طلبك ببعض التفاصيل',
+              'Send us your request with a few details',
+            ],
+            [
+              'نتفق',
+              'Agree',
+              'نراجع احتياجك ونقدّم عرضًا واضحًا',
+              'We review your need and give a clear offer',
+            ],
+            [
+              'ننفّذ',
+              'Deliver',
+              'ننجز العمل بالمواعيد المتفق عليها',
+              'We do the work on the agreed schedule',
+            ],
+          ]),
+          k.cta('home-cta', {
+            h: L('جاهزون لخدمتك', 'Ready to help you'),
+            sub: L('اطلب عرض سعر وسنرد عليك سريعًا', 'Request a quote and we will reply quickly'),
+            label: L('اطلب عرض سعر', 'Request a quote'),
+            to: 'contact',
+          }),
         ],
       ),
       k.page(

@@ -101,6 +101,31 @@ export const education = defineTemplate({
             ],
             { bg: 'muted' },
           ),
+          // SAMPLE figures: the owner replaces them with the business's own numbers
+          k.stats('home-stats', L('بالأرقام', 'In numbers'), [
+            ['000', 'طالب (عدّلها)', 'Students (edit)'],
+            ['00', 'برنامج (عدّلها)', 'Programs (edit)'],
+            ['00', 'مدرّب (عدّلها)', 'Instructors (edit)'],
+          ]),
+          k.steps('home-steps', L('كيف تبدأ', 'How to begin'), [
+            ['اختر', 'Choose', 'تصفّح البرامج واختر المناسب', 'Browse the programs and pick one'],
+            ['سجّل', 'Register', 'أرسل طلب التسجيل', 'Send your registration request'],
+            [
+              'تعلّم',
+              'Learn',
+              'ابدأ وتابع تقدّمك مع مدرّبك',
+              'Start and follow your progress with your instructor',
+            ],
+          ]),
+          k.cta('home-cta', {
+            h: L('ابدأ رحلة التعلّم اليوم', 'Start learning today'),
+            sub: L(
+              'اطلع على برامجنا واختر ما يناسبك',
+              'Browse our programs and pick what suits you',
+            ),
+            label: L('تصفّح البرامج', 'Browse programs'),
+            to: 'programs',
+          }),
         ],
       ),
       k.page(

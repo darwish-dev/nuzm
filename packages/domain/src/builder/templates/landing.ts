@@ -186,6 +186,15 @@ export const landing = defineTemplate({
             ),
           ),
           k.map('home-map', L('موقعنا', 'Find us')),
+          k.cta('home-cta', {
+            h: L('جاهز للبدء؟', 'Ready to get started?'),
+            sub: L(
+              'اترك بياناتك وسنتواصل معك قريبًا',
+              'Leave your details and we will get back to you soon',
+            ),
+            label: L('تواصل معنا', 'Get in touch'),
+            to: '#contact',
+          }),
         ],
         L('الصفحة الرئيسية', 'Home'),
       ),

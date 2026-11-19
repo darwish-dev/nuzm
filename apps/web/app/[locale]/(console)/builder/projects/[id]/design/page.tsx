@@ -14,6 +14,7 @@ import { loadBuilt } from '../../../../../../../lib/appworkspace-server';
 import { agate, bview } from '../../../../../../../lib/builder-gate';
 import type { Project } from '../../../../../../../lib/builder';
 import { unwrapCall } from '../../../../../../../lib/compute';
+import { redirectWebapp } from '../../../../../../../lib/app-redirect';
 
 /** UI-M10-02: what the database, backend and security agents generated: schema and migrations, REST API, and the role × entity access matrix. */
 export default async function DesignPage({
@@ -21,6 +22,7 @@ export default async function DesignPage({
 }: {
   params: Promise<{ locale: string; id: string }>;
 }) {
+  await redirectWebapp(params, 'design');
   const g = await agate(params, 'builder:read', 'm10a.design.title');
   if (!g.ok) return g.node;
   const { locale, c } = g;

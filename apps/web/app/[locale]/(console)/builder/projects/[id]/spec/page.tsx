@@ -8,6 +8,7 @@ import { loadBuilt } from '../../../../../../../lib/appworkspace-server';
 import { agate, bview } from '../../../../../../../lib/builder-gate';
 import type { Project } from '../../../../../../../lib/builder';
 import { unwrapCall } from '../../../../../../../lib/compute';
+import { redirectWebapp } from '../../../../../../../lib/app-redirect';
 
 /** UI-M10-02: the application spec of a web-app project (entities, roles, pages, API settings, non-functional requirements), from the newest build run. */
 export default async function SpecPage({
@@ -15,6 +16,7 @@ export default async function SpecPage({
 }: {
   params: Promise<{ locale: string; id: string }>;
 }) {
+  await redirectWebapp(params, 'spec');
   const g = await agate(params, 'builder:read', 'm10a.spec.title');
   if (!g.ok) return g.node;
   const { locale, c } = g;

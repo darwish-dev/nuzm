@@ -1,9 +1,13 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
 
 /**
  * App builder (M10A): the customer-console web-app workspace, Arabic and English projects, plus the admin oversight screens (UI-M10-18/19).
+ *
+ * The web app opens in the SAME full-screen workspace as a website (`/builder/projects/{id}`, web-app mode): chat with the live agent progress and the approvals a
+ * build waits on (decided inline), and the former pages as panels (`?tab=preview|code|spec|design|tests|deployments|exports|versions`). The former routes
+ * (`/spec`, `/design`, `/ide`, `/tests`, `/deployments`, `/exports`, `/versions`) redirect there, so the `page.goto` calls below land in the workspace.
  *
  * Flow: the flag is off (no nav entry, the web-app tile is "coming soon") → on (nav entries) → "Start a project" with ONE prompt creates the web-app project, its AI
  * session and the build run → the workspace shows the seven agents and the budget meters → a human approval the run waits on is decided in the inbox → app spec,
@@ -82,14 +86,6 @@ async function creditWallet(orgId: string, minor: string) {
   }
 }
 
-/** Waits until the run badge shows one of the states (the stream updates the page by itself). */
-async function runState(page: Page, info: TestInfo, states: string[], timeout = 120_000) {
-  const names = states.map((s) => T(info, `bld.run.state.${s}` as never));
-  await expect(page.getByText(new RegExp(`^(${names.join('|')})$`)).first()).toBeVisible({
-    timeout,
-  });
-}
-
 test('app builder: start from one prompt, agent progress, approvals, spec, data/API/access, sandbox, tests, export, deploy, rollback, versions (ar/en, axe, states)', async ({
   page,
 }, info) => {
@@ -159,44 +155,34 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
   const agents = page.getByRole('list', { name: T(info, 'm10a.run.agents') });
   await expect(agents).toBeVisible({ timeout: 30_000 });
   await expect(agents.getByRole('listitem')).toHaveCount(7);
-  await expect(page.getByRole('heading', { name: T(info, 'm10.run.budget') })).toBeVisible();
+  await expect(page.getByText(T(info, 'm10a.meter.tokens'))).toBeVisible();
   await audit(page, info, 'm10a-run-progress');
 
-  // the run ends, or waits for a human: decide the approval it waits on in the inbox
-  const waiting = page.getByRole('heading', { name: T(info, 'm10a.run.waiting') });
-  const finished = page.getByText(
-    new RegExp(
-      `^(${['succeeded', 'failed', 'budget_exceeded'].map((s) => T(info, `bld.run.state.${s}` as never)).join('|')})$`,
-    ),
+  // the run ends, or waits for a human: the approval it waits on is decided right here in the chat (bound to the exact action, with its confirmation)
+  const waiting = page.locator('.mws-run[data-phase="approval"]');
+  const finished = page.locator(
+    '.mws-run[data-phase="done"], .mws-run[data-phase="failed"], .mws-run[data-phase="budget"]',
   );
   await expect(waiting.or(finished.first())).toBeVisible({ timeout: 120_000 });
   if (await waiting.isVisible()) {
+    await expect(page.getByRole('heading', { name: T(info, 'm10a.run.waiting') })).toBeVisible();
     await audit(page, info, 'm10a-run-waiting-approval');
-    await page.getByRole('link', { name: T(info, 'm10a.run.decide') }).click();
-    await expect(
-      page.getByRole('heading', { level: 1, name: T(info, 'm10.apr.title') }),
-    ).toBeVisible();
-    await audit(page, info, 'm10a-approvals');
-    await page
-      .getByRole('table', { name: T(info, 'm10.apr.title') })
-      .getByRole('button')
+    await waiting
+      .getByRole('button', { name: T(info, 'm10.apr.approve'), exact: true })
       .first()
       .click();
-    const drawer = page.getByRole('dialog').first();
-    await expect(drawer.getByText(T(info, 'm10.apr.scopeHash'))).toBeVisible();
+    await expect(page.getByText(T(info, 'm10.apr.scopeHash')).first()).toBeVisible();
     await audit(page, info, 'm10a-approval-drawer');
-    await drawer.getByRole('button', { name: T(info, 'm10.apr.approve'), exact: true }).click();
     await page
       .getByRole('dialog')
       .last()
       .getByRole('button', { name: T(info, 'm10.apr.confirmApprove') })
       .click();
     await expect(page.getByText(T(info, 'm10.apr.approved'))).toBeVisible();
-    await page.goto(project);
-    await runState(page, info, ['succeeded', 'failed', 'budget_exceeded', 'running', 'queued']);
+    await expect(finished.first()).toBeVisible({ timeout: 120_000 });
   }
   const built = await page
-    .getByText(T(info, 'm10a.run.succeeded'))
+    .locator('.mws-run[data-phase="done"]')
     .isVisible({ timeout: 90_000 })
     .catch(() => false);
   await audit(page, info, 'm10a-overview');

@@ -8,6 +8,7 @@ import { VersionsPanel } from '../../../../../../../components/BuilderVersions';
 import type { Page_, Project, Version } from '../../../../../../../lib/builder';
 import { builderGuard, builderView } from '../../../../../../../lib/builder-view';
 import { isUuid, unwrapCall } from '../../../../../../../lib/compute';
+import { redirectWebapp } from '../../../../../../../lib/app-redirect';
 
 /** UI-M09-04: version history, compare, restore, named snapshots. */
 export default async function Versions({
@@ -15,6 +16,7 @@ export default async function Versions({
 }: {
   params: Promise<{ locale: string; id: string }>;
 }) {
+  await redirectWebapp(params, 'versions');
   const { locale, id } = await params;
   if (!isLocale(locale) || !isUuid(id)) notFound();
   const g = await builderGuard(locale, 'builder:read', 'bld.tab.versions');

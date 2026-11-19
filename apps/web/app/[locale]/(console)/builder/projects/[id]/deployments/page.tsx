@@ -19,6 +19,7 @@ import type {
 } from '../../../../../../../lib/builder';
 import { builderGuard, builderView } from '../../../../../../../lib/builder-view';
 import { isUuid, unwrapCall } from '../../../../../../../lib/compute';
+import { redirectWebapp } from '../../../../../../../lib/app-redirect';
 
 /** UI-M09-08: publish to a hosting site (two-step human approval), deployments, logs, smoke results, rollback. */
 export default async function Deployments({
@@ -26,6 +27,7 @@ export default async function Deployments({
 }: {
   params: Promise<{ locale: string; id: string }>;
 }) {
+  await redirectWebapp(params, 'deployments');
   const { locale, id } = await params;
   if (!isLocale(locale) || !isUuid(id)) notFound();
   const g = await builderGuard(locale, 'deploy:read', 'bld.tab.deployments');

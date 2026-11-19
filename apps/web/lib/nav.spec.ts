@@ -198,3 +198,22 @@ describe('M11 entries', () => {
     expect(none).not.toContain('/settings/webhooks');
   });
 });
+
+describe('M10B mobile builder entry', () => {
+  const hrefs = (ctx: NavContext) =>
+    buildNav(ctx)
+      .find((c) => c.id === 'build')
+      ?.groups.flatMap((g) => g.items.map((i) => i.href)) ?? [];
+  it('shows only while mobile_builder.enabled is on and the member can read the builder', () => {
+    expect(hrefs(all({ flag: (k) => k === 'ai.enabled' }))).not.toContain('/mobile/new');
+    expect(hrefs(all({ flag: (k) => k === 'mobile_builder.enabled' }))).toContain('/mobile/new');
+    expect(hrefs(all({ can: () => false, flag: () => true }))).not.toContain('/mobile/new');
+  });
+  it('the dashboard card follows the same flag', async () => {
+    const { visibleServices } = await import('./services');
+    const ids = (flagOn: (f: string) => boolean) =>
+      visibleServices(() => true, flagOn).map((s) => s.id);
+    expect(ids(() => true)).toContain('mobile');
+    expect(ids((f) => f !== 'mobile_builder.enabled')).not.toContain('mobile');
+  });
+});

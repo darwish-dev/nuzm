@@ -67,6 +67,15 @@ export const SERVICES: Service[] = [
     flag: 'ai.enabled',
   },
   {
+    id: 'mobile',
+    icon: 'code',
+    href: '/mobile/new',
+    perm: ['builder:read'],
+    label: 'mobile.nav.mobile',
+    desc: 'mobile.home.desc',
+    flag: 'mobile_builder.enabled',
+  },
+  {
     id: 'databases',
     icon: 'data',
     href: '/databases',

@@ -86,8 +86,10 @@ describe('projects (S39)', () => {
   });
   it('validation, quota, naming, roles and isolation', async () => {
     expect(
-      (await e.call('alice', 'POST', '/v1/builder/projects', { type: 'webapp', name: 'x' }))
-        .statusCode,
+      (
+        await e.call('alice', 'POST', '/v1/builder/projects', { type: 'mobile', name: 'x' })
+      ) // mobile arrives with M10B (webapp is served since M10A)
+      .statusCode,
     ).toBe(422);
     expect(
       (await e.call('alice', 'POST', '/v1/builder/projects', { name: 'x', locale: ['fr'] }))

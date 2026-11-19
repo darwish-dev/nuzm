@@ -10,7 +10,19 @@ import { promises as dns } from 'node:dns';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
+import {
+  AI_CONFIG,
+  BudgetService,
+  GatewayService,
+  ModelAdapterRegistry,
+  ModelProviderService,
+  RunKindRegistry,
+  RunService,
+  type AiConfig,
+} from '../ai';
+import { ProjectDelegates } from '../builder';
 import { ResidencyService } from '../compliance';
+import { DeployService, SitePublisherPort } from '../deploy';
 import { IdentityModule } from '../identity';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
@@ -19,6 +31,7 @@ import { TestRunsController } from './test-runs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
 import { ChangeService } from './internal/changes/change.service';
+import { WebappChangesDelegate, WebappDeployDelegateImpl } from './internal/delegates';
 import { AppDeploymentService, DEFAULT_DEPLOY_CONFIG } from './internal/deploy/deployment.service';
 import {
   DeployTargetPort,
@@ -28,6 +41,7 @@ import {
   MemoryReleaseStore,
   ReleaseStorePort,
 } from './internal/deploy/ports';
+import { SitePublisherDeployTarget } from './internal/deploy/site-target';
 import { EvaluationService } from './internal/eval/evaluation';
 import { ExportService } from './internal/export/export.service';
 import { AppBuilderEnabledGuard, M09StubGuard } from './internal/flag.guard';
@@ -49,6 +63,15 @@ import {
   ScriptedModelGateway,
   StaticOrgBudget,
 } from './internal/ports/m09-mock';
+import {
+  PgArtifactStore,
+  PgOrgBudget,
+  PgProjects,
+  PgRunStore,
+  RealModelGateway,
+} from './internal/ports/m09-real';
+import { makeStubSwitch, routed, type StubSwitch } from './internal/ports/m09-routed';
+import { TestFixRunHandler, WebappRunHandler } from './internal/run-handlers';
 import { AppRunService } from './internal/run.service';
 import { CanaryRegistry, MemorySecurityAlerts, SecurityAlertPort } from './internal/sandbox/canary';
 import { DEFAULT_ALLOW, EgressPolicy } from './internal/sandbox/egress';
@@ -61,16 +84,66 @@ import { TestFixService } from './internal/tests/test-fix.service';
 import { TestRunService } from './internal/tests/test-run.service';
 
 /**
- * THE ONE WIRING CHANGE TO INTEGRATE M09 (docs/reports/M10-m09-interface-assumptions.md): replace these five providers with the M09 services that implement the
- * abstract classes of `internal/ports/m09.ts` (RunStorePort -> `ai.runs`, ModelGatewayPort -> the gateway, ArtifactStorePort -> `ai.artifacts`, ProjectsPort ->
- * `builder.projects/project_files/project_versions`, OrgBudgetPort -> `ai.credit_balances`). Nothing else in this module names an M09 type.
+ * THE M09 BOUNDARY, WIRED TO THE REAL SERVICES (docs/reports/M10-m09-interface-assumptions.md, "Integration" section): RunStorePort -> `ai.runs`, ModelGatewayPort -> M09's
+ * `GatewayService`, ArtifactStorePort -> `ai.artifacts`, ProjectsPort -> `builder.projects|project_versions|project_files`, OrgBudgetPort -> `ai.credit_balances`.
+ * Each port is ROUTED per organization (`m09-routed.ts`): the in-memory stand-ins (`m09-mock.ts`, NOT VERIFIED) answer only while the organization has the dev flag
+ * `app_builder.m09_stubs`, and never when NODE_ENV=production. `M09_STUB_PROVIDERS` is the stand-in set on its own (tests that build an engine without a database).
  */
-export const M09_PORT_PROVIDERS = [
+export const M09_STUB_PROVIDERS = [
   { provide: RunStorePort, useClass: MemoryRunStore },
   { provide: ModelGatewayPort, useFactory: () => new ScriptedModelGateway({}) },
   { provide: ArtifactStorePort, useClass: MemoryArtifactStore },
   { provide: ProjectsPort, useClass: MemoryProjects },
   { provide: OrgBudgetPort, useClass: StaticOrgBudget },
+];
+const STUB_SWITCH = 'APPBUILDER_STUB_SWITCH';
+export const M09_PORT_PROVIDERS = [
+  { provide: STUB_SWITCH, useFactory: (db: Db) => makeStubSwitch(db), inject: [DB] },
+  {
+    provide: PgRunStore,
+    useFactory: (db: Db, cfg: AiConfig) => new PgRunStore(db, cfg),
+    inject: [DB, AI_CONFIG],
+  },
+  {
+    provide: RunStorePort,
+    useFactory: (real: PgRunStore, sw: StubSwitch) =>
+      routed<RunStorePort>(real, new MemoryRunStore(), sw),
+    inject: [PgRunStore, STUB_SWITCH],
+  },
+  {
+    provide: ModelGatewayPort,
+    useFactory: (
+      g: GatewayService,
+      p: ModelProviderService,
+      reg: ModelAdapterRegistry,
+      cfg: AiConfig,
+      sw: StubSwitch,
+    ): ModelGatewayPort =>
+      routed<ModelGatewayPort>(
+        new RealModelGateway(g, p, reg, cfg),
+        new ScriptedModelGateway({}),
+        sw,
+      ),
+    inject: [GatewayService, ModelProviderService, ModelAdapterRegistry, AI_CONFIG, STUB_SWITCH],
+  },
+  {
+    provide: ArtifactStorePort,
+    useFactory: (db: Db, cfg: AiConfig, sw: StubSwitch): ArtifactStorePort =>
+      routed<ArtifactStorePort>(new PgArtifactStore(db, cfg), new MemoryArtifactStore(), sw),
+    inject: [DB, AI_CONFIG, STUB_SWITCH],
+  },
+  {
+    provide: ProjectsPort,
+    useFactory: (db: Db, sw: StubSwitch): ProjectsPort =>
+      routed<ProjectsPort>(new PgProjects(db), new MemoryProjects(), sw),
+    inject: [DB, STUB_SWITCH],
+  },
+  {
+    provide: OrgBudgetPort,
+    useFactory: (b: BudgetService, cfg: AiConfig, sw: StubSwitch): OrgBudgetPort =>
+      routed<OrgBudgetPort>(new PgOrgBudget(b, cfg), new StaticOrgBudget(), sw),
+    inject: [BudgetService, AI_CONFIG, STUB_SWITCH],
+  },
 ];
 
 /** Production has no isolating runtime yet (D-21 OPEN): it answers "no capacity" instead of pretending. */
@@ -136,8 +209,17 @@ class LogSecurityAlerts extends SecurityAlertPort {
       inject: [SecurityAlertPort],
     },
     { provide: AdvisoryDbPort, useFactory: () => new StaticAdvisoryDb() },
-    { provide: DeployTargetPort, useClass: DevStaticTarget },
     { provide: ReleaseStorePort, useClass: MemoryReleaseStore },
+    {
+      provide: DeployTargetPort,
+      useFactory: (db: Db, pub: SitePublisherPort, r: ReleaseStorePort, sw: StubSwitch) =>
+        routed<DeployTargetPort>(
+          new SitePublisherDeployTarget(db, pub, r),
+          new DevStaticTarget(),
+          sw,
+        ),
+      inject: [DB, SitePublisherPort, ReleaseStorePort, STUB_SWITCH],
+    },
     {
       provide: HealthProbePort,
       useFactory: () =>
@@ -182,8 +264,8 @@ class LogSecurityAlerts extends SecurityAlertPort {
     },
     {
       provide: SandboxJobs,
-      useFactory: (db: Db, s: SandboxService) => new SandboxJobs(db, s),
-      inject: [DB, SandboxService],
+      useFactory: (db: Db, s: SandboxService, ap: ApprovalService) => new SandboxJobs(db, s, ap),
+      inject: [DB, SandboxService, ApprovalService],
     },
     {
       provide: ChangeService,
@@ -342,7 +424,8 @@ class LogSecurityAlerts extends SecurityAlertPort {
         g: GraphRunner,
         tf: TestFixService,
         ap: ApprovalService,
-      ) => new AppRunService(db, a, r, p, ob, g, tf, ap),
+        engine: RunService,
+      ) => new AppRunService(db, a, r, p, ob, g, tf, ap, undefined, engine),
       inject: [
         DB,
         AuditSink,
@@ -352,6 +435,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
         GraphRunner,
         TestFixService,
         ApprovalService,
+        RunService,
       ],
     },
   ],
@@ -369,8 +453,35 @@ class LogSecurityAlerts extends SecurityAlertPort {
   ],
 })
 export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationShutdown {
-  constructor(@Inject(SandboxJobs) private readonly jobs: SandboxJobs) {}
+  constructor(
+    @Inject(SandboxJobs) private readonly jobs: SandboxJobs,
+    @Inject(RunKindRegistry) private readonly registry: RunKindRegistry,
+    @Inject(PgRunStore) private readonly store: PgRunStore,
+    @Inject(ProjectsPort) private readonly projects: ProjectsPort,
+    @Inject(GraphRunner) private readonly graph: GraphRunner,
+    @Inject(TestFixService) private readonly testFix: TestFixService,
+    @Inject(AppRunService) _runs: AppRunService, // constructed at start: it listens for approval decisions
+    @Inject(ProjectDelegates) private readonly projectDelegates: ProjectDelegates,
+    @Inject(DeployService) private readonly deployService: DeployService,
+    @Inject(ChangeService) private readonly changes: ChangeService,
+    @Inject(AppDeploymentService) private readonly deployments: AppDeploymentService,
+    @Inject(DB) private readonly db: Db,
+  ) {
+    void _runs;
+  }
   onApplicationBootstrap() {
+    // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
+    this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph));
+    this.registry.register(new TestFixRunHandler(this.store, this.projects, this.testFix));
+    this.projectDelegates.register(
+      'webapp',
+      new WebappChangesDelegate(this.db, this.projects, this.changes),
+    );
+    this.deployService.webapp = new WebappDeployDelegateImpl(
+      this.db,
+      this.projects,
+      this.deployments,
+    );
     this.jobs.start();
   }
   onApplicationShutdown() {

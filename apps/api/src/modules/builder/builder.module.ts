@@ -9,6 +9,7 @@ import { BUILDER_CONFIG, loadBuilderConfig, type BuilderConfig } from './interna
 import { CmsService } from './internal/cms.service';
 import { EditRunHandler } from './internal/edit.handler';
 import { FormNotifier, FormsService, NoopFormNotifier } from './internal/forms.service';
+import { ProjectDelegates } from './internal/delegates';
 import { PreviewService } from './internal/preview.service';
 import { ProjectService } from './internal/project.service';
 import { WebsiteRunHandler } from './internal/website.handler';
@@ -23,6 +24,7 @@ import { PreviewServeController } from './public.controller';
   providers: [
     { provide: BUILDER_CONFIG, useFactory: () => loadBuilderConfig() },
     { provide: FormNotifier, useClass: NoopFormNotifier },
+    { provide: ProjectDelegates, useFactory: () => new ProjectDelegates() },
     {
       provide: ProjectService,
       useFactory: (db: Db, a: AuditSink, r: ResidencyService, c: BuilderConfig) =>
@@ -46,7 +48,14 @@ import { PreviewServeController } from './public.controller';
       inject: [DB, AuditSink],
     },
   ],
-  exports: [ProjectService, PreviewService, FormsService, CmsService, BUILDER_CONFIG],
+  exports: [
+    ProjectService,
+    PreviewService,
+    FormsService,
+    CmsService,
+    BUILDER_CONFIG,
+    ProjectDelegates,
+  ],
 })
 export class BuilderModule implements OnApplicationBootstrap {
   constructor(

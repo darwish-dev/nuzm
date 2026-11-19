@@ -291,6 +291,40 @@ export class ApprovalService {
   }
 
   /**
+   * Marks pending approvals past their expiry as expired and tells the listeners (a parked run then fails with `approval_expired` instead of waiting forever).
+   * Housekeeping job (every minute); idempotent.
+   */
+  async sweepExpired(limit = 200, asOf: Date = this.now()): Promise<number> {
+    const due = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT id, org_id FROM ai.approval_requests WHERE status = 'pending' AND expires_at <= $1 LIMIT $2`,
+            [asOf, limit],
+          )
+        ).rows as { id: string; org_id: string }[],
+    );
+    let n = 0;
+    for (const r of due) {
+      const row = await this.db.withOrg(
+        r.org_id,
+        async (c) =>
+          (
+            await c.query(
+              `UPDATE ai.approval_requests SET status = 'expired' WHERE id = $1 AND status = 'pending' RETURNING *`,
+              [r.id],
+            )
+          ).rows[0] as Row | undefined,
+      );
+      if (!row) continue;
+      n++;
+      for (const l of this.listeners)
+        await Promise.resolve(l(r.org_id, this.dto(row))).catch(() => undefined);
+    }
+    return n;
+  }
+
+  /**
    * The execution gate: is there an APPROVED, unexpired approval for exactly this action? Every guarded action (deploy to production, destructive migration, paid resource,
    * egress, budget increase, ...) calls this and refuses to run without it. `null` = not approved; the caller then creates the request and parks.
    */

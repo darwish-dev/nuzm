@@ -204,7 +204,7 @@ tables:
   ai.run_steps:
     owner: M10
     hook: m10-agent-runs
-    note: run steps carry the data_region of their run; the model gateway of M09 evaluates residency before every call (hook m09-model-gateway); LISTED until M09 is integrated
+    note: run steps carry the data_region of their run; every model call of a run goes through the M09 gateway (RealModelGateway -> GatewayService.invoke), which evaluates residency before the call (hook m09-model-gateway, enforced); the run-record placement itself stays LISTED
   ai.tool_calls:
     owner: M10
     hook: m10-agent-runs

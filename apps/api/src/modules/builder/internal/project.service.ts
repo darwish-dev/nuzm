@@ -96,15 +96,106 @@ export class ProjectService {
         : null,
     };
   }
+  /** The type of a project of this organization (`website` | `webapp` | `mobile`); 404 when it is not visible to it. */
+  async typeOf(orgId: string, id: string): Promise<string> {
+    if (!isUuid(id)) throw new ProblemException('not_found');
+    const r = (await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(`SELECT type FROM builder.projects WHERE id=$1 AND deleted_at IS NULL`, [
+            id,
+          ])
+        ).rows[0],
+    )) as Row | undefined;
+    if (!r) throw new ProblemException('not_found');
+    return r.type as string;
+  }
+  /** Website-only surfaces (previews, forms, CMS, SEO, editor operations) refuse the other project types. */
+  async assertWebsite(orgId: string, id: string): Promise<void> {
+    if ((await this.typeOf(orgId, id)) !== 'website')
+      throw new ProblemException(
+        'unsupported_capability',
+        'this operation is for website projects (web-app projects have no site model)',
+      );
+  }
+
+  /** A web-app project (M10A): the row only. Its versions are created by the agent graph / the changes pipeline, so it has no head version until the first generation. */
+  private async createWebapp(
+    orgId: string,
+    userId: string,
+    b: Record<string, unknown>,
+  ): Promise<ProjectDto & { siteModel: null }> {
+    const name = typeof b.name === 'string' ? b.name.trim() : '';
+    if (name.length < 1 || name.length > 100)
+      throw new ProblemException('validation_failed', 'name must be 1..100 characters');
+    try {
+      await assertResidency(this.residency, {
+        orgId,
+        dataClass: 'customer-content',
+        targetRegion: this.cfg.dataRegion,
+        purpose: 'builder_project_storage',
+        operation: 'write',
+      });
+    } catch (e) {
+      if (e instanceof ResidencyDenied)
+        throw new ProblemException(
+          'residency_denied',
+          'the project region is not allowed by the residency policy',
+          undefined,
+          { evidenceRef: e.result.evidenceRef },
+        );
+      throw e;
+    }
+    const id = uuidv7();
+    let out;
+    try {
+      out = await this.db.withOrg(orgId, async (c) => {
+        const n = Number(
+          (await c.query(`SELECT count(*) n FROM builder.projects WHERE deleted_at IS NULL`))
+            .rows[0]!.n,
+        );
+        if (n >= this.cfg.maxProjects)
+          throw new ProblemException(
+            'quota_exceeded',
+            `at most ${this.cfg.maxProjects} projects per organization`,
+          );
+        await c.query(
+          `INSERT INTO builder.projects (id, org_id, type, name, locales, data_region, created_by) VALUES ($1,$2,'webapp',$3,$4,$5,$6)`,
+          [id, orgId, name, ['ar', 'en'], this.cfg.dataRegion, userId],
+        );
+        return this.dto(
+          c,
+          (await c.query(`SELECT * FROM builder.projects WHERE id=$1`, [id])).rows[0] as Row,
+        );
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === '23505')
+        throw new ProblemException('name_taken', 'a project with this name already exists');
+      throw e;
+    }
+    await this.audit.record({
+      action: 'builder.project.created',
+      actorUserId: userId,
+      actorType: 'user',
+      orgId,
+      resource: { type: 'builder_project', id },
+      outcome: 'success',
+      detail: { type: 'webapp' },
+    });
+    return { ...out, siteModel: null };
+  }
+
   async create(
     orgId: string,
     userId: string,
     b: Record<string, unknown>,
-  ): Promise<ProjectDto & { siteModel: SiteModel }> {
+  ): Promise<ProjectDto & { siteModel: SiteModel | null }> {
+    if (b.type === 'webapp') return this.createWebapp(orgId, userId, b);
     if (b.type !== undefined && b.type !== 'website')
       throw new ProblemException(
         'validation_failed',
-        'type must be website (webapp and mobile arrive with M10)',
+        'type must be website or webapp (mobile arrives with M10B)',
       );
     const name = typeof b.name === 'string' ? b.name.trim() : '';
     if (name.length < 1 || name.length > 100)
@@ -228,6 +319,27 @@ export class ProjectService {
   async get(orgId: string, id: string, o: { versionId?: string; compareTo?: string } = {}) {
     return this.db.withOrg(orgId, async (c) => {
       const r = await this.row(c, id);
+      if (r.type !== 'website') {
+        // a web-app project: files are the source of truth, there is no site model, SEO report or model diff
+        const hv = (o.versionId ?? r.head_version_id ?? null) as string | null;
+        const vr = hv
+          ? ((
+              await c.query(
+                `SELECT id, seq FROM builder.project_versions WHERE id=$1 AND project_id=$2`,
+                [hv, id],
+              )
+            ).rows[0] as Row | undefined)
+          : undefined;
+        if (hv && !vr) throw new ProblemException('not_found', 'version not found');
+        return {
+          ...(await this.dto(c, r)),
+          versionId: (vr?.id as string | undefined) ?? null,
+          versionSeq: vr ? Number(vr.seq) : null,
+          siteModel: null,
+          seo: null,
+          diff: null,
+        };
+      }
       const vid = o.versionId ?? (r.head_version_id as string);
       if (!isUuid(vid)) throw new ProblemException('not_found');
       const v = (
@@ -350,6 +462,7 @@ export class ProjectService {
   async files(orgId: string, id: string, versionId?: string) {
     return this.db.withOrg(orgId, async (c) => {
       const r = await this.row(c, id);
+      if (!versionId && !r.head_version_id) return { versionId: null, items: [] }; // a web-app project before its first generation
       const v = versionId ?? (r.head_version_id as string);
       const rows = (
         await c.query(

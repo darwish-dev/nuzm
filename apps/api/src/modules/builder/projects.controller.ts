@@ -22,6 +22,7 @@ import { AiEnabledGuard } from '../ai';
 import { CmsService } from './internal/cms.service';
 import { FormsService } from './internal/forms.service';
 import { PreviewService } from './internal/preview.service';
+import { ProjectDelegates } from './internal/delegates';
 import { ProjectService } from './internal/project.service';
 
 type B = Record<string, unknown> | undefined;
@@ -36,6 +37,7 @@ export class ProjectsController {
     private readonly previews: PreviewService,
     private readonly forms: FormsService,
     private readonly cms: CmsService,
+    private readonly delegates: ProjectDelegates,
   ) {}
 
   @RequirePermission('builder:write')
@@ -132,6 +134,19 @@ export class ProjectsController {
         'approval_required',
         'AI change sets are applied only through a run approval',
       );
+    const type = await this.projects.typeOf(orgId, id(pid));
+    if (type !== 'website') {
+      // web-app (and, in M10B, mobile) projects: the safe-diff patch set of the owning module (M10 §6)
+      const d = this.delegates.get(type);
+      if (!d)
+        throw new ProblemException(
+          'unsupported_capability',
+          `projects of type ${type} are not available here`,
+        );
+      const out = (await d.applyChanges(orgId, a.actor.userId, id(pid), b)) as { etag?: number };
+      if (typeof out?.etag === 'number') void reply.header('etag', etag(out.etag));
+      return out;
+    }
     const r = await this.projects.applyChange(orgId, id(pid), {
       baseVersion: String(b.baseVersion ?? ''),
       ops: b.ops,
@@ -158,57 +173,63 @@ export class ProjectsController {
   @Idempotent()
   @Post(':id/versions/:vid/restoration')
   @HttpCode(201)
-  restore(
+  async restore(
     @Org() orgId: string,
     @Access() a: AccessContext,
     @Param('id') pid: string,
     @Param('vid') vid: string,
   ) {
+    await this.projects.assertWebsite(orgId, id(pid)); // restoring a web-app version is a patch set through `POST …/changes`
     return this.projects.restore(orgId, a.actor.userId, id(pid), id(vid));
   }
 
   @RequirePermission('builder:write')
   @Post(':id/previews')
   @HttpCode(201)
-  createPreview(
+  async createPreview(
     @Org() orgId: string,
     @Access() a: AccessContext,
     @Param('id') pid: string,
     @Body() body: B,
   ) {
+    await this.projects.assertWebsite(orgId, id(pid));
     return this.previews.create(orgId, a.actor.userId, id(pid), body ?? {});
   }
   @RequirePermission('builder:read')
   @Get(':id/previews')
-  listPreviews(@Org() orgId: string, @Param('id') pid: string) {
+  async listPreviews(@Org() orgId: string, @Param('id') pid: string) {
+    await this.projects.assertWebsite(orgId, id(pid));
     return this.previews.list(orgId, id(pid));
   }
 
   @RequirePermission('builder:read')
   @Get(':id/forms')
-  listForms(@Org() orgId: string, @Param('id') pid: string) {
+  async listForms(@Org() orgId: string, @Param('id') pid: string) {
+    await this.projects.assertWebsite(orgId, id(pid));
     return this.forms.list(orgId, id(pid));
   }
   @RequirePermission('builder:write')
   @Post(':id/forms')
   @HttpCode(201)
-  createForm(
+  async createForm(
     @Org() orgId: string,
     @Access() a: AccessContext,
     @Param('id') pid: string,
     @Body() body: B,
   ) {
+    await this.projects.assertWebsite(orgId, id(pid));
     return this.forms.create(orgId, a.actor.userId, id(pid), body ?? {});
   }
   /** Personal data: masked for roles without `builder:submissions:read` (viewer). */
   @RequirePermission('builder:read')
   @Get(':id/form-submissions')
-  submissions(
+  async submissions(
     @Org() orgId: string,
     @Access() a: AccessContext,
     @Param('id') pid: string,
     @Query() q: { formId?: string; limit?: string; cursor?: string },
   ) {
+    await this.projects.assertWebsite(orgId, id(pid));
     return this.forms.submissions(
       orgId,
       id(pid),
@@ -222,18 +243,20 @@ export class ProjectsController {
   }
   @RequirePermission('builder:read')
   @Get(':id/cms-collections')
-  listCms(@Org() orgId: string, @Param('id') pid: string) {
+  async listCms(@Org() orgId: string, @Param('id') pid: string) {
+    await this.projects.assertWebsite(orgId, id(pid));
     return this.cms.list(orgId, id(pid));
   }
   @RequirePermission('builder:write')
   @Post(':id/cms-collections')
   @HttpCode(201)
-  upsertCms(
+  async upsertCms(
     @Org() orgId: string,
     @Access() a: AccessContext,
     @Param('id') pid: string,
     @Body() body: B,
   ) {
+    await this.projects.assertWebsite(orgId, id(pid));
     return this.cms.upsert(orgId, a.actor.userId, id(pid), body ?? {});
   }
 }

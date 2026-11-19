@@ -27,7 +27,6 @@ import { htmlToText, type UrlFetchPort } from './url-fetcher';
 
 const ACTIVE = ['queued', 'running', 'waiting_approval'];
 const TERMINAL = ['succeeded', 'failed', 'cancelled', 'budget_exceeded'];
-const KINDS_NOW = ['website', 'edit', 'chat'];
 const ALL_KINDS = ['website', 'edit', 'chat', 'webapp', 'mobile', 'test-fix'];
 const canonical = (v: unknown): string =>
   JSON.stringify(v, (_k, x) =>
@@ -75,7 +74,14 @@ export interface RunDto {
   dataRegion: string;
   result: unknown;
   error: unknown;
-  pendingApproval: { id: string; kind: string; summary: unknown; expiresAt: string } | null;
+  pendingApproval: {
+    id: string;
+    kind: string;
+    summary: unknown;
+    expiresAt: string;
+    /** present for approvals of the app builder (M10A): decided in the approvals inbox with this hash, not through `POST /v1/ai/runs/{id}/approvals` */
+    scopeHash?: string;
+  } | null;
   artifacts: { id: string; type: string; createdAt: string }[];
   createdAt: string;
   finishedAt: string | null;
@@ -119,7 +125,8 @@ export class RunService {
         `kind must be one of ${ALL_KINDS.join(', ')}`,
       );
     const handler = this.registry.get(kind);
-    if (!KINDS_NOW.includes(kind) || !handler)
+    // a kind is available exactly when a handler is registered for it (website/edit/chat by M09; webapp/test-fix by M10A's AppBuilderModule; mobile: M10B)
+    if (!handler)
       throw new ProblemException('unsupported_kind', `run kind ${kind} is not available yet`);
     if (!isUuid(b.sessionId))
       throw new ProblemException('validation_failed', 'sessionId must be a uuid');
@@ -240,7 +247,16 @@ export class RunService {
           [id],
         )
       ).rows as Row[];
-      return { run, ap, arts };
+      // run kinds of the app builder (M10A) wait on `ai.approval_requests` (the approvals inbox): surfaced here so one read of the run shows what it waits for
+      const ap10 = ap
+        ? undefined
+        : ((
+            await c.query(
+              `SELECT id, approval_type, action, action_hash, expires_at FROM ai.approval_requests WHERE run_id=$1 AND status='pending' AND expires_at > now() ORDER BY created_at DESC LIMIT 1`,
+              [id],
+            )
+          ).rows[0] as Row | undefined);
+      return { run, ap, ap10, arts };
     });
     if (!r) throw new ProblemException('not_found');
     const x = r.run;
@@ -270,7 +286,15 @@ export class RunService {
             summary: r.ap.summary,
             expiresAt: new Date(r.ap.expires_at as string).toISOString(),
           }
-        : null,
+        : r.ap10
+          ? {
+              id: r.ap10.id as string,
+              kind: r.ap10.approval_type as string,
+              summary: r.ap10.action,
+              expiresAt: new Date(r.ap10.expires_at as string).toISOString(),
+              scopeHash: r.ap10.action_hash as string,
+            }
+          : null,
       artifacts: r.arts.map((a) => ({
         id: a.id as string,
         type: a.type as string,
@@ -511,6 +535,37 @@ export class RunService {
     );
     this.kicker(orgId, op.id);
     return this.get(orgId, runId);
+  }
+
+  /**
+   * Extension point for run kinds that keep their OWN approvals (M10A: `ai.approval_requests`, decided through `POST /v1/ai/approvals/{id}/decisions`): after such a
+   * decision the parked run continues with the next segment from its checkpoint, exactly as after a decision on `ai.approvals`. No-op unless the run is waiting.
+   */
+  async resumeParked(orgId: string, userId: string | null, runId: string): Promise<boolean> {
+    const run = await this.load(orgId, runId);
+    if (run.state !== 'waiting_approval') return false;
+    const op = await this.ops.create(orgId, {
+      kind: AI_OP_KIND,
+      input: { runId },
+      resourceKind: 'ai_run',
+      resourceId: runId,
+      ...(userId ? { createdBy: userId } : {}),
+      maxAttempts: 5,
+    });
+    const moved = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE ai.runs SET state='queued', operation_id=$2 WHERE id=$1 AND state='waiting_approval'`,
+            [runId, op.id],
+          )
+        ).rowCount,
+    );
+    if (!moved) return false; // another resume won the race
+    await this.event(orgId, runId, 'approval_decided', {});
+    this.kicker(orgId, op.id);
+    return true;
   }
 
   private async load(orgId: string, runId: string): Promise<RunRow> {

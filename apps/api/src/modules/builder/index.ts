@@ -7,3 +7,5 @@ export { CmsService } from './internal/cms.service';
 export { BUILDER_CONFIG, loadBuilderConfig } from './internal/model';
 export type { BuilderConfig } from './internal/model';
 export { installPreviewIsolation } from './isolation';
+export { ProjectDelegates } from './internal/delegates';
+export type { ProjectTypeDelegate } from './internal/delegates';

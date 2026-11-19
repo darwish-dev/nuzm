@@ -397,7 +397,7 @@ beforeAll(async () => {
      VALUES ($1, $2, 'run', $3, $3, 'budget_increase', '{}'::jsonb, repeat('a', 64), 'pending', 'ai', '{owner}', now() + interval '1 day', 'sa-central')`,
     [A.aiApproval, orgA, A.aiRun],
   );
-  // M10A resolves the project through the M09 port, still bound to an in-memory stand-in (NOT VERIFIED): org A's project must exist THERE for the positive control
+  // M10A resolves the project through ProjectsPort, now bound to the REAL builder tables (migration 1450 allows type webapp): org A's project is a real builder.projects row, so the positive control hits the real read path
   A.m10Project = (
     await app.get(ProjectsPort, { strict: false }).create(orgA, {
       type: 'webapp',

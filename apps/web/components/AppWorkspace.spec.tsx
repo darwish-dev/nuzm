@@ -808,5 +808,12 @@ describe('project list by type', () => {
     const cur = screen.getByRole('link', { name: t('en', 'm10a.proj.filter.webapp') });
     expect(cur.getAttribute('aria-current')).toBe('page');
     expect(cur.getAttribute('href')).toBe('/en/builder/projects?type=webapp');
+    // the mobile tab shows only while the mobile builder is on, with or without the app builder
+    expect(screen.queryByRole('link', { name: t('en', 'm10a.proj.filter.mobile') })).toBeNull();
+    rerender(<ProjectFilterTabs locale="en" current="mobile" appsEnabled={false} mobileEnabled />);
+    const mob = screen.getByRole('link', { name: t('en', 'm10a.proj.filter.mobile') });
+    expect(mob.getAttribute('aria-current')).toBe('page');
+    expect(mob.getAttribute('href')).toBe('/en/builder/projects?type=mobile');
+    expect(screen.queryByRole('link', { name: t('en', 'm10a.proj.filter.webapp') })).toBeNull();
   });
 });

@@ -73,7 +73,12 @@ export async function ProjectsScreen({
             <div className="nzc-start-projects">
               <h2 className="nzc-yp-head">{t(locale, 'bld.start.yourProjects')}</h2>
               {!fixed && (
-                <ProjectFilterTabs locale={locale} current={filter} appsEnabled={appsOn} />
+                <ProjectFilterTabs
+                  locale={locale}
+                  current={filter}
+                  appsEnabled={appsOn}
+                  mobileEnabled={mobileOn}
+                />
               )}
               <ProjectCards
                 locale={locale}

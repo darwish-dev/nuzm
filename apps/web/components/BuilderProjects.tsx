@@ -105,18 +105,22 @@ export function ProjectCards({
   );
 }
 
-/** Type filter of the project list (links, so it works without scripting and is shareable). "Web apps" is offered only while the app builder is on. */
+/** Type filter of the project list (links, so it works without scripting and is shareable). "Web apps" is offered only while the app builder is on, "Mobile apps" only while the mobile builder is on. */
 export function ProjectFilterTabs({
   locale,
   current,
   appsEnabled,
+  mobileEnabled = false,
 }: {
   locale: Locale;
   current: ProjectFilter;
   appsEnabled: boolean;
+  mobileEnabled?: boolean;
 }) {
-  const tabs = PROJECT_FILTERS.filter((f) => appsEnabled || f !== 'webapp');
-  if (!appsEnabled) return null;
+  const tabs = PROJECT_FILTERS.filter(
+    (f) => (f !== 'webapp' || appsEnabled) && (f !== 'mobile' || mobileEnabled),
+  );
+  if (!appsEnabled && !mobileEnabled) return null;
   return (
     <nav aria-label={t(locale, 'm10a.proj.filter')} className="nz-row">
       {tabs.map((f) => (

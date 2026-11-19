@@ -29,4 +29,11 @@ describe('dashboard services', () => {
       expect.objectContaining({ id: 'billing', href: '/billing/usage' }),
     ]);
   });
+  it('the App builder card needs builder:read and the app_builder.enabled flag', () => {
+    const can = (p: string) => p === 'builder:read';
+    expect(visibleServices(can, () => false).map((x) => x.id)).not.toContain('appbuilder');
+    expect(visibleServices(can, (f) => f === 'app_builder.enabled')).toEqual([
+      expect.objectContaining({ id: 'appbuilder', href: '/builder/apps' }),
+    ]);
+  });
 });

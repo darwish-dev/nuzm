@@ -89,6 +89,21 @@ export const CATEGORIES: Category[] = [
             perm: ['builder:read'],
             flag: 'ai.enabled',
           },
+          // M10A: the web / full-stack app builder, only while its own flag is on for the organization
+          {
+            id: 'appbuilder',
+            label: 'm10.nav.builder',
+            href: '/builder/apps',
+            perm: ['builder:read'],
+            flag: 'app_builder.enabled',
+          },
+          {
+            id: 'approvals',
+            label: 'm10.nav.approvals',
+            href: '/approvals',
+            perm: ['ai:read'],
+            flag: 'app_builder.enabled',
+          },
         ],
       },
       // M11: each entry shows only when its feature flag is on for the organization and the member holds the permission

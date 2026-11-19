@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
+import { AppVersions } from '../../../../../../../components/AppBlueprint';
 import { BuilderTabs } from '../../../../../../../components/BuilderBits';
+import { BuilderTabs as AppTabs } from '../../../../../../../components/BuilderParts';
 import { VersionsPanel } from '../../../../../../../components/BuilderVersions';
-import type { Page_, Version } from '../../../../../../../lib/builder';
+import type { Page_, Project, Version } from '../../../../../../../lib/builder';
 import { builderGuard, builderView } from '../../../../../../../lib/builder-view';
 import { isUuid, unwrapCall } from '../../../../../../../lib/compute';
 
@@ -19,23 +21,33 @@ export default async function Versions({
   if (!g.ok) return g.denied;
   const body = await builderView(
     locale,
-    () =>
-      unwrapCall(
+    async () => ({
+      project: await unwrapCall(g.c.get<Project>(`/v1/builder/projects/${id}`)),
+      versions: await unwrapCall(
         g.c.get<Page_<Version>>(`/v1/builder/projects/${id}/versions`, { query: { limit: 50 } }),
       ),
-    (initial) => (
-      <VersionsPanel
-        locale={locale}
-        projectId={id}
-        initial={initial}
-        canWrite={g.s.can('builder:write')}
-      />
-    ),
+    }),
+    ({ project, versions }) =>
+      project.type === 'webapp' ? (
+        <>
+          <AppTabs locale={locale} id={id} current="versions" />
+          <AppVersions locale={locale} projectId={id} versions={versions.items} />
+        </>
+      ) : (
+        <>
+          <BuilderTabs locale={locale} projectId={id} current="versions" can={g.s.can} />
+          <VersionsPanel
+            locale={locale}
+            projectId={id}
+            initial={versions}
+            canWrite={g.s.can('builder:write')}
+          />
+        </>
+      ),
   );
   return (
     <>
       <PageTitle>{t(locale, 'bld.tab.versions')}</PageTitle>
-      <BuilderTabs locale={locale} projectId={id} current="versions" can={g.s.can} />
       {body}
     </>
   );

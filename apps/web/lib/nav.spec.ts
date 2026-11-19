@@ -198,3 +198,31 @@ describe('M11 entries', () => {
     expect(none).not.toContain('/settings/webhooks');
   });
 });
+
+describe('M10A app builder entries', () => {
+  const hrefs = (ctx: NavContext) =>
+    buildNav(ctx)
+      .find((c) => c.id === 'build')!
+      .groups.flatMap((g) => g.items.map((i) => i.href));
+  it('the App builder and Approvals entries need the app_builder.enabled flag', () => {
+    const off = hrefs(all({ flag: (k) => k === 'ai.enabled' }));
+    expect(off).toContain('/builder/projects');
+    expect(off).not.toContain('/builder/apps');
+    expect(off).not.toContain('/approvals');
+    const on = hrefs(all({ flag: (k) => k === 'ai.enabled' || k === 'app_builder.enabled' }));
+    expect(on).toContain('/builder/apps');
+    expect(on).toContain('/approvals');
+  });
+  it('they need their permissions too, and the web-app screens belong to the build category', () => {
+    const noApprove = hrefs(all({ can: (p) => p === 'builder:read' }));
+    expect(noApprove).toContain('/builder/apps');
+    expect(noApprove).not.toContain('/approvals');
+    const nav = buildNav(all());
+    expect(currentCategory(nav, '/builder/apps')).toBe('build');
+    expect(currentCategory(nav, '/approvals')).toBe('build');
+    const build = nav.find((c) => c.id === 'build')!;
+    expect(currentItemId(build, '/builder/apps')).toBe('appbuilder');
+    expect(currentItemId(build, '/approvals')).toBe('approvals');
+    expect(currentItemId(build, '/builder/projects/abc/spec')).toBe('builder');
+  });
+});

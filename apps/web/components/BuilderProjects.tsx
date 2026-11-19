@@ -1,5 +1,6 @@
-import { t, type Locale } from '@nuzm/i18n';
-import { Card, ButtonLink, EmptyState, Ltr } from '@nuzm/ui';
+import { t, tDynamic, type Locale } from '@nuzm/i18n';
+import { Badge, Card, ButtonLink, EmptyState, Ltr } from '@nuzm/ui';
+import { PROJECT_FILTERS, type ProjectFilter } from '../lib/appworkspace';
 import { isPreviewUrl, LOCALE_LABEL, type Project, type SiteLocale } from '../lib/builder';
 import { DeployBadge, when } from './BuilderBits';
 
@@ -9,12 +10,22 @@ export function ProjectCards({
   items,
   nextCursor,
   canCreate,
+  filtered,
 }: {
   locale: Locale;
   items: Project[];
   nextCursor: string | null;
   canCreate: boolean;
+  /** a type filter is on: an empty list says "none of this type", not "no projects" */
+  filtered?: boolean;
 }) {
+  if (items.length === 0 && filtered)
+    return (
+      <EmptyState
+        title={t(locale, 'm10a.proj.filtered.title')}
+        body={t(locale, 'm10a.proj.filtered.body')}
+      />
+    );
   if (items.length === 0)
     return (
       <EmptyState
@@ -38,6 +49,9 @@ export function ProjectCards({
               <h2 className="nz-h2" id={`bld-p-${p.id}`}>
                 <a href={`/${locale}/builder/projects/${p.id}`}>{p.name}</a>
               </h2>
+              <p>
+                <Badge>{tDynamic(locale, `m10.proj.type.${p.type}`, p.type)}</Badge>
+              </p>
               <dl>
                 <dt>{t(locale, 'bld.projects.locales')}</dt>
                 <dd>{p.locales.map((l) => LOCALE_LABEL[l as SiteLocale] ?? l).join(' · ')}</dd>
@@ -72,5 +86,34 @@ export function ProjectCards({
         </ButtonLink>
       )}
     </>
+  );
+}
+
+/** Type filter of the project list (links, so it works without scripting and is shareable). "Web apps" is offered only while the app builder is on. */
+export function ProjectFilterTabs({
+  locale,
+  current,
+  appsEnabled,
+}: {
+  locale: Locale;
+  current: ProjectFilter;
+  appsEnabled: boolean;
+}) {
+  const tabs = PROJECT_FILTERS.filter((f) => appsEnabled || f !== 'webapp');
+  if (!appsEnabled) return null;
+  return (
+    <nav aria-label={t(locale, 'm10a.proj.filter')} className="nz-row">
+      {tabs.map((f) => (
+        <a
+          key={f}
+          className="nz-btn"
+          data-variant={f === current ? 'primary' : 'secondary'}
+          href={`/${locale}/builder/projects${f === 'all' ? '' : `?type=${f}`}`}
+          aria-current={f === current ? 'page' : undefined}
+        >
+          {t(locale, `m10a.proj.filter.${f}`)}
+        </a>
+      ))}
+    </nav>
   );
 }

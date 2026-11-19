@@ -4,6 +4,7 @@ import { t, type Locale, type MessageKey } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
 import { NotEnabledState } from '../components/BuilderParts';
 import { APP_BUILDER_FLAG } from './appbuilder';
+import { serverCompute } from './compute-server';
 import { gate } from './gate';
 import type { Session } from './server';
 import { flagEnabled } from './services';
@@ -54,3 +55,17 @@ export async function bview<T>(
   );
 }
 const NOT_FOUND = Symbol('not-found');
+
+/** `bgate` plus the server-side API client of the active organization (the web-app workspace pages read runs and artifacts through it). */
+export async function agate(
+  params: Promise<{ locale: string }>,
+  permission: string,
+  title: MessageKey,
+): Promise<
+  | { ok: true; locale: Locale; s: Session; c: Awaited<ReturnType<typeof serverCompute>> }
+  | { ok: false; node: ReactNode }
+> {
+  const g = await bgate(params, permission, title);
+  if (!g.ok) return g;
+  return { ...g, c: await serverCompute(g.s.org?.orgId) };
+}

@@ -21,6 +21,7 @@ export function Chat({
   activeRun,
   onRun,
   thread,
+  mobile = false,
 }: {
   locale: Locale;
   projectId: string;
@@ -35,6 +36,8 @@ export function Chat({
   onRun: (run: Run) => void;
   /** the live run card, shown inside the scrolling thread after the messages */
   thread?: ReactNode;
+  /** a mobile project: the message starts a `mobile` run (a new design request, 3..600 characters) instead of an `edit` run, and the texts say so */
+  mobile?: boolean;
 }) {
   const call = useBuilderCall();
   const [sessionId, setSessionId] = useState(session?.id ?? null);
@@ -62,7 +65,7 @@ export function Chat({
   async function send(e: FormEvent) {
     e.preventDefault();
     const instruction = text.trim();
-    if (!instruction || activeRun) return;
+    if (!instruction || activeRun || (mobile && instruction.length < 3)) return;
     let sid = sessionId;
     if (!sid) {
       const ok = await call.run(
@@ -101,7 +104,14 @@ export function Chat({
     await call.run(
       () =>
         bapi.post<Run>('/v1/ai/runs', {
-          body: { sessionId: sessionRef, kind: 'edit', projectId, input: { instruction } },
+          body: mobile
+            ? {
+                sessionId: sessionRef,
+                kind: 'mobile',
+                projectId,
+                input: { description: instruction },
+              }
+            : { sessionId: sessionRef, kind: 'edit', projectId, input: { instruction } },
           idempotencyKey: keys.current.run,
         }),
       (run) => {
@@ -118,10 +128,12 @@ export function Chat({
 
   return (
     <div className="bld-chat">
-      <h2 className="bld-chat-title">{t(locale, 'bld.chat.title')}</h2>
+      <h2 className="bld-chat-title">{t(locale, mobile ? 'mws.chat.title' : 'bld.chat.title')}</h2>
       <div className="bld-chat-scroll" role="log" aria-label={t(locale, 'bld.chat.log')} ref={log}>
         {messages.length === 0 && !thread ? (
-          <p className="nz-muted bld-chat-empty">{t(locale, 'bld.chat.empty')}</p>
+          <p className="nz-muted bld-chat-empty">
+            {t(locale, mobile ? 'mws.chat.empty' : 'bld.chat.empty')}
+          </p>
         ) : (
           <ol className="bld-list">
             {messages.map((m) => (
@@ -150,10 +162,16 @@ export function Chat({
               className="bld-composer-input"
               dir="auto"
               rows={3}
-              maxLength={2000}
+              maxLength={mobile ? 600 : 2000}
               placeholder={t(
                 locale,
-                activeRun ? 'bld.chat.placeholderBusy' : 'bld.chat.placeholder',
+                mobile
+                  ? activeRun
+                    ? 'mws.chat.placeholderBusy'
+                    : 'mws.chat.placeholder'
+                  : activeRun
+                    ? 'bld.chat.placeholderBusy'
+                    : 'bld.chat.placeholder',
               )}
               disabled={activeRun}
               aria-describedby="bld-chat-help"
@@ -165,12 +183,12 @@ export function Chat({
             />
             <div className="bld-composer-foot">
               <span className="bld-composer-help" id="bld-chat-help">
-                {t(locale, 'bld.chat.help')}
+                {t(locale, mobile ? 'mws.chat.help' : 'bld.chat.help')}
               </span>
               <button
                 type="submit"
                 className="bld-send"
-                disabled={call.busy || activeRun || text.trim() === ''}
+                disabled={call.busy || activeRun || text.trim().length < (mobile ? 3 : 1)}
                 aria-label={t(locale, 'bld.chat.send')}
               >
                 <Icon name="send" size={18} />

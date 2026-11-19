@@ -1,13 +1,6 @@
-import { redirect } from 'next/navigation';
-import { mobileGuard } from '../../../../../lib/mobile-view';
+import { redirectToWorkspace } from '../../../../../lib/mobile-view';
 
-/** A mobile project opens on its overview. */
-export default async function MobileProject({
-  params,
-}: {
-  params: Promise<{ locale: string; id: string }>;
-}) {
-  const m = await mobileGuard(params, 'builder:read', 'mobile.title.overview');
-  if (!m.ok) return m.node;
-  redirect(`/${m.locale}/mobile/${m.id}/preview`);
+/** A mobile project opens in the builder workspace, on its preview. Kept as a redirect so existing links keep working. */
+export default function Page({ params }: { params: Promise<{ locale: string; id: string }> }) {
+  return redirectToWorkspace(params, 'preview');
 }

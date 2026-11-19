@@ -5,9 +5,9 @@ import { isPreviewUrl, LOCALE_LABEL, type Project, type SiteLocale } from '../li
 import { DeployBadge, when } from './BuilderBits';
 
 /** UI-M09-01: one card per website project; an empty list offers the first one. */
-/** A mobile app opens in the mobile workspace; every other project in the builder workspace. */
+/** Every project, a mobile app included, opens in the builder workspace (a mobile app in its mobile mode). */
 export const projectHref = (locale: Locale, p: Pick<Project, 'id' | 'type'>) =>
-  p.type === 'mobile' ? `/${locale}/mobile/${p.id}` : `/${locale}/builder/projects/${p.id}`;
+  `/${locale}/builder/projects/${p.id}`;
 
 export function ProjectCards({
   locale,

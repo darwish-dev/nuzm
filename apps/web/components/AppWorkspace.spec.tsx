@@ -797,6 +797,12 @@ describe('project list by type', () => {
       '/en/builder/projects/a',
     );
   });
+  it('a mobile app opens in the same workspace as every other project (its mobile mode), not on a separate page', () => {
+    render(<ProjectCards locale="ar" items={[p('m', 'mobile')]} nextCursor={null} canCreate />);
+    expect(screen.getByRole('link', { name: 'n-m' }).getAttribute('href')).toBe(
+      '/ar/builder/projects/m',
+    );
+  });
   it('a filter with no match says "none of this type"; the type filter is offered only while the app builder is on', () => {
     const { rerender, container } = render(
       <ProjectCards locale="en" items={[]} nextCursor={null} canCreate filtered />,

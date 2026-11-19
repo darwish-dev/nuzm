@@ -86,21 +86,25 @@ describe('start a project (one prompt, no steps)', () => {
     expect(new Set(keys).size).toBe(3);
   });
 
-  it('a mobile app can be started when the organization has the mobile builder: a mobile project and run, then the mobile preview opens', async () => {
+  it('a mobile app can be started when the organization has the mobile builder: a mobile project and run, its request is stored as the first chat message, then the workspace opens (in its mobile mode)', async () => {
     mockFetch((url) =>
       url === '/v1/builder/projects'
         ? json(201, { id: 'm1', name: 'x' })
         : url === '/v1/ai/sessions'
           ? json(201, { id: 's1' })
-          : json(202, { id: 'r1' }),
+          : url.endsWith('/messages')
+            ? json(201, { id: 'msg1' })
+            : json(202, { id: 'r1' }),
     );
     render(<BuilderStart locale="en" credits={wallet} canRun mobileEnabled />);
     fireEvent.click(screen.getByLabelText(new RegExp(t('en', 'bld.start.type.mobile'))));
     typeIn('A mobile app for booking padel courts');
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/mobile/m1/preview'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/m1'));
     expect(calls[0]!.body).toMatchObject({ type: 'mobile' });
-    expect(calls[2]!.body).toMatchObject({
+    expect(calls[2]!.url).toBe('/v1/ai/sessions/s1/messages');
+    expect(calls[2]!.body).toMatchObject({ content: 'A mobile app for booking padel courts' });
+    expect(calls[3]!.body).toMatchObject({
       kind: 'mobile',
       projectId: 'm1',
       input: { description: 'A mobile app for booking padel courts' },

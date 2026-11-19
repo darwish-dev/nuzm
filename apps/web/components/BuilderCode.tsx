@@ -33,7 +33,7 @@ const hasCurrent = (n: TreeNode, current: string | null): boolean =>
   current !== null && n.children.some((c) => c.path === current || hasCurrent(c, current));
 
 /** The files of a site as a tree. Directories start closed and open on the way to the open file; a file is a button. */
-function Tree({
+export function Tree({
   nodes,
   current,
   onPick,

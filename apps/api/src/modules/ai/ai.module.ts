@@ -33,6 +33,7 @@ import { BudgetService } from './internal/budget.service';
 import { AiFlags } from './internal/flags';
 import { GatewayService } from './internal/gateway.service';
 import { AI_CONFIG, loadAiConfig, type AiConfig } from './internal/model';
+import { probeAnthropic } from './internal/claude-probe';
 import { ModelProviderService } from './internal/provider.service';
 import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/registry';
 
@@ -77,7 +78,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
         r: ModelAdapterRegistry,
         cfg: AiConfig,
         sec: SecretStore,
-      ) => new ModelProviderService(db, a, r, cfg, sec),
+      ) => new ModelProviderService(db, a, r, cfg, sec, probeAnthropic),
       inject: [DB, AuditSink, ModelAdapterRegistry, AI_CONFIG, SecretStore],
     },
     {

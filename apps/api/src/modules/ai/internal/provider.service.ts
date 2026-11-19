@@ -5,6 +5,7 @@ import type { SecretStore } from '../../../common/secrets';
 import { ProblemException } from '../../../common/errors';
 import { AI_KILLSWITCH, isUuid, type AiConfig, type Row } from './model';
 import type { ModelAdapterRegistry } from './registry';
+import type { ConnectionProbe, ProbeResult } from './claude-probe';
 
 const SLUG = /^[a-z][a-z0-9-]{1,40}$/;
 const INT = /^\d{1,15}$/;
@@ -53,6 +54,8 @@ export class ModelProviderService {
     private readonly cfg: AiConfig,
     /** Where an API key typed in the admin console is kept (sealed). Absent in a profile with no secret store: the key actions then say so. */
     private readonly secrets?: SecretStore,
+    /** Asks the provider whether it accepts a key (a LIVE call). Absent where no probe is wired: the test then says it is unavailable. */
+    private readonly probe?: ConnectionProbe,
   ) {}
 
   private dto(r: Row): ProviderDto {
@@ -446,6 +449,47 @@ export class ModelProviderService {
         })
       ).id;
     return this.setCredential(actor, id, apiKey);
+  }
+
+  /**
+   * LIVE connection test of the stored key (Claude only for now). Read-only on the provider's side (a model listing: no prompt, no customer data, nothing billed)
+   * and read-only here: it changes nothing in the database. The key is read from the sealed store inside this method and never returned, logged or audited:
+   * the audit event carries only the outcome and the HTTP status. Dev profile only, like storing the key (D-12).
+   */
+  async testConnection(
+    actor: string,
+    id: string,
+  ): Promise<ProbeResult & { checkedAt: string; live: true }> {
+    if (!this.secrets || !this.probe || process.env.NODE_ENV === 'production')
+      throw new ProblemException(
+        'unsupported_capability',
+        'testing the connection is not available in this profile: the production vault is not decided yet (D-12)',
+      );
+    const r = await this.load(id);
+    if (r.adapter !== 'anthropic')
+      throw new ProblemException(
+        'unsupported_capability',
+        'a connection test exists for Claude only',
+      );
+    const ref = (r.vault_ref as string | null) ?? null;
+    if (!ref || !/^vault:\/\/(dev|mem)\/ai-/.test(ref))
+      throw new ProblemException('validation_failed', 'save a key first, then test the connection');
+    const key = await this.secrets.get(ref).catch(() => null);
+    if (!key)
+      throw new ProblemException(
+        'validation_failed',
+        'the stored key could not be read: save it again',
+      );
+    const res = await this.probe(key);
+    await this.audit.record({
+      action: 'ai.provider.connection_tested',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: res.outcome === 'ok' ? 'success' : 'failure',
+      detail: { code: r.code, outcome: res.outcome, httpStatus: res.httpStatus ?? null },
+    });
+    return { ...res, checkedAt: new Date().toISOString(), live: true };
   }
 
   /** Removes the stored key and the reference; the provider is disabled (it cannot run without a credential). */

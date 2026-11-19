@@ -210,6 +210,41 @@ describe('provider enabling rules (HG-09-01, two-person)', () => {
       JSON.stringify((await e.admin('padmin', 'GET', '/v1/admin/ai/model-providers')).json()),
     ).not.toContain(key);
   });
+  it('the connection test refuses before any network call: no key stored, a provider other than Claude, an unknown id, and an org user', async () => {
+    const act = (body: object) => e.admin('padmin', 'POST', '/v1/admin/ai/model-providers', body);
+    const test = (id: string) =>
+      e.admin('padmin', 'POST', `/v1/admin/ai/model-providers/${id}/connection-test`);
+    // a provider that is not Claude: unsupported (and never probed)
+    const other = await act({
+      action: 'configure',
+      code: 'plain-llm',
+      adapter: 'acme',
+      displayName: 'Plain LLM',
+      region: 'sa-central',
+    });
+    expect((await test(other.json().id)).statusCode).toBe(422);
+    // Claude without a stored key: asked to save one first
+    const claude = await act({
+      action: 'configure',
+      code: 'claude-nokey',
+      adapter: 'anthropic',
+      displayName: 'Claude (no key)',
+      region: 'unspecified',
+    });
+    const r = await test(claude.json().id);
+    expect(r.statusCode).toBe(422);
+    expect(r.json().code).toBe('validation_failed');
+    expect((await test('00000000-0000-4000-8000-000000000000')).statusCode).toBe(404);
+    expect(
+      (
+        await e.call(
+          'alice',
+          'POST',
+          `/v1/admin/ai/model-providers/${claude.json().id}/connection-test`,
+        )
+      ).statusCode,
+    ).toBeGreaterThanOrEqual(401);
+  });
   it('is denied to org users and to platform roles without the permission', async () => {
     expect(
       (await e.call('alice', 'GET', '/v1/admin/ai/model-providers')).statusCode,

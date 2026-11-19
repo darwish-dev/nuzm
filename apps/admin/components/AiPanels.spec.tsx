@@ -257,6 +257,74 @@ describe('model providers (UI-M09-12)', () => {
         document.removeEventListener('submit', onSubmit);
       }
     });
+    describe('Test connection', () => {
+      const claudeRow = () =>
+        provider({
+          id: 'c1',
+          code: 'claude',
+          adapter: 'anthropic',
+          vaultRef: 'vault://dev/ai-claude',
+        });
+      const testBtn = () =>
+        screen.getByRole('button', { name: t('en', 'aia.test.button'), hidden: true });
+      it('is offered only when a key is stored', () => {
+        panel([]);
+        expect(
+          screen.queryByRole('button', { name: t('en', 'aia.test.button'), hidden: true }),
+        ).toBeNull();
+        cleanup();
+        panel([claudeRow()]);
+        expect(testBtn()).toBeTruthy();
+      });
+      it('posts to the provider connection-test route with no key in the request, and says the connection works', async () => {
+        post.mockResolvedValue(ok({ outcome: 'ok', httpStatus: 200, modelCount: 7, live: true }));
+        panel([claudeRow()]);
+        fireEvent.click(testBtn());
+        await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+        const [path, init] = post.mock.calls[0] as [string, { params?: unknown; body?: unknown }];
+        expect(path).toBe('/v1/admin/ai/model-providers/{id}/connection-test');
+        expect(init.params).toEqual({ path: { id: 'c1' } });
+        expect(init.body).toBeUndefined(); // the server reads the key from its store
+        expect(await screen.findByText(t('en', 'aia.test.ok', { n: 7, status: '' }))).toBeTruthy();
+      });
+      it.each([
+        ['invalid_key', 401],
+        ['forbidden', 403],
+        ['rate_limited', 429],
+        ['unreachable', undefined],
+      ] as const)('says plainly what %s means', async (outcome, httpStatus) => {
+        post.mockResolvedValue(ok({ outcome, httpStatus, live: true }));
+        panel([claudeRow()]);
+        fireEvent.click(testBtn());
+        expect(
+          await screen.findByText(t('en', `aia.test.${outcome}`, { n: 0, status: '' })),
+        ).toBeTruthy();
+      });
+      it('a production profile or a missing key (422) says testing is unavailable here', async () => {
+        post.mockResolvedValue(fail(422, 'unsupported_capability'));
+        panel([claudeRow()]);
+        fireEvent.click(testBtn());
+        expect(await screen.findByText(t('en', 'aia.test.unavailable'))).toBeTruthy();
+      });
+      it('a result is dropped when the key is replaced', async () => {
+        post.mockResolvedValueOnce(
+          ok({ outcome: 'ok', httpStatus: 200, modelCount: 3, live: true }),
+        );
+        panel([claudeRow()]);
+        fireEvent.click(testBtn());
+        await screen.findByText(t('en', 'aia.test.ok', { n: 3, status: '' }));
+        post.mockResolvedValueOnce(
+          ok(provider({ code: 'claude', vaultRef: 'vault://dev/ai-claude' })),
+        );
+        fireEvent.change(claudeField(), { target: { value: KEY } });
+        fireEvent.click(
+          screen.getByRole('button', { name: t('en', 'aia.claude.save'), hidden: true }),
+        );
+        await waitFor(() =>
+          expect(screen.queryByText(t('en', 'aia.test.ok', { n: 3, status: '' }))).toBeNull(),
+        );
+      });
+    });
     it('a member who cannot manage providers sees no field', () => {
       panel([], { canManage: false, canApprove: true });
       expect(

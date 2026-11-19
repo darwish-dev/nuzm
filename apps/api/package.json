@@ -14,6 +14,7 @@
     "set-password": "tsx src/dev/set-password.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
     "@fastify/cookie": "^11.1.5",
     "@nestjs/common": "^12.5.0",
     "@nestjs/core": "^12.5.0",

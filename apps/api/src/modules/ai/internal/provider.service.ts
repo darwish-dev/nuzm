@@ -42,6 +42,7 @@ export interface ProviderDto {
  * (3) a SECOND person enables (two-person rule) except the dev-reference `mock-*`/`local-*` providers, which exist only outside production.
  */
 /** An API key as providers issue them: printable ASCII, no spaces, a sensible length. The value is never echoed in an error. */
+const CLAUDE_CODE = 'claude';
 const API_KEY = /^[\x21-\x7E]{20,400}$/;
 
 export class ModelProviderService {
@@ -411,6 +412,40 @@ export class ModelProviderService {
       detail: { code: r.code, vaultRef: ref },
     });
     return this.dto(row);
+  }
+
+  /**
+   * One-field setup for Claude: makes sure a provider named `claude` exists (created UNATTESTED and DISABLED, region not stated: that is a human
+   * decision, HG-09-01), then stores the typed key exactly like `setCredential`. Nothing about the key is read back or logged. The provider cannot
+   * be enabled until its data terms are attested and an adapter for it is registered; saving a key never changes that.
+   */
+  async saveClaudeKey(actor: string, apiKey: unknown): Promise<ProviderDto> {
+    if (!this.secrets || process.env.NODE_ENV === 'production')
+      throw new ProblemException(
+        'unsupported_capability',
+        'storing a key here is not available in this profile: the production vault is not decided yet (D-12); use a vault reference',
+      );
+    if (typeof apiKey !== 'string' || !API_KEY.test(apiKey.trim()))
+      throw new ProblemException(
+        'validation_failed',
+        'the key must be 20 to 400 printable characters with no spaces',
+      );
+    const found = await this.db.withPlatformScope(
+      async (c) =>
+        (await c.query(`SELECT id FROM ai.model_providers WHERE code=$1`, [CLAUDE_CODE]))
+          .rows[0] as { id: string } | undefined,
+    );
+    const id =
+      found?.id ??
+      (
+        await this.configure(actor, {
+          code: CLAUDE_CODE,
+          adapter: 'anthropic',
+          displayName: 'Claude',
+          region: 'unspecified',
+        })
+      ).id;
+    return this.setCredential(actor, id, apiKey);
   }
 
   /** Removes the stored key and the reference; the provider is disabled (it cannot run without a credential). */

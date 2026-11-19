@@ -4467,7 +4467,7 @@ export interface paths {
         put?: never;
         /**
          * Configure, attest, enable or disable a model provider; kill switch
-         * @description Body {action: configure|set_credential|clear_credential|attest|request_enable|enable|disable|kill_switch, ...}. set_credential (admin:ai:manage) takes `apiKey` (20-400 printable characters, write-only), seals it in the secret store and points the provider at its `vault://` reference; the provider is disabled and must be attested/enabled again; 422 `unsupported_capability` in a production profile (the production vault is not decided, D-12). clear_credential (admin:ai:manage) removes the key and the reference and disables the provider. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).
+         * @description Body {action: configure|save_claude_key|set_credential|clear_credential|attest|request_enable|enable|disable|kill_switch, ...}. save_claude_key (admin:ai:manage) takes only `apiKey`: it creates the `claude` provider if missing (unattested, disabled, region `unspecified`) and then behaves like set_credential. set_credential (admin:ai:manage) takes `apiKey` (20-400 printable characters, write-only), seals it in the secret store and points the provider at its `vault://` reference; the provider is disabled and must be attested/enabled again; 422 `unsupported_capability` in a production profile (the production vault is not decided, D-12). clear_credential (admin:ai:manage) removes the key and the reference and disables the provider. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).
          */
         post: operations["actOnAiModelProvider"];
         delete?: never;
@@ -10385,7 +10385,7 @@ export interface components {
         };
         AiModelProviderAction: {
             /** @enum {string} */
-            action: "configure" | "set_credential" | "clear_credential" | "attest" | "request_enable" | "enable" | "disable" | "kill_switch";
+            action: "configure" | "save_claude_key" | "set_credential" | "clear_credential" | "attest" | "request_enable" | "enable" | "disable" | "kill_switch";
             /** Format: uuid */
             id?: string;
             code?: string;
@@ -10393,7 +10393,7 @@ export interface components {
             displayName?: string;
             region?: string;
             vaultRef?: string;
-            /** @description set_credential only: the provider API key. Write-only: never returned, logged or audited. */
+            /** @description save_claude_key and set_credential: the provider API key. Write-only: never returned, logged or audited. */
             apiKey?: string;
             rateCard?: {
                 [key: string]: unknown;

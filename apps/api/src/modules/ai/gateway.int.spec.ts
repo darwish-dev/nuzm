@@ -186,6 +186,30 @@ describe('provider enabling rules (HG-09-01, two-person)', () => {
       ).statusCode,
     ).toBe(404);
   });
+  it('one field is enough for Claude: save_claude_key creates the unattested, disabled provider and seals the key; a bad key creates nothing', async () => {
+    const act = (body: object) => e.admin('padmin', 'POST', '/v1/admin/ai/model-providers', body);
+    const count = async () =>
+      (await e.sql(`SELECT count(*)::int AS n FROM ai.model_providers WHERE code='claude'`))[0] as {
+        n: number;
+      };
+    const bad = await act({ action: 'save_claude_key', apiKey: 'short' });
+    expect(bad.statusCode).toBe(422);
+    expect((await count()).n).toBe(0); // a refused key does not leave a half-made provider behind
+    const key = `test-only-${'m4Tz'.repeat(8)}`;
+    const first = await act({ action: 'save_claude_key', apiKey: key });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({ code: 'claude', adapter: 'anthropic', enabled: false });
+    expect(first.json().vaultRef).toMatch(/^vault:\/\/(dev|mem)\/ai-claude$/);
+    expect(first.json().dataTerms.attested).toBe(false); // attestation stays a human step (HG-09-01)
+    expect(JSON.stringify(first.json())).not.toContain(key);
+    const again = await act({ action: 'save_claude_key', apiKey: `${key}-2` });
+    expect(again.statusCode).toBe(200);
+    expect(again.json().id).toBe(first.json().id); // replaces the key, does not add a second provider
+    expect((await count()).n).toBe(1);
+    expect(
+      JSON.stringify((await e.admin('padmin', 'GET', '/v1/admin/ai/model-providers')).json()),
+    ).not.toContain(key);
+  });
   it('is denied to org users and to platform roles without the permission', async () => {
     expect(
       (await e.call('alice', 'GET', '/v1/admin/ai/model-providers')).statusCode,

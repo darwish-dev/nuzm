@@ -267,6 +267,84 @@ function ConfigureCard(p: {
 }
 
 /** The actions of one provider: attest (human data-terms attestation), request enabling, enable (a DIFFERENT person), disable. Each is one POST with an `action`. */
+/**
+ * The simple path: ONE field for the Claude API key. The server creates the "claude" provider entry itself (unattested and disabled) and stores the key
+ * sealed; the field is write-only (never filled from the server) and is emptied as soon as the key is sent.
+ */
+function ClaudeKeyCard(p: { locale: Locale; row?: ProviderRow; mfaFactorId: string | null }) {
+  const { locale, row } = p;
+  const router = useRouter();
+  const a = useStaffAction(locale, p.mfaFactorId);
+  const [apiKey, setApiKey] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  function save(ev: FormEvent) {
+    ev.preventDefault();
+    const key = apiKey.trim();
+    if (!/^[\x21-\x7E]{20,400}$/.test(key)) return setErr(t(locale, 'aia.key.err'));
+    setErr(null);
+    void a.run(
+      () => post({ action: 'save_claude_key', apiKey: key }),
+      () => {
+        setApiKey('');
+        a.setNotice({ tone: 'ok', text: t(locale, 'aia.done.keySet') });
+        router.refresh();
+      },
+      { ...overrides(locale), 422: t(locale, 'aia.key.unavailable') },
+    );
+  }
+  function remove() {
+    if (!row) return;
+    void a.run(
+      () => post({ action: 'clear_credential', id: row.id }),
+      () => {
+        a.setNotice({ tone: 'ok', text: t(locale, 'aia.done.keyRemoved') });
+        router.refresh();
+      },
+      overrides(locale),
+    );
+  }
+  return (
+    <form onSubmit={save} noValidate aria-label={t(locale, 'aia.claude.title')}>
+      <h2 className="nz-h2">{t(locale, 'aia.claude.title')}</h2>
+      <p className="nz-muted">{t(locale, 'aia.claude.help')}</p>
+      <p className="nz-muted" role="status">
+        {row?.vaultRef ? t(locale, 'aia.claude.stored') : t(locale, 'aia.claude.none')}
+      </p>
+      <Field id="claude-key" label={t(locale, 'aia.claude.field')}>
+        {(x) => (
+          <Input
+            {...x}
+            type="password"
+            dir="ltr"
+            autoComplete="new-password"
+            spellCheck={false}
+            maxLength={400}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+        )}
+      </Field>
+      {err && (
+        <p role="alert" className="nz-error-text">
+          {err}
+        </p>
+      )}
+      <Note n={a.notice} />
+      <div className="nz-row">
+        <Button type="submit" disabled={a.busy || apiKey.trim() === ''}>
+          {t(locale, 'aia.claude.save')}
+        </Button>
+        {row?.vaultRef && (
+          <Button variant="danger" disabled={a.busy} onClick={remove}>
+            {t(locale, 'aia.claude.remove')}
+          </Button>
+        )}
+      </div>
+      {a.panel}
+    </form>
+  );
+}
+
 function RowActions(p: {
   locale: Locale;
   row: ProviderRow;
@@ -488,15 +566,25 @@ export function AiProvidersPanel(p: {
   return (
     <>
       <Banner tone="warn">{t(locale, 'aia.noSelection')}</Banner>
-      {p.canManage && <KillSwitchCard locale={locale} mfaFactorId={p.mfaFactorId} />}
       {p.canManage && (
-        <ConfigureCard
-          key={edit?.id ?? 'new'}
+        <ClaudeKeyCard
           locale={locale}
           mfaFactorId={p.mfaFactorId}
-          edit={edit}
-          onDone={() => setEdit(null)}
+          row={rows.find((r) => r.code === 'claude')}
         />
+      )}
+      {p.canManage && (
+        <details open={edit !== null}>
+          <summary>{t(locale, 'aia.advanced')}</summary>
+          <KillSwitchCard locale={locale} mfaFactorId={p.mfaFactorId} />
+          <ConfigureCard
+            key={edit?.id ?? 'new'}
+            locale={locale}
+            mfaFactorId={p.mfaFactorId}
+            edit={edit}
+            onDone={() => setEdit(null)}
+          />
+        </details>
       )}
       <h2 className="nz-h2" style={{ marginBlockStart: 16 }}>
         {t(locale, 'aia.rows')}

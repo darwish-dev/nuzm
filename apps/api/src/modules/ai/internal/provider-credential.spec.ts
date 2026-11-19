@@ -112,3 +112,95 @@ describe('API key of a model provider', () => {
     });
   });
 });
+
+/** A small in-memory table, enough for the one-field Claude setup: lookup by code or id, insert, and the credential update. */
+function tableSetup() {
+  const rows: Record<string, unknown>[] = [];
+  const events: Record<string, unknown>[] = [];
+  const db = {
+    withPlatformScope: async (
+      fn: (c: { query: (sql: string, p?: unknown[]) => Promise<{ rows: unknown[] }> }) => unknown,
+    ) =>
+      fn({
+        query: async (sql: string, p: unknown[] = []) => {
+          if (/^\s*INSERT/i.test(sql)) {
+            const r = {
+              id: p[0],
+              code: p[1],
+              adapter: p[2],
+              display_name: p[3],
+              region: p[4],
+              vault_ref: p[5],
+              rate_card_version: '1',
+              rate_card: { models: {} },
+              data_terms: { attested: false, retainsPrompts: 'unknown', trainsOnData: 'unknown' },
+              enabled: false,
+              version: 1,
+            };
+            rows.push(r);
+            return { rows: [r] };
+          }
+          if (/^\s*UPDATE/i.test(sql)) {
+            const r = rows.find((x) => x.id === p[0])!;
+            r.vault_ref = p[1];
+            r.enabled = false;
+            return { rows: [r] };
+          }
+          if (/WHERE code=\$1/i.test(sql)) return { rows: rows.filter((x) => x.code === p[0]) };
+          return { rows: rows.filter((x) => x.id === p[0]) };
+        },
+      }),
+  };
+  const secrets = new MemorySecretStore();
+  const svc = new ModelProviderService(
+    db as never,
+    { record: (e: Record<string, unknown>) => void events.push(e) } as never,
+    { get: () => undefined } as never,
+    {} as never,
+    secrets,
+  );
+  return { svc, rows, events, secrets };
+}
+
+describe('one-field Claude key', () => {
+  const KEY = `test-only-${'c9Vn'.repeat(8)}`;
+  it('creates the provider unattested, disabled and without a stated region, then seals the key', async () => {
+    const { svc, rows, secrets, events } = tableSetup();
+    const out = await svc.saveClaudeKey('admin-1', KEY);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      code: 'claude',
+      adapter: 'anthropic',
+      region: 'unspecified',
+      enabled: false,
+    });
+    expect(out.vaultRef).toBe('vault://mem/ai-claude');
+    expect(await secrets.get(out.vaultRef!)).toBe(KEY);
+    expect(JSON.stringify([out, events])).not.toContain(KEY);
+  });
+  it('a second save replaces the key on the same provider', async () => {
+    const { svc, rows } = tableSetup();
+    const a = await svc.saveClaudeKey('admin-1', KEY);
+    const b = await svc.saveClaudeKey('admin-1', `${KEY}-next`);
+    expect(rows).toHaveLength(1);
+    expect(b.id).toBe(a.id);
+  });
+  it('a malformed key, or a production profile, creates nothing', async () => {
+    const t1 = tableSetup();
+    await expect(t1.svc.saveClaudeKey('a', 'short')).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
+    expect(t1.rows).toHaveLength(0);
+    const t2 = tableSetup();
+    const was = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      await expect(t2.svc.saveClaudeKey('a', KEY)).rejects.toMatchObject({
+        code: 'unsupported_capability',
+      });
+    } finally {
+      process.env.NODE_ENV = was;
+    }
+    expect(t2.rows).toHaveLength(0);
+  });
+});

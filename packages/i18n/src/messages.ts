@@ -5179,6 +5179,15 @@ export const messages = {
     'aia.key.remove': 'إزالة المفتاح',
     'aia.key.stored': 'يوجد مفتاح محفوظ ({ref}).',
     'aia.key.none': 'لا يوجد مفتاح محفوظ.',
+    'aia.claude.title': 'مفتاح Claude',
+    'aia.claude.field': 'مفتاح Claude',
+    'aia.claude.save': 'حفظ مفتاح Claude',
+    'aia.claude.remove': 'إزالة مفتاح Claude',
+    'aia.claude.help':
+      'ألصق مفتاح API الخاص بـ Claude هنا. يُحفظ مشفّرًا على هذا الجهاز ولا يُعرض مرة أخرى. لا يُشغَّل Claude لأي ميزة بعد.',
+    'aia.claude.stored': 'يوجد مفتاح محفوظ. الصق مفتاحًا جديدًا لاستبداله.',
+    'aia.claude.none': 'لم يُحفظ مفتاح بعد.',
+    'aia.advanced': 'متقدّم: مفتاح الإيقاف وإضافة مزوّدين آخرين',
     'aia.key.err': 'أدخل المفتاح (من 20 إلى 400 حرفًا، بلا مسافات).',
     'aia.key.unavailable':
       'حفظ المفتاح هنا غير متاح في هذه البيئة لأن مخزن الإنتاج لم يُحسم بعد. استخدم مرجعًا إلى المخزن (vault://).',
@@ -11189,6 +11198,15 @@ export const messages = {
     'aia.key.remove': 'Remove key',
     'aia.key.stored': 'A key is stored ({ref}).',
     'aia.key.none': 'No key is stored.',
+    'aia.claude.title': 'Claude API key',
+    'aia.claude.field': 'Claude API key',
+    'aia.claude.save': 'Save Claude key',
+    'aia.claude.remove': 'Remove Claude key',
+    'aia.claude.help':
+      'Paste your Claude API key here. It is stored encrypted on this machine and is never shown again. Claude is not switched on for any feature yet.',
+    'aia.claude.stored': 'A key is stored. Paste a new key to replace it.',
+    'aia.claude.none': 'No key is saved yet.',
+    'aia.advanced': 'Advanced: kill switch and adding other providers',
     'aia.key.err': 'Enter the key (20 to 400 characters, no spaces).',
     'aia.key.unavailable':
       'Saving a key here is not available in this environment because the production vault is not decided yet. Use a vault:// reference instead.',

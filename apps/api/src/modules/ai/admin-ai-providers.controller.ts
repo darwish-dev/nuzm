@@ -36,6 +36,9 @@ export class AdminAiProvidersController {
       case 'configure':
         need('admin:ai:manage');
         return this.providers.configure(who.userId, b);
+      case 'save_claude_key':
+        need('admin:ai:manage');
+        return this.providers.saveClaudeKey(who.userId, b.apiKey);
       case 'set_credential':
         need('admin:ai:manage');
         return this.providers.setCredential(who.userId, id, b.apiKey);
@@ -66,7 +69,7 @@ export class AdminAiProvidersController {
       default:
         throw new ProblemException(
           'validation_failed',
-          'action must be configure, set_credential, clear_credential, attest, request_enable, enable, disable or kill_switch',
+          'action must be configure, save_claude_key, set_credential, clear_credential, attest, request_enable, enable, disable or kill_switch',
         );
     }
   }

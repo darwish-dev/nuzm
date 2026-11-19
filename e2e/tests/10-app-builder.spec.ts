@@ -3,16 +3,24 @@ import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
 
 /**
- * App builder screens (M10A: UI-M10-01..11 customer console, UI-M10-18/19 admin console), Arabic and English projects.
+ * App builder (M10A): the customer-console web-app workspace, Arabic and English projects, plus the admin oversight screens (UI-M10-18/19).
  *
- * STATUS: NOT RUN. This spec was written WITHOUT running Playwright: the browser E2E needs ports 3000/3001/4000/4010/54329, which belong to the owner, and the
- * dev stack. The M10A report row for the browser E2E is NOT RUN (never PASS). Typecheck/lint of this file were run; the flow below is unverified in a browser.
+ * Flow: the flag is off (no nav entry, the web-app tile is "coming soon") → on (nav entries) → "Start a project" with ONE prompt creates the web-app project, its AI
+ * session and the build run → the workspace shows the seven agents and the budget meters → a human approval the run waits on is decided in the inbox → app spec,
+ * data / API / access views → files and sandbox (labelled "development stand-in, NOT isolated") → tests → export → deploy (staging) and rollback → versions.
  *
- * Preconditions: the e2e API runs with the app builder reachable: flags `app_builder.enabled` and `app_builder.m09_stubs` (the M09 stand-ins for runs, projects,
- * files and budgets; dev only) are switched on by this spec through SQL. Runs after 01-customer (it uses that test's owner organization). The M09 stand-ins are
- * in-memory and the sandbox runtime is NEVER isolated (D-21/HG-10-02): every sandbox shown must carry the "development stand-in, NOT isolated" notice.
+ * STATUS: NOT RUN. This spec was written WITHOUT running Playwright: the browser E2E needs ports 3000/3001/4000/4010/54329, which belong to the owner's running
+ * stack, and Chrome. Type-check and lint of this file were run; the flow below is unverified in a browser. The AC-M10-15 row stays NOT VERIFIED until
+ * `pnpm test:e2e` has run it (never PASS from this file).
  *
- * Deployment targets (hosting site / compute instance) are not seeded here: without one the deployment and rollback legs are skipped explicitly, never faked.
+ * PRECONDITIONS (data ones are written here with SQL; the process ones belong to the e2e stack in `playwright.config.ts`, NOT changed here):
+ *   - API with the REAL M09 wired into the app builder (no stand-ins) and `AI_LOCAL_REFERENCE=true` (the deterministic MOCK model adapter and the in-memory FAKE
+ *     publisher; never in production). Model QUALITY is NOT VERIFIED: the scripted model only proves the plumbing. If the mock model has no `webapp` fixtures the
+ *     build run ends `failed`: this spec then SKIPS every leg that needs a built app (spec, design, deploy) with an explicit reason, it never fakes one.
+ *   - Fixtures written here: flags `ai.enabled` + `app_builder.enabled`, an enabled `mock-model` provider row, a funded wallet. Runs after 01-customer (it uses that
+ *     test's owner organization).
+ *   - No deployment target is seeded (a real hosting site/instance needs HG-05/HG-06): the deploy/rollback legs run only when the page offers a hosting site,
+ *     otherwise they are skipped explicitly. The sandbox runtime is NEVER isolated (D-21/HG-10-02): every sandbox shown must carry the stand-in notice.
  */
 
 const ADMIN = 'http://127.0.0.1:3001';
@@ -39,188 +47,231 @@ async function setFlag(key: string, on: boolean) {
   ]);
 }
 
-async function ownerOrg(page: Page, info: TestInfo, email: string) {
-  await signIn(page, info, email);
-  const org = (
-    await sql<{ id: string }>(
-      `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
-      [email],
-    )
-  )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+/** A prepaid credit on the organization's wallet (ledger recipe shape of billing.post, as in 03-billing / 10-builder-customer). */
+async function creditWallet(orgId: string, minor: string) {
+  const c = new Client({ connectionString: DB });
+  await c.connect();
+  try {
+    await c.query('BEGIN');
+    await c.query(`SELECT set_config('app.org_id', $1, true)`, [orgId]);
+    await c.query(
+      `SELECT * FROM billing.post(gen_random_uuid(), $1, $2, 'credit_grant', 'e2e app builder credit', NULL, NULL, $3::jsonb, NULL)`,
+      [
+        orgId,
+        `e2e-appbuilder-credit-${orgId}`,
+        JSON.stringify([
+          {
+            account: { code: '4900', org: false },
+            direction: 'debit',
+            amountMinor: minor,
+            currency: 'SAR',
+          },
+          {
+            account: { code: '2100', org: true },
+            direction: 'credit',
+            amountMinor: minor,
+            currency: 'SAR',
+          },
+        ]),
+      ],
+    );
+    await c.query('SELECT billing.refresh_wallet($1)', [orgId]);
+    await c.query('COMMIT');
+  } finally {
+    await c.end();
+  }
 }
 
-test('app builder: wizard, run, approvals, deployment, rollback, tests, exports, budget (ar/en, axe, states)', async ({
+/** Waits until the run badge shows one of the states (the stream updates the page by itself). */
+async function runState(page: Page, info: TestInfo, states: string[], timeout = 120_000) {
+  const names = states.map((s) => T(info, `bld.run.state.${s}` as never));
+  await expect(page.getByText(new RegExp(`^(${names.join('|')})$`)).first()).toBeVisible({
+    timeout,
+  });
+}
+
+test('app builder: start from one prompt, agent progress, approvals, spec, data/API/access, sandbox, tests, export, deploy, rollback, versions (ar/en, axe, states)', async ({
   page,
 }, info) => {
   const L = loc(info);
-  const email = `owner-${L}@example.test`;
-  const go = (p: string) => page.goto(`/${L}${p}`);
-  await ownerOrg(page, info, email);
+  const owner = `owner-${L}@example.test`;
+  const base = `http://127.0.0.1:3000/${L}`;
+  const org = (
+    await sql<{ id: string }>(
+      `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
+      [owner],
+    )
+  )[0];
+  if (!org) throw new Error('run 01-customer first: no owner organization');
 
-  // --- the flag is OFF by default: no sidebar entry, and a clear "not enabled" state instead of a broken page
-  await setFlag('app_builder.enabled', false);
-  await setFlag('app_builder.m09_stubs', true);
-  await go('/builder/projects');
-  await expect(page.getByText(T(info, 'm10.notEnabled.title'))).toBeVisible();
-  await expect(
-    page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'm10.nav.builder') }),
-  ).toHaveCount(0);
-  await audit(page, info, 'm10-not-enabled');
+  // ---- fixtures
+  await setFlag('ai.enabled', true);
+  await sql(
+    `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, rate_card_version, rate_card, enabled, enabled_at)
+     VALUES (gen_random_uuid(), 'mock-model', 'mock', 'Mock model', 'sa-central', 'e2e-1', $1::jsonb, true, now())
+     ON CONFLICT (code) DO UPDATE SET enabled = true, enabled_at = coalesce(ai.model_providers.enabled_at, now()), rate_card = EXCLUDED.rate_card`,
+    [
+      JSON.stringify({
+        models: {
+          'mock-chat-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
+          'mock-long-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
+        },
+      }),
+    ],
+  );
+  await creditWallet(org.id, '1000000').catch(() => undefined); // already credited by an earlier run of this locale: fine
 
-  // --- flag on: the sidebar entry and the approvals entry appear
-  await setFlag('app_builder.enabled', true);
-  await go('/builder/projects');
+  await signIn(page, info, owner);
   const nav = page.getByRole('navigation', { name: T(info, 'nav.primary') });
+
+  // ---- flag OFF: no nav entry; the web-app tile is "coming soon" and cannot be started
+  await setFlag('app_builder.enabled', false);
+  await page.goto(`${base}/builder/projects`);
+  await expect(nav.getByRole('link', { name: T(info, 'm10.nav.builder') })).toHaveCount(0);
+  await page.getByLabel(new RegExp(T(info, 'bld.start.type.webapp'))).check();
+  await expect(
+    page.getByRole('button', { name: new RegExp(T(info, 'bld.start.go')) }),
+  ).toBeDisabled();
+  await audit(page, info, 'm10a-flag-off');
+
+  // ---- flag ON: the App builder and Approvals entries appear; the app start screen preselects the web-app type
+  await setFlag('app_builder.enabled', true);
+  await page.goto(`${base}/builder/apps`);
   await expect(nav.getByRole('link', { name: T(info, 'm10.nav.builder') })).toBeVisible();
   await expect(nav.getByRole('link', { name: T(info, 'm10.nav.approvals') })).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: T(info, 'm10.proj.title'), level: 1 }),
-  ).toBeVisible();
-  await audit(page, info, 'm10-projects');
+  await expect(page.getByLabel(new RegExp(T(info, 'bld.start.type.webapp')))).toBeChecked();
+  await audit(page, info, 'm10a-apps-start');
 
-  // --- UI-M10-01: wizard: prompt (DATA note) → requirements (confirmed) → budget within the ceilings → start
-  await go('/builder/projects/new/app');
-  await expect(page.getByText(T(info, 'm10.wiz.promptData'))).toBeVisible();
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
-  await expect(page.getByText(T(info, 'm10.wiz.err.prompt'))).toBeVisible();
-  await audit(page, info, 'm10-wizard-prompt');
+  // ---- UI-M10-01: ONE prompt (no wizard) → project + session + build run, then the workspace opens
   await page
-    .getByLabel(T(info, 'm10.wiz.prompt'))
-    .fill('A small clinic app with patients and appointments');
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
-  await page.getByLabel(T(info, 'm10.wiz.entities')).fill('Patient\nAppointment');
-  await page.getByLabel(T(info, 'm10.wiz.roles')).fill('Doctor\nReceptionist');
-  await page.getByLabel(T(info, 'm10.wiz.confirmList')).check();
-  await audit(page, info, 'm10-wizard-requirements');
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
-  // above the ceiling: refused in the browser, with the limit shown
-  await page.getByLabel(T(info, 'm10.wiz.tokens')).fill('2000001');
-  await page.getByRole('button', { name: T(info, 'm10.wiz.start') }).click();
-  await expect(page.getByText(T(info, 'm10.wiz.err.tokens'))).toBeVisible();
-  await page.getByLabel(T(info, 'm10.wiz.tokens')).fill('200000');
-  await audit(page, info, 'm10-wizard-budget');
-  await page.getByRole('button', { name: T(info, 'm10.wiz.start') }).click();
+    .getByLabel(T(info, 'bld.start.promptLabel'))
+    .fill(
+      L === 'ar'
+        ? 'نظام لإدارة عيادة يضم المرضى والأطباء والمواعيد.'
+        : 'A clinic app with patients, doctors and appointments.',
+    );
+  await page.getByRole('button', { name: new RegExp(T(info, 'bld.start.go')) }).click();
+  await page.waitForURL(/\/builder\/projects\/[0-9a-f-]{36}$/);
+  const projectId = page.url().split('/').pop()!;
+  const project = `${base}/builder/projects/${projectId}`;
 
-  // --- UI-M10-06: run viewer (steps, budget meter, approvals area, cancel while live)
-  await page.waitForURL(/\/builder\/projects\/[0-9a-f-]{36}\/runs\/[0-9a-f-]{36}$/);
-  const runUrl = page.url();
-  const project = /projects\/([0-9a-f-]{36})\//.exec(runUrl)![1]!;
+  // ---- UI-M10-06: the seven agents with their state, the budget meters, cancel while live
+  const agents = page.getByRole('list', { name: T(info, 'm10a.run.agents') });
+  await expect(agents).toBeVisible({ timeout: 30_000 });
+  await expect(agents.getByRole('listitem')).toHaveCount(7);
   await expect(page.getByRole('heading', { name: T(info, 'm10.run.budget') })).toBeVisible();
-  await expect(page.getByRole('heading', { name: T(info, 'm10.run.steps') })).toBeVisible();
-  await audit(page, info, 'm10-run');
+  await audit(page, info, 'm10a-run-progress');
 
-  // --- UI-M10-02: overview
-  await go(`/builder/projects/${project}`);
-  await expect(page.getByRole('heading', { name: T(info, 'm10.ov.versions') })).toBeVisible();
-  await audit(page, info, 'm10-overview');
+  // the run ends, or waits for a human: decide the approval it waits on in the inbox
+  const waiting = page.getByRole('heading', { name: T(info, 'm10a.run.waiting') });
+  const finished = page.getByText(
+    new RegExp(
+      `^(${['succeeded', 'failed', 'budget_exceeded'].map((s) => T(info, `bld.run.state.${s}` as never)).join('|')})$`,
+    ),
+  );
+  await expect(waiting.or(finished.first())).toBeVisible({ timeout: 120_000 });
+  if (await waiting.isVisible()) {
+    await audit(page, info, 'm10a-run-waiting-approval');
+    await page.getByRole('link', { name: T(info, 'm10a.run.decide') }).click();
+    await expect(
+      page.getByRole('heading', { level: 1, name: T(info, 'm10.apr.title') }),
+    ).toBeVisible();
+    await audit(page, info, 'm10a-approvals');
+    await page
+      .getByRole('table', { name: T(info, 'm10.apr.title') })
+      .getByRole('button')
+      .first()
+      .click();
+    const drawer = page.getByRole('dialog').first();
+    await expect(drawer.getByText(T(info, 'm10.apr.scopeHash'))).toBeVisible();
+    await audit(page, info, 'm10a-approval-drawer');
+    await drawer.getByRole('button', { name: T(info, 'm10.apr.approve'), exact: true }).click();
+    await page
+      .getByRole('dialog')
+      .last()
+      .getByRole('button', { name: T(info, 'm10.apr.confirmApprove') })
+      .click();
+    await expect(page.getByText(T(info, 'm10.apr.approved'))).toBeVisible();
+    await page.goto(project);
+    await runState(page, info, ['succeeded', 'failed', 'budget_exceeded', 'running', 'queued']);
+  }
+  const built = await page
+    .getByText(T(info, 'm10a.run.succeeded'))
+    .isVisible({ timeout: 90_000 })
+    .catch(() => false);
+  await audit(page, info, 'm10a-overview');
 
-  // --- UI-M10-03: IDE: read-only viewer, preview placeholder; a sandbox always carries the runtime label and the stand-in notice
-  await go(`/builder/projects/${project}/ide`);
-  await expect(page.getByText(T(info, 'm10.ide.previewNote'))).toBeVisible();
-  await expect(page.getByText(T(info, 'm10.ide.readOnly'))).toBeVisible();
+  // ---- UI-M10-02: app spec and the generated data / API / access views
+  await page.goto(`${project}/spec`);
+  if (built) {
+    await expect(page.getByRole('heading', { name: T(info, 'm10a.spec.entities') })).toBeVisible();
+    await expect(page.getByRole('heading', { name: T(info, 'm10a.spec.roles') })).toBeVisible();
+    await audit(page, info, 'm10a-spec');
+    await page.goto(`${project}/design`);
+    await expect(page.getByRole('heading', { name: T(info, 'm10a.data.title') })).toBeVisible();
+    await expect(page.getByRole('heading', { name: T(info, 'm10a.api.title') })).toBeVisible();
+    await expect(page.getByRole('table', { name: T(info, 'm10a.access.title') })).toBeVisible();
+    await audit(page, info, 'm10a-design');
+  } else {
+    // the build did not produce a spec (no webapp fixtures in the mock model): the honest empty state, not a blank page
+    await expect(page.getByText(T(info, 'm10a.bp.none.title'))).toBeVisible();
+    await audit(page, info, 'm10a-spec-empty');
+  }
+
+  // ---- UI-M10-03: files and sandbox: the runtime label and the "NOT isolated" notice are ALWAYS there
+  await page.goto(`${project}/ide`);
   await page.getByRole('button', { name: T(info, 'm10.sbx.start') }).click();
   await expect(page.getByText(T(info, 'm10.sbx.notIsolated')).first()).toBeVisible();
   await expect(page.getByText(T(info, 'm10.sbx.runtime')).first()).toBeVisible();
-  await audit(page, info, 'm10-ide');
+  await audit(page, info, 'm10a-sandbox');
 
-  // --- UI-M10-04: terminal: layout only, transport not enabled (PA-M10-01)
-  const term = await page
-    .getByRole('link', { name: T(info, 'm10.sbx.openTerminal') })
-    .first()
-    .getAttribute('href');
-  if (term) {
-    await page.goto(term);
-    await expect(page.getByText(T(info, 'm10.term.notEnabled'))).toBeVisible();
-    await expect(page.getByText(T(info, 'm10.term.egressDenied'))).toBeVisible();
-    await audit(page, info, 'm10-terminal');
-  }
-
-  // --- UI-M10-05: changes: client-side path check, then the patch form
-  await go(`/builder/projects/${project}/changes?op=add&path=src/hello.ts`);
-  await page.getByLabel(T(info, 'm10.chg.path')).fill('../escape.ts');
-  await page.getByLabel(T(info, 'm10.chg.content')).fill('export const hello = 1;');
-  await page.getByRole('button', { name: T(info, 'm10.chg.submit') }).click();
-  await expect(page.getByText(T(info, 'm10.chg.err.path'))).toBeVisible();
-  await page.getByLabel(T(info, 'm10.chg.path')).fill('src/hello.ts');
-  await audit(page, info, 'm10-changes');
-
-  // --- UI-M10-08: tests
-  await go(`/builder/projects/${project}/tests`);
+  // ---- UI-M10-08: tests
+  await page.goto(`${project}/tests`);
   await expect(page.getByRole('heading', { name: T(info, 'm10.tst.title') })).toBeVisible();
-  await audit(page, info, 'm10-tests');
+  await audit(page, info, 'm10a-tests');
 
-  // --- UI-M10-10: exports
-  await go(`/builder/projects/${project}/exports`);
+  // ---- UI-M10-10: exports
+  await page.goto(`${project}/exports`);
   await expect(page.getByRole('heading', { name: T(info, 'm10.exp.title') })).toBeVisible();
-  await audit(page, info, 'm10-exports');
+  await audit(page, info, 'm10a-exports');
 
-  // --- UI-M10-11: budget (read only) with the approval policy
-  await go(`/builder/projects/${project}/settings/budget`);
-  await expect(page.getByText(T(info, 'm10.bud.m09'))).toBeVisible();
-  await expect(
-    page.getByRole('cell', { name: T(info, 'm10.apr.type.release_owner') }),
-  ).toBeVisible();
-  await audit(page, info, 'm10-budget');
-
-  // --- UI-M10-09: deployments: a production deploy answers 403 approval_required and lists the approvals with a link to the inbox
-  await go(`/builder/projects/${project}/deployments`);
-  await expect(page.getByText(T(info, 'm10.dep.empty'))).toBeVisible();
-  await audit(page, info, 'm10-deployments-empty');
-  const target = crypto.randomUUID(); // no hosting site is seeded here: the approval comes first, the target is checked after
-  await page.getByLabel(T(info, 'm10.dep.targetId')).fill(target);
-  await page.getByLabel(T(info, 'm10.dep.env'), { exact: true }).selectOption('production');
-  await page.getByRole('button', { name: T(info, 'm10.dep.create') }).click();
-  const needed = page.getByText(T(info, 'm10.dep.approvalNeeded'));
-  const sawApproval = await needed.isVisible({ timeout: 15_000 }).catch(() => false);
+  // ---- UI-M10-09: deployments (web app): a target is needed; production asks for an approval
+  await page.goto(`${project}/deployments`);
+  await expect(page.getByRole('heading', { name: T(info, 'm10a.dep.new') })).toBeVisible();
+  await audit(page, info, 'm10a-deployments');
+  const hasSite = (await page.getByLabel(T(info, 'm10a.dep.target')).locator('option').count()) > 1;
   test.skip(
-    !sawApproval,
-    'the API did not ask for an approval (no deployable target seeded): approval, deployment and rollback legs skipped, NOT faked',
+    !built || !hasSite,
+    'no built app or no hosting site to deploy to (a real target needs HG-05/HG-06): deploy and rollback legs skipped, NOT faked',
   );
-  await audit(page, info, 'm10-deployment-approval-needed');
+  await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('production');
+  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
+  await expect(page.getByText(T(info, 'm10a.dep.approvalNeeded'))).toBeVisible({ timeout: 30_000 });
+  await audit(page, info, 'm10a-deploy-approval-needed');
+  await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('staging');
+  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
+  await expect(page.getByRole('table', { name: T(info, 'bld.dep.list') })).toBeVisible({
+    timeout: 30_000,
+  });
+  const rollback = page.getByRole('button', { name: T(info, 'bld.dep.rollback') });
+  await expect(rollback.first()).toBeVisible({ timeout: 120_000 });
+  await rollback.first().click();
+  await expect(page.getByRole('dialog').getByText(T(info, 'm10a.dep.rollbackTitle'))).toBeVisible();
+  await audit(page, info, 'm10a-rollback-confirm');
+  await page.getByRole('button', { name: T(info, 'm10a.dep.rollbackConfirm') }).click();
 
-  // --- UI-M10-07: approvals inbox: the exact action and expiry in a drawer, then approve with a confirmation
-  await page.getByRole('link', { name: T(info, 'm10.dep.openApprovals') }).click();
-  await expect(
-    page.getByRole('heading', { name: T(info, 'm10.apr.title'), level: 1 }),
-  ).toBeVisible();
-  await audit(page, info, 'm10-approvals');
-  await page
-    .getByRole('button', {
-      name: T(info, 'm10.apr.open', { type: T(info, 'm10.apr.type.production_deploy') }),
-    })
-    .first()
-    .click();
-  const drawer = page.getByRole('dialog');
-  await expect(drawer.getByText(T(info, 'm10.apr.scopeHash'))).toBeVisible();
-  await expect(drawer.getByText(T(info, 'm10.apr.expires'))).toBeVisible();
-  await audit(page, info, 'm10-approval-drawer');
-  await drawer.getByRole('button', { name: T(info, 'm10.apr.approve'), exact: true }).click();
-  await page
-    .getByRole('dialog')
-    .last()
-    .getByRole('button', { name: T(info, 'm10.apr.confirmApprove') })
-    .click();
-  await expect(page.getByText(T(info, 'm10.apr.approved'))).toBeVisible();
+  // ---- versions (read-only for web apps)
+  await page.goto(`${project}/versions`);
+  await expect(page.getByRole('table', { name: T(info, 'm10a.tab.versions') })).toBeVisible();
+  await audit(page, info, 'm10a-versions');
 
-  // --- deployment then rollback: only if the platform has a live deployment to roll back (a real target is not seeded here)
-  await go(`/builder/projects/${project}/deployments`);
-  const live = page.getByRole('button', { name: T(info, 'm10.dep.rollback') });
-  test.skip(
-    (await live.count()) === 0,
-    'no live deployment (no deployable target): rollback leg skipped',
-  );
-  await live.click();
-  await expect(page.getByRole('dialog').getByText(T(info, 'm10.dep.rollbackTitle'))).toBeVisible();
-  await audit(page, info, 'm10-rollback-confirm');
-  await page.getByRole('button', { name: T(info, 'm10.dep.rollbackConfirm') }).click();
+  // ---- the project list shows the type and can be filtered
+  await page.goto(`${base}/builder/projects?type=webapp`);
+  await expect(page.getByText(T(info, 'm10.proj.type.webapp')).first()).toBeVisible();
   await expect(
-    page
-      .getByText(T(info, 'm10.dep.approvalNeeded'))
-      .or(page.getByText(T(info, 'm10.dep.rollbackStarted'))),
-  ).toBeVisible();
+    page.getByRole('link', { name: T(info, 'm10a.proj.filter.webapp') }),
+  ).toHaveAttribute('aria-current', 'page');
+  await audit(page, info, 'm10a-projects-filtered');
 });
 
 test('admin: AI run oversight and sandbox fleet are read only (UI-M10-18/19)', async ({

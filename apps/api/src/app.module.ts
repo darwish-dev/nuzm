@@ -22,6 +22,7 @@ import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
 // M10A (app builder): append-only block
 import { AppBuilderModule } from './modules/appbuilder';
+import { MobileModule } from './modules/mobile';
 // >>> M09 modules
 import { AiModule } from './modules/ai';
 import { BuilderModule } from './modules/builder';
@@ -73,6 +74,7 @@ import { ProgramsModule } from './modules/programs';
     MarketplaceModule,
     ProgramsModule,
     AppBuilderModule, // M10A
+    MobileModule, // M10B
   ],
 })
 export class AppModule {}

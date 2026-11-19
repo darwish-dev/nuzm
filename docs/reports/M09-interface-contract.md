@@ -47,3 +47,10 @@ GatewayResult = { text, finishReason, tokensIn, tokensOut, estimated, credits(bi
 
 ## 7. For M12
 - Runbooks (drafts): `ai-budget-incident`, `ai-provider-outage`, `preview-isolation`, `deploy-rollback`. Alerts on `ai.reservation.swept`, `ai.killswitch.toggled`, `ai.secret_scan.blocked` are audit-event based (no alerting rules built). Load tests (50 concurrent runs, 500 SSE connections, preview p95) are NOT RUN. Pen-test scope: preview origin, public form ingest, gateway.
+
+## 8. Extension points added for M10A (finish session; additive, website behaviour unchanged)
+- `RunService.resumeParked(orgId, userId, runId)`: continues a run parked in `waiting_approval` when the run kind keeps its OWN approvals (M10A: `ai.approval_requests`, inbox `/v1/ai/approvals`). The run DTO (`pendingApproval`) also shows such a pending approval (`scopeHash`).
+- A run kind is available exactly when a handler is registered (`KINDS_NOW` removed): `webapp` and `test-fix` are registered by `AppBuilderModule`; `mobile` stays 422 `unsupported_kind` until M10B. `SegmentSuspend` is exported for handlers that end a segment on a wait.
+- `builder`: `type: webapp` accepted by `POST /v1/builder/projects` (row only, no head version before the first generation); website-only surfaces (previews, forms, CMS, restoration) answer 422 `unsupported_capability` for other types; `ProjectDelegates` lets the owning module serve `POST …/changes` for its project type.
+- `deploy`: `DeployService.webapp` (`WebappDeployDelegate`) serves `/v1/deployments` for web-app projects (create/list by project type, get/logs/rollback by which table holds the deployment).
+- Migrations of M10 that extend M09 tables: `builder/1450` (project types), `ai/1451` (artifact kinds). Both expand-only.

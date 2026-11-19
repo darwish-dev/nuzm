@@ -173,6 +173,27 @@ export const ERROR_REGISTRY = {
   ai_unavailable: { status: 503, title: 'AI is switched off or no model provider is available' },
   payload_too_large: { status: 413, title: 'The request body is too large' },
   // <<< M09 error codes
+  // >>> M10B error codes (mobile builder)
+  signing_not_authorized: {
+    status: 422,
+    title: 'The release build needs a signing credential authorized by the account owner',
+  },
+  signing_unavailable: { status: 503, title: 'The signing stage is not available' },
+  no_macos_capacity: { status: 503, title: 'No macOS build capacity is available for iOS builds' },
+  build_runner_unavailable: {
+    status: 503,
+    title: 'No build worker is available for this platform',
+  },
+  raw_secret_rejected: {
+    status: 422,
+    title: 'Key material or a secret was found in the request: only a vault reference is accepted',
+  },
+  release_checklist_incomplete: { status: 422, title: 'The release checklist is incomplete' },
+  owner_approval_required: {
+    status: 409,
+    title: 'The account owner has not approved this release record',
+  },
+  // <<< M10B error codes
   // >>> M12 (S55-S57)
   sso_required: {
     status: 403,

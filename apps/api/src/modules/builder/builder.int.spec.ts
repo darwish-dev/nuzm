@@ -86,9 +86,11 @@ describe('projects (S39)', () => {
   });
   it('validation, quota, naming, roles and isolation', async () => {
     expect(
-      (await e.call('alice', 'POST', '/v1/builder/projects', { type: 'webapp', name: 'x' }))
-        .statusCode,
-    ).toBe(422);
+      (
+        await e.call('alice', 'POST', '/v1/builder/projects', { type: 'mobile', name: 'x' })
+      ) // mobile (M10B) needs the org flag mobile_builder.enabled (default off): 404; webapp is served since M10A
+      .statusCode,
+    ).toBe(404);
     expect(
       (await e.call('alice', 'POST', '/v1/builder/projects', { name: 'x', locale: ['fr'] }))
         .statusCode,

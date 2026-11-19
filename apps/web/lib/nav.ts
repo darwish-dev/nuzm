@@ -78,7 +78,7 @@ export const CATEGORIES: Category[] = [
     icon: 'code',
     label: 'nc.cat.build',
     title: 'nc.cat.build',
-    roots: ['/builder', '/ai'],
+    roots: ['/builder', '/mobile', '/ai'],
     org: true,
     // the start screen is full screen with no tab bar: usage and credits open from the AI credits chip in the top bar (its page links to budgets)
     noTabs: true,
@@ -92,6 +92,30 @@ export const CATEGORIES: Category[] = [
             href: '/builder/projects',
             perm: ['builder:read'],
             flag: 'ai.enabled',
+          },
+          // M10A: the web / full-stack app builder, only while its own flag is on for the organization
+          {
+            id: 'appbuilder',
+            label: 'm10.nav.builder',
+            href: '/builder/apps',
+            perm: ['builder:read'],
+            flag: 'app_builder.enabled',
+          },
+          {
+            id: 'approvals',
+            label: 'm10.nav.approvals',
+            href: '/approvals',
+            perm: ['ai:read'],
+            flag: 'app_builder.enabled',
+          },
+          // M10B: the mobile builder shows only while its own flag is on (default off)
+          {
+            id: 'mobile',
+            label: 'mobile.nav.mobile',
+            href: '/mobile/new',
+            perm: ['builder:read'],
+            flag: 'mobile_builder.enabled',
+            also: ['/mobile'],
           },
         ],
       },

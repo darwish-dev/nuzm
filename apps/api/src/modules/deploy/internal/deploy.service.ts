@@ -16,7 +16,13 @@ import { ProblemException } from '../../../common/errors';
 import { decodeCursor, pageOf } from '../../../common/pagination';
 import { actionHash } from '../../ai';
 import type { CmsService } from '../../builder';
-import { artifactHash, SitePublisherPort, type Artifact, type TargetSite } from './ports';
+import {
+  artifactHash,
+  SitePublisherPort,
+  type Artifact,
+  type TargetSite,
+  type WebappDeployDelegate,
+} from './ports';
 
 type Row = Record<string, unknown>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -85,6 +91,8 @@ const dto = (r: Row): DeploymentDto => ({
  */
 export class DeployService {
   private kicker: (orgId: string, opId: string) => void = () => undefined;
+  /** Registered by the app-builder module (M10A) for `webapp` projects. */
+  webapp: WebappDeployDelegate | null = null;
   constructor(
     private readonly db: Db,
     private readonly audit: AuditSink,
@@ -129,6 +137,15 @@ export class DeployService {
   ): Promise<DeploymentDto> {
     if (!UUID.test(String(b.projectId)))
       throw new ProblemException('validation_failed', 'projectId must be a uuid');
+    const ptype = await this.projectType(orgId, String(b.projectId).toLowerCase());
+    if (ptype && ptype !== 'website') {
+      if (ptype === 'webapp' && this.webapp)
+        return (await this.webapp.create(orgId, userId, b)) as DeploymentDto;
+      throw new ProblemException(
+        'unsupported_capability',
+        `projects of type ${ptype} are not deployed through this endpoint`,
+      );
+    }
     const targetId =
       typeof b.target === 'object' && b.target !== null
         ? (b.target as { hostingSiteId?: unknown }).hostingSiteId
@@ -342,8 +359,27 @@ export class DeployService {
       }
     }
   }
+  private async projectType(orgId: string, projectId: string): Promise<string | null> {
+    const r = (await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(`SELECT type FROM builder.projects WHERE id=$1 AND deleted_at IS NULL`, [
+            projectId,
+          ])
+        ).rows[0],
+    )) as Row | undefined;
+    return (r?.type as string | undefined) ?? null;
+  }
+  /** The delegate's deployment with this id, when the id is not a website deployment of this organization. */
+  private async webappOwns(orgId: string, id: string): Promise<boolean> {
+    if (!this.webapp || !UUID.test(id)) return false;
+    return (await this.webapp.find(orgId, id)) !== null;
+  }
   async get(orgId: string, id: string): Promise<DeploymentDto> {
     if (!UUID.test(id)) throw new ProblemException('not_found');
+    if (await this.webappOwns(orgId, id))
+      return (await this.webapp!.get(orgId, id)) as DeploymentDto;
     const r = (await this.db.withOrg(
       orgId,
       async (c) => (await c.query(`SELECT * FROM deploy.deployments WHERE id=$1`, [id])).rows[0],
@@ -352,6 +388,10 @@ export class DeployService {
     return dto(r);
   }
   async list(orgId: string, o: { limit: number; cursor?: string; projectId?: string }) {
+    if (o.projectId && UUID.test(o.projectId) && this.webapp) {
+      const t = await this.projectType(orgId, o.projectId);
+      if (t === 'webapp') return (await this.webapp.list(orgId, o.projectId, o.limit)) as never;
+    }
     const cur = decodeCursor(o.cursor);
     const rows = await this.db.withOrg(
       orgId,
@@ -367,6 +407,7 @@ export class DeployService {
     return { items: p.items.map(dto), nextCursor: p.nextCursor };
   }
   async logs(orgId: string, id: string, afterSeq = 0) {
+    if (await this.webappOwns(orgId, id)) return (await this.webapp!.logs(orgId, id)) as never;
     await this.get(orgId, id);
     const rows = await this.db.withOrg(
       orgId,
@@ -396,6 +437,8 @@ export class DeployService {
     id: string,
     idempotencyKey: string,
   ): Promise<DeploymentDto> {
+    if (await this.webappOwns(orgId, id))
+      return (await this.webapp!.rollback(orgId, userId, id)) as DeploymentDto;
     const d = await this.get(orgId, id);
     if (d.state !== 'succeeded')
       throw new ProblemException(

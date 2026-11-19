@@ -342,6 +342,9 @@ classification:
     automation.execution_steps.idempotency_key: sha256(rootExecutionId|stepKey|attemptGroup), a deterministic dedupe key sent to receivers; derived from ids and grants no access
     ai.run_steps.tokens_in: a count of language-model input tokens consumed by one step (a usage number), not an authentication token
     ai.run_steps.tokens_out: a count of language-model output tokens produced by one step (a usage number), not an authentication token
+    # >>> M10B exceptions
+    mobile.builds.signing_credential_id: the id of a row in mobile.signing_credential_refs (a vault REFERENCE record), not a credential
+    # <<< M10B exceptions
     # <<< M09 exceptions
     # How every credentials-class column is protected (M04 S13d). The check fails when a credentials column is not listed here, when the name does not
     # fit the protection (*_hash, *_ref, *_enc), and when an `encrypted` column holds a value that is not a sealed field value.
@@ -379,6 +382,7 @@ classification:
     domains.domain_contacts.payload_enc: encrypted
     domains.registrar_accounts.webhook_secret_ref: vault_ref
     domains.registrar_accounts.vault_ref: vault_ref
+    mobile.signing_credential_refs.vault_ref: vault_ref
     # >>> M09 protection
     ai.model_providers.vault_ref: vault_ref
     builder.previews.token_hash: hash
@@ -3396,6 +3400,76 @@ classification:
       mock_model: internal
       data_region: internal
       created_at: internal
+    # >>> M10B columns (mobile builder)
+    mobile.builds:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version_id: internal
+      platform: internal
+      profile: internal
+      status: internal
+      runner_kind: internal
+      isolation: internal
+      worker_ref: internal
+      signing_credential_id: internal
+      signed: internal
+      minutes_billed: internal
+      toolchain: internal
+      error_code: internal
+      log_excerpt: customer-content
+      operation_id: internal
+      data_region: internal
+      requested_by: internal
+      created_at: internal
+      started_at: internal
+      finished_at: internal
+      version: internal
+    mobile.artifacts:
+      id: internal
+      org_id: internal
+      build_id: internal
+      kind: internal
+      file_name: internal
+      storage_ref: internal
+      sha256: internal
+      size_bytes: internal
+      signed: internal
+      retention_until: internal
+      data_region: internal
+      created_at: internal
+    mobile.signing_credential_refs:
+      id: internal
+      org_id: internal
+      platform: internal
+      label: internal
+      vault_ref: credentials
+      authorized_by: internal
+      authorized_at: internal
+      revoked_at: internal
+      revoked_by: internal
+      data_region: internal
+      created_at: internal
+    mobile.releases:
+      id: internal
+      org_id: internal
+      project_id: internal
+      build_id: internal
+      version_name: internal
+      version_code: internal
+      store: internal
+      status: internal
+      checklist: customer-content
+      metadata: customer-content
+      scope_hash: internal
+      owner_approved_by: internal
+      owner_approved_at: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    # <<< M10B columns
     builder.sandboxes:
       id: internal
       org_id: internal

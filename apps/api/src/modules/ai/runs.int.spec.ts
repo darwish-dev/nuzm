@@ -152,8 +152,7 @@ describe('sessions and messages', () => {
 describe('creating runs', () => {
   it('rejects unknown and not-yet-available kinds (422 unsupported_kind) and malformed input', async () => {
     const sid = await session();
-    for (const kind of ['webapp', 'mobile', 'test-fix'])
-      expect((await mkRun({ sessionId: sid, kind })).json().code).toBe('unsupported_kind');
+    // every kind is served by the module that registers its handler (website/edit/chat: M09; webapp/test-fix: M10A app builder; mobile: M10B, needs a project: see mobile.int.spec.ts)
     expect((await mkRun({ sessionId: sid, kind: 'nope' })).statusCode).toBe(422);
     expect(
       (await mkRun({ sessionId: sid, kind: 'chat', budget: { maxTokens: -1 } })).statusCode,

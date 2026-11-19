@@ -68,6 +68,13 @@ export class WorkerCrash extends Error {
   }
 }
 
+/** Optional per-execution hooks. The M09 integration passes the run context's `emit` so that every node shows up in the persisted event log (`ai.run_events`, SSE). */
+export interface RunHooks {
+  emit?: (type: string, data?: Record<string, unknown>) => Promise<unknown>;
+  /** Runs once every node has a checkpoint and BEFORE the run is marked succeeded (e.g. commit the assembled project); a throw fails the run with `finalize_failed`. Must be idempotent. */
+  finalize?: (artifacts: Record<string, unknown>) => Promise<void>;
+}
+
 export interface RunnerConfig {
   modelTimeoutMs: number;
   /** In-process retries of a node after a model timeout / no capacity (the reservation of a timed-out call is already counted as spent). */
@@ -110,9 +117,12 @@ export class GraphRunner {
     runId: string,
     graph: AgentGraph,
     seeds: Record<string, unknown> = {},
+    hooks: RunHooks = {},
   ): Promise<RunOutcome> {
     const prev = this.locks.get(runId) ?? Promise.resolve();
-    const next = prev.catch(() => undefined).then(() => this.execute(orgId, runId, graph, seeds));
+    const next = prev
+      .catch(() => undefined)
+      .then(() => this.execute(orgId, runId, graph, seeds, hooks));
     this.locks.set(runId, next);
     return next.finally(() => {
       if (this.locks.get(runId) === next) this.locks.delete(runId);
@@ -138,7 +148,15 @@ export class GraphRunner {
     runId: string,
     graph: AgentGraph,
     seeds: Record<string, unknown>,
+    hooks: RunHooks,
   ): Promise<RunOutcome> {
+    const emit = async (type: string, data: Record<string, unknown> = {}) => {
+      try {
+        await hooks.emit?.(type, data);
+      } catch {
+        /* an event is observability, never a reason to stop a run */
+      }
+    };
     const check = validateGraph(graph);
     if (!check.ok) {
       await this.runs.transition(orgId, runId, 'failed', 'graph_invalid').catch(() => undefined);
@@ -156,7 +174,10 @@ export class GraphRunner {
       run.startedAt ? Date.parse(run.startedAt) : this.clock(),
       this.clock,
     );
-    const cancelled = async () => (await this.runs.get(orgId, runId))?.state === 'cancelled';
+    const cancelled = async () => {
+      const r = await this.runs.get(orgId, runId);
+      return r?.state === 'cancelled' || r?.cancelRequested === true;
+    };
     const model = new GuardedModel(
       this.gateway,
       this.runs,
@@ -167,6 +188,7 @@ export class GraphRunner {
       { timeoutMs: this.cfg.modelTimeoutMs },
     );
 
+    let warned = false;
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const artifacts: Record<string, unknown> = { ...seeds };
     const existing = await this.steps(orgId, runId);
@@ -196,6 +218,13 @@ export class GraphRunner {
           checkpoint: row.output_ref as string,
         });
         artifacts[node.produces] = await this.artifacts.get(orgId, row.output_ref as string);
+        await emit('node_succeeded', {
+          node: node.id,
+          agent: node.agent,
+          artifact: node.produces,
+          artifactRef: row.output_ref as string,
+          approved: true,
+        });
         await this.afterCheckpoint(nodeId);
         continue;
       }
@@ -240,6 +269,11 @@ export class GraphRunner {
       }
       const stepId = row.id as string;
       model.spent = { tokensIn: 0, tokensOut: 0, costMinor: 0 };
+      await emit('node_started', {
+        node: node.id,
+        agent: node.agent,
+        attempt: Number(row.attempt),
+      });
 
       let result: AgentResult | null = null;
       let lastErr: unknown;
@@ -272,7 +306,14 @@ export class GraphRunner {
           break;
         }
       }
-      if (!result) return this.stopOn(orgId, runId, stepId, lastErr, model);
+      if (!result) {
+        await emit('node_failed', {
+          node: node.id,
+          agent: node.agent,
+          reason: lastErr instanceof Error ? lastErr.name : 'agent_error',
+        });
+        return this.stopOn(orgId, runId, stepId, lastErr, model);
+      }
 
       const ref = await this.artifacts.put(orgId, runId, node.produces, result.artifact);
       await this.recordToolCalls(orgId, runId, run.dataRegion, stepId, result.toolCalls ?? []);
@@ -302,11 +343,37 @@ export class GraphRunner {
           c.query(`UPDATE ai.run_steps SET status = 'waiting_approval' WHERE id = $1`, [stepId]),
         );
         await this.runs.transition(orgId, runId, 'waiting_approval');
+        await emit('approval_requested', {
+          node: node.id,
+          approvalIds: ids,
+          types: result.approvals.map((x) => x.type),
+        });
         return { status: 'waiting_approval', approvalIds: ids };
       }
       await this.finishStep(orgId, stepId, { status: 'succeeded', checkpoint: ref });
       artifacts[node.produces] = result.artifact;
+      await emit('node_succeeded', {
+        node: node.id,
+        agent: node.agent,
+        artifact: node.produces,
+        artifactRef: ref,
+        tokensIn: model.spent.tokensIn,
+        tokensOut: model.spent.tokensOut,
+        costMinor: model.spent.costMinor,
+      });
+      if (!warned && ledger.snapshot().warn) {
+        warned = true;
+        await emit('budget_warn', { pct: Math.round(ledger.snapshot().pct) });
+      }
       await this.afterCheckpoint(nodeId);
+    }
+    if (hooks.finalize) {
+      try {
+        await hooks.finalize(artifacts);
+      } catch (e) {
+        if (e instanceof WorkerCrash) throw e;
+        return this.fail(orgId, runId, null, 'finalize_failed');
+      }
     }
     await this.runs.transition(orgId, runId, 'succeeded');
     await this.audit.record({

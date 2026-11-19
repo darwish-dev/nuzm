@@ -59,6 +59,7 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
       'm09-builder-assets',
       'm09-model-gateway',
       'm10-app-deployment',
+      'm10-mobile-artifacts',
       'm10-sandbox-builds',
       'm10-source-export',
       'm11-connectors',
@@ -73,10 +74,10 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
 describe('hook registry rules', () => {
   it('a table with a data_region column and no registration fails', () => {
     expect(
-      evaluateHooks(reg, [...tables, 'mobile.builds'], kinds, none).map(
+      evaluateHooks(reg, [...tables, 'mobile.unregistered_table'], kinds, none).map(
         (x) => `${x.kind} ${x.object}`,
       ),
-    ).toEqual(['table_without_hook mobile.builds']);
+    ).toEqual(['table_without_hook mobile.unregistered_table']);
   });
   it('a registered table that no longer has the column, and an unknown hook, fail', () => {
     const r = clone();

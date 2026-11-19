@@ -1,5 +1,10 @@
 // Public surface of the app-builder module (M10A: web / full-stack apps).
-export { AppBuilderModule, M09_PORT_PROVIDERS, makeRuntime } from './appbuilder.module';
+export {
+  AppBuilderModule,
+  M09_PORT_PROVIDERS,
+  M09_STUB_PROVIDERS,
+  makeRuntime,
+} from './appbuilder.module';
 export { APP_BUILDER_FLAG, M09_STUBS_FLAG } from './internal/flag.guard';
 // the M09 boundary: what M09 must implement (docs/reports/M10-m09-interface-assumptions.md)
 export {

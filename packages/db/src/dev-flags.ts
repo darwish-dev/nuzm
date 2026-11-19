@@ -14,6 +14,7 @@ export const DEV_FEATURE_FLAGS = [
   'ai.enabled',
   'app_builder.enabled',
   'app_builder.m09_stubs',
+  'mobile_builder.enabled',
   'domains.enabled',
   'hosting.enabled',
   'cloud.provisioning',

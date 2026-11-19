@@ -1,15 +1,18 @@
 import type { Db } from '@nuzm/platform';
+import type { ApprovalService } from './approvals/approval.service';
 import type { SandboxService } from './sandbox/sandbox.service';
 
-/** Sandbox housekeeping, once a minute: reap idle / expired sandboxes and meter `ai.sandbox_cpu_seconds` of the running ones (idempotent per window). */
+/** Sandbox housekeeping, once a minute: expire stale approvals (a parked run then continues and fails), reap idle / expired sandboxes and meter `ai.sandbox_cpu_seconds` of the running ones (idempotent per window). */
 export class SandboxJobs {
   private timer: NodeJS.Timeout | null = null;
   constructor(
     private readonly db: Db,
     private readonly sandboxes: SandboxService,
+    private readonly approvals?: ApprovalService,
   ) {}
-  async tick(): Promise<{ reaped: number; metered: number }> {
+  async tick(): Promise<{ reaped: number; metered: number; expired: number }> {
     const reaped = await this.sandboxes.reapExpired();
+    const expired = (await this.approvals?.sweepExpired().catch(() => 0)) ?? 0;
     const rows = await this.db.withPlatformScope(
       async (c) =>
         (await c.query(`SELECT id, org_id FROM builder.sandboxes WHERE state = 'ready' LIMIT 500`))
@@ -18,7 +21,7 @@ export class SandboxJobs {
     let metered = 0;
     for (const r of rows)
       if (await this.sandboxes.meterCpu(r.org_id, r.id).catch(() => null)) metered++;
-    return { reaped, metered };
+    return { reaped, metered, expired };
   }
   start(everyMs = 60_000) {
     if (this.timer || process.env.APPBUILDER_KICK === 'off') return;

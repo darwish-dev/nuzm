@@ -81,7 +81,10 @@ export class TestFixService {
       run.usage,
       run.startedAt ? Date.parse(run.startedAt) : Date.now(),
     );
-    const cancelled = async () => (await this.runs.get(orgId, runId))?.state === 'cancelled';
+    const cancelled = async () => {
+      const r = await this.runs.get(orgId, runId);
+      return r?.state === 'cancelled' || r?.cancelRequested === true;
+    };
     const model = new GuardedModel(
       this.gateway,
       this.runs,

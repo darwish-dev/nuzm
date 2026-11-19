@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { formatMinor, t, tDynamic, type Locale } from '@nuzm/i18n';
+import { formatMinor, t, tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
 import { Badge, Banner, EmptyState, Ltr, Meter } from '@nuzm/ui';
 import {
   isIsolated,
@@ -14,9 +14,23 @@ import { SectionTabs } from './DataParts';
 /** Server-safe presentational pieces of the app-builder screens. No state, no I/O. */
 
 export type BuilderSection =
-  'overview' | 'ide' | 'changes' | 'tests' | 'deployments' | 'exports' | 'budget';
+  'overview' | 'spec' | 'design' | 'ide' | 'tests' | 'deployments' | 'exports' | 'versions';
 
-/** Section links of one project. */
+const TAB_LABEL: Record<BuilderSection, MessageKey> = {
+  overview: 'm10.tab.overview',
+  spec: 'm10a.tab.spec',
+  design: 'm10a.tab.design',
+  ide: 'm10a.tab.ide',
+  tests: 'm10.tab.tests',
+  deployments: 'm10.tab.deployments',
+  exports: 'm10.tab.exports',
+  versions: 'm10a.tab.versions',
+};
+
+/**
+ * Section links of one web-app project: overview (agent run), app spec, generated data/API/access, files and sandbox, tests, deployments, exports, versions.
+ * Only sections that have a page are listed (the Git changes and budget screens are not built in M10A).
+ */
 export function BuilderTabs({
   locale,
   id,
@@ -30,7 +44,7 @@ export function BuilderTabs({
   const tab = (key: BuilderSection, path: string) => ({
     key,
     href: `${base}${path}`,
-    label: t(locale, `m10.tab.${key}`),
+    label: t(locale, TAB_LABEL[key]),
   });
   return (
     <SectionTabs
@@ -39,12 +53,13 @@ export function BuilderTabs({
       current={current}
       tabs={[
         tab('overview', ''),
+        tab('spec', '/spec'),
+        tab('design', '/design'),
         tab('ide', '/ide'),
-        tab('changes', '/changes'),
         tab('tests', '/tests'),
         tab('deployments', '/deployments'),
         tab('exports', '/exports'),
-        tab('budget', '/settings/budget'),
+        tab('versions', '/versions'),
       ]}
     />
   );

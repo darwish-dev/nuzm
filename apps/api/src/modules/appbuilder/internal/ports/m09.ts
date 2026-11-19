@@ -1,11 +1,10 @@
 /**
  * THE M09 BOUNDARY (assumptions A-01..A-12 in docs/reports/M10-m09-interface-assumptions.md).
  *
- * M09 (AI core and website builder) is built in parallel and is NOT on this base. Everything M10 needs from M09 goes through the abstract classes in this
- * file and nothing else: the run store (`ai.runs`), the model gateway, the artifact store (`ai.artifacts`), builder projects/files/versions
- * (`builder.projects`, `builder.project_files`, `builder.project_versions`) and the organization credit balance. Swapping the in-memory mocks
- * (`m09-mock.ts`, labelled NOT VERIFIED) for the real M09 services is ONE provider wiring change in `appbuilder.module.ts` (see `M09_PORT_PROVIDERS`).
- * No table of M09 is created or altered by M10; `run_id`/`project_id` columns of M10 tables are logical references.
+ * Everything M10 needs from M09 goes through the abstract classes in this file and nothing else: the run store (`ai.runs`), the model gateway, the artifact store
+ * (`ai.artifacts`), builder projects/files/versions (`builder.projects`, `builder.project_files`, `builder.project_versions`) and the organization credit balance.
+ * Real implementations over M09's tables and services: `m09-real.ts`. In-memory stand-ins (`m09-mock.ts`, NOT VERIFIED) remain a DEV fallback behind the flag
+ * `app_builder.m09_stubs` (`m09-routed.ts`; never honoured in production). `run_id`/`project_id` columns of M10 tables are logical references.
  */
 
 export type RunKind = 'webapp' | 'mobile' | 'test-fix' | 'edit' | 'website' | 'chat';
@@ -65,6 +64,8 @@ export interface RunRecord {
   reason: string | null;
   specRef: string | null;
   operationId: string | null;
+  /** M09 cancels a RUNNING run cooperatively (`ai.runs.cancel_requested`); the runner stops at the next checkpoint. Absent in the stand-ins (they cancel by state). */
+  cancelRequested?: boolean;
 }
 
 /** `ai.runs`: the single run table of M09. M10 only creates, reads, transitions and meters runs through this port. */

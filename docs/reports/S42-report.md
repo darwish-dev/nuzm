@@ -12,3 +12,9 @@ Migrations 1400 (ai.run_steps, ai.tool_calls, ai.approval_requests, permissions)
 Model = scripted adapter: model quality NOT VERIFIED. M09 tables not created (logical refs).
 
 Feature flag `app_builder.enabled` default OFF. Assumptions: `M10-m09-interface-assumptions.md`.
+
+## Finish session (branch `claude/m10a-finish-c51b35`): runs, approvals, budgets on the real M09
+- Runs: `webapp` and `test-fix` are run kinds registered in M09's `RunKindRegistry` (`internal/run-handlers.ts`); M09's segment engine owns the operation, lease, resume and final state; `PgRunStore` writes `ai.runs` through the same state-machine trigger. The graph emits `node_started|node_succeeded|node_failed|approval_requested|budget_warn|project_committed` into `ai.run_events`. **PASS** — `m09-real.int.spec.ts` ("a webapp run through M09 /v1/ai/runs"): 7 persisted, checkpointed steps, 7 artifact kinds, usage rows in `ai.model_usage`, credits drawn from the wallet.
+- Approvals: M10's inbox (`ai.approval_requests`) is what a webapp run waits on; a decision calls `RunService.resumeParked` (queued + new operation); stale hash 409, viewer 403, rejection → `approval_rejected`, expiry (sweeper `ApprovalService.sweepExpired`, every minute) → `approval_expired`, late decision 410, cancelling a waiting run frees the project. **PASS** (same spec).
+- Budgets: the run-level guard stays in front of the gateway; M09's gateway reserves and settles per call against the wallet (the run cap is also passed as `{maxTokens,maxCredits}`); an organization without credit is 402 before anything runs. **PASS**.
+- Model = M09's deterministic MOCK provider (plumbing only): model quality **NOT VERIFIED** (D-18/HG-09-01).

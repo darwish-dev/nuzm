@@ -206,10 +206,13 @@ describe('projects category', () => {
 });
 
 describe('build category', () => {
-  it('keeps only the AI builder, usage and credits, and budgets', () => {
+  it('holds the builders, usage and credits, and budgets (the web-app, approvals and mobile entries only with their flags on)', () => {
     const b = buildNav(all()).find((c) => c.id === 'build')!;
     expect(b.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
       '/builder/projects',
+      '/builder/apps',
+      '/approvals',
+      '/mobile/new',
       '/ai/usage',
       '/ai/budgets',
     ]);
@@ -248,5 +251,52 @@ describe('M11 entries', () => {
     const none = hrefs(all({ can: (p) => p === 'marketplace:read' }));
     expect(none).toContain('/marketplace');
     expect(none).not.toContain('/settings/webhooks');
+  });
+});
+
+describe('M10A app builder entries', () => {
+  const hrefs = (ctx: NavContext) =>
+    buildNav(ctx)
+      .find((c) => c.id === 'build')!
+      .groups.flatMap((g) => g.items.map((i) => i.href));
+  it('the App builder and Approvals entries need the app_builder.enabled flag', () => {
+    const off = hrefs(all({ flag: (k) => k === 'ai.enabled' }));
+    expect(off).toContain('/builder/projects');
+    expect(off).not.toContain('/builder/apps');
+    expect(off).not.toContain('/approvals');
+    const on = hrefs(all({ flag: (k) => k === 'ai.enabled' || k === 'app_builder.enabled' }));
+    expect(on).toContain('/builder/apps');
+    expect(on).toContain('/approvals');
+  });
+  it('they need their permissions too, and the web-app screens belong to the build category', () => {
+    const noApprove = hrefs(all({ can: (p) => p === 'builder:read' }));
+    expect(noApprove).toContain('/builder/apps');
+    expect(noApprove).not.toContain('/approvals');
+    const nav = buildNav(all());
+    expect(currentCategory(nav, '/builder/apps')).toBe('build');
+    expect(currentCategory(nav, '/approvals')).toBe('build');
+    const build = nav.find((c) => c.id === 'build')!;
+    expect(currentItemId(build, '/builder/apps')).toBe('appbuilder');
+    expect(currentItemId(build, '/approvals')).toBe('approvals');
+    expect(currentItemId(build, '/builder/projects/abc/spec')).toBe('builder');
+  });
+});
+
+describe('M10B mobile builder entry', () => {
+  const hrefs = (ctx: NavContext) =>
+    buildNav(ctx)
+      .find((c) => c.id === 'build')
+      ?.groups.flatMap((g) => g.items.map((i) => i.href)) ?? [];
+  it('shows only while mobile_builder.enabled is on and the member can read the builder', () => {
+    expect(hrefs(all({ flag: (k) => k === 'ai.enabled' }))).not.toContain('/mobile/new');
+    expect(hrefs(all({ flag: (k) => k === 'mobile_builder.enabled' }))).toContain('/mobile/new');
+    expect(hrefs(all({ can: () => false, flag: () => true }))).not.toContain('/mobile/new');
+  });
+  it('the dashboard card follows the same flag', async () => {
+    const { visibleServices } = await import('./services');
+    const ids = (flagOn: (f: string) => boolean) =>
+      visibleServices(() => true, flagOn).map((s) => s.id);
+    expect(ids(() => true)).toContain('mobile');
+    expect(ids((f) => f !== 'mobile_builder.enabled')).not.toContain('mobile');
   });
 });

@@ -15,13 +15,22 @@ import {
 import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
 import { ProblemNote } from './BuilderBits';
 
-/** What can be started. Only `website` has a creation path today; the others are shown, honestly marked, so the choice of the future is visible. */
+/**
+ * What can be started. `website` always; `webapp` only while the organization has the app builder on (flag `app_builder.enabled`); `mobile` only while it has
+ * `mobile_builder.enabled`. A type that cannot be started is shown, honestly marked "coming soon", never faked.
+ */
 export const PROJECT_TYPES = [
   { id: 'website', available: true },
   { id: 'webapp', available: false },
   { id: 'mobile', available: false },
 ] as const;
 export type StartType = (typeof PROJECT_TYPES)[number]['id'];
+/** The start types with their availability for this organization. */
+export const startTypes = (appsEnabled: boolean, mobileEnabled = false) =>
+  PROJECT_TYPES.map((x) => ({
+    id: x.id,
+    available: x.id === 'webapp' ? appsEnabled : x.id === 'mobile' ? mobileEnabled : x.available,
+  }));
 
 const MAX_PROMPT = 600;
 const EXAMPLES: { id: string; icon: IconName }[] = [
@@ -29,6 +38,13 @@ const EXAMPLES: { id: string; icon: IconName }[] = [
   { id: 'portfolio', icon: 'user' },
   { id: 'clinic', icon: 'shield' },
   { id: 'shop', icon: 'tag' },
+];
+
+/** Starting points for a web app (shown while the web-app type is selected). */
+const APP_EXAMPLES: { id: string; icon: IconName }[] = [
+  { id: 'crm', icon: 'organization' },
+  { id: 'inventory', icon: 'data' },
+  { id: 'booking', icon: 'tag' },
 ];
 
 /** A project name (1..100 characters) from the first words of the description: the person never has to name anything to start. */
@@ -54,14 +70,22 @@ export function BuilderStart({
   locale,
   credits: wallet,
   canRun,
+  appsEnabled = false,
+  mobileEnabled = false,
+  initialType = 'website',
 }: {
   locale: Locale;
   credits: Credits | null;
   canRun: boolean;
+  /** the organization has `app_builder.enabled`: the web-app tile can be started */
+  appsEnabled?: boolean;
+  /** the organization has `mobile_builder.enabled`: the mobile-app tile can be started (it opens the mobile preview) */
+  mobileEnabled?: boolean;
+  initialType?: StartType;
 }) {
   const router = useRouter();
   const call = useBuilderCall();
-  const [type, setType] = useState<StartType>('website');
+  const [type, setType] = useState<StartType>(initialType);
   const [prompt, setPrompt] = useState('');
   const [langs, setLangs] = useState<SiteLocale[]>(['ar', 'en']);
   const [template, setTemplate] = useState('');
@@ -72,7 +96,8 @@ export function BuilderStart({
   const box = useRef<HTMLTextAreaElement>(null);
   const created = useRef<{ projectId?: string; sessionId?: string }>({});
   const keys = useRef({ project: newKey(), session: newKey(), run: newKey() });
-  const startable = PROJECT_TYPES.find((x) => x.id === type)?.available === true;
+  const types = startTypes(appsEnabled, mobileEnabled);
+  const startable = types.find((x) => x.id === type)?.available === true;
 
   const toggleLang = (l: SiteLocale) =>
     setLangs((cur) => {
@@ -82,8 +107,11 @@ export function BuilderStart({
     });
 
   function pickExample(id: string) {
-    setType('website');
-    setPrompt(t(locale, `bld.start.ex.${id}` as MessageKey));
+    // the website examples are shown for every type but web app: picking one selects the website type (a web-app example keeps the web-app type)
+    if (type !== 'webapp') setType('website');
+    setPrompt(
+      t(locale, (type === 'webapp' ? `m10a.start.ex.${id}` : `bld.start.ex.${id}`) as MessageKey),
+    );
     setErr('');
     box.current?.focus();
   }
@@ -119,10 +147,10 @@ export function BuilderStart({
           () =>
             bapi.post<Project>('/v1/builder/projects', {
               body: {
-                type: 'website',
+                type,
                 name,
                 locale: langs,
-                ...(template ? { templateId: template } : {}),
+                ...(type === 'website' && template ? { templateId: template } : {}),
               },
               idempotencyKey: keys.current.project,
             }),
@@ -163,14 +191,23 @@ export function BuilderStart({
         bapi.post<Run>('/v1/ai/runs', {
           body: {
             sessionId: c.sessionId,
-            kind: 'website',
+            kind: type,
             projectId: c.projectId,
-            input: { description: text },
+            // the person's words travel as DATA: `brief.prompt` for an app, `description` for a website
+            input:
+              type === 'webapp'
+                ? { brief: { prompt: text, locales: langs } }
+                : { description: text },
             ...(cap ? { budget: { maxCredits: Number(cap) } } : {}),
           },
           idempotencyKey: keys.current.run,
         }),
-      () => router.push(`/${locale}/builder/projects/${c.projectId}`),
+      () =>
+        router.push(
+          type === 'mobile'
+            ? `/${locale}/mobile/${c.projectId}/preview`
+            : `/${locale}/builder/projects/${c.projectId}`,
+        ),
       (p) => {
         // a definitive refusal frees the key (the next attempt is a new request); an uncertain network failure keeps it so a retry cannot start a second run
         if (p.status !== 599) keys.current.run = newKey();
@@ -259,7 +296,7 @@ export function BuilderStart({
               {t(locale, 'bld.start.type.group')}
             </p>
             <div className="nzc-tlds-grid">
-              {PROJECT_TYPES.map((x) => (
+              {types.map((x) => (
                 <label
                   key={x.id}
                   className="nzc-tld nzc-ptype"
@@ -315,21 +352,23 @@ export function BuilderStart({
                   </label>
                 ))}
               </fieldset>
-              <label className="nzc-prompt-field">
-                <span>{t(locale, 'bld.wiz.template')}</span>
-                <select
-                  className="nz-input"
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value)}
-                >
-                  <option value="">{t(locale, 'bld.tpl.none')}</option>
-                  {TEMPLATE_IDS.map((id) => (
-                    <option key={id} value={id}>
-                      {tDynamic(locale, `bld.tpl.${id}`, id)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {type === 'website' && (
+                <label className="nzc-prompt-field">
+                  <span>{t(locale, 'bld.wiz.template')}</span>
+                  <select
+                    className="nz-input"
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                  >
+                    <option value="">{t(locale, 'bld.tpl.none')}</option>
+                    {TEMPLATE_IDS.map((id) => (
+                      <option key={id} value={id}>
+                        {tDynamic(locale, `bld.tpl.${id}`, id)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="nzc-prompt-field">
                 <span>{t(locale, 'bld.wiz.budget')}</span>
                 <input
@@ -371,7 +410,7 @@ export function BuilderStart({
           {t(locale, 'bld.start.examples')}
         </p>
         <ul className="nzc-pex-grid">
-          {EXAMPLES.map((x) => (
+          {(type === 'webapp' ? APP_EXAMPLES : EXAMPLES).map((x) => (
             <li key={x.id}>
               <button
                 type="button"
@@ -382,7 +421,14 @@ export function BuilderStart({
                 <span className="nzc-example-icon">
                   <Icon name={x.icon} size={26} />
                 </span>
-                <span>{t(locale, `bld.start.ex.${x.id}` as MessageKey)}</span>
+                <span>
+                  {t(
+                    locale,
+                    (type === 'webapp'
+                      ? `m10a.start.ex.${x.id}`
+                      : `bld.start.ex.${x.id}`) as MessageKey,
+                  )}
+                </span>
                 <Icon name="arrow" size={18} />
               </button>
             </li>

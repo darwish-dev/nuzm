@@ -4539,7 +4539,7 @@ export interface paths {
         put?: never;
         /**
          * Start an AI run
-         * @description Body {sessionId, kind: website|edit|chat, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. webapp|mobile|test-fix answer 422 `unsupported_kind` until M10. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).
+         * @description Body {sessionId, kind: website|edit|chat|webapp|test-fix|mobile, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. `webapp` (the 7-agent graph; `input: {brief: {prompt}, maxMinutes?, specRef?}`, needs a web-app project, served only while the org flag `app_builder.enabled` is on) and `test-fix` (bounded debugging loop) are registered by the app-builder module (M10A). `mobile` (M10B, flag `mobile_builder.enabled`) needs a project of type mobile and input {description: 3..600 characters}: the design agent returns a structured mobile spec, a human approves it (approval kind `plan`), then the Flutter project is written as a new project version. Model quality is NOT VERIFIED. A webapp run that needs a human (destructive migration, dependency outside the policy, ...) waits in `waiting_approval` and is decided in the approvals inbox (`/v1/ai/approvals`; `pendingApproval.scopeHash` is the hash to quote), not through `POST /v1/ai/runs/{id}/approvals`. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).
          */
         post: operations["createAiRun"];
         delete?: never;
@@ -4682,8 +4682,8 @@ export interface paths {
         get: operations["listBuilderProjects"];
         put?: never;
         /**
-         * Create a website project
-         * @description Body {type: website, name, locale: [ar|en…], templateId?}. Starts from one of the bilingual templates or an empty site and creates version 1 with its rendered files. 422 `quota_exceeded` beyond the project limit, 403 `residency_denied`, 409 `name_taken`. Requires permission `builder:write`. Audited (`builder.project.created`). The whole builder surface answers 404 while the `ai.enabled` flag is off.
+         * Create a website, web-app or mobile project
+         * @description Body {type: website|webapp|mobile, name, locale: [ar|en…], templateId?}. `webapp` (M10A) creates the project row only: no head version, `siteModel: null`, until the first generation run; website-only surfaces (previews, forms, CMS, restoration) answer 422 `unsupported_capability` for it and `POST …/changes` is the safe-diff patch set of the web-app pipeline (`{baseVersion, patches[], message?}`). Website: Starts from one of the bilingual templates or an empty site and creates version 1 with its rendered files. 422 `quota_exceeded` beyond the project limit, 403 `residency_denied`, 409 `name_taken`. Requires permission `builder:write`. Audited (`builder.project.created`). The whole builder surface answers 404 while the `ai.enabled` flag is off. `type=mobile` (M10B) creates an empty Flutter project (version 1, no files) and needs the `mobile_builder.enabled` flag (404 otherwise); site-model operations (changes, restoration) and previews refuse mobile projects with 422 `unsupported_capability`: a web preview of a Flutter app is not available yet and would never be a guarantee of device behaviour.
          */
         post: operations["createBuilderProject"];
         delete?: never;
@@ -4927,7 +4927,7 @@ export interface paths {
         put?: never;
         /**
          * Publish a project to a hosting site
-         * @description Body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). Audited (`deploy.deployment.*`).
+         * @description WEB-APP projects (M10A) are dispatched to the app-builder pipeline: body {projectId, versionId?, target: {type: site, id}, env: production|staging}; a production target needs hash-bound approvals decided in the approvals inbox (403 `approval_required` with `approvals[{id,type,scopeHash}]`, then repeat the same request), the build runs in a sandbox, only the static `public/` front end is published through the hosting publish port (the Node back end and the database migrations have no compute path yet: NOT VERIFIED live), a failed health gate restores the previous release; a `site` target is a hosting site of the organization (404 otherwise; `instance` targets have no publish path). Website projects: body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). Audited (`deploy.deployment.*`).
          */
         post: operations["createDeployment"];
         delete?: never;
@@ -6166,6 +6166,118 @@ export interface paths {
          * @description Body {decision: approve|reject, scopeHash, note?}. Bound to the exact action: 409 `stale_approval_hash` for another hash, 410 `gone` after 24 h, 403 `forbidden` without the role of the approval type, 409 `conflict` for a different second decision; an identical repeat is idempotent. Permission `ai:approve` (`ai:budget` for budget increases). Audited (`ai.approval.decided`). PROPOSED ADDITION PA-M10-02 (not in docs/04; needs the owner's approval).
          */
         post: operations["decideApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/builds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List mobile builds
+         * @description Newest first (at most 100); filter `projectId`. Permission `mobile:build`.
+         */
+        get: operations["listMobileBuilds"];
+        put?: never;
+        /**
+         * Request a mobile build
+         * @description Body {projectId, versionId?, platform: android|ios, profile: debug|release}. 202 with the queued build; it runs on a build worker. iOS answers 503 `no_macos_capacity` (no macOS capacity exists: D-22 / HG-10-01, never simulated). A `release` profile needs a signing credential REFERENCE authorized by an owner/admin (422 `signing_not_authorized`) and a connected signing stage (503 `signing_unavailable`; none exists, HG-10-01). 503 `build_runner_unavailable` when no worker exists (production until D-21). A development runner, when enabled, builds an UNSIGNED debug APK and is NOT isolated: the build record says so. 422 for a version without a generated Flutter project. Metered as `mobile.build_minutes` (dimension platform). Requires permission `mobile:build`. Audited (`mobile.build.requested`, `mobile.build.finished`). Answers 404 while the `mobile_builder.enabled` flag is off.
+         */
+        post: operations["createMobileBuild"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/builds/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a mobile build
+         * @description Status, runner, isolation, signed flag, minutes billed, toolchain actually used, error code and the secret-redacted log tail. `notices` states what the build is (unsigned, not isolated, mock). A build of another organization is 404. Permission `mobile:build`.
+         */
+        get: operations["getMobileBuild"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/builds/{id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the artifacts of a build
+         * @description File name, kind (apk|aab|ipa|symbols), sha256, size, signed flag and retention date (D-34 proposal: 30 days debug, 12 months release). No download URL is issued by this milestone (the object store is M08). Permission `mobile:build`.
+         */
+        get: operations["listMobileBuildArtifacts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/signing-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List signing credential references
+         * @description The references (never key material), newest first. Owner and admin roles only (`mobile:signing`).
+         */
+        get: operations["listSigningCredentials"];
+        put?: never;
+        /**
+         * Register a signing credential reference
+         * @description Body {platform: android|ios, label, vaultRef: vault://…, authorizedBy: the caller}. VAULT REFERENCES ONLY: any other member, and any value that looks like key material, a password, a token or a PEM block, is 422 `raw_secret_rejected` and is never echoed or logged. Owner and admin roles only (`mobile:signing`). 409 for an active credential with the same label. Audited (`signing.credential.authorized`, without the reference). Revocation has no path in docs/04 yet (SCR-M10B-01).
+         */
+        post: operations["createSigningCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List release-preparation records
+         * @description Newest first (at most 100); filter `projectId`. Permission `mobile:release`.
+         */
+        get: operations["listMobileReleases"];
+        put?: never;
+        /**
+         * Create a release-preparation record
+         * @description Body {projectId, buildId, versionName, versionCode, store: google_play|app_store, checklist?, metadata?, status?: draft|prepared}. The record PREPARES a store release; Nuzm does not submit to any store and cannot predict a store review. `draft` keeps what is entered and returns `missing`; `prepared` needs every checklist item (privacy-policy https URL, permission declarations matching the app, 2+ screenshots per locale, compliance items, listing metadata) and a SIGNED succeeded build, else 422 `release_checklist_incomplete` naming each item. Text that promises store approval or a way around store review is 422. 409 for a duplicate store and version code. The owner-approval step, read-by-id and the submission-preparation export need new paths: SCR-M10B-02 (not registered). Requires permission `mobile:release`. Audited (`mobile.release.created`).
+         */
+        post: operations["createMobileRelease"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10534,7 +10646,7 @@ export interface components {
         };
         BuilderProjectInput: {
             /** @enum {string} */
-            type?: "website";
+            type?: "website" | "webapp" | "mobile";
             name: string;
             locale?: ("ar" | "en")[];
             templateId?: string;
@@ -10565,13 +10677,17 @@ export interface components {
             /** Format: uuid */
             versionId?: string;
             versionSeq?: number;
-            /** @description Site model v1 (packages/domain builder/site-model) */
+            /** @description Site model v1 (packages/domain builder/site-model); null for a mobile project */
             siteModel?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Mobile projects only: {kind: mobile, generator (template set and pinned toolchain), spec (the approved mobile spec), fileCount}. The Flutter source is read through the files endpoints. */
+            manifest?: {
                 [key: string]: unknown;
             };
             seo?: {
                 [key: string]: unknown;
-            };
+            } | null;
             diff?: {
                 [key: string]: unknown;
             } | null;
@@ -11501,6 +11617,179 @@ export interface components {
             note?: string;
         } & {
             [key: string]: unknown;
+        };
+        CreateMobileBuild: {
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            versionId?: string;
+            /** @enum {string} */
+            platform: "android" | "ios";
+            /** @enum {string} */
+            profile: "debug" | "release";
+        };
+        MobileBuild: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            versionId: string;
+            /** @enum {string} */
+            platform: "android" | "ios";
+            /** @enum {string} */
+            profile: "debug" | "release";
+            /** @enum {string} */
+            status: "queued" | "building" | "succeeded" | "failed" | "blocked";
+            runner?: string | null;
+            /** @enum {string|null} */
+            isolation?: "none" | "container" | "vm" | null;
+            signed: boolean;
+            /** Format: uuid */
+            signingCredentialId?: string | null;
+            minutesBilled: number;
+            toolchain: {
+                [key: string]: unknown;
+            };
+            errorCode?: string | null;
+            /** @description secret-redacted tail of the build log */
+            log?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+            notices: string[];
+        };
+        MobileBuildList: {
+            items: components["schemas"]["MobileBuild"][];
+        };
+        MobileArtifact: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            buildId: string;
+            /** @enum {string} */
+            kind: "apk" | "aab" | "ipa" | "symbols";
+            fileName: string;
+            sha256: string;
+            sizeBytes: number;
+            signed: boolean;
+            /** Format: date-time */
+            retentionUntil: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MobileArtifactList: {
+            items: components["schemas"]["MobileArtifact"][];
+        };
+        CreateSigningCredential: {
+            /** @enum {string} */
+            platform: "android" | "ios";
+            label: string;
+            /** @description a vault reference; key material is never accepted */
+            vaultRef: string;
+            /**
+             * Format: uuid
+             * @description must be the authenticated user
+             */
+            authorizedBy: string;
+        };
+        SigningCredential: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            platform: "android" | "ios";
+            label: string;
+            vaultRef: string;
+            /** Format: uuid */
+            authorizedBy: string;
+            /** Format: date-time */
+            authorizedAt: string;
+            /** Format: date-time */
+            revokedAt?: string | null;
+            usable: boolean;
+        };
+        SigningCredentialList: {
+            items: components["schemas"]["SigningCredential"][];
+        };
+        CreateMobileRelease: {
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            buildId: string;
+            versionName: string;
+            versionCode: number;
+            /** @enum {string} */
+            store: "google_play" | "app_store";
+            /** @enum {string} */
+            status?: "draft" | "prepared";
+            checklist?: {
+                /** @description https URL */
+                privacyPolicyUrl?: string;
+                permissions?: {
+                    [key: string]: unknown;
+                }[];
+                screenshots?: {
+                    [key: string]: unknown;
+                }[];
+                compliance?: {
+                    [key: string]: unknown;
+                };
+            };
+            metadata?: {
+                title?: {
+                    [key: string]: string;
+                };
+                shortDescription?: {
+                    [key: string]: string;
+                };
+                fullDescription?: {
+                    [key: string]: string;
+                };
+                category?: string;
+                keywords?: string[];
+                supportUrl?: string;
+            };
+        };
+        MobileRelease: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            buildId: string;
+            versionName: string;
+            versionCode: number;
+            /** @enum {string} */
+            store: "google_play" | "app_store";
+            /** @enum {string} */
+            status: "draft" | "prepared" | "owner_approved";
+            checklist: {
+                [key: string]: unknown;
+            };
+            metadata: {
+                [key: string]: unknown;
+            };
+            scopeHash?: string | null;
+            /** Format: uuid */
+            ownerApprovedBy?: string | null;
+            /** Format: date-time */
+            ownerApprovedAt?: string | null;
+            /** @description checklist items still missing for `prepared` */
+            missing: string[];
+            notices: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            etag: number;
+        };
+        MobileReleaseList: {
+            items: components["schemas"]["MobileRelease"][];
         };
     };
     responses: {
@@ -24345,6 +24634,246 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listMobileBuilds: {
+        parameters: {
+            query?: {
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileBuildList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createMobileBuild: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMobileBuild"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileBuild"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getMobileBuild: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileBuild"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listMobileBuildArtifacts: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileArtifactList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listSigningCredentials: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningCredentialList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createSigningCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSigningCredential"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningCredential"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listMobileReleases: {
+        parameters: {
+            query?: {
+                projectId?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileReleaseList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createMobileRelease: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMobileRelease"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileRelease"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

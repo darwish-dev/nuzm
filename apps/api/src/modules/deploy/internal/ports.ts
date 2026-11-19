@@ -126,3 +126,18 @@ export class InMemorySitePublisher extends SitePublisherPort {
     return this.live.get(s.id)?.hash ?? null;
   }
 }
+
+/**
+ * Deployments of project types other than `website` (M10: `webapp`) are served by their own module through this delegate, registered at bootstrap by the owning module.
+ * M09 owns `/v1/deployments/**`; it dispatches by the type of the project (create, list) or by which table holds the deployment (get, logs, rollback).
+ * The shapes are the delegate's own (`deploy.app_deployments`, M10 migration 1440).
+ */
+export interface WebappDeployDelegate {
+  create(orgId: string, userId: string, body: Record<string, unknown>): Promise<unknown>;
+  list(orgId: string, projectId: string, limit: number): Promise<unknown>;
+  /** null when the deployment is not a deployment of this delegate */
+  find(orgId: string, id: string): Promise<{ id: string } | null>;
+  get(orgId: string, id: string): Promise<unknown>;
+  logs(orgId: string, id: string): Promise<unknown>;
+  rollback(orgId: string, userId: string, id: string): Promise<unknown>;
+}

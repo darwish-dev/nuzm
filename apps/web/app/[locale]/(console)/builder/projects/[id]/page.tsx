@@ -1,13 +1,22 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
+import { AppRunProgress } from '../../../../../../components/AppProgress';
+import { AppSummary } from '../../../../../../components/AppBlueprint';
 import { BuilderTabs } from '../../../../../../components/BuilderBits';
+import { BuilderTabs as AppTabs, NotEnabledState } from '../../../../../../components/BuilderParts';
 import { Workspace } from '../../../../../../components/BuilderWorkspace';
+import { APP_BUILDER_FLAG } from '../../../../../../lib/appbuilder';
+import { latestWebappRun } from '../../../../../../lib/appworkspace';
 import type { Message, Page_, ProjectDetail, Run, Session } from '../../../../../../lib/builder';
 import { builderGuard, builderView } from '../../../../../../lib/builder-view';
 import { isUuid, unwrapCall } from '../../../../../../lib/compute';
+import { flagEnabled } from '../../../../../../lib/services';
 
-/** UI-M09-03: the builder workspace (chat and run timeline, sandboxed preview, outline and inspector, code and diff). */
+/**
+ * UI-M09-03 (website workspace: chat and run timeline, sandboxed preview, outline and inspector, code and diff) and UI-M10-02/06 (web-app workspace: the agent
+ * graph of the build run, budget, approvals). A project of type `webapp` gets the app tabs; everything else keeps the website workspace.
+ */
 export default async function ProjectWorkspace({
   params,
 }: {
@@ -22,40 +31,70 @@ export default async function ProjectWorkspace({
     async () => {
       const detail = await unwrapCall(g.c.get<ProjectDetail>(`/v1/builder/projects/${id}`));
       // the conversation and the latest run are context: if they cannot be read (no `ai:read`), the workspace still opens
-      const runs = await g.c.get<Page_<Run>>('/v1/ai/runs', { query: { projectId: id, limit: 1 } });
+      const runs = await g.c.get<Page_<Run>>('/v1/ai/runs', {
+        query: { projectId: id, limit: 20 },
+      });
       const sessions = await g.c.get<Page_<Session>>('/v1/ai/sessions', { query: { limit: 100 } });
       const session =
         (sessions.response.ok ? sessions.data?.items : undefined)?.find(
           (s) => s.projectId === id,
         ) ?? null;
+      if (detail.type === 'webapp')
+        return {
+          app: true as const,
+          detail,
+          session,
+          run: latestWebappRun(runs.response.ok ? (runs.data?.items ?? []) : []),
+        };
       const msgs = session
         ? await g.c.get<Page_<Message>>(`/v1/ai/sessions/${session.id}/messages`, {
             query: { limit: 100 },
           })
         : null;
       return {
+        app: false as const,
         detail,
         session,
         messages: msgs?.response.ok ? (msgs.data?.items ?? []) : [],
         run: runs.response.ok ? (runs.data?.items[0] ?? null) : null,
       };
     },
-    (d) => (
-      <Workspace
-        locale={locale}
-        initial={d.detail}
-        session={d.session}
-        messages={d.messages}
-        initialRun={d.run}
-        canWrite={g.s.can('builder:write')}
-        canAi={g.s.can('ai:write')}
-      />
-    ),
+    (d) =>
+      d.app ? (
+        flagEnabled(g.s.me.featureFlags, APP_BUILDER_FLAG) ? (
+          <>
+            <AppTabs locale={locale} id={id} current="overview" />
+            <AppSummary locale={locale} project={d.detail} />
+            <AppRunProgress
+              locale={locale}
+              projectId={id}
+              initialRun={d.run}
+              sessionId={d.session?.id ?? null}
+              canRun={g.s.can('builder:write') && g.s.can('ai:write')}
+              canApprove={g.s.can('ai:approve')}
+            />
+          </>
+        ) : (
+          <NotEnabledState locale={locale} />
+        )
+      ) : (
+        <>
+          <BuilderTabs locale={locale} projectId={id} current="workspace" can={g.s.can} />
+          <Workspace
+            locale={locale}
+            initial={d.detail}
+            session={d.session}
+            messages={d.messages}
+            initialRun={d.run}
+            canWrite={g.s.can('builder:write')}
+            canAi={g.s.can('ai:write')}
+          />
+        </>
+      ),
   );
   return (
     <>
       <PageTitle>{t(locale, 'bld.title.workspace')}</PageTitle>
-      <BuilderTabs locale={locale} projectId={id} current="workspace" can={g.s.can} />
       {body}
     </>
   );

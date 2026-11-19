@@ -69,6 +69,10 @@ export class AppRunService {
     private readonly kick: 'async' | 'off' = process.env.APPBUILDER_KICK === 'off'
       ? 'off'
       : 'async',
+    /** M09's run engine: runs it drives (`operationId` set) continue through its segments; the in-memory stand-ins (no operation) continue in-process. */
+    private readonly engine?: {
+      resumeParked(orgId: string, userId: string | null, runId: string): Promise<boolean>;
+    },
   ) {
     approvals.onDecision(async (orgId, a) => {
       if (a.runId) void this.resume(orgId, a.runId);
@@ -161,6 +165,10 @@ export class AppRunService {
   /** After an approval decision the parked run continues from its checkpoint. */
   async resume(orgId: string, runId: string): Promise<void> {
     const run = await this.runs.get(orgId, runId);
+    if (run && run.state === 'waiting_approval' && run.operationId && this.engine) {
+      await this.engine.resumeParked(orgId, run.createdBy, runId).catch(() => undefined);
+      return;
+    }
     if (run && run.state === 'waiting_approval' && this.kick === 'async')
       setImmediate(() => void this.execute(orgId, run.createdBy ?? '', run));
   }

@@ -154,6 +154,24 @@ tables:
       note: 'the region where the listing artifacts live; purchase and install evaluate it against the buyer policy (fail closed)',
     }
   # <<< M11 tables
+  # >>> M10B tables (mobile builder)
+  mobile.builds:
+    owner: M10
+    hook: m10-mobile-artifacts
+    note: a build inherits the region of its project; artifact storage is evaluated before the artifacts are written (build.service.ts execute); the local dev runner runs on the API host
+  mobile.artifacts:
+    owner: M10
+    hook: m10-mobile-artifacts
+    note: artifact bytes are stored in the region of the build (residency evaluated before the write); the object store is M08 and is not connected
+  mobile.signing_credential_refs:
+    owner: M10
+    hook: m10-mobile-artifacts
+    note: only a vault reference is stored, never key material; the reference carries the data_region of the organization
+  mobile.releases:
+    owner: M10
+    hook: m10-mobile-artifacts
+    note: release-preparation records (listing text, screenshots references) are customer content in the project region; nothing leaves for a store (no submission action exists)
+  # <<< M10B tables
   # >>> M09 tables
   ai.sessions:
     {
@@ -204,7 +222,7 @@ tables:
   ai.run_steps:
     owner: M10
     hook: m10-agent-runs
-    note: run steps carry the data_region of their run; the model gateway of M09 evaluates residency before every call (hook m09-model-gateway); LISTED until M09 is integrated
+    note: run steps carry the data_region of their run; every model call of a run goes through the M09 gateway (RealModelGateway -> GatewayService.invoke), which evaluates residency before the call (hook m09-model-gateway, enforced); the run-record placement itself stays LISTED
   ai.tool_calls:
     owner: M10
     hook: m10-agent-runs
@@ -446,6 +464,14 @@ hooks:
     enforcement: enforced
     flag: residency.enforce.export
     call_site: apps/api/src/modules/appbuilder/internal/export/export.service.ts
+  - id: m10-mobile-artifacts
+    milestone: M10
+    where: 'Mobile builds: the artifact store region of a build (APK/AAB/IPA) is evaluated before the bytes are written; release records stay in the project region'
+    data_classes:
+      - customer-content
+    enforcement: enforced
+    flag: residency.enforce.mobile_artifacts
+    call_site: apps/api/src/modules/mobile/internal/builds/build.service.ts
   - id: m10-app-deployment
     milestone: M10
     where: Deployment of a generated app to a hosting site or compute instance in a region

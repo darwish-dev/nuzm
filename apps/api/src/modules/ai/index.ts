@@ -12,7 +12,12 @@ export { RunService, actionHash } from './internal/run.service';
 export type { RunDto } from './internal/run.service';
 export { SessionService } from './internal/session.service';
 export { AiJobs } from './internal/jobs';
-export { RunKindRegistry, StaticRunKindRegistry, WorkerCrash } from './internal/run-kinds';
+export {
+  RunKindRegistry,
+  StaticRunKindRegistry,
+  WorkerCrash,
+  SegmentSuspend,
+} from './internal/run-kinds';
 export type {
   RunKindHandler,
   RunContext,

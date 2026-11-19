@@ -5,5 +5,12 @@ export {
   SitePublisherPort,
   InMemorySitePublisher,
   UnavailableSitePublisher,
+  artifactHash,
 } from './internal/ports';
-export type { TargetSite, Artifact, ArtifactFile, SmokeResult } from './internal/ports';
+export type {
+  TargetSite,
+  Artifact,
+  ArtifactFile,
+  SmokeResult,
+  WebappDeployDelegate,
+} from './internal/ports';

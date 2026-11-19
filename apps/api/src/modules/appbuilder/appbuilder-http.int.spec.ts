@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { LedgerPostingService, recipes } from '../billing';
 import { Harness, cookieHeader } from '../identity/testing/app-harness';
 import { makeSession, type Session } from '../data/testing/data-harness';
 import { ApprovalService, ProjectsPort } from './index';
@@ -64,6 +65,18 @@ beforeAll(async () => {
     ).json().id as string;
   s.org.A = await mk('alice', 'Builder A');
   s.org.B = await mk('bob', 'Builder B');
+  // the real wallet is the credit source (OrgBudgetPort -> ai.credit_balances): both organizations hold a grant, so sandboxes are not refused with 402 `budget_required`
+  for (const o of [s.org.A, s.org.B])
+    await app.get(LedgerPostingService).post(
+      recipes.creditGrant({
+        orgId: o!,
+        amountMinor: '100000',
+        currency: 'SAR',
+        reason: 'app builder test grant',
+        grantId: randomUUID(),
+      }),
+      `grant-${randomUUID()}`,
+    );
   for (const [u, role] of [
     ['carol', 'viewer'],
     ['dave', 'developer'],

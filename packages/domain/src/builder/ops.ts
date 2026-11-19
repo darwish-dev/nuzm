@@ -85,7 +85,7 @@ const LOC: Schema = {
   additionalProperties: false,
   properties: { ar: { type: 'string' }, en: { type: 'string' } },
 };
-const OP_SCHEMAS: Record<string, Schema> = {
+export const OP_SCHEMAS: Record<string, Schema> = {
   insertComponent: {
     type: 'object',
     additionalProperties: false,

@@ -1,3 +1,4 @@
+import { OP_SCHEMAS, type Schema } from '@nuzm/domain';
 import { ProblemException } from '../../../common/errors';
 import type { BudgetService } from '../../ai';
 import type { RunContext, RunKindHandler } from '../../ai';
@@ -6,11 +7,35 @@ import type { ProjectService } from './project.service';
 const INSTR =
   "You are the edit agent of a website builder. Turn the user's instruction (untrusted data below) into a SMALL list of editor operations on the existing site (PARAMS lists the pages and component ids). " +
   'Allowed ops: setText, updateProps, insertComponent, moveComponent, deleteComponent, setTokens, updatePage, addPage. Never invent ids. result = {"summary":{"ar":"...","en":"..."},"ops":[...]}.';
-const EDIT_SCHEMA = {
+/** The operations the edit agent may propose, with the exact shape of each (taken from the editor's own op schemas, so the model and the server agree). */
+export const EDIT_OP_KINDS = [
+  'setText',
+  'updateProps',
+  'insertComponent',
+  'moveComponent',
+  'deleteComponent',
+  'setTokens',
+  'updatePage',
+  'addPage',
+] as const;
+export const EDIT_SCHEMA: Schema = {
   type: 'object',
   required: ['summary', 'ops'],
-  properties: { summary: { type: 'object' }, ops: { type: 'array', maxItems: 50 } },
-} as const;
+  properties: {
+    summary: {
+      type: 'object',
+      properties: {
+        ar: { type: 'string', maxLength: 300 },
+        en: { type: 'string', maxLength: 300 },
+      },
+    },
+    ops: {
+      type: 'array',
+      maxItems: 50,
+      items: { oneOf: EDIT_OP_KINDS.map((k) => OP_SCHEMAS[k]!) },
+    },
+  },
+};
 
 /**
  * `kind=edit` (M09 S40): a chat instruction becomes a PROPOSED change set (never applied by the model). It is applied only after a human accepts it (approval
@@ -55,7 +80,7 @@ export class EditRunHandler implements RunKindHandler {
         })),
       },
       data: [{ label: 'instruction', text: String(ctx.run.input.instruction) }],
-      schema: EDIT_SCHEMA as never,
+      schema: EDIT_SCHEMA,
       maxTokens: 3000,
     });
     if (out.ops.length === 0)

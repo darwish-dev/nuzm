@@ -1,6 +1,7 @@
 import { v7 as uuidv7 } from 'uuid';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
+import type { SecretStore } from '../../../common/secrets';
 import { ProblemException } from '../../../common/errors';
 import { AI_KILLSWITCH, isUuid, type AiConfig, type Row } from './model';
 import type { ModelAdapterRegistry } from './registry';
@@ -40,12 +41,18 @@ export interface ProviderDto {
  * (1) the data terms are ATTESTED by a human with a reference (HG-09-01) — an unattested provider can never be enabled; (2) the adapter is registered;
  * (3) a SECOND person enables (two-person rule) except the dev-reference `mock-*`/`local-*` providers, which exist only outside production.
  */
+/** An API key as providers issue them: printable ASCII, no spaces, a sensible length. The value is never echoed in an error. */
+const CLAUDE_CODE = 'claude';
+const API_KEY = /^[\x21-\x7E]{20,400}$/;
+
 export class ModelProviderService {
   constructor(
     private readonly db: Db,
     private readonly audit: AuditSink,
     private readonly registry: ModelAdapterRegistry,
     private readonly cfg: AiConfig,
+    /** Where an API key typed in the admin console is kept (sealed). Absent in a profile with no secret store: the key actions then say so. */
+    private readonly secrets?: SecretStore,
   ) {}
 
   private dto(r: Row): ProviderDto {
@@ -359,6 +366,105 @@ export class ModelProviderService {
     );
     await this.audit.record({
       action: 'ai.provider.disabled',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'success',
+      detail: { code: r.code },
+    });
+    return this.dto(row);
+  }
+
+  /**
+   * Stores a provider's API key (typed by an administrator in the console) in the SEALED secret store and points the provider at its `vault://` reference.
+   * The key is never written to the database, a log, an audit event or any response: only the reference is kept. A new credential is a configuration change,
+   * so the provider is disabled and goes through the attest / request / enable steps again. Not available in production: the production vault is BLOCKED (D-12).
+   */
+  async setCredential(actor: string, id: string, apiKey: unknown): Promise<ProviderDto> {
+    if (!this.secrets || process.env.NODE_ENV === 'production')
+      throw new ProblemException(
+        'unsupported_capability',
+        'storing a key here is not available in this profile: the production vault is not decided yet (D-12); use a vault reference',
+      );
+    const key = typeof apiKey === 'string' ? apiKey.trim() : '';
+    if (!API_KEY.test(key))
+      throw new ProblemException(
+        'validation_failed',
+        'the key must be 20 to 400 printable characters with no spaces',
+      );
+    const r = await this.load(id);
+    const ref = await this.secrets.put(`ai-${r.code as string}`, key);
+    const row = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE ai.model_providers SET vault_ref=$2, enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL, updated_at=now(), version=version+1 WHERE id=$1 RETURNING *`,
+            [id, ref],
+          )
+        ).rows[0] as Row,
+    );
+    await this.audit.record({
+      action: 'ai.provider.credential_set',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'success',
+      detail: { code: r.code, vaultRef: ref },
+    });
+    return this.dto(row);
+  }
+
+  /**
+   * One-field setup for Claude: makes sure a provider named `claude` exists (created UNATTESTED and DISABLED, region not stated: that is a human
+   * decision, HG-09-01), then stores the typed key exactly like `setCredential`. Nothing about the key is read back or logged. The provider cannot
+   * be enabled until its data terms are attested and an adapter for it is registered; saving a key never changes that.
+   */
+  async saveClaudeKey(actor: string, apiKey: unknown): Promise<ProviderDto> {
+    if (!this.secrets || process.env.NODE_ENV === 'production')
+      throw new ProblemException(
+        'unsupported_capability',
+        'storing a key here is not available in this profile: the production vault is not decided yet (D-12); use a vault reference',
+      );
+    if (typeof apiKey !== 'string' || !API_KEY.test(apiKey.trim()))
+      throw new ProblemException(
+        'validation_failed',
+        'the key must be 20 to 400 printable characters with no spaces',
+      );
+    const found = await this.db.withPlatformScope(
+      async (c) =>
+        (await c.query(`SELECT id FROM ai.model_providers WHERE code=$1`, [CLAUDE_CODE]))
+          .rows[0] as { id: string } | undefined,
+    );
+    const id =
+      found?.id ??
+      (
+        await this.configure(actor, {
+          code: CLAUDE_CODE,
+          adapter: 'anthropic',
+          displayName: 'Claude',
+          region: 'unspecified',
+        })
+      ).id;
+    return this.setCredential(actor, id, apiKey);
+  }
+
+  /** Removes the stored key and the reference; the provider is disabled (it cannot run without a credential). */
+  async clearCredential(actor: string, id: string): Promise<ProviderDto> {
+    const r = await this.load(id);
+    const ref = (r.vault_ref as string | null) ?? null;
+    if (this.secrets && ref && /^vault:\/\/(dev|mem)\/ai-/.test(ref))
+      await this.secrets.delete(ref).catch(() => undefined);
+    const row = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE ai.model_providers SET vault_ref=NULL, enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL, updated_at=now(), version=version+1 WHERE id=$1 RETURNING *`,
+            [id],
+          )
+        ).rows[0] as Row,
+    );
+    await this.audit.record({
+      action: 'ai.provider.credential_cleared',
       actorUserId: actor,
       actorType: 'user',
       resource: { type: 'model_provider', id },

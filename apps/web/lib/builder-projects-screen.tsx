@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
-import { PageTitle } from '@nuzm/ui';
+import { ButtonLink } from '@nuzm/ui';
 import { BuilderStart } from '../components/BuilderStart';
 import { ProjectCards, ProjectFilterTabs } from '../components/BuilderProjects';
 import { APP_BUILDER_FLAG } from './appbuilder';
@@ -8,6 +8,7 @@ import { applyFilter, filterOf, type ProjectFilter } from './appworkspace';
 import { one, unwrapCall } from './compute';
 import type { Credits, Page_, Project } from './builder';
 import { builderGuard, builderView } from './builder-view';
+import { MOBILE_FLAG as MOBILE_BUILDER_FLAG } from './mobile';
 import { flagEnabled } from './services';
 
 /**
@@ -31,6 +32,7 @@ export async function ProjectsScreen({
   const g = await builderGuard(locale, 'builder:read', 'bld.start.title');
   if (!g.ok) return g.denied;
   const appsOn = flagEnabled(g.s.me.featureFlags, APP_BUILDER_FLAG);
+  const mobileOn = flagEnabled(g.s.me.featureFlags, MOBILE_BUILDER_FLAG);
   const filter: ProjectFilter = fixed ?? filterOf(one(sp.type));
   const canCreate = g.s.can('builder:write');
   const canRun = canCreate && g.s.can('ai:write');
@@ -55,16 +57,34 @@ export async function ProjectsScreen({
       return (
         <>
           {canCreate && (
-            <BuilderStart
-              locale={locale}
-              credits={wallet}
-              canRun={canRun}
-              appsEnabled={appsOn}
-              initialType={fixed === 'webapp' && appsOn ? 'webapp' : 'website'}
-            />
+            <div className="nzc-start-full">
+              <BuilderStart
+                locale={locale}
+                credits={wallet}
+                canRun={canRun}
+                appsEnabled={appsOn}
+                mobileEnabled={mobileOn}
+                initialType={fixed === 'webapp' && appsOn ? 'webapp' : 'website'}
+              />
+            </div>
+          )}
+          {/* the Build category has no tab bar (full-screen start): the M10 screens are reached from here while their flag is on */}
+          {appsOn && (
+            <nav className="nz-row nzc-start-projects" aria-label={t(locale, 'bld.nav.builder')}>
+              {!fixed && (
+                <ButtonLink variant="secondary" href={`/${locale}/builder/apps`}>
+                  {t(locale, 'm10.nav.builder')}
+                </ButtonLink>
+              )}
+              {g.s.can('ai:read') && (
+                <ButtonLink variant="secondary" href={`/${locale}/approvals`}>
+                  {t(locale, 'm10.nav.approvals')}
+                </ButtonLink>
+              )}
+            </nav>
           )}
           {page.items.length > 0 && (
-            <>
+            <div className="nzc-start-projects">
               <h2 className="nzc-yp-head">{t(locale, 'bld.start.yourProjects')}</h2>
               {!fixed && (
                 <ProjectFilterTabs locale={locale} current={filter} appsEnabled={appsOn} />
@@ -76,7 +96,7 @@ export async function ProjectsScreen({
                 canCreate={canCreate}
                 filtered={filter !== 'all'}
               />
-            </>
+            </div>
           )}
           {page.items.length === 0 && !canCreate && (
             <ProjectCards locale={locale} items={[]} nextCursor={null} canCreate={false} />
@@ -87,7 +107,8 @@ export async function ProjectsScreen({
   );
   return (
     <>
-      <PageTitle>{t(locale, fixed ? 'm10a.apps.title' : 'bld.start.title')}</PageTitle>
+      {/* full screen: the heading stays for screen readers and the page title, but is not drawn */}
+      <h1 className="nz-sr">{t(locale, fixed ? 'm10a.apps.title' : 'bld.start.title')}</h1>
       {body}
     </>
   );

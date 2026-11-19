@@ -4572,6 +4572,27 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/offers/{offerId}/images:
+    get:
+      operationId: listOfferImages
+      tags: [cloud]
+      summary: 'Operating-system images of one offer'
+      description: 'The operating systems a customer can install on this offer, so a server is chosen by name instead of by an image id. Customer-safe: image id, display name and OS family only (no provider image reference). 404 when the offer is not eligible for the organization (the same rule as GET /v1/offers) or compute is not enabled. Behind the feature flag cloud.provisioning. Requires permission `offers:read`.'
+      x-nuzm-permission: offers:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: offerId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OfferImageList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /v1/admin/offers:
     get:
       operationId: adminListOffers
@@ -7701,7 +7722,7 @@ paths:
       operationId: actOnAiModelProvider
       tags: [ai]
       summary: 'Configure, attest, enable or disable a model provider; kill switch'
-      description: 'Body {action: configure|attest|request_enable|enable|disable|kill_switch, ...}. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).'
+      description: 'Body {action: configure|save_claude_key|set_credential|clear_credential|attest|request_enable|enable|disable|kill_switch, ...}. save_claude_key (admin:ai:manage) takes only `apiKey`: it creates the `claude` provider if missing (unattested, disabled, region `unspecified`) and then behaves like set_credential. set_credential (admin:ai:manage) takes `apiKey` (20-400 printable characters, write-only), seals it in the secret store and points the provider at its `vault://` reference; the provider is disabled and must be attested/enabled again; 422 `unsupported_capability` in a production profile (the production vault is not decided, D-12). clear_credential (admin:ai:manage) removes the key and the reference and disables the provider. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).'
       x-nuzm-platform-permission: admin:ai:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -14517,12 +14538,28 @@ components:
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Offer' } }
         nextCursor: { type: string, nullable: true }
+    OfferImageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, name, osFamily]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              osFamily: { type: string, nullable: true }
     Offer:
       type: object
       required: [offerId, kind, country, dataRegion, plan, price, capabilities, verifiedAt]
       properties:
         offerId: { type: string, format: uuid }
         kind: { type: string, enum: [compute] }
+        family:
+          type: string
+          description: 'The Nuzm Cloud product line the offer belongs to (nova, atlas, orbit, spark): a Nuzm name only, never the identity of the infrastructure behind it. Clients show it through their own translated labels.'
         country: { type: string }
         dataRegion: { type: string }
         plan: { $ref: '#/components/schemas/ComputePlan' }
@@ -16917,13 +16954,33 @@ components:
       required: [action]
       properties:
         action:
-          { type: string, enum: [configure, attest, request_enable, enable, disable, kill_switch] }
+          {
+            type: string,
+            enum:
+              [
+                configure,
+                save_claude_key,
+                set_credential,
+                clear_credential,
+                attest,
+                request_enable,
+                enable,
+                disable,
+                kill_switch,
+              ],
+          }
         id: { type: string, format: uuid }
         code: { type: string }
         adapter: { type: string }
         displayName: { type: string }
         region: { type: string }
         vaultRef: { type: string }
+        apiKey:
+          {
+            type: string,
+            writeOnly: true,
+            description: 'save_claude_key and set_credential: the provider API key. Write-only: never returned, logged or audited.',
+          }
         rateCard: { type: object, additionalProperties: true }
         rateCardVersion: { type: string }
         egressAllow: { type: array, items: { type: string } }

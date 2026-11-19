@@ -17,7 +17,7 @@ import { ProblemNote } from './BuilderBits';
 
 /**
  * What can be started. `website` always; `webapp` only while the organization has the app builder on (flag `app_builder.enabled`); `mobile` has no creation path
- * yet (M10B). A type that cannot be started is shown, honestly marked "coming soon", never faked.
+ * from this screen (M10B): while `mobile_builder.enabled` is on its tile opens the mobile start page (`/mobile/new`), otherwise it is shown honestly marked "coming soon".
  */
 export const PROJECT_TYPES = [
   { id: 'website', available: true },
@@ -26,10 +26,10 @@ export const PROJECT_TYPES = [
 ] as const;
 export type StartType = (typeof PROJECT_TYPES)[number]['id'];
 /** The start types with their availability for this organization. */
-export const startTypes = (appsEnabled: boolean) =>
+export const startTypes = (appsEnabled: boolean, mobileEnabled = false) =>
   PROJECT_TYPES.map((x) => ({
     id: x.id,
-    available: x.id === 'webapp' ? appsEnabled : x.available,
+    available: x.id === 'webapp' ? appsEnabled : x.id === 'mobile' ? mobileEnabled : x.available,
   }));
 
 const MAX_PROMPT = 600;
@@ -71,6 +71,7 @@ export function BuilderStart({
   credits: wallet,
   canRun,
   appsEnabled = false,
+  mobileEnabled = false,
   initialType = 'website',
 }: {
   locale: Locale;
@@ -78,6 +79,8 @@ export function BuilderStart({
   canRun: boolean;
   /** the organization has `app_builder.enabled`: the web-app tile can be started */
   appsEnabled?: boolean;
+  /** the organization has `mobile_builder.enabled`: the mobile tile opens the mobile start page */
+  mobileEnabled?: boolean;
   initialType?: StartType;
 }) {
   const router = useRouter();
@@ -93,7 +96,7 @@ export function BuilderStart({
   const box = useRef<HTMLTextAreaElement>(null);
   const created = useRef<{ projectId?: string; sessionId?: string }>({});
   const keys = useRef({ project: newKey(), session: newKey(), run: newKey() });
-  const types = startTypes(appsEnabled);
+  const types = startTypes(appsEnabled, mobileEnabled);
   const startable = types.find((x) => x.id === type)?.available === true;
 
   const toggleLang = (l: SiteLocale) =>
@@ -116,6 +119,11 @@ export function BuilderStart({
   async function submit(e?: FormEvent) {
     e?.preventDefault();
     if (call.busy || !startable) return;
+    // the mobile app has its own start page (name, languages, description); nothing is created from here
+    if (type === 'mobile') {
+      router.push(`/${locale}/mobile/new`);
+      return;
+    }
     const text = prompt.trim();
     if (text.length < 1 || text.length > MAX_PROMPT) {
       setErr(t(locale, 'bld.start.promptErr', { max: MAX_PROMPT }));
@@ -225,9 +233,18 @@ export function BuilderStart({
         noValidate
       >
         <div className="nzc-dsearch-inner">
-          <span className="nzc-orb" aria-hidden="true" />
-          <h2 id="bld-start-h">{t(locale, 'bld.start.hero')}</h2>
-          <p className="nzc-dsearch-sub">{t(locale, 'bld.start.sub')}</p>
+          <header className="nzc-create-intro">
+            <div>
+              <span className="nzc-create-brand">
+                <Icon name="code" size={18} /> Nuzm Builder
+              </span>
+              <h2 id="bld-start-h">{t(locale, 'bld.start.hero')}</h2>
+              <p className="nzc-dsearch-sub">{t(locale, 'bld.start.sub')}</p>
+            </div>
+            <div className="nzc-create-visual" aria-hidden="true">
+              <img src="/images/services/builder-compact.webp" width={300} height={200} alt="" />
+            </div>
+          </header>
 
           <div className="nzc-dsearch-bar nzc-prompt-bar">
             <label className="nz-sr" htmlFor="bld-prompt">
@@ -285,7 +302,13 @@ export function BuilderStart({
                   className="nzc-tld nzc-ptype"
                   data-soon={!x.available ? 'true' : undefined}
                 >
-                  <span className="nzc-tld-name nzc-ptype-name">{typeName(x.id)}</span>
+                  <span className="nzc-tld-name nzc-ptype-name">
+                    <Icon
+                      name={x.id === 'website' ? 'globe' : x.id === 'webapp' ? 'code' : 'hosting'}
+                      size={22}
+                    />
+                    {typeName(x.id)}
+                  </span>
                   <input
                     type="radio"
                     name="bld-type"
@@ -389,7 +412,15 @@ export function BuilderStart({
         <ul className="nzc-pex-grid">
           {(type === 'webapp' ? APP_EXAMPLES : EXAMPLES).map((x) => (
             <li key={x.id}>
-              <button type="button" className="nzc-pex" onClick={() => pickExample(x.id)}>
+              <button
+                type="button"
+                className="nzc-pex"
+                data-example={x.id}
+                onClick={() => pickExample(x.id)}
+              >
+                <span className="nzc-example-icon">
+                  <Icon name={x.icon} size={26} />
+                </span>
                 <span>
                   {t(
                     locale,
@@ -398,7 +429,7 @@ export function BuilderStart({
                       : `bld.start.ex.${x.id}`) as MessageKey,
                   )}
                 </span>
-                <Icon name={x.icon} size={18} />
+                <Icon name="arrow" size={18} />
               </button>
             </li>
           ))}

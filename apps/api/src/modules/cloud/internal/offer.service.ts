@@ -39,6 +39,20 @@ export interface OfferFilters {
   minVcpu?: number;
   minMemoryMb?: number;
 }
+/**
+ * The Nuzm Cloud product line of each infrastructure provider. Customers buy "Nuzm Cloud Nova", never a vendor: the vendor stays internal
+ * (docs/09; customer views carry no provider identity), and the customer-facing name is a Nuzm product name that clients translate themselves.
+ * A provider added later without a line here is shown as the generic line `core` until a product name is chosen for it.
+ */
+export const PRODUCT_LINE_OF_PROVIDER: Readonly<Record<string, string>> = {
+  alibaba: 'nova',
+  huawei: 'atlas',
+  contabo: 'orbit',
+  mock: 'spark',
+};
+export const productLineOf = (providerKey: string): string =>
+  PRODUCT_LINE_OF_PROVIDER[providerKey] ?? 'core';
+
 export interface RegionGroupLookup {
   groupOf(country: string): string;
 }
@@ -252,6 +266,7 @@ export class OfferService {
     return {
       offerId: c.offerId,
       kind: 'compute' as const,
+      family: productLineOf(c.providerKey),
       country: c.country,
       dataRegion: c.geoGroup,
       plan: {
@@ -274,6 +289,7 @@ export class OfferService {
     return {
       offerId: c.offerId,
       kind: 'compute' as const,
+      family: productLineOf(c.providerKey),
       country: c.country,
       dataRegion: c.geoGroup,
       plan: {

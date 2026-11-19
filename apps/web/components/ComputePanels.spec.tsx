@@ -9,9 +9,10 @@ const refresh = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh, replace: vi.fn() }) }));
 const post = vi.fn();
 const del = vi.fn();
+const get = vi.fn();
 vi.mock('../lib/compute-client', () => ({
   browserCompute: {
-    get: vi.fn(),
+    get: (...a: unknown[]) => get(...a),
     post: (...a: unknown[]) => post(...a),
     del: (...a: unknown[]) => del(...a),
   },
@@ -28,11 +29,18 @@ import { OffersPanel } from './ComputeOffers';
 import { SnapshotsPanel } from './ComputeSnapshots';
 import { ComputeWizard } from './ComputeWizard';
 
+const IMAGE_ID = '0198a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a77';
 beforeEach(() => {
   push.mockReset();
   refresh.mockReset();
   post.mockReset();
   del.mockReset();
+  // the operating systems of the chosen size (GET /v1/offers/{id}/images)
+  get.mockReset();
+  get.mockResolvedValue({
+    data: { items: [{ id: IMAGE_ID, name: 'Ubuntu 22.04 LTS', osFamily: 'linux' }] },
+    response: new Response(null, { status: 200 }),
+  });
 });
 afterEach(cleanup);
 
@@ -398,17 +406,14 @@ describe('create wizard (UI-M05-02)', () => {
   const ed = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl u@h';
   const O = offer();
 
-  /** Walks offer → image → keys and requests the quote. */
+  /** Walks configure (size, operating system, name) → keys and requests the quote. */
   async function toReview(locale: Locale = 'en') {
     render(
       <ComputeWizard locale={locale} offers={[O]} initialOfferId={O.offerId} mfaFactorId={null} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: t(locale, 'action.next') }));
+    fireEvent.click(await screen.findByLabelText('Ubuntu 22.04 LTS'));
     fireEvent.change(screen.getByLabelText(t(locale, 'field.name')), {
       target: { value: 'web-01' },
-    });
-    fireEvent.change(screen.getByLabelText(t(locale, 'm05.web.wiz.image')), {
-      target: { value: 'ubuntu-22.04' },
     });
     fireEvent.click(screen.getByRole('button', { name: t(locale, 'action.next') }));
     fireEvent.change(screen.getByLabelText(t(locale, 'm05.web.wiz.keys')), {
@@ -421,25 +426,90 @@ describe('create wizard (UI-M05-02)', () => {
     render(<ComputeWizard locale="en" offers={[]} mfaFactorId={null} />);
     expect(screen.getByText(t('en', 'm05.web.wiz.noOffers.title'))).toBeTruthy();
   });
-  it('validates each step before moving on', () => {
+  it('groups the choices by region, Nuzm Cloud line and size, and prices the selection as you go', async () => {
+    const offers = [
+      offer({
+        offerId: 'a',
+        family: 'nova',
+        plan: { vcpu: 2, memoryMb: 4096, diskGb: 80 },
+        price: { amount: '14220', currency: 'SAR', period: 'month' },
+      }),
+      offer({
+        offerId: 'b',
+        family: 'nova',
+        plan: { vcpu: 4, memoryMb: 8192, diskGb: 160 },
+        price: { amount: '28440', currency: 'SAR', period: 'month' },
+      }),
+      offer({
+        offerId: 'c',
+        family: 'orbit',
+        plan: { vcpu: 2, memoryMb: 4096, diskGb: 200 },
+        price: { amount: '8000', currency: 'SAR', period: 'month' },
+      }),
+      offer({
+        offerId: 'd',
+        family: 'nova',
+        country: 'AE',
+        dataRegion: 'gcc',
+        plan: { vcpu: 2, memoryMb: 4096, diskGb: 80 },
+        price: { amount: '15000', currency: 'SAR', period: 'month' },
+      }),
+    ];
+    render(<ComputeWizard locale="en" offers={offers} mfaFactorId={null} />);
+    // the Kingdom region is first and selected; its two lines are named as Nuzm products
+    expect(screen.getByLabelText(/Saudi Arabia/)).toHaveProperty('checked', true);
+    expect(screen.getByLabelText(/Nuzm Cloud Nova/)).toBeTruthy();
+    expect(screen.getByLabelText(/Nuzm Cloud Orbit/)).toBeTruthy();
+    // the cheapest size of the first line is chosen and its price is in the summary (integer minor units, never a float)
+    const summary = screen.getByRole('complementary');
+    expect(within(summary).getByText('SAR 142.20')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/4 vCPU/));
+    expect(within(summary).getByText('SAR 284.40')).toBeTruthy();
+    // another line keeps the nearest size, another region shows its own offers
+    fireEvent.click(screen.getByLabelText(/Nuzm Cloud Orbit/));
+    expect(within(summary).getByText('SAR 80.00')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/United Arab Emirates/));
+    expect(within(summary).getByText('SAR 150.00')).toBeTruthy();
+    // no vendor name anywhere on the screen
+    expect(document.body.textContent).not.toMatch(/alibaba|huawei|contabo/i);
+  });
+  it('lists the operating systems of the chosen size from the API and clears the choice when the size changes', async () => {
+    const offers = [
+      offer({ offerId: 'a', plan: { vcpu: 2, memoryMb: 4096, diskGb: 80 } }),
+      offer({ offerId: 'b', plan: { vcpu: 4, memoryMb: 8192, diskGb: 160 } }),
+    ];
+    render(<ComputeWizard locale="en" offers={offers} mfaFactorId={null} />);
+    fireEvent.click(await screen.findByLabelText('Ubuntu 22.04 LTS'));
+    expect(get).toHaveBeenCalledWith('/v1/offers/a/images');
+    fireEvent.click(screen.getByLabelText(/4 vCPU/));
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/v1/offers/b/images'));
+    expect((await screen.findByLabelText('Ubuntu 22.04 LTS')) as HTMLInputElement).toHaveProperty(
+      'checked',
+      false,
+    );
+  });
+  it('says so when a size has no operating system or the list cannot be loaded', async () => {
+    get.mockResolvedValueOnce(ok({ items: [] }));
+    const { unmount } = render(<ComputeWizard locale="en" offers={[O]} mfaFactorId={null} />);
+    expect(await screen.findByText(t('en', 'cloud.cfg.os.none'))).toBeTruthy();
+    unmount();
+    get.mockResolvedValueOnce(fail(500, {}));
     render(<ComputeWizard locale="en" offers={[O]} mfaFactorId={null} />);
-    fireEvent.click(screen.getByRole('button', { name: t('en', 'action.next') }));
-    expect(screen.getByText(t('en', 'm05.web.wiz.offer.err'))).toBeTruthy();
-    fireEvent.click(screen.getByLabelText(/2 vCPU/));
-    fireEvent.click(screen.getByRole('button', { name: t('en', 'action.next') }));
+    expect(await screen.findByText(t('en', 'cloud.cfg.os.error'))).toBeTruthy();
+  });
+  it('validates the choices before moving on', async () => {
+    render(<ComputeWizard locale="en" offers={[O]} mfaFactorId={null} />);
+    await screen.findByLabelText('Ubuntu 22.04 LTS');
     fireEvent.click(screen.getByRole('button', { name: t('en', 'action.next') }));
     expect(screen.getByText(t('en', 'm05.web.wiz.name.err'))).toBeTruthy();
     expect(screen.getByText(t('en', 'm05.web.wiz.image.err'))).toBeTruthy();
   });
-  it('rejects an invalid SSH key line without calling the API', () => {
+  it('rejects an invalid SSH key line without calling the API', async () => {
     render(
       <ComputeWizard locale="en" offers={[O]} initialOfferId={O.offerId} mfaFactorId={null} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: t('en', 'action.next') }));
+    fireEvent.click(await screen.findByLabelText('Ubuntu 22.04 LTS'));
     fireEvent.change(screen.getByLabelText(t('en', 'field.name')), { target: { value: 'web-01' } });
-    fireEvent.change(screen.getByLabelText(t('en', 'm05.web.wiz.image')), {
-      target: { value: 'img' },
-    });
     fireEvent.click(screen.getByRole('button', { name: t('en', 'action.next') }));
     fireEvent.change(screen.getByLabelText(t('en', 'm05.web.wiz.keys')), {
       target: { value: 'not a key' },
@@ -469,7 +539,7 @@ describe('create wizard (UI-M05-02)', () => {
     expect(qOpts.body).toMatchObject({
       kind: 'compute',
       offerId: O.offerId,
-      spec: { imageId: 'ubuntu-22.04', count: 1 },
+      spec: { imageId: IMAGE_ID, count: 1 },
       term: { period: 'month' },
     });
     expect(qOpts.idempotencyKey).toBeTruthy();
@@ -547,7 +617,9 @@ describe('create wizard (UI-M05-02)', () => {
     fireEvent.click(
       within(alert).getByRole('button', { name: t('en', 'm05.web.wiz.chooseOther') }),
     );
-    expect(screen.getByRole('heading', { name: t('en', 'm05.web.wiz.step.offer') })).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: t('en', 'm05.web.wiz.step.configure') }),
+    ).toBeTruthy();
   });
 });
 

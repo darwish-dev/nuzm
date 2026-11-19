@@ -31,6 +31,8 @@ export interface ComputePlan {
 export interface Offer {
   offerId: string;
   kind: 'compute';
+  /** The Nuzm Cloud product line (nova, atlas, orbit, spark): a Nuzm name only, never infrastructure identity. Absent on older API versions. */
+  family?: string;
   country: string;
   dataRegion: string;
   plan: ComputePlan;

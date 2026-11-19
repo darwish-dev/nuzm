@@ -67,6 +67,12 @@ test('customer hosting: plans, sites, site overview, domains, TLS, databases, ba
     [plan, `e2e-${L}-${plan.slice(0, 6)}`],
   );
   await page.goto(`${base}/plans`);
+  // the plans shop: the hosting types as tabs and the plan as a card (the comparison table opens on demand)
+  await expect(page.getByRole('tablist', { name: T(info, 'host.shop.types') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: L === 'ar' ? 'خطة اختبار' : 'Test plan' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: T(info, 'host.shop.compare') }).click();
   await expect(page.getByRole('table')).toBeVisible();
   await audit(page, info, 'hosting-plans');
 

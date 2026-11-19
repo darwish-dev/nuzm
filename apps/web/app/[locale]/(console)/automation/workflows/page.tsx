@@ -11,7 +11,6 @@ import {
   Select,
   Table,
 } from '@nuzm/ui';
-import { AutomationTabs } from '../../../../../components/AutomationTabs';
 import { Status } from '../../../../../components/M11Parts';
 import {
   FLAGS,
@@ -185,7 +184,6 @@ export default async function Workflows({
   return (
     <>
       <PageTitle>{t(locale, 'm11.wf.title')}</PageTitle>
-      <AutomationTabs locale={locale} current="workflows" />
       <div className="nz-row" style={{ justifyContent: 'space-between' }}>
         <form method="get" className="nz-row" role="search" aria-label={t(locale, 'm11.wf.filter')}>
           <Field id="wf-status" label={t(locale, 'field.status')}>

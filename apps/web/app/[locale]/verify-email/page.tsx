@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
-import { AuthLogo } from '../../../components/BrandLogo';
-import { Card, PageTitle } from '@nuzm/ui';
+import { AuthShell } from '../../../components/AuthShell';
 import { VerifyEmail } from '../../../components/AuthForms';
 
 export default async function VerifyEmailPage({
@@ -15,16 +14,12 @@ export default async function VerifyEmailPage({
   const { token } = await searchParams;
   if (!isLocale(locale)) notFound();
   return (
-    <main className="nz-main" style={{ maxInlineSize: 480, marginInline: 'auto' }}>
-      <AuthLogo href={`/${locale}`} />
-      <PageTitle>{t(locale, 'verify.title')}</PageTitle>
-      <Card>
-        {token ? (
-          <VerifyEmail locale={locale} token={token} />
-        ) : (
-          <p className="nz-error-text">{t(locale, 'verify.invalid')}</p>
-        )}
-      </Card>
-    </main>
+    <AuthShell locale={locale} variant="help" title={t(locale, 'verify.title')}>
+      {token ? (
+        <VerifyEmail locale={locale} token={token} />
+      ) : (
+        <p className="nz-error-text">{t(locale, 'verify.invalid')}</p>
+      )}
+    </AuthShell>
   );
 }

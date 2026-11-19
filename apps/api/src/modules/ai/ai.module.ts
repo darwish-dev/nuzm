@@ -13,6 +13,7 @@ import { FieldCipher } from '../../common/field-crypto';
 import { DB } from '../../common/tokens';
 import { LedgerPostingService } from '../billing';
 import { ResidencyService } from '../compliance';
+import { SecretStore } from '../../common/secrets';
 import { IdentityModule } from '../identity';
 import { AdminAiProvidersController } from './admin-ai-providers.controller';
 import { AdminAiRunsController } from './admin-ai-runs.controller';
@@ -70,9 +71,14 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     AiEnabledGuard,
     {
       provide: ModelProviderService,
-      useFactory: (db: Db, a: AuditSink, r: ModelAdapterRegistry, cfg: AiConfig) =>
-        new ModelProviderService(db, a, r, cfg),
-      inject: [DB, AuditSink, ModelAdapterRegistry, AI_CONFIG],
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        r: ModelAdapterRegistry,
+        cfg: AiConfig,
+        sec: SecretStore,
+      ) => new ModelProviderService(db, a, r, cfg, sec),
+      inject: [DB, AuditSink, ModelAdapterRegistry, AI_CONFIG, SecretStore],
     },
     {
       provide: BudgetService,

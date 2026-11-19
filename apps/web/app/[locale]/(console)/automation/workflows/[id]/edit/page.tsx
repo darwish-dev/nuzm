@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, t, tDynamic } from '@nuzm/i18n';
 import { Badge, Banner, EmptyState, Ltr, PageTitle, Table } from '@nuzm/ui';
-import { AutomationTabs } from '../../../../../../../components/AutomationTabs';
 import {
   RunWorkflowForm,
   WorkflowStatusActions,
@@ -192,7 +191,6 @@ export default async function EditWorkflow({
   return (
     <>
       <PageTitle>{t(locale, 'm11.wf.edit.title')}</PageTitle>
-      <AutomationTabs locale={locale} current="workflows" />
       {body}
     </>
   );

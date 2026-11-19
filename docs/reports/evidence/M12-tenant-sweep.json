@@ -1,9 +1,9 @@
 {
   "summary": {
-    "generatedAt": "2026-11-19T13:39:17.798Z",
-    "operations": 414,
+    "generatedAt": "2026-11-19T14:08:32.866Z",
+    "operations": 415,
     "byClass": {
-      "org": 253,
+      "org": 254,
       "admin": 117,
       "scim": 12,
       "any-authenticated": 15,
@@ -11,8 +11,8 @@
       "public": 16
     },
     "unclassified": [],
-    "exercised": 545,
-    "refused": 507,
+    "exercised": 546,
+    "refused": 508,
     "explained2xx": 38,
     "classifiedNotCrossed": 0,
     "unexplained2xx": 0,
@@ -21,7 +21,7 @@
       "200": 5,
       "400": 1,
       "401": 234,
-      "404": 273
+      "404": 274
     },
     "note": "operates on the caller's own principal, a service credential, or is public: no tenant identifier to cross",
     "explained": {
@@ -510,6 +510,12 @@
     },
     {
       "op": "GET /v1/offers [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/offers/{offerId}/images [B session, X-Nuzm-Org: A]",
       "cls": "org",
       "status": 404,
       "verdict": "refused"

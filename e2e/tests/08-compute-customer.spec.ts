@@ -131,7 +131,7 @@ test('compute: offers, empty states, wizard guard, approvals and forbidden views
 
   // --- UI-M05-02: the wizard needs at least one verified offer
   await go('/compute/instances/new');
-  await h1(page, 'm05.web.wiz.title');
+  await h1(page, 'cloud.new.title');
   const noOffers = page.getByText(T(info, 'm05.web.wiz.noOffers.title'));
   const stepper = page.getByRole('list', { name: T(info, 'm05.web.wiz.steps') });
   await expect(noOffers.or(stepper)).toBeVisible();
@@ -203,16 +203,13 @@ test('compute: offer -> quote -> create -> instance actions -> delete on the moc
     .first()
     .click();
 
-  // UI-M05-02: wizard, offer preselected -> image -> keys -> quote review
+  // UI-M05-02: configurator, offer preselected -> an operating system from the offer's list -> name -> keys -> quote review
   await expect(
-    page.getByRole('heading', { name: T(info, 'm05.web.wiz.step.offer') }),
+    page.getByRole('heading', { name: T(info, 'm05.web.wiz.step.configure') }),
   ).toBeVisible();
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
   const name = `e2e-${L}-${Date.now() % 100000}`;
   await page.getByLabel(T(info, 'field.name')).fill(name);
-  await page
-    .getByLabel(T(info, 'm05.web.wiz.image'))
-    .fill(process.env.M05_E2E_IMAGE_ID ?? 'mock-ubuntu-22-04');
+  await page.getByRole('radio', { name: /Ubuntu 22\.04/ }).check(); // the mock catalog publishes its images by name
   await page.getByRole('button', { name: T(info, 'action.next') }).click();
   await page.getByRole('button', { name: T(info, 'm05.web.wiz.getQuote') }).click();
   await expect(page.getByText(T(info, 'm05.web.quote.provisional'))).toBeVisible();

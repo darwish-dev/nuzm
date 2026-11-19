@@ -70,7 +70,10 @@ describe('model providers (UI-M09-12)', () => {
   });
   it('the credential field takes a vault reference only: no secret input exists', () => {
     const { container } = panel([]);
-    expect(container.querySelectorAll('input[type="password"]')).toHaveLength(0);
+    // the provider setup form (under "Advanced") has no secret input; the only password field on the page is the Claude key card, which is write-only
+    const setup = container.querySelector('details')!;
+    expect(setup.querySelectorAll('input[type="password"]')).toHaveLength(0);
+    expect(container.querySelectorAll('input[type="password"]')).toHaveLength(1);
     const vault = screen.getByLabelText(t('en', 'aia.cfg.vault')) as HTMLInputElement;
     expect(vault.placeholder).toBe('vault://…');
     expect(vault.autocomplete).toBe('off');
@@ -106,6 +109,123 @@ describe('model providers (UI-M09-12)', () => {
       action: 'configure',
       code: 'acme-ai',
       vaultRef: 'vault://ai/acme',
+    });
+  });
+  describe('API key (typed here, stored sealed)', () => {
+    const KEY = `test-only-${'w3Lp'.repeat(8)}`;
+    const keyField = () =>
+      screen.getByLabelText(t('en', 'aia.key.field'), { selector: 'input' }) as HTMLInputElement;
+    it('each provider has one write-only password field: it is never filled from the server, and the screen only says whether a key is stored', () => {
+      panel([provider({ vaultRef: 'vault://dev/ai-acme-ai' })]);
+      expect(keyField().type).toBe('password');
+      expect(keyField().value).toBe('');
+      expect(keyField().autocomplete).toBe('new-password');
+      expect(
+        screen.getByText(t('en', 'aia.key.stored', { ref: 'vault://dev/ai-acme-ai' })),
+      ).toBeTruthy();
+    });
+    it('a member who cannot manage providers gets no key field', () => {
+      const { container } = panel([provider()], { canManage: false, canApprove: true });
+      expect(container.querySelectorAll('input[type="password"]')).toHaveLength(0);
+    });
+    it('refuses a malformed key without calling the API; a good key is sent once and the field is emptied', async () => {
+      post.mockResolvedValue(ok(provider({ vaultRef: 'vault://dev/ai-acme-ai' })));
+      panel([provider({ vaultRef: null })]);
+      fireEvent.change(keyField(), { target: { value: 'too short' } });
+      fireEvent.click(screen.getByRole('button', { name: t('en', 'aia.key.save'), hidden: true }));
+      expect(post).not.toHaveBeenCalled();
+      expect(screen.getByText(t('en', 'aia.key.err'))).toBeTruthy();
+      fireEvent.change(keyField(), { target: { value: KEY } });
+      fireEvent.click(screen.getByRole('button', { name: t('en', 'aia.key.save'), hidden: true }));
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      expect((post.mock.calls[0] as [string, { body: unknown }])[1].body).toEqual({
+        action: 'set_credential',
+        id: 'p1',
+        apiKey: KEY,
+      });
+      await waitFor(() => expect(keyField().value).toBe('')); // the key does not stay on the screen
+      expect(document.body.textContent).not.toContain(KEY);
+    });
+    it('says plainly when the environment cannot store keys (production vault not decided)', async () => {
+      post.mockResolvedValue(fail(422, 'unsupported_capability'));
+      panel([provider({ vaultRef: null })]);
+      fireEvent.change(keyField(), { target: { value: KEY } });
+      fireEvent.click(screen.getByRole('button', { name: t('en', 'aia.key.save'), hidden: true }));
+      expect(await screen.findByText(t('en', 'aia.key.unavailable'))).toBeTruthy();
+    });
+    it('removing the key is one POST with the provider id', async () => {
+      post.mockResolvedValue(ok(provider({ vaultRef: null })));
+      panel([provider({ vaultRef: 'vault://dev/ai-acme-ai' })]);
+      fireEvent.click(
+        screen.getByRole('button', { name: t('en', 'aia.key.remove'), hidden: true }),
+      );
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      expect((post.mock.calls[0] as [string, { body: unknown }])[1].body).toEqual({
+        action: 'clear_credential',
+        id: 'p1',
+      });
+    });
+  });
+  describe('Claude key: one field on top, the rest under "Advanced"', () => {
+    const KEY = `test-only-${'h5Xd'.repeat(8)}`;
+    const claudeField = () =>
+      screen.getByLabelText(t('en', 'aia.claude.field'), { selector: 'input' }) as HTMLInputElement;
+    it('shows a single write-only field first; the provider setup form sits inside a collapsed "Advanced" section', () => {
+      const { container } = panel([]);
+      expect(claudeField().type).toBe('password');
+      expect(claudeField().value).toBe('');
+      expect(screen.getByText(t('en', 'aia.claude.none'))).toBeTruthy();
+      const adv = container.querySelector('details')!;
+      expect(adv.open).toBe(false);
+      expect(adv.textContent).toContain(t('en', 'aia.advanced'));
+      expect(adv.querySelector('form')).toBeTruthy(); // the long form is in there, not on the page
+    });
+    it('sends only { action, apiKey }, then empties the field and does not keep the key on the screen', async () => {
+      post.mockResolvedValue(ok(provider({ code: 'claude', vaultRef: 'vault://dev/ai-claude' })));
+      panel([]);
+      fireEvent.change(claudeField(), { target: { value: 'too short' } });
+      fireEvent.click(
+        screen.getByRole('button', { name: t('en', 'aia.claude.save'), hidden: true }),
+      );
+      expect(post).not.toHaveBeenCalled();
+      expect(screen.getByText(t('en', 'aia.key.err'))).toBeTruthy();
+      fireEvent.change(claudeField(), { target: { value: KEY } });
+      fireEvent.click(
+        screen.getByRole('button', { name: t('en', 'aia.claude.save'), hidden: true }),
+      );
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      expect((post.mock.calls[0] as [string, { body: unknown }])[1].body).toEqual({
+        action: 'save_claude_key',
+        apiKey: KEY,
+      });
+      await waitFor(() => expect(claudeField().value).toBe(''));
+      expect(document.body.textContent).not.toContain(KEY);
+    });
+    it('says a key is stored when the claude provider has one, and offers to remove it', async () => {
+      post.mockResolvedValue(ok(provider({ code: 'claude', vaultRef: null })));
+      panel([
+        provider({
+          id: 'c1',
+          code: 'claude',
+          adapter: 'anthropic',
+          vaultRef: 'vault://dev/ai-claude',
+        }),
+      ]);
+      expect(screen.getByText(t('en', 'aia.claude.stored'))).toBeTruthy();
+      fireEvent.click(
+        screen.getByRole('button', { name: t('en', 'aia.claude.remove'), hidden: true }),
+      );
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      expect((post.mock.calls[0] as [string, { body: unknown }])[1].body).toEqual({
+        action: 'clear_credential',
+        id: 'c1',
+      });
+    });
+    it('a member who cannot manage providers sees no field', () => {
+      panel([], { canManage: false, canApprove: true });
+      expect(
+        screen.queryByLabelText(t('en', 'aia.claude.field'), { selector: 'input' }),
+      ).toBeNull();
     });
   });
   it('a row shows the attestation, vault reference and rate card, and the enabling blockers when unattested', () => {
@@ -185,7 +305,7 @@ describe('global kill switch', () => {
     expect(within(group).getByText(t('en', 'aia.ks.confirm.on.global'))).toBeTruthy();
     fireEvent.click(within(group).getByRole('button', { name: t('en', 'action.cancel') }));
     expect(post).not.toHaveBeenCalled();
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(screen.queryByRole('group', { name: t('en', 'aia.ks.confirmTitle') })).toBeNull();
   });
   it('confirmed: one global kill_switch action, and the result is shown', async () => {
     post.mockResolvedValue(ok({ killSwitch: true, scope: 'global' }));
@@ -203,7 +323,7 @@ describe('global kill switch', () => {
     panel([]);
     fireEvent.change(screen.getByLabelText(t('en', 'aia.ks.org')), { target: { value: 'nope' } });
     fireEvent.click(screen.getByRole('button', { name: t('en', 'aia.ks.engage') }));
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(screen.queryByRole('group', { name: t('en', 'aia.ks.confirmTitle') })).toBeNull();
     expect(screen.getByText(t('en', 'aia.ks.orgInvalid'))).toBeTruthy();
   });
 });

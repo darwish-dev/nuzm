@@ -1,8 +1,9 @@
+import { AddDomainToCart } from '../../../../../components/AddDomainToCart';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { unwrap, type components } from '@nuzm/sdk';
 import { isLocale, t, type Locale } from '@nuzm/i18n';
-import { Badge, ButtonLink, ForbiddenState, Icon, Ltr, PageTitle } from '@nuzm/ui';
+import { Art, Badge, ForbiddenState, Icon, Ltr, PageTitle } from '@nuzm/ui';
 import { money, reasonKey, SOLD_TLDS, tldsParam } from '../../../../../lib/domains';
 import { requireSession } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
@@ -77,15 +78,11 @@ export default async function Search({
   const tlds = tldsParam(sp.tlds);
   const picked = new Set(tlds?.split(',') ?? []);
   const canBuy = s.can('domain:write');
+  const orgId = s.org.orgId;
   // an available name that cannot be bought (no verified registrar, no price) says so instead of leaving a gap
   const buy = (r: Item, label?: string) =>
     r.purchasable && canBuy ? (
-      <ButtonLink
-        href={`/${locale}/domains/checkout?name=${encodeURIComponent(r.name)}`}
-        aria-label={label}
-      >
-        {t(locale, 'dom.search.buy')}
-      </ButtonLink>
+      <AddDomainToCart locale={locale} orgId={orgId} name={r.name} price={r.price} label={label} />
     ) : stateOf(r) === 'available' && !r.purchasable ? (
       <span className="nz-muted">{t(locale, 'dom.search.notForSale')}</span>
     ) : null;
@@ -101,6 +98,7 @@ export default async function Search({
   const form = (
     <form method="get" className="nzc-dsearch" role="search" aria-labelledby="ds-h">
       <div className="nzc-dsearch-inner">
+        <Art name="domains" className="nzc-dsearch-art" />
         <h2 id="ds-h">{t(locale, 'dom.search.hero')}</h2>
         <p className="nzc-dsearch-sub">{t(locale, 'dom.hero.body')}</p>
         <div className="nzc-dsearch-bar">

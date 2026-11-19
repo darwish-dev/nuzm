@@ -33,6 +33,8 @@ describe('offers: only verified inventory (AC-M05-03, AC-M05-21)', () => {
       dataRegion: 'in_kingdom',
       price: { currency: 'SAR', period: 'month' },
     });
+    // the product line is a Nuzm name (the simulator account is the Spark line), never the identity of the infrastructure
+    expect(items.every((i) => i.family === 'spark')).toBe(true);
     const text = JSON.stringify(r.json());
     for (const leak of [
       'mock',
@@ -44,6 +46,32 @@ describe('offers: only verified inventory (AC-M05-03, AC-M05-21)', () => {
     ])
       expect(text).not.toContain(leak);
     expect(items.map((i) => i.price.amount).sort()).toEqual(['1540', '3080']); // 730 vCPU-h + 730 GiB-h x 0.5 + 40 GiB x 2 ; doubled
+  });
+
+  it('operating systems of an offer: names only, for an eligible offer; anything else is 404 (not 403), and the flag gates it', async () => {
+    const offerId = ((await offers('alice', A)).json().items as Row[])[0]!.offerId as string;
+    const r = await k.call('alice', 'GET', `/v1/offers/${offerId}/images`, A);
+    expect(r.statusCode).toBe(200);
+    const items = r.json().items as Row[];
+    expect(items.length).toBeGreaterThan(0);
+    for (const i of items) expect(Object.keys(i).sort()).toEqual(['id', 'name', 'osFamily']);
+    const text = JSON.stringify(r.json());
+    for (const leak of ['imageRef', 'providerRegionId', 'accountId', 'provider', 'mock-sa-1'])
+      expect(text).not.toContain(leak);
+    // the id from the list is what a quote accepts
+    expect(items.map((i) => i.id)).toContain(await k.imageId());
+    // an unknown id, a malformed id and an offer that is not eligible for this organization all look the same
+    expect((await k.call('alice', 'GET', '/v1/offers/not-a-uuid/images', A)).statusCode).toBe(404);
+    expect(
+      (await k.call('alice', 'GET', '/v1/offers/00000000-0000-4000-8000-000000000000/images', A))
+        .statusCode,
+    ).toBe(404);
+    await k.sql(
+      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'cloud.provisioning', $1, 'false'::jsonb)`,
+      [A],
+    );
+    expect((await k.call('alice', 'GET', `/v1/offers/${offerId}/images`, A)).statusCode).toBe(404);
+    await k.sql(`DELETE FROM platform.feature_flags WHERE org_id = $1`, [A]);
   });
 
   it('country filters: DE (residency denies), US (not listed) and an invalid code', async () => {

@@ -36,12 +36,7 @@ export function AdminLoginForm({ locale, next }: { locale: Locale; next: string 
     );
   }
   return (
-    <form
-      method="post"
-      onSubmit={submit}
-      style={{ maxInlineSize: 420 }}
-      aria-label={t(locale, 'login.admin.title')}
-    >
+    <form method="post" onSubmit={submit} aria-label={t(locale, 'login.admin.title')}>
       <Field id="email" label={t(locale, 'field.email')}>
         {(a) => (
           <Input name="email" type="email" required autoComplete="username" dir="ltr" {...a} />

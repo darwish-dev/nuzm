@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, Card, Ltr, PageTitle } from '@nuzm/ui';
-import { AutomationTabs } from '../../../../../../components/AutomationTabs';
 import { RefreshButton } from '../../../../../../components/AutomationPanels';
 import { JsonBlock } from '../../../../../../components/M11Ui';
 import { DisabledAction } from '../../../../../../components/M11Parts';
@@ -226,7 +225,6 @@ export default async function ExecutionPage({
   return (
     <>
       <PageTitle>{t(locale, 'm11.exec.title')}</PageTitle>
-      <AutomationTabs locale={locale} current="workflows" />
       {body}
     </>
   );

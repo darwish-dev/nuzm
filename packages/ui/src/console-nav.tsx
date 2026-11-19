@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { CountUp, RailTips } from './client';
 import { Icon, type IconName } from './icons';
 
 /** Presentational pieces of the two-level navigation (icon rail + in-page section tabs). The current page comes from the caller (server-computed), never from client state. */
@@ -46,6 +47,7 @@ export function PrimaryRail({
 }) {
   return (
     <nav className="nzc-rail" aria-label={label}>
+      <RailTips />
       <ul>
         {items.map((i) => (
           <li key={i.id}>
@@ -157,7 +159,13 @@ export function StatTile({
         {icon && <Icon name={icon} size={16} />}
         {label}
       </span>
-      <span className="nzc-stat-value">{value}</span>
+      <span className="nzc-stat-value">
+        {typeof value === 'string' && /^\d{1,9}$/.test(value) ? (
+          <CountUp value={Number(value)} />
+        ) : (
+          value
+        )}
+      </span>
       {sub && <span className="nzc-stat-sub">{sub}</span>}
     </>
   );

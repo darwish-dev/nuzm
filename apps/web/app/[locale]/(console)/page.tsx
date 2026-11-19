@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, formatMinor, isLocale, t } from '@nuzm/i18n';
-import { Badge, Bars, Icon, Ltr, StatTile } from '@nuzm/ui';
+import { CountUp, Badge, Bars, Icon, Ltr, StatTile } from '@nuzm/ui';
 import { OP_TERMINAL } from '../../../lib/compute';
 import { requireSession } from '../../../lib/server';
 import { flagEnabled, visibleServices } from '../../../lib/services';
@@ -57,7 +57,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   const services = visibleServices(s.can, (f) => flagEnabled(s.me.featureFlags, f));
 
   return (
-    <>
+    <div className="nzc-dashboard">
       <section className="nzc-hero" aria-labelledby="d-hero">
         <h1 id="d-hero">{t(locale, 'home.title', { name })}</h1>
         <p>
@@ -109,7 +109,11 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             icon="cloud"
             label={t(locale, 'dash.stat.ops')}
             href={`${base}/operations`}
-            value={<Ltr>{String(activeOps)}</Ltr>}
+            value={
+              <Ltr>
+                <CountUp value={activeOps} />
+              </Ltr>
+            }
             sub={t(locale, 'dash.stat.ops.sub', { n: ops.items.length })}
           />
         )}
@@ -118,7 +122,11 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             icon="bell"
             label={t(locale, 'dash.stat.unread')}
             href={`${base}/notifications`}
-            value={<Ltr>{String(notes.unreadCount)}</Ltr>}
+            value={
+              <Ltr>
+                <CountUp value={notes.unreadCount} />
+              </Ltr>
+            }
           />
         )}
       </div>
@@ -132,7 +140,15 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                 <a href={`${base}/billing/usage`}>{t(locale, 'dash.activity.all')}</a>
               </div>
               {meters.length === 0 ? (
-                <p className="nz-muted">{t(locale, 'dash.usage.empty')}</p>
+                <div className="nzc-dashboard-empty">
+                  <span>
+                    <Icon name="finance" size={30} />
+                  </span>
+                  <p>{t(locale, 'dash.usage.empty')}</p>
+                  <a href={`${base}/billing/usage`}>
+                    {t(locale, 'dash.activity.all')} <Icon name="arrow" size={15} />
+                  </a>
+                </div>
               ) : (
                 <Bars
                   label={t(locale, 'dash.usage.title')}
@@ -158,7 +174,38 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                 <ul className="nzc-list">
                   {audit.items.map((e) => (
                     <li key={e.id}>
-                      <Ltr>{e.action}</Ltr>
+                      <span className="nzc-dashboard-event">
+                        <Icon
+                          name={
+                            e.action.includes('blocked') || e.action.includes('denied')
+                              ? 'shield'
+                              : 'code'
+                          }
+                          size={18}
+                        />
+                        <Ltr>
+                          {(
+                            {
+                              'domain.quote.residency_blocked':
+                                locale === 'ar'
+                                  ? 'سياسة الإقامة منعت عرض سعر النطاق'
+                                  : 'Domain quote blocked by residency policy',
+                              'compliance.residency.evaluate_denied':
+                                locale === 'ar'
+                                  ? 'رُفض طلب الإقامة'
+                                  : 'Residency policy check denied',
+                              'builder.preview.created':
+                                locale === 'ar'
+                                  ? 'تم إنشاء معاينة الموقع'
+                                  : 'Website preview created',
+                              'ai.session.created':
+                                locale === 'ar' ? 'بدأت جلسة ذكاء اصطناعي' : 'AI session started',
+                              'builder.project.created':
+                                locale === 'ar' ? 'تم إنشاء مشروع' : 'Project created',
+                            } as Record<string, string>
+                          )[e.action] ?? e.action}
+                        </Ltr>
+                      </span>
                       <span className="nz-muted">{formatDateTime(e.occurredAt, locale)}</span>
                     </li>
                   ))}
@@ -189,6 +236,6 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           </ul>
         </section>
       )}
-    </>
+    </div>
   );
 }

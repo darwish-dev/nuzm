@@ -1,19 +1,31 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Icon } from '@nuzm/ui';
 import { browserApi } from '../lib/client';
 
+/**
+ * The organization chip of the top bar, the same height as the balance chips: an icon that opens the workspaces and projects (where a workspace
+ * and a project are created) next to the organization switcher.
+ */
 export function OrgSwitcher(props: {
   label: string;
   current: string;
   orgs: { orgId: string; name: string }[];
+  workspacesHref: string;
+  workspacesLabel: string;
 }) {
   const router = useRouter();
   return (
-    <label>
-      <span className="nz-sr">{props.label}</span>
+    <div className="nzc-chip nzc-org">
+      <a
+        href={props.workspacesHref}
+        aria-label={props.workspacesLabel}
+        title={props.workspacesLabel}
+      >
+        <Icon name="organization" size={18} />
+      </a>
       <select
-        className="nz-input"
         defaultValue={props.current}
         aria-label={props.label}
         onChange={(e) => {
@@ -27,7 +39,7 @@ export function OrgSwitcher(props: {
           </option>
         ))}
       </select>
-    </label>
+    </div>
   );
 }
 

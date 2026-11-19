@@ -57,6 +57,8 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'orgId') return orgA;
   if (p === 'userId') return aliceId;
   if (p === 'envId') return A.env;
+  // offers (cloud shop): an offer is provider inventory, not an org row; a hostile call must 404 (not eligible), which compute-flow.int.spec covers positively
+  if (p === 'offerId') return '00000000-0000-4000-8000-0000000000f1';
   // hosting (M06): site id, backup id, abuse-case id
   if (p === 'backupId') return A.hostingBackup;
   if (p === 'caseId') return A.hostingCase;
@@ -702,7 +704,8 @@ describe("after all the hostile calls, org A's data is untouched", () => {
         (x) =>
           x.method === 'GET' &&
           !x.path.includes('{userId}') &&
-          !x.path.startsWith('/v1/marketplace/purchases/'), // needs the ledger-backed invoice chain: see marketplace.int.spec
+          !x.path.startsWith('/v1/marketplace/purchases/') && // needs the ledger-backed invoice chain: see marketplace.int.spec
+          !x.path.startsWith('/v1/offers/'), // needs an eligible provider offer: the 200 path is in compute-flow.int.spec
       )) {
         const r = await app.inject({
           method: 'GET',

@@ -1,8 +1,22 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { formatDateTime, t, type Locale } from '@nuzm/i18n';
-import { Badge, Banner, Button, ButtonLink, EmptyState, Field, Input, Ltr, Table } from '@nuzm/ui';
+import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
+import {
+  Badge,
+  Banner,
+  Button,
+  ButtonLink,
+  EmptyState,
+  Field,
+  Icon,
+  Input,
+  Ltr,
+  Table,
+} from '@nuzm/ui';
+import { familiesIn, familyOf, regionsOf, selectionFor, sizesFor } from '../lib/cloud-config';
+import { CART_MAX } from '../lib/cart';
+import { addServerToCart, removeFromCart } from '../lib/cart-client';
 import { browserCompute } from '../lib/compute-client';
 import { useComputeAction } from '../lib/compute-actions';
 import {
@@ -24,8 +38,24 @@ import { ProblemAlert } from './ComputeBits';
 import { regionLabel } from './ComputeOffers';
 import { NoticeText } from './Feedback';
 
-type Step = 'offer' | 'image' | 'keys' | 'review';
-const STEPS: Step[] = ['offer', 'image', 'keys', 'review'];
+type Step = 'configure' | 'keys' | 'review';
+const STEPS: Step[] = ['configure', 'keys', 'review'];
+
+interface OsImage {
+  id: string;
+  name: string;
+  osFamily: string | null;
+}
+/** Country name in the page language (ISO code as the fallback). */
+const countryName = (locale: Locale, code: string): string => {
+  try {
+    return (
+      new Intl.DisplayNames([locale === 'ar' ? 'ar-SA' : 'en'], { type: 'region' }).of(code) ?? code
+    );
+  } catch {
+    return code;
+  }
+};
 /** Problems after which the quote cannot be used any more: the user must get a fresh one. */
 const STALE = new Set(['quote_expired', 'quote_consumed', 'price_changed']);
 
@@ -33,7 +63,8 @@ const mmss = (s: number): string =>
   `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 /**
- * UI-M05-02: offer → image → SSH keys → quote review (cost, tax estimate, residency result) → confirm.
+ * UI-M05-02: configure (region → Nuzm Cloud line → size → operating system → name, with the monthly price as you go) → SSH keys → quote review
+ * (cost, tax estimate, residency result) → confirm.
  * The quote is immutable and short-lived (15 min): the review shows a countdown and, once it ran out (or the API says quote_expired /
  * quote_consumed / price_changed), blocks confirming and offers a fresh quote. The Idempotency-Key of the create call belongs to the
  * quote, so a double click or a retry after an uncertain answer can never create a second instance.
@@ -41,17 +72,35 @@ const mmss = (s: number): string =>
 export function ComputeWizard(p: {
   locale: Locale;
   offers: Offer[];
+  /** The organization whose basket "Add to cart" fills (omit to hide the button). */
+  orgId?: string;
+  /** The basket line this order finishes: the line is removed once the server is created. */
+  basketLineId?: string;
+  /** The operating system chosen before the basket (preselected when it is still offered). */
+  initialImageId?: string;
   initialOfferId?: string;
   mfaFactorId: string | null;
 }) {
   const { locale } = p;
   const router = useRouter();
   const a = useComputeAction(locale, p.mfaFactorId);
-  const [step, setStep] = useState<Step>('offer');
-  const [offerId, setOfferId] = useState(
-    p.offers.some((o) => o.offerId === p.initialOfferId) ? (p.initialOfferId as string) : '',
+  const [step, setStep] = useState<Step>('configure');
+  const [sel, setSel] = useState(() =>
+    selectionFor(p.offers, p.initialOfferId ? { offerId: p.initialOfferId } : {}),
   );
+  const offerId = sel?.offerId ?? '';
   const [imageId, setImageId] = useState('');
+  const wantImage = useRef(p.initialImageId ?? '');
+  const [carted, setCarted] = useState<'idle' | 'added' | 'full'>('idle');
+  const [images, setImages] = useState<{
+    for: string;
+    state: 'loading' | 'ok' | 'error';
+    items: OsImage[];
+  }>({
+    for: '',
+    state: 'loading',
+    items: [],
+  });
   const [name, setName] = useState('');
   const [disk, setDisk] = useState('');
   const [keysText, setKeysText] = useState('');
@@ -62,7 +111,34 @@ export function ComputeWizard(p: {
   const heading = useRef<HTMLHeadingElement>(null);
   const offer = p.offers.find((o) => o.offerId === offerId);
 
-  useEffect(() => heading.current?.focus(), [step]);
+  // move focus to the step heading only when the step CHANGES (not on first load, where it would draw a focus ring around the title)
+  const firstStep = useRef(true);
+  useEffect(() => {
+    if (firstStep.current) firstStep.current = false;
+    else heading.current?.focus();
+  }, [step]);
+  // the operating systems of the chosen size (customer-safe list: id, name, family); a new size clears the previous choice
+  useEffect(() => {
+    if (!offerId) return;
+    let live = true;
+    setImageId('');
+    setImages({ for: offerId, state: 'loading', items: [] });
+    void browserCompute
+      .get<{ items: OsImage[] }>(`/v1/offers/${offerId}/images`)
+      .then((r) => {
+        if (!live) return;
+        const items = r.response.ok ? (r.data?.items ?? []) : [];
+        setImages({ for: offerId, state: r.response.ok ? 'ok' : 'error', items });
+        // coming back from the basket: the operating system chosen there, when this offer still has it
+        const want = items.find((i) => i.id === wantImage.current);
+        if (want) setImageId(want.id);
+        wantImage.current = '';
+      })
+      .catch(() => live && setImages({ for: offerId, state: 'error', items: [] }));
+    return () => {
+      live = false;
+    };
+  }, [offerId]);
   useEffect(() => {
     if (step !== 'review') return;
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -79,14 +155,23 @@ export function ComputeWizard(p: {
     (isQuoteExpired(quote.expiresAt, now) ||
       (a.problem?.code !== undefined && STALE.has(a.problem.code)));
 
-  function toImage() {
-    if (!offer) return setErrs({ offer: t(locale, 'm05.web.wiz.offer.err') });
+  /** "Add to cart": the exact choice (offer + operating system) goes in the basket; the name, SSH keys and the final quote are asked when it is ordered. */
+  function addToBasket() {
+    const image = images.items.find((i) => i.id === imageId);
+    if (!offer || !image || !p.orgId) {
+      setErrs({ image: t(locale, 'm05.web.wiz.image.err') });
+      return;
+    }
     setErrs({});
-    go('image');
+    setCarted(
+      addServerToCart(p.orgId, offer, { id: image.id, name: image.name }).ok ? 'added' : 'full',
+    );
+    window.setTimeout(() => setCarted('idle'), 2200);
   }
   function toKeys(e: FormEvent) {
     e.preventDefault();
     const next: Record<string, string> = {};
+    if (!offer) next.offer = t(locale, 'm05.web.wiz.offer.err');
     if (!isImageId(imageId)) next.image = t(locale, 'm05.web.wiz.image.err');
     if (!isInstanceName(name)) next.name = t(locale, 'm05.web.wiz.name.err');
     if (parseDiskGb(disk) === null) next.disk = t(locale, 'm05.web.wiz.disk.err');
@@ -139,7 +224,11 @@ export function ComputeWizard(p: {
             idempotencyKey: createKey.current,
           },
         ),
-      (r) => router.push(`/${locale}/compute/instances/${r.instance.id}`),
+      (r) => {
+        // the basket line this order finished is done
+        if (p.orgId && p.basketLineId) removeFromCart(p.orgId, p.basketLineId);
+        router.push(`/${locale}/compute/instances/${r.instance.id}`);
+      },
     );
   }
 
@@ -162,7 +251,7 @@ export function ComputeWizard(p: {
     <>
       <ol
         aria-label={t(locale, 'm05.web.wiz.steps')}
-        className="nz-row"
+        className="nz-row nzc-server-steps"
         style={{ listStyle: 'none', padding: 0, margin: 0 }}
       >
         {STEPS.map((s, i) => (
@@ -173,106 +262,297 @@ export function ComputeWizard(p: {
           </li>
         ))}
       </ol>
-      <section className="nz-card" aria-labelledby="wiz-h">
+      <section className="nz-card nzc-server-wizard" aria-labelledby="wiz-h">
         <h2 className="nz-h2" id="wiz-h" ref={heading} tabIndex={-1}>
           {stepTitle}
         </h2>
 
-        {step === 'offer' && (
-          <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-            <legend className="nz-sr">{stepTitle}</legend>
-            {p.offers.map((o) => {
-              const label = t(locale, 'm05.web.offers.choose', {
-                vcpu: o.plan.vcpu,
-                memory: memoryLabel(o.plan.memoryMb),
-                region: regionLabel(locale, o.dataRegion),
-              });
-              return (
-                <div key={o.offerId} className="nz-row">
-                  <input
-                    type="radio"
-                    id={`offer-${o.offerId}`}
-                    name="offer"
-                    value={o.offerId}
-                    checked={offerId === o.offerId}
-                    onChange={() => setOfferId(o.offerId)}
-                  />
-                  <label htmlFor={`offer-${o.offerId}`}>
-                    {label} · {t(locale, 'm05.web.plan.disk', { disk: o.plan.diskGb })} ·{' '}
-                    <Ltr>{moneyText(o.price.amount, o.price.currency, locale)}</Ltr>{' '}
-                    {t(locale, 'm05.web.price.month')}
-                  </label>
+        {step === 'configure' && offer && sel && (
+          <form onSubmit={toKeys} noValidate className="nzc-cfg">
+            <div className="nzc-cfg-main">
+              <section aria-labelledby="cfg-region">
+                <h3 className="nzc-cfg-h nzc-cfg-step" id="cfg-region">
+                  <i aria-hidden="true">1</i>
+                  {t(locale, 'cloud.cfg.region')}
+                </h3>
+                <div
+                  className="nzc-tlds nzc-tlds-grid"
+                  role="radiogroup"
+                  aria-labelledby="cfg-region"
+                >
+                  {regionsOf(p.offers).map((r) => (
+                    <label key={r.country} className="nzc-tld nzc-opt">
+                      <span className="nzc-opt-name">{countryName(locale, r.country)}</span>
+                      <input
+                        type="radio"
+                        name="cfg-region"
+                        value={r.country}
+                        checked={sel.country === r.country}
+                        onChange={() =>
+                          setSel(
+                            selectionFor(p.offers, {
+                              country: r.country,
+                              family: sel.family,
+                              like: offer,
+                            }),
+                          )
+                        }
+                      />
+                      <span className="nzc-tld-hint">
+                        <span className="nzc-opt-code" dir="ltr">
+                          {r.country}
+                        </span>{' '}
+                        {regionLabel(locale, r.dataRegion)}
+                      </span>
+                    </label>
+                  ))}
                 </div>
-              );
-            })}
-            {errs.offer && (
-              <span className="nz-error-text" role="alert">
-                {errs.offer}
-              </span>
-            )}
-            <p>
-              <Button onClick={toImage}>{t(locale, 'action.next')}</Button>
-            </p>
-          </fieldset>
-        )}
+                <p className="nzc-dsearch-note">{t(locale, 'cloud.cfg.region.note')}</p>
+              </section>
 
-        {step === 'image' && (
-          <form onSubmit={toKeys} noValidate>
-            <Field
-              id="w-name"
-              label={t(locale, 'field.name')}
-              help={t(locale, 'm05.web.wiz.name.help')}
-              error={errs.name}
-            >
-              {(x) => (
-                <Input
-                  {...x}
-                  dir="ltr"
-                  required
-                  maxLength={63}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              )}
-            </Field>
-            <Field
-              id="w-image"
-              label={t(locale, 'm05.web.wiz.image')}
-              help={t(locale, 'm05.web.wiz.image.help')}
-              error={errs.image}
-            >
-              {(x) => (
-                <Input
-                  {...x}
-                  dir="ltr"
-                  required
-                  value={imageId}
-                  onChange={(e) => setImageId(e.target.value)}
-                />
-              )}
-            </Field>
-            <Field
-              id="w-disk"
-              label={t(locale, 'm05.web.wiz.disk')}
-              help={t(locale, 'm05.web.wiz.disk.help', { disk: offer?.plan.diskGb ?? 0 })}
-              error={errs.disk}
-            >
-              {(x) => (
-                <Input
-                  {...x}
-                  dir="ltr"
-                  inputMode="numeric"
-                  value={disk}
-                  onChange={(e) => setDisk(e.target.value)}
-                />
-              )}
-            </Field>
-            <div className="nz-row">
-              <Button variant="secondary" onClick={() => go('offer')}>
-                {t(locale, 'm05.web.wiz.back')}
-              </Button>
-              <Button type="submit">{t(locale, 'action.next')}</Button>
+              <section aria-labelledby="cfg-line">
+                <h3 className="nzc-cfg-h nzc-cfg-step" id="cfg-line">
+                  <i aria-hidden="true">2</i>
+                  {t(locale, 'cloud.cfg.line')}
+                </h3>
+                <div
+                  className="nzc-tlds nzc-tlds-grid"
+                  role="radiogroup"
+                  aria-labelledby="cfg-line"
+                >
+                  {familiesIn(p.offers, sel.country).map((f) => (
+                    <label key={f.family} className="nzc-tld nzc-opt">
+                      <span className="nzc-opt-name">
+                        {tDynamic(
+                          locale,
+                          `cloud.family.${f.family}`,
+                          t(locale, 'cloud.family.core'),
+                        )}
+                      </span>
+                      <input
+                        type="radio"
+                        name="cfg-line"
+                        value={f.family}
+                        checked={sel.family === f.family}
+                        onChange={() =>
+                          setSel(
+                            selectionFor(p.offers, {
+                              country: sel.country,
+                              family: f.family,
+                              like: offer,
+                            }),
+                          )
+                        }
+                      />
+                      <span className="nzc-tld-hint">
+                        {tDynamic(locale, `cloud.family.${f.family}.tag`, '')}
+                      </span>
+                      <span className="nzc-tld-hint nzc-opt-from">
+                        {t(locale, 'cloud.cfg.from', {
+                          price: moneyText(f.from.price.amount, f.from.price.currency, locale),
+                        })}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section aria-labelledby="cfg-size">
+                <h3 className="nzc-cfg-h nzc-cfg-step" id="cfg-size">
+                  <i aria-hidden="true">3</i>
+                  {t(locale, 'cloud.cfg.size')}
+                </h3>
+                <div
+                  className="nzc-tlds nzc-tlds-grid"
+                  role="radiogroup"
+                  aria-labelledby="cfg-size"
+                >
+                  {sizesFor(p.offers, sel.country, sel.family).map((o) => (
+                    <label key={o.offerId} className="nzc-tld nzc-opt">
+                      <span className="nzc-opt-name">
+                        {t(locale, 'm05.web.plan.summary', {
+                          vcpu: o.plan.vcpu,
+                          memory: memoryLabel(o.plan.memoryMb),
+                        })}
+                      </span>
+                      <input
+                        type="radio"
+                        name="cfg-size"
+                        value={o.offerId}
+                        checked={offerId === o.offerId}
+                        onChange={() => setSel({ ...sel, offerId: o.offerId })}
+                      />
+                      <span className="nzc-opt-specs">
+                        <span>
+                          <b dir="ltr">{o.plan.diskGb} GB</b>
+                          {t(locale, 'host.row.storage')}
+                        </span>
+                        {o.plan.bandwidth && (
+                          <span>
+                            <b dir="ltr">{o.plan.bandwidth}</b>
+                            {t(locale, 'host.row.traffic')}
+                          </span>
+                        )}
+                      </span>
+                      <span className="nzc-tld-hint nzc-opt-from">
+                        <Ltr>{moneyText(o.price.amount, o.price.currency, locale)}</Ltr>{' '}
+                        {t(locale, 'm05.web.price.month')}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {errs.offer && (
+                  <span className="nz-error-text" role="alert">
+                    {errs.offer}
+                  </span>
+                )}
+              </section>
+
+              <section aria-labelledby="cfg-os">
+                <h3 className="nzc-cfg-h nzc-cfg-step" id="cfg-os">
+                  <i aria-hidden="true">4</i>
+                  {t(locale, 'cloud.cfg.os')}
+                </h3>
+                {images.for === offerId && images.state === 'loading' && (
+                  <p className="nz-muted" role="status">
+                    {t(locale, 'cloud.cfg.os.loading')}
+                  </p>
+                )}
+                {images.for === offerId && images.state === 'error' && (
+                  <p className="nz-error-text" role="alert">
+                    {t(locale, 'cloud.cfg.os.error')}
+                  </p>
+                )}
+                {images.for === offerId && images.state === 'ok' && images.items.length === 0 && (
+                  <p className="nz-muted">{t(locale, 'cloud.cfg.os.none')}</p>
+                )}
+                <div className="nzc-tlds nzc-tlds-grid" role="radiogroup" aria-labelledby="cfg-os">
+                  {(images.for === offerId ? images.items : []).map((im) => (
+                    <label key={im.id} className="nzc-tld nzc-opt">
+                      <span className="nzc-opt-name">{im.name}</span>
+                      <input
+                        type="radio"
+                        name="cfg-os"
+                        value={im.id}
+                        checked={imageId === im.id}
+                        onChange={() => setImageId(im.id)}
+                      />
+                    </label>
+                  ))}
+                </div>
+                {errs.image && (
+                  <span className="nz-error-text" role="alert">
+                    {errs.image}
+                  </span>
+                )}
+              </section>
+
+              <section className="nzc-cfg-name">
+                <Field
+                  id="w-name"
+                  label={t(locale, 'field.name')}
+                  help={t(locale, 'm05.web.wiz.name.help')}
+                  error={errs.name}
+                >
+                  {(x) => (
+                    <Input
+                      {...x}
+                      dir="ltr"
+                      required
+                      maxLength={63}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  )}
+                </Field>
+                <Field
+                  id="w-disk"
+                  label={t(locale, 'm05.web.wiz.disk')}
+                  help={t(locale, 'm05.web.wiz.disk.help', { disk: offer.plan.diskGb })}
+                  error={errs.disk}
+                >
+                  {(x) => (
+                    <Input
+                      {...x}
+                      dir="ltr"
+                      inputMode="numeric"
+                      value={disk}
+                      onChange={(e) => setDisk(e.target.value)}
+                    />
+                  )}
+                </Field>
+              </section>
             </div>
+
+            <aside className="nzc-cfg-sum" aria-label={t(locale, 'cloud.cfg.summary')}>
+              <img
+                className="nzc-server-summary-art"
+                src="/images/services/cloud-compact.webp"
+                width={120}
+                height={80}
+                alt=""
+                aria-hidden="true"
+              />
+              <h3 className="nzc-cfg-h">{t(locale, 'cloud.cfg.summary')}</h3>
+              <dl>
+                <div>
+                  <dt>{t(locale, 'cloud.cfg.region')}</dt>
+                  <dd>
+                    {countryName(locale, offer.country)} · {regionLabel(locale, offer.dataRegion)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t(locale, 'cloud.cfg.line')}</dt>
+                  <dd>
+                    {tDynamic(
+                      locale,
+                      `cloud.family.${familyOf(offer)}`,
+                      t(locale, 'cloud.family.core'),
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t(locale, 'cloud.cfg.size')}</dt>
+                  <dd>
+                    {t(locale, 'cloud.cfg.spec', {
+                      vcpu: offer.plan.vcpu,
+                      memory: memoryLabel(offer.plan.memoryMb),
+                      disk: offer.plan.diskGb,
+                    })}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t(locale, 'cloud.cfg.os')}</dt>
+                  <dd>{images.items.find((i) => i.id === imageId)?.name ?? '—'}</dd>
+                </div>
+              </dl>
+              <p className="nzc-cfg-price" aria-live="polite">
+                <span className="nz-muted">{t(locale, 'cloud.cfg.monthly')}</span>
+                <strong>
+                  <Ltr>{moneyText(offer.price.amount, offer.price.currency, locale)}</Ltr>
+                </strong>
+              </p>
+              <p className="nzc-dsearch-note">{t(locale, 'cloud.cfg.vatNote')}</p>
+              <Button type="submit">{t(locale, 'action.next')}</Button>
+              {p.orgId && (
+                <Button variant="secondary" onClick={addToBasket}>
+                  {carted === 'added' ? (
+                    <>
+                      <Icon name="check" size={16} /> {t(locale, 'cart.addedBtn')}
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="basket" size={16} /> {t(locale, 'cart.add')}
+                    </>
+                  )}
+                </Button>
+              )}
+              {carted === 'full' && (
+                <span className="nz-error-text" role="alert">
+                  {t(locale, 'cart.full', { max: CART_MAX })}
+                </span>
+              )}
+            </aside>
           </form>
         )}
 
@@ -298,7 +578,7 @@ export function ComputeWizard(p: {
               )}
             </Field>
             <div className="nz-row">
-              <Button variant="secondary" onClick={() => go('image')}>
+              <Button variant="secondary" onClick={() => go('configure')}>
                 {t(locale, 'm05.web.wiz.back')}
               </Button>
               <Button type="submit" disabled={a.busy}>
@@ -309,7 +589,7 @@ export function ComputeWizard(p: {
               <ProblemAlert locale={locale} problem={a.problem}>
                 {a.problem.code === 'no_eligible_offer' && (
                   <p>
-                    <Button variant="secondary" onClick={() => go('offer')}>
+                    <Button variant="secondary" onClick={() => go('configure')}>
                       {t(locale, 'm05.web.wiz.chooseOther')}
                     </Button>
                   </p>
@@ -341,9 +621,9 @@ export function ComputeWizard(p: {
                 </div>
               )}
               <div className="nz-row">
-                <dt className="nz-muted">{t(locale, 'm05.web.wiz.image')}</dt>
+                <dt className="nz-muted">{t(locale, 'cloud.cfg.os')}</dt>
                 <dd style={{ margin: 0 }}>
-                  <Ltr>{imageId.trim()}</Ltr>
+                  {images.items.find((i) => i.id === imageId)?.name ?? <Ltr>{imageId.trim()}</Ltr>}
                 </dd>
               </div>
               <div className="nz-row">

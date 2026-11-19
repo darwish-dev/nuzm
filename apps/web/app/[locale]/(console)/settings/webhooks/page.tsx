@@ -2,7 +2,6 @@ import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, t } from '@nuzm/i18n';
 import { Badge, EmptyState, Ltr, PageTitle, Table } from '@nuzm/ui';
 import { NewWebhookForm, RotateSecret } from '../../../../../components/AutomationPanels';
-import { AutomationTabs } from '../../../../../components/AutomationTabs';
 import { DisabledAction, Section, Status } from '../../../../../components/M11Parts';
 import { FLAGS, itemsOf, type WebhookEndpointDto } from '../../../../../lib/m11';
 import { gateM11, m11View } from '../../../../../lib/m11-server';
@@ -116,7 +115,6 @@ export default async function Webhooks({ params }: { params: Promise<{ locale: s
   return (
     <>
       <PageTitle>{t(locale, 'm11.wh.title')}</PageTitle>
-      <AutomationTabs locale={locale} current="webhooks" />
       {body}
     </>
   );

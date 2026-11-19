@@ -6,6 +6,7 @@ import { BuilderTabs } from '../../../../../../../components/BuilderParts';
 import { Exports } from '../../../../../../../components/BuilderExports';
 import { isUuid } from '../../../../../../../lib/appbuilder';
 import { bgate, bview } from '../../../../../../../lib/builder-gate';
+import { redirectWebapp } from '../../../../../../../lib/app-redirect';
 
 /** UI-M10-10: request an export, see its checksum and SBOM reference, download while the signed URL is valid, and the reasons of a blocked export. */
 export default async function ExportsPage({
@@ -13,6 +14,7 @@ export default async function ExportsPage({
 }: {
   params: Promise<{ locale: string; id: string }>;
 }) {
+  await redirectWebapp(params, 'exports');
   const g = await bgate(params, 'builder:export', 'm10.exp.title');
   if (!g.ok) return g.node;
   const { locale, s } = g;

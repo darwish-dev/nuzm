@@ -106,8 +106,8 @@ export function BuilderStart({
     initialTab ?? (hasProjects && projectCount > 0 ? 'projects' : 'examples'),
   );
   const box = useRef<HTMLTextAreaElement>(null);
-  const created = useRef<{ projectId?: string; sessionId?: string }>({});
-  const keys = useRef({ project: newKey(), session: newKey(), run: newKey() });
+  const created = useRef<{ projectId?: string; sessionId?: string; requestStored?: boolean }>({});
+  const keys = useRef({ project: newKey(), session: newKey(), message: newKey(), run: newKey() });
   const types = startTypes(appsEnabled, mobileEnabled);
   const startable = types.find((x) => x.id === type)?.available === true;
 
@@ -207,6 +207,14 @@ export function BuilderStart({
       );
       if (!ok) return;
     }
+    // a mobile app's design request is also the first message of its chat (the workspace shows it above the live run); it is context, so a refusal does not stop the run
+    if (type === 'mobile' && !c.requestStored) {
+      const stored = await bapi.post<{ id: string }>(`/v1/ai/sessions/${c.sessionId}/messages`, {
+        body: { content: text },
+        idempotencyKey: keys.current.message,
+      });
+      if (stored.response.ok || stored.response.status !== 599) c.requestStored = true;
+    }
     await call.run(
       () =>
         bapi.post<Run>('/v1/ai/runs', {
@@ -223,12 +231,8 @@ export function BuilderStart({
           },
           idempotencyKey: keys.current.run,
         }),
-      () =>
-        router.push(
-          type === 'mobile'
-            ? `/${locale}/mobile/${c.projectId}/preview`
-            : `/${locale}/builder/projects/${c.projectId}`,
-        ),
+      // every project type opens in the same workspace (a mobile app in its mobile mode)
+      () => router.push(`/${locale}/builder/projects/${c.projectId}`),
       (p) => {
         // a definitive refusal frees the key (the next attempt is a new request); an uncertain network failure keeps it so a retry cannot start a second run
         if (p.status !== 599) keys.current.run = newKey();

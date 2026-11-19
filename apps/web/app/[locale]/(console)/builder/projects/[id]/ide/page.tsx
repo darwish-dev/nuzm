@@ -6,9 +6,11 @@ import { FileBrowser, RunPanel } from '../../../../../../../components/BuilderId
 import { BuilderTabs } from '../../../../../../../components/BuilderParts';
 import { isUuid } from '../../../../../../../lib/appbuilder';
 import { bgate, bview } from '../../../../../../../lib/builder-gate';
+import { redirectWebapp } from '../../../../../../../lib/app-redirect';
 
 /** UI-M10-03: browser IDE: file tree, READ-ONLY viewer, preview placeholder (isolated origin: not implemented in M10A) and the run panel. */
 export default async function Ide({ params }: { params: Promise<{ locale: string; id: string }> }) {
+  await redirectWebapp(params, 'ide');
   const g = await bgate(params, 'sandbox:use', 'm10.ide.title');
   if (!g.ok) return g.node;
   const { locale, s } = g;

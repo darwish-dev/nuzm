@@ -93,6 +93,8 @@ export abstract class RunStorePort {
     runId: string,
     to: RunState,
     reason?: string | null,
+    /** short human-readable reasons recorded with a failure (e.g. which schema rules the model output broke); never raw model output */
+    details?: readonly string[],
   ): Promise<RunRecord>;
   abstract addUsage(orgId: string, runId: string, delta: Partial<RunUsage>): Promise<RunRecord>;
   /** Admin support view (`GET /v1/admin/ai/runs`): metadata only, across organizations. */
@@ -108,6 +110,8 @@ export interface ModelRequest {
   /** Structured input. Untrusted user text is passed as DATA inside this object, never concatenated into instructions (M09 §4 S38.6). */
   input: unknown;
   maxTokens: number;
+  /** The JSON Schema the answer must satisfy. A real model cannot guess the shape of an artifact: it is told this one. (The scripted adapter ignores it.) */
+  schema?: unknown;
   timeoutMs: number;
   dataClass: 'customer-content';
   dataRegion: string;

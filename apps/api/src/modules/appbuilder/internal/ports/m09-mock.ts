@@ -118,7 +118,13 @@ export class MemoryRunStore extends RunStorePort {
       .slice(0, f.limit ?? 50)
       .map((r) => ({ ...r }));
   }
-  async transition(orgId: string, id: string, to: RunState, reason: string | null = null) {
+  async transition(
+    orgId: string,
+    id: string,
+    to: RunState,
+    reason: string | null = null,
+    _details: readonly string[] = [],
+  ) {
     const r = this.runs.get(id);
     if (!r || r.orgId !== orgId) throw new Error('run not found');
     if (r.state === to) return { ...r };

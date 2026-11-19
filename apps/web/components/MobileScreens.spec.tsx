@@ -4,8 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@nuzm/i18n';
 import type { MobileBuild, MobileRelease, SigningCredential } from '../lib/mobile';
 import { MobileBuilds } from './MobileBuilds';
-import { MobileOverview } from './MobilePreview';
-import { MobileTabs } from './MobileParts';
+import { MobileSpecPane } from './MobileSpecPane';
 import { MobileReleases } from './MobileReleases';
 import { ReleaseWizard } from './MobileReleaseWizard';
 import { MobileSigning } from './MobileSigning';
@@ -87,7 +86,7 @@ describe('UI-M10-12 start a mobile app', () => {
     render(<MobileStart locale="en" canRun />);
     fill('Field Tasks', 'An app for field teams');
     fireEvent.click(screen.getByRole('button', { name: t('en', 'mobile.start.go') }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/mobile/p1/preview'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p1'));
     expect(calls.map((c) => c.url)).toEqual([
       '/v1/builder/projects',
       '/v1/ai/sessions',
@@ -135,48 +134,35 @@ describe('UI-M10-12 start a mobile app', () => {
   });
 });
 
-describe('UI-M10-13 overview / preview', () => {
+describe('UI-M10-13 spec panel (the approved design in plain terms)', () => {
   const manifest = {
     fileCount: 22,
     generator: { flutter: '3.35.7', dart: '3.9.2' },
     spec: {
       app: { name: { ar: 'مهام', en: 'Tasks' }, packageId: 'sa.nuzm.tasks' },
+      theme: { primary: '#0B6E4F', dark: true },
+      defaultLocale: 'ar',
+      auth: { enabled: true },
       screens: [{ id: 'home', kind: 'home', title: { ar: 'الرئيسية', en: 'Home' } }],
-      navigation: { tabs: ['home'] },
+      navigation: { initial: 'home', tabs: ['home'] },
       permissions: [],
     },
   };
-  it('always carries the preview-is-not-a-device-guarantee notice and the honest "no web preview yet" state', () => {
-    render(<MobileOverview locale="en" manifest={manifest} run={null} />);
-    expect(screen.getByText(t('en', 'mobile.preview.notice'))).toBeTruthy();
-    expect(screen.getByText(t('en', 'mobile.preview.unavailableTitle'))).toBeTruthy();
+  it('lists the app id, theme, sign-in, permissions and every screen with its kind', () => {
+    render(<MobileSpecPane locale="en" manifest={manifest} />);
     expect(screen.getByText('sa.nuzm.tasks')).toBeTruthy();
+    expect(screen.getByText('#0B6E4F')).toBeTruthy();
+    expect(screen.getByText(t('en', 'mws.spec.authOn'))).toBeTruthy();
+    expect(screen.getByText(t('en', 'mobile.wizard.permission.internet'))).toBeTruthy();
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0); // the title (and the kind label)
     expect(document.querySelector('iframe')).toBeNull();
   });
-  it('Arabic shows Arabic titles; an empty project shows the empty state; a waiting run links to the approval', () => {
-    render(
-      <MobileOverview
-        locale="ar"
-        manifest={manifest}
-        run={{ id: 'r1', state: 'waiting_approval' }}
-      />,
-    );
+  it('Arabic shows Arabic titles; an empty project shows the empty state', () => {
+    render(<MobileSpecPane locale="ar" manifest={manifest} />);
     expect(screen.getByText('الرئيسية')).toBeTruthy();
-    expect(screen.getByText(t('ar', 'mobile.preview.runState.waiting_approval'))).toBeTruthy();
-    expect(
-      screen.getByRole('link', { name: t('ar', 'mobile.preview.openRun') }).getAttribute('href'),
-    ).toBe('/ar/builder/runs/r1');
     cleanup();
-    render(
-      <MobileOverview
-        locale="en"
-        manifest={{ kind: 'mobile', fileCount: 0, spec: null }}
-        run={null}
-      />,
-    );
+    render(<MobileSpecPane locale="en" manifest={{ kind: 'mobile', fileCount: 0, spec: null }} />);
     expect(screen.getByText(t('en', 'mobile.preview.empty.title'))).toBeTruthy();
-    expect(screen.getByText(t('en', 'mobile.preview.notice'))).toBeTruthy();
   });
 });
 
@@ -584,20 +570,5 @@ describe('UI-M10-17 release wizard (prepares; never submits)', () => {
     fireEvent.click(screen.getByRole('button', { name: t('en', 'mobile.wizard.saveDraft') }));
     await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
     expect(screen.getByText(t('en', 'mobile.wizard.copyHint'))).toBeTruthy();
-  });
-});
-
-describe('tabs', () => {
-  it('lists signing only for a member who holds mobile:signing, and marks the current section', () => {
-    render(
-      <MobileTabs locale="en" projectId={P} current="builds" can={(p) => p !== 'mobile:signing'} />,
-    );
-    expect(screen.queryByRole('link', { name: t('en', 'mobile.tab.signing') })).toBeNull();
-    expect(
-      screen.getByRole('link', { name: t('en', 'mobile.tab.builds') }).getAttribute('aria-current'),
-    ).toBe('page');
-    expect(
-      screen.getByRole('link', { name: t('en', 'mobile.tab.releases') }).getAttribute('href'),
-    ).toBe(`/en/mobile/${P}/releases`);
   });
 });

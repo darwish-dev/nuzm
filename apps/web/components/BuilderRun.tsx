@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, Button, Ltr } from '@nuzm/ui';
 import {
@@ -36,12 +36,18 @@ export function ApprovalCard({
   approval,
   canDecide,
   onDecided,
+  title,
+  body,
 }: {
   locale: Locale;
   runId: string;
   approval: PendingApproval;
   canDecide: boolean;
   onDecided: (run: Run) => void;
+  /** replaces the heading (a mobile run's `plan` is the app design, not a website plan) */
+  title?: string;
+  /** replaces the website plan's page list, diff and risks with the screen's own view of what is proposed (the mobile design) */
+  body?: ReactNode;
 }) {
   const call = useBuilderCall();
   const view = approvalView(approval);
@@ -61,9 +67,10 @@ export function ApprovalCard({
   return (
     <section className="nz-card" aria-labelledby={`bld-ap-${approval.id}`}>
       <h3 className="nz-h2" id={`bld-ap-${approval.id}`}>
-        {t(locale, 'bld.approval.title', {
-          kind: tDynamic(locale, `bld.approval.kind.${approval.kind}`, approval.kind),
-        })}
+        {title ??
+          t(locale, 'bld.approval.title', {
+            kind: tDynamic(locale, `bld.approval.kind.${approval.kind}`, approval.kind),
+          })}
       </h3>
       <p className="nz-muted">
         {t(locale, 'bld.approval.expires', { when: formatDateTime(approval.expiresAt, locale) })}
@@ -73,7 +80,8 @@ export function ApprovalCard({
           <bdi dir="auto">{view.summary}</bdi>
         </p>
       )}
-      {view.pages.length > 0 && (
+      {body}
+      {!body && view.pages.length > 0 && (
         <ul className="bld-list" aria-label={t(locale, 'bld.approval.pages')}>
           {view.pages.map((p) => (
             <li key={p.pageId}>
@@ -82,8 +90,8 @@ export function ApprovalCard({
           ))}
         </ul>
       )}
-      {view.diff && <DiffView locale={locale} diff={view.diff} />}
-      <RiskList locale={locale} risks={view.risks} />
+      {!body && view.diff && <DiffView locale={locale} diff={view.diff} />}
+      {!body && <RiskList locale={locale} risks={view.risks} />}
       {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
       {canDecide ? (
         <div className="nz-row">

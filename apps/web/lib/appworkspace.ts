@@ -14,11 +14,11 @@ const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 /* ------------------------------------------------------------------ project type */
 
 export const isWebapp = (p: { type?: string } | null | undefined): boolean => p?.type === 'webapp';
-export const PROJECT_FILTERS = ['all', 'website', 'webapp'] as const;
+export const PROJECT_FILTERS = ['all', 'website', 'webapp', 'mobile'] as const;
 export type ProjectFilter = (typeof PROJECT_FILTERS)[number];
 /** The `type` query of the project list: anything unknown is "all". */
 export const filterOf = (v: string | undefined): ProjectFilter =>
-  v === 'website' || v === 'webapp' ? v : 'all';
+  v === 'website' || v === 'webapp' || v === 'mobile' ? v : 'all';
 export const applyFilter = <T extends { type: string }>(items: T[], f: ProjectFilter): T[] =>
   f === 'all' ? items : items.filter((p) => p.type === f);
 

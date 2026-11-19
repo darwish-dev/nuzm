@@ -6,20 +6,31 @@ import {
   buildTone,
   declaredPermissions,
   emptyReleaseForm,
+  biText,
   isLiveBuild,
+  manifestSpec,
   manifestView,
+  mobileApprovalView,
+  mobilePhase,
+  mobileRunStages,
   minutesText,
   missingItemsOf,
   mobileProblemKey,
   noticeKey,
+  onColor,
   orderLocales,
+  previewSpec,
   releaseBody,
   releaseTone,
+  runFailure,
   sizeText,
   stepOf,
+  tabsFor,
   validDescription,
   validateReleaseForm,
   validateSigning,
+  workspaceHref,
+  workspaceTab,
 } from './mobile';
 import type { BuilderProblem } from './builder';
 
@@ -296,7 +307,7 @@ describe('release form', () => {
 describe('messages', () => {
   const ar = messages.ar as Record<string, string>;
   const en = messages.en as Record<string, string>;
-  const keys = Object.keys(en).filter((k) => k.startsWith('mobile.'));
+  const keys = Object.keys(en).filter((k) => k.startsWith('mobile.') || k.startsWith('mws.'));
   it('every mobile key exists in Arabic and English with the same placeholders', () => {
     expect(keys.length).toBeGreaterThan(150);
     for (const k of keys) {
@@ -334,5 +345,171 @@ describe('messages', () => {
       expect(promise.test(en[k]!), `en ${k}`).toBe(false);
       expect(promise.test(ar[k]!), `ar ${k}`).toBe(false);
     }
+  });
+});
+
+describe('mobile workspace routing', () => {
+  it('?tab= picks the panel and anything else opens the preview', () => {
+    for (const x of ['preview', 'code', 'spec', 'builds', 'signing', 'releases'])
+      expect(workspaceTab(x)).toBe(x);
+    expect(workspaceTab(['builds', 'code'])).toBe('builds');
+    expect(workspaceTab('nope')).toBe('preview');
+    expect(workspaceTab(undefined)).toBe('preview');
+  });
+  it('the former pages map to the workspace route (the old routes redirect there)', () => {
+    expect(workspaceHref('en', 'p1', 'builds')).toBe('/en/builder/projects/p1?tab=builds');
+    expect(workspaceHref('ar', 'p1', 'releases', { new: '1' })).toBe(
+      '/ar/builder/projects/p1?tab=releases&new=1',
+    );
+    expect(workspaceHref('en', 'p1')).toBe('/en/builder/projects/p1');
+  });
+  it('lists only the tabs the member may open (signing needs mobile:signing, builds mobile:build, releases mobile:release)', () => {
+    expect(tabsFor(() => true)).toEqual([
+      'preview',
+      'code',
+      'spec',
+      'builds',
+      'signing',
+      'releases',
+    ]);
+    expect(tabsFor((p) => p === 'builder:read')).toEqual(['preview', 'code', 'spec']);
+    expect(tabsFor((p) => p !== 'mobile:signing')).not.toContain('signing');
+  });
+});
+
+describe('the design as the preview draws it', () => {
+  const spec = {
+    app: { name: { ar: 'مهام', en: 'Tasks' }, packageId: 'sa.nuzm.tasks' },
+    theme: { primary: '#0B6E4F', dark: true },
+    defaultLocale: 'ar',
+    auth: { enabled: true },
+    screens: [
+      {
+        id: 'home',
+        kind: 'home',
+        title: { ar: 'الرئيسية', en: 'Home' },
+        body: { ar: 'أ', en: 'a' },
+      },
+      {
+        id: 'tasks',
+        kind: 'list',
+        title: { ar: 'المهام', en: 'Tasks' },
+        items: [{ title: { ar: 'ب', en: 'b' } }],
+      },
+    ],
+    navigation: { initial: 'tasks', tabs: ['home', 'tasks', 'ghost'] },
+    permissions: ['camera', 7],
+  };
+  it('reads a spec, drops what is not a screen of it and falls back safely', () => {
+    const s = previewSpec(spec)!;
+    expect(s.theme).toEqual({ primary: '#0B6E4F', secondary: null, dark: true });
+    expect(s.defaultLocale).toBe('ar');
+    expect(s.auth).toBe(true);
+    expect(s.navigation).toEqual({ initial: 'tasks', tabs: ['home', 'tasks'] });
+    expect(s.permissions).toEqual(['camera']);
+    expect(s.screens[1]!.items).toHaveLength(1);
+    const bad = previewSpec({
+      ...spec,
+      theme: { primary: 'javascript:1', dark: 'yes' },
+      navigation: { initial: 'x', tabs: [] },
+    })!;
+    expect(bad.theme.primary).toBe('#0f766e');
+    expect(bad.theme.dark).toBe(false);
+    expect(bad.navigation).toEqual({ initial: 'home', tabs: ['home'] });
+  });
+  it('an empty or malformed spec is null; the manifest holds the approved spec', () => {
+    for (const x of [null, 3, 'x', {}, { screens: [] }, { screens: [1, 'a'] }])
+      expect(previewSpec(x)).toBeNull();
+    expect(manifestSpec({ kind: 'mobile', fileCount: 0, spec: null })).toBeNull();
+    expect(manifestSpec({ spec })!.app.packageId).toBe('sa.nuzm.tasks');
+  });
+  it('shows the language asked for and falls back to the other one', () => {
+    expect(biText({ ar: 'أ', en: 'a' }, 'ar')).toBe('أ');
+    expect(biText({ ar: '', en: 'a' }, 'ar')).toBe('a');
+    expect(biText(null, 'en')).toBe('');
+  });
+  it('picks readable text on the primary colour', () => {
+    expect(onColor('#0B6E4F')).toBe('#ffffff');
+    expect(onColor('#FFE082')).toBe('#111827');
+    expect(onColor('red')).toBe('#ffffff');
+  });
+});
+
+describe('the mobile run: what it is doing and why it failed', () => {
+  const ev = (...types: string[]) => types.map((type) => ({ type }));
+  const ids = (st: { id: string; state: string }[]) =>
+    st.map((x) => `${x.id}:${x.state}`).join(' ');
+  it('names the phase from the run state and its events', () => {
+    expect(mobilePhase('queued', [])).toBe('queued');
+    expect(mobilePhase('running', ev('step_started'))).toBe('designing');
+    expect(mobilePhase('waiting_approval', ev('approval_requested'))).toBe('approval');
+    expect(mobilePhase('running', ev('approval_requested', 'approval_approved'))).toBe(
+      'generating',
+    );
+    expect(mobilePhase('queued', ev('approval_approved'))).toBe('generating');
+    expect(mobilePhase('succeeded', [])).toBe('done');
+    expect(mobilePhase('failed', [])).toBe('failed');
+    expect(mobilePhase('cancelled', [])).toBe('cancelled');
+    expect(mobilePhase('budget_exceeded', [])).toBe('budget');
+  });
+  it('marks the step in progress, the finished ones, and claims nothing that did not happen', () => {
+    expect(ids(mobileRunStages('running', ev('step_started')))).toBe(
+      'design:active approval:pending generate:pending analysis:pending',
+    );
+    expect(ids(mobileRunStages('waiting_approval', ev('approval_requested')))).toBe(
+      'design:done approval:active generate:pending analysis:pending',
+    );
+    expect(ids(mobileRunStages('running', ev('approval_requested', 'approval_approved')))).toBe(
+      'design:done approval:done generate:active analysis:pending',
+    );
+    expect(ids(mobileRunStages('succeeded', ev('approval_approved')))).toBe(
+      'design:done approval:done generate:done analysis:done',
+    );
+  });
+  it('a failed run marks the step it stopped at (design, after the design was proposed, or the analysis gate)', () => {
+    expect(ids(mobileRunStages('failed', ev('step_started'), { code: 'validation_failed' }))).toBe(
+      'design:failed approval:pending generate:pending analysis:pending',
+    );
+    expect(ids(mobileRunStages('failed', ev('approval_requested', 'approval_approved'), {}))).toBe(
+      'design:done approval:done generate:failed analysis:pending',
+    );
+    expect(
+      ids(
+        mobileRunStages('failed', ev('approval_approved'), {
+          message: 'the generated project failed the analysis gate',
+        }),
+      ),
+    ).toBe('design:done approval:done generate:done analysis:failed');
+  });
+  it('reads the recorded reasons (at most 8, short, masked) and the code', () => {
+    const f = runFailure({
+      code: 'validation_failed',
+      message: 'the design is not a valid mobile spec',
+      details: [
+        'screen id login is reserved',
+        'x'.repeat(30),
+        ...Array.from({ length: 10 }, (_, i) => `r${i}`),
+      ],
+    });
+    expect(f.code).toBe('validation_failed');
+    expect(f.details).toHaveLength(8);
+    expect(f.details[1]).toBe('[REDACTED]');
+    expect(runFailure(null)).toEqual({ code: null, message: null, details: [] });
+    expect(runFailure({ details: 'nope' }).details).toEqual([]);
+  });
+  it('reads the design awaiting approval from its summary, never the stored payload', () => {
+    const v = mobileApprovalView({
+      appName: { ar: 'م', en: 'T' },
+      applicationId: 'sa.nuzm.t',
+      screens: [{ id: 'home', kind: 'home', title: { ar: 'ر', en: 'Home' } }, 4],
+      tabs: ['home'],
+      permissions: ['internet', 'camera'],
+      artifactId: '018f0000-0000-7000-8000-0000000000aa',
+      payload: { spec: 'ignored' },
+    });
+    expect(v.screens).toHaveLength(1);
+    expect(v.artifactId).toBe('018f0000-0000-7000-8000-0000000000aa');
+    expect(mobileApprovalView(null).artifactId).toBeNull();
+    expect(mobileApprovalView({ artifactId: '../../etc' }).artifactId).toBeNull();
   });
 });

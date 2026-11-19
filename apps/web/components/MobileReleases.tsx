@@ -1,5 +1,5 @@
 import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
-import { Badge, ButtonLink, EmptyState, Ltr, Table } from '@nuzm/ui';
+import { Badge, Button, ButtonLink, EmptyState, Ltr, Table } from '@nuzm/ui';
 import { releaseTone, type MobileRelease } from '../lib/mobile';
 import { MissingList, NoSubmitNotice } from './MobileParts';
 
@@ -9,20 +9,27 @@ export function MobileReleases({
   projectId,
   items,
   canCreate,
+  onNew,
 }: {
   locale: Locale;
   projectId: string;
   items: MobileRelease[];
   canCreate: boolean;
+  /** inside the workspace the wizard opens in place; without it the button is a link to the wizard's route (which opens the workspace on it) */
+  onNew?: () => void;
 }) {
   return (
     <>
       <NoSubmitNotice locale={locale} />
       {canCreate && (
         <p>
-          <ButtonLink href={`/${locale}/mobile/${projectId}/releases/new`}>
-            {t(locale, 'mobile.releases.new')}
-          </ButtonLink>
+          {onNew ? (
+            <Button onClick={onNew}>{t(locale, 'mobile.releases.new')}</Button>
+          ) : (
+            <ButtonLink href={`/${locale}/mobile/${projectId}/releases/new`}>
+              {t(locale, 'mobile.releases.new')}
+            </ButtonLink>
+          )}
         </p>
       )}
       {items.length === 0 ? (

@@ -3,11 +3,12 @@ import { Badge, ButtonLink, EmptyState, Ltr, Icon } from '@nuzm/ui';
 import { PROJECT_FILTERS, type ProjectFilter } from '../lib/appworkspace';
 import { isPreviewUrl, LOCALE_LABEL, type Project, type SiteLocale } from '../lib/builder';
 import { DeployBadge, when } from './BuilderBits';
+import { DeleteProject } from './DeleteProject';
 
 /** UI-M09-01: one card per website project; an empty list offers the first one. */
-/** A mobile app opens in the mobile workspace; every other project in the builder workspace. */
+/** Every project, a mobile app included, opens in the builder workspace (a mobile app in its mobile mode). */
 export const projectHref = (locale: Locale, p: Pick<Project, 'id' | 'type'>) =>
-  p.type === 'mobile' ? `/${locale}/mobile/${p.id}` : `/${locale}/builder/projects/${p.id}`;
+  `/${locale}/builder/projects/${p.id}`;
 
 export function ProjectCards({
   locale,
@@ -15,11 +16,16 @@ export function ProjectCards({
   nextCursor,
   canCreate,
   filtered,
+  canDelete = false,
+  mfaFactorId = null,
 }: {
   locale: Locale;
   items: Project[];
   nextCursor: string | null;
   canCreate: boolean;
+  /** `builder:write`: a card offers "Delete" (the typed-name confirmation is the dialog's) */
+  canDelete?: boolean;
+  mfaFactorId?: string | null;
   /** a type filter is on: an empty list says "none of this type", not "no projects" */
   filtered?: boolean;
 }) {
@@ -104,10 +110,19 @@ export function ProjectCards({
                     <dd>{when(p.updatedAt, locale)}</dd>
                   </div>
                 </dl>
-                <a className="bl-popen" href={projectHref(locale, p)}>
-                  {t(locale, 'action.manage')}
-                  <Icon name="arrow" size={16} />
-                </a>
+                <div className="bl-pactions">
+                  <a className="bl-popen" href={projectHref(locale, p)}>
+                    {t(locale, 'action.manage')}
+                    <Icon name="arrow" size={16} />
+                  </a>
+                  {canDelete && (
+                    <DeleteProject
+                      locale={locale}
+                      project={{ id: p.id, name: p.name }}
+                      mfaFactorId={mfaFactorId}
+                    />
+                  )}
+                </div>
               </div>
             </article>
           </li>
@@ -125,18 +140,22 @@ export function ProjectCards({
   );
 }
 
-/** Type filter of the project list (links, so it works without scripting and is shareable). "Web apps" is offered only while the app builder is on. */
+/** Type filter of the project list (links, so it works without scripting and is shareable). "Web apps" is offered only while the app builder is on, "Mobile apps" only while the mobile builder is on. */
 export function ProjectFilterTabs({
   locale,
   current,
   appsEnabled,
+  mobileEnabled = false,
 }: {
   locale: Locale;
   current: ProjectFilter;
   appsEnabled: boolean;
+  mobileEnabled?: boolean;
 }) {
-  const tabs = PROJECT_FILTERS.filter((f) => appsEnabled || f !== 'webapp');
-  if (!appsEnabled) return null;
+  const tabs = PROJECT_FILTERS.filter(
+    (f) => (f !== 'webapp' || appsEnabled) && (f !== 'mobile' || mobileEnabled),
+  );
+  if (!appsEnabled && !mobileEnabled) return null;
   return (
     <nav aria-label={t(locale, 'm10a.proj.filter')} className="bl-chips">
       {tabs.map((f) => (

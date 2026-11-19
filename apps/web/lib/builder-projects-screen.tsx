@@ -34,6 +34,13 @@ export async function ProjectsScreen({
   const appsOn = flagEnabled(g.s.me.featureFlags, APP_BUILDER_FLAG);
   const mobileOn = flagEnabled(g.s.me.featureFlags, MOBILE_FLAG);
   const filter: ProjectFilter = fixed ?? filterOf(one(sp.type));
+  // the Mobile apps entry (`?type=mobile`) opens the start screen with the Mobile tile selected, the web-app entry with the web-app tile
+  const startType =
+    fixed === 'webapp' && appsOn
+      ? 'webapp'
+      : filter === 'mobile' && mobileOn
+        ? 'mobile'
+        : 'website';
   const canCreate = g.s.can('builder:write');
   const canRun = canCreate && g.s.can('ai:write');
   const body = await builderView(
@@ -56,12 +63,21 @@ export async function ProjectsScreen({
       const items = applyFilter(page.items, filter);
       const list = (
         <>
-          {!fixed && <ProjectFilterTabs locale={locale} current={filter} appsEnabled={appsOn} />}
+          {!fixed && (
+            <ProjectFilterTabs
+              locale={locale}
+              current={filter}
+              appsEnabled={appsOn}
+              mobileEnabled={mobileOn}
+            />
+          )}
           <ProjectCards
             locale={locale}
             items={items}
             nextCursor={page.nextCursor}
             canCreate={canCreate}
+            canDelete={canCreate}
+            mfaFactorId={g.s.me.mfaFactorId ?? null}
             filtered={filter !== 'all'}
           />
         </>
@@ -75,7 +91,8 @@ export async function ProjectsScreen({
           canRun={canRun}
           appsEnabled={appsOn}
           mobileEnabled={mobileOn}
-          initialType={fixed === 'webapp' && appsOn ? 'webapp' : 'website'}
+          key={startType}
+          initialType={startType}
           projects={list}
           projectCount={page.items.length}
           initialTab={browsing || page.items.length > 0 ? 'projects' : 'examples'}

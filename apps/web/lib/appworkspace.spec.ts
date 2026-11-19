@@ -32,10 +32,11 @@ const ev = (seq: number, type: string, data: Record<string, unknown> = {}): RunE
 });
 
 describe('project filter', () => {
-  it('knows website, webapp and all; anything else is all', () => {
+  it('knows website, webapp, mobile and all; anything else is all', () => {
     expect(filterOf('webapp')).toBe('webapp');
     expect(filterOf('website')).toBe('website');
-    expect(filterOf('mobile')).toBe('all');
+    expect(filterOf('mobile')).toBe('mobile');
+    expect(filterOf('flutter')).toBe('all');
     expect(filterOf(undefined)).toBe('all');
   });
   it('filters by type', () => {

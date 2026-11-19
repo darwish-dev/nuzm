@@ -82,6 +82,9 @@ const post = (who: string, url: string, body: object, org = A(), key?: string) =
 const buildSvc = () => e.app.get(BuildService, { strict: false });
 const bytes = () => e.app.get(ArtifactBytesPort, { strict: false }) as MemoryArtifactBytes;
 
+type BadSpec = { screens: { id: string }[]; navigation: { initial: string; tabs: string[] } };
+/** scripted design answers a test queues up (the first one is returned first); empty = the good `spec` */
+const designAnswers: unknown[] = [];
 beforeAll(async () => {
   process.env.MOBILE_BUILD_RUNNER = 'mock';
   process.env.MOBILE_KICK = 'off';
@@ -92,7 +95,12 @@ beforeAll(async () => {
       id: 'mock-model',
       handler: (req) =>
         JSON.stringify({
-          result: (req as unknown as { task: string }).task === 'mobile_design' ? spec : {},
+          result:
+            (req as unknown as { task: string }).task === 'mobile_design'
+              ? designAnswers.length
+                ? designAnswers.shift()
+                : spec
+              : {},
         }),
     }),
   });
@@ -122,6 +130,45 @@ describe('feature flag mobile_builder.enabled (default OFF)', () => {
 });
 
 describe('S48: mobile projects and `kind=mobile` runs', () => {
+  it('a design that breaks a semantic rule is sent back to the model with the exact problems, and a corrected design goes on to approval', async () => {
+    const p = await mkProject('Repaired Design');
+    // a typical model slip: a screen called `login` (reserved: the app renders its own) and a tab that points at no screen
+    const bad = JSON.parse(JSON.stringify(spec)) as BadSpec;
+    bad.screens[0]!.id = 'login';
+    bad.navigation.initial = 'login';
+    bad.navigation.tabs = ['login', 'nowhere'];
+    designAnswers.push(bad);
+    const run = j(
+      await e.call('alice', 'POST', '/v1/ai/runs', {
+        sessionId: await session('Repaired Design'),
+        kind: 'mobile',
+        projectId: p.id,
+        input: { description: 'تطبيق حجز مواعيد صالون' },
+      }),
+    );
+    const w = await drive(run.id as string);
+    expect(w.state, JSON.stringify(w.error)).toBe('waiting_approval');
+    expect(designAnswers).toHaveLength(0); // the bad answer was consumed, the repair got the good spec
+  });
+  it('a design that stays invalid after two corrections fails the run and says which rules were broken', async () => {
+    const p = await mkProject('Hopeless Design');
+    const bad = JSON.parse(JSON.stringify(spec)) as BadSpec;
+    bad.navigation.tabs = ['nowhere'];
+    designAnswers.push(bad, bad, bad);
+    const run = j(
+      await e.call('alice', 'POST', '/v1/ai/runs', {
+        sessionId: await session('Hopeless Design'),
+        kind: 'mobile',
+        projectId: p.id,
+        input: { description: 'تطبيق حجز مواعيد صالون' },
+      }),
+    );
+    const done = await drive(run.id as string);
+    expect(done.state).toBe('failed');
+    expect(done.error).toMatchObject({ code: 'validation_failed' });
+    expect(JSON.stringify(done.error)).toContain('navigation tab nowhere is not a screen');
+    expect(designAnswers).toHaveLength(0);
+  });
   it('creates a mobile project: type mobile, empty manifest, website-only operations refused, preview refused honestly', async () => {
     const p = await mkProject('Plain Mobile');
     expect(p.type).toBe('mobile');

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@nuzm/i18n';
 import type { ProjectDetail, SiteModel } from '../lib/builder';
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 import { Workspace } from './BuilderWorkspace';
 
 const json = (status: number, body: unknown) =>

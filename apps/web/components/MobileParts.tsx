@@ -4,47 +4,6 @@ import { Banner, Ltr } from '@nuzm/ui';
 import type { BuilderProblem } from '../lib/builder';
 import { mobileProblemKey, missingLabel } from '../lib/mobile';
 
-/** Section links of one mobile project (UI-M10-13..17). The signing tab is listed only for a member who holds `mobile:signing`. */
-export function MobileTabs({
-  locale,
-  projectId,
-  current,
-  can,
-}: {
-  locale: Locale;
-  projectId: string;
-  current: 'preview' | 'builds' | 'signing' | 'releases';
-  can: (permission: string) => boolean;
-}) {
-  const base = `/${locale}/mobile/${projectId}`;
-  const tabs = [
-    { key: 'preview', href: `${base}/preview`, perm: 'builder:read' },
-    { key: 'builds', href: `${base}/builds`, perm: 'mobile:build' },
-    { key: 'signing', href: `${base}/signing`, perm: 'mobile:signing' },
-    { key: 'releases', href: `${base}/releases`, perm: 'mobile:release' },
-  ] as const;
-  return (
-    <nav aria-label={t(locale, 'mobile.tab.label')} className="nz-row">
-      <a className="nz-btn" data-variant="secondary" href={`/${locale}/mobile/new`}>
-        {t(locale, 'mobile.back')}
-      </a>
-      {tabs
-        .filter((x) => can(x.perm))
-        .map((x) => (
-          <a
-            key={x.key}
-            className="nz-btn"
-            data-variant={x.key === current ? 'primary' : 'secondary'}
-            href={x.href}
-            aria-current={x.key === current ? 'page' : undefined}
-          >
-            {t(locale, `mobile.tab.${x.key}`)}
-          </a>
-        ))}
-    </nav>
-  );
-}
-
 /** A failed call as a localized message (by code, never the raw server text), the checklist items it names, and the trace id for support. */
 export function MobileProblem({
   locale,

@@ -1,3 +1,4 @@
+import { ServiceBanner } from '../../../../../components/ServiceBanner';
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t, tDynamic } from '@nuzm/i18n';
@@ -116,6 +117,7 @@ export default async function Sites({ params }: { params: Promise<{ locale: stri
           </ButtonLink>
         )}
       </div>
+      <ServiceBanner locale={locale} service="hosting" canCreate={s.can("hosting:site:create")} />
       {body}
     </>
   );

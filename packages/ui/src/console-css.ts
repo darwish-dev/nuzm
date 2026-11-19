@@ -664,4 +664,27 @@ a.nzc-stat:hover { border-color: color-mix(in srgb, var(--nzc-accent) 45%, var(-
 .nzc .nzc-pex .nzc-icon { color: var(--nzc-accent); }
 .nzc-yp-head { margin-block: 8px 12px; font-size: 18px; font-weight: 650; }
 @media (max-width: 640px) { .nzc-prompt-foot { flex-wrap: wrap; } }
+
+/* Branded dimensional service panels: teal surfaces, mint highlights. */
+.nzc-service-banner { display:grid; grid-template-columns: 1.3fr 1fr; align-items:center; gap:28px; overflow:hidden; padding:36px; margin-block:20px 28px; border-radius:24px; color:#f2fff9; background:radial-gradient(ellipse at 90% 20%, #428f80 0%, transparent 55%), linear-gradient(120deg,#103e38,#21685c); }
+.nzc-service-copy { position:relative; z-index:1; max-inline-size:560px; }
+.nzc-service-copy h2 { font-size:clamp(25px,3vw,36px); line-height:1.2; letter-spacing:-.025em; margin:0 0 16px; }
+.nzc-service-copy p { color:#d0e9e0; line-height:1.75; margin:0 0 24px; }
+.nzc-service-banner .nz-btn { background:#c5ebd6; color:#123e35; border-color:#c5ebd6; box-shadow:0 6px 20px #082e3433; }
+.nzc-service-art { position:relative; block-size:240px; inline-size:100%; max-inline-size:360px; justify-self:center; perspective:700px; }
+.nzc-service-orbit { position:absolute; inset:0; border:1px solid #b5efd84d; border-radius:50%; transform:rotate(-25deg) scaleY(.8); }
+.nzc-service-tile { position:absolute; inset:30px 65px; display:grid; place-items:center; border-radius:32px; color:#164f43; background:linear-gradient(140deg,#e2ffec,#83c9b4); border:1px solid #edfff0; transform:rotate(-9deg) rotateY(-16deg); box-shadow:14px 20px 0 #062e3440,0 26px 45px #062e3455,inset 0 2px 2px #ffffff; }
+.nzc-service-layer { position:absolute; display:flex; gap:10px; align-items:center; padding:18px; border:1px solid #d6f9e9; border-radius:16px; background:#e4f9ee; color:#246b5c; box-shadow:0 16px 30px #062e3440; }
+.nzc-service-layer span { inline-size:32px; block-size:6px; background:#74ad9e; border-radius:4px; }
+.nzc-service-layer--back { inset-block-start:6px; inset-inline-end:0; transform:rotate(7deg); }
+.nzc-service-layer--front { inset-block-end:12px; inset-inline-start:12px; transform:rotate(-5deg); }
+.nzc-service-art--compute .nzc-service-tile { transform:rotate(8deg) rotateY(-18deg); border-radius:24px; }
+.nzc .nzc-plans label.nzc-plan { padding:24px; gap:14px; border-radius:20px; border-block-start:4px solid color-mix(in srgb,var(--nzc-accent) 45%,var(--nzc-border)); }
+.nzc .nzc-plans label.nzc-plan:has(input:checked) { border-color:var(--nzc-accent); box-shadow:0 8px 28px color-mix(in srgb,var(--nzc-accent) 16%,transparent); }
+.nzc-plan-name { font-size:20px; }
+.nzc-plan-price { font-size:24px; }
+@media(max-width:640px) { .nzc-service-banner { grid-template-columns:1fr; padding:24px; gap:14px; } .nzc-service-art { block-size:190px; max-inline-size:280px; } }
+
+.nzc-dsearch { background:radial-gradient(ellipse at 50% 115%,color-mix(in srgb,var(--nzc-accent) 35%,transparent),transparent 65%),var(--nzc-card); border-radius:24px; }
+.nzc .nzc-tlds label.nzc-tld { background:var(--nzc-card); border-block-start:3px solid var(--nzc-accent); box-shadow:0 8px 22px color-mix(in srgb,var(--nzc-accent) 8%,transparent); }
 `;

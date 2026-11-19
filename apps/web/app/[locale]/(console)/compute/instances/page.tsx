@@ -1,3 +1,4 @@
+import { ServiceBanner } from '../../../../../components/ServiceBanner';
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { EmptyState, ForbiddenState, PageTitle } from '@nuzm/ui';
@@ -55,6 +56,7 @@ export default async function Instances({
     <>
       {title}
       <ComputeTabs locale={locale} current="instances" can={s.can} />
+      <ServiceBanner locale={locale} service="compute" canCreate={s.can("compute:instance:create")} />
       {body}
     </>
   );

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Banner, Button, Field } from '@nuzm/ui';
+import { Banner, Icon } from '@nuzm/ui';
 import type { Message, Page_, Run, Session } from '../lib/builder';
 import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
 import { ProblemNote, when } from './BuilderBits';
@@ -112,12 +112,12 @@ export function Chat({
   }
 
   return (
-    <div>
-      <h2 className="nz-h2">{t(locale, 'bld.chat.title')}</h2>
+    <div className="bld-chat">
+      <h2 className="bld-chat-title">{t(locale, 'bld.chat.title')}</h2>
       {messages.length === 0 ? (
-        <p className="nz-muted">{t(locale, 'bld.chat.empty')}</p>
+        <p className="nz-muted bld-chat-empty">{t(locale, 'bld.chat.empty')}</p>
       ) : (
-        <div role="log" aria-label={t(locale, 'bld.chat.log')} ref={log}>
+        <div role="log" aria-label={t(locale, 'bld.chat.log')} ref={log} className="bld-chat-log">
           <ol className="bld-list">
             {messages.map((m) => (
               <li key={m.id} className="bld-msg" data-role={m.role}>
@@ -134,29 +134,41 @@ export function Chat({
         </div>
       )}
       {canWrite ? (
-        <form onSubmit={(e) => void send(e)}>
-          <Field
-            id="bld-chat-input"
-            label={t(locale, 'bld.chat.input')}
-            help={t(locale, 'bld.chat.help')}
-          >
-            {(x) => (
-              <textarea
-                {...x}
-                className="nz-input"
-                rows={3}
-                maxLength={2000}
-                style={{ paddingBlock: 'var(--nuzm-space-2)' }}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-            )}
-          </Field>
+        <form className="bld-composer" onSubmit={(e) => void send(e)}>
           {activeRun && <Banner tone="warn">{t(locale, 'bld.chat.runActive')}</Banner>}
           {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
-          <Button type="submit" disabled={call.busy || activeRun || text.trim() === ''}>
-            {t(locale, 'bld.chat.send')}
-          </Button>
+          <div className="bld-composer-box">
+            <label className="nz-sr" htmlFor="bld-chat-input">
+              {t(locale, 'bld.chat.input')}
+            </label>
+            <textarea
+              id="bld-chat-input"
+              className="bld-composer-input"
+              dir="auto"
+              rows={3}
+              maxLength={2000}
+              placeholder={t(locale, 'bld.chat.placeholder')}
+              aria-describedby="bld-chat-help"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send(e as never);
+              }}
+            />
+            <div className="bld-composer-foot">
+              <span className="bld-composer-help" id="bld-chat-help">
+                {t(locale, 'bld.chat.help')}
+              </span>
+              <button
+                type="submit"
+                className="bld-send"
+                disabled={call.busy || activeRun || text.trim() === ''}
+                aria-label={t(locale, 'bld.chat.send')}
+              >
+                <Icon name="send" size={18} />
+              </button>
+            </div>
+          </div>
         </form>
       ) : (
         <Banner tone="warn">{t(locale, 'bld.readonly')}</Banner>

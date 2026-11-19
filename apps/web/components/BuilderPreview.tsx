@@ -28,17 +28,32 @@ export function PreviewPane({
   versionId,
   siteLocales,
   canWrite,
+  viewport: viewportProp,
+  onViewport,
+  siteLocale: siteLocaleProp,
+  onSiteLocale,
+  bare = false,
 }: {
   locale: Locale;
   projectId: string;
   versionId: string;
   siteLocales: SiteLocale[];
   canWrite: boolean;
+  /** controlled device and site language: the workspace's top bar owns them (and then `bare` hides this pane's own toolbar) */
+  viewport?: Viewport;
+  onViewport?: (v: Viewport) => void;
+  siteLocale?: SiteLocale;
+  onSiteLocale?: (l: SiteLocale) => void;
+  bare?: boolean;
 }) {
   const call = useBuilderCall();
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [viewport, setViewport] = useState<Viewport>('desktop');
-  const [siteLocale, setSiteLocale] = useState<SiteLocale>(siteLocales[0] ?? 'ar');
+  const [viewportState, setViewportState] = useState<Viewport>('desktop');
+  const [siteLocaleState, setSiteLocaleState] = useState<SiteLocale>(siteLocales[0] ?? 'ar');
+  const viewport = viewportProp ?? viewportState;
+  const siteLocale = siteLocaleProp ?? siteLocaleState;
+  const setViewport = (v: Viewport) => (onViewport ? onViewport(v) : setViewportState(v));
+  const setSiteLocale = (l: SiteLocale) => (onSiteLocale ? onSiteLocale(l) : setSiteLocaleState(l));
   const [expired, setExpired] = useState(false);
   const runRef = useRef(call.run);
   runRef.current = call.run;
@@ -81,8 +96,13 @@ export function PreviewPane({
   const src =
     preview && isPreviewUrl(preview.url) ? previewForLocale(preview.url, siteLocale) : null;
   return (
-    <div>
-      <div className="nz-row" role="toolbar" aria-label={t(locale, 'bld.preview.toolbar')}>
+    <div className={bare ? 'bld-preview-bare' : undefined}>
+      <div
+        className="nz-row"
+        role="toolbar"
+        aria-label={t(locale, 'bld.preview.toolbar')}
+        hidden={bare}
+      >
         {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => (
           <Button
             key={v}
@@ -127,6 +147,7 @@ export function PreviewPane({
             src={src}
             sandbox="allow-scripts"
             referrerPolicy="no-referrer"
+            data-viewport={viewport}
             style={{ inlineSize: VIEWPORTS[viewport] }}
           />
         ) : (

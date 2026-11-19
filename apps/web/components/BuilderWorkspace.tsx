@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useRef, useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Banner, Button } from '@nuzm/ui';
+import { Banner, Icon, type IconName } from '@nuzm/ui';
 import {
   emptyHistory,
   finishRedo,
@@ -21,6 +21,8 @@ import {
   type Run,
   type Session,
   type SiteLocale,
+  type Viewport,
+  VIEWPORTS,
 } from '../lib/builder';
 import { bapi, useBuilderCall } from '../lib/builder-client';
 import { Chat } from './BuilderChat';
@@ -45,6 +47,7 @@ export function Workspace({
   initialRun,
   canWrite,
   canAi,
+  links = [],
 }: {
   locale: Locale;
   initial: ProjectDetail;
@@ -53,6 +56,8 @@ export function Workspace({
   initialRun: Run | null;
   canWrite: boolean;
   canAi: boolean;
+  /** the project's other screens (versions, SEO, forms, CMS, deployments) the person may open: shown under "More"; `publish` is the deployments link */
+  links?: { key: string; href: string; label: string }[];
 }) {
   const call = useBuilderCall();
   const [detail, setDetail] = useState(initial);
@@ -67,6 +72,11 @@ export function Workspace({
     mode: Mode;
   } | null>(null);
   const [view, setView] = useState<'preview' | 'code'>('preview');
+  const [viewport, setViewport] = useState<Viewport>('desktop');
+  const [siteLocale, setSiteLocale] = useState<SiteLocale>(
+    (initial.siteModel.locales[0] as SiteLocale | undefined) ?? 'ar',
+  );
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [runId, setRunId] = useState<string | null>(initialRun?.id ?? null);
   const [runActive, setRunActive] = useState(initialRun ? isRunActive(initialRun.state) : false);
   const [chatKey, setChatKey] = useState(0);
@@ -158,13 +168,131 @@ export function Workspace({
   );
 
   const model = detail.siteModel;
+  const siteLocales = model.locales as SiteLocale[];
+  const DEVICES: { id: Viewport; icon: IconName }[] = [
+    { id: 'desktop', icon: 'desktop' },
+    { id: 'tablet', icon: 'tablet' },
+    { id: 'mobile', icon: 'phone' },
+  ];
+  const publish = links.find((l) => l.key === 'deployments');
+  const more = links.filter((l) => l.key !== 'deployments');
   return (
-    <>
-      <h2 className="nz-h2">
-        <bdi dir="auto">{detail.name}</bdi>
-      </h2>
-      <div className="bld-ws">
-        <section aria-label={t(locale, 'bld.ws.chat')}>
+    <div className="bws" data-inspector={inspectorOpen ? 'open' : 'closed'}>
+      <header className="bws-top">
+        <a className="bws-back" href={`/${locale}/builder/projects`}>
+          {t(locale, 'bld.ws.back')}
+        </a>
+        <h2 className="bws-title">
+          <bdi dir="auto">{detail.name}</bdi>
+        </h2>
+        <span className="bws-chip">{t(locale, 'bld.ws.version', { seq: detail.versionSeq })}</span>
+        <span className="bws-state" role="status">
+          {call.busy ? t(locale, 'bld.ws.saving') : t(locale, 'bld.ws.saved')}
+        </span>
+        <div className="bws-seg" role="group" aria-label={t(locale, 'bld.ws.view')}>
+          <button
+            type="button"
+            aria-pressed={view === 'preview'}
+            onClick={() => setView('preview')}
+          >
+            <Icon name="eye" size={16} />
+            {t(locale, 'bld.ws.preview')}
+          </button>
+          <button type="button" aria-pressed={view === 'code'} onClick={() => setView('code')}>
+            <Icon name="code" size={16} />
+            {t(locale, 'bld.ws.code')}
+          </button>
+        </div>
+        <span className="bws-spacer" />
+        {view === 'preview' && (
+          <div
+            className="bws-seg bws-seg-icons"
+            role="group"
+            aria-label={t(locale, 'bld.ws.device')}
+          >
+            {DEVICES.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                aria-pressed={viewport === d.id}
+                aria-label={t(locale, `bld.preview.${d.id}`, { width: VIEWPORTS[d.id] })}
+                title={t(locale, `bld.preview.${d.id}`, { width: VIEWPORTS[d.id] })}
+                onClick={() => setViewport(d.id)}
+              >
+                <Icon name={d.icon} size={17} />
+              </button>
+            ))}
+          </div>
+        )}
+        {view === 'preview' && siteLocales.length > 1 && (
+          <div className="bws-seg" role="group" aria-label={t(locale, 'bld.ws.lang')}>
+            {siteLocales.map((l) => (
+              <button
+                key={l}
+                type="button"
+                aria-pressed={siteLocale === l}
+                onClick={() => setSiteLocale(l)}
+              >
+                {t(locale, `bld.lang.${l}`)}
+              </button>
+            ))}
+          </div>
+        )}
+        {canWrite && (
+          <div className="bws-seg bws-seg-icons">
+            <button
+              type="button"
+              disabled={call.busy || nextUndo(history) === null}
+              aria-label={t(locale, 'bld.ws.undo')}
+              title={t(locale, 'bld.ws.undo')}
+              onClick={undo}
+            >
+              <Icon name="undo" size={17} />
+            </button>
+            <button
+              type="button"
+              disabled={call.busy || nextRedo(history) === null}
+              aria-label={t(locale, 'bld.ws.redo')}
+              title={t(locale, 'bld.ws.redo')}
+              onClick={redo}
+            >
+              <Icon name="redo" size={17} />
+            </button>
+          </div>
+        )}
+        <button
+          type="button"
+          className="bws-icon-btn"
+          aria-pressed={inspectorOpen}
+          aria-label={t(locale, inspectorOpen ? 'bld.ws.hideProps' : 'bld.ws.showProps')}
+          title={t(locale, inspectorOpen ? 'bld.ws.hideProps' : 'bld.ws.showProps')}
+          onClick={() => setInspectorOpen((o) => !o)}
+        >
+          <Icon name="panel" size={18} />
+        </button>
+        {more.length > 0 && (
+          <details className="bws-more">
+            <summary aria-label={t(locale, 'bld.ws.more')} title={t(locale, 'bld.ws.more')}>
+              <Icon name="more" size={18} />
+            </summary>
+            <ul>
+              {more.map((l) => (
+                <li key={l.key}>
+                  <a href={l.href}>{l.label}</a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {publish && (
+          <a className="bws-publish" href={publish.href}>
+            {t(locale, 'bld.ws.publish')}
+          </a>
+        )}
+      </header>
+
+      <div className="bws-body">
+        <section className="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
           <Chat
             locale={locale}
             projectId={detail.id}
@@ -179,49 +307,41 @@ export function Workspace({
               setRunActive(true);
             }}
           />
-          <h2 className="nz-h2">{t(locale, 'bld.run.title')}</h2>
-          {runId ? (
-            <RunPanel locale={locale} runId={runId} canWrite={canAi} onRun={onRun} compact />
-          ) : (
-            <p className="nz-muted">{t(locale, 'bld.run.none')}</p>
-          )}
+          <details className="bws-run" open={runActive || undefined}>
+            <summary>{t(locale, 'bld.run.title')}</summary>
+            {runId ? (
+              <RunPanel locale={locale} runId={runId} canWrite={canAi} onRun={onRun} compact />
+            ) : (
+              <p className="nz-muted">{t(locale, 'bld.run.none')}</p>
+            )}
+          </details>
         </section>
 
-        <section aria-label={t(locale, 'bld.ws.canvas')}>
-          <div className="nz-row" role="group" aria-label={t(locale, 'bld.ws.view')}>
-            <Button
-              variant={view === 'preview' ? 'primary' : 'secondary'}
-              aria-pressed={view === 'preview'}
-              onClick={() => setView('preview')}
-            >
-              {t(locale, 'bld.ws.preview')}
-            </Button>
-            <Button
-              variant={view === 'code' ? 'primary' : 'secondary'}
-              aria-pressed={view === 'code'}
-              onClick={() => setView('code')}
-            >
-              {t(locale, 'bld.ws.code')}
-            </Button>
-            <span className="nz-muted">
-              {t(locale, 'bld.ws.version', { seq: detail.versionSeq })}
-            </span>
-          </div>
+        <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {reloadError && <Banner tone="danger">{t(locale, 'bld.ws.reloadFailed')}</Banner>}
           {view === 'preview' ? (
             <PreviewPane
+              bare
               locale={locale}
               projectId={detail.id}
               versionId={detail.versionId}
-              siteLocales={model.locales as SiteLocale[]}
+              siteLocales={siteLocales}
               canWrite={canWrite}
+              viewport={viewport}
+              onViewport={setViewport}
+              siteLocale={siteLocale}
+              onSiteLocale={setSiteLocale}
             />
           ) : (
             <CodePane locale={locale} projectId={detail.id} versionId={detail.versionId} />
           )}
         </section>
 
-        <section aria-label={t(locale, 'bld.ws.inspector')}>
+        <aside
+          className="bws-insp"
+          aria-label={t(locale, 'bld.ws.inspector')}
+          hidden={!inspectorOpen}
+        >
           <Inspector
             locale={locale}
             model={model}
@@ -241,8 +361,8 @@ export function Workspace({
             onReload={() => void reloadDiscard()}
             onRebase={() => void rebase()}
           />
-        </section>
+        </aside>
       </div>
-    </>
+    </div>
   );
 }

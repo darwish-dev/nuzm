@@ -39,6 +39,8 @@ export interface NavCategory<L extends string = string, C extends string = strin
   menu?: boolean;
   /** Its pages link to each other themselves (buttons, back links), so they show no section tabs. */
   noTabs?: boolean;
+  /** Not drawn on the rail (reached from elsewhere, e.g. a top-bar link); its pages still show their section tabs. */
+  noRail?: boolean;
 }
 
 export interface NavContext {
@@ -74,6 +76,7 @@ export interface ResolvedCategory<L extends string = string, C extends string = 
   groups: ResolvedGroup<L>[];
   menu?: boolean;
   noTabs?: boolean;
+  noRail?: boolean;
 }
 
 function visible<L extends string>(i: NavItem<L>, c: NavContext): boolean {
@@ -134,6 +137,7 @@ export function buildNavFrom<L extends string, C extends string>(
       groups,
       ...(cat.menu ? { menu: true } : {}),
       ...(cat.noTabs ? { noTabs: true } : {}),
+      ...(cat.noRail ? { noRail: true } : {}),
     });
   }
   return out;

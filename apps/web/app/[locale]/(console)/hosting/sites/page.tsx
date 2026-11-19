@@ -11,6 +11,7 @@ import {
   PageTitle,
   Table,
 } from '@nuzm/ui';
+import { StartHero } from '../../../../../components/StartHero';
 import { requireSession } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
 
@@ -105,17 +106,26 @@ export default async function Sites({ params }: { params: Promise<{ locale: stri
   );
   return (
     <>
-      <div className="nzc-pagehead">
-        <div>
-          <h1>{t(locale, 'host.title.sites')}</h1>
-        </div>
-        {s.can('hosting:site:create') && (
+      <PageTitle>{t(locale, 'host.title.sites')}</PageTitle>
+      {s.can('hosting:site:create') && (
+        <StartHero
+          id="host-hero"
+          art="hosting"
+          title={t(locale, 'host.hero.title')}
+          body={t(locale, 'host.hero.body')}
+        >
+          {s.can('hosting:plan:read') && (
+            <ButtonLink variant="secondary" href={`/${locale}/hosting/plans`}>
+              <Icon name="tag" size={18} />
+              {t(locale, 'host.hero.new')}
+            </ButtonLink>
+          )}
           <ButtonLink href={`/${locale}/hosting/sites/new`}>
             <Icon name="plus" size={18} />
-            {t(locale, 'host.add')}
+            {t(locale, 'host.hero.addSite')}
           </ButtonLink>
-        )}
-      </div>
+        </StartHero>
+      )}
       {body}
     </>
   );

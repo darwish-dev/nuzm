@@ -1,3 +1,4 @@
+import { StartHero } from '../../../../components/StartHero';
 import { unwrap } from '@nuzm/sdk';
 import { t, tDynamic } from '@nuzm/i18n';
 import { Badge, ButtonLink, EmptyState, PageTitle, Table } from '@nuzm/ui';
@@ -80,12 +81,16 @@ export default async function Databases({ params }: { params: Promise<{ locale: 
   return (
     <>
       <PageTitle>{t(locale, 'm8.db.title')}</PageTitle>
-      <p className="nz-muted">{t(locale, 'm8.db.help')}</p>
-      {s.can('data:db:write') && (
-        <p>
+      <StartHero
+        id="database-hero"
+        art="database"
+        title={locale === 'ar' ? 'مساحة موثوقة لبيانات تطبيقك' : 'A home for your application data'}
+        body={t(locale, 'm8.db.help')}
+      >
+        {s.can('data:db:write') && (
           <ButtonLink href={`/${locale}/databases/new`}>{t(locale, 'm8.db.new')}</ButtonLink>
-        </p>
-      )}
+        )}
+      </StartHero>
       {body}
     </>
   );

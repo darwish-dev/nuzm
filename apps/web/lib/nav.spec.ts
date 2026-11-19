@@ -23,6 +23,8 @@ describe('categories', () => {
       'dashboard',
       'projects',
       'build',
+      'automation',
+      'marketplace',
       'cloud',
       'hosting',
       'domains',
@@ -143,6 +145,17 @@ describe('current page', () => {
       ['/notifications', 'dashboard'],
       ['/projects', 'projects'],
       ['/workspaces', 'projects'],
+      ['/builder/projects', 'build'],
+      ['/builder/new', 'build'],
+      ['/ai/usage', 'build'],
+      ['/ai/budgets', 'build'],
+      ['/automation/workflows', 'automation'],
+      ['/automation/workflows/new', 'automation'],
+      ['/automation/executions/e1', 'automation'],
+      ['/automation/connectors', 'automation'],
+      ['/settings/webhooks', 'automation'],
+      ['/marketplace', 'marketplace'],
+      ['/marketplace/purchases', 'marketplace'],
       ['/compute/instances/abc/metrics', 'cloud'],
       ['/resources', 'cloud'],
       ['/hosting/sites/1/ssl', 'hosting'],
@@ -180,11 +193,50 @@ describe('current page', () => {
   });
 });
 
+describe('projects category', () => {
+  it('has no rail icon (the top-bar organization icon opens it) but keeps its Projects and Workspaces tabs', () => {
+    const c = buildNav(all()).find((x) => x.id === 'projects')!;
+    expect(c.noRail).toBe(true);
+    expect(c.noTabs).toBeUndefined();
+    expect(c.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
+      '/projects',
+      '/workspaces',
+    ]);
+  });
+});
+
+describe('build category', () => {
+  it('keeps only the AI builder, usage and credits, and budgets', () => {
+    const b = buildNav(all()).find((c) => c.id === 'build')!;
+    expect(b.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
+      '/builder/projects',
+      '/ai/usage',
+      '/ai/budgets',
+    ]);
+    // full-screen start page: no section tab bar (usage and budgets link to each other on their own pages)
+    expect(b.noTabs).toBe(true);
+  });
+});
+
+describe('automation category', () => {
+  it('is one rail section whose tabs are workflows, connectors and webhooks', () => {
+    const a = buildNav(all()).find((c) => c.id === 'automation')!;
+    expect(a.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
+      '/automation/workflows',
+      '/automation/connectors',
+      '/settings/webhooks',
+    ]);
+    expect(a.noTabs).toBeUndefined();
+    expect(currentItemId(a, '/automation/executions/e1')).toBe('workflows');
+    expect(currentItemId(a, '/settings/webhooks')).toBe('webhooks');
+  });
+});
+
 describe('M11 entries', () => {
   const hrefs = (ctx: NavContext) =>
     buildNav(ctx)
-      .find((c) => c.id === 'build')!
-      .groups.flatMap((g) => g.items.map((i) => i.href));
+      .filter((c) => ['automation', 'marketplace'].includes(c.id))
+      .flatMap((c) => c.groups.flatMap((g) => g.items.map((i) => i.href)));
   it('automation and marketplace entries are hidden while their flags are off', () => {
     const h = hrefs(all({ flag: (k) => k === 'ai.enabled' }));
     expect(h.some((x) => x?.startsWith('/automation') || x === '/marketplace')).toBe(false);

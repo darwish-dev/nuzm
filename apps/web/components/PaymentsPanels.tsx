@@ -148,7 +148,13 @@ export function MethodsTable(p: {
 
 // ---- UI-M03-02: add a payment method (the sandbox PSP's "hosted fields") ----------------------------------------------------
 
-export function AddMethodForm(p: { locale: Locale; sandbox: boolean; mfaFactorId: string | null }) {
+export function AddMethodForm(p: {
+  locale: Locale;
+  sandbox: boolean;
+  mfaFactorId: string | null;
+  /** Where to go once the card is saved (a path on this site); the payments page by default. */
+  next?: string;
+}) {
   const router = useRouter();
   const a = useAction(p.locale, p.mfaFactorId);
   const [kind, setKind] = useState<SandboxCard>('success');
@@ -164,7 +170,7 @@ export function AddMethodForm(p: { locale: Locale; sandbox: boolean; mfaFactorId
         }),
       () => {
         a.setNotice({ tone: 'ok', text: t(p.locale, 'pay.add.saved') });
-        router.push(`/${p.locale}/billing/payments#methods`);
+        router.push(p.next ?? `/${p.locale}/billing/payments#methods`);
         router.refresh();
       },
       { 409: t(p.locale, 'pay.add.duplicate'), 422: t(p.locale, 'pay.add.refused') },

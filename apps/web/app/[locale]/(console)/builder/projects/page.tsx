@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
-import { PageTitle } from '@nuzm/ui';
 import { BuilderStart } from '../../../../../components/BuilderStart';
 import { ProjectCards } from '../../../../../components/BuilderProjects';
 import { one, unwrapCall } from '../../../../../lib/compute';
@@ -43,9 +42,13 @@ export default async function Projects({
     },
     ({ page, wallet }) => (
       <>
-        {canCreate && <BuilderStart locale={locale} credits={wallet} canRun={canRun} />}
+        {canCreate && (
+          <div className="nzc-start-full">
+            <BuilderStart locale={locale} credits={wallet} canRun={canRun} />
+          </div>
+        )}
         {page.items.length > 0 && (
-          <>
+          <div className="nzc-start-projects">
             <h2 className="nzc-yp-head">{t(locale, 'bld.start.yourProjects')}</h2>
             <ProjectCards
               locale={locale}
@@ -53,7 +56,7 @@ export default async function Projects({
               nextCursor={page.nextCursor}
               canCreate={canCreate}
             />
-          </>
+          </div>
         )}
         {page.items.length === 0 && !canCreate && (
           <ProjectCards locale={locale} items={[]} nextCursor={null} canCreate={false} />
@@ -63,7 +66,8 @@ export default async function Projects({
   );
   return (
     <>
-      <PageTitle>{t(locale, 'bld.start.title')}</PageTitle>
+      {/* full screen: the heading stays for screen readers and the page title, but is not drawn */}
+      <h1 className="nz-sr">{t(locale, 'bld.start.title')}</h1>
       {body}
     </>
   );

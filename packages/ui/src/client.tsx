@@ -7,6 +7,55 @@ import { Icon, type IconName } from './icons';
 
 /** Client-side widgets. They receive strings and callbacks, never fetch on their own. */
 
+/**
+ * A whole number that counts up from 0 when it appears (the dashboard figures). The page renders the final value, so it is right without script and
+ * for assistive technology (the animated digits are hidden from it); under "reduce motion" it never animates.
+ */
+export function CountUp({ value, ms = 800 }: { value: number; ms?: number }) {
+  const [shown, setShown] = useState(value);
+  useEffect(() => {
+    if (value <= 0 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    const t0 = performance.now();
+    setShown(0);
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / ms);
+      setShown(Math.round(value * (1 - Math.pow(1 - p, 3)))); // ease-out
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, ms]);
+  return (
+    <>
+      <span className="nz-sr">{value}</span>
+      <span aria-hidden="true">{shown}</span>
+    </>
+  );
+}
+
+/**
+ * Positions the rail's hover tooltips. The rail scrolls (so it clips anything that overflows it); its tooltips are therefore fixed-position
+ * and only need the hovered icon's vertical centre, which this sets on pointer-over and keyboard focus. Renders nothing.
+ */
+export function RailTips() {
+  useEffect(() => {
+    const place = (e: Event) => {
+      const el = (e.target as Element | null)?.closest?.<HTMLElement>('.nzc-rail-link[data-tip]');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--nzc-tip-y', `${Math.round(r.top + r.height / 2)}px`);
+    };
+    document.addEventListener('pointerover', place);
+    document.addEventListener('focusin', place);
+    return () => {
+      document.removeEventListener('pointerover', place);
+      document.removeEventListener('focusin', place);
+    };
+  }, []);
+  return null;
+}
+
 export function LocaleSwitch({
   current,
   locales,

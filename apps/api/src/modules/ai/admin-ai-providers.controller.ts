@@ -7,7 +7,8 @@ import { ModelProviderService } from './internal/provider.service';
 /**
  * `GET/POST /v1/admin/ai/model-providers` (docs/04 §2.9). One POST with an `action`: configure | attest | request_enable | enable | disable | kill_switch.
  * Nothing is seeded and D-18/HG-09-01 are OPEN: a provider cannot be enabled without a human data-terms attestation, a registered adapter and a second person.
- * The response never contains a credential: only the vault REFERENCE.
+ * `set_credential` takes an API key typed by an administrator and keeps it in the sealed secret store (dev profile only until D-12); the response never contains a
+ * credential: only the vault REFERENCE.
  */
 @RealmOnly('admin')
 @Controller('v1/admin/ai/model-providers')
@@ -35,6 +36,12 @@ export class AdminAiProvidersController {
       case 'configure':
         need('admin:ai:manage');
         return this.providers.configure(who.userId, b);
+      case 'set_credential':
+        need('admin:ai:manage');
+        return this.providers.setCredential(who.userId, id, b.apiKey);
+      case 'clear_credential':
+        need('admin:ai:manage');
+        return this.providers.clearCredential(who.userId, id);
       case 'attest':
         need('admin:ai:approve');
         return this.providers.attest(who.userId, id, b);
@@ -59,7 +66,7 @@ export class AdminAiProvidersController {
       default:
         throw new ProblemException(
           'validation_failed',
-          'action must be configure, attest, request_enable, enable, disable or kill_switch',
+          'action must be configure, set_credential, clear_credential, attest, request_enable, enable, disable or kill_switch',
         );
     }
   }

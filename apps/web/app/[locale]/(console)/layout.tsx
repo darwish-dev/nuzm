@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
-import { formatDateTime, formatMinor, isLocale, locales, t } from '@nuzm/i18n';
+import { formatDateTime, formatMinor, isLocale, locales, t, tDynamic } from '@nuzm/i18n';
 import {
   Banner,
   SectionTabs,
@@ -17,6 +17,8 @@ import { BrandMark, BrandWordmark } from '../../../components/BrandLogo';
 import { VerifyEmailPill } from '../../../components/AuthForms';
 import { ActiveOrgCookie, OrgSwitcher } from '../../../components/ConsoleChrome';
 import { ConsoleFrame, ProfileMenu } from '../../../components/ConsoleShell';
+import { FloatingCart } from '../../../components/FloatingCart';
+import { NotificationsMenu } from '../../../components/NotificationsMenu';
 import {
   buildNav,
   currentCategory,
@@ -77,18 +79,28 @@ export default async function ConsoleLayout({
   const active = currentCategory(cats, path);
   const activeCat = cats.find((c) => c.id === active) ?? cats[0]!;
 
-  // wallet (needs billing:read) and unread notifications, both optional extras of the top bar
-  const [balance, unread] = await Promise.all([
+  // wallet (needs billing:read), AI credits (needs ai:read and the AI flag) and the latest notifications: optional extras of the top bar
+  const aiOn = Boolean(s.org) && s.can('ai:read') && flagEnabled(s.me.featureFlags, 'ai.enabled');
+  const [balance, aiCredits, notifications] = await Promise.all([
     s.org && s.can('billing:read') ? safe(unwrap(s.api.GET('/v1/billing/balance', {}))) : null,
+    aiOn ? safe(unwrap(s.api.GET('/v1/ai/credits', {}))) : null,
     s.org
-      ? safe(unwrap(s.api.GET('/v1/notifications', { params: { query: { limit: 1 } } })))
+      ? safe(unwrap(s.api.GET('/v1/notifications', { params: { query: { limit: 8 } } })))
       : null,
   ]);
-  const wallet = balance?.balances[0] ?? null;
+  // an organization with no wallet movement yet has a zero balance: show the number, not a bare word
+  const wallet = balance?.balances[0] ?? { balanceMinor: '0', currency: 'SAR' };
+  const walletText = formatMinor(wallet.balanceMinor, wallet.currency, locale);
+  // credits are a whole number that can exceed 2^53: format the digit string as BigInt, with the same digits as the wallet figure
+  const aiRaw = aiCredits ? String(aiCredits.availableCredits) : null;
+  const aiText =
+    aiRaw !== null && /^-?\d+$/.test(aiRaw)
+      ? new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-US').format(BigInt(aiRaw))
+      : null;
 
   // categories reached from the account menu (the account, the organization) are not on the rail
   const railItems: RailItem[] = cats
-    .filter((c) => !c.menu)
+    .filter((c) => !c.menu && !c.noRail)
     .map((c) => ({
       id: c.id,
       href: `${base}${c.home === '/' ? '' : c.home}`,
@@ -130,105 +142,129 @@ export default async function ConsoleLayout({
       <BrandMark className="nzc-logo-mark" />
     </a>
   );
-  const unreadCount = unread?.unreadCount ?? 0;
   return (
-    <ConsoleFrame
-      labels={{
-        openMenu: t(locale, 'nc.top.menu'),
-        closeMenu: t(locale, 'nc.top.close'),
-      }}
-      brand={brand}
-      rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
-      tabs={<SectionTabs label={t(locale, 'nc.nav.side')} groups={groups} />}
-      topbar={
-        <>
-          {s.org && (
-            <OrgSwitcher
-              label={t(locale, 'field.orgSwitcher')}
-              current={s.org.orgId}
-              orgs={s.me.memberships.map((m) => ({ orgId: m.orgId, name: m.name }))}
-            />
-          )}
-          <span className="nzc-grow" />
-          {!s.me.emailVerified && !imp && <VerifyEmailPill locale={locale} />}
-          <span className="nzc-grow" />
-          {s.org && s.can('billing:read') && (
-            <a
-              className="nzc-chip"
-              href={`${base}/billing/payments#wallet`}
-              aria-label={
-                wallet
-                  ? `${t(locale, 'nc.wallet')}: ${formatMinor(wallet.balanceMinor, wallet.currency, locale)}`
-                  : t(locale, 'nc.wallet')
-              }
-            >
-              <Icon name="wallet" size={18} />
-              <span className="nzc-num" dir="ltr">
-                {wallet
-                  ? formatMinor(wallet.balanceMinor, wallet.currency, locale)
-                  : t(locale, 'nc.wallet.empty')}
-              </span>
-            </a>
-          )}
-          {s.org && (
-            <a
-              className="nzc-icon-btn"
-              href={`${base}/notifications`}
-              aria-label={
-                unreadCount > 0
-                  ? `${t(locale, 'nav.notifications')} (${unreadCount})`
-                  : t(locale, 'nav.notifications')
-              }
-              aria-current={path === '/notifications' ? 'page' : undefined}
-            >
-              <Icon name="bell" />
-              {unreadCount > 0 && (
-                <span className="nzc-dot" aria-hidden="true">
-                  {unreadCount > 99 ? '99+' : unreadCount}
+    <>
+      <ConsoleFrame
+        labels={{
+          openMenu: t(locale, 'nc.top.menu'),
+          closeMenu: t(locale, 'nc.top.close'),
+        }}
+        brand={brand}
+        rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
+        tabs={<SectionTabs label={t(locale, 'nc.nav.side')} groups={groups} />}
+        topbar={
+          <>
+            <span className="nzc-grow" />
+            {!s.me.emailVerified && !imp && <VerifyEmailPill locale={locale} />}
+            <span className="nzc-grow" />
+            {s.org && (
+              <OrgSwitcher
+                label={t(locale, 'field.orgSwitcher')}
+                current={s.org.orgId}
+                orgs={s.me.memberships.map((m) => ({ orgId: m.orgId, name: m.name }))}
+                workspacesHref={`${base}/workspaces`}
+                workspacesLabel={t(locale, 'nc.org.workspaces')}
+              />
+            )}
+            {s.org && s.can('billing:read') && (
+              <a
+                className="nzc-chip"
+                href={`${base}/billing/payments#wallet`}
+                aria-label={`${t(locale, 'nc.wallet')}: ${walletText}`}
+                title={t(locale, 'nc.wallet')}
+              >
+                <Icon name="wallet" size={18} />
+                <span className="nzc-num" dir="ltr">
+                  {walletText}
                 </span>
-              )}
-            </a>
-          )}
-          <ProfileMenu
-            initials={initialsOf(s.me.displayName, s.me.email)}
-            name={s.me.displayName ?? s.me.email}
-            email={s.me.email}
-            locale={locale}
-            languages={locales.map((l) => ({ code: l, label: l === 'ar' ? 'العربية' : 'English' }))}
-            theme={theme}
-            labels={{
-              menu: t(locale, 'nc.profile.menu'),
-              profile: t(locale, 'nc.profile.open'),
-              language: t(locale, 'nc.menu.language'),
-              darkMode: t(locale, 'nc.menu.darkMode'),
-              signOut: t(locale, 'action.signout'),
-            }}
-            profileHref={`${base}/account`}
-            links={menuLinks}
-            linksTitle={s.org ? s.org.name : undefined}
-            signedOutTo={`${base}/login`}
-          />
-        </>
-      }
-      banner={
-        <>
-          {imp && (
-            <Banner tone="danger">
-              {t(locale, 'banner.impersonating', {
-                email: s.me.email,
-                time: imp.expiresAt ? formatDateTime(imp.expiresAt, locale) : '',
-              })}
-            </Banner>
-          )}
-          {s.org?.status === 'suspended' && (
-            <Banner tone="warn">{t(locale, 'banner.suspended')}</Banner>
-          )}
-          {actingClient && <ActingBanner locale={locale} clientOrgId={actingClient} />}
-        </>
-      }
-    >
-      {s.org && <ActiveOrgCookie orgId={s.org.orgId} />}
-      {children}
-    </ConsoleFrame>
+              </a>
+            )}
+            {aiText !== null && (
+              <a
+                className="nzc-chip"
+                href={`${base}/ai/usage`}
+                aria-label={`${t(locale, 'nc.aiCredits')}: ${aiText}`}
+                title={t(locale, 'nc.aiCredits')}
+              >
+                <Icon name="sparkle" size={18} />
+                <span className="nzc-num" dir="ltr">
+                  {aiText}
+                </span>
+              </a>
+            )}
+            {s.org && notifications && (
+              <NotificationsMenu
+                viewAllHref={`${base}/notifications`}
+                unreadCount={notifications.unreadCount}
+                items={notifications.items.map((n) => ({
+                  id: n.id,
+                  text: tDynamic(
+                    locale,
+                    `notif.kind.${n.kind}`,
+                    t(locale, 'notif.kind.unknown', { kind: n.kind }),
+                    n.params as Record<string, string | number>,
+                  ),
+                  when: formatDateTime(n.createdAt, locale),
+                  read: n.readAt !== null,
+                }))}
+                labels={{
+                  menu: t(locale, 'nav.notifications'),
+                  title: t(locale, 'notifications.title'),
+                  empty: t(locale, 'state.empty.title'),
+                  read: t(locale, 'action.markRead'),
+                  unread: t(locale, 'action.markUnread'),
+                  viewAll: t(locale, 'nc.notif.viewAll'),
+                  error: t(locale, 'state.error.title'),
+                }}
+              />
+            )}
+            <ProfileMenu
+              initials={initialsOf(s.me.displayName, s.me.email)}
+              name={s.me.displayName ?? s.me.email}
+              email={s.me.email}
+              locale={locale}
+              languages={locales.map((l) => ({
+                code: l,
+                label: l === 'ar' ? 'العربية' : 'English',
+              }))}
+              theme={theme}
+              labels={{
+                menu: t(locale, 'nc.profile.menu'),
+                profile: t(locale, 'nc.profile.open'),
+                language: t(locale, 'nc.menu.language'),
+                darkMode: t(locale, 'nc.menu.darkMode'),
+                signOut: t(locale, 'action.signout'),
+              }}
+              profileHref={`${base}/account`}
+              links={menuLinks}
+              linksTitle={s.org ? s.org.name : undefined}
+              signedOutTo={`${base}/login`}
+            />
+          </>
+        }
+        banner={
+          <>
+            {imp && (
+              <Banner tone="danger">
+                {t(locale, 'banner.impersonating', {
+                  email: s.me.email,
+                  time: imp.expiresAt ? formatDateTime(imp.expiresAt, locale) : '',
+                })}
+              </Banner>
+            )}
+            {s.org?.status === 'suspended' && (
+              <Banner tone="warn">{t(locale, 'banner.suspended')}</Banner>
+            )}
+            {actingClient && <ActingBanner locale={locale} clientOrgId={actingClient} />}
+          </>
+        }
+      >
+        {s.org && <ActiveOrgCookie orgId={s.org.orgId} />}
+        {children}
+      </ConsoleFrame>
+      {s.org && s.can('hosting:site:create') && (
+        <FloatingCart locale={locale} orgId={s.org.orgId} />
+      )}
+    </>
   );
 }

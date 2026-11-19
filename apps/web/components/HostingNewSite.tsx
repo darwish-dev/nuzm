@@ -26,17 +26,22 @@ export function HostingNewSite({
   plans,
   projects,
   defaultDomain = '',
+  initialPlanId,
 }: {
   locale: Locale;
   plans: NewSitePlan[];
   projects: { id: string; name: string }[];
   /** Pre-filled when the form is opened from a domain ("create a website on this domain"). */
   defaultDomain?: string;
+  /** The plan chosen on the plans page, when it is one of `plans`. */
+  initialPlanId?: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [projectId, setProjectId] = useState(projects[0]?.id ?? '');
-  const [planId, setPlanId] = useState(plans[0]?.id ?? '');
+  const [planId, setPlanId] = useState(
+    plans.some((p) => p.id === initialPlanId) ? (initialPlanId as string) : (plans[0]?.id ?? ''),
+  );
   const plan = plans.find((p) => p.id === planId);
   const [runtime, setRuntime] = useState(plan?.runtimes[0] ?? '');
   const [domain, setDomain] = useState(defaultDomain);

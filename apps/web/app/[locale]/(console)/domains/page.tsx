@@ -14,6 +14,7 @@ import {
   Table,
 } from '@nuzm/ui';
 import { domainTone, expiringSoon } from '../../../../lib/domains';
+import { StartHero } from '../../../../components/StartHero';
 import { requireSession } from '../../../../lib/server';
 import { view } from '../../../../lib/view';
 
@@ -117,26 +118,25 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
     <>
       <PageTitle>{t(locale, 'dom.title')}</PageTitle>
       {(canBuy || canTransfer) && (
-        <section className="nzc-hero" aria-labelledby="dom-hero">
-          <div className="nzc-hero-text">
-            <h2 id="dom-hero">{t(locale, 'dom.hero.title')}</h2>
-            <p>{t(locale, 'dom.hero.body')}</p>
-          </div>
-          <div className="nzc-hero-actions">
-            {canTransfer && (
-              <ButtonLink variant="secondary" href={`/${locale}/domains/transfers#start`}>
-                <Icon name="transfer" size={18} />
-                {t(locale, 'dom.action.transfer')}
-              </ButtonLink>
-            )}
-            {canBuy && (
-              <ButtonLink href={`/${locale}/domains/search`}>
-                <Icon name="search" size={18} />
-                {t(locale, 'dom.action.buy')}
-              </ButtonLink>
-            )}
-          </div>
-        </section>
+        <StartHero
+          id="dom-hero"
+          art="domains"
+          title={t(locale, 'dom.hero.title')}
+          body={t(locale, 'dom.hero.body')}
+        >
+          {canTransfer && (
+            <ButtonLink variant="secondary" href={`/${locale}/domains/transfers#start`}>
+              <Icon name="transfer" size={18} />
+              {t(locale, 'dom.action.transfer')}
+            </ButtonLink>
+          )}
+          {canBuy && (
+            <ButtonLink href={`/${locale}/domains/search`}>
+              <Icon name="search" size={18} />
+              {t(locale, 'dom.action.buy')}
+            </ButtonLink>
+          )}
+        </StartHero>
       )}
       {body}
     </>

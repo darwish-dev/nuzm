@@ -1,3 +1,4 @@
+import { StartHero } from '../../../../../components/StartHero';
 import { unwrap } from '@nuzm/sdk';
 import { t } from '@nuzm/i18n';
 import { Badge, ButtonLink, EmptyState, Ltr, Meter, PageTitle, Table } from '@nuzm/ui';
@@ -109,12 +110,16 @@ export default async function Buckets({ params }: { params: Promise<{ locale: st
   return (
     <>
       <PageTitle>{t(locale, 'm8.st.title')}</PageTitle>
-      <p className="nz-muted">{t(locale, 'm8.st.help')}</p>
-      {s.can('data:storage:write') && (
-        <p>
+      <StartHero
+        id="storage-hero"
+        art="storage"
+        title={locale === 'ar' ? 'ملفاتك في مكان واحد' : 'Keep your files in one place'}
+        body={t(locale, 'm8.st.help')}
+      >
+        {s.can('data:storage:write') && (
           <ButtonLink href={`/${locale}/storage/buckets/new`}>{t(locale, 'm8.st.new')}</ButtonLink>
-        </p>
-      )}
+        )}
+      </StartHero>
       {body}
     </>
   );

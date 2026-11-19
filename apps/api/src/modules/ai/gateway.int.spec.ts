@@ -144,6 +144,48 @@ describe('provider enabling rules (HG-09-01, two-person)', () => {
     const l = await e.admin('padmin', 'GET', '/v1/admin/ai/model-providers');
     expect(JSON.stringify(l.json())).not.toMatch(/sk-live|secret/i);
   });
+  it('an API key typed in the console is sealed in the secret store: only the vault reference comes back, and nothing records the key', async () => {
+    const act = (body: object) => e.admin('padmin', 'POST', '/v1/admin/ai/model-providers', body);
+    const made = await act({
+      action: 'configure',
+      code: 'cred-llm',
+      adapter: 'acme',
+      displayName: 'Cred LLM',
+      region: 'sa-central',
+    });
+    expect(made.statusCode).toBe(200);
+    const id = made.json().id as string;
+    expect(made.json().vaultRef).toBeNull();
+    // a fake value shaped like a key: it must appear nowhere afterwards
+    const key = `test-only-${'x7Kq'.repeat(8)}`;
+    const set = await act({ action: 'set_credential', id, apiKey: key });
+    expect(set.statusCode).toBe(200);
+    expect(set.json().vaultRef).toMatch(/^vault:\/\/(dev|mem)\/ai-cred-llm$/); // the dev stack seals it in a file, the test harness in memory
+    expect(set.json().enabled).toBe(false); // a new credential is a configuration change: it must be enabled again
+    expect(JSON.stringify(set.json())).not.toContain(key);
+    expect(
+      JSON.stringify((await e.admin('padmin', 'GET', '/v1/admin/ai/model-providers')).json()),
+    ).not.toContain(key);
+    // a malformed key is refused without being echoed
+    for (const bad of ['short', 'has a space inside the key value here', 12345, undefined]) {
+      const r = await act({ action: 'set_credential', id, apiKey: bad });
+      expect(r.statusCode).toBe(422);
+      expect(JSON.stringify(r.json())).not.toContain('has a space');
+    }
+    // removing it clears the reference
+    const gone = await act({ action: 'clear_credential', id });
+    expect(gone.statusCode).toBe(200);
+    expect(gone.json().vaultRef).toBeNull();
+    expect(
+      (
+        await e.admin('padmin', 'POST', '/v1/admin/ai/model-providers', {
+          action: 'set_credential',
+          id: '00000000-0000-4000-8000-000000000000',
+          apiKey: key,
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
   it('is denied to org users and to platform roles without the permission', async () => {
     expect(
       (await e.call('alice', 'GET', '/v1/admin/ai/model-providers')).statusCode,

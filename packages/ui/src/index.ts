@@ -34,6 +34,7 @@ export { baseCss } from './styles';
 export * from './components';
 export { consoleCss } from './console-css';
 export { Icon, ICON_NAMES, type IconName } from './icons';
+export { Art, Monitor, type ArtName } from './art';
 export {
   PrimaryRail,
   SectionTabs,
@@ -52,6 +53,7 @@ export {
   type StepUpLabels,
   type MfaChallengeProps,
   type MfaEnrolProps,
+  CountUp,
 } from './client';
 export {
   buildNavFrom,

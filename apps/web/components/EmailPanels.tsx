@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
 import type { Schemas } from '@nuzm/sdk';
-import { Badge, Banner, Button, Field, Input, Ltr, Select, Table } from '@nuzm/ui';
+import { Art, Badge, Banner, Button, Field, Input, Ltr, Select, Table } from '@nuzm/ui';
 import { browserApi } from '../lib/client';
 import {
   MAILBOX_QUOTA_MAX,
@@ -77,10 +77,20 @@ export function AddDomainForm({
     );
   }
   return (
-    <form onSubmit={submit} noValidate className="nzc-dsearch" aria-labelledby="emd-add-h">
+    <form
+      onSubmit={submit}
+      noValidate
+      className="nzc-dsearch nzc-email-setup"
+      aria-labelledby="emd-add-h"
+    >
       <div className="nzc-dsearch-inner">
-        <h2 id="emd-add-h">{t(locale, 'm8.emd.add')}</h2>
-        <p className="nzc-dsearch-sub">{t(locale, 'm8.emd.help')}</p>
+        <header className="nzc-email-setup-head">
+          <div>
+            <h2 id="emd-add-h">{t(locale, 'm8.emd.add')}</h2>
+            <p className="nzc-dsearch-sub">{t(locale, 'm8.emd.help')}</p>
+          </div>
+          <Art name="email" />
+        </header>
         <div className="nzc-emd-bar">
           <Field
             id="emd-domain"

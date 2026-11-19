@@ -5,6 +5,7 @@ import { t, tDynamic, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, Button, Field, Input, Select } from '@nuzm/ui';
 import { errorText } from '../lib/actions';
 import { browserApi } from '../lib/client';
+import { removeFromCart } from '../lib/cart-client';
 import {
   contactBody,
   countdown,
@@ -66,9 +67,14 @@ export function CheckoutForm({
   years: y0,
   privacyAvailable,
   crossBorder,
+  orgId,
+  basketLineId,
 }: {
   locale: Locale;
   name: string;
+  /** Set when this registration finishes a basket line: the line is removed once the order is placed. */
+  orgId?: string;
+  basketLineId?: string;
   years: number;
   privacyAvailable: boolean;
   crossBorder: boolean;
@@ -159,6 +165,7 @@ export function CheckoutForm({
         state: tDynamic(locale, `dom.state.${d?.status ?? 'pending'}`, d?.status ?? 'pending'),
       }),
     });
+    if (orgId && basketLineId) removeFromCart(orgId, basketLineId);
     router.push(d ? `/${locale}/domains/${d.id}` : `/${locale}/domains`);
   }
   return (

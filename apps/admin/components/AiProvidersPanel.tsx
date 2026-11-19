@@ -281,6 +281,7 @@ function RowActions(p: {
   const [retains, setRetains] = useState('');
   const [trains, setTrains] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState('');
   const canManage = me.can('admin:ai:manage');
   const canApprove = me.can('admin:ai:approve');
   const block = enableBlock(r, me);
@@ -295,6 +296,22 @@ function RowActions(p: {
       overrides(locale),
     );
 
+  /** The key goes to the API once and is dropped from the screen at once (the field is write-only: it is never filled from the server). */
+  function saveKey(ev: FormEvent) {
+    ev.preventDefault();
+    const key = apiKey.trim();
+    if (!/^[\x21-\x7E]{20,400}$/.test(key)) return setErr(t(locale, 'aia.key.err'));
+    setErr(null);
+    void a.run(
+      () => post({ action: 'set_credential', id: r.id, apiKey: key }),
+      () => {
+        setApiKey('');
+        a.setNotice({ tone: 'ok', text: t(locale, 'aia.done.keySet') });
+        router.refresh();
+      },
+      { ...overrides(locale), 422: t(locale, 'aia.key.unavailable') },
+    );
+  }
   function attest(ev: FormEvent) {
     ev.preventDefault();
     const x = attestBody(r.id, { ref, retains, trains });
@@ -335,6 +352,47 @@ function RowActions(p: {
             </Button>
           )}
         </div>
+        {canManage && !isDevReference(r.code) && (
+          <form onSubmit={saveKey} noValidate aria-label={t(locale, 'aia.key.title')}>
+            <h3 className="nz-h3">{t(locale, 'aia.key.title')}</h3>
+            <p className="nz-muted">{t(locale, 'aia.key.help')}</p>
+            <p className="nz-muted" role="status">
+              {r.vaultRef
+                ? t(locale, 'aia.key.stored', { ref: r.vaultRef })
+                : t(locale, 'aia.key.none')}
+            </p>
+            <Field id={`key-${r.id}`} label={t(locale, 'aia.key.field')}>
+              {(x) => (
+                <Input
+                  {...x}
+                  type="password"
+                  dir="ltr"
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  maxLength={400}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                />
+              )}
+            </Field>
+            <div className="nz-row">
+              <Button type="submit" variant="secondary" disabled={a.busy || apiKey.trim() === ''}>
+                {t(locale, 'aia.key.save')}
+              </Button>
+              {r.vaultRef && (
+                <Button
+                  variant="danger"
+                  disabled={a.busy}
+                  onClick={() =>
+                    act({ action: 'clear_credential', id: r.id }, 'aia.done.keyRemoved')
+                  }
+                >
+                  {t(locale, 'aia.key.remove')}
+                </Button>
+              )}
+            </div>
+          </form>
+        )}
         {canApprove && !r.enabled && !isDevReference(r.code) && (
           <form onSubmit={attest} noValidate aria-label={t(locale, 'aia.att.title')}>
             <h3 className="nz-h3">{t(locale, 'aia.att.title')}</h3>

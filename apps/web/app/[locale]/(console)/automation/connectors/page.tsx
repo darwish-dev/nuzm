@@ -6,7 +6,6 @@ import {
   ConnectorAuthorize,
   NewConnectorForm,
 } from '../../../../../components/AutomationPanels';
-import { AutomationTabs } from '../../../../../components/AutomationTabs';
 import { Status } from '../../../../../components/M11Parts';
 import { FLAGS, connectorTone, itemsOf, type ConnectorDto } from '../../../../../lib/m11';
 import { gateM11, m11View } from '../../../../../lib/m11-server';
@@ -100,7 +99,6 @@ export default async function Connectors({ params }: { params: Promise<{ locale:
   return (
     <>
       <PageTitle>{t(locale, 'm11.cn.title')}</PageTitle>
-      <AutomationTabs locale={locale} current="connectors" />
       {body}
     </>
   );

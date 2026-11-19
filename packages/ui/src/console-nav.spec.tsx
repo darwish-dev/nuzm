@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import axe from 'axe-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PrimaryRail, SectionTabs, StatTile } from './console-nav';
@@ -34,6 +34,20 @@ describe('primary rail', () => {
     // the unread count is part of the name, not only a visual dot
     expect(screen.getByRole('link', { name: 'Notifications (3)' })).toBeTruthy();
     expect(await check(container)).toEqual([]);
+  });
+});
+
+describe('rail tooltips', () => {
+  it("hovering or focusing an icon sets the tooltip's vertical position (the tooltip itself is fixed, so the scrolling rail cannot clip it)", () => {
+    render(rail);
+    const link = screen.getByRole('link', { name: 'Domains' });
+    link.getBoundingClientRect = () => ({ top: 100, height: 44 }) as DOMRect;
+    expect(link.style.getPropertyValue('--nzc-tip-y')).toBe('');
+    fireEvent.pointerOver(link);
+    expect(link.style.getPropertyValue('--nzc-tip-y')).toBe('122px');
+    link.getBoundingClientRect = () => ({ top: 200, height: 44 }) as DOMRect;
+    fireEvent.focusIn(link);
+    expect(link.style.getPropertyValue('--nzc-tip-y')).toBe('222px');
   });
 });
 

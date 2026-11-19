@@ -1,6 +1,5 @@
 import { t } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
-import { AutomationTabs } from '../../../../../../components/AutomationTabs';
 import { WorkflowEditor } from '../../../../../../components/WorkflowEditor';
 import { FLAGS } from '../../../../../../lib/m11';
 import { actingOrgOf, gateM11 } from '../../../../../../lib/m11-server';
@@ -18,7 +17,6 @@ export default async function NewWorkflow({ params }: { params: Promise<{ locale
   return (
     <>
       <PageTitle>{t(locale, 'm11.wf.new')}</PageTitle>
-      <AutomationTabs locale={locale} current="workflows" />
       <WorkflowEditor
         locale={locale}
         mode="create"

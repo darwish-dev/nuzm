@@ -20,6 +20,8 @@ export type CategoryId =
   | 'dashboard'
   | 'projects'
   | 'build'
+  | 'automation'
+  | 'marketplace'
   | 'cloud'
   | 'hosting'
   | 'domains'
@@ -37,15 +39,13 @@ export const CATEGORIES: Category[] = [
     icon: 'dashboard',
     label: 'nc.cat.dashboard',
     title: 'nc.cat.dashboard',
+    // the bell in the top bar opens the notifications as a pop-up; /notifications is its "view all" page (no tab of its own)
     roots: ['/notifications'],
     org: false,
     groups: [
       {
         id: 'main',
-        items: [
-          { id: 'overview', label: 'nc.item.overview', href: '/', exact: true },
-          { id: 'notifications', label: 'nav.notifications', href: '/notifications' },
-        ],
+        items: [{ id: 'overview', label: 'nc.item.overview', href: '/', exact: true }],
       },
     ],
   },
@@ -56,6 +56,8 @@ export const CATEGORIES: Category[] = [
     title: 'nc.cat.projects',
     roots: ['/workspaces', '/projects'],
     org: true,
+    // no rail icon: the organization icon in the top bar opens the workspaces, and these two tabs lead on to the projects
+    noRail: true,
     groups: [
       {
         id: 'main',
@@ -76,8 +78,10 @@ export const CATEGORIES: Category[] = [
     icon: 'code',
     label: 'nc.cat.build',
     title: 'nc.cat.build',
-    roots: ['/builder', '/ai', '/automation', '/marketplace'],
+    roots: ['/builder', '/ai'],
     org: true,
+    // the start screen is full screen with no tab bar: usage and credits open from the AI credits chip in the top bar (its page links to budgets)
+    noTabs: true,
     groups: [
       {
         id: 'builder',
@@ -91,10 +95,40 @@ export const CATEGORIES: Category[] = [
           },
         ],
       },
-      // M11: each entry shows only when its feature flag is on for the organization and the member holds the permission
       {
-        id: 'automation',
-        title: 'm11.nav.automation',
+        id: 'ai',
+        title: 'aiu.nav.ai',
+        items: [
+          {
+            id: 'aiUsage',
+            label: 'aiu.tab.usage',
+            href: '/ai/usage',
+            perm: ['ai:read'],
+            flag: 'ai.enabled',
+          },
+          {
+            id: 'aiBudgets',
+            label: 'aiu.tab.budgets',
+            href: '/ai/budgets',
+            perm: ['ai:read'],
+            flag: 'ai.enabled',
+          },
+        ],
+      },
+    ],
+  },
+  // M11: Workflows, Connectors and outbound Webhooks are one rail icon with three section tabs. Each tab shows only when its feature flag is on for
+  // the organization and the member holds the permission.
+  {
+    id: 'automation',
+    icon: 'workflow',
+    label: 'm11.nav.automation',
+    title: 'm11.nav.automation',
+    roots: ['/automation', '/settings/webhooks'],
+    org: true,
+    groups: [
+      {
+        id: 'main',
         items: [
           {
             id: 'workflows',
@@ -118,32 +152,28 @@ export const CATEGORIES: Category[] = [
             perm: ['webhook:manage'],
             flag: 'automation.enabled',
           },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'marketplace',
+    icon: 'store',
+    label: 'm11.nav.marketplace',
+    title: 'm11.nav.marketplace',
+    roots: ['/marketplace'],
+    org: true,
+    noTabs: true,
+    groups: [
+      {
+        id: 'main',
+        items: [
           {
             id: 'marketplace',
             label: 'm11.nav.marketplace',
             href: '/marketplace',
             perm: ['marketplace:read'],
             flag: 'marketplace.enabled',
-          },
-        ],
-      },
-      {
-        id: 'ai',
-        title: 'aiu.nav.ai',
-        items: [
-          {
-            id: 'aiUsage',
-            label: 'aiu.tab.usage',
-            href: '/ai/usage',
-            perm: ['ai:read'],
-            flag: 'ai.enabled',
-          },
-          {
-            id: 'aiBudgets',
-            label: 'aiu.tab.budgets',
-            href: '/ai/budgets',
-            perm: ['ai:read'],
-            flag: 'ai.enabled',
           },
         ],
       },
@@ -188,6 +218,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'hosting',
+    noTabs: true,
     icon: 'hosting',
     label: 'nc.cat.hosting',
     title: 'nc.cat.hosting',

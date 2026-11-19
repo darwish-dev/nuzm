@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Button, Field, Icon, Input } from '@nuzm/ui';
 import { browserApi } from '../lib/client';
@@ -29,6 +29,28 @@ function FormError({ text }: { text?: string }) {
       {text}
     </p>
   ) : null;
+}
+
+/**
+ * A password field with a show/hide button (the eye). It is a plain input underneath: autofill and password managers work, and the button is a real
+ * button with a name and its state announced, never the only way to type.
+ */
+function PasswordInput({ locale, ...props }: { locale: Locale } & ComponentProps<typeof Input>) {
+  const [shown, setShown] = useState(false);
+  return (
+    <span className="nzc-pw">
+      <Input {...props} type={shown ? 'text' : 'password'} />
+      <button
+        type="button"
+        className="nzc-pw-toggle"
+        aria-pressed={shown}
+        aria-label={t(locale, shown ? 'auth.password.hide' : 'auth.password.show')}
+        onClick={() => setShown(!shown)}
+      >
+        <Icon name={shown ? 'eyeOff' : 'eye'} size={18} />
+      </button>
+    </span>
+  );
 }
 
 /** Email + password sign-in (ADR-008). A failure never says which of the two was wrong. */
@@ -66,9 +88,9 @@ export function LoginForm({ locale, next }: { locale: Locale; next?: string }) {
       </Field>
       <Field id="password" label={t(locale, 'field.password')}>
         {(a) => (
-          <Input
+          <PasswordInput
+            locale={locale}
             name="password"
-            type="password"
             required
             maxLength={128}
             autoComplete="current-password"
@@ -134,9 +156,9 @@ export function RegisterForm({ locale }: { locale: Locale }) {
         error={err.password}
       >
         {(a) => (
-          <Input
+          <PasswordInput
+            locale={locale}
             name="password"
-            type="password"
             required
             minLength={12}
             maxLength={128}
@@ -235,9 +257,9 @@ export function ResetForm({ locale, token }: { locale: Locale; token: string }) 
         error={err.password}
       >
         {(a) => (
-          <Input
+          <PasswordInput
+            locale={locale}
             name="password"
-            type="password"
             required
             maxLength={128}
             autoComplete="new-password"
@@ -293,7 +315,7 @@ export function VerifyEmailPill({ locale }: { locale: Locale }) {
     if (r.response.status === 204) window.location.reload();
   }
   return (
-    <div className="nzc-pill" role="status">
+    <div className="nzc-pill nzc-verification-notice" role="status">
       <Icon name="email" size={18} />
       <span className="nzc-pill-text">
         {sent ? t(locale, 'verify.resent') : t(locale, 'verify.banner')}

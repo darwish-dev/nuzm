@@ -4,6 +4,8 @@ import { checkDatabase } from './checks';
 import { checkClassification } from './classification';
 import { collectEvidence } from './collectors';
 import { syncControls } from './controls';
+import { devSeedCloud } from './dev-cloud';
+import { devEnableFeatures } from './dev-flags';
 import { devSeed } from './dev-seed';
 import { checkResidencyHooks } from './residency-hooks';
 import { adapterKindsFromDocs, checkRopaCoverage } from './ropa-coverage';
@@ -75,6 +77,18 @@ async function main() {
     const r = await devSeed(url, org);
     for (const [k, v] of Object.entries(r))
       console.log(`${k}: ${v.length ? `added ${v.join(', ')}` : 'nothing new (already seeded)'}`);
+  } else if (cmd === 'dev-seed-cloud') {
+    // DEV ONLY: a fake compute catalog (accounts, regions, sizes, images, a disk price) so the cloud screens have offers (refuses non-local databases).
+    const [, org] = process.argv.slice(2); // optional: also allow the sandbox regions for this organization
+    const r = await devSeedCloud(url, org);
+    for (const [k, v] of Object.entries(r))
+      console.log(`${k}: ${v.length ? `added ${v.length}` : 'nothing new (already seeded)'}`);
+  } else if (cmd === 'dev-enable-features') {
+    // DEV ONLY: every capability flag ON globally, so new registrations see every feature (refuses non-local databases).
+    const changed = await devEnableFeatures(url);
+    console.log(
+      changed.length ? `enabled: ${changed.join(', ')}` : 'nothing new (all flags already on)',
+    );
   } else if (cmd === 'grant-platform-role') {
     // DEV/OPERATOR bootstrap for platform staff (the assignment API, PA-12, awaits owner approval).
     // Production use is a human-gated action (CLAUDE.md §5); this refuses non-local databases.
@@ -190,7 +204,7 @@ async function main() {
     if (reports.some((r) => !r.ok)) process.exit(1);
   } else {
     console.error(
-      'usage: cli.ts migrate|rollback|dev-logins|dev-seed|grant-platform-role|check|classification|ropa-coverage|residency-hooks|sync-controls|collect-evidence',
+      'usage: cli.ts migrate|rollback|dev-logins|dev-seed|dev-seed-cloud|dev-enable-features|grant-platform-role|check|classification|ropa-coverage|residency-hooks|sync-controls|collect-evidence',
     );
     process.exit(2);
   }

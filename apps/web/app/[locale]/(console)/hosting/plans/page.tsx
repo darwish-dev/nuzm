@@ -1,14 +1,27 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
-import { Badge, EmptyState, ForbiddenState, Ltr, PageTitle, Table } from '@nuzm/ui';
+import { EmptyState, ForbiddenState, PageTitle } from '@nuzm/ui';
+import { HostingShop } from '../../../../../components/HostingShop';
+import { HOSTING_TYPES, type HostingType } from '../../../../../lib/hosting-catalog';
+import { money } from '../../../../../lib/domains';
 import { requireSession } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
 
-/** UI-M06-01: plans that have capacity (a plan without capacity is never listed). */
-export default async function Plans({ params }: { params: Promise<{ locale: string }> }) {
+/** UI-M06-01: get new hosting: the hosting types, the plans of each, and a comparison (plans without capacity are never listed). */
+export default async function Plans({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ type?: string }>;
+}) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
+  const type = (await searchParams).type;
+  const initialType = (HOSTING_TYPES as readonly string[]).includes(type ?? '')
+    ? (type as HostingType)
+    : undefined;
   const s = await requireSession(locale);
   if (!s.can('hosting:plan:read'))
     return (
@@ -27,48 +40,20 @@ export default async function Plans({ params }: { params: Promise<{ locale: stri
       data.items.length === 0 ? (
         <EmptyState title={t(locale, 'host.none.plans')} body={t(locale, 'state.empty.body')} />
       ) : (
-        <Table
-          caption={t(locale, 'host.title.plans')}
-          rows={data.items}
-          rowKey={(p) => p.id}
-          columns={[
-            {
-              key: 'n',
-              header: t(locale, 'host.col.name'),
-              render: (p) => (locale === 'ar' ? p.name.ar : p.name.en),
-            },
-            {
-              key: 'q',
-              header: t(locale, 'host.col.quota'),
-              icon: 'globe',
-              render: (p) => (
-                <Ltr>{`${p.quotas.diskMb} MB · ${p.quotas.bandwidthGb} GB · ${p.quotas.dbCount} DB`}</Ltr>
-              ),
-            },
-            {
-              key: 'r',
-              header: t(locale, 'host.col.runtime'),
-              icon: 'calendar',
-              render: (p) => <Ltr>{p.runtimes.join(', ')}</Ltr>,
-            },
-            {
-              key: 'g',
-              header: t(locale, 'host.col.region'),
-              icon: 'pin',
-              render: (p) => <Ltr>{p.regions.join(', ')}</Ltr>,
-            },
-            {
-              key: 'p',
-              header: t(locale, 'host.col.price'),
-              icon: 'tag',
-              render: (p) =>
-                p.price ? (
-                  <Ltr>{`${p.price.amountMinor} ${p.price.currency}${p.price.placeholder ? ' *' : ''}`}</Ltr>
-                ) : (
-                  <Badge tone="warn">—</Badge>
-                ),
-            },
-          ]}
+        <HostingShop
+          locale={locale}
+          orgId={s.org?.orgId ?? ''}
+          plans={data.items}
+          initialType={initialType}
+          // a placeholder price is not a price: it is quoted at checkout instead
+          prices={Object.fromEntries(
+            data.items.map((p) => [
+              p.id,
+              p.price?.amountMinor && p.price.currency && !p.price.placeholder
+                ? money(p.price.amountMinor, p.price.currency)
+                : null,
+            ]),
+          )}
         />
       ),
   );

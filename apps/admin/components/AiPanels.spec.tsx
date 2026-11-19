@@ -108,6 +108,61 @@ describe('model providers (UI-M09-12)', () => {
       vaultRef: 'vault://ai/acme',
     });
   });
+  describe('API key (typed here, stored sealed)', () => {
+    const KEY = `test-only-${'w3Lp'.repeat(8)}`;
+    const keyField = () =>
+      screen.getByLabelText(t('en', 'aia.key.field'), { selector: 'input' }) as HTMLInputElement;
+    it('each provider has one write-only password field: it is never filled from the server, and the screen only says whether a key is stored', () => {
+      panel([provider({ vaultRef: 'vault://dev/ai-acme-ai' })]);
+      expect(keyField().type).toBe('password');
+      expect(keyField().value).toBe('');
+      expect(keyField().autocomplete).toBe('new-password');
+      expect(
+        screen.getByText(t('en', 'aia.key.stored', { ref: 'vault://dev/ai-acme-ai' })),
+      ).toBeTruthy();
+    });
+    it('a member who cannot manage providers gets no key field', () => {
+      const { container } = panel([provider()], { canManage: false, canApprove: true });
+      expect(container.querySelectorAll('input[type="password"]')).toHaveLength(0);
+    });
+    it('refuses a malformed key without calling the API; a good key is sent once and the field is emptied', async () => {
+      post.mockResolvedValue(ok(provider({ vaultRef: 'vault://dev/ai-acme-ai' })));
+      panel([provider({ vaultRef: null })]);
+      fireEvent.change(keyField(), { target: { value: 'too short' } });
+      fireEvent.click(screen.getByRole('button', { name: t('en', 'aia.key.save'), hidden: true }));
+      expect(post).not.toHaveBeenCalled();
+      expect(screen.getByText(t('en', 'aia.key.err'))).toBeTruthy();
+      fireEvent.change(keyField(), { target: { value: KEY } });
+      fireEvent.click(screen.getByRole('button', { name: t('en', 'aia.key.save'), hidden: true }));
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      expect((post.mock.calls[0] as [string, { body: unknown }])[1].body).toEqual({
+        action: 'set_credential',
+        id: 'p1',
+        apiKey: KEY,
+      });
+      await waitFor(() => expect(keyField().value).toBe('')); // the key does not stay on the screen
+      expect(document.body.textContent).not.toContain(KEY);
+    });
+    it('says plainly when the environment cannot store keys (production vault not decided)', async () => {
+      post.mockResolvedValue(fail(422, 'unsupported_capability'));
+      panel([provider({ vaultRef: null })]);
+      fireEvent.change(keyField(), { target: { value: KEY } });
+      fireEvent.click(screen.getByRole('button', { name: t('en', 'aia.key.save'), hidden: true }));
+      expect(await screen.findByText(t('en', 'aia.key.unavailable'))).toBeTruthy();
+    });
+    it('removing the key is one POST with the provider id', async () => {
+      post.mockResolvedValue(ok(provider({ vaultRef: null })));
+      panel([provider({ vaultRef: 'vault://dev/ai-acme-ai' })]);
+      fireEvent.click(
+        screen.getByRole('button', { name: t('en', 'aia.key.remove'), hidden: true }),
+      );
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      expect((post.mock.calls[0] as [string, { body: unknown }])[1].body).toEqual({
+        action: 'clear_credential',
+        id: 'p1',
+      });
+    });
+  });
   it('a row shows the attestation, vault reference and rate card, and the enabling blockers when unattested', () => {
     panel([provider({ dataTerms: { attested: false }, attestationRef: null })]);
     expect(screen.getByText(t('en', 'aia.notAttested'))).toBeTruthy();

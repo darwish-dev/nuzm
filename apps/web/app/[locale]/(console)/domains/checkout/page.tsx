@@ -12,7 +12,7 @@ export default async function Checkout({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ name?: string; years?: string }>;
+  searchParams: Promise<{ name?: string; years?: string; cart?: string }>;
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
@@ -29,6 +29,7 @@ export default async function Checkout({
       </>
     );
   if (!sp.name) notFound();
+  const orgId = s.org.orgId;
   const name = sp.name.toLowerCase();
   const body = await view(
     locale,
@@ -49,6 +50,8 @@ export default async function Checkout({
           name={name}
           years={Number(sp.years ?? 1) || 1}
           privacyAvailable={false}
+          orgId={orgId}
+          basketLineId={sp.cart?.slice(0, 64)}
           crossBorder={crossBorder}
         />
       ) : (

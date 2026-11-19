@@ -77,7 +77,9 @@ export default async function EmailDomains({ params }: { params: Promise<{ local
       <PageTitle>{t(locale, 'm8.em.title')}</PageTitle>
       <EmailTabs locale={locale} current="domains" />
       {s.can('email:domain:manage') && (
-        <AddDomainForm locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
+        <div id="email-domain-setup" style={{ scrollMarginBlockStart: 20 }}>
+          <AddDomainForm locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
+        </div>
       )}
       <div style={{ marginBlockStart: 16 }}>{body}</div>
     </>

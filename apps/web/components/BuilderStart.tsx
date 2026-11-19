@@ -196,9 +196,18 @@ export function BuilderStart({
         noValidate
       >
         <div className="nzc-dsearch-inner">
-          <span className="nzc-orb" aria-hidden="true" />
-          <h2 id="bld-start-h">{t(locale, 'bld.start.hero')}</h2>
-          <p className="nzc-dsearch-sub">{t(locale, 'bld.start.sub')}</p>
+          <header className="nzc-create-intro">
+            <div>
+              <span className="nzc-create-brand">
+                <Icon name="code" size={18} /> Nuzm Builder
+              </span>
+              <h2 id="bld-start-h">{t(locale, 'bld.start.hero')}</h2>
+              <p className="nzc-dsearch-sub">{t(locale, 'bld.start.sub')}</p>
+            </div>
+            <div className="nzc-create-visual" aria-hidden="true">
+              <img src="/images/services/builder-compact.webp" width={300} height={200} alt="" />
+            </div>
+          </header>
 
           <div className="nzc-dsearch-bar nzc-prompt-bar">
             <label className="nz-sr" htmlFor="bld-prompt">
@@ -256,7 +265,13 @@ export function BuilderStart({
                   className="nzc-tld nzc-ptype"
                   data-soon={!x.available ? 'true' : undefined}
                 >
-                  <span className="nzc-tld-name nzc-ptype-name">{typeName(x.id)}</span>
+                  <span className="nzc-tld-name nzc-ptype-name">
+                    <Icon
+                      name={x.id === 'website' ? 'globe' : x.id === 'webapp' ? 'code' : 'hosting'}
+                      size={22}
+                    />
+                    {typeName(x.id)}
+                  </span>
                   <input
                     type="radio"
                     name="bld-type"
@@ -358,9 +373,17 @@ export function BuilderStart({
         <ul className="nzc-pex-grid">
           {EXAMPLES.map((x) => (
             <li key={x.id}>
-              <button type="button" className="nzc-pex" onClick={() => pickExample(x.id)}>
+              <button
+                type="button"
+                className="nzc-pex"
+                data-example={x.id}
+                onClick={() => pickExample(x.id)}
+              >
+                <span className="nzc-example-icon">
+                  <Icon name={x.icon} size={26} />
+                </span>
                 <span>{t(locale, `bld.start.ex.${x.id}` as MessageKey)}</span>
-                <Icon name={x.icon} size={18} />
+                <Icon name="arrow" size={18} />
               </button>
             </li>
           ))}

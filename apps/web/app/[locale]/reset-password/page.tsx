@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
-import { AuthLogo } from '../../../components/BrandLogo';
-import { Card, PageTitle } from '@nuzm/ui';
+import { AuthShell } from '../../../components/AuthShell';
 import { ResetForm } from '../../../components/AuthForms';
 
 export default async function ResetPassword({
@@ -15,19 +14,15 @@ export default async function ResetPassword({
   const { token } = await searchParams;
   if (!isLocale(locale)) notFound();
   return (
-    <main className="nz-main" style={{ maxInlineSize: 480, marginInline: 'auto' }}>
-      <AuthLogo href={`/${locale}`} />
-      <PageTitle>{t(locale, 'reset.title')}</PageTitle>
-      <Card>
-        {token ? (
-          <ResetForm locale={locale} token={token} />
-        ) : (
-          <>
-            <p className="nz-error-text">{t(locale, 'reset.invalid')}</p>
-            <a href={`/${locale}/forgot-password`}>{t(locale, 'forgot.title')}</a>
-          </>
-        )}
-      </Card>
-    </main>
+    <AuthShell locale={locale} variant="help" title={t(locale, 'reset.title')}>
+      {token ? (
+        <ResetForm locale={locale} token={token} />
+      ) : (
+        <>
+          <p className="nz-error-text">{t(locale, 'reset.invalid')}</p>
+          <a href={`/${locale}/forgot-password`}>{t(locale, 'forgot.title')}</a>
+        </>
+      )}
+    </AuthShell>
   );
 }

@@ -204,3 +204,79 @@ describe('one-field Claude key', () => {
     expect(t2.rows).toHaveLength(0);
   });
 });
+
+describe('connection test', () => {
+  const KEY = `test-only-${'t2Gx'.repeat(8)}`;
+  const withProbe = (probe?: (k: string) => Promise<{ outcome: string; httpStatus?: number }>) => {
+    const t = tableSetup();
+    const calls: string[] = [];
+    const svc = new ModelProviderService(
+      (t.svc as unknown as { db: never }).db,
+      { record: (e: Record<string, unknown>) => void t.events.push(e) } as never,
+      { get: () => undefined } as never,
+      {} as never,
+      t.secrets,
+      probe
+        ? ((async (k: string) => {
+            calls.push(k);
+            return probe(k);
+          }) as never)
+        : undefined,
+    );
+    return { ...t, svc, calls };
+  };
+  it('reads the stored key, hands it only to the probe, and audits the outcome without the key', async () => {
+    const { svc, calls, events } = withProbe(async () => ({ outcome: 'ok', httpStatus: 200 }));
+    const saved = await svc.saveClaudeKey('admin-1', KEY);
+    const out = await svc.testConnection('admin-2', saved.id);
+    expect(calls).toEqual([KEY]);
+    expect(out).toMatchObject({ outcome: 'ok', httpStatus: 200, live: true });
+    expect(JSON.stringify([out, events])).not.toContain(KEY);
+    expect(events.at(-1)).toMatchObject({
+      action: 'ai.provider.connection_tested',
+      actorUserId: 'admin-2',
+      outcome: 'success',
+      detail: { code: 'claude', outcome: 'ok', httpStatus: 200 },
+    });
+  });
+  it('a rejected key is audited as a failure', async () => {
+    const { svc, events } = withProbe(async () => ({ outcome: 'invalid_key', httpStatus: 401 }));
+    const saved = await svc.saveClaudeKey('a', KEY);
+    expect((await svc.testConnection('a', saved.id)).outcome).toBe('invalid_key');
+    expect(events.at(-1)).toMatchObject({ outcome: 'failure' });
+  });
+  it('without a stored key it asks for one first and never calls the probe', async () => {
+    const { svc, calls, rows } = withProbe(async () => ({ outcome: 'ok' }));
+    const saved = await svc.saveClaudeKey('a', KEY);
+    rows[0]!.vault_ref = null;
+    await expect(svc.testConnection('a', saved.id)).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
+    expect(calls).toHaveLength(0);
+  });
+  it('only a Claude provider can be tested, and never in production or without a probe', async () => {
+    const other = withProbe(async () => ({ outcome: 'ok' }));
+    const saved = await other.svc.saveClaudeKey('a', KEY);
+    other.rows[0]!.adapter = 'acme';
+    await expect(other.svc.testConnection('a', saved.id)).rejects.toMatchObject({
+      code: 'unsupported_capability',
+    });
+    const none = withProbe(); // no probe wired
+    const s2 = await none.svc.saveClaudeKey('a', KEY);
+    await expect(none.svc.testConnection('a', s2.id)).rejects.toMatchObject({
+      code: 'unsupported_capability',
+    });
+    const prod = withProbe(async () => ({ outcome: 'ok' }));
+    const s3 = await prod.svc.saveClaudeKey('a', KEY);
+    const was = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      await expect(prod.svc.testConnection('a', s3.id)).rejects.toMatchObject({
+        code: 'unsupported_capability',
+      });
+    } finally {
+      process.env.NODE_ENV = was;
+    }
+    expect(prod.calls).toHaveLength(0);
+  });
+});

@@ -4476,6 +4476,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ai/model-providers/{id}/connection-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test the connection of a model provider with its stored key
+         * @description LIVE, read-only check that the stored key is accepted by the provider (Claude only: a model listing, no prompt, no customer data, nothing billed; one attempt, 10 s timeout, a fixed host). Changes nothing; the key is read from the secret store here and never returned, logged or audited: the audit event `ai.provider.connection_tested` carries only the outcome and HTTP status. Needs `admin:ai:manage` and a recent MFA verification. 422 `unsupported_capability` in a production profile (D-12) or for a provider other than Claude; 422 `validation_failed` when no key is stored. A result of `unreachable`, `invalid_key`, `forbidden`, `rate_limited` or `error` is a normal 200 answer, not an HTTP error.
+         */
+        post: operations["testAiModelProviderConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ai/sessions": {
         parameters: {
             query?: never;
@@ -10494,6 +10514,20 @@ export interface components {
         };
         AiModelProviderList: {
             items: components["schemas"]["AiModelProvider"][];
+        };
+        AiConnectionTestResult: {
+            /** @enum {string} */
+            outcome: "ok" | "invalid_key" | "forbidden" | "rate_limited" | "unreachable" | "error";
+            httpStatus?: number;
+            /** @description Models the key can see (only when outcome is ok). */
+            modelCount?: number;
+            /** Format: date-time */
+            checkedAt: string;
+            /**
+             * @description Always true: this was a real call to the provider (LIVE-VERIFIED for that moment only).
+             * @enum {boolean}
+             */
+            live: true;
         };
         AiModelProviderAction: {
             /** @enum {string} */
@@ -20942,6 +20976,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiModelProvider"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    testAiModelProviderConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiConnectionTestResult"];
                 };
             };
             401: components["responses"]["Problem"];

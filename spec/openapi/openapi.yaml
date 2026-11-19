@@ -7741,6 +7741,27 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/model-providers/{id}/connection-test:
+    post:
+      operationId: testAiModelProviderConnection
+      tags: [ai]
+      summary: 'Test the connection of a model provider with its stored key'
+      description: 'LIVE, read-only check that the stored key is accepted by the provider (Claude only: a model listing, no prompt, no customer data, nothing billed; one attempt, 10 s timeout, a fixed host). Changes nothing; the key is read from the secret store here and never returned, logged or audited: the audit event `ai.provider.connection_tested` carries only the outcome and HTTP status. Needs `admin:ai:manage` and a recent MFA verification. 422 `unsupported_capability` in a production profile (D-12) or for a provider other than Claude; 422 `validation_failed` when no key is stored. A result of `unreachable`, `invalid_key`, `forbidden`, `rate_limited` or `error` is a normal 200 answer, not an HTTP error.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiConnectionTestResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/ai/sessions:
     post:
       operationId: createAiSession
@@ -16949,6 +16970,22 @@ components:
       required: [items]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/AiModelProvider' } }
+    AiConnectionTestResult:
+      type: object
+      required: [outcome, checkedAt, live]
+      properties:
+        outcome:
+          { type: string, enum: [ok, invalid_key, forbidden, rate_limited, unreachable, error] }
+        httpStatus: { type: integer }
+        modelCount:
+          { type: integer, description: 'Models the key can see (only when outcome is ok).' }
+        checkedAt: { type: string, format: date-time }
+        live:
+          {
+            type: boolean,
+            enum: [true],
+            description: 'Always true: this was a real call to the provider (LIVE-VERIFIED for that moment only).',
+          }
     AiModelProviderAction:
       type: object
       required: [action]

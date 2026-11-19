@@ -271,6 +271,12 @@ function ConfigureCard(p: {
 }
 
 /** The actions of one provider: attest (human data-terms attestation), request enabling, enable (a DIFFERENT person), disable. Each is one POST with an `action`. */
+type ConnectionResult = {
+  outcome: 'ok' | 'invalid_key' | 'forbidden' | 'rate_limited' | 'unreachable' | 'error';
+  httpStatus?: number;
+  modelCount?: number;
+};
+
 /**
  * The simple path: ONE field for the Claude API key. The server creates the "claude" provider entry itself (unattested and disabled) and stores the key
  * sealed; the field is write-only (never filled from the server) and is emptied as soon as the key is sent.
@@ -281,6 +287,7 @@ function ClaudeKeyCard(p: { locale: Locale; row?: ProviderRow; mfaFactorId: stri
   const a = useStaffAction(locale, p.mfaFactorId);
   const [apiKey, setApiKey] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<ConnectionResult | null>(null);
   function save(ev: FormEvent) {
     ev.preventDefault();
     const key = apiKey.trim();
@@ -290,6 +297,7 @@ function ClaudeKeyCard(p: { locale: Locale; row?: ProviderRow; mfaFactorId: stri
       () => post({ action: 'save_claude_key', apiKey: key }),
       () => {
         setApiKey('');
+        setResult(null); // a result belongs to the key it tested
         a.setNotice({ tone: 'ok', text: t(locale, 'aia.done.keySet') });
         router.refresh();
       },
@@ -301,10 +309,24 @@ function ClaudeKeyCard(p: { locale: Locale; row?: ProviderRow; mfaFactorId: stri
     void a.run(
       () => post({ action: 'clear_credential', id: row.id }),
       () => {
+        setResult(null);
         a.setNotice({ tone: 'ok', text: t(locale, 'aia.done.keyRemoved') });
         router.refresh();
       },
       overrides(locale),
+    );
+  }
+  /** A LIVE, read-only check of the stored key (a model listing at the provider: no prompt, nothing billed). The key never travels: the server reads it from its store. */
+  function testConnection() {
+    if (!row) return;
+    setResult(null);
+    void a.run(
+      () =>
+        browserApi().POST('/v1/admin/ai/model-providers/{id}/connection-test', {
+          params: { path: { id: row.id } },
+        }),
+      (data) => setResult(data as ConnectionResult),
+      { ...overrides(locale), 422: t(locale, 'aia.test.unavailable') },
     );
   }
   return (
@@ -335,10 +357,23 @@ function ClaudeKeyCard(p: { locale: Locale; row?: ProviderRow; mfaFactorId: stri
           </p>
         )}
         <Note n={a.notice} />
+        {result && (
+          <p role="status" className={result.outcome === 'ok' ? undefined : 'nz-error-text'}>
+            {t(locale, `aia.test.${result.outcome}` as Parameters<typeof t>[1], {
+              n: result.modelCount ?? 0,
+              status: result.httpStatus ?? '',
+            })}
+          </p>
+        )}
         <div className="nz-row">
           <Button type="submit" disabled={a.busy || apiKey.trim() === ''}>
             {t(locale, 'aia.claude.save')}
           </Button>
+          {row?.vaultRef && (
+            <Button variant="secondary" disabled={a.busy} onClick={testConnection}>
+              {a.busy ? t(locale, 'aia.test.running') : t(locale, 'aia.test.button')}
+            </Button>
+          )}
           {row?.vaultRef && (
             <Button variant="danger" disabled={a.busy} onClick={remove}>
               {t(locale, 'aia.claude.remove')}

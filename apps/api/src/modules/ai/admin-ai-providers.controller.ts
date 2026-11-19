@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { Platform, RequirePlatformPermission, type PlatformContext } from '../../common/access';
 import { ProblemException } from '../../common/errors';
 import { RealmOnly, StepUp } from '../identity';
@@ -19,6 +19,20 @@ export class AdminAiProvidersController {
   @Get()
   list() {
     return this.providers.list();
+  }
+
+  /** A LIVE, read-only check that the stored Claude key is accepted. Needs `admin:ai:manage` and a recent MFA; changes nothing; audited. */
+  @RequirePlatformPermission('admin:ai:read')
+  @StepUp()
+  @Post(':id/connection-test')
+  @HttpCode(200)
+  async connectionTest(@Platform() who: PlatformContext, @Param('id') id: string) {
+    if (!who.permissions.has('admin:ai:manage'))
+      throw new ProblemException(
+        'forbidden',
+        'permission admin:ai:manage is required for this action',
+      );
+    return this.providers.testConnection(who.userId, id);
   }
 
   @RequirePlatformPermission('admin:ai:read')

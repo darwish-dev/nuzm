@@ -346,7 +346,7 @@ export const tabsFor = (can: (permission: string) => boolean): WorkspaceTab[] =>
 export const workspaceHref = (
   locale: string,
   projectId: string,
-  tab?: WorkspaceTab,
+  tab?: string,
   extra?: Record<string, string>,
 ): string => {
   const q = new URLSearchParams({ ...(tab ? { tab } : {}), ...(extra ?? {}) }).toString();

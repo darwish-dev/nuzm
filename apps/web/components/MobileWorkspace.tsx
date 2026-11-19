@@ -13,10 +13,11 @@ import {
   type PreviewSpec,
   type WorkspaceTab,
 } from '../lib/mobile';
-import { BrandMark } from './BrandLogo';
 import { Chat } from './BuilderChat';
 import { MobileCode } from './MobileCode';
-import { BuildsPanel, PanelForbidden, ReleasesPanel, SigningPanel } from './MobilePanels';
+import { BuildsPanel, ReleasesPanel, SigningPanel } from './MobilePanels';
+import { PanelForbidden } from './PanelLoad';
+import { WorkspaceShell, useShellTab } from './WorkspaceShell';
 import { PhonePreview, type PhoneDevice } from './MobilePhone';
 import { MobileRunCard, type MobileRunProgress } from './MobileRun';
 import { MobileSpecPane } from './MobileSpecPane';
@@ -87,7 +88,7 @@ export function MobileWorkspace({
 }) {
   const [project, setProject] = useState(initial);
   const spec = useMemo(() => manifestSpec(project.manifest), [project.manifest]);
-  const [tab, setTab] = useState<WorkspaceTab>(initialTab);
+  const [tab, select] = useShellTab<WorkspaceTab>(initialTab);
   const [device, setDevice] = useState<PhoneDevice>('phone');
   const [lang, setLang] = useState<'ar' | 'en'>(
     spec?.defaultLocale ?? (locale === 'ar' ? 'ar' : 'en'),
@@ -110,18 +111,6 @@ export function MobileWorkspace({
     releases: can.release,
   };
   const tabs = WORKSPACE_TABS.filter((x) => grant[x]);
-
-  const select = (next: WorkspaceTab) => {
-    setTab(next);
-    try {
-      const u = new URL(window.location.href);
-      u.searchParams.set('tab', next);
-      u.searchParams.delete('new');
-      window.history.replaceState(window.history.state, '', u);
-    } catch {
-      /* the address stays as it is: the tab still changes */
-    }
-  };
 
   /** The project as the server has it now (the approved spec and the head version). */
   const reload = useCallback(async () => {
@@ -171,219 +160,177 @@ export function MobileWorkspace({
   const name = project.manifest && spec ? biText(spec.app.name, lang) : '';
   const allowed = grant[tab];
 
-  return (
-    <div className="bws mws" data-inspector="closed" data-mode="mobile">
-      <header className="bws-top">
-        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
-          <BrandMark />
-        </a>
-        <a className="bws-back" href={`/${locale}/builder/projects?type=mobile`}>
-          {t(locale, 'bld.ws.back')}
-        </a>
-        <h2 className="bws-title">
-          <bdi dir="auto">{project.name}</bdi>
-        </h2>
-        <div
-          className="bws-seg mws-tabs-seg"
-          role="group"
-          aria-label={t(locale, 'mobile.tab.label')}
-        >
-          {tabs.map((x) => (
+  const controls =
+    tab === 'preview' ? (
+      <>
+        <div className="bws-seg bws-seg-icons" role="group" aria-label={t(locale, 'bld.ws.device')}>
+          {(['phone', 'tablet'] as const).map((d) => (
             <button
-              key={x}
+              key={d}
               type="button"
-              aria-pressed={tab === x}
-              onClick={() => select(x)}
-              data-tab={x}
+              aria-pressed={device === d}
+              aria-label={t(locale, `mws.device.${d}`)}
+              title={t(locale, `mws.device.${d}`)}
+              onClick={() => setDevice(d)}
             >
-              <Icon name={TAB_ICON[x]} size={16} />
-              {t(locale, TAB_LABEL[x])}
+              <Icon name={d} size={17} />
             </button>
           ))}
         </div>
-        <span className="bws-spacer" />
-        {tab === 'preview' && (
-          <>
-            <div
-              className="bws-seg bws-seg-icons"
-              role="group"
-              aria-label={t(locale, 'bld.ws.device')}
+        <div className="bws-seg" role="group" aria-label={t(locale, 'mws.lang')}>
+          {(['ar', 'en'] as const).map((l) => (
+            <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}>
+              {t(locale, `bld.lang.${l}`)}
+            </button>
+          ))}
+        </div>
+        <div className="bws-seg bws-seg-icons" role="group" aria-label={t(locale, 'mws.theme')}>
+          {(['light', 'dark'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={dark === (m === 'dark')}
+              aria-label={t(locale, `mws.theme.${m}`)}
+              title={t(locale, `mws.theme.${m}`)}
+              onClick={() => setDark(m === 'dark')}
             >
-              {(['phone', 'tablet'] as const).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  aria-pressed={device === d}
-                  aria-label={t(locale, `mws.device.${d}`)}
-                  title={t(locale, `mws.device.${d}`)}
-                  onClick={() => setDevice(d)}
-                >
-                  <Icon name={d} size={17} />
-                </button>
-              ))}
-            </div>
-            <div className="bws-seg" role="group" aria-label={t(locale, 'mws.lang')}>
-              {(['ar', 'en'] as const).map((l) => (
-                <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}>
-                  {t(locale, `bld.lang.${l}`)}
-                </button>
-              ))}
-            </div>
-            <div className="bws-seg bws-seg-icons" role="group" aria-label={t(locale, 'mws.theme')}>
-              {(['light', 'dark'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  aria-pressed={dark === (m === 'dark')}
-                  aria-label={t(locale, `mws.theme.${m}`)}
-                  title={t(locale, `mws.theme.${m}`)}
-                  onClick={() => setDark(m === 'dark')}
-                >
-                  <Icon name={m === 'dark' ? 'moon' : 'sun'} size={17} />
-                </button>
-              ))}
-            </div>
-          </>
+              <Icon name={m === 'dark' ? 'moon' : 'sun'} size={17} />
+            </button>
+          ))}
+        </div>
+      </>
+    ) : null;
+  const menu =
+    project.versionSeq !== null || runId ? (
+      <>
+        {project.versionSeq !== null && (
+          <li className="bws-more-meta">
+            {t(locale, 'bld.ws.version', { seq: project.versionSeq })}
+          </li>
         )}
-        {(project.versionSeq !== null || runId) && (
-          <details className="bws-more">
-            <summary aria-label={t(locale, 'bld.ws.more')} title={t(locale, 'bld.ws.more')}>
-              <Icon name="more" size={18} />
-            </summary>
-            <ul>
-              {project.versionSeq !== null && (
-                <li className="bws-more-meta">
-                  {t(locale, 'bld.ws.version', { seq: project.versionSeq })}
-                </li>
-              )}
-              {runId && (
-                <li>
-                  <a href={`/${locale}/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
-                </li>
-              )}
-            </ul>
-          </details>
+        {runId && (
+          <li>
+            <a href={`/${locale}/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
+          </li>
         )}
-        {can.build && (
+      </>
+    ) : null;
+
+  return (
+    <WorkspaceShell
+      locale={locale}
+      mode="mobile"
+      backHref={`/${locale}/builder/projects?type=mobile`}
+      name={project.name}
+      tabsLabel={t(locale, 'mobile.tab.label')}
+      tabs={tabs.map((x) => ({ id: x, icon: TAB_ICON[x], label: t(locale, TAB_LABEL[x]) }))}
+      tab={tab}
+      onTab={select}
+      controls={controls}
+      menu={menu}
+      primary={
+        can.build ? (
           <button type="button" className="bws-publish mws-build" onClick={() => select('builds')}>
             {t(locale, 'mws.build')}
           </button>
-        )}
-        <a
-          className="bws-exit"
-          href={`/${locale}`}
-          aria-label={t(locale, 'bld.ws.exit')}
-          title={t(locale, 'bld.ws.exit')}
-        >
-          <Icon name="close" size={18} />
-        </a>
-      </header>
-
-      <div className="bws-body">
-        <section className="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
-          <Chat
-            locale={locale}
-            projectId={project.id}
-            projectName={project.name}
-            session={session}
-            initialMessages={messages}
-            canWrite={can.describe}
-            refreshKey={chatKey}
-            activeRun={runActive}
-            mobile
-            onRun={(run) => {
-              setRunId(run.id);
-              setRunActive(true);
-            }}
-            thread={
-              runId ? (
-                <MobileRunCard
-                  key={runId}
-                  locale={locale}
-                  runId={runId}
-                  canWrite={can.ai}
-                  onRun={onRun}
-                  onProgress={setProgress}
-                />
-              ) : undefined
-            }
-          />
-        </section>
-
-        <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
-          {reloadError && <Banner tone="danger">{t(locale, 'mws.reloadFailed')}</Banner>}
-          {progress.active && (
-            <div className="bws-working" role="status">
-              <span className="bld-spinner" aria-hidden="true" />
-              {progress.label || t(locale, 'bld.card.working')}
-            </div>
-          )}
-          {!allowed ? (
-            <div className="mws-panel">
-              <PanelForbidden locale={locale} />
-            </div>
-          ) : tab === 'preview' ? (
-            <div className="mws-preview">
-              <Banner tone="warn">{t(locale, 'mobile.preview.notice')}</Banner>
-              {shown ? (
-                <div className="mws-stage" data-device={device}>
-                  {proposal && (
-                    <p className="mws-proposed" role="status">
-                      <Icon name="sparkle" size={15} /> {t(locale, 'mws.preview.proposed')}
-                    </p>
-                  )}
-                  <PhonePreview
-                    locale={locale}
-                    spec={shown}
-                    device={device}
-                    lang={lang}
-                    dark={dark}
-                    label={name ? t(locale, 'mws.preview.frameOf', { name }) : undefined}
-                  />
-                </div>
-              ) : (
-                <EmptyState
-                  title={t(
-                    locale,
-                    progress.active ? 'mws.preview.designing' : 'mws.preview.emptyTitle',
-                  )}
-                  body={t(
-                    locale,
-                    progress.active ? 'mws.preview.designingBody' : 'mws.preview.emptyBody',
-                  )}
-                />
+        ) : null
+      }
+      banner={reloadError ? t(locale, 'mws.reloadFailed') : null}
+      working={progress}
+      chat={
+        <Chat
+          locale={locale}
+          projectId={project.id}
+          projectName={project.name}
+          session={session}
+          initialMessages={messages}
+          canWrite={can.describe}
+          refreshKey={chatKey}
+          activeRun={runActive}
+          mode="mobile"
+          onRun={(run) => {
+            setRunId(run.id);
+            setRunActive(true);
+          }}
+          thread={
+            runId ? (
+              <MobileRunCard
+                key={runId}
+                locale={locale}
+                runId={runId}
+                canWrite={can.ai}
+                onRun={onRun}
+                onProgress={setProgress}
+              />
+            ) : undefined
+          }
+        />
+      }
+    >
+      {!allowed ? (
+        <div className="mws-panel">
+          <PanelForbidden locale={locale} />
+        </div>
+      ) : tab === 'preview' ? (
+        <div className="mws-preview">
+          <Banner tone="warn">{t(locale, 'mobile.preview.notice')}</Banner>
+          {shown ? (
+            <div className="mws-stage" data-device={device}>
+              {proposal && (
+                <p className="mws-proposed" role="status">
+                  <Icon name="sparkle" size={15} /> {t(locale, 'mws.preview.proposed')}
+                </p>
               )}
+              <PhonePreview
+                locale={locale}
+                spec={shown}
+                device={device}
+                lang={lang}
+                dark={dark}
+                label={name ? t(locale, 'mws.preview.frameOf', { name }) : undefined}
+              />
             </div>
-          ) : tab === 'code' ? (
-            <MobileCode locale={locale} projectId={project.id} versionId={project.versionId} />
           ) : (
-            <div className="mws-panel">
-              {tab === 'spec' && <MobileSpecPane locale={locale} manifest={project.manifest} />}
-              {tab === 'builds' && (
-                <BuildsPanel
-                  locale={locale}
-                  projectId={project.id}
-                  manifest={project.manifest}
-                  canBuild={can.build}
-                />
+            <EmptyState
+              title={t(
+                locale,
+                progress.active ? 'mws.preview.designing' : 'mws.preview.emptyTitle',
               )}
-              {tab === 'signing' && (
-                <SigningPanel locale={locale} userId={userId} canSign={can.signing} />
+              body={t(
+                locale,
+                progress.active ? 'mws.preview.designingBody' : 'mws.preview.emptyBody',
               )}
-              {tab === 'releases' && (
-                <ReleasesPanel
-                  locale={locale}
-                  projectId={project.id}
-                  manifest={project.manifest}
-                  canRelease={can.release}
-                  canBuild={can.build}
-                  startWizard={startRelease}
-                />
-              )}
-            </div>
+            />
           )}
-        </section>
-      </div>
-    </div>
+        </div>
+      ) : tab === 'code' ? (
+        <MobileCode locale={locale} projectId={project.id} versionId={project.versionId} />
+      ) : (
+        <div className="mws-panel">
+          {tab === 'spec' && <MobileSpecPane locale={locale} manifest={project.manifest} />}
+          {tab === 'builds' && (
+            <BuildsPanel
+              locale={locale}
+              projectId={project.id}
+              manifest={project.manifest}
+              canBuild={can.build}
+            />
+          )}
+          {tab === 'signing' && (
+            <SigningPanel locale={locale} userId={userId} canSign={can.signing} />
+          )}
+          {tab === 'releases' && (
+            <ReleasesPanel
+              locale={locale}
+              projectId={project.id}
+              manifest={project.manifest}
+              canRelease={can.release}
+              canBuild={can.build}
+              startWizard={startRelease}
+            />
+          )}
+        </div>
+      )}
+    </WorkspaceShell>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Button, EmptyState, ForbiddenState } from '@nuzm/ui';
+import { Button } from '@nuzm/ui';
 import { bapi } from '../lib/builder-client';
 import {
   declaredPermissions,
@@ -14,88 +14,23 @@ import { MobileBuilds } from './MobileBuilds';
 import { ReleaseWizard } from './MobileReleaseWizard';
 import { MobileReleases } from './MobileReleases';
 import { MobileSigning } from './MobileSigning';
+import { Gate, PanelForbidden, useLoad, type Load } from './PanelLoad';
 
-type Load<T> =
-  | { state: 'loading' }
-  | { state: 'ready'; items: T[] }
-  | { state: 'forbidden' }
-  | { state: 'gone' }
-  | { state: 'error' };
-
-/** Read one list of the mobile API for a panel: loading, the items, forbidden (403), not available (404: flag off) or an error with a retry. */
+/** Read one list of the mobile API for a panel (see `useLoad`). */
 function useMobileList<T>(
   path: string,
   query: Record<string, string> | undefined,
   enabled = true,
-): [Load<T>, () => void] {
-  const [res, setRes] = useState<Load<T>>({ state: 'loading' });
-  const [n, setN] = useState(0);
-  const key = JSON.stringify(query ?? {});
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    if (!enabled) return;
-    setRes({ state: 'loading' });
-    void bapi.get<{ items: T[] }>(path, query ? { query } : undefined).then((r) => {
-      if (!alive.current) return;
-      if (r.response.ok && r.data) setRes({ state: 'ready', items: r.data.items });
-      else if (r.response.status === 403) setRes({ state: 'forbidden' });
-      else if (r.response.status === 404) setRes({ state: 'gone' });
-      else setRes({ state: 'error' });
-    });
-    return () => {
-      alive.current = false;
-    };
-    // `query` is compared by its content
-  }, [path, key, enabled, n]);
-  return [res, useCallback(() => setN((x) => x + 1), [])];
+): [Load<T[]>, () => void] {
+  return useLoad<T[]>(
+    async () => {
+      const r = await bapi.get<{ items: T[] }>(path, query ? { query } : undefined);
+      return { ok: r.response.ok, status: r.response.status, data: r.data?.items };
+    },
+    `${path}?${JSON.stringify(query ?? {})}`,
+    enabled,
+  );
 }
-
-/** The states every panel shares while its list loads. */
-function Gate<T>({
-  locale,
-  load,
-  retry,
-  children,
-}: {
-  locale: Locale;
-  load: Load<T>;
-  retry: () => void;
-  children: (items: T[]) => ReactNode;
-}) {
-  if (load.state === 'loading')
-    return (
-      <p role="status" aria-busy="true" className="nz-muted">
-        {t(locale, 'state.loading')}
-      </p>
-    );
-  if (load.state === 'forbidden') return <PanelForbidden locale={locale} />;
-  if (load.state === 'gone')
-    return (
-      <EmptyState
-        title={t(locale, 'mobile.unavailable.title')}
-        body={t(locale, 'mobile.unavailable.body')}
-      />
-    );
-  if (load.state === 'error')
-    return (
-      <div role="alert" className="mws-load-error">
-        <p className="nz-error-text">{t(locale, 'mws.panel.loadError')}</p>
-        <Button variant="secondary" onClick={retry}>
-          {t(locale, 'action.retry')}
-        </Button>
-      </div>
-    );
-  return <>{children(load.items)}</>;
-}
-
-/** What a member without the panel's permission sees (the same state the former pages showed). */
-export const PanelForbidden = ({ locale }: { locale: Locale }) => (
-  <ForbiddenState
-    title={t(locale, 'state.forbidden.title')}
-    body={t(locale, 'state.forbidden.body')}
-  />
-);
 
 /** Builds: request an Android debug build, status polling, artifacts and logs (UI-M10-14), inside the workspace. */
 export function BuildsPanel({
@@ -213,7 +148,7 @@ export function ReleasesPanel({
           <ReleaseWizard
             locale={locale}
             projectId={projectId}
-            builds={builds.state === 'ready' ? builds.items : []}
+            builds={builds.state === 'ready' ? builds.data : []}
             declared={declaredPermissions(manifestView(manifest))}
           />
         )}

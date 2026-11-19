@@ -6,6 +6,43 @@ import type { Message, Page_, Run, Session } from '../lib/builder';
 import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
 import { ProblemNote, when } from './BuilderBits';
 
+/** What each workspace's chat starts: the kind of run, its input, the length limits and the texts. */
+const CHAT = {
+  website: {
+    kind: 'edit',
+    input: (instruction: string) => ({ instruction }),
+    min: 1,
+    max: 2000,
+    title: 'bld.chat.title',
+    empty: 'bld.chat.empty',
+    placeholder: 'bld.chat.placeholder',
+    busy: 'bld.chat.placeholderBusy',
+    help: 'bld.chat.help',
+  },
+  mobile: {
+    kind: 'mobile',
+    input: (description: string) => ({ description }),
+    min: 3,
+    max: 600,
+    title: 'mws.chat.title',
+    empty: 'mws.chat.empty',
+    placeholder: 'mws.chat.placeholder',
+    busy: 'mws.chat.placeholderBusy',
+    help: 'mws.chat.help',
+  },
+  webapp: {
+    kind: 'webapp',
+    input: (prompt: string) => ({ brief: { prompt } }),
+    min: 1,
+    max: 8000,
+    title: 'mws.web.chat.title',
+    empty: 'mws.web.chat.empty',
+    placeholder: 'mws.web.chat.placeholder',
+    busy: 'mws.web.chat.placeholderBusy',
+    help: 'mws.web.chat.help',
+  },
+} as const;
+
 /**
  * UI-M09-03 left panel: the conversation of the project's AI session. "Edit by chat": the instruction is stored as a message and starts a `kind=edit` run; the
  * run only PROPOSES a change set, which the human approves in the run timeline before anything is applied. Needs `ai:write`; a viewer reads the conversation.
@@ -21,7 +58,7 @@ export function Chat({
   activeRun,
   onRun,
   thread,
-  mobile = false,
+  mode = 'website',
 }: {
   locale: Locale;
   projectId: string;
@@ -36,9 +73,13 @@ export function Chat({
   onRun: (run: Run) => void;
   /** the live run card, shown inside the scrolling thread after the messages */
   thread?: ReactNode;
-  /** a mobile project: the message starts a `mobile` run (a new design request, 3..600 characters) instead of an `edit` run, and the texts say so */
-  mobile?: boolean;
+  /**
+   * which workspace the chat belongs to. `website`: the message starts an `edit` run (a change set to approve). `mobile`: a `mobile` run (a new design request,
+   * 3..600 characters). `webapp`: a `webapp` run (a brief of up to 8000 characters for the agent graph). The texts say so.
+   */
+  mode?: 'website' | 'webapp' | 'mobile';
 }) {
+  const cfg = CHAT[mode];
   const call = useBuilderCall();
   const [sessionId, setSessionId] = useState(session?.id ?? null);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -65,7 +106,7 @@ export function Chat({
   async function send(e: FormEvent) {
     e.preventDefault();
     const instruction = text.trim();
-    if (!instruction || activeRun || (mobile && instruction.length < 3)) return;
+    if (!instruction || activeRun || instruction.length < cfg.min) return;
     let sid = sessionId;
     if (!sid) {
       const ok = await call.run(
@@ -104,14 +145,7 @@ export function Chat({
     await call.run(
       () =>
         bapi.post<Run>('/v1/ai/runs', {
-          body: mobile
-            ? {
-                sessionId: sessionRef,
-                kind: 'mobile',
-                projectId,
-                input: { description: instruction },
-              }
-            : { sessionId: sessionRef, kind: 'edit', projectId, input: { instruction } },
+          body: { sessionId: sessionRef, kind: cfg.kind, projectId, input: cfg.input(instruction) },
           idempotencyKey: keys.current.run,
         }),
       (run) => {
@@ -128,12 +162,10 @@ export function Chat({
 
   return (
     <div className="bld-chat">
-      <h2 className="bld-chat-title">{t(locale, mobile ? 'mws.chat.title' : 'bld.chat.title')}</h2>
+      <h2 className="bld-chat-title">{t(locale, cfg.title)}</h2>
       <div className="bld-chat-scroll" role="log" aria-label={t(locale, 'bld.chat.log')} ref={log}>
         {messages.length === 0 && !thread ? (
-          <p className="nz-muted bld-chat-empty">
-            {t(locale, mobile ? 'mws.chat.empty' : 'bld.chat.empty')}
-          </p>
+          <p className="nz-muted bld-chat-empty">{t(locale, cfg.empty)}</p>
         ) : (
           <ol className="bld-list">
             {messages.map((m) => (
@@ -162,17 +194,8 @@ export function Chat({
               className="bld-composer-input"
               dir="auto"
               rows={3}
-              maxLength={mobile ? 600 : 2000}
-              placeholder={t(
-                locale,
-                mobile
-                  ? activeRun
-                    ? 'mws.chat.placeholderBusy'
-                    : 'mws.chat.placeholder'
-                  : activeRun
-                    ? 'bld.chat.placeholderBusy'
-                    : 'bld.chat.placeholder',
-              )}
+              maxLength={cfg.max}
+              placeholder={t(locale, activeRun ? cfg.busy : cfg.placeholder)}
               disabled={activeRun}
               aria-describedby="bld-chat-help"
               value={text}
@@ -183,12 +206,12 @@ export function Chat({
             />
             <div className="bld-composer-foot">
               <span className="bld-composer-help" id="bld-chat-help">
-                {t(locale, mobile ? 'mws.chat.help' : 'bld.chat.help')}
+                {t(locale, cfg.help)}
               </span>
               <button
                 type="submit"
                 className="bld-send"
-                disabled={call.busy || activeRun || text.trim().length < (mobile ? 3 : 1)}
+                disabled={call.busy || activeRun || text.trim().length < cfg.min}
                 aria-label={t(locale, 'bld.chat.send')}
               >
                 <Icon name="send" size={18} />

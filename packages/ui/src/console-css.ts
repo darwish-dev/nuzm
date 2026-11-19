@@ -1558,6 +1558,14 @@ button.bws-publish { border: 0; font: inherit; font-size: 13px; font-weight: 650
 .mws-tab[aria-current='page'] { color: var(--m-text); font-weight: 600; }
 .mws-tab[aria-current='page'] .mws-tab-pill { background: var(--m-container); }
 .mws-tab:focus-visible { outline: 2px solid var(--m-primary); outline-offset: 2px; border-radius: 8px; }
+/* Web app mode of the workspace */
+.mws-meters { display: grid; gap: 2px; margin: 0; font-size: 12px; }
+.mws-meters div { display: flex; justify-content: space-between; gap: 8px; }
+.mws-meters dt { color: var(--nzc-muted); }
+.mws-meters dd { margin: 0; }
+.mws-app-preview { display: grid; gap: 14px; align-content: start; }
+.mws-built p { margin: 0 0 10px; }
+.bld-run .bld-steps .bld-st-detail { display: inline-flex; align-items: center; gap: 4px; }
 .mws-ico { display: block; }
 @media (max-width: 720px) { .mws-device, .mws-device[data-device='tablet'] { max-inline-size: 100%; } .mws-dl { grid-template-columns: minmax(0, 1fr); } }
 `;

@@ -4,6 +4,7 @@ import { t, tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
 import { Badge, Banner, Icon, Ltr } from '@nuzm/ui';
 import { credits, isRunActive, num, type Run } from '../lib/builder';
 import { bapi, useBuilderCall, useRunStream } from '../lib/builder-client';
+import { useRunSafetyPoll } from '../lib/run-poll';
 import {
   biText,
   mobileApprovalView,
@@ -14,9 +15,6 @@ import {
 } from '../lib/mobile';
 import { ProblemNote } from './BuilderBits';
 import { ApprovalCard } from './BuilderRun';
-
-/** While a run works the stream is the live view; this is the safety net under it: the run row is read again every few seconds so the card can never stay on "Running". */
-const SAFETY_POLL_MS = 5000;
 
 export interface MobileRunProgress {
   active: boolean;
@@ -110,34 +108,17 @@ export function MobileRunCard({
   onRunRef.current = onRun;
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
-  const seen = useRef<string | null>(null);
 
   useEffect(() => {
     if (stream.changed) {
-      seen.current = stream.changed.state;
+      known(stream.changed.state);
       onRunRef.current?.(stream.changed);
     }
   }, [stream.changed]);
 
   const active = run ? isRunActive(run.state) : false;
   const waiting = run?.state === 'waiting_approval';
-  useEffect(() => {
-    if (!run || !active || waiting) return;
-    const id = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-      void bapi.get<Run>(`/v1/ai/runs/${runId}`).then((r) => {
-        if (!r.response.ok || !r.data) return;
-        stream.setRun(r.data);
-        if (seen.current !== r.data.state) {
-          seen.current = r.data.state;
-          onRunRef.current?.(r.data);
-        }
-      });
-    }, SAFETY_POLL_MS);
-    return () => clearInterval(id);
-    // `stream.setRun` is a state setter (stable)
-  }, [runId, run?.state, active, waiting]);
-
+  const known = useRunSafetyPoll(runId, run, stream.setRun, (r) => onRunRef.current?.(r));
   const phase = run ? mobilePhase(run.state, stream.events) : 'queued';
   const stages = run ? mobileRunStages(run.state, stream.events, run.error) : [];
   const title = t(locale, `mws.run.title.${phase}` as MessageKey);

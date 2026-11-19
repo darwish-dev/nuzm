@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
+import { Icon } from '@nuzm/ui';
+import { BrandMark } from '../components/BrandLogo';
 import { BuilderStart } from '../components/BuilderStart';
 import { ProjectCards, ProjectFilterTabs } from '../components/BuilderProjects';
 import { APP_BUILDER_FLAG } from './appbuilder';
@@ -91,7 +93,19 @@ export async function ProjectsScreen({
   );
   return (
     <>
-      {/* full screen: the heading stays for screen readers and the page title, but is not drawn */}
+      {/* full screen: the console's sidebar and top bar step aside (see `.bfs-top`), so the page has its own slim bar with a way out */}
+      <header className="bfs-top">
+        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
+          <BrandMark />
+        </a>
+        <strong className="bfs-title">{t(locale, 'bld.fab.title')}</strong>
+        <span className="bws-spacer" />
+        <a className="bfs-exit" href={`/${locale}`}>
+          <Icon name="close" size={16} />
+          {t(locale, 'bld.ws.exit')}
+        </a>
+      </header>
+      {/* the heading stays for screen readers and the page title, but is not drawn */}
       <h1 className="nz-sr">{t(locale, fixed ? 'm10a.apps.title' : 'bld.start.title')}</h1>
       {body}
     </>

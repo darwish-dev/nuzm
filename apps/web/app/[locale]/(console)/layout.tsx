@@ -17,6 +17,7 @@ import { BrandMark, BrandWordmark } from '../../../components/BrandLogo';
 import { VerifyEmailPill } from '../../../components/AuthForms';
 import { ActiveOrgCookie, OrgSwitcher } from '../../../components/ConsoleChrome';
 import { ConsoleFrame, ProfileMenu } from '../../../components/ConsoleShell';
+import { FloatingBuilder } from '../../../components/FloatingBuilder';
 import { FloatingCart } from '../../../components/FloatingCart';
 import { NotificationsMenu } from '../../../components/NotificationsMenu';
 import {
@@ -264,6 +265,9 @@ export default async function ConsoleLayout({
       </ConsoleFrame>
       {s.org && s.can('hosting:site:create') && (
         <FloatingCart locale={locale} orgId={s.org.orgId} />
+      )}
+      {s.org && s.can('builder:read') && flagEnabled(s.me.featureFlags, 'ai.enabled') && (
+        <FloatingBuilder locale={locale} />
       )}
     </>
   );

@@ -300,6 +300,14 @@ export function Workspace({
             {t(locale, 'bld.ws.publish')}
           </a>
         )}
+        <a
+          className="bws-exit"
+          href={`/${locale}`}
+          aria-label={t(locale, 'bld.ws.exit')}
+          title={t(locale, 'bld.ws.exit')}
+        >
+          <Icon name="close" size={18} />
+        </a>
       </header>
 
       <div className="bws-body">

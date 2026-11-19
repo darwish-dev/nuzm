@@ -3,6 +3,8 @@
  * tree, and search over file names and contents. Everything here only READS text; the tokens are rendered as React text (never as markup), so nothing in a
  * generated file can run or inject anything.
  */
+import type { FileContent, SiteModel } from './builder';
+
 export type FileKind = 'html' | 'css' | 'js' | 'json' | 'image' | 'text';
 export type TokenClass = 'tag' | 'attr' | 'str' | 'com' | 'kw' | 'num' | 'prop' | 'at' | 'plain';
 export interface Token {
@@ -24,7 +26,7 @@ const JS_KEYWORDS =
   'var|let|const|function|return|if|else|for|while|do|new|this|typeof|instanceof|in|of|true|false|null|undefined|try|catch|throw|switch|case|break|continue|default|class|extends|import|export|from|async|await';
 
 const RULES: Record<
-  'html' | 'css' | 'js',
+  'html' | 'css' | 'js' | 'json',
   { re: RegExp; cls: (m: RegExpExecArray) => TokenClass }
 > = {
   html: {
@@ -34,6 +36,10 @@ const RULES: Record<
   css: {
     re: /(\/\*[\s\S]*?\*\/)|("[^"]*"|'[^']*')|(@[\w-]+)|([\w-]+(?=\s*:))|(-?\d*\.?\d+(?:px|em|rem|%|vh|vw|s|ms|deg)?\b|#[0-9a-fA-F]{3,8}\b)/g,
     cls: (m) => (m[1] ? 'com' : m[2] ? 'str' : m[3] ? 'at' : m[4] ? 'prop' : 'num'),
+  },
+  json: {
+    re: /("(?:[^"\\\n]|\\.)*"(?=\s*:))|("(?:[^"\\\n]|\\.)*")|\b(true|false|null)\b|(-?\b\d+(?:\.\d+)?\b)/g,
+    cls: (m) => (m[1] ? 'prop' : m[2] ? 'str' : m[3] ? 'kw' : 'num'),
   },
   js: {
     re: new RegExp(
@@ -46,7 +52,8 @@ const RULES: Record<
 
 /** Tint one text. Unknown kinds come back as a single plain token. The tokens always concatenate back to the original text. */
 export function highlight(text: string, kind: FileKind): Token[] {
-  const rule = kind === 'html' || kind === 'css' || kind === 'js' ? RULES[kind] : null;
+  const rule =
+    kind === 'html' || kind === 'css' || kind === 'js' || kind === 'json' ? RULES[kind] : null;
   if (!rule || text.length > 200_000) return [{ c: 'plain', s: text }];
   const out: Token[] = [];
   let last = 0;
@@ -105,4 +112,49 @@ export function searchFiles(
     if (hits.length >= limit) break;
   }
   return hits.slice(0, limit);
+}
+
+/**
+ * The SOURCE of a site as files, derived from its model on the client (nothing is fetched or stored): the project record, the site settings, the design tokens and
+ * one file per page. They sit beside the generated files in the tree, the way a project keeps its source next to its output. They are views of the model: read-only,
+ * and a change is made in the editor or by asking in the chat.
+ */
+export const SOURCE_PREFIXES = ['.nuzm/', 'src/'] as const;
+export const isSourcePath = (path: string): boolean =>
+  SOURCE_PREFIXES.some((p) => path.startsWith(p));
+
+export function sourceFiles(
+  model: SiteModel | undefined,
+  info: { projectId: string; versionId: string },
+): FileContent[] {
+  if (!model) return [];
+  const mk = (path: string, value: unknown): FileContent => {
+    const content = `${JSON.stringify(value, null, 2)}\n`;
+    return {
+      path,
+      mime: 'application/json',
+      size: new TextEncoder().encode(content).length,
+      encoding: 'utf8',
+      content,
+    };
+  };
+  return [
+    mk('.nuzm/project.json', {
+      projectId: info.projectId,
+      versionId: info.versionId,
+      locales: model.locales,
+      defaultLocale: model.defaultLocale,
+      pages: model.pages.map((p) => p.slug),
+    }),
+    mk('src/site.json', {
+      brand: model.brand,
+      seo: model.seo,
+      nav: model.nav,
+      footer: model.footer,
+      forms: model.forms,
+      assets: model.assets ?? [],
+    }),
+    mk('src/tokens.json', model.tokens),
+    ...model.pages.map((p) => mk(`src/pages/${p.slug}.json`, p)),
+  ];
 }

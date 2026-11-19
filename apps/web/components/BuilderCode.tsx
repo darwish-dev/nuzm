@@ -11,16 +11,28 @@ import {
   type FileContent,
   type Page_,
   type ProjectFile,
+  type SiteModel,
   type Version,
 } from '../lib/builder';
 import { bapi, useBuilderCall } from '../lib/builder-client';
-import { fileKind, highlight, searchFiles, toLines, type SearchHit } from '../lib/code-view';
+import {
+  fileKind,
+  highlight,
+  isSourcePath,
+  searchFiles,
+  sourceFiles,
+  toLines,
+  type SearchHit,
+} from '../lib/code-view';
 import { ProblemNote } from './BuilderBits';
 import { VersionCompare } from './BuilderVersions';
 
 const MAX_LINES = 2000;
 
-/** The files of a generated site as a tree. Directories open and close; a file is a button. */
+const hasCurrent = (n: TreeNode, current: string | null): boolean =>
+  current !== null && n.children.some((c) => c.path === current || hasCurrent(c, current));
+
+/** The files of a site as a tree. Directories start closed and open on the way to the open file; a file is a button. */
 function Tree({
   nodes,
   current,
@@ -37,7 +49,7 @@ function Tree({
       {nodes.map((n) =>
         n.path === undefined ? (
           <li key={`d:${n.name}`}>
-            <details open>
+            <details open={hasCurrent(n, current) ? true : undefined}>
               <summary>
                 <Icon name="chevron" size={14} />
                 <span dir="ltr">{n.name}</span>
@@ -134,10 +146,13 @@ export function CodePane({
   locale,
   projectId,
   versionId,
+  model,
 }: {
   locale: Locale;
   projectId: string;
   versionId: string;
+  /** the site model of this version: its source files are shown beside the generated ones */
+  model?: SiteModel;
 }) {
   const files = useBuilderCall();
   const file = useBuilderCall();
@@ -148,7 +163,7 @@ export function CodePane({
   const [side, setSide] = useState<'files' | 'search'>('files');
   const [q, setQ] = useState('');
   const [cache, setCache] = useState<Record<string, FileContent>>({});
-  const [bottom, setBottom] = useState<'changes' | 'publish' | null>(null);
+  const [bottom, setBottom] = useState<'status' | 'changes' | 'publish' | null>('status');
   const [jump, setJump] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLDivElement>(null);
@@ -173,8 +188,26 @@ export function CodePane({
     // the callbacks of useBuilderCall are stable
   }, [projectId, versionId]);
 
+  const source = useMemo(
+    () => sourceFiles(model, { projectId, versionId }),
+    [model, projectId, versionId],
+  );
+  const sourceByPath = useMemo(() => Object.fromEntries(source.map((f) => [f.path, f])), [source]);
+  const all: ProjectFile[] | null = useMemo(
+    () =>
+      list
+        ? [
+            ...source.map((f) => ({ path: f.path, size: f.size, mime: f.mime, contentHash: '' })),
+            ...list,
+          ]
+        : null,
+    [list, source],
+  );
+
   const read = (path: string, line?: number) => {
     setJump(line && line > 0 ? line : null);
+    const own = sourceByPath[path];
+    if (own) return setOpen(own);
     const hit = cache[path];
     if (hit) return setOpen(hit);
     void file.run(
@@ -219,17 +252,14 @@ export function CodePane({
   const texts = useMemo(
     () =>
       Object.fromEntries(
-        Object.values(cache)
+        [...Object.values(cache), ...source]
           .filter((c) => c.encoding === 'utf8')
           .map((c) => [c.path, c.content]),
       ),
-    [cache],
+    [cache, source],
   );
-  const hits: SearchHit[] = useMemo(
-    () => (list ? searchFiles(list, texts, q) : []),
-    [list, texts, q],
-  );
-  const tree = useMemo(() => buildTree(list ?? []), [list]);
+  const hits: SearchHit[] = useMemo(() => (all ? searchFiles(all, texts, q) : []), [all, texts, q]);
+  const tree = useMemo(() => buildTree(all ?? []), [all]);
   const lines = useMemo(
     () =>
       open && open.encoding === 'utf8' ? toLines(highlight(open.content, fileKind(open.path))) : [],
@@ -248,7 +278,11 @@ export function CodePane({
       setTimeout(() => setCopied(false), 1500);
     });
   };
-  const tab = (id: 'changes' | 'publish') => () => setBottom((b) => (b === id ? null : id));
+  const tab = (id: 'status' | 'changes' | 'publish') => () =>
+    setBottom((b) => (b === id ? null : id));
+  const seq = versions.find((v) => v.id === versionId)?.seq ?? versions[0]?.seq;
+  const bytes = (list ?? []).reduce((n, f) => n + f.size, 0);
+  const sizeText = bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${bytes} B`;
 
   return (
     <div className="bwc" data-bottom={bottom ?? 'closed'}>
@@ -280,13 +314,13 @@ export function CodePane({
               {t(locale, 'state.loading')}
             </p>
           )}
-          {list && list.length === 0 && (
+          {list && all && all.length === 0 && (
             <p className="nz-muted bwc-pad">{t(locale, 'bld.code.noFiles')}</p>
           )}
-          {list && list.length > 0 && side === 'files' && (
+          {all && all.length > 0 && side === 'files' && (
             <Tree nodes={tree} current={open?.path ?? null} onPick={(p) => read(p)} />
           )}
-          {list && list.length > 0 && side === 'search' && (
+          {all && all.length > 0 && side === 'search' && (
             <div className="bwc-search">
               <input
                 type="search"
@@ -335,14 +369,14 @@ export function CodePane({
           ) : (
             <>
               <header className="bwc-bar">
-                <span dir="ltr" className="bwc-path">
-                  {open.path}
-                </span>
-                <span className="bwc-meta" dir="ltr">
-                  {open.mime} · {open.size} B
+                <Icon name="list" size={15} />
+                <span dir="ltr" className="bwc-path" title={`${open.mime} · ${open.size} B`}>
+                  {open.path.split('/').pop()}
                 </span>
                 <span className="bwc-chip" title={t(locale, 'bld.cx.empty.body')}>
-                  {t(locale, 'bld.cx.readonly')}
+                  {isSourcePath(open.path)
+                    ? `${t(locale, 'bld.cx.source')} · ${t(locale, 'bld.cx.readonly')}`
+                    : t(locale, 'bld.cx.readonly')}
                 </span>
                 {open.encoding === 'utf8' && (
                   <button type="button" className="bwc-copy" onClick={copy}>
@@ -392,6 +426,15 @@ export function CodePane({
           <button
             type="button"
             role="tab"
+            aria-selected={bottom === 'status'}
+            onClick={tab('status')}
+          >
+            <Icon name="sparkle" size={15} />
+            {t(locale, 'bld.cx.panel.status')}
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={bottom === 'changes'}
             onClick={tab('changes')}
           >
@@ -413,11 +456,38 @@ export function CodePane({
             className="bwc-collapse"
             aria-expanded={bottom !== null}
             aria-label={t(locale, bottom ? 'bld.cx.panel.collapse' : 'bld.cx.panel.expand')}
-            onClick={() => setBottom((b) => (b ? null : 'changes'))}
+            onClick={() => setBottom((b) => (b ? null : 'status'))}
           >
             <Icon name="chevron" size={16} />
           </button>
         </div>
+        {bottom === 'status' && (
+          <div className="bwc-bbody bwc-term" dir="ltr">
+            <p>
+              <b className="ok">NUZM</b> {t(locale, 'bld.cx.status.ready', { n: seq ?? '—' })}
+            </p>
+            <p>
+              <span className="arrow">→</span>{' '}
+              {t(locale, 'bld.cx.status.files', { n: list?.length ?? 0, size: sizeText })}
+            </p>
+            {model && (
+              <p>
+                <span className="arrow">→</span>{' '}
+                {t(locale, 'bld.cx.status.pages', {
+                  n: model.pages.length,
+                  langs: model.locales.join(', '),
+                })}
+              </p>
+            )}
+            {source.length > 0 && (
+              <p>
+                <span className="arrow">→</span>{' '}
+                {t(locale, 'bld.cx.status.source', { n: source.length })}
+              </p>
+            )}
+            <p className="hint">{t(locale, 'bld.cx.status.hint')}</p>
+          </div>
+        )}
         {bottom === 'changes' && (
           <div className="bwc-bbody">
             {vers.problem ? (

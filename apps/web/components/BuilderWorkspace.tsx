@@ -376,7 +376,12 @@ export function Workspace({
               onSiteLocale={setSiteLocale}
             />
           ) : view === 'code' ? (
-            <CodePane locale={locale} projectId={detail.id} versionId={detail.versionId} />
+            <CodePane
+              locale={locale}
+              projectId={detail.id}
+              versionId={detail.versionId}
+              model={model}
+            />
           ) : (
             <DataPane locale={locale} projectId={detail.id} model={model} siteLocale={siteLocale} />
           )}

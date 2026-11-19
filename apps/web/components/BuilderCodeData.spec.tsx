@@ -84,11 +84,37 @@ describe('Code view', () => {
     );
     const { container } = render(<CodePane locale="en" projectId="p1" versionId="v1" />);
     await screen.findByText('index.html');
-    expect(container.querySelector('.bwc-bbody')).toBeNull();
+    // it opens on the status tab, like a terminal that is already running
+    expect(container.querySelector('.bwc-term')).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: t('en', 'bld.cx.panel.publish') }));
     expect(await screen.findByText(t('en', 'bld.cx.pub.none'), { exact: false })).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: t('en', 'bld.cx.panel.publish') }));
     expect(container.querySelector('.bwc-bbody')).toBeNull();
+  });
+  it('shows the site source as files beside the generated ones, opens them as JSON, and finds them in search', async () => {
+    codeRoutes();
+    const m = {
+      locales: ['ar', 'en'],
+      defaultLocale: 'ar',
+      brand: { name: { ar: 'م', en: 'Acme' } },
+      seo: { siteTitle: { ar: 'م', en: 'Acme' }, description: { ar: 'و', en: 'D' } },
+      forms: [],
+      pages: [{ id: 'home', slug: 'home', title: { ar: 'ر', en: 'Home' }, sections: [] }],
+      tokens: { radius: 'md' },
+    } as unknown as SiteModel;
+    const { container } = render(<CodePane locale="en" projectId="p1" versionId="v1" model={m} />);
+    await screen.findByText('index.html');
+    expect(screen.getByText('project.json')).toBeTruthy();
+    expect(screen.getByText('tokens.json')).toBeTruthy();
+    expect(screen.getByText('home.json')).toBeTruthy();
+    fireEvent.click(screen.getByText('tokens.json'));
+    await waitFor(() => expect(container.querySelector('.bwc-line')).toBeTruthy());
+    expect(container.querySelector('.tok-prop')?.textContent).toBe('"radius"');
+    expect(
+      screen.getByText(`${t('en', 'bld.cx.source')} · ${t('en', 'bld.cx.readonly')}`),
+    ).toBeTruthy();
+    // no request was made for a source file: it is derived from the model
+    expect(calls.some((u) => u.includes('tokens.json'))).toBe(false);
   });
   it('without deploy access the publish panel says so instead of failing', async () => {
     codeRoutes((url) =>

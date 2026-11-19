@@ -42,8 +42,17 @@ describe('code view helpers', () => {
     expect(t.find((x) => x.c === 'com')?.s).toBe('// note');
     expect(t.find((x) => x.c === 'num')?.s).toBe('42');
   });
+  it('tints JSON keys, strings, numbers and literals, and the tokens give back the text', () => {
+    const text = '{"a": "x", "n": 1, "ok": true}';
+    const t = highlight(text, 'json');
+    expect(t.map((x) => x.s).join('')).toBe(text);
+    expect(t.filter((x) => x.c === 'prop').map((x) => x.s)).toEqual(['"a"', '"n"', '"ok"']);
+    expect(t.find((x) => x.c === 'str')?.s).toBe('"x"');
+    expect(t.find((x) => x.c === 'num')?.s).toBe('1');
+    expect(t.find((x) => x.c === 'kw')?.s).toBe('true');
+  });
   it('anything else, and anything very large, stays plain text', () => {
-    expect(highlight('{"a":1}', 'json')).toEqual([{ c: 'plain', s: '{"a":1}' }]);
+    expect(highlight('plain words', 'text')).toEqual([{ c: 'plain', s: 'plain words' }]);
     expect(highlight('x'.repeat(300_000), 'html')).toHaveLength(1);
     expect(highlight('', 'html')).toEqual([{ c: 'plain', s: '' }]);
   });

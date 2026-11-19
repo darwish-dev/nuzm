@@ -52,6 +52,10 @@ export interface SiteModel {
   seo: { siteTitle: Localized; description: Localized; baseUrl?: string };
   pages: Page[];
   forms: { id: string; name: string }[];
+  /** the rest of the stored model (navigation, footer, design tokens): carried as data, shown in the Code view */
+  nav?: unknown;
+  footer?: unknown;
+  tokens?: unknown;
   /** images the site uses (placeholders or uploads); older stored models may not carry the list */
   assets?: {
     id: string;

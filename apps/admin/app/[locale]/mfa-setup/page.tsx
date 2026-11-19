@@ -1,8 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { ApiError, unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
-import { PageTitle } from '@nuzm/ui';
-import { AuthLogo } from '../../../components/BrandLogo';
+import { AuthShell } from '../../../components/AuthShell';
 import { MfaGate } from '../../../components/MfaGate';
 import { serverApi } from '../../../lib/server';
 
@@ -23,11 +22,12 @@ export default async function MfaPage({ params }: { params: Promise<{ locale: st
     else throw e;
   }
   return (
-    <main className="nz-main" style={{ maxInlineSize: 560, marginInline: 'auto' }}>
-      <AuthLogo href={`/${locale}`} />
-      <PageTitle>{t(locale, factorId ? 'mfa.challenge.title' : 'mfa.title')}</PageTitle>
-      <p role="note">{t(locale, 'mfa.admin.required')}</p>
+    <AuthShell
+      locale={locale}
+      title={t(locale, factorId ? 'mfa.challenge.title' : 'mfa.title')}
+      sub={t(locale, 'mfa.admin.required')}
+    >
       <MfaGate locale={locale} factorId={factorId} next={`/${locale}/organizations`} />
-    </main>
+    </AuthShell>
   );
 }

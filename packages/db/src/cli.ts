@@ -4,6 +4,7 @@ import { checkDatabase } from './checks';
 import { checkClassification } from './classification';
 import { collectEvidence } from './collectors';
 import { syncControls } from './controls';
+import { devSeedAiResidency } from './dev-ai-residency';
 import { devSeedCloud } from './dev-cloud';
 import { devEnableFeatures } from './dev-flags';
 import { devSeed } from './dev-seed';
@@ -77,6 +78,12 @@ async function main() {
     const r = await devSeed(url, org);
     for (const [k, v] of Object.entries(r))
       console.log(`${k}: ${v.length ? `added ${v.join(', ')}` : 'nothing new (already seeded)'}`);
+  } else if (cmd === 'dev-seed-ai-residency') {
+    // DEV ONLY: Claude as a processor of customer content in the US, and (with an organization) that organization's policy allowing the US (refuses non-local databases).
+    const [, org] = process.argv.slice(2);
+    const r = await devSeedAiResidency(url, org);
+    for (const [k, v] of Object.entries(r))
+      console.log(`${k}: ${v.length ? `added ${v.join(', ')}` : 'nothing new (already in place)'}`);
   } else if (cmd === 'dev-seed-cloud') {
     // DEV ONLY: a fake compute catalog (accounts, regions, sizes, images, a disk price) so the cloud screens have offers (refuses non-local databases).
     const [, org] = process.argv.slice(2); // optional: also allow the sandbox regions for this organization
@@ -204,7 +211,7 @@ async function main() {
     if (reports.some((r) => !r.ok)) process.exit(1);
   } else {
     console.error(
-      'usage: cli.ts migrate|rollback|dev-logins|dev-seed|dev-seed-cloud|dev-enable-features|grant-platform-role|check|classification|ropa-coverage|residency-hooks|sync-controls|collect-evidence',
+      'usage: cli.ts migrate|rollback|dev-logins|dev-seed|dev-seed-cloud|dev-seed-ai-residency|dev-enable-features|grant-platform-role|check|classification|ropa-coverage|residency-hooks|sync-controls|collect-evidence',
     );
     process.exit(2);
   }

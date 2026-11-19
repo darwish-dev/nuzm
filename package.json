@@ -36,6 +36,7 @@
     "db:dev-logins": "pnpm --filter @nuzm/db run dev-logins",
     "db:dev-features": "pnpm --filter @nuzm/db exec tsx src/cli.ts dev-enable-features",
     "db:dev-ai-credits": "pnpm --filter @nuzm/api run grant-ai-credits",
+    "db:dev-ai-residency": "pnpm --filter @nuzm/db exec tsx src/cli.ts dev-seed-ai-residency",
     "db:dev-seed-cloud": "pnpm --filter @nuzm/db exec tsx src/cli.ts dev-seed-cloud",
     "db:dev-seed": "pnpm --filter @nuzm/db exec tsx src/cli.ts dev-seed",
     "sdk:generate": "pnpm --filter @nuzm/sdk run generate",

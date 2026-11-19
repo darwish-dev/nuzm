@@ -57,6 +57,8 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'orgId') return orgA;
   if (p === 'userId') return aliceId;
   if (p === 'envId') return A.env;
+  // offers (cloud shop): an offer is provider inventory, not an org row; a hostile call must 404 (not eligible), which compute-flow.int.spec covers positively
+  if (p === 'offerId') return '00000000-0000-4000-8000-0000000000f1';
   // hosting (M06): site id, backup id, abuse-case id
   if (p === 'backupId') return A.hostingBackup;
   if (p === 'caseId') return A.hostingCase;
@@ -398,7 +400,7 @@ beforeAll(async () => {
      VALUES ($1, $2, 'run', $3, $3, 'budget_increase', '{}'::jsonb, repeat('a', 64), 'pending', 'ai', '{owner}', now() + interval '1 day', 'sa-central')`,
     [A.aiApproval, orgA, A.aiRun],
   );
-  // M10A resolves the project through ProjectsPort, now bound to the REAL builder tables (migration 1450 allows type webapp): org A's project is a real builder.projects row, so the positive control hits the real read path
+  // M10A resolves the project through ProjectsPort, now bound to the REAL builder tables (migration 1800 allows type webapp): org A's project is a real builder.projects row, so the positive control hits the real read path
   A.m10Project = (
     await app.get(ProjectsPort, { strict: false }).create(orgA, {
       type: 'webapp',
@@ -702,7 +704,8 @@ describe("after all the hostile calls, org A's data is untouched", () => {
         (x) =>
           x.method === 'GET' &&
           !x.path.includes('{userId}') &&
-          !x.path.startsWith('/v1/marketplace/purchases/'), // needs the ledger-backed invoice chain: see marketplace.int.spec
+          !x.path.startsWith('/v1/marketplace/purchases/') && // needs the ledger-backed invoice chain: see marketplace.int.spec
+          !x.path.startsWith('/v1/offers/'), // needs an eligible provider offer: the 200 path is in compute-flow.int.spec
       )) {
         const r = await app.inject({
           method: 'GET',

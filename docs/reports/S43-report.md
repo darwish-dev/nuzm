@@ -12,3 +12,6 @@ Status words per CLAUDE.md §6. Branch `claude/m10a-app-builder-7cee56`.
 Generated stack: Node 22 (type stripping) + TypeScript 5.9 + pg 8 (ranges; the lockfile is created in the sandbox through the mirror — not available offline, so tests use a SYNTHETIC lockfile). The advisory feed is not connected.
 
 Feature flag `app_builder.enabled` default OFF. Assumptions: `M10-m09-interface-assumptions.md`.
+
+## Finish session: artifacts on the real M09
+`db_schema` / `api_contract` / `app_spec` artifacts are stored in `ai.artifacts` (migration 1451 adds the kinds) and served by M09's `GET /v1/ai/runs/{id}/artifacts/{artifactId}`; the UI reads the schema, API and access views from them. No change to the generators. PASS (`m09-real.int.spec.ts`).

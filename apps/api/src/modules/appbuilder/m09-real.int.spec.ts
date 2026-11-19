@@ -79,7 +79,10 @@ const handler = (req: { task?: string }): string => {
     });
   if (req.task === 'app_spec') return JSON.stringify(specNow());
   if (req.task === 'test_fix')
-    return JSON.stringify({ explanation: 'add the missing marker', patches: [{ op: 'add', path: 'docs/FIXED.md', content: 'FIXED' }] });
+    return JSON.stringify({
+      explanation: 'add the missing marker',
+      patches: [{ op: 'add', path: 'docs/FIXED.md', content: 'FIXED' }],
+    });
   return JSON.stringify({ error: 'no fixture' });
 };
 
@@ -104,7 +107,8 @@ beforeAll(async () => {
   runs = e.app.get(RunService);
   // the dev runtime (mock, NOT isolated) starts no process: install/typecheck/build succeed; the unit suite passes once docs/FIXED.md exists
   const rt = e.app.get(SandboxRuntime) as MockSandboxRuntime;
-  for (const cmd of ['npm', 'npx']) rt.register(cmd, () => ({ stdout: 'ok', exitCode: 0, cpuSeconds: 1 }));
+  for (const cmd of ['npm', 'npx'])
+    rt.register(cmd, () => ({ stdout: 'ok', exitCode: 0, cpuSeconds: 1 }));
   rt.register('node', ({ files }) => {
     const ok = files.has('docs/FIXED.md');
     return {
@@ -708,7 +712,8 @@ describe('a test-fix run through M09 (bounded debugging loop on the real project
       input: { brief: { prompt: 'fix me' } },
     });
     expect((await drive(gen.json().id)).state).toBe('succeeded');
-    const head = (await call('alice', 'GET', `/v1/builder/projects/${projectId}`)).json().headVersionId;
+    const head = (await call('alice', 'GET', `/v1/builder/projects/${projectId}`)).json()
+      .headVersionId;
     expect(
       (
         await call('alice', 'POST', `/v1/builder/projects/${projectId}/changes`, {
@@ -729,12 +734,18 @@ describe('a test-fix run through M09 (bounded debugging loop on the real project
     if (out.state !== 'succeeded') throw new Error(JSON.stringify(out));
     expect(out.result).toMatchObject({ outcome: 'fixed', iterations: 1 });
     expect(
-      (await e.sql(`SELECT count(*)::int n FROM builder.test_runs WHERE project_id=$1`, [projectId]))[0]!.n,
+      (
+        await e.sql(`SELECT count(*)::int n FROM builder.test_runs WHERE project_id=$1`, [
+          projectId,
+        ])
+      )[0]!.n,
     ).toBeGreaterThanOrEqual(2); // failing run, then the passing one
-    const files = (await call('alice', 'GET', `/v1/builder/projects/${projectId}/files`)).json().items as Row[];
+    const files = (await call('alice', 'GET', `/v1/builder/projects/${projectId}/files`)).json()
+      .items as Row[];
     expect(files.map((f) => f.path)).toContain('docs/FIXED.md');
     expect(
-      (await e.sql(`SELECT count(*)::int n FROM ai.model_usage WHERE run_id=$1`, [r.json().id]))[0]!.n,
+      (await e.sql(`SELECT count(*)::int n FROM ai.model_usage WHERE run_id=$1`, [r.json().id]))[0]!
+        .n,
     ).toBe(1);
   });
 });

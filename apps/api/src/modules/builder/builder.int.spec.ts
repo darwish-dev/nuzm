@@ -419,7 +419,11 @@ describe('previews on the isolated origin (S39.4, AC-M09-04)', () => {
     expect(r.headers['referrer-policy']).toBe('no-referrer');
     expect(r.headers['cross-origin-resource-policy']).toBe('same-origin');
     expect(r.body).not.toMatch(/<script(?![^>]*(ld\+json|src=))/);
-    expect((await previewGet(url, 'assets/styles.css')).statusCode).toBe(200);
+    const css = await previewGet(url, 'assets/styles.css');
+    expect(css.statusCode).toBe(200);
+    // assets are loaded by the sandboxed (opaque-origin) frame: they must be loadable cross-origin, or the site renders unstyled
+    expect(css.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    expect(css.headers['access-control-allow-origin']).toBeUndefined();
   });
   it('cannot be reached through another host, with a wrong or tampered token, or with traversal; cookies from the console are ignored', async () => {
     const t = token(url);

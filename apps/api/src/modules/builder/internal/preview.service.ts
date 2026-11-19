@@ -232,7 +232,11 @@ export class PreviewService {
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',
         'cross-origin-opener-policy': 'same-origin',
-        'cross-origin-resource-policy': 'same-origin',
+        // the page itself is a navigation (CORP does not apply) and stays same-origin; its stylesheet, script and images are loaded by a SANDBOXED frame, whose origin is
+        // opaque, so `same-origin` would make the browser refuse them and the site would render unstyled. They carry no secret beyond what the unguessable URL already guards.
+        'cross-origin-resource-policy': String(row.f.mime).startsWith('text/html')
+          ? 'same-origin'
+          : 'cross-origin',
         'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
         'cache-control': 'no-store',
         'x-robots-tag': 'noindex, nofollow',

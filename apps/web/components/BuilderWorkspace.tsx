@@ -33,6 +33,7 @@ import { DataPane } from './BuilderData';
 import { Inspector, type Selection } from './BuilderInspector';
 import { PreviewPane } from './BuilderPreview';
 import { RunCard, type RunProgress } from './BuilderRunCard';
+import { DeleteProject } from './DeleteProject';
 
 type Mode = 'edit' | 'undo' | 'redo';
 
@@ -302,6 +303,16 @@ export function Workspace({
                 <a href={l.href}>{l.label}</a>
               </li>
             ))}
+            {canWrite && (
+              <li>
+                <DeleteProject
+                  locale={locale}
+                  variant="menu"
+                  project={{ id: detail.id, name: detail.name }}
+                  redirectTo={`/${locale}/builder/projects`}
+                />
+              </li>
+            )}
           </ul>
         </details>
         {publish && (

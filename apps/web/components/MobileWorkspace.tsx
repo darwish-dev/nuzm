@@ -14,6 +14,7 @@ import {
   type WorkspaceTab,
 } from '../lib/mobile';
 import { Chat } from './BuilderChat';
+import { DeleteProject } from './DeleteProject';
 import { MobileCode } from './MobileCode';
 import { BuildsPanel, ReleasesPanel, SigningPanel } from './MobilePanels';
 import { PanelForbidden } from './PanelLoad';
@@ -37,6 +38,8 @@ export interface MobileCan {
   /** `builder:write` + `ai:write` */
   describe: boolean;
   build: boolean;
+  /** `builder:write`: the "more" menu offers deleting the project */
+  write?: boolean;
   signing: boolean;
   release: boolean;
 }
@@ -201,7 +204,7 @@ export function MobileWorkspace({
       </>
     ) : null;
   const menu =
-    project.versionSeq !== null || runId ? (
+    project.versionSeq !== null || runId || can.write ? (
       <>
         {project.versionSeq !== null && (
           <li className="bws-more-meta">
@@ -211,6 +214,16 @@ export function MobileWorkspace({
         {runId && (
           <li>
             <a href={`/${locale}/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
+          </li>
+        )}
+        {can.write && (
+          <li>
+            <DeleteProject
+              locale={locale}
+              variant="menu"
+              project={{ id: project.id, name: project.name }}
+              redirectTo={`/${locale}/builder/projects`}
+            />
           </li>
         )}
       </>

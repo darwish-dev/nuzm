@@ -93,6 +93,8 @@ export async function ProjectsScreen({
                 items={items}
                 nextCursor={page.nextCursor}
                 canCreate={canCreate}
+                canDelete={canCreate}
+                mfaFactorId={g.s.me.mfaFactorId ?? null}
                 filtered={filter !== 'all'}
               />
             </div>

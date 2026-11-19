@@ -3,6 +3,7 @@ import { Badge, Card, ButtonLink, EmptyState, Ltr, Icon } from '@nuzm/ui';
 import { PROJECT_FILTERS, type ProjectFilter } from '../lib/appworkspace';
 import { isPreviewUrl, LOCALE_LABEL, type Project, type SiteLocale } from '../lib/builder';
 import { DeployBadge, when } from './BuilderBits';
+import { DeleteProject } from './DeleteProject';
 
 /** UI-M09-01: one card per website project; an empty list offers the first one. */
 /** Every project, a mobile app included, opens in the builder workspace (a mobile app in its mobile mode). */
@@ -15,11 +16,16 @@ export function ProjectCards({
   nextCursor,
   canCreate,
   filtered,
+  canDelete = false,
+  mfaFactorId = null,
 }: {
   locale: Locale;
   items: Project[];
   nextCursor: string | null;
   canCreate: boolean;
+  /** `builder:write`: a card offers "Delete" (the typed-name confirmation is the dialog's) */
+  canDelete?: boolean;
+  mfaFactorId?: string | null;
   /** a type filter is on: an empty list says "none of this type", not "no projects" */
   filtered?: boolean;
 }) {
@@ -84,10 +90,19 @@ export function ProjectCards({
                   <dt>{t(locale, 'bld.projects.updated')}</dt>
                   <dd>{when(p.updatedAt, locale)}</dd>
                 </dl>
-                <ButtonLink variant="secondary" href={projectHref(locale, p)}>
-                  {t(locale, 'action.manage')}
-                  <Icon name="arrow" size={16} />
-                </ButtonLink>
+                <div className="nz-row">
+                  <ButtonLink variant="secondary" href={projectHref(locale, p)}>
+                    {t(locale, 'action.manage')}
+                    <Icon name="arrow" size={16} />
+                  </ButtonLink>
+                  {canDelete && (
+                    <DeleteProject
+                      locale={locale}
+                      project={{ id: p.id, name: p.name }}
+                      mfaFactorId={mfaFactorId}
+                    />
+                  )}
+                </div>
               </div>
             </Card>
           </li>

@@ -116,6 +116,7 @@ export default async function ProjectWorkspace({
               ai: g.s.can('ai:write'),
               describe: g.s.can('builder:write') && g.s.can('ai:write'),
               build: g.s.can('mobile:build'),
+              write: g.s.can('builder:write'),
               signing: g.s.can('mobile:signing'),
               release: g.s.can('mobile:release'),
             }}

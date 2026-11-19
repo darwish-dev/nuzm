@@ -6,6 +6,7 @@ import { isRunActive, isRunFinished, type Message, type Run, type Session } from
 import { bapi } from '../lib/builder-client';
 import { APP_TABS, type AppTab } from '../lib/webapp-workspace';
 import { Chat } from './BuilderChat';
+import { DeleteProject } from './DeleteProject';
 import { PanelForbidden } from './PanelLoad';
 import {
   AppCodePanel,
@@ -123,6 +124,17 @@ export function WebAppWorkspace({
       {runId && (
         <li>
           <a href={`/${locale}/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
+        </li>
+      )}
+      {can.write && (
+        <li>
+          <DeleteProject
+            locale={locale}
+            variant="menu"
+            project={{ id: project.id, name: project.name }}
+            mfaFactorId={mfaFactorId}
+            redirectTo={`/${locale}/builder/projects`}
+          />
         </li>
       )}
     </>

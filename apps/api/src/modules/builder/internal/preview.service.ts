@@ -72,11 +72,17 @@ export class PreviewService {
     const out = await this.db.withOrg(orgId, async (c) => {
       const p = (
         await c.query(
-          `SELECT id, head_version_id, locales FROM builder.projects WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`,
+          `SELECT id, type, head_version_id, locales FROM builder.projects WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`,
           [projectId],
         )
       ).rows[0] as Row | undefined;
       if (!p) throw new ProblemException('not_found');
+      // M10B: a mobile project has no rendered web output yet. A web render of Flutter needs a web build worker and a preview store (SCR-M10B-03); preview != device either way.
+      if (p.type !== 'website')
+        throw new ProblemException(
+          'unsupported_capability',
+          'previews of mobile projects are not available yet (web build worker pending); a web preview is never a guarantee of how the app behaves on a device',
+        );
       const active = Number(
         (
           await c.query(

@@ -1,0 +1,14 @@
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+# signing material never belongs in a project
+*.jks
+*.keystore
+key.properties
+local.properties
+*.p12
+*.mobileprovision

@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # generated code is checked as strictly as hand-written code
+    unused_import: error
+    unused_local_variable: error

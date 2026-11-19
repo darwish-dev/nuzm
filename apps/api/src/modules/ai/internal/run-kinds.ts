@@ -28,7 +28,7 @@ export interface ResumedWith {
   note: string | null;
   payload: unknown;
 }
-export type AgentTask = 'requirements' | 'architecture' | 'page' | 'edit' | 'chat';
+export type AgentTask = 'requirements' | 'architecture' | 'page' | 'edit' | 'chat' | 'mobile_design';
 export interface AgentCall {
   task: AgentTask;
   /** the trusted instruction (code, never user text) */

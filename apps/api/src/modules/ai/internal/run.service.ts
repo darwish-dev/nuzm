@@ -27,7 +27,7 @@ import { htmlToText, type UrlFetchPort } from './url-fetcher';
 
 const ACTIVE = ['queued', 'running', 'waiting_approval'];
 const TERMINAL = ['succeeded', 'failed', 'cancelled', 'budget_exceeded'];
-const KINDS_NOW = ['website', 'edit', 'chat'];
+const KINDS_NOW = ['website', 'edit', 'chat', 'mobile'];
 const ALL_KINDS = ['website', 'edit', 'chat', 'webapp', 'mobile', 'test-fix'];
 const canonical = (v: unknown): string =>
   JSON.stringify(v, (_k, x) =>

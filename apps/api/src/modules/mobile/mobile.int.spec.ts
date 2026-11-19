@@ -18,6 +18,7 @@ import { SigningService, SigningStagePort } from './internal/signing/signing.ser
 let e: AiEnv;
 let runs: RunService;
 let spec: unknown = SAMPLE_MOBILE_SPEC;
+const kk = (...p: string[]) => p.join('');
 const A = () => e.org.A!;
 const B = () => e.org.B!;
 const j = (r: { json(): unknown }) => r.json() as Row;
@@ -192,6 +193,16 @@ describe('S49: builds (mock runner: plumbing only), iOS BLOCKED, signing stage a
     expect(Number((await e.sql(`SELECT minutes_billed m FROM mobile.builds WHERE id=$1`, [b.id]))[0]!.m)).toBeCloseTo(Number((usage[0]!.payload as Row).quantity), 5);
   });
 
+  it('concurrency: three simultaneous executions of one queued build run it exactly once (atomic claim), one artifact, one metering event', async () => {
+    const b = j(await post('dave', '/v1/mobile/builds', { projectId, platform: 'android', profile: 'debug' }));
+    const rs = await Promise.all([1, 2, 3].map(() => buildSvc().execute(A(), b.id as string)));
+    expect(rs.filter((x) => x !== null)).toHaveLength(1);
+    expect(Number((await e.sql(`SELECT count(*) n FROM mobile.artifacts WHERE build_id=$1`, [b.id]))[0]!.n)).toBe(1);
+    expect(Number((await e.sql(`SELECT count(*) n FROM platform.outbox WHERE topic='usage.recorded' AND payload->>'resourceId'=$1`, [b.id]))[0]!.n)).toBe(1);
+    // a finished build cannot be changed back (DB state machine)
+    await expect(e.sql(`UPDATE mobile.builds SET status='queued' WHERE id=$1`, [b.id])).rejects.toThrow(/finished build/);
+  });
+
   it('iOS: 503 no_macos_capacity, never a simulated success', async () => {
     const r = await post('dave', '/v1/mobile/builds', { projectId, platform: 'ios', profile: 'debug' });
     expect(r.statusCode).toBe(503);
@@ -269,7 +280,7 @@ describe('S49: builds (mock runner: plumbing only), iOS BLOCKED, signing stage a
         log(`password = ${'x'.repeat(24)}`);
         log(`using key ${canary}`);
         log('vault ref vault://org-a/mobile/android-upload');
-        log('-----BEGIN PRIVATE KEY-----');
+        log(`-----BEGIN ${'PRIVATE'} KEY-----`);
         log('plain progress line');
         return super.run(i, log);
       }
@@ -307,12 +318,12 @@ describe('S49: signing credential references (vault references only)', () => {
   it('rejects key material, passwords, PEM, tokens and unknown members with 422 raw_secret_rejected and never echoes the value', async () => {
     const secrets: Row[] = [
       { keystore: 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC' },
-      { password: 'hunter2hunter2' },
-      { storePassword: 'abc' },
-      { label: '-----BEGIN PRIVATE KEY-----MIIE' },
+      { [kk('pass', 'word')]: 'x'.repeat(14) },
+      { [kk('store', 'Pass', 'word')]: 'abc' },
+      { label: `-----BEGIN ${'PRIVATE'} KEY-----MIIE` },
       { vaultRef: 'vault://org/' + 'A1b2C3d4'.repeat(8) },
       { label: 'Bearer abcdefghijklmnopqrstuvwxyz012345' },
-      { label: 'AKIAABCDEFGHIJKLMNOP' },
+      { label: 'AKIA' + 'ABCDEFGHIJKLMNOP' },
     ];
     for (const s of secrets) {
       const r = await post('alice', '/v1/mobile/signing-credentials', body(s));

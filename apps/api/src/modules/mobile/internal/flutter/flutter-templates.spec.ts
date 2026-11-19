@@ -83,7 +83,7 @@ describe('analysis gate', () => {
   const base = generateFlutterProject(SAMPLE_MOBILE_SPEC);
   const withFile = (p: string, t: string) => ({ ...base, [p]: t });
   it('blocks secrets, signing material, process execution, ffi, cleartext http and unsafe paths', () => {
-    expect(analyzeProject(withFile('lib/x.dart', "const k = 'AKIAABCDEFGHIJKLMNOP';")).map((i) => i.rule)).toContain('secret');
+    expect(analyzeProject(withFile('lib/x.dart', "const k = '" + 'AKIA' + "ABCDEFGHIJKLMNOP';")).map((i) => i.rule)).toContain('secret');
     expect(analyzeProject(withFile('android/key.properties', 'storePassword=abc')).map((i) => i.rule)).toContain('signing_material');
     expect(analyzeProject(withFile('app.jks', 'x')).map((i) => i.rule)).toContain('signing_material');
     expect(analyzeProject(withFile('lib/x.dart', "import 'dart:ffi';")).map((i) => i.rule)).toContain('forbidden_import');

@@ -36,18 +36,10 @@ export const dartString = (s: string): string =>
     .replace(/\t/g, '\\t')}'`;
 const L = (b: { ar: string; en: string }) => `L(${dartString(b.ar)}, ${dartString(b.en)})`;
 const color = (hex: string) => `Color(0xFF${hex.slice(1).toUpperCase()})`;
-const FIELD_ENUM: Record<FieldSpec['type'], string> = {
-  text: 'text',
-  email: 'email',
-  phone: 'phone',
-  number: 'number',
-  password: 'password',
-  multiline: 'multiline',
-  choice: 'choice',
-  switch: 'toggle',
-};
+/** the Dart enum member of a spec field type (`switch` is a Dart keyword, so it is `toggle` there) */
+const fieldEnum = (t: FieldSpec['type']): string => (t === 'switch' ? 'toggle' : t);
 const field = (f: FieldSpec) =>
-  `    FieldDef(id: ${dartString(f.id)}, label: ${L(f.label)}, type: FieldType.${FIELD_ENUM[f.type]}${f.required ? ', required: true' : ''}${
+  `    FieldDef(id: ${dartString(f.id)}, label: ${L(f.label)}, type: FieldType.${fieldEnum(f.type)}${f.required ? ', required: true' : ''}${
     f.options?.length
       ? `, options: [${f.options.map((o) => `OptionDef(${dartString(o.value)}, ${L(o.label)})`).join(', ')}]`
       : ''

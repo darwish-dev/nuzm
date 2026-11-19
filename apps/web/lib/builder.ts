@@ -52,6 +52,17 @@ export interface SiteModel {
   seo: { siteTitle: Localized; description: Localized; baseUrl?: string };
   pages: Page[];
   forms: { id: string; name: string }[];
+  /** images the site uses (placeholders or uploads); older stored models may not carry the list */
+  assets?: {
+    id: string;
+    kind: string;
+    source: 'placeholder' | 'upload';
+    alt: Localized;
+    label?: string;
+    mime?: string;
+    width?: number;
+    height?: number;
+  }[];
 }
 /** An editor operation (the API validates it against its own schema; the builders below produce only valid shapes). */
 export type Op = { op: string } & Record<string, unknown>;

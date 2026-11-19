@@ -28,6 +28,7 @@ import { bapi, useBuilderCall } from '../lib/builder-client';
 import { BrandMark } from './BrandLogo';
 import { Chat } from './BuilderChat';
 import { CodePane } from './BuilderCode';
+import { DataPane } from './BuilderData';
 import { Inspector, type Selection } from './BuilderInspector';
 import { PreviewPane } from './BuilderPreview';
 import { RunCard, type RunProgress } from './BuilderRunCard';
@@ -72,7 +73,7 @@ export function Workspace({
     ops: Op[];
     mode: Mode;
   } | null>(null);
-  const [view, setView] = useState<'preview' | 'code'>('preview');
+  const [view, setView] = useState<'preview' | 'code' | 'data'>('preview');
   const [viewport, setViewport] = useState<Viewport>('desktop');
   const [siteLocale, setSiteLocale] = useState<SiteLocale>(
     (initial.siteModel.locales[0] as SiteLocale | undefined) ?? 'ar',
@@ -207,6 +208,10 @@ export function Workspace({
           <button type="button" aria-pressed={view === 'code'} onClick={() => setView('code')}>
             <Icon name="code" size={16} />
             {t(locale, 'bld.ws.code')}
+          </button>
+          <button type="button" aria-pressed={view === 'data'} onClick={() => setView('data')}>
+            <Icon name="data" size={16} />
+            {t(locale, 'bld.ws.data')}
           </button>
         </div>
         <span className="bws-spacer" />
@@ -348,8 +353,10 @@ export function Workspace({
               siteLocale={siteLocale}
               onSiteLocale={setSiteLocale}
             />
-          ) : (
+          ) : view === 'code' ? (
             <CodePane locale={locale} projectId={detail.id} versionId={detail.versionId} />
+          ) : (
+            <DataPane locale={locale} projectId={detail.id} model={model} siteLocale={siteLocale} />
           )}
         </section>
 

@@ -42,6 +42,11 @@ export interface AgentCall {
   schema: Schema;
   maxTokens: number;
   capability?: 'chat' | 'structured-output';
+  /**
+   * A check only the caller can make (e.g. "do these ops produce a valid site model?"). It runs after the schema passes; any messages it returns go back to the model
+   * through the same repair loop as a schema error (≤ 2 repairs), so the model fixes its own answer instead of the whole run failing.
+   */
+  check?: (result: unknown) => string[];
 }
 export interface RunContext {
   run: RunRow;

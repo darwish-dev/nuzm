@@ -76,4 +76,26 @@ describe('agent call prompt', () => {
     expect((e as AgentOutputInvalid).errors.join(' ')).toContain('projectSummary');
     expect(events.filter((e) => e === 'repair')).toHaveLength(3);
   });
+  it('feeds a caller-side check back through the repair loop, so the model fixes its own answer', async () => {
+    const wrong = '{"result":{"businessName":"X","languages":["ar"]},"toolCalls":[]}';
+    const right = '{"result":{"businessName":"Acme","languages":["ar"]},"toolCalls":[]}';
+    const { deps, seen, events } = setup([wrong, right]);
+    const out = await runAgent<{ businessName: string }>(
+      deps,
+      run,
+      'website',
+      {
+        ...call,
+        check: (r) =>
+          (r as { businessName: string }).businessName.length < 2
+            ? ['businessName is too short for this site']
+            : [],
+      },
+      () => 'c',
+      undefined,
+    );
+    expect(out.businessName).toBe('Acme');
+    expect(events.filter((e) => e === 'repair')).toHaveLength(1);
+    expect(seen[1]!.at(-1)!.content).toContain('businessName is too short for this site');
+  });
 });

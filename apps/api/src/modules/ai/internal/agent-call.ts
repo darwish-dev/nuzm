@@ -107,6 +107,13 @@ export async function runAgent<T>(
     try {
       parsed = JSON.parse(stripFences(r.text));
       errors = validateSchema(schema, parsed).map((e) => `${e.path} ${e.message}`);
+      if (errors.length === 0 && a.check) {
+        try {
+          errors = a.check((parsed as { result: unknown }).result).slice(0, 12);
+        } catch {
+          errors = ['the result could not be checked'];
+        }
+      }
     } catch {
       errors = ['the answer is not valid JSON'];
     }

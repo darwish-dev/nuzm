@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { validateSchema } from '@nuzm/domain';
-import { EDIT_OP_KINDS, EDIT_SCHEMA } from './edit.handler';
+import { getTemplate, validateSchema } from '@nuzm/domain';
+import { EDIT_OP_KINDS, EDIT_SCHEMA, checkEditOps } from './edit.handler';
 
 const ok = (v: unknown) => validateSchema(EDIT_SCHEMA, v).length === 0;
 const summary = { ar: 'م', en: 'S' };
@@ -60,5 +60,46 @@ describe('edit agent schema: the model is told the exact shape of every operatio
     for (const k of EDIT_OP_KINDS) expect(text).toContain(`"${k}"`);
     expect(text).toContain('sectionId');
     expect(text.length).toBeLessThan(12_000); // a prompt, not a document
+  });
+});
+
+describe('edit agent: ops are checked against the real site before they are proposed', () => {
+  const model = getTemplate('services')!.build({
+    name: { ar: 'نظم', en: 'Nuzm' },
+    locales: ['ar', 'en'],
+  });
+  const home = model.pages.find((p) => p.slug === 'home')!;
+  const hero = home.sections[0]!;
+  it('passes a valid change and reports the reason for an invalid one', () => {
+    const good = {
+      summary,
+      ops: [
+        {
+          op: 'setText',
+          target: 'section',
+          pageId: home.id,
+          sectionId: hero.id,
+          prop: 'heading',
+          locale: 'en',
+          value: 'A better heading',
+        },
+      ],
+    };
+    expect(checkEditOps(model, good)).toEqual([]);
+    // a section with no props at all passes the op SHAPE but is not a valid section: the model must be told, not the user
+    const bad = {
+      summary,
+      ops: [{ op: 'insertComponent', pageId: home.id, index: 1, section: { type: 'hero' } }],
+    };
+    const errs = checkEditOps(model, bad);
+    expect(errs.length).toBeGreaterThan(0);
+    expect(errs.join(' ')).toMatch(/op|site model/);
+  });
+  it('reports an unknown section id as a message, never a crash', () => {
+    const errs = checkEditOps(model, {
+      summary,
+      ops: [{ op: 'deleteComponent', pageId: home.id, sectionId: 'nope' }],
+    });
+    expect(errs.join(' ')).toContain('unknown component');
   });
 });

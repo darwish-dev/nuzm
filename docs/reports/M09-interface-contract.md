@@ -53,4 +53,4 @@ GatewayResult = { text, finishReason, tokensIn, tokensOut, estimated, credits(bi
 - A run kind is available exactly when a handler is registered (`KINDS_NOW` removed): `webapp` and `test-fix` are registered by `AppBuilderModule`; `mobile` stays 422 `unsupported_kind` until M10B. `SegmentSuspend` is exported for handlers that end a segment on a wait.
 - `builder`: `type: webapp` accepted by `POST /v1/builder/projects` (row only, no head version before the first generation); website-only surfaces (previews, forms, CMS, restoration) answer 422 `unsupported_capability` for other types; `ProjectDelegates` lets the owning module serve `POST …/changes` for its project type.
 - `deploy`: `DeployService.webapp` (`WebappDeployDelegate`) serves `/v1/deployments` for web-app projects (create/list by project type, get/logs/rollback by which table holds the deployment).
-- Migrations of M10 that extend M09 tables: `builder/1450` (project types), `ai/1451` (artifact kinds). Both expand-only.
+- Migrations of M10 that extend M09 tables: `builder/1800` (project types), `ai/1801` (artifact kinds). Both expand-only.

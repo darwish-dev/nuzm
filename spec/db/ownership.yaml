@@ -119,6 +119,7 @@ schemas:
     created_by: M09
     extended_by:
       - M10
+      - M10-INT
     tables:
       - approval_requests
       - approvals
@@ -138,7 +139,7 @@ schemas:
   builder:
     owner_module: builder
     created_by: M09
-    extended_by: [ M10 ]
+    extended_by: [ M10, M10-INT ]
     tables: [ app_specs, changes, cms_collections, cms_items, exports, form_submissions, forms, git_repos, pages, previews, project_files, project_versions, projects, sandboxes, test_runs ]
   deploy:
     owner_module: deploy
@@ -297,6 +298,8 @@ migration_ranges:
   M10: "1400-1599"
   M11: "1600-1699"
   M12: "1700-1799"
+  # M10A integration migrations that extend M09 tables and must apply on databases that already applied M11/M12 (the runner is forward-only): above every applied ordinal
+  M10-INT: "1800-1819"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.

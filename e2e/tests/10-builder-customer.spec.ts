@@ -145,41 +145,31 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
 
   await signIn(page, info, owner);
 
-  // ---- UI-M09-01: empty list, create button
+  // ---- UI-M09-01/02 (merged): "Start a project": the prompt box and no list yet
   await page.goto(`${base}/builder/projects`);
   await expect(
-    page.getByRole('heading', { level: 1, name: T(info, 'bld.title.projects') }),
+    page.getByRole('heading', { level: 1, name: T(info, 'bld.start.title') }),
   ).toBeVisible();
-  await expect(page.getByText(T(info, 'bld.projects.empty.title'))).toBeVisible();
-  await audit(page, info, 'builder-projects-empty');
+  await expect(page.getByRole('heading', { name: T(info, 'bld.start.hero') })).toBeVisible();
+  await audit(page, info, 'builder-start-empty');
 
-  // ---- UI-M09-02: wizard (describe → languages → template → budget → review → submit)
+  // web app and mobile app are shown as "coming soon": starting is off for them
+  await page.getByLabel(new RegExp(T(info, 'bld.start.type.mobile'))).check();
+  await expect(
+    page.getByRole('button', { name: new RegExp(T(info, 'bld.start.go')) }),
+  ).toBeDisabled();
+  await page.getByLabel(new RegExp(T(info, 'bld.start.type.website'))).check();
+
+  // one prompt, one button: project + AI session + first run, then the workspace opens
   await page
-    .getByRole('link', { name: T(info, 'bld.projects.create') })
-    .first()
-    .click();
-  const name = L === 'ar' ? 'مطعم الواحة' : 'Oasis Restaurant';
-  await page.getByLabel(T(info, 'bld.wiz.name')).fill(name);
-  await page
-    .getByLabel(T(info, 'bld.wiz.description'))
+    .getByLabel(T(info, 'bld.start.promptLabel'))
     .fill(
       L === 'ar'
         ? 'مطعم عائلي يقدم أطباقًا شرقية في الرياض.'
         : 'A family restaurant serving Middle Eastern dishes in Riyadh.',
     );
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
-  await expect(
-    page.getByRole('heading', { name: T(info, 'bld.wiz.step.languages') }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
-  await page.getByLabel(T(info, 'bld.tpl.restaurant')).check();
-  await audit(page, info, 'builder-wizard-template');
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
-  await expect(page.getByText(rx(info, 'bld.wiz.credits.available', ['credits']))).toBeVisible();
-  await audit(page, info, 'builder-wizard-budget');
-  await page.getByRole('button', { name: T(info, 'action.next') }).click();
-  await audit(page, info, 'builder-wizard-review');
-  await page.getByRole('button', { name: T(info, 'bld.wiz.submit') }).click();
+  await audit(page, info, 'builder-start-prompt');
+  await page.getByRole('button', { name: new RegExp(T(info, 'bld.start.go')) }).click();
   await page.waitForURL(/\/builder\/projects\/[0-9a-f-]{36}$/);
   const projectId = page.url().split('/').pop()!;
 

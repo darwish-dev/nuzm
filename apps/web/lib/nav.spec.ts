@@ -193,6 +193,14 @@ describe('current page', () => {
   });
 });
 
+describe('build category', () => {
+  it('is not on the rail (the floating AI builder card opens it) but keeps its pages and tabs logic', () => {
+    const c = buildNav(all()).find((x) => x.id === 'build')!;
+    expect(c.noRail).toBe(true);
+    expect(c.groups.flatMap((g) => g.items.map((i) => i.href))).toContain('/builder/projects');
+  });
+});
+
 describe('projects category', () => {
   it('has no rail icon (the top-bar organization icon opens it) but keeps its Projects and Workspaces tabs', () => {
     const c = buildNav(all()).find((x) => x.id === 'projects')!;

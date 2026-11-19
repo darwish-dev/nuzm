@@ -140,7 +140,6 @@ export function Chat({
       </div>
       {canWrite ? (
         <form className="bld-composer" onSubmit={(e) => void send(e)}>
-          {activeRun && <Banner tone="warn">{t(locale, 'bld.chat.runActive')}</Banner>}
           {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
           <div className="bld-composer-box">
             <label className="nz-sr" htmlFor="bld-chat-input">
@@ -152,7 +151,11 @@ export function Chat({
               dir="auto"
               rows={3}
               maxLength={2000}
-              placeholder={t(locale, 'bld.chat.placeholder')}
+              placeholder={t(
+                locale,
+                activeRun ? 'bld.chat.placeholderBusy' : 'bld.chat.placeholder',
+              )}
+              disabled={activeRun}
               aria-describedby="bld-chat-help"
               value={text}
               onChange={(e) => setText(e.target.value)}

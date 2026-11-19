@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
 import {
@@ -26,6 +26,7 @@ import {
 } from '../lib/builder';
 import { bapi, useBuilderCall } from '../lib/builder-client';
 import { BrandMark } from './BrandLogo';
+import { BuildingScene } from './BuildingScene';
 import { Chat } from './BuilderChat';
 import { CodePane } from './BuilderCode';
 import { DataPane } from './BuilderData';
@@ -80,6 +81,14 @@ export function Workspace({
   );
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [progress, setProgress] = useState<RunProgress>({ active: false, label: '' });
+  // the "site being built" scene stays a moment after the run ends so it fades out instead of vanishing
+  const [scene, setScene] = useState<'off' | 'on' | 'leaving'>('off');
+  useEffect(() => {
+    if (progress.active) return setScene('on');
+    setScene((s) => (s === 'on' ? 'leaving' : s));
+    const h = setTimeout(() => setScene((s) => (s === 'leaving' ? 'off' : s)), 700);
+    return () => clearTimeout(h);
+  }, [progress.active]);
   const [runId, setRunId] = useState<string | null>(initialRun?.id ?? null);
   const [runActive, setRunActive] = useState(initialRun ? isRunActive(initialRun.state) : false);
   const [chatKey, setChatKey] = useState(0);
@@ -342,6 +351,11 @@ export function Workspace({
 
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {reloadError && <Banner tone="danger">{t(locale, 'bld.ws.reloadFailed')}</Banner>}
+          {view === 'preview' && scene !== 'off' && (
+            <div className="bscene-wrap" data-leaving={scene === 'leaving' ? 'true' : undefined}>
+              <BuildingScene locale={locale} label={progress.label} />
+            </div>
+          )}
           {progress.active && (
             <div className="bws-working" role="status">
               <span className="bld-spinner" aria-hidden="true" />

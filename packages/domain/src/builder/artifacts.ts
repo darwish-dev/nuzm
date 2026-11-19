@@ -276,6 +276,19 @@ export const PAGE_RESULT_SCHEMA: Schema = {
     pageId: { type: 'string' },
     title: L(80),
     seo: { type: 'object' },
-    sections: { type: 'array', maxItems: 40, items: { type: 'object' } },
+    sections: {
+      type: 'array',
+      maxItems: 40,
+      // every section carries its own id, a known type and a props object: a real model cannot guess this, and the assembler needs it
+      items: {
+        type: 'object',
+        required: ['id', 'type', 'props'],
+        properties: {
+          id: { type: 'string', pattern: '^[a-z][a-z0-9_-]{0,39}$' },
+          type: { enum: SECTION_TYPES },
+          props: { type: 'object' },
+        },
+      },
+    },
   },
 };

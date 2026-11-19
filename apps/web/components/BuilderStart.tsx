@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { t, tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
 import { Badge, Banner, Icon, type IconName } from '@nuzm/ui';
 import {
@@ -73,6 +73,9 @@ export function BuilderStart({
   appsEnabled = false,
   mobileEnabled = false,
   initialType = 'website',
+  projects,
+  projectCount = 0,
+  initialTab,
 }: {
   locale: Locale;
   credits: Credits | null;
@@ -82,6 +85,11 @@ export function BuilderStart({
   /** the organization has `mobile_builder.enabled`: the mobile-app tile can be started (it opens the mobile preview) */
   mobileEnabled?: boolean;
   initialType?: StartType;
+  /** the organization's projects, rendered by the server: shown in the "My projects" tab */
+  projects?: ReactNode;
+  projectCount?: number;
+  /** which tab of the lower section opens first: the projects when there are some, else the examples */
+  initialTab?: 'examples' | 'projects';
 }) {
   const router = useRouter();
   const call = useBuilderCall();
@@ -93,6 +101,10 @@ export function BuilderStart({
   const [err, setErr] = useState('');
   const [optErr, setOptErr] = useState('');
   const [partial, setPartial] = useState<string | null>(null);
+  const hasProjects = projects !== undefined;
+  const [tab, setTab] = useState<'examples' | 'projects'>(
+    initialTab ?? (hasProjects && projectCount > 0 ? 'projects' : 'examples'),
+  );
   const box = useRef<HTMLTextAreaElement>(null);
   const created = useRef<{ projectId?: string; sessionId?: string }>({});
   const keys = useRef({ project: newKey(), session: newKey(), run: newKey() });
@@ -113,8 +125,17 @@ export function BuilderStart({
       t(locale, (type === 'webapp' ? `m10a.start.ex.${id}` : `bld.start.ex.${id}`) as MessageKey),
     );
     setErr('');
-    box.current?.focus();
+    // back to the prompt: the chosen words are there to read, edit and send
+    document
+      .getElementById('bld-start-h')
+      ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    box.current?.focus({ preventScroll: true });
   }
+
+  const toMore = (e: { preventDefault(): void }) => {
+    e.preventDefault();
+    document.getElementById('bl-more')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  };
 
   async function submit(e?: FormEvent) {
     e?.preventDefault();
@@ -224,36 +245,33 @@ export function BuilderStart({
 
   const typeName = (id: StartType) => t(locale, `bld.start.type.${id}` as MessageKey);
 
+  const exampleList = type === 'webapp' ? APP_EXAMPLES : EXAMPLES;
+  const exText = (id: string) =>
+    t(locale, (type === 'webapp' ? `m10a.start.ex.${id}` : `bld.start.ex.${id}`) as MessageKey);
+
   return (
-    <>
-      <form
-        className="nzc-dsearch nzc-prompt"
-        aria-labelledby="bld-start-h"
-        onSubmit={(e) => void submit(e)}
-        noValidate
-      >
-        <div className="nzc-dsearch-inner">
-          <header className="nzc-create-intro">
-            <div>
-              <span className="nzc-create-brand">
-                <Icon name="code" size={18} /> Nuzm Builder
-              </span>
-              <h2 id="bld-start-h">{t(locale, 'bld.start.hero')}</h2>
-              <p className="nzc-dsearch-sub">{t(locale, 'bld.start.sub')}</p>
-            </div>
-            <div className="nzc-create-visual" aria-hidden="true">
-              <img src="/images/services/builder-compact.webp" width={300} height={200} alt="" />
-            </div>
+    <div className="bl">
+      <section className="bl-hero" aria-labelledby="bld-start-h">
+        <div className="bl-glow" aria-hidden="true" />
+        <form className="bl-form" onSubmit={(e) => void submit(e)} noValidate>
+          <header className="bl-intro">
+            <span className="bl-brand">
+              <Icon name="code" size={16} /> Nuzm Builder
+            </span>
+            <h2 id="bld-start-h" className="bl-title">
+              {t(locale, 'bld.start.hero')}
+            </h2>
+            <p className="bl-sub">{t(locale, 'bld.start.sub')}</p>
           </header>
 
-          <div className="nzc-dsearch-bar nzc-prompt-bar">
+          <div className="bl-prompt">
             <label className="nz-sr" htmlFor="bld-prompt">
               {t(locale, 'bld.start.promptLabel')}
             </label>
             <textarea
               id="bld-prompt"
               ref={box}
-              className="nzc-prompt-input"
+              className="bl-input"
               dir="auto"
               rows={4}
               maxLength={MAX_PROMPT}
@@ -267,15 +285,15 @@ export function BuilderStart({
               }}
               onKeyDown={onKey}
             />
-            <div className="nzc-prompt-foot">
-              <span className="nzc-prompt-count" id="bld-prompt-hint">
+            <div className="bl-prompt-foot">
+              <span className="bl-count" id="bld-prompt-hint">
                 <bdi dir="ltr">
                   {prompt.length}/{MAX_PROMPT}
                 </bdi>{' '}
                 · <bdi dir="ltr">Ctrl / ⌘ + Enter</bdi> {t(locale, 'bld.start.keys')}
               </span>
               <button
-                className="nz-btn"
+                className="bl-go"
                 type="submit"
                 disabled={call.busy || !startable}
                 aria-busy={call.busy}
@@ -286,29 +304,18 @@ export function BuilderStart({
             </div>
           </div>
           {err && (
-            <p className="nz-error-text nzc-prompt-err" id="bld-prompt-err" role="alert">
+            <p className="nz-error-text bl-err" id="bld-prompt-err" role="alert">
               {err}
             </p>
           )}
 
-          <div className="nzc-tlds" role="radiogroup" aria-labelledby="bld-types">
-            <p className="nzc-tlds-title" id="bld-types">
+          <div className="bl-types" role="radiogroup" aria-labelledby="bld-types">
+            <p className="bl-label" id="bld-types">
               {t(locale, 'bld.start.type.group')}
             </p>
-            <div className="nzc-tlds-grid">
+            <div className="bl-types-grid">
               {types.map((x) => (
-                <label
-                  key={x.id}
-                  className="nzc-tld nzc-ptype"
-                  data-soon={!x.available ? 'true' : undefined}
-                >
-                  <span className="nzc-tld-name nzc-ptype-name">
-                    <Icon
-                      name={x.id === 'website' ? 'globe' : x.id === 'webapp' ? 'code' : 'hosting'}
-                      size={22}
-                    />
-                    {typeName(x.id)}
-                  </span>
+                <label key={x.id} className="bl-type" data-soon={!x.available ? 'true' : undefined}>
                   <input
                     type="radio"
                     name="bld-type"
@@ -317,32 +324,42 @@ export function BuilderStart({
                     onChange={() => setType(x.id)}
                     aria-describedby={`bld-type-${x.id}`}
                   />
-                  <span className="nzc-tld-hint" id={`bld-type-${x.id}`}>
-                    {!x.available && (
-                      <>
-                        <Badge>{t(locale, 'bld.start.soon')}</Badge>{' '}
-                      </>
-                    )}
-                    {t(locale, `bld.start.type.${x.id}.hint` as MessageKey)}
+                  <span className="bl-type-icon">
+                    <Icon
+                      name={x.id === 'website' ? 'globe' : x.id === 'webapp' ? 'code' : 'phone'}
+                      size={22}
+                    />
                   </span>
+                  <span className="bl-type-text">
+                    <strong>{typeName(x.id)}</strong>
+                    <small id={`bld-type-${x.id}`}>
+                      {!x.available && (
+                        <>
+                          <Badge>{t(locale, 'bld.start.soon')}</Badge>{' '}
+                        </>
+                      )}
+                      {t(locale, `bld.start.type.${x.id}.hint` as MessageKey)}
+                    </small>
+                  </span>
+                  <span className="bl-type-dot" aria-hidden="true" />
                 </label>
               ))}
             </div>
           </div>
           {!startable && (
-            <p className="nzc-dsearch-note" role="status">
+            <p className="bl-note" role="status">
               {t(locale, 'bld.start.soonNote', { type: typeName(type) })}
             </p>
           )}
 
-          <details className="nzc-prompt-opts">
+          <details className="bl-opts">
             <summary>{t(locale, 'bld.start.options')}</summary>
-            <p className="nzc-dsearch-note">{t(locale, 'bld.start.options.hint')}</p>
-            <div className="nzc-prompt-opts-grid">
+            <p className="bl-note">{t(locale, 'bld.start.options.hint')}</p>
+            <div className="bl-opts-grid">
               <fieldset>
                 <legend>{t(locale, 'bld.wiz.languages')}</legend>
                 {(['ar', 'en'] as const).map((l) => (
-                  <label key={l} className="nzc-prompt-check">
+                  <label key={l} className="bl-check">
                     <input
                       type="checkbox"
                       checked={langs.includes(l)}
@@ -353,7 +370,7 @@ export function BuilderStart({
                 ))}
               </fieldset>
               {type === 'website' && (
-                <label className="nzc-prompt-field">
+                <label className="bl-field">
                   <span>{t(locale, 'bld.wiz.template')}</span>
                   <select
                     className="nz-input"
@@ -369,7 +386,7 @@ export function BuilderStart({
                   </select>
                 </label>
               )}
-              <label className="nzc-prompt-field">
+              <label className="bl-field">
                 <span>{t(locale, 'bld.wiz.budget')}</span>
                 <input
                   className="nz-input"
@@ -388,53 +405,98 @@ export function BuilderStart({
             )}
           </details>
 
-          <p className="nzc-dsearch-note">
+          <p className="bl-note">
             {wallet
               ? t(locale, 'bld.start.credits', { credits: credits(wallet.availableCredits) })
               : t(locale, 'bld.wiz.credits.unknown')}
             {wallet?.lowCredit ? ` — ${t(locale, 'bld.wiz.credits.low')}` : ''}
           </p>
-        </div>
-      </form>
+        </form>
 
-      {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
-      {partial && (
-        <p role="status">
-          {t(locale, 'bld.wiz.partial')}{' '}
-          <a href={`/${locale}/builder/projects/${partial}`}>{t(locale, 'bld.wiz.openProject')}</a>
-        </p>
-      )}
+        {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
+        {partial && (
+          <p role="status" className="bl-note">
+            {t(locale, 'bld.wiz.partial')}{' '}
+            <a href={`/${locale}/builder/projects/${partial}`}>
+              {t(locale, 'bld.wiz.openProject')}
+            </a>
+          </p>
+        )}
 
-      <section aria-labelledby="bld-ex-h" className="nzc-pex-wrap">
-        <p className="nzc-tlds-title" id="bld-ex-h">
-          {t(locale, 'bld.start.examples')}
-        </p>
-        <ul className="nzc-pex-grid">
-          {(type === 'webapp' ? APP_EXAMPLES : EXAMPLES).map((x) => (
-            <li key={x.id}>
-              <button
-                type="button"
-                className="nzc-pex"
-                data-example={x.id}
-                onClick={() => pickExample(x.id)}
-              >
-                <span className="nzc-example-icon">
-                  <Icon name={x.icon} size={26} />
-                </span>
-                <span>
-                  {t(
-                    locale,
-                    (type === 'webapp'
-                      ? `m10a.start.ex.${x.id}`
-                      : `bld.start.ex.${x.id}`) as MessageKey,
-                  )}
-                </span>
-                <Icon name="arrow" size={18} />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <a className="bl-cue" href="#bl-more" onClick={toMore}>
+          <span>{t(locale, 'bld.land.scroll')}</span>
+          <Icon name="chevron" size={16} />
+        </a>
       </section>
-    </>
+
+      <section className="bl-more" id="bl-more" aria-label={t(locale, 'bld.land.sections')}>
+        <div className="bl-tabs" role="tablist" aria-label={t(locale, 'bld.land.sections')}>
+          {hasProjects && (
+            <button
+              type="button"
+              role="tab"
+              id="bl-tab-projects"
+              aria-selected={tab === 'projects'}
+              aria-controls="bl-panel-projects"
+              onClick={() => setTab('projects')}
+            >
+              <Icon name="projects" size={16} />
+              {t(locale, 'bld.land.tab.projects')}
+              <span className="bl-count-badge">{projectCount}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            role="tab"
+            id="bl-tab-examples"
+            aria-selected={tab === 'examples'}
+            aria-controls="bl-panel-examples"
+            onClick={() => setTab('examples')}
+          >
+            <Icon name="sparkle" size={16} />
+            {t(locale, 'bld.land.tab.examples')}
+          </button>
+        </div>
+
+        {tab === 'examples' && (
+          <div role="tabpanel" id="bl-panel-examples" aria-labelledby="bl-tab-examples">
+            <ul className="bl-ex-grid">
+              {exampleList.map((x) => (
+                <li key={x.id}>
+                  <button
+                    type="button"
+                    className="bl-ex"
+                    data-example={x.id}
+                    onClick={() => pickExample(x.id)}
+                  >
+                    <span className="bl-ex-art" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                      <span className="bl-ex-icon">
+                        <Icon name={x.icon} size={22} />
+                      </span>
+                    </span>
+                    <span className="bl-ex-body">
+                      <strong>{t(locale, `bld.land.exTitle.${x.id}` as MessageKey)}</strong>
+                      <span className="bl-ex-text">{exText(x.id)}</span>
+                    </span>
+                    <span className="bl-ex-use">
+                      {t(locale, 'bld.land.use')}
+                      <Icon name="arrow" size={16} />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {tab === 'projects' && hasProjects && (
+          <div role="tabpanel" id="bl-panel-projects" aria-labelledby="bl-tab-projects">
+            {projects}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

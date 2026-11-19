@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { Icon } from '@nuzm/ui';
-import { BrandMark } from '../components/BrandLogo';
 import { BuilderStart } from '../components/BuilderStart';
 import { ProjectCards, ProjectFilterTabs } from '../components/BuilderProjects';
 import { APP_BUILDER_FLAG } from './appbuilder';
@@ -55,56 +54,44 @@ export async function ProjectsScreen({
     },
     ({ page, wallet }) => {
       const items = applyFilter(page.items, filter);
-      return (
+      const list = (
         <>
-          {canCreate && (
-            <div className="nzc-start-full">
-              <BuilderStart
-                locale={locale}
-                credits={wallet}
-                canRun={canRun}
-                appsEnabled={appsOn}
-                mobileEnabled={mobileOn}
-                initialType={fixed === 'webapp' && appsOn ? 'webapp' : 'website'}
-              />
-            </div>
-          )}
-          {page.items.length > 0 && (
-            <div className="nzc-start-projects">
-              <h2 className="nzc-yp-head">{t(locale, 'bld.start.yourProjects')}</h2>
-              {!fixed && (
-                <ProjectFilterTabs locale={locale} current={filter} appsEnabled={appsOn} />
-              )}
-              <ProjectCards
-                locale={locale}
-                items={items}
-                nextCursor={page.nextCursor}
-                canCreate={canCreate}
-                filtered={filter !== 'all'}
-              />
-            </div>
-          )}
-          {page.items.length === 0 && !canCreate && (
-            <ProjectCards locale={locale} items={[]} nextCursor={null} canCreate={false} />
-          )}
+          {!fixed && <ProjectFilterTabs locale={locale} current={filter} appsEnabled={appsOn} />}
+          <ProjectCards
+            locale={locale}
+            items={items}
+            nextCursor={page.nextCursor}
+            canCreate={canCreate}
+            filtered={filter !== 'all'}
+          />
         </>
+      );
+      // a filter or a page of results means the person is browsing their projects: open that tab
+      const browsing = filter !== 'all' || Boolean(one(sp.cursor));
+      return canCreate ? (
+        <BuilderStart
+          locale={locale}
+          credits={wallet}
+          canRun={canRun}
+          appsEnabled={appsOn}
+          mobileEnabled={mobileOn}
+          initialType={fixed === 'webapp' && appsOn ? 'webapp' : 'website'}
+          projects={list}
+          projectCount={page.items.length}
+          initialTab={browsing || page.items.length > 0 ? 'projects' : 'examples'}
+        />
+      ) : (
+        <div className="bl-readonly">{list}</div>
       );
     },
   );
   return (
     <>
-      {/* full screen: the console's sidebar and top bar step aside (see `.bfs-top`), so the page has its own slim bar with a way out */}
-      <header className="bfs-top">
-        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
-          <BrandMark />
-        </a>
-        <strong className="bfs-title">{t(locale, 'bld.fab.title')}</strong>
-        <span className="bws-spacer" />
-        <a className="bfs-exit" href={`/${locale}`}>
-          <Icon name="close" size={16} />
-          {t(locale, 'bld.ws.exit')}
-        </a>
-      </header>
+      {/* full screen: the console's sidebar and top bar step aside (see `.bfs-float`); the only chrome is a floating way out at the bottom */}
+      <a className="bfs-float" href={`/${locale}`}>
+        <Icon name="close" size={16} />
+        {t(locale, 'bld.ws.exit')}
+      </a>
       {/* the heading stays for screen readers and the page title, but is not drawn */}
       <h1 className="nz-sr">{t(locale, fixed ? 'm10a.apps.title' : 'bld.start.title')}</h1>
       {body}

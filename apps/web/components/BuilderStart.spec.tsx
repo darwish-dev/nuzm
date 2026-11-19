@@ -181,7 +181,10 @@ describe('start a project (one prompt, no steps)', () => {
     mockFetch(() => json(500, {}));
     screenUnderTest();
     fireEvent.click(screen.getByLabelText(new RegExp(t('en', 'bld.start.type.mobile'))));
-    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.start.ex.clinic') }));
+    window.HTMLElement.prototype.scrollIntoView = () => undefined;
+    fireEvent.click(
+      screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.ex.clinic')) }),
+    );
     expect(
       (screen.getByLabelText(t('en', 'bld.start.promptLabel')) as HTMLTextAreaElement).value,
     ).toBe(t('en', 'bld.start.ex.clinic'));
@@ -189,6 +192,46 @@ describe('start a project (one prompt, no steps)', () => {
       (screen.getByLabelText(new RegExp(t('en', 'bld.start.type.website'))) as HTMLInputElement)
         .checked,
     ).toBe(true);
+  });
+
+  it('the lower section has tabs: the projects open first when there are some, the examples otherwise', () => {
+    window.HTMLElement.prototype.scrollIntoView = () => undefined;
+    const projects = <p>PROJECT-LIST</p>;
+    const { unmount } = render(
+      <BuilderStart locale="en" credits={wallet} canRun projects={projects} projectCount={3} />,
+    );
+    const mine = screen.getByRole('tab', { name: new RegExp(t('en', 'bld.land.tab.projects')) });
+    const ex = screen.getByRole('tab', { name: new RegExp(t('en', 'bld.land.tab.examples')) });
+    expect(mine.getAttribute('aria-selected')).toBe('true');
+    expect(mine.textContent).toContain('3');
+    expect(screen.getByText('PROJECT-LIST')).toBeTruthy();
+    expect(screen.getByRole('tabpanel')).toBeTruthy();
+    fireEvent.click(ex);
+    expect(ex.getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByText('PROJECT-LIST')).toBeNull();
+    expect(
+      screen.getAllByRole('button', { name: new RegExp(t('en', 'bld.land.use')) }),
+    ).toHaveLength(4);
+    unmount();
+    // no projects: there is no projects tab at all for a read-only list, and with an empty list the examples lead
+    render(
+      <BuilderStart locale="en" credits={wallet} canRun projects={projects} projectCount={0} />,
+    );
+    expect(
+      screen
+        .getByRole('tab', { name: new RegExp(t('en', 'bld.land.tab.examples')) })
+        .getAttribute('aria-selected'),
+    ).toBe('true');
+  });
+
+  it('the prompt and the app choice come first (one full screen), before the tabs', () => {
+    const { container } = screenUnderTest();
+    const hero = container.querySelector('.bl-hero')!;
+    expect(hero.querySelector('textarea')).toBeTruthy();
+    expect(hero.querySelectorAll('input[type="radio"]')).toHaveLength(3);
+    expect(hero.compareDocumentPosition(container.querySelector('.bl-more')!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it('without the permission to run AI the screen says so', () => {

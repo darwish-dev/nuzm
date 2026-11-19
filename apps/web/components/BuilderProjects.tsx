@@ -1,5 +1,5 @@
 import { t, tDynamic, type Locale } from '@nuzm/i18n';
-import { Badge, Card, ButtonLink, EmptyState, Ltr, Icon } from '@nuzm/ui';
+import { Badge, ButtonLink, EmptyState, Ltr, Icon } from '@nuzm/ui';
 import { PROJECT_FILTERS, type ProjectFilter } from '../lib/appworkspace';
 import { isPreviewUrl, LOCALE_LABEL, type Project, type SiteLocale } from '../lib/builder';
 import { DeployBadge, when } from './BuilderBits';
@@ -46,50 +46,70 @@ export function ProjectCards({
     );
   return (
     <>
-      <ul className="nz-grid bld-list" aria-label={t(locale, 'bld.title.projects')}>
+      <ul className="bl-pgrid" aria-label={t(locale, 'bld.title.projects')}>
         {items.map((p) => (
           <li key={p.id}>
-            <Card aria-labelledby={`bld-p-${p.id}`}>
-              <div className="nzc-project-cover" aria-hidden="true">
-                <img src="/images/services/builder-compact.webp" width={180} height={120} alt="" />
-                <span className="nzc-project-cover-icon">
-                  <Icon name="code" size={24} />
+            <article className="bl-pcard" aria-labelledby={`bld-p-${p.id}`} data-type={p.type}>
+              <a
+                className="bl-pcover"
+                href={projectHref(locale, p)}
+                tabIndex={-1}
+                aria-hidden="true"
+              >
+                <i />
+                <i />
+                <i />
+                <span className="bl-pcover-icon">
+                  <Icon
+                    name={p.type === 'mobile' ? 'phone' : p.type === 'webapp' ? 'code' : 'globe'}
+                    size={22}
+                  />
                 </span>
-              </div>
-              <div className="nzc-project-content">
-                <h2 className="nz-h2" id={`bld-p-${p.id}`}>
-                  <a href={projectHref(locale, p)}>{p.name}</a>
-                </h2>
-                <p>
+              </a>
+              <div className="bl-pbody">
+                <div className="bl-ptop">
+                  <h2 id={`bld-p-${p.id}`}>
+                    <a href={projectHref(locale, p)}>{p.name}</a>
+                  </h2>
                   <Badge>{tDynamic(locale, `m10.proj.type.${p.type}`, p.type)}</Badge>
-                </p>
-                <dl>
-                  <dt>{t(locale, 'bld.projects.locales')}</dt>
-                  <dd>{p.locales.map((l) => LOCALE_LABEL[l as SiteLocale] ?? l).join(' · ')}</dd>
-                  <dt>{t(locale, 'bld.projects.lastDeployment')}</dt>
-                  <dd>
-                    {p.lastDeployment ? (
-                      <>
-                        <DeployBadge locale={locale} state={p.lastDeployment.state} />{' '}
-                        {p.lastDeployment.url && isPreviewUrl(`${p.lastDeployment.url}/`) ? (
-                          <a href={p.lastDeployment.url} rel="noopener noreferrer" target="_blank">
-                            <Ltr>{p.lastDeployment.url}</Ltr>
-                          </a>
-                        ) : null}
-                      </>
-                    ) : (
-                      t(locale, 'bld.projects.neverDeployed')
-                    )}
-                  </dd>
-                  <dt>{t(locale, 'bld.projects.updated')}</dt>
-                  <dd>{when(p.updatedAt, locale)}</dd>
+                </div>
+                <dl className="bl-pmeta">
+                  <div>
+                    <dt>{t(locale, 'bld.projects.locales')}</dt>
+                    <dd>{p.locales.map((l) => LOCALE_LABEL[l as SiteLocale] ?? l).join(' · ')}</dd>
+                  </div>
+                  <div>
+                    <dt>{t(locale, 'bld.projects.lastDeployment')}</dt>
+                    <dd>
+                      {p.lastDeployment ? (
+                        <>
+                          <DeployBadge locale={locale} state={p.lastDeployment.state} />{' '}
+                          {p.lastDeployment.url && isPreviewUrl(`${p.lastDeployment.url}/`) ? (
+                            <a
+                              href={p.lastDeployment.url}
+                              rel="noopener noreferrer"
+                              target="_blank"
+                            >
+                              <Ltr>{p.lastDeployment.url}</Ltr>
+                            </a>
+                          ) : null}
+                        </>
+                      ) : (
+                        t(locale, 'bld.projects.neverDeployed')
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t(locale, 'bld.projects.updated')}</dt>
+                    <dd>{when(p.updatedAt, locale)}</dd>
+                  </div>
                 </dl>
-                <ButtonLink variant="secondary" href={projectHref(locale, p)}>
+                <a className="bl-popen" href={projectHref(locale, p)}>
                   {t(locale, 'action.manage')}
                   <Icon name="arrow" size={16} />
-                </ButtonLink>
+                </a>
               </div>
-            </Card>
+            </article>
           </li>
         ))}
       </ul>
@@ -118,12 +138,11 @@ export function ProjectFilterTabs({
   const tabs = PROJECT_FILTERS.filter((f) => appsEnabled || f !== 'webapp');
   if (!appsEnabled) return null;
   return (
-    <nav aria-label={t(locale, 'm10a.proj.filter')} className="nz-row">
+    <nav aria-label={t(locale, 'm10a.proj.filter')} className="bl-chips">
       {tabs.map((f) => (
         <a
           key={f}
-          className="nz-btn"
-          data-variant={f === current ? 'primary' : 'secondary'}
+          className="bl-chip"
           href={`/${locale}/builder/projects${f === 'all' ? '' : `?type=${f}`}`}
           aria-current={f === current ? 'page' : undefined}
         >

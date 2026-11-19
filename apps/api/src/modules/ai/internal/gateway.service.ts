@@ -406,7 +406,7 @@ export class GatewayService {
     }
     throw new ProblemException(
       'service_unavailable',
-      `the model providers are unavailable (${lastError?.code ?? 'unknown'})`,
+      `the model providers are unavailable (${lastError?.code ?? 'unknown'}${lastError ? `: ${lastError.message}` : ''})`,
     );
   }
 

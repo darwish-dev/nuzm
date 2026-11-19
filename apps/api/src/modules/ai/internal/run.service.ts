@@ -752,7 +752,9 @@ export class RunService {
             message:
               e instanceof AgentOutputInvalid
                 ? e.errors.join('; ').slice(0, 300)
-                : (e as Error).message.slice(0, 200),
+                : e instanceof ProblemException
+                  ? (e.detail ?? e.message).slice(0, 240)
+                  : (e as Error).message.slice(0, 200),
           },
         });
         await this.ops

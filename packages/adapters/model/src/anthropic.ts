@@ -220,7 +220,7 @@ export class AnthropicModelAdapter implements ModelAdapter {
     return { text, finishReason, usage, model };
   }
 
-  /** The SDK's typed errors, most specific first. The upstream message is never passed on (it could carry request details). */
+  /** The SDK's typed errors, most specific first. The upstream message is never passed on (it could carry request details): only a fixed sentence and the HTTP status. */
   private mapError(e: unknown, signal?: AbortSignal): ModelAdapterError {
     if (e instanceof ModelAdapterError) return e;
     if (signal?.aborted || e instanceof Anthropic.APIUserAbortError)
@@ -230,14 +230,28 @@ export class AnthropicModelAdapter implements ModelAdapter {
     if (e instanceof Anthropic.RateLimitError)
       return new ModelAdapterError('rate_limited', ERR.rate_limited);
     if (e instanceof Anthropic.APIConnectionError)
-      return new ModelAdapterError('unavailable', ERR.unavailable);
+      return new ModelAdapterError('unavailable', 'could not reach the model provider (network)');
     if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError)
-      return new ModelAdapterError('invalid_request', ERR.invalid_request, false);
+      return new ModelAdapterError(
+        'invalid_request',
+        `the model provider rejected the key (HTTP ${e.status})`,
+        false,
+      );
     if (e instanceof Anthropic.APIError) {
       if (typeof e.status === 'number' && e.status >= 500)
-        return new ModelAdapterError('unavailable', ERR.unavailable); // includes 529 overloaded
-      return new ModelAdapterError('invalid_request', ERR.invalid_request, false);
+        return new ModelAdapterError(
+          'unavailable',
+          `the model provider answered with an error (HTTP ${e.status})`,
+        ); // includes 529 overloaded
+      return new ModelAdapterError(
+        'invalid_request',
+        `the model provider rejected the request (HTTP ${e.status ?? 'unknown'})`,
+        false,
+      );
     }
-    return new ModelAdapterError('unavailable', ERR.unavailable);
+    return new ModelAdapterError(
+      'unavailable',
+      `unexpected error in the model adapter (${e instanceof Error ? e.name : 'unknown'})`,
+    );
   }
 }

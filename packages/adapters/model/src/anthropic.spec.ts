@@ -157,6 +157,7 @@ describe('Claude adapter: request and response shape (stubbed fetch, no real cal
     stub(() => Promise.reject(new TypeError('fetch failed')));
     await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({
       code: 'unavailable',
+      message: expect.stringContaining('network'),
     });
     stub(() => ok());
     const ac = new AbortController();

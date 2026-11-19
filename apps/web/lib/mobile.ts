@@ -319,3 +319,259 @@ export function releaseTone(status: string): Tone {
 export const RELEASE_STEPS = ['draft', 'prepared', 'owner', 'store'] as const;
 export const stepOf = (status: string): number =>
   status === 'owner_approved' ? 3 : status === 'prepared' ? 2 : 1;
+
+/* ------------------------------------------------------------------ workspace (the mobile app opens in the builder workspace) */
+
+/** The panels of the mobile workspace, in the order of its top bar. `preview`, `code` and `spec` need `builder:read`; the others the permission of the old pages. */
+export const WORKSPACE_TABS = ['preview', 'code', 'spec', 'builds', 'signing', 'releases'] as const;
+export type WorkspaceTab = (typeof WORKSPACE_TABS)[number];
+export const TAB_PERMISSION: Record<WorkspaceTab, string> = {
+  preview: 'builder:read',
+  code: 'builder:read',
+  spec: 'builder:read',
+  builds: 'mobile:build',
+  signing: 'mobile:signing',
+  releases: 'mobile:release',
+};
+/** `?tab=` of the workspace route; anything else opens the preview. */
+export function workspaceTab(raw: string | string[] | undefined): WorkspaceTab {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return (WORKSPACE_TABS as readonly string[]).includes(v ?? '') ? (v as WorkspaceTab) : 'preview';
+}
+/** The tabs a member may open (the signing tab only with `mobile:signing`, and so on). */
+export const tabsFor = (can: (permission: string) => boolean): WorkspaceTab[] =>
+  WORKSPACE_TABS.filter((x) => can(TAB_PERMISSION[x]));
+
+/** The route a former mobile page now lives at (the old routes redirect here, so existing links keep working). */
+export const workspaceHref = (
+  locale: string,
+  projectId: string,
+  tab?: WorkspaceTab,
+  extra?: Record<string, string>,
+): string => {
+  const q = new URLSearchParams({ ...(tab ? { tab } : {}), ...(extra ?? {}) }).toString();
+  return `/${locale}/builder/projects/${projectId}${q ? `?${q}` : ''}`;
+};
+
+/* ---- the design, as the preview draws it */
+
+export interface Bi {
+  ar: string;
+  en: string;
+}
+export interface PreviewField {
+  id: string;
+  label: Bi;
+  type: string;
+  required: boolean;
+  options: { value: string; label: Bi }[];
+}
+export interface PreviewScreen {
+  id: string;
+  kind: string;
+  title: Bi;
+  body: Bi | null;
+  fields: PreviewField[];
+  items: { title: Bi; subtitle: Bi | null }[];
+}
+export interface PreviewSpec {
+  app: { name: Bi; packageId: string; description: Bi | null };
+  theme: { primary: string; secondary: string | null; dark: boolean };
+  defaultLocale: 'ar' | 'en';
+  auth: boolean;
+  screens: PreviewScreen[];
+  navigation: { initial: string; tabs: string[] };
+  permissions: string[];
+}
+const HEX = /^#[0-9A-Fa-f]{6}$/;
+const biOf = (v: unknown, max = 400): Bi | null =>
+  isObj(v) && (typeof v.ar === 'string' || typeof v.en === 'string')
+    ? { ar: str(v.ar, max), en: str(v.en, max) }
+    : null;
+/** The text of a bilingual value in the language shown, falling back to the other one (a design always has both, a malformed one may not). */
+export const biText = (b: Bi | null | undefined, locale: 'ar' | 'en'): string =>
+  b ? (locale === 'ar' ? b.ar || b.en : b.en || b.ar) : '';
+
+/**
+ * The mobile spec (the structured design a mobile run produced) as the preview needs it. Defensive: the spec comes from a model and was validated by the API, but
+ * the screen never trusts its shape (a malformed member is dropped, a spec with no screen is `null`). Nothing in it is ever rendered as markup.
+ */
+export function previewSpec(raw: unknown): PreviewSpec | null {
+  if (!isObj(raw) || !Array.isArray(raw.screens)) return null;
+  const app = isObj(raw.app) ? raw.app : {};
+  const theme = isObj(raw.theme) ? raw.theme : {};
+  const nav = isObj(raw.navigation) ? raw.navigation : {};
+  const screens: PreviewScreen[] = raw.screens.filter(isObj).map((s) => ({
+    id: str(s.id, 40),
+    kind: str(s.kind, 20),
+    title: biOf(s.title, 80) ?? { ar: '', en: '' },
+    body: biOf(s.body),
+    fields: (Array.isArray(s.fields) ? s.fields : []).filter(isObj).map((f) => ({
+      id: str(f.id, 40),
+      label: biOf(f.label, 80) ?? { ar: '', en: '' },
+      type: str(f.type, 20),
+      required: f.required === true,
+      options: (Array.isArray(f.options) ? f.options : []).filter(isObj).map((o) => ({
+        value: str(o.value, 40),
+        label: biOf(o.label, 80) ?? { ar: '', en: '' },
+      })),
+    })),
+    items: (Array.isArray(s.items) ? s.items : []).filter(isObj).map((i) => ({
+      title: biOf(i.title, 100) ?? { ar: '', en: '' },
+      subtitle: biOf(i.subtitle, 160),
+    })),
+  }));
+  if (screens.length === 0) return null;
+  const tabs = (Array.isArray(nav.tabs) ? nav.tabs : [])
+    .filter((x): x is string => typeof x === 'string')
+    .filter((id) => screens.some((s) => s.id === id))
+    .slice(0, 5);
+  const initial = screens.some((s) => s.id === nav.initial) ? str(nav.initial, 40) : screens[0]!.id;
+  return {
+    app: {
+      name: biOf(app.name, 60) ?? { ar: '', en: '' },
+      packageId: str(app.packageId, 80),
+      description: biOf(app.description, 300),
+    },
+    theme: {
+      primary:
+        typeof theme.primary === 'string' && HEX.test(theme.primary) ? theme.primary : '#0f766e',
+      secondary:
+        typeof theme.secondary === 'string' && HEX.test(theme.secondary) ? theme.secondary : null,
+      dark: theme.dark === true,
+    },
+    defaultLocale: raw.defaultLocale === 'en' ? 'en' : 'ar',
+    auth: isObj(raw.auth) && raw.auth.enabled === true,
+    screens,
+    navigation: { initial, tabs: tabs.length > 0 ? tabs : [initial] },
+    permissions: (Array.isArray(raw.permissions) ? raw.permissions : []).filter(
+      (x): x is string => typeof x === 'string',
+    ),
+  };
+}
+/** The spec stored in a mobile project's manifest (`null` for an empty project). */
+export const manifestSpec = (manifest: unknown): PreviewSpec | null =>
+  previewSpec(isObj(manifest) ? manifest.spec : null);
+
+/** Black or white text, whichever reads better on the colour (WCAG relative luminance). */
+export function onColor(hex: string): '#111827' | '#ffffff' {
+  if (!HEX.test(hex)) return '#ffffff';
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const lum = 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  return lum > 0.36 ? '#111827' : '#ffffff';
+}
+
+/* ---- the design awaiting approval, and the run's progress */
+
+export interface MobileApprovalView {
+  appName: Bi | null;
+  applicationId: string | null;
+  screens: { id: string; kind: string; title: Bi }[];
+  tabs: string[];
+  permissions: string[];
+  /** the stored design (run artifact) the preview can draw while the person decides */
+  artifactId: string | null;
+}
+/** The summary of a pending `plan` approval of a mobile run, read defensively (the stored payload is never part of it). */
+export function mobileApprovalView(summary: unknown): MobileApprovalView {
+  const s = isObj(summary) ? summary : {};
+  return {
+    appName: biOf(s.appName, 60),
+    applicationId: str(s.applicationId, 80) || null,
+    screens: (Array.isArray(s.screens) ? s.screens : []).filter(isObj).map((x) => ({
+      id: str(x.id, 40),
+      kind: str(x.kind, 20),
+      title: biOf(x.title, 80) ?? { ar: '', en: '' },
+    })),
+    tabs: (Array.isArray(s.tabs) ? s.tabs : []).filter((x): x is string => typeof x === 'string'),
+    permissions: (Array.isArray(s.permissions) ? s.permissions : []).filter(
+      (x): x is string => typeof x === 'string',
+    ),
+    artifactId:
+      typeof s.artifactId === 'string' && /^[0-9a-f-]{36}$/i.test(s.artifactId)
+        ? s.artifactId
+        : null,
+  };
+}
+
+/** Why a run failed: its code, the short message the service recorded and the (at most 8) reasons it gave. Strings are masked, never raw model output. */
+export function runFailure(error: unknown): {
+  code: string | null;
+  message: string | null;
+  details: string[];
+} {
+  const e = isObj(error) ? error : {};
+  const mask = (v: unknown, max: number) =>
+    typeof v === 'string'
+      ? v
+          .replace(/[A-Za-z0-9+/_=-]{24,}/g, '[REDACTED]')
+          // eslint-disable-next-line no-control-regex
+          .replace(/[\u0000-\u001f\u007f]/g, ' ')
+          .slice(0, max)
+      : '';
+  return {
+    code: typeof e.code === 'string' ? e.code.slice(0, 60) : null,
+    message: mask(e.message, 240) || null,
+    details: (Array.isArray(e.details) ? e.details : [])
+      .map((d) => mask(d, 160))
+      .filter((d) => d !== '')
+      .slice(0, 8),
+  };
+}
+
+export const MOBILE_STAGES = ['design', 'approval', 'generate', 'analysis'] as const;
+export type MobileStageId = (typeof MOBILE_STAGES)[number];
+export interface MobileStage {
+  id: MobileStageId;
+  state: 'done' | 'active' | 'failed' | 'pending';
+}
+/** What the run is doing, in words a person uses (the title of the card). */
+export type MobilePhase =
+  'queued' | 'designing' | 'approval' | 'generating' | 'done' | 'failed' | 'cancelled' | 'budget';
+export function mobilePhase(state: string, events: { type: string }[]): MobilePhase {
+  const approved = events.some((e) => e.type === 'approval_approved');
+  if (state === 'succeeded') return 'done';
+  if (state === 'failed') return 'failed';
+  if (state === 'cancelled') return 'cancelled';
+  if (state === 'budget_exceeded') return 'budget';
+  if (state === 'waiting_approval') return 'approval';
+  if (approved) return 'generating';
+  return state === 'queued' ? 'queued' : 'designing';
+}
+/**
+ * The steps of a `mobile` run as the events and the run state show them: the design, the person's approval, the Flutter project, its static analysis. The service
+ * gives no event between writing the files and the analysis (one step), so "analysis" is marked done only when the run succeeded (a failed analysis fails the run);
+ * nothing is claimed that did not happen. A failed run marks the step it stopped at.
+ */
+export function mobileRunStages(
+  state: string,
+  events: { type: string }[],
+  error?: unknown,
+): MobileStage[] {
+  const phase = mobilePhase(state, events);
+  const approved = events.some((e) => e.type === 'approval_approved');
+  const asked = events.some((e) => e.type === 'approval_requested') || approved;
+  const failedAt = (): number => {
+    const msg = `${runFailure(error).message ?? ''} ${runFailure(error).details.join(' ')}`;
+    if (/analysis/i.test(msg)) return 3;
+    return approved ? 2 : asked ? 1 : 0;
+  };
+  const current =
+    phase === 'queued' || phase === 'designing'
+      ? 0
+      : phase === 'approval'
+        ? 1
+        : phase === 'generating'
+          ? 2
+          : phase === 'done'
+            ? 4
+            : failedAt();
+  const bad = phase === 'failed' || phase === 'cancelled' || phase === 'budget';
+  return MOBILE_STAGES.map((id, i) => ({
+    id,
+    state: i < current ? 'done' : i === current ? (bad ? 'failed' : 'active') : 'pending',
+  }));
+}

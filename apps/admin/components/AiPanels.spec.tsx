@@ -221,6 +221,42 @@ describe('model providers (UI-M09-12)', () => {
         id: 'c1',
       });
     });
+    it('asks for a fresh two-factor code when needed, answers it without leaving the page, and then saves the key', async () => {
+      const submits: boolean[] = [];
+      const onSubmit = (e: Event) => submits.push(e.defaultPrevented);
+      document.addEventListener('submit', onSubmit);
+      let saves = 0;
+      post.mockImplementation(async (url: string) => {
+        if (String(url).includes('/verification')) return ok({});
+        saves += 1;
+        return saves === 1
+          ? fail(403, 'step_up_required')
+          : ok(provider({ code: 'claude', vaultRef: 'vault://dev/ai-claude' }));
+      });
+      try {
+        const { container } = panel([], { mfaFactorId: 'f1' });
+        fireEvent.change(claudeField(), { target: { value: KEY } });
+        fireEvent.click(
+          screen.getByRole('button', { name: t('en', 'aia.claude.save'), hidden: true }),
+        );
+        const code = (await screen.findByLabelText(t('en', 'field.code'))) as HTMLInputElement;
+        // the challenge is its own form: never nested inside the key form (a form inside a form is invalid HTML)
+        expect(container.querySelector('form form')).toBeNull();
+        fireEvent.change(code, { target: { value: '123456' } });
+        fireEvent.click(
+          screen.getByRole('button', { name: t('en', 'action.verify'), hidden: true }),
+        );
+        await waitFor(() => expect(saves).toBe(2)); // the original save was retried after the code was accepted
+        expect(submits.length).toBeGreaterThan(0);
+        expect(submits.every(Boolean)).toBe(true); // every submit was handled by the page, none left to the browser (a native submit would reload with ?code=)
+        expect(
+          post.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('verification')),
+        ).toHaveLength(1); // one code check, one retry
+        await waitFor(() => expect(claudeField().value).toBe(''));
+      } finally {
+        document.removeEventListener('submit', onSubmit);
+      }
+    });
     it('a member who cannot manage providers sees no field', () => {
       panel([], { canManage: false, canApprove: true });
       expect(

@@ -78,6 +78,8 @@ const handler = (req: { task?: string }): string => {
       locales: ['ar', 'en'],
     });
   if (req.task === 'app_spec') return JSON.stringify(specNow());
+  if (req.task === 'test_fix')
+    return JSON.stringify({ explanation: 'add the missing marker', patches: [{ op: 'add', path: 'docs/FIXED.md', content: 'FIXED' }] });
   return JSON.stringify({ error: 'no fixture' });
 };
 
@@ -100,6 +102,17 @@ beforeAll(async () => {
   process.env.APPBUILDER_STUB_SWITCH_TTL_MS = '0'; // the stub flag is read live in this test
   e = await setupAiEnv({ overrides: [[HealthProbePort, probe]] });
   runs = e.app.get(RunService);
+  // the dev runtime (mock, NOT isolated) starts no process: install/typecheck/build succeed; the unit suite passes once docs/FIXED.md exists
+  const rt = e.app.get(SandboxRuntime) as MockSandboxRuntime;
+  for (const cmd of ['npm', 'npx']) rt.register(cmd, () => ({ stdout: 'ok', exitCode: 0, cpuSeconds: 1 }));
+  rt.register('node', ({ files }) => {
+    const ok = files.has('docs/FIXED.md');
+    return {
+      stdout: `<testsuites><testsuite name="s"><testcase name="marker present" classname="tests/marker.test.ts" time="0.01">${ok ? '' : '<failure message="marker missing"/>'}</testcase></testsuite></testsuites>`,
+      exitCode: ok ? 0 : 1,
+      cpuSeconds: 1,
+    };
+  });
   await e.enableMock('mock-model', {
     adapter: new MockModelAdapter({ id: 'mock-model', handler }),
   });
@@ -681,6 +694,48 @@ describe('approvals of a webapp run (the M10 inbox) continue the run through M09
     expect(await stateOf(id)).toBe('cancelled');
     const again = await start(); // the unique "one active run per project" slot is free again
     await call('alice', 'POST', `/v1/ai/runs/${again}/cancellation`);
+  });
+});
+
+describe('a test-fix run through M09 (bounded debugging loop on the real project)', () => {
+  it('runs the tests, asks the model for a patch, applies it through the checked changes pipeline and ends fixed', async () => {
+    const projectId = (await newProject('Fix me CRM')).id as string;
+    const gen = await call('alice', 'POST', '/v1/ai/runs', {
+      sessionId: await newSession(projectId),
+      projectId,
+      kind: 'webapp',
+      budget: { maxTokens: 900_000, maxCredits: 1_000_000 },
+      input: { brief: { prompt: 'fix me' } },
+    });
+    expect((await drive(gen.json().id)).state).toBe('succeeded');
+    const head = (await call('alice', 'GET', `/v1/builder/projects/${projectId}`)).json().headVersionId;
+    expect(
+      (
+        await call('alice', 'POST', `/v1/builder/projects/${projectId}/changes`, {
+          baseVersion: head,
+          patches: [{ op: 'add', path: 'package-lock.json', content: fakeLock() }],
+        })
+      ).statusCode,
+    ).toBe(200);
+    const r = await call('alice', 'POST', '/v1/ai/runs', {
+      sessionId: await newSession(projectId),
+      projectId,
+      kind: 'test-fix',
+      budget: { maxTokens: 400_000, maxCredits: 500_000 },
+      input: {},
+    });
+    expect(r.statusCode, r.body.slice(0, 300)).toBe(202);
+    const out = await drive(r.json().id);
+    if (out.state !== 'succeeded') throw new Error(JSON.stringify(out));
+    expect(out.result).toMatchObject({ outcome: 'fixed', iterations: 1 });
+    expect(
+      (await e.sql(`SELECT count(*)::int n FROM builder.test_runs WHERE project_id=$1`, [projectId]))[0]!.n,
+    ).toBeGreaterThanOrEqual(2); // failing run, then the passing one
+    const files = (await call('alice', 'GET', `/v1/builder/projects/${projectId}/files`)).json().items as Row[];
+    expect(files.map((f) => f.path)).toContain('docs/FIXED.md');
+    expect(
+      (await e.sql(`SELECT count(*)::int n FROM ai.model_usage WHERE run_id=$1`, [r.json().id]))[0]!.n,
+    ).toBe(1);
   });
 });
 

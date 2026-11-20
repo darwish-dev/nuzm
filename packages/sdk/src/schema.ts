@@ -6892,6 +6892,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/builder/ai-studio/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * AI Studio switches of the organization
+         * @description Whether AI Studio and the Claude Code proof of concept are on for this organization, whether the app builder is on (AI Studio lives in its workspace), and whether the Claude Code compliance approval (D-38) is recorded for this environment. Not behind `ai_studio.enabled`. Permission `org:read`.
+         */
+        get: operations["getAiStudioSettings"];
+        /**
+         * Turn AI Studio or Claude Code on or off for the organization
+         * @description Body {aiStudio?: boolean, claudeCode?: boolean}. Writes the organization's own feature-flag rows (no other flag can be set here). Turning Claude Code on does not lift the D-38 gate: production still refuses it until the compliance approval is recorded. Permission `org:update`. Audited with before/after (`builder.ai_studio.settings_updated`).
+         */
+        put: operations["putAiStudioSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6987,6 +7011,19 @@ export interface components {
                 /** Format: date-time */
                 installedAt: string;
             }[];
+        };
+        AiStudioSettings: {
+            appBuilder: {
+                enabled: boolean;
+            };
+            aiStudio: {
+                enabled: boolean;
+            };
+            claudeCode: {
+                enabled: boolean;
+                complianceApproved: boolean;
+                available: boolean;
+            };
         };
         /** @enum {string} */
         ResidencyMode: "in_kingdom_only" | "allow_listed" | "unrestricted_with_assessment";
@@ -26772,6 +26809,64 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getAiStudioSettings: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiStudioSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    putAiStudioSettings: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    aiStudio?: boolean;
+                    claudeCode?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiStudioSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

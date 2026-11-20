@@ -1,6 +1,7 @@
 import { StackedScreens } from '../../../../../sections/stack';
 import AuditLogs from '../../../../../sections/audit-logs';
 import OrgSettings from '../../../../../sections/org-settings';
+import AiStudioSettingsScreen from '../../../../../sections/ai-studio-settings';
 
 /** The organization: its settings and the audit log on one page (opened from the account menu). */
 export default async function Organization(props: {
@@ -15,6 +16,12 @@ export default async function Organization(props: {
       searchParams={props.searchParams}
       screens={[
         { id: 'settings', title: 'settings.org.title', perm: ['org:update'], Screen: OrgSettings },
+        {
+          id: 'ai-studio',
+          title: 'ais.set.title',
+          perm: ['org:update'],
+          Screen: AiStudioSettingsScreen,
+        },
         { id: 'audit', title: 'audit.title', perm: ['audit:read'], Screen: AuditLogs },
       ]}
     />

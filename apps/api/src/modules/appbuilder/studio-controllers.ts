@@ -8,3 +8,4 @@ export { StudioProjectGithubController } from './studio-project-github.controlle
 export { GithubWebhooksController } from './github-webhooks.controller';
 export { StudioClaudeCodeController } from './studio-claude-code.controller';
 export { AdminSkillsController } from './admin-skills.controller';
+export { StudioSettingsController } from './studio-settings.controller';

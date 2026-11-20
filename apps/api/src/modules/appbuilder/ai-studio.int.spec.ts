@@ -580,3 +580,48 @@ describe('Claude Code proof of concept (D-38)', () => {
     expect(cols.filter((c) => /token|secret|password|credential|cookie|key/.test(c))).toEqual([]);
   });
 });
+
+describe('organization AI Studio settings', () => {
+  const url = '/v1/builder/ai-studio/settings';
+  it('owners turn AI Studio and Claude Code on and off for their own organization only; audited; others cannot', async () => {
+    const g = await call('bob', 'GET', url, undefined, B());
+    expect(g.statusCode, g.body).toBe(200);
+    expect(g.json()).toMatchObject({
+      appBuilder: { enabled: true },
+      aiStudio: { enabled: true },
+      claudeCode: { enabled: false, complianceApproved: true },
+    });
+    // off → the studio routes disappear for B only
+    const off = await call('bob', 'PUT', url, { aiStudio: false }, B());
+    expect(off.statusCode, off.body).toBe(200);
+    expect(off.json().aiStudio.enabled).toBe(false);
+    expect((await call('bob', 'GET', '/v1/builder/skills', undefined, B())).statusCode).toBe(404);
+    expect((await call('alice', 'GET', '/v1/builder/skills')).statusCode).toBe(200);
+    // on again, and Claude Code with it
+    const on = await call('bob', 'PUT', url, { aiStudio: true, claudeCode: true }, B());
+    expect(on.json()).toMatchObject({
+      aiStudio: { enabled: true },
+      claudeCode: { enabled: true, available: true },
+    });
+    expect((await call('bob', 'GET', '/v1/builder/skills', undefined, B())).statusCode).toBe(200);
+    // only the two switches, only booleans
+    expect((await call('bob', 'PUT', url, { 'app_builder.enabled': true }, B())).statusCode).toBe(
+      422,
+    );
+    expect((await call('bob', 'PUT', url, { aiStudio: 'yes' }, B())).statusCode).toBe(422);
+    expect((await call('bob', 'PUT', url, {}, B())).statusCode).toBe(422);
+    // a viewer and a developer of A cannot change A's settings
+    expect((await call('carol', 'PUT', url, { aiStudio: false })).statusCode).toBe(403);
+    expect((await call('dave', 'PUT', url, { aiStudio: false })).statusCode).toBe(403);
+    expect(
+      e.sink.events.some(
+        (x) => x.action === 'builder.ai_studio.settings_updated' && x.orgId === B(),
+      ),
+    ).toBe(true);
+    const rows = await e.sql(
+      `SELECT org_id FROM platform.feature_flags WHERE key = 'ai.claude_code_sandbox' AND value = 'true'::jsonb`,
+    );
+    expect(rows.map((r) => r.org_id)).toContain(B());
+    expect(rows.map((r) => r.org_id)).not.toContain(null);
+  });
+});

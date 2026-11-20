@@ -12319,6 +12319,54 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/ai-studio/settings:
+    get:
+      operationId: getAiStudioSettings
+      tags: [ai-studio]
+      summary: AI Studio switches of the organization
+      description: 'Whether AI Studio and the Claude Code proof of concept are on for this organization, whether the app builder is on (AI Studio lives in its workspace), and whether the Claude Code compliance approval (D-38) is recorded for this environment. Not behind `ai_studio.enabled`. Permission `org:read`.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiStudioSettings' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putAiStudioSettings
+      tags: [ai-studio]
+      summary: Turn AI Studio or Claude Code on or off for the organization
+      description: "Body {aiStudio?: boolean, claudeCode?: boolean}. Writes the organization's own feature-flag rows (no other flag can be set here). Turning Claude Code on does not lift the D-38 gate: production still refuses it until the compliance approval is recorded. Permission `org:update`. Audited with before/after (`builder.ai_studio.settings_updated`)."
+      x-nuzm-permission: org:update
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                aiStudio: { type: boolean }
+                claudeCode: { type: boolean }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiStudioSettings' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   # <<< AI Studio paths
 components:
   parameters:
@@ -12511,6 +12559,20 @@ components:
               reason:
                 { type: string, enum: [recommended, requested, template, dependency, customer] }
               installedAt: { type: string, format: date-time }
+    AiStudioSettings:
+      type: object
+      required: [appBuilder, aiStudio, claudeCode]
+      properties:
+        appBuilder:
+          { type: object, required: [enabled], properties: { enabled: { type: boolean } } }
+        aiStudio: { type: object, required: [enabled], properties: { enabled: { type: boolean } } }
+        claudeCode:
+          type: object
+          required: [enabled, complianceApproved, available]
+          properties:
+            enabled: { type: boolean }
+            complianceApproved: { type: boolean }
+            available: { type: boolean }
     # <<< AI Studio schemas
     ResidencyMode:
       type: string

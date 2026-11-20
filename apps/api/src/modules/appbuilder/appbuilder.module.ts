@@ -100,6 +100,7 @@ import {
   GithubPublicSkillSource,
   SkillSource,
 } from './internal/studio/skill-source';
+import { StudioSettingsService } from './internal/studio/settings.service';
 import { SkillsService } from './internal/studio/skills.service';
 import {
   AdminSkillsController,
@@ -110,6 +111,7 @@ import {
   StudioInstructionsController,
   StudioProjectGithubController,
   StudioProjectSkillsController,
+  StudioSettingsController,
   StudioSkillsCatalogController,
 } from './studio-controllers';
 
@@ -268,6 +270,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
     GithubWebhooksController,
     StudioClaudeCodeController,
     AdminSkillsController,
+    StudioSettingsController,
   ],
   providers: [
     ...M09_PORT_PROVIDERS,
@@ -306,6 +309,11 @@ class LogSecurityAlerts extends SecurityAlertPort {
       useFactory: (db: Db, a: AuditSink, p: ProjectsPort, f: StudioFileWriter, h: StudioGitHost) =>
         new GitHubService(db, a, p, f, h.adapter, process.env.STUDIO_STATE_KEY),
       inject: [DB, AuditSink, ProjectsPort, StudioFileWriter, STUDIO_GIT_HOST],
+    },
+    {
+      provide: StudioSettingsService,
+      useFactory: (db: Db, a: AuditSink) => new StudioSettingsService(db, a),
+      inject: [DB, AuditSink],
     },
     {
       provide: ClaudeCodeService,

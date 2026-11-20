@@ -6878,6 +6878,19 @@ export const messages = {
     'ais.adm.err.forbidden':
       'غير مسموح: قد لا تملكون الصلاحية، أو أنكم من استورد هذه المهارة التنفيذية.',
     'ais.adm.err.conflict': 'مرفوض: رفضها الفحص، أو ترخيصها غير معروف، أو رُوجعت سابقًا.',
+    'ais.set.title': 'استوديو الذكاء',
+    'ais.set.help':
+      'فعّلوا ميزات استوديو الذكاء أو عطّلوها لكامل مؤسستكم. يغيّرها المالكون والمسؤولون فقط.',
+    'ais.set.studio': 'استوديو الذكاء',
+    'ais.set.studioHelp':
+      'تعليمات المشروع (CLAUDE.md) والمهارات وGitHub والبحث في الملفات داخل منشئ تطبيقات الويب.',
+    'ais.set.claude': 'Claude Code داخل بيئة معزولة',
+    'ais.set.claudeHelp':
+      'يتيح للأعضاء تشغيل Claude Code الرسمي بحساب Claude الخاص بهم داخل بيئة معزولة للمشروع. يتطلب تفعيل استوديو الذكاء.',
+    'ais.set.noBuilder':
+      'منشئ التطبيقات غير مفعّل لمؤسستكم بعد، لذا لن يظهر تبويب استوديو الذكاء حتى يُفعَّل.',
+    'ais.set.readOnly': 'يغيّر هذه الإعدادات المالكون والمسؤولون فقط.',
+    'ais.set.saved': 'حُفظ. أعيدوا تحميل المنشئ لرؤية التغيير.',
     // <<< AI Studio
   },
   en: {
@@ -13981,6 +13994,19 @@ export const messages = {
       'Not allowed: you may lack the permission, or you imported this executable skill yourself.',
     'ais.adm.err.conflict':
       'Refused: the scan rejected it, the licence is unknown, or it was already reviewed.',
+    'ais.set.title': 'AI Studio',
+    'ais.set.help':
+      'Turn the AI Studio features on or off for your whole organization. Only owners and admins can change these.',
+    'ais.set.studio': 'AI Studio',
+    'ais.set.studioHelp':
+      'Project instructions (CLAUDE.md), Skills, GitHub and file search in the web-app builder.',
+    'ais.set.claude': 'Claude Code in a sandbox',
+    'ais.set.claudeHelp':
+      'Lets members run the official Claude Code with their own Claude account inside a project sandbox. Needs AI Studio on.',
+    'ais.set.noBuilder':
+      'The app builder is not enabled for your organization yet, so the AI Studio tab will not appear until it is.',
+    'ais.set.readOnly': 'Only owners and admins can change these settings.',
+    'ais.set.saved': 'Saved. Reload the builder to see the change.',
     // <<< AI Studio
   },
 } as const satisfies Record<Locale, Record<string, string>>;

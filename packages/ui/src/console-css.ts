@@ -1437,15 +1437,16 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 
 /* The floating AI builder card, and the slim bar of the full-screen start page */
 /* The AI builder button: a compact accent pill at the start edge of the page (left in English, right in Arabic), just beside the sidebar. Light on purpose: it is always there, so it stays small and quiet. */
-.nzc a.bfab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--rail-w, 68px) + 22px); z-index: 54; display: inline-flex; align-items: center; gap: 10px; padding: 6px 8px; padding-inline: 6px 8px; border-radius: 999px; background: var(--nzc-accent); color: var(--nzc-on-accent); text-decoration: none; box-shadow: 0 6px 18px #00000038; animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s; }
-.nzc a.bfab:hover { transform: translateY(-2px); color: var(--nzc-on-accent); box-shadow: 0 10px 24px #00000047; }
+.nzc a.bfab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--rail-w, 68px) + 22px); z-index: 54; display: inline-flex; align-items: center; gap: 10px; padding-block: 6px; padding-inline: 6px 10px; border: 1px solid transparent; border-radius: 10px; background: var(--nzc-grad); color: var(--nzc-on-accent); text-decoration: none; box-shadow: 0 4px 14px rgba(20, 24, 27, 0.2); animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s, filter 0.15s; }
+.nzc a.bfab:hover { transform: translateY(-2px); color: var(--nzc-on-accent); filter: brightness(1.07); box-shadow: 0 8px 20px rgba(20, 24, 27, 0.26); }
 .nzc a.bfab:focus-visible { outline: 3px solid var(--nzc-fg); outline-offset: 3px; }
-.bfab-icon { display: grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 50%; background: var(--nzc-on-accent); color: var(--nzc-accent); flex: none; }
+.bfab-icon { display: grid; place-items: center; inline-size: 32px; block-size: 32px; border-radius: 8px; background: rgba(20, 24, 27, 0.1); flex: none; }
+.nzc a.bfab .bfab-icon .nzc-logo { block-size: 18px; inline-size: auto; filter: brightness(0); opacity: 0.88; }
 .bfab-text { display: grid; min-inline-size: 0; }
-.bfab-text strong { font-size: 13.5px; font-weight: 700; line-height: 1.2; }
+.bfab-text strong { font-size: 13.5px; font-weight: 650; line-height: 1.2; }
 .bfab-text small { display: none; }
-.bfab-go { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; background: color-mix(in srgb, var(--nzc-on-accent) 14%, transparent); flex: none; }
-.nzc a.bfab:hover .bfab-go { background: var(--nzc-on-accent); color: var(--nzc-accent); }
+.bfab-go { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 8px; background: rgba(20, 24, 27, 0.1); flex: none; }
+.nzc a.bfab:hover .bfab-go { background: rgba(20, 24, 27, 0.2); }
 @media (max-width: 900px) { .nzc a.bfab { inset-inline-start: 14px; } }
 html[dir='rtl'] .bfab-go .nzc-icon { transform: scaleX(-1); }
 .nzc a.bws-exit { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--nzc-field); color: var(--nzc-muted); font-size: 13px; text-decoration: none; }

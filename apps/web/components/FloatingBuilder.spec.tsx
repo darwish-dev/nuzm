@@ -17,6 +17,13 @@ describe('floating AI builder', () => {
     expect(a.getAttribute('href')).toBe('/en/builder/projects');
     expect(screen.getByText(t('en', 'bld.fab.sub'))).toBeTruthy();
   });
+  it('carries the Nuzm logo mark as its icon', () => {
+    path = '/en/domains';
+    const { container } = render(<FloatingBuilder locale="en" />);
+    expect(container.querySelector('.bfab-icon img.nzc-logo')?.getAttribute('src')).toBe(
+      '/brand/nuzm-mark.png',
+    );
+  });
   it('speaks the page language and keeps the locale in the link', () => {
     path = '/ar';
     render(<FloatingBuilder locale="ar" />);

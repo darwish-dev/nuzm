@@ -2,6 +2,7 @@
 import { usePathname } from 'next/navigation';
 import { t, type Locale } from '@nuzm/i18n';
 import { Icon } from '@nuzm/ui';
+import { BrandMark } from './BrandLogo';
 
 /**
  * The AI builder, always one click away: a wide card floating at the bottom of every console page. It opens the builder full screen (the console's sidebar and top
@@ -17,7 +18,7 @@ export function FloatingBuilder({ locale }: { locale: Locale }) {
       aria-label={`${t(locale, 'bld.fab.title')}: ${t(locale, 'bld.fab.sub')}`}
     >
       <span className="bfab-icon" aria-hidden="true">
-        <Icon name="sparkle" size={20} />
+        <BrandMark />
       </span>
       <span className="bfab-text">
         <strong>{t(locale, 'bld.fab.title')}</strong>

@@ -356,20 +356,22 @@ export function ConsoleFrame(props: {
           {props.brand}
           {props.topbar}
         </header>
-        <div className="nzc-frame" data-support={props.support && supportOpen ? 'open' : undefined}>
-          {props.rail}
-          {drawer && (
-            <button
-              type="button"
-              className="nzc-scrim"
-              aria-label={props.labels.closeMenu}
-              onClick={() => setDrawer(false)}
-            />
-          )}
-          <main id="main" tabIndex={-1} className="nzc-body">
-            {props.tabs}
-            {props.children}
-          </main>
+        <div className="nzc-main" data-support={props.support && supportOpen ? 'open' : undefined}>
+          <div className="nzc-frame">
+            {props.rail}
+            {drawer && (
+              <button
+                type="button"
+                className="nzc-scrim"
+                aria-label={props.labels.closeMenu}
+                onClick={() => setDrawer(false)}
+              />
+            )}
+            <main id="main" tabIndex={-1} className="nzc-body">
+              {props.tabs}
+              {props.children}
+            </main>
+          </div>
           {props.support && (
             <aside
               id="nzc-support"

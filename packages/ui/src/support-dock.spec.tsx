@@ -27,18 +27,21 @@ const frame = (withSupport = true) => (
 );
 
 describe('the docked support panel', () => {
-  it('is closed at first; the top bar button opens it beside the page (the frame gains a column) and closes it again', () => {
+  it('is closed at first; the top bar button opens it beside the page (beside the dashboard frame, not inside it) and closes it again', () => {
     const { container } = render(frame());
     const panel = container.querySelector('#nzc-support') as HTMLElement;
     const btn = screen.getByRole('button', { name: 'Open support' });
     expect(panel.hidden).toBe(true);
     expect(btn.getAttribute('aria-expanded')).toBe('false');
-    expect(container.querySelector('.nzc-frame')?.getAttribute('data-support')).toBeNull();
+    expect(container.querySelector('.nzc-main')?.getAttribute('data-support')).toBeNull();
     fireEvent.click(btn);
     expect(panel.hidden).toBe(false);
     expect(btn.getAttribute('aria-expanded')).toBe('true');
-    expect(container.querySelector('.nzc-frame')?.getAttribute('data-support')).toBe('open');
+    expect(container.querySelector('.nzc-main')?.getAttribute('data-support')).toBe('open');
     expect(screen.getByRole('complementary', { name: 'Support' })).toBeTruthy();
+    // the panel is a sibling of the dashboard's frame, so it sits on the system background, not on the frame's own
+    expect(panel.parentElement?.classList.contains('nzc-main')).toBe(true);
+    expect(container.querySelector('.nzc-frame')?.contains(panel)).toBe(false);
     fireEvent.click(btn);
     expect(panel.hidden).toBe(true);
   });
@@ -56,6 +59,6 @@ describe('the docked support panel', () => {
     const { container } = render(frame(false));
     expect(container.querySelector('#nzc-support')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Open support' }));
-    expect(container.querySelector('.nzc-frame')?.getAttribute('data-support')).toBeNull();
+    expect(container.querySelector('.nzc-main')?.getAttribute('data-support')).toBeNull();
   });
 });

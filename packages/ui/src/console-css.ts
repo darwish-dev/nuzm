@@ -2087,4 +2087,38 @@ html[dir='rtl'] .sup-topics a > .nzc-icon:last-child { transform: scaleX(-1); }
 .nzc-art-dns i { block-size:3px; background:var(--nzc-accent); opacity:.3; flex:1; }
 @media(max-width:700px) { .nzc-home-slider { grid-template-columns:1fr; } .nzc-slide-copy { min-block-size:190px; padding-block-end:18px; } .nzc-service-art { block-size:205px; margin-block-end:35px; } .nzc-slide-controls { inset-block-end:10px; } }
 @media(max-width:380px) { .nzc-service-art { transform:scale(.87); transform-origin:center; } }
+
+/* Borderless card surfaces across customer and admin consoles. */
+.nzc :is(.nz-card,.nz-table-wrap,.nz-state,.nzc-stat,.nzc-tile,.nzc-navcard,.nzc-service-tile,.nzc-panel,.nzc-quota,.nzc-action,.nzc-callout,.nzc-hero,.nzc-home-slider,.nzc-home-service,.nzc-home-build,.nzc-home-product,.nzc-shop-card,.nzc-shop-plan,.nzc-co-card,.nzc-cart-panel,.nzc-split-card,.nzc-split-panel,.nzc-host-planner,.nzc-host-planner-panel,.nzc-dsearch,.nzc-dres-best,.nzc-dres-list,.nzc-rhead,.nzc-facts,.hs-plan,.hs-hero,.ld-card,.ld-tld,.bl-pcard,.bl-hero,.mws-panel,.nzc-plan,.nzc-tld) { border:0 !important; }
+.nzc-home-service::before { border:0; background:color-mix(in srgb,var(--nzc-accent) 5%,transparent); }
+.nzc :is(.nzc-art-window,.nzc-art-chip,.nzc-art-node,.nzc-art-domain-card,.nzc-art-dns,.nzc-art-cloud-core) { border:0; }
+.nzc-slide-motion { position:absolute; z-index:2; inset-inline-end:18px; inset-block-end:12px; border:0; padding:5px 8px; border-radius:7px; background:var(--nzc-accent-soft); color:var(--nzc-accent); font:inherit; font-size:10px; cursor:pointer; }
+.nzc-service-art { animation:nzc-art-enter .45s ease-out both; }
+.nzc-art-window { animation:nzc-art-window-drift 6s ease-in-out infinite; }
+.nzc-art-chip-top { animation:nzc-art-chip-drift 5s ease-in-out infinite; }
+.nzc-art-chip-bottom { animation:nzc-art-chip-drift 5.8s ease-in-out -.8s infinite; }
+.nzc-art-webimage span { transform-origin:center bottom; animation:nzc-art-bar 3s ease-in-out infinite; }
+.nzc-art-webimage span:nth-child(2) { animation-delay:-1s; }
+.nzc-art-webimage span:nth-child(3) { animation-delay:-2s; }
+.nzc-art-cloud-core { animation:nzc-art-core 4s ease-in-out infinite; }
+.nzc-art-network span { background:linear-gradient(90deg,transparent,#93b6b3,transparent); background-size:220% 100%; animation:nzc-art-signal 3s linear infinite; }
+.nzc-art-network span:nth-child(2) { animation-delay:-1.5s; }
+.nzc-art-node-bars i { animation:nzc-art-spark 2.8s ease-in-out infinite; }
+.nzc-art-node-bars i:nth-child(2n) { animation-delay:-1.4s; }
+.nzc-art-domain-card { animation:nzc-art-domain-drift 6s ease-in-out infinite; }
+.nzc-art-dns { animation:nzc-art-dns-drift 5s ease-in-out -.6s infinite; }
+.nzc-art-tlds span { animation:nzc-art-spark 4s ease-in-out infinite; }
+.nzc-art-tlds span:nth-child(2) { animation-delay:-1.3s; }
+.nzc-art-tlds span:nth-child(3) { animation-delay:-2.6s; }
+.nzc-home-slider[data-motion='paused'] .nzc-service-art,.nzc-home-slider[data-motion='paused'] .nzc-service-art * { animation-play-state:paused !important; }
+@keyframes nzc-art-enter { from { opacity:0; translate:0 6px; } to { opacity:1; translate:0 0; } }
+@keyframes nzc-art-window-drift { 0%,100% { transform:translateY(0) rotate(-4deg); } 50% { transform:translateY(-5px) rotate(-3deg); } }
+@keyframes nzc-art-chip-drift { 0%,100% { translate:0 0; } 50% { translate:0 -5px; } }
+@keyframes nzc-art-bar { 0%,100% { scale:1 1; } 50% { scale:1 .78; } }
+@keyframes nzc-art-core { 0%,100% { box-shadow:0 0 0 8px #93b6b309,0 0 0 25px #93b6b308; } 50% { box-shadow:0 0 0 12px #93b6b318,0 0 0 31px #93b6b303; } }
+@keyframes nzc-art-signal { from { background-position:200% 0; } to { background-position:-20% 0; } }
+@keyframes nzc-art-spark { 0%,100% { opacity:.4; } 50% { opacity:1; } }
+@keyframes nzc-art-domain-drift { 0%,100% { transform:translateY(0) rotate(-3deg); } 50% { transform:translateY(-4px) rotate(-2deg); } }
+@keyframes nzc-art-dns-drift { 0%,100% { transform:translateY(0) rotate(5deg); } 50% { transform:translateY(-5px) rotate(3deg); } }
+@media(prefers-reduced-motion:reduce) { .nzc-service-art,.nzc-service-art * { animation:none !important; } .nzc-slide-motion { display:none; } }
 `;

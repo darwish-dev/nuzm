@@ -20,7 +20,7 @@ a { color: var(--nuzm-color-accent); }
 .nz-nav a:hover { background: var(--nuzm-color-hover); }
 .nz-main { padding: var(--nuzm-space-6); min-inline-size: 0; }
 .nz-h1 { margin: 0 0 var(--nuzm-space-4); font-size: 1.5rem; }
-.nz-card { border: 1px solid var(--nuzm-color-border); border-radius: var(--nuzm-radius-md); padding: var(--nuzm-space-4); background: var(--nuzm-color-bg); }
+.nz-card { border: 0; border-radius: var(--nuzm-radius-md); padding: var(--nuzm-space-4); background: var(--nuzm-color-bg); }
 .nz-grid { display: grid; gap: var(--nuzm-space-4); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .nz-btn { display: inline-flex; align-items: center; justify-content: center; min-block-size: 44px; min-inline-size: 44px; padding-inline: var(--nuzm-space-4); border-radius: var(--nuzm-radius-md); border: 1px solid var(--nuzm-color-accent-strong); background: var(--nuzm-color-accent-strong); color: #fff; font: inherit; cursor: pointer; text-decoration: none; }
 .nz-btn[data-variant="secondary"] { background: var(--nuzm-color-bg); color: var(--nuzm-color-accent-strong); }

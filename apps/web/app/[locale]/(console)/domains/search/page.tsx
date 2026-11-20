@@ -96,47 +96,57 @@ export default async function Search({
     );
 
   const form = (
-    <form method="get" className="nzc-dsearch" role="search" aria-labelledby="ds-h">
-      <div className="nzc-dsearch-inner">
-        <Art name="domains" className="nzc-dsearch-art" />
-        <h2 id="ds-h">{t(locale, 'dom.search.hero')}</h2>
-        <p className="nzc-dsearch-sub">{t(locale, 'dom.hero.body')}</p>
-        <div className="nzc-dsearch-bar">
-          <div className="nzc-dsearch-field">
-            <Icon name="search" />
-            <input
-              id="sq"
-              name="q"
-              className="nzc-dsearch-input"
-              dir="ltr"
-              defaultValue={q}
-              required
-              autoComplete="off"
-              spellCheck={false}
-              aria-label={t(locale, 'dom.search.q')}
-              placeholder={t(locale, 'dom.search.placeholder')}
-            />
-            <button className="nz-btn" type="submit" aria-label={t(locale, 'dom.search.go')}>
-              <span>{t(locale, 'dom.search.go')}</span>
-              <Icon name="arrow" size={18} />
-            </button>
-          </div>
+    <form
+      method="get"
+      className="ld-hero"
+      data-compact={q ? 'true' : undefined}
+      role="search"
+      aria-labelledby="ds-h"
+    >
+      <div className="ld-glow" aria-hidden="true" />
+      <Art name="domains" className="ld-art" />
+      <div className="ld-inner">
+        <span className="ld-brand">
+          <Icon name="globe" size={16} /> {t(locale, 'dom.search.title')}
+        </span>
+        <h2 id="ds-h" className="ld-title">
+          {t(locale, 'dom.search.hero')}
+        </h2>
+        <p className="ld-sub">{t(locale, 'dom.hero.body')}</p>
+        <div className="ld-card ld-search">
+          <Icon name="search" size={22} />
+          <input
+            id="sq"
+            name="q"
+            className="ld-search-input"
+            dir="ltr"
+            defaultValue={q}
+            required
+            autoComplete="off"
+            spellCheck={false}
+            aria-label={t(locale, 'dom.search.q')}
+            placeholder={t(locale, 'dom.search.placeholder')}
+          />
+          <button className="ld-go" type="submit" aria-label={t(locale, 'dom.search.go')}>
+            <span>{t(locale, 'dom.search.go')}</span>
+            <Icon name="arrow" size={18} />
+          </button>
         </div>
-        <div className="nzc-tlds" role="group" aria-labelledby="ds-tlds">
-          <p className="nzc-tlds-title" id="ds-tlds">
+        <div className="ld-tlds" role="group" aria-labelledby="ds-tlds">
+          <p className="ld-label" id="ds-tlds">
             {t(locale, 'dom.search.extensions')}
           </p>
-          <div className="nzc-tlds-grid">
+          <div className="ld-tlds-grid">
             {SOLD_TLDS.map((x) => (
-              <label key={x} className="nzc-tld">
-                <span className="nzc-tld-name">.{x}</span>
+              <label key={x} className="ld-tld">
                 <input type="checkbox" name="tlds" value={x} defaultChecked={picked.has(x)} />
-                <span className="nzc-tld-hint">{t(locale, 'dom.search.extHint')}</span>
+                <span className="ld-tld-name">.{x}</span>
+                <span className="ld-tld-hint">{t(locale, 'dom.search.extHint')}</span>
               </label>
             ))}
           </div>
         </div>
-        <p className="nzc-dsearch-note">{t(locale, 'dom.search.help')}</p>
+        <p className="ld-note">{t(locale, 'dom.search.help')}</p>
       </div>
     </form>
   );
@@ -159,7 +169,7 @@ export default async function Search({
             data.items.find((r) => stateOf(r) === 'available');
           const rest = data.items.filter((r) => r !== best);
           return (
-            <section aria-labelledby="dr-h">
+            <section aria-labelledby="dr-h" className="ld-results">
               <div className="nzc-dres-head">
                 <h2 id="dr-h">{t(locale, 'dom.search.results')}</h2>
               </div>

@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
 import type { Schemas } from '@nuzm/sdk';
-import { Art, Badge, Banner, Button, Field, Input, Ltr, Select, Table } from '@nuzm/ui';
+import { Art, Badge, Banner, Button, Field, Icon, Input, Ltr, Select, Table } from '@nuzm/ui';
 import { browserApi } from '../lib/client';
 import {
   MAILBOX_QUOTA_MAX,
@@ -409,54 +409,117 @@ export function NewMailboxForm({
       <form
         onSubmit={estimate}
         noValidate
-        className="nz-card"
+        className="ld-hero ld-mailhero"
         aria-label={t(locale, 'm8.mb.new')}
-        style={{ maxInlineSize: 560 }}
       >
-        <h2 className="nz-h2">{t(locale, 'm8.mb.new')}</h2>
-        <Field id="mb-domain" label={t(locale, 'm8.emd.domain')} error={errors.domain}>
-          {(x) => (
-            <Select {...x} value={domainId} onChange={(e) => setDomainId(e.target.value)}>
-              {domains.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.domain}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
-        <Field id="mb-local" label={t(locale, 'm8.mb.local')} error={errors.local}>
-          {(x) => (
-            <Input
-              {...x}
-              dir="ltr"
-              value={localPart}
-              maxLength={64}
-              onChange={(e) => setLocalPart(e.target.value)}
-            />
-          )}
-        </Field>
-        <Field
-          id="mb-quota"
-          label={t(locale, 'm8.mb.quota')}
-          help={t(locale, 'm8.mb.quotaHelp', { min: MAILBOX_QUOTA_MIN, max: MAILBOX_QUOTA_MAX })}
-          error={errors.quota}
-        >
-          {(x) => (
-            <Input
-              {...x}
-              dir="ltr"
-              inputMode="numeric"
-              value={quota}
-              onChange={(e) => setQuota(e.target.value)}
-            />
-          )}
-        </Field>
-        <p className="nz-muted">{t(locale, 'm8.mb.passwordHelp')}</p>
-        <Button type="submit" disabled={call.busy || disabled}>
-          {t(locale, 'm8.q.request')}
-        </Button>
-        {!quote && <Note n={call.notice} />}
+        <div className="ld-glow" aria-hidden="true" />
+        <div className="ld-inner">
+          <span className="ld-brand">
+            <Icon name="mail" size={16} /> {t(locale, 'ld.mail.eyebrow')}
+          </span>
+          <h2 className="ld-title">{t(locale, 'ld.mail.title')}</h2>
+          <p className="ld-sub">{t(locale, 'ld.mail.sub')}</p>
+          <div className="ld-card ld-mail">
+            <div className="ld-addr">
+              <div className="ld-fieldwrap">
+                <label htmlFor="mb-local">{t(locale, 'm8.mb.local')}</label>
+                <input
+                  id="mb-local"
+                  className="ld-local"
+                  dir="ltr"
+                  value={localPart}
+                  maxLength={64}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={errors.local ? true : undefined}
+                  aria-describedby={errors.local ? 'mb-local-err' : undefined}
+                  onChange={(e) => setLocalPart(e.target.value)}
+                />
+              </div>
+              <span className="ld-at" aria-hidden="true">
+                @
+              </span>
+              <div className="ld-fieldwrap">
+                <label htmlFor="mb-domain">{t(locale, 'm8.emd.domain')}</label>
+                <select
+                  id="mb-domain"
+                  className="ld-domain"
+                  dir="ltr"
+                  value={domainId}
+                  onChange={(e) => setDomainId(e.target.value)}
+                >
+                  {domains.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.domain}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {errors.local && (
+              <p className="nz-error-text" id="mb-local-err" role="alert">
+                {errors.local}
+              </p>
+            )}
+            {errors.domain && (
+              <p className="nz-error-text" role="alert">
+                {errors.domain}
+              </p>
+            )}
+            {localPart.trim() !== '' && (
+              <p className="ld-preview" aria-live="polite">
+                <Icon name="mail" size={16} />
+                <span className="nz-muted">{t(locale, 'ld.mail.preview')}</span>
+                <bdi dir="ltr">
+                  {localPart.trim().toLowerCase()}@{domains.find((d) => d.id === domainId)?.domain}
+                </bdi>
+              </p>
+            )}
+            <div className="ld-quota">
+              <p className="ld-label" id="mb-quota-l">
+                {t(locale, 'ld.mail.quota')}
+              </p>
+              <div className="ld-presets" role="group" aria-labelledby="mb-quota-l">
+                {[1024, 5120, 10240].map((mb) => (
+                  <button
+                    key={mb}
+                    type="button"
+                    className="ld-preset"
+                    aria-pressed={quota === String(mb)}
+                    onClick={() => setQuota(String(mb))}
+                  >
+                    {t(locale, 'ld.mail.gb', { n: mb / 1024 })}
+                  </button>
+                ))}
+                <label className="ld-custom" htmlFor="mb-quota">
+                  <span>{t(locale, 'ld.mail.custom')}</span>
+                  <input
+                    id="mb-quota"
+                    dir="ltr"
+                    inputMode="numeric"
+                    value={quota}
+                    aria-invalid={errors.quota ? true : undefined}
+                    aria-describedby="mb-quota-help"
+                    onChange={(e) => setQuota(e.target.value)}
+                  />
+                </label>
+              </div>
+              <span className="nz-help" id="mb-quota-help">
+                {errors.quota ??
+                  t(locale, 'm8.mb.quotaHelp', {
+                    min: MAILBOX_QUOTA_MIN,
+                    max: MAILBOX_QUOTA_MAX,
+                  })}
+              </span>
+            </div>
+            <p className="ld-note">{t(locale, 'm8.mb.passwordHelp')}</p>
+            <button className="ld-go" type="submit" disabled={call.busy || disabled}>
+              <span>{t(locale, 'm8.q.request')}</span>
+              <Icon name="arrow" size={18} />
+            </button>
+            {!quote && <Note n={call.notice} />}
+          </div>
+        </div>
       </form>
       {call.panel}
       {quote && (

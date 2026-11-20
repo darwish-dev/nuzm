@@ -197,7 +197,7 @@ export function StudioPanel({
           </button>
         ))}
       </div>
-      <div className="bws-panel-body" role="tabpanel">
+      <div className="mws-panel" role="tabpanel" data-table-default="table">
         <SectionBody locale={locale} projectId={projectId} section={section} can={can} />
       </div>
     </div>

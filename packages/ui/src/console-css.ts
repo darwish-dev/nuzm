@@ -2135,4 +2135,31 @@ html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
 .nzc .nzc-home-service[data-service='compute'] { background-color:color-mix(in srgb,var(--nzc-card) 90%,#93b6b3); }
 .nzc .nzc-home-service[data-service='domains'] { background-color:color-mix(in srgb,var(--nzc-card) 95%,#cfe8da); }
 .nzc-home-overview { background:#34434d; }
+
+/* Dashboard status column: what needs attention, then the current servers, domains and websites. Sits at the start edge (left in English, right in Arabic) beside the dashboard. */
+.nzc-dash-layout { display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.nzc-dash-layout > .nzc-dashboard { min-inline-size: 0; }
+.nzc-status { display: grid; gap: 14px; position: sticky; inset-block-start: 0; align-content: start; }
+.nzc-status-card { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--nzc-border); border-radius: 20px; background: var(--nzc-card); }
+.nzc-status-card > header { display: flex; align-items: center; gap: 10px; }
+.nzc-status-card h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 700; }
+.nzc-status-icon { display: grid; place-items: center; inline-size: 32px; block-size: 32px; border-radius: 10px; background: color-mix(in srgb, var(--nzc-accent) 14%, var(--nzc-field)); color: var(--nzc-accent); flex: none; }
+.nzc-status-count { min-inline-size: 26px; padding: 2px 9px; border-radius: 999px; background: var(--nzc-field); border: 1px solid var(--nzc-border); font-size: 13px; font-weight: 700; text-align: center; }
+.nzc-status-count[data-alert='true'] { background: var(--nzc-warn-soft); border-color: transparent; color: var(--nzc-warn); }
+.nzc-status-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.nzc-status-card li a { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 12px; color: var(--nzc-fg); text-decoration: none; font-size: 14px; transition: background 0.15s ease; }
+.nzc-status-card li a:hover { background: color-mix(in srgb, var(--nzc-accent) 9%, transparent); }
+.nzc-status-name { flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.nzc-status-card li small { color: var(--nzc-muted); font-size: 12px; white-space: nowrap; }
+.nzc-status-text { flex: 1; line-height: 1.5; }
+.nzc-status-dot { flex: none; inline-size: 9px; block-size: 9px; border-radius: 50%; background: var(--nzc-muted); }
+.nzc-status-dot[data-tone='ok'] { background: var(--nzc-success); }
+.nzc-status-dot[data-tone='warn'] { background: var(--nzc-warn); }
+.nzc-status-dot[data-tone='bad'] { background: var(--nzc-danger); }
+.nzc-status-empty { margin: 0; color: var(--nzc-muted); font-size: 13.5px; }
+.nzc-status-ok { display: flex; align-items: center; gap: 8px; color: var(--nzc-success); }
+.nzc-status-all { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 4px 8px; border-radius: 10px; color: var(--nzc-accent); font-size: 13px; font-weight: 650; text-decoration: none; }
+.nzc-status-all:hover { background: color-mix(in srgb, var(--nzc-accent) 10%, transparent); }
+html[dir='rtl'] .nzc-status-all .nzc-icon { transform: scaleX(-1); }
+@media (max-width: 1100px) { .nzc-dash-layout { grid-template-columns: minmax(0, 1fr); } .nzc-status { position: static; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
 `;

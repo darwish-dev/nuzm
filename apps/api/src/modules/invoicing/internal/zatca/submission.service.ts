@@ -15,9 +15,9 @@ import { subtypeOf } from './build-document';
 import type { SecretStore } from './secrets';
 import { appendSubmission, type SubmissionState } from './submission-log';
 import type { ZatcaDocumentService } from './zatca-document.service';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATES: SubmissionState[] = [
   'generated',
   'stamped',

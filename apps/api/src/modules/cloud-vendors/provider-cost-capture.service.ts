@@ -1,4 +1,4 @@
-import { CAPABILITY_IDS, isSupported, type ProviderCostRecord } from '@nuzm/adapter-contracts';
+import { isSupported, type ProviderCostRecord } from '@nuzm/adapter-contracts';
 import {
   closedWindow,
   parseManualCosts,
@@ -13,9 +13,8 @@ import type { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { AdapterRegistry, type AdapterEntry } from '../cloud';
 import { ProviderCostService } from '../metering';
+import { UUID } from '@nuzm/domain';
 
-void CAPABILITY_IDS;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Row = Record<string, unknown>;
 
 export interface CostListFilter {

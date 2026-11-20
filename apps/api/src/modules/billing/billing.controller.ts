@@ -5,8 +5,8 @@ import { parseLimit } from '../../common/pagination';
 import { BillingReadService } from './internal/billing-read.service';
 import { EntitlementService } from './internal/entitlement.service';
 import { PlanService } from './internal/plan.service';
+import { UUID } from '@nuzm/domain';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const date = (name: string, v: string | undefined) => {
   if (v === undefined) return undefined;
   const d = new Date(v);

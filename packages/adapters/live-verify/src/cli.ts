@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import type { AccountContext, ComputeAdapter } from '@nuzm/adapter-contracts';
 import { runLiveVerification, type LvResult, type OwnerTrigger } from './runner';
 
@@ -80,4 +80,3 @@ export async function runCli(
     result,
   };
 }
-void readFileSync;

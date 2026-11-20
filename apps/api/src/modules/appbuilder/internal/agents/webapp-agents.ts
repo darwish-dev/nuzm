@@ -1,4 +1,4 @@
-import { AGENTS, type AgentId, type Row } from '../core';
+import { type AgentId, type Row } from '../core';
 import { AppSpecService } from '../spec/spec.service';
 import { APP_SPEC_SCHEMA, validateAppSpec, type AppSpec } from '../spec/app-spec';
 import { WEBAPP_ARTIFACTS } from '../graph/dag';
@@ -154,8 +154,6 @@ export class BackendAgent implements AgentExecutor {
             .map((f) => f.message)
             .join('; '),
       );
-    const rbacDoc = project.files.get('docs/RBAC.md')!;
-    void rbacDoc;
     return {
       artifact: {
         openapi: project.openapi,
@@ -250,7 +248,6 @@ export function webappExecutors(svc: AgentServices): Map<AgentId, AgentExecutor>
     new QaAgent(),
     new DevopsAgent(),
   ];
-  void AGENTS;
   return new Map(list.map((a) => [a.agent, a]));
 }
 

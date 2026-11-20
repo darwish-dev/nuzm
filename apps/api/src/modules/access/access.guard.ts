@@ -11,8 +11,7 @@ import { ActingOrgPort } from '../../common/acting';
 import { ProblemException } from '../../common/errors';
 import { ApiKeyService, PUBLIC, SessionAuthenticator, permissionCovers } from '../identity';
 import { PolicyService } from './policy.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /**
  * The single global guard: authenticate (session or API key), resolve the active organization from a

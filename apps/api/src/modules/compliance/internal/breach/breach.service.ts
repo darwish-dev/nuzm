@@ -14,9 +14,9 @@ import {
   type BreachTimers,
   type Severity,
 } from './state';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TABLE = /^[a-z][a-z0-9_]{1,40}\.[a-z][a-z0-9_]{1,60}$/;
 
 export interface TimelineEntry {

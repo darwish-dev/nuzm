@@ -164,7 +164,6 @@ export class MemoryArtifactStore extends ArtifactStorePort {
   async put(orgId: string, runId: string | null, kind: string, payload: unknown) {
     const ref = `art_${kind}_${uuidv7()}`;
     this.items.set(ref, { orgId, payload: JSON.stringify(payload) });
-    void runId;
     return ref;
   }
   async get(orgId: string, ref: string) {

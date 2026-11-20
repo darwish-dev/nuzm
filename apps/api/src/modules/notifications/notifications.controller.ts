@@ -3,8 +3,7 @@ import { Access, Org, RequirePermission, type AccessContext } from '../../common
 import { ProblemException } from '../../common/errors';
 import { parseLimit } from '../../common/pagination';
 import { NotificationService } from './internal/notification.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** A user's own notifications in the active organization. Session callers only (never API keys). */
 @Controller('v1/notifications')

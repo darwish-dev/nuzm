@@ -1,6 +1,6 @@
+import { UUID, isUuid } from '@nuzm/domain';
+export { UUID, isUuid };
 export type Row = Record<string, unknown>;
-export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const isUuid = (s: unknown): s is string => typeof s === 'string' && UUID.test(s);
 
 export const BUILDER_CONFIG = Symbol('BUILDER_CONFIG');
 export interface BuilderConfig {

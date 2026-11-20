@@ -2,6 +2,7 @@ import { v7 as uuidv7 } from 'uuid';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
+import { UUID } from '@nuzm/domain';
 
 export interface HoldDto {
   id: string;
@@ -36,7 +37,6 @@ const dto = (r: Row): HoldDto => ({
   createdAt: iso(r.created_at)!,
 });
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATASET = /^[a-z_]+\.[a-z_]+$/;
 
 export type HoldRequest =

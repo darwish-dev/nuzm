@@ -7,8 +7,7 @@ import { Idempotent } from '../../common/idempotency';
 import { parseLimit } from '../../common/pagination';
 import { DenyImpersonation, StepUp } from '../identity';
 import { SpendService } from './internal/spend.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** Spending limits and spend approvals (docs/04 §2.2). */
 @Controller('v1/billing')

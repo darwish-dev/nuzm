@@ -5,6 +5,7 @@ import { ProblemException } from '../../../common/errors';
 import { ResidencyPolicy, RetentionHook } from './hooks';
 import { decodeCursor, pageOf, parseLimit, type Page } from './pagination';
 import { slugify } from './slug';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
 const iso = (d: unknown) => (d as Date).toISOString();
@@ -65,7 +66,6 @@ const en = (r: Row): Environment => ({
   version: r.version as number,
 });
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const name = (v: unknown, what = 'name', max = 200) => {
   if (typeof v !== 'string' || v.trim().length < 1 || v.trim().length > max)
     throw new ProblemException('validation_failed', `${what} must be 1..${max} characters`);

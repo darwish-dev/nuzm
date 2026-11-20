@@ -173,9 +173,7 @@ export class MarketplaceModule implements OnApplicationBootstrap, OnModuleDestro
   constructor(
     private readonly jobs: MarketplaceJobs,
     @Inject(PRICERS) _pricers: boolean,
-  ) {
-    void _pricers;
-  }
+  ) {}
   onApplicationBootstrap() {
     this.jobs.start(Number(process.env.MARKETPLACE_SYNC_INTERVAL_SECONDS ?? 0));
   }

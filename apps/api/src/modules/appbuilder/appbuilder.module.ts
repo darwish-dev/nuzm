@@ -466,9 +466,7 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(ChangeService) private readonly changes: ChangeService,
     @Inject(AppDeploymentService) private readonly deployments: AppDeploymentService,
     @Inject(DB) private readonly db: Db,
-  ) {
-    void _runs;
-  }
+  ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
     this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph));

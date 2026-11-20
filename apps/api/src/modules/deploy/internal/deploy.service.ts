@@ -8,6 +8,7 @@ import {
   validateSiteModel,
   type ResidencyEvaluator,
   type SiteModel,
+  UUID,
 } from '@nuzm/domain';
 import { OperationsService, emitUsage, usageEventId, type Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
@@ -25,7 +26,6 @@ import {
 } from './ports';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const DEPLOY_OP = 'deploy.run';
 export const ROLLBACK_OP = 'deploy.rollback';
 const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);

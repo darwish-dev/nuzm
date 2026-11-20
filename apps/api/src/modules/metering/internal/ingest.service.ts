@@ -1,6 +1,7 @@
 import type { Db } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
 import type { Producer } from './producer-auth';
+import { UUID } from '@nuzm/domain';
 
 export interface IngestResult {
   index: number;
@@ -8,7 +9,6 @@ export interface IngestResult {
   result: 'accepted' | 'duplicate' | 'rejected';
   reason: string | null;
 }
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Validation, dedupe and the late/skew policy live in `metering.ingest()` (SQL), so the API endpoint and the outbox

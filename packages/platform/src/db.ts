@@ -1,8 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Pool, type PoolClient } from 'pg';
 import { PlatformError } from './errors';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** The transaction currently running on this async path (set by `Db.tx`, cleared when it ends). */
 export interface ActiveTx {

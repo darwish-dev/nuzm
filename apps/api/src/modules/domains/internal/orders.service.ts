@@ -925,10 +925,7 @@ export class DomainOrderService {
   ) {
     const orderId = order.id as string;
     const name = order.name as string;
-    const tokenStep =
-      order.type === 'register' ? 'register' : order.type === 'renewal' ? 'renew' : 'transfer';
     const tok = order.idempotency_token as string;
-    void tokenStep;
     await this.mark(orgId, orderId, { attempts: (order.attempts as number) + 1 });
     await this.step(orgId, op.id, 'provider_call', 'running');
     let r: OperationResult<DomainRef>;

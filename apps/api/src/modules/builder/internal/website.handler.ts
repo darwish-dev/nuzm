@@ -2,7 +2,6 @@ import {
   ARCHITECTURE_SCHEMA,
   PAGE_RESULT_SCHEMA,
   REQUIREMENTS_TURN_SCHEMA,
-  validateSchema,
   validateSiteModel,
   WEBSITE_ARCHITECTURE,
   WEBSITE_REQUIREMENTS_DEFAULTS,
@@ -189,7 +188,6 @@ export class WebsiteRunHandler implements RunKindHandler {
       userId: ctx.userId,
     });
     await ctx.emit('version_created', { versionId: v.versionId, seq: v.seq, buildMs: v.buildMs });
-    void validateSchema;
     return ctx.succeed({
       projectId,
       versionId: v.versionId,

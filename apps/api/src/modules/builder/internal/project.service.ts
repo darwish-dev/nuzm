@@ -818,7 +818,6 @@ export class ProjectService {
         )
       ).rows[0] as Row | undefined;
       if (!base) throw new ProblemException('not_found', 'base version not found');
-      void proj;
       let res;
       try {
         res = applyOps(base.site_model as SiteModel, p.ops);

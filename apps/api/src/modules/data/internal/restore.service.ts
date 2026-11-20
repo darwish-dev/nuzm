@@ -732,7 +732,7 @@ export class RestoreService {
     let n = 0;
     for (const x of rows) {
       const id = uuidv7();
-      const r = (await this.db.withOrg(
+      (await this.db.withOrg(
         x.org_id,
         async (c) =>
           (
@@ -756,7 +756,6 @@ export class RestoreService {
         },
       });
       await this.setRestore(x.org_id, id, { operation_id: op.id });
-      void r;
       await this.flow.runOne(x.org_id, op.id).catch(() => undefined);
       n++;
     }

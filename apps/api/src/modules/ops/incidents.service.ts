@@ -3,7 +3,7 @@ import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
 import { decodeCursor, pageOf, type Page } from '../../common/pagination';
-import { UUID_RE, assertNoPii, fail, str, type Row } from './common';
+import { UUID_RE, fail, str, type Row } from './common';
 
 export const SEVERITIES = ['SEV1', 'SEV2', 'SEV3', 'SEV4'] as const;
 export const STATUSES = [
@@ -255,7 +255,6 @@ export class IncidentService {
       outcome: 'success',
       after: { status: out.status, severity: out.severity },
     });
-    void assertNoPii;
     return out;
   }
 }

@@ -6,9 +6,9 @@ import { formatDec, parseDec } from '../../../common/rating';
 import type { QuotaService, SpendService } from '../../billing';
 import type { TaxService } from '../../invoicing';
 import { QUOTE_KINDS, type QuoteKind, type QuotePricerRegistry } from './pricers';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CURRENCY = /^[A-Z]{3}$/;
 
 export interface QuoteDto {

@@ -68,7 +68,6 @@ export function signV3(i: SignInput): Signed {
     .update(stringToSign, 'utf8')
     .digest('hex');
   const { host: _host, ...sendable } = hdrs; // fetch sets Host itself from the URL
-  void _host;
   return {
     headers: {
       ...sendable,

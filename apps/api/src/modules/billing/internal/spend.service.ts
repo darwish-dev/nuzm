@@ -4,9 +4,9 @@ import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { decodeCursor, pageOf, type Page } from '../../../common/pagination';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MINOR = /^[1-9]\d{0,17}$/; // positive integer minor units as a string (no floats, no exponent, fits bigint)
 const CURRENCY = /^[A-Z]{3}$/;
 

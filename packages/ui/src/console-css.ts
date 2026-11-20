@@ -2425,4 +2425,8 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 @keyframes nb-host-drift { 0%,100% { translate:0 0; } 50% { translate:0 -4px; } }
 @media(max-width:560px) { .nzc-home-bento { grid-auto-rows:auto; } .nzc .nzc-home-service,.nzc .nzc-home-build { min-block-size:190px; } .nzc-home-overview { min-block-size:270px; } }
 @media(prefers-reduced-motion:reduce) { .nb-host-server { animation:none; } }
+/* Dashboard panels size to their content, rather than the auth split-screen layout. */
+.nzc-dashboard { align-content:start; }
+.nzc-dashboard .nzc-split { min-block-size:0; padding:0; background:transparent; }
+.nzc-body:has(.nzc-dash-layout) { padding-block-end:24px; }
 `;

@@ -2139,11 +2139,7 @@ html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
 /* Dashboard status column: what needs attention, then the current servers, domains and websites. Sits at the start edge (left in English, right in Arabic) beside the dashboard. */
 .nzc-dash-layout { display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
 .nzc-dash-layout > .nzc-dashboard { min-inline-size: 0; }
-.nzc-status { display: grid; gap: 14px; align-content: start; min-inline-size: 0; overflow: visible; }
-/* No scroll bar of its own, anywhere in the column: it grows to its content and the page scrolls it. */
-.nzc-status, .nzc-status * { scrollbar-width: none; -ms-overflow-style: none; }
-.nzc-status::-webkit-scrollbar, .nzc-status *::-webkit-scrollbar { display: none; inline-size: 0; block-size: 0; }
-.nzc-status-card { min-inline-size: 0; overflow: hidden; }
+.nzc-status { display: grid; gap: 14px; position: sticky; inset-block-start: 0; align-content: start; }
 .nzc-status-card { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--nzc-border); border-radius: 20px; background: var(--nzc-card); }
 .nzc-status-card > header { display: flex; align-items: center; gap: 10px; }
 .nzc-status-card h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 700; }
@@ -2153,7 +2149,7 @@ html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
 .nzc-status-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .nzc-status-card li a { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 12px; color: var(--nzc-fg); text-decoration: none; font-size: 14px; transition: background 0.15s ease; }
 .nzc-status-card li a:hover { background: color-mix(in srgb, var(--nzc-accent) 9%, transparent); }
-.nzc-status-name { display: block; flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.nzc-status-name { flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .nzc-status-card li small { color: var(--nzc-muted); font-size: 12px; white-space: nowrap; }
 .nzc-status-text { flex: 1; line-height: 1.5; }
 .nzc-status-dot { flex: none; inline-size: 9px; block-size: 9px; border-radius: 50%; background: var(--nzc-muted); }
@@ -2165,5 +2161,5 @@ html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
 .nzc-status-all { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 4px 8px; border-radius: 10px; color: var(--nzc-accent); font-size: 13px; font-weight: 650; text-decoration: none; }
 .nzc-status-all:hover { background: color-mix(in srgb, var(--nzc-accent) 10%, transparent); }
 html[dir='rtl'] .nzc-status-all .nzc-icon { transform: scaleX(-1); }
-@media (max-width: 1100px) { .nzc-dash-layout { grid-template-columns: minmax(0, 1fr); } .nzc-status { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
+@media (max-width: 1100px) { .nzc-dash-layout { grid-template-columns: minmax(0, 1fr); } .nzc-status { position: static; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
 `;

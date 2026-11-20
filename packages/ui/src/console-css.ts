@@ -1436,15 +1436,18 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 @media (max-width: 900px) { .bwc-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .bwc-side { max-block-size: 38vh; } }
 
 /* The floating AI builder card, and the slim bar of the full-screen start page */
-.nzc a.bfab { position: fixed; inset-block-end: 22px; inset-inline: 0; margin-inline: auto; inline-size: min(540px, calc(100vw - 150px)); z-index: 54; display: flex; align-items: center; gap: 14px; padding-block: 12px; padding-inline: 16px 14px; border-radius: 22px; background: linear-gradient(165deg, var(--nzc-accent), var(--nzc-accent-strong, var(--nzc-accent))); color: var(--nzc-on-accent); text-decoration: none; box-shadow: 0 14px 40px color-mix(in srgb, var(--nzc-accent) 28%, transparent), 0 2px 8px #0000003a; animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s; }
-.nzc a.bfab:hover { transform: translateY(-3px); color: var(--nzc-on-accent); box-shadow: 0 20px 50px color-mix(in srgb, var(--nzc-accent) 38%, transparent), 0 2px 8px #0000003a; }
+/* The AI builder button: a compact accent pill at the start edge of the page (left in English, right in Arabic), just beside the sidebar. Light on purpose: it is always there, so it stays small and quiet. */
+.nzc a.bfab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--rail-w, 68px) + 22px); z-index: 54; display: inline-flex; align-items: center; gap: 10px; padding: 6px 8px; padding-inline: 6px 8px; border-radius: 999px; background: var(--nzc-accent); color: var(--nzc-on-accent); text-decoration: none; box-shadow: 0 6px 18px #00000038; animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s; }
+.nzc a.bfab:hover { transform: translateY(-2px); color: var(--nzc-on-accent); box-shadow: 0 10px 24px #00000047; }
 .nzc a.bfab:focus-visible { outline: 3px solid var(--nzc-fg); outline-offset: 3px; }
-.bfab-icon { display: grid; place-items: center; inline-size: 42px; block-size: 42px; border-radius: 14px; background: var(--nzc-on-accent); color: var(--nzc-accent); flex: none; }
-.bfab-text { display: grid; flex: 1; min-inline-size: 0; }
-.bfab-text strong { font-size: 15px; font-weight: 750; }
-.bfab-text small { color: color-mix(in srgb, var(--nzc-on-accent) 72%, transparent); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bfab-go { display: grid; place-items: center; inline-size: 34px; block-size: 34px; border-radius: 50%; background: color-mix(in srgb, var(--nzc-on-accent) 14%, transparent); flex: none; }
+.bfab-icon { display: grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 50%; background: var(--nzc-on-accent); color: var(--nzc-accent); flex: none; }
+.bfab-text { display: grid; min-inline-size: 0; }
+.bfab-text strong { font-size: 13.5px; font-weight: 700; line-height: 1.2; }
+.bfab-text small { display: none; }
+.bfab-go { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; background: color-mix(in srgb, var(--nzc-on-accent) 14%, transparent); flex: none; }
 .nzc a.bfab:hover .bfab-go { background: var(--nzc-on-accent); color: var(--nzc-accent); }
+@media (max-width: 900px) { .nzc a.bfab { inset-inline-start: 14px; } }
+html[dir='rtl'] .bfab-go .nzc-icon { transform: scaleX(-1); }
 .nzc a.bws-exit { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--nzc-field); color: var(--nzc-muted); font-size: 13px; text-decoration: none; }
 .nzc a.bws-exit { padding: 0; inline-size: 36px; block-size: 36px; justify-content: center; }
 .nzc a.bws-exit:hover { background: var(--nzc-card-hi); color: var(--nzc-fg); }
@@ -1683,7 +1686,7 @@ button.bws-publish { border: 0; font: inherit; font-size: 13px; font-weight: 650
 @media (max-width: 720px) { .mws-device, .mws-device[data-device='tablet'] { max-inline-size: 100%; } .mws-dl { grid-template-columns: minmax(0, 1fr); } }
 
 /* Content never hides behind the floating AI builder card or the basket: the page body leaves room at its end. */
-.nzc-body { padding-block-end: 112px; }
+.nzc-body { padding-block-end: 84px; }
 .nzc-body:has(> .bl), .nzc-app:has(.bws) .nzc-body { padding-block-end: 0; }
 
 /* Hosting plans: hero, hosting-type cards, plan cards. */

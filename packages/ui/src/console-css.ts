@@ -1940,9 +1940,39 @@ html[lang='ar'] .ld-label { letter-spacing: 0; text-transform: none; font-size: 
 .nzc-home-bento .nzc-icon { flex-shrink:0; }
 .nzc-dashboard .nzc-stat { border-radius:20px; }
 .nzc-dashboard .nzc-split > .nz-card { border-radius:20px; }
-.nzc[data-theme='dark'] .nzc-home-service[data-service='hosting'] { background:#283e35; color:#d9e9e0 !important; border-color:#385347; }
-.nzc[data-theme='dark'] .nzc-home-service[data-service='domains'] { background:#28322f; color:#d9e9e0 !important; border-color:#3b4942; }
 @media(max-width:900px) { .nzc-home-bento { grid-template-columns:1fr 1fr; } .nzc-home-overview { grid-row:span 2; } }
 @media(max-width:560px) { .nzc-home-bento { grid-template-columns:1fr; grid-auto-rows:auto; } .nzc-home-overview { grid-row:auto; } .nzc-home-orbit { inline-size:150px; block-size:150px; } .nzc-home-service { gap:14px; } .nzc-slide-copy h2 { font-size:20px; } }
 @media(prefers-reduced-motion:reduce) { .nzc-home-service { transition:none; } }
+
+/* Translucent brand layers: keep text opaque while tinting the surfaces. */
+.nzc-home-slider { isolation:isolate; background:linear-gradient(115deg,var(--nzc-card) 15%,color-mix(in srgb,var(--nzc-card) 70%,#93b6b3) 100%); border-color:color-mix(in srgb,var(--nzc-accent) 24%,var(--nzc-border)); box-shadow:inset 0 1px 0 #ffffff14; }
+.nzc-home-slider::before { content:''; position:absolute; z-index:-1; inset:0; background:radial-gradient(ellipse at 75% 25%,#bcdccb30,transparent 55%),radial-gradient(ellipse at 100% 100%,#58707924,transparent 60%); pointer-events:none; }
+.nzc-slide-link { padding:7px 11px; border-radius:9px; background:color-mix(in srgb,var(--nzc-accent) 10%,transparent); border:1px solid color-mix(in srgb,var(--nzc-accent) 16%,transparent); transition:background .2s; }
+.nzc-slide-link:hover { background:color-mix(in srgb,var(--nzc-accent) 18%,transparent); }
+.nzc-slide-scene { position:relative; display:grid; place-items:center; block-size:166px; inline-size:min(100%,330px); justify-self:center; color:var(--nzc-accent); }
+.nzc-slide-orbit { position:absolute; border:1px solid color-mix(in srgb,var(--nzc-accent) 17%,transparent); border-radius:50%; inline-size:228px; block-size:132px; transform:rotate(-18deg); }
+.nzc-slide-orbit-inner { inline-size:174px; block-size:102px; transform:rotate(24deg); border-color:color-mix(in srgb,var(--nzc-accent) 12%,transparent); }
+.nzc-slide-icon-main { position:relative; display:grid; place-items:center; inline-size:96px; block-size:96px; border-radius:27px; background:linear-gradient(145deg,color-mix(in srgb,var(--nzc-card) 82%,#cfe8da),color-mix(in srgb,var(--nzc-card) 48%,#93b6b3)); border:1px solid color-mix(in srgb,var(--nzc-accent) 32%,transparent); box-shadow:inset 0 1px 0 #ffffff65,0 12px 30px #34434d16; transform:rotate(-8deg); animation:nzc-slide-reveal .3s ease-out; }
+.nzc-slide-icon-main > .nzc-icon { transform:rotate(8deg); }
+.nzc-slide-icon-satellite { position:absolute; display:grid; place-items:center; inline-size:44px; block-size:44px; border-radius:15px; border:1px solid color-mix(in srgb,var(--nzc-accent) 22%,transparent); background:color-mix(in srgb,var(--nzc-card) 78%,transparent); box-shadow:0 5px 16px #34434d0b,inset 0 1px 0 #ffffff28; backdrop-filter:blur(8px); }
+.nzc-slide-satellite-one { inset-inline-start:46px; inset-block-start:20px; transform:rotate(9deg); }
+.nzc-slide-satellite-two { inset-inline-end:40px; inset-block-end:20px; transform:rotate(-9deg); }
+.nzc-slide-satellite-three { inset-inline-end:62px; inset-block-start:15px; inline-size:32px; block-size:32px; border-radius:11px; opacity:.7; }
+.nzc-slide-controls { gap:8px; }
+.nzc-slide-controls > button { inline-size:28px; block-size:28px; border-radius:50%; background:color-mix(in srgb,var(--nzc-card) 55%,transparent); border-color:color-mix(in srgb,var(--nzc-accent) 20%,transparent); color:var(--nzc-accent); transition:background .2s; }
+.nzc-slide-controls > button:hover { background:var(--nzc-accent-soft); }
+.nzc-slide-controls > button:first-child .nzc-icon { transform:rotate(180deg); }
+.nzc-slide-tabs button::after { inset-inline:8px; block-size:5px; border-radius:5px; background:color-mix(in srgb,var(--nzc-accent) 25%,transparent); transition:inset .2s,background .2s; }
+.nzc-slide-tabs button[aria-pressed='true']::after { inset-inline:3px; }
+.nzc-home-service[data-service] { position:relative; isolation:isolate; overflow:hidden; color:var(--nzc-fg) !important; border-color:color-mix(in srgb,var(--nzc-accent) 18%,var(--nzc-border)); background:linear-gradient(135deg,color-mix(in srgb,var(--nzc-card) 68%,#bcdccb),color-mix(in srgb,var(--nzc-card) 92%,#bcdccb)); box-shadow:inset 0 1px 0 #ffffff30; }
+.nzc-home-service[data-service='compute'] { background:linear-gradient(130deg,color-mix(in srgb,var(--nzc-card) 75%,#587079),color-mix(in srgb,var(--nzc-card) 94%,#93b6b3)); }
+.nzc-home-service[data-service='domains'] { background:linear-gradient(135deg,color-mix(in srgb,var(--nzc-card) 78%,#cfe8da),var(--nzc-card)); }
+.nzc-home-service::before { content:''; position:absolute; z-index:-1; inline-size:155px; block-size:155px; inset-inline-end:-65px; inset-block-start:-75px; border-radius:50%; border:22px solid color-mix(in srgb,var(--nzc-accent) 6%,transparent); pointer-events:none; }
+.nzc-home-service[data-service] .nzc-home-service-symbol { color:var(--nzc-accent); border:1px solid color-mix(in srgb,var(--nzc-accent) 15%,transparent); background:color-mix(in srgb,var(--nzc-card) 58%,transparent); box-shadow:inset 0 1px 0 #ffffff30; }
+.nzc-home-service p { opacity:1; color:var(--nzc-muted); }
+.nzc-home-service-open { background:color-mix(in srgb,var(--nzc-card) 62%,transparent); color:var(--nzc-accent); }
+.nzc-home-build { background:linear-gradient(115deg,var(--nzc-card),color-mix(in srgb,var(--nzc-card) 93%,#93b6b3)); }
+@keyframes nzc-slide-reveal { from { opacity:0; transform:translateY(5px) rotate(-8deg); } to { opacity:1; transform:translateY(0) rotate(-8deg); } }
+@media(max-width:700px) { .nzc-slide-scene { display:none; } }
+@media(prefers-reduced-motion:reduce) { .nzc-slide-icon-main { animation:none; } .nzc-slide-link,.nzc-slide-controls > button,.nzc-slide-tabs button::after { transition:none; } }
 `;

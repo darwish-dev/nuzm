@@ -4,6 +4,9 @@ import {
   REQUIREMENTS_TURN_SCHEMA,
   validateSchema,
   validateSiteModel,
+  WEBSITE_ARCHITECTURE,
+  WEBSITE_REQUIREMENTS_DEFAULTS,
+  websitePage,
   type Architecture,
   type Locale,
   type Requirements,
@@ -15,16 +18,8 @@ import { assembleGenerated, type PageResult } from './assemble';
 import { DESIGN_RULES, checkPageResult, sectionGuide } from './page-guide';
 import type { ProjectService } from './project.service';
 
-const INSTR_ARCH =
-  'You are the architecture agent of a website builder for businesses in Saudi Arabia. From the approved requirements, design the site: pages (siteMap with sections from the allowed component types), ' +
-  'design tokens and colours (readable contrast), and an SEO plan per page. Plan a rich home page of 6 to 8 sections that tells a story (hero, proof such as stats or features, how it works, testimonials, faq, a closing cta) and 3 to 5 sections on inner pages; ' +
-  'choose a confident primary colour and a distinct accent. Arabic and English are equal. result = the architecture object.';
-const INSTR_PAGE =
-  'You are the page designer and copywriter of a website builder. You write ONE page of the website as structured site-model sections with Arabic and English copy for every text. ' +
-  'No HTML, no scripts, no links except {pageId} or https/mailto/tel URLs. Use only placeholder image ids. result = {pageId,title,seo?,sections,assets?,forms?}, ' +
-  'each section {"id","type","props","style"?:{"background":"default|muted|primary","align":"start|center"}}.\n' +
-  `COMPONENTS (use exactly these prop names; "text" means a localized object):\n${sectionGuide()}\n` +
-  `DESIGN RULES:\n${DESIGN_RULES}`;
+const INSTR_ARCH = WEBSITE_ARCHITECTURE;
+const INSTR_PAGE = websitePage(sectionGuide(), DESIGN_RULES);
 
 /** `kind=website` (M09 S38/S39): requirements → architecture → **plan approval** → per-page copy/layout → assembled site model → validated → new project version. Resumable per step. */
 export class WebsiteRunHandler implements RunKindHandler {
@@ -78,8 +73,7 @@ export class WebsiteRunHandler implements RunKindHandler {
       } else {
         const turn = await ctx.call<RequirementsTurn>({
           task: 'requirements',
-          instruction:
-            'Produce the final requirements with sensible defaults; do not ask questions.',
+          instruction: WEBSITE_REQUIREMENTS_DEFAULTS,
           params: {
             description: String(ctx.run.input.description ?? '').slice(0, 600),
             skip: true,

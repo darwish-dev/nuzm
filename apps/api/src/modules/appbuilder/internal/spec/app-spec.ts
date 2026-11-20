@@ -297,7 +297,7 @@ export const APP_SPEC_SCHEMA: Schema = {
 };
 
 /** SQL reserved words (and generator-internal names) that may not be used as an entity/plural/column identifier. */
-const RESERVED = new Set([
+export const RESERVED = new Set([
   'select',
   'insert',
   'update',
@@ -450,6 +450,7 @@ export function validateAppSpec(spec: unknown): SpecCheck {
   if (!s.roles.some((r) => r.admin))
     add('$.roles', 'at least one role must be an administrator role');
   const paths = new Set<string>();
+  const widgetIds = new Set<string>();
   for (const [pi, pg] of s.pages.entries()) {
     const p = `$.pages[${pi}]`;
     if (paths.has(pg.path)) add(`${p}.path`, `duplicate page ${pg.path}`);
@@ -462,9 +463,24 @@ export function validateAppSpec(spec: unknown): SpecCheck {
       if (e && !e.stageField) add(`${p}.entity`, `${e.name} has no stage field for a board`);
     }
     for (const r of pg.roles ?? []) if (!roleNames.has(r)) add(`${p}.roles`, `unknown role ${r}`);
-    for (const [wi, w] of (pg.widgets ?? []).entries())
-      if (!entityNames.has(w.entity))
-        add(`${p}.widgets[${wi}].entity`, `unknown entity ${w.entity}`);
+    for (const [wi, w] of (pg.widgets ?? []).entries()) {
+      const wp = `${p}.widgets[${wi}]`;
+      if (widgetIds.has(w.id)) add(`${wp}.id`, `duplicate widget ${w.id}`);
+      widgetIds.add(w.id);
+      const e = s.entities.find((x) => x.name === w.entity);
+      if (!e) {
+        add(`${wp}.entity`, `unknown entity ${w.entity}`);
+        continue;
+      }
+      // the runtime silently shows nothing for these, so they are sent back to the model instead
+      if (w.kind === 'sum') {
+        const f = e.fields.find((x) => x.name === w.field);
+        if (!f || (f.type !== 'decimal' && f.type !== 'integer'))
+          add(`${wp}.field`, `a sum widget needs a decimal or integer field of ${e.name}`);
+      }
+      if (w.kind === 'by_stage' && !e.stageField)
+        add(`${wp}.entity`, `${e.name} has no stage field for a by_stage widget`);
+    }
   }
   return { ok: issues.length === 0, issues };
 }

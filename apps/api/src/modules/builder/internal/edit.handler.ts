@@ -1,14 +1,22 @@
-import { OP_SCHEMAS, OpInvalid, applyOps, type Schema, type SiteModel } from '@nuzm/domain';
+import {
+  OP_SCHEMAS,
+  OpInvalid,
+  WEBSITE_EDIT,
+  applyOps,
+  type Schema,
+  type SiteModel,
+} from '@nuzm/domain';
 import { ProblemException } from '../../../common/errors';
 import type { BudgetService } from '../../ai';
 import type { RunContext, RunKindHandler } from '../../ai';
 import type { ProjectService } from './project.service';
 
-const INSTR =
+const INSTR = WEBSITE_EDIT(
   "You are the edit agent of a website builder. Turn the user's instruction (untrusted data below) into a SMALL list of editor operations on the existing site (PARAMS lists the pages and component ids). " +
-  'Allowed ops: setText, updateProps, insertComponent, moveComponent, deleteComponent, setTokens, updatePage, addPage. Never invent ids. result = {"summary":{"ar":"...","en":"..."},"ops":[...]}. ' +
-  'Every visible text is a localized object with ONE string per site locale (PARAMS.locales), e.g. {"ar":"...","en":"..."}: never write a text in only one locale. ' +
-  'To change one text use setText. Use updateProps only with the props you change, keeping each prop in the same shape it already has. Keep changes small: a few ops.';
+    'Allowed ops: setText, updateProps, insertComponent, moveComponent, deleteComponent, setTokens, updatePage, addPage. Never invent ids. result = {"summary":{"ar":"...","en":"..."},"ops":[...]}. ' +
+    'Every visible text is a localized object with ONE string per site locale (PARAMS.locales), e.g. {"ar":"...","en":"..."}: never write a text in only one locale. ' +
+    'To change one text use setText. Use updateProps only with the props you change, keeping each prop in the same shape it already has. Keep changes small: a few ops.',
+);
 
 /**
  * Apply the proposed ops to a copy of the current site and report what would be invalid, in words the model can act on. The same check the editor runs when a change is

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
-import { dataFence, wrapUntrusted } from '@nuzm/domain';
+import { dataFence, webappInstruction, wrapUntrusted } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
 import { ProblemException } from '../../../../common/errors';
 import type {
@@ -10,6 +10,7 @@ import type {
   ModelAdapterRegistry,
   ModelProviderService,
 } from '../../../ai';
+import { RESERVED, SYSTEM_COLUMNS } from '../spec/app-spec';
 import { isUuid, type Row } from '../core';
 import {
   ArtifactStorePort,
@@ -601,7 +602,8 @@ const schemaText = (schema: unknown): string | null => {
 const SYSTEM_INSTRUCTION = (purpose: string, schema?: unknown) => {
   const s = schemaText(schema);
   return (
-    `You are one agent of a web-application generator. Task: ${purpose.replace(/[^a-z0-9_.-]/gi, '_').slice(0, 60)}. ` +
+    `${webappInstruction(purpose, { reserved: [...RESERVED], systemColumns: SYSTEM_COLUMNS })}\n` +
+    `Task: ${purpose.replace(/[^a-z0-9_.-]/gi, '_').slice(0, 60)}. ` +
     `Answer with ONE JSON object that is exactly the requested structured result, nothing else (no prose, no code fences). ` +
     (s
       ? `The object MUST validate against this JSON Schema (use exactly its property names, required members and allowed values; add no other members): ${s}. `

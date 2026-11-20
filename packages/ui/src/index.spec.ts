@@ -45,6 +45,8 @@ describe('ui tokens', () => {
     expect(consoleCss).toContain(
       '.nzc[data-theme="light"] .nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a;',
     );
-    expect(consoleCss).not.toContain('\n.nzc-status-card:not(.nzc-status-attention) { background: #ffffff;');
+    expect(consoleCss).not.toContain(
+      '\n.nzc-status-card:not(.nzc-status-attention) { background: #ffffff;',
+    );
   });
 });

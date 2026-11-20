@@ -1,17 +1,23 @@
 'use client';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { t, type Locale, type MessageKey } from '@nuzm/i18n';
 import type { IconName } from '@nuzm/ui';
-import { isRunActive, isRunFinished, type Message, type Run, type Session } from '../lib/builder';
+import {
+  isRunActive,
+  isRunFinished,
+  type Message,
+  type Page_,
+  type Run,
+  type Session,
+} from '../lib/builder';
 import { bapi } from '../lib/builder-client';
+import { runsByMessage, type OpenTarget } from '../lib/webapp-events';
 import { APP_TABS, type AppTab } from '../lib/webapp-workspace';
 import { Chat } from './BuilderChat';
 import { DeleteProject } from './DeleteProject';
 import { PanelForbidden } from './PanelLoad';
 import {
-  AppCodePanel,
   AppDeploymentsTab,
-  AppDesignTab,
   AppExportsTab,
   AppPreviewPanel,
   AppSpecTab,
@@ -20,6 +26,9 @@ import {
   type AppCan,
   type AppProject,
 } from './WebAppPanels';
+import { AppCodePanel } from './WebAppCode';
+import { AppDataPane, type DataView } from './WebAppData';
+import { WebAppRunHistory } from './WebAppHistory';
 import { WebAppRunCard, type AppRunProgress } from './WebAppRun';
 import { WorkspaceShell, useShellTab } from './WorkspaceShell';
 
@@ -81,6 +90,12 @@ export function WebAppWorkspace({
   const [refresh, setRefresh] = useState(0);
   const [progress, setProgress] = useState<AppRunProgress>({ active: false, label: '' });
   const [reloadError, setReloadError] = useState(false);
+  /** earlier builds of the project, shown in the conversation after the request that started them */
+  const [pastRuns, setPastRuns] = useState<Run[]>([]);
+  /** a link from the chat to a file in Code or a table / migration / endpoint list in Data (`n` makes the same target open again) */
+  const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
+  const [dataFocus, setDataFocus] = useState<{ view?: DataView; n: number } | null>(null);
+  const nonce = useRef(0);
   const projectRef = useRef(project);
   projectRef.current = project;
   const tabs = APP_TABS.filter((x) => allowedTabs.includes(x));
@@ -114,6 +129,32 @@ export function WebAppWorkspace({
       }
     },
     [reload],
+  );
+
+  // the persisted runs of the project (the conversation keeps them after the next request); not readable without `ai:read`: the chat then shows the current run only
+  useEffect(() => {
+    let stop = false;
+    void bapi
+      .get<Page_<Run>>('/v1/ai/runs', { query: { projectId: project.id, limit: 20 } })
+      .then((r) => {
+        if (stop || !r.response.ok || !r.data) return;
+        setPastRuns(r.data.items.filter((x) => x.kind === 'webapp' || x.kind === 'test-fix'));
+      });
+    return () => {
+      stop = true;
+    };
+  }, [project.id, chatKey, runId]);
+
+  /** Open a panel from a link in the chat: a file in Code, a view of Data, or the panel itself. */
+  const openTarget = useCallback(
+    (target: OpenTarget) => {
+      nonce.current += 1;
+      if (target.tab === 'code' && target.path)
+        setCodeOpen({ path: target.path, n: nonce.current });
+      if (target.tab === 'design') setDataFocus({ view: target.view, n: nonce.current });
+      select(target.tab);
+    },
+    [select],
   );
 
   const menu = (
@@ -180,6 +221,16 @@ export function WebAppWorkspace({
             setRunId(run.id);
             setRunActive(true);
           }}
+          history={(msgs) => {
+            const g = runsByMessage(msgs, pastRuns, runId);
+            const card = (r: Run) => (
+              <WebAppRunHistory key={r.id} locale={locale} run={r} onOpen={openTarget} />
+            );
+            return {
+              before: g.before.length > 0 ? g.before.map(card) : undefined,
+              after: (m) => g.after.get(m.id)?.map(card),
+            };
+          }}
           thread={
             runId ? (
               <WebAppRunCard
@@ -191,51 +242,65 @@ export function WebAppWorkspace({
                 mfaFactorId={mfaFactorId}
                 onRun={onRun}
                 onProgress={setProgress}
+                onOpen={openTarget}
               />
             ) : undefined
           }
         />
       }
     >
-      <div className="mws-panel" data-panel={tab}>
-        {!open ? (
+      {!open ? (
+        <div className="mws-panel" data-panel={tab}>
           <PanelForbidden locale={locale} />
-        ) : tab === 'preview' ? (
-          <AppPreviewPanel locale={locale} project={project} refresh={refresh} />
-        ) : tab === 'code' ? (
-          <AppCodePanel
-            locale={locale}
-            projectId={project.id}
-            can={can}
-            mfaFactorId={mfaFactorId}
-            refresh={refresh}
-          />
-        ) : tab === 'spec' ? (
-          <AppSpecTab locale={locale} projectId={project.id} refresh={refresh} />
-        ) : tab === 'design' ? (
-          <AppDesignTab locale={locale} projectId={project.id} refresh={refresh} />
-        ) : tab === 'tests' ? (
-          <AppTestsTab
-            locale={locale}
-            projectId={project.id}
-            can={can}
-            mfaFactorId={mfaFactorId}
-            refresh={refresh}
-          />
-        ) : tab === 'deployments' ? (
-          <AppDeploymentsTab locale={locale} project={project} can={can} refresh={refresh} />
-        ) : tab === 'exports' ? (
-          <AppExportsTab
-            locale={locale}
-            projectId={project.id}
-            can={can}
-            mfaFactorId={mfaFactorId}
-            refresh={refresh}
-          />
-        ) : (
-          <AppVersionsTab locale={locale} projectId={project.id} refresh={refresh} />
-        )}
-      </div>
+        </div>
+      ) : tab === 'code' ? (
+        <AppCodePanel
+          locale={locale}
+          projectId={project.id}
+          headVersionId={project.headVersionId}
+          can={can}
+          mfaFactorId={mfaFactorId}
+          refresh={refresh}
+          open={codeOpen}
+        />
+      ) : tab === 'design' ? (
+        <AppDataPane
+          locale={locale}
+          projectId={project.id}
+          headVersionId={project.headVersionId}
+          refresh={refresh}
+          focus={dataFocus}
+          onOpenFile={(path) => openTarget({ tab: 'code', path })}
+        />
+      ) : (
+        <div className="mws-panel" data-panel={tab}>
+          {tab === 'preview' ? (
+            <AppPreviewPanel locale={locale} project={project} refresh={refresh} />
+          ) : tab === 'spec' ? (
+            <AppSpecTab locale={locale} projectId={project.id} refresh={refresh} />
+          ) : tab === 'tests' ? (
+            <AppTestsTab
+              locale={locale}
+              projectId={project.id}
+              can={can}
+              mfaFactorId={mfaFactorId}
+              refresh={refresh}
+            />
+          ) : tab === 'deployments' ? (
+            <AppDeploymentsTab locale={locale} project={project} can={can} refresh={refresh} />
+          ) : tab === 'exports' ? (
+            <AppExportsTab
+              locale={locale}
+              projectId={project.id}
+              can={can}
+              mfaFactorId={mfaFactorId}
+              refresh={refresh}
+            />
+          ) : (
+            <AppVersionsTab locale={locale} projectId={project.id} refresh={refresh} />
+          )}
+        </div>
+      )}
     </WorkspaceShell>
   );
 }

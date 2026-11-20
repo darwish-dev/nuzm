@@ -202,7 +202,8 @@ describe('web-app mode of the builder workspace (same shell as the website and m
   it('a link to a panel the member may not open shows the forbidden state and calls nothing', () => {
     ws({ initialTab: 'exports', allowedTabs: ['preview'] });
     expect(screen.getByText(t('en', 'state.forbidden.title'))).toBeTruthy();
-    expect(calls).toHaveLength(0);
+    // only the chat's list of earlier runs is read: the panel itself calls nothing
+    expect(calls.filter((c) => !c.url.startsWith('/v1/ai/runs?'))).toHaveLength(0);
   });
 
   it('the Preview says plainly that there is no live preview of a web app yet, and lists what the agents built', async () => {
@@ -230,8 +231,10 @@ describe('web-app mode of the builder workspace (same shell as the website and m
     await waitFor(() => expect(screen.getByRole('heading', { name: /Patient/ })).toBeTruthy());
     expect(screen.getByRole('table', { name: t('en', 'm10a.spec.roles') })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: label('design') }));
+    // the Data panel: its views, with the access matrix of the agreed roles
+    fireEvent.click(await screen.findByRole('tab', { name: t('en', 'wsp.data.view.access') }));
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: t('en', 'm10a.access.title') })).toBeTruthy(),
+      expect(screen.getByRole('table', { name: t('en', 'm10a.access.title') })).toBeTruthy(),
     );
   });
 

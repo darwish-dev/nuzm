@@ -2,7 +2,7 @@
 import { ProfileMenu as BaseProfileMenu } from '@nuzm/ui';
 import { browserApi } from '../lib/client';
 
-export { ConsoleFrame } from '@nuzm/ui';
+export { ConsoleFrame, SupportToggle } from '@nuzm/ui';
 
 type MenuProps = Parameters<typeof BaseProfileMenu>[0];
 

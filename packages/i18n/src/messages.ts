@@ -2502,6 +2502,16 @@ export const messages = {
     'm8.emd.dmarcHelp':
       'ابدأ بـ p=none لمتابعة التقارير، ثم انتقل إلى الحجر ثم الرفض عندما تنجح رسائلك المشروعة.',
     'm8.mb.new': 'صندوق بريد جديد',
+    'sup.title': 'الدعم',
+    'sup.sub': 'مساعدة سريعة',
+    'sup.open': 'فتح الدعم',
+    'sup.close': 'إغلاق الدعم',
+    'sup.greeting': 'مرحبًا! اختاروا قسمًا من الأقسام أدناه لفتح الصفحة المناسبة.',
+    'sup.topics': 'روابط سريعة',
+    'sup.placeholder': 'اكتبوا رسالتكم…',
+    'sup.send': 'إرسال',
+    'sup.offline':
+      'المحادثة المباشرة مع فريق الدعم غير متصلة بعد، لذلك لا يمكن إرسال الرسائل حاليًا.',
     'ld.mail.eyebrow': 'بريد أعمالك',
     'ld.mail.title': 'أنشئوا بريدًا باسم نطاقكم',
     'ld.mail.sub': 'اختاروا الاسم والنطاق ثم احصلوا على السعر قبل إنشاء أي شيء.',
@@ -9217,6 +9227,16 @@ export const messages = {
     'm8.emd.dmarcHelp':
       'Start with p=none to watch reports, then move to quarantine and reject once your legitimate mail passes.',
     'm8.mb.new': 'New mailbox',
+    'sup.title': 'Support',
+    'sup.sub': 'Quick help',
+    'sup.open': 'Open support',
+    'sup.close': 'Close support',
+    'sup.greeting': 'Hi! Pick an area below to open the right page.',
+    'sup.topics': 'Quick links',
+    'sup.placeholder': 'Type your message…',
+    'sup.send': 'Send',
+    'sup.offline':
+      'Live chat with the support team is not connected yet, so messages cannot be sent for now.',
     'ld.mail.eyebrow': 'Business email',
     'ld.mail.title': 'Create email on your own domain',
     'ld.mail.sub': 'Pick a name and a domain, then see the price before anything is created.',

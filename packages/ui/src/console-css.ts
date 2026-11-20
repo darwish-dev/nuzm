@@ -1006,14 +1006,6 @@ a.nzc-navcard:hover, .nzc-tile:hover { background: var(--nzc-card); }
 @view-transition { navigation: auto; }
 .nzc-body { view-transition-name: nzc-content; }
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
-/* Entering and leaving a full-screen page (the AI builder): the chrome is its own transition layer, so it eases away or back instead of snapping (the browser's own cross-fade: two pages whose chrome is the same show no change), the framed panel grows to the whole window (or shrinks back) and the background fades between the console gradient and the builder's flat dark. Between two ordinary pages every layer looks the same, so nothing visibly moves. */
-.nzc-app { view-transition-name: nzc-app; }
-.nzc-top { view-transition-name: nzc-top; }
-.nzc-rail { view-transition-name: nzc-rail; }
-.nzc-frame { view-transition-name: nzc-frame; }
-::view-transition-group(nzc-app), ::view-transition-group(nzc-top), ::view-transition-group(nzc-rail), ::view-transition-group(nzc-frame) { animation-duration: 340ms; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
-::view-transition-old(nzc-app) { animation: none; mix-blend-mode: normal; }
-::view-transition-new(nzc-app) { animation: nzc-fade-in 340ms ease both; mix-blend-mode: normal; }
 ::view-transition-old(nzc-content) { animation: nzc-fade-out 140ms cubic-bezier(.4, 0, 1, 1) both; }
 ::view-transition-new(nzc-content) { animation: nzc-fade-in 240ms ease-out 60ms both; }
 @keyframes nzc-fade-out { to { opacity: 0; transform: translateY(-6px); } }

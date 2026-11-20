@@ -2015,4 +2015,19 @@ html[dir='rtl'] .sup-topics a > .nzc-icon:last-child { transform: scaleX(-1); }
 @keyframes nzc-slide-reveal { from { opacity:0; transform:translateY(5px) rotate(-8deg); } to { opacity:1; transform:translateY(0) rotate(-8deg); } }
 @media(max-width:700px) { .nzc-slide-scene { display:none; } }
 @media(prefers-reduced-motion:reduce) { .nzc-slide-icon-main { animation:none; } .nzc-slide-link,.nzc-slide-controls > button,.nzc-slide-tabs button::after { transition:none; } }
+
+/* Art-directed photographic banners with a protected text area. */
+.nzc-home-slider { display:block; min-block-size:205px; background:var(--nzc-card); }
+.nzc-home-slider::before { display:none; }
+.nzc-slide-copy { position:relative; z-index:1; inline-size:53%; min-block-size:205px; box-sizing:border-box; padding:22px 26px 48px; }
+.nzc-slide-copy h2 { max-inline-size:25ch; text-wrap:balance; }
+.nzc-slide-copy p { max-inline-size:38ch; }
+.nzc-slide-photograph { position:absolute; inset-block:0; inset-inline-end:0; inline-size:66%; overflow:hidden; mask-image:linear-gradient(90deg,transparent,black 32%); }
+.nzc-slide-photograph img { inline-size:100%; block-size:100%; object-fit:cover; object-position:65% 55%; animation:nzc-photo-enter .35s ease-out; }
+.nzc-slide-photograph:dir(rtl) { mask-image:linear-gradient(270deg,transparent,black 32%); }
+.nzc-slide-controls { z-index:2; inset-inline-start:26px; inset-block-end:12px; }
+@keyframes nzc-photo-enter { from { opacity:.35; } to { opacity:1; } }
+@media(max-width:700px) { .nzc-slide-copy { inline-size:70%; padding-inline:20px; } .nzc-slide-photograph { inline-size:72%; opacity:.55; mask-image:linear-gradient(90deg,transparent 10%,black 90%); } .nzc-slide-photograph:dir(rtl) { mask-image:linear-gradient(270deg,transparent 10%,black 90%); } }
+@media(max-width:460px) { .nzc-slide-copy { inline-size:90%; } .nzc-slide-photograph { opacity:.22; } }
+@media(prefers-reduced-motion:reduce) { .nzc-slide-photograph img { animation:none; } }
 `;

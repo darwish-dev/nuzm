@@ -36,6 +36,9 @@ const UI = {
     owner: 'المسؤول',
     total: 'الإجمالي',
     sort: 'ترتيب',
+    view: 'عرض',
+    yes: 'نعم',
+    no: 'لا',
     none: '—',
   },
   en: {
@@ -72,6 +75,9 @@ const UI = {
     owner: 'Owner',
     total: 'Total',
     sort: 'Sort',
+    view: 'View',
+    yes: 'Yes',
+    no: 'No',
     none: '—',
   },
 };
@@ -226,19 +232,27 @@ async function dashboardView() {
       for (const w of p.widgets) {
         if (!(w.id in d.widgets)) continue;
         const v = d.widgets[w.id];
+        const em = meta.entities[w.entity];
         const body =
           typeof v === 'number'
-            ? h('div', { class: 'stat' }, String(v))
+            ? h('div', { class: 'stat' }, new Intl.NumberFormat(locale()).format(v))
             : Array.isArray(v)
               ? h(
                   'ul',
                   {},
-                  v.map((r) => h('li', {}, labelOf(meta.entities[w.entity], r))),
+                  v.map((r) => h('li', {}, labelOf(em, r))),
                 )
               : h(
                   'ul',
                   {},
-                  Object.entries(v).map(([k, n]) => h('li', {}, k + ': ' + n)),
+                  Object.entries(v).map(([k, n]) =>
+                    h(
+                      'li',
+                      { class: 'stage-row' },
+                      h('span', {}, humanize(k)),
+                      h('strong', {}, new Intl.NumberFormat(locale()).format(n)),
+                    ),
+                  ),
                 );
         grid.append(
           h('section', { class: 'card', 'aria-label': L(w.title) }, h('h2', {}, L(w.title)), body),
@@ -253,12 +267,68 @@ const labelOf = (em, r) => {
   const f = em.fields.find((x) => x.type === 'string') || em.fields[0];
   return String(r[f.name] ?? r.id);
 };
+const locale = () => (st.lang === 'ar' ? 'ar-SA' : 'en-GB');
+/** Values shown the way people read them in the chosen language: dates and numbers localised, yes/no in words, enum values humanised. */
 function cell(f, v) {
   if (v === null || v === undefined || v === '') return t('none');
-  if (f.type === 'boolean') return v ? '✓' : '✗';
+  if (f.type === 'boolean') return v ? t('yes') : t('no');
   if (f.type === 'file') return v.name;
+  if (f.type === 'date' || f.type === 'datetime') {
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return String(v);
+    return new Intl.DateTimeFormat(locale(), {
+      dateStyle: 'medium',
+      ...(f.type === 'datetime' ? { timeStyle: 'short' } : {}),
+      ...(f.type === 'date' ? { timeZone: 'UTC' } : {}),
+    }).format(d);
+  }
+  if (f.type === 'integer' || f.type === 'decimal') {
+    const n = Number(v);
+    return Number.isFinite(n)
+      ? new Intl.NumberFormat(locale(), {
+          maximumFractionDigits: f.type === 'decimal' ? 2 : 0,
+        }).format(n)
+      : String(v);
+  }
+  if (f.type === 'enum') return humanize(v);
   return String(v);
 }
+/** Columns a person scans first: the record's name, its stage, money and numbers, dates, then links and the rest (long text never). */
+const COLUMN_RANK = { decimal: 2, integer: 3, date: 4, datetime: 4, reference: 5, enum: 6 };
+function listColumns(em) {
+  const first = em.fields.find((f) => f.type === 'string') || em.fields[0];
+  const rank = (f) => (f === first ? 0 : f.name === em.stageField ? 1 : (COLUMN_RANK[f.type] ?? 7));
+  return em.fields
+    .filter((f) => f.type !== 'text' && f.type !== 'file')
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => rank(a.f) - rank(b.f) || a.i - b.i)
+    .slice(0, 6)
+    .map((x) => x.f);
+}
+/** A reference cell shows the linked record's name, fetched once per id (the id itself only while loading or when it cannot be read). */
+const refCache = new Map();
+function refCell(f, id) {
+  const target = meta.entities[f.references];
+  const span = h('span', {}, t('loading'));
+  if (!target) return ((span.textContent = String(id)), span);
+  let p = refCache.get(id);
+  if (!p) {
+    p = api('GET', '/' + target.plural + '/' + id)
+      .then((r) => labelOf(target, r))
+      .catch(() => null);
+    refCache.set(id, p);
+  }
+  p.then((label) => (span.textContent = label ?? t('none')));
+  return span;
+}
+const humanize = (v) =>
+  String(v)
+    .replace(/[_-]+/g, ' ')
+    .replace(/^./, (c) => c.toUpperCase());
+const fieldLabel = (em, name) => {
+  const f = em.fields.find((x) => x.name === name);
+  return f ? L(f.labels) : name;
+};
 async function listView(plural, query) {
   const em = Object.values(meta.entities).find((e) => e.plural === plural);
   if (!em) return main().replaceChildren(state('error', t('error')));
@@ -272,10 +342,18 @@ async function listView(plural, query) {
     { id: 'sort' },
     h('option', { value: '' }, t('none')),
     em.sortable.map((s) =>
-      h('option', { value: s + ':asc', selected: params.get('sort') === s + ':asc' }, s + ' ↑'),
+      h(
+        'option',
+        { value: s + ':asc', selected: params.get('sort') === s + ':asc' },
+        fieldLabel(em, s) + ' ↑',
+      ),
     ),
     em.sortable.map((s) =>
-      h('option', { value: s + ':desc', selected: params.get('sort') === s + ':desc' }, s + ' ↓'),
+      h(
+        'option',
+        { value: s + ':desc', selected: params.get('sort') === s + ':desc' },
+        fieldLabel(em, s) + ' ↓',
+      ),
     ),
   );
   const go = () => {
@@ -315,7 +393,7 @@ async function listView(plural, query) {
   try {
     const r = await api('GET', '/' + plural + '?' + params);
     if (!r.items.length) return body.replaceChildren(state('', t('empty')));
-    const cols = em.fields.filter((f) => f.type !== 'text').slice(0, 6);
+    const cols = listColumns(em);
     const prev = Math.max(0, r.offset - r.limit);
     body.replaceChildren(
       h(
@@ -339,14 +417,22 @@ async function listView(plural, query) {
             h(
               'tr',
               {},
-              cols.map((f) => h('td', {}, cell(f, row[f.name]))),
+              cols.map((f) =>
+                h(
+                  'td',
+                  {},
+                  f.type === 'reference' && row[f.name]
+                    ? refCell(f, row[f.name])
+                    : cell(f, row[f.name]),
+                ),
+              ),
               h(
                 'td',
                 {},
                 h(
                   'a',
                   { href: '#/e/' + plural + '/' + row.id },
-                  can('update') ? t('edit') : t('home'),
+                  can('update') ? t('edit') : t('view'),
                 ),
               ),
             ),
@@ -683,6 +769,7 @@ async function usersView() {
   }
 }
 async function route() {
+  refCache.clear(); // names of linked records are re-read on every navigation, so an edit shows up
   const [path, query = ''] = location.hash.slice(1).split('?');
   const seg = path.split('/').filter(Boolean);
   if (!st.token && seg[0] !== 'login') {

@@ -26,4 +26,11 @@ describe('ui tokens', () => {
     expect(consoleCss).toContain('--nzc-bg: #0b0b0c;');
     expect(consoleCss).toContain('prefers-reduced-motion');
   });
+  it('entering and leaving a full-screen page eases: the chrome, frame and background are separate transition layers, each name used once, and the chrome keeps the browser cross-fade so two identical pages never flicker', () => {
+    for (const n of ['nzc-app', 'nzc-top', 'nzc-rail', 'nzc-frame', 'nzc-content'])
+      expect(consoleCss.match(new RegExp(`view-transition-name: ${n};`, 'g')), n).toHaveLength(1);
+    // a custom fade on both snapshots of a layer that is the same on both pages would dip it half transparent
+    expect(consoleCss).not.toMatch(/view-transition-(old|new)\(nzc-(top|rail|frame)\)\s*\{/);
+    expect(consoleCss).toContain('@view-transition { navigation: auto; }');
+  });
 });

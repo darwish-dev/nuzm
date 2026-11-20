@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { EmptyState, ForbiddenState, Icon, PageTitle } from '@nuzm/ui';
-import { ComputeTabs } from '../../../../../../components/ComputeBits';
 import { InstanceDetail } from '../../../../../../components/ComputeInstanceDetail';
 import {
   unwrapCall,
@@ -87,7 +86,6 @@ export default async function InstancePage({
   return (
     <>
       {title}
-      <ComputeTabs locale={locale} current="instances" can={s.can} />
       {body}
     </>
   );

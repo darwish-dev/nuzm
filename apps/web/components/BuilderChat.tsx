@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Banner, Icon } from '@nuzm/ui';
 import type { Message, Page_, Run, Session } from '../lib/builder';
@@ -58,6 +58,7 @@ export function Chat({
   activeRun,
   onRun,
   thread,
+  history,
   mode = 'website',
 }: {
   locale: Locale;
@@ -74,6 +75,11 @@ export function Chat({
   /** the live run card, shown inside the scrolling thread after the messages */
   thread?: ReactNode;
   /**
+   * earlier runs of the project placed in the conversation (the web-app studio): `before` is shown ahead of the first message and `after(m)` right after a message;
+   * both are lists of `<li>` elements, computed from the messages the chat currently shows
+   */
+  history?: (messages: Message[]) => { before?: ReactNode; after?: (m: Message) => ReactNode };
+  /**
    * which workspace the chat belongs to. `website`: the message starts an `edit` run (a change set to approve). `mobile`: a `mobile` run (a new design request,
    * 3..600 characters). `webapp`: a `webapp` run (a brief of up to 8000 characters for the agent graph). The texts say so.
    */
@@ -86,6 +92,7 @@ export function Chat({
   const [text, setText] = useState('');
   const keys = useRef({ session: newKey(), message: newKey(), run: newKey() });
   const log = useRef<HTMLDivElement>(null);
+  const hist = history?.(messages) ?? {};
   /** the instruction already stored as a message whose run could not start: a retry must not add the same message twice */
   const storedText = useRef<string | null>(null);
 
@@ -164,19 +171,23 @@ export function Chat({
     <div className="bld-chat">
       <h2 className="bld-chat-title">{t(locale, cfg.title)}</h2>
       <div className="bld-chat-scroll" role="log" aria-label={t(locale, 'bld.chat.log')} ref={log}>
-        {messages.length === 0 && !thread ? (
+        {messages.length === 0 && !thread && !hist.before ? (
           <p className="nz-muted bld-chat-empty">{t(locale, cfg.empty)}</p>
         ) : (
           <ol className="bld-list">
+            {hist.before}
             {messages.map((m) => (
-              <li key={m.id} className="bld-msg" data-role={m.role}>
-                <span className="bld-msg-meta">
-                  {t(locale, `bld.chat.role.${m.role}`)} · {when(m.createdAt, locale)}
-                </span>
-                <bdi dir="auto" className="bld-msg-body">
-                  {m.content}
-                </bdi>
-              </li>
+              <Fragment key={m.id}>
+                <li className="bld-msg" data-role={m.role}>
+                  <span className="bld-msg-meta">
+                    {t(locale, `bld.chat.role.${m.role}`)} · {when(m.createdAt, locale)}
+                  </span>
+                  <bdi dir="auto" className="bld-msg-body">
+                    {m.content}
+                  </bdi>
+                </li>
+                {hist.after?.(m)}
+              </Fragment>
             ))}
           </ol>
         )}

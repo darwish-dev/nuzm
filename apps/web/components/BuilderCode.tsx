@@ -16,12 +16,17 @@ import {
 } from '../lib/builder';
 import { bapi, useBuilderCall } from '../lib/builder-client';
 import {
+  diffFileLists,
+  fileGlyph,
   fileKind,
   highlight,
   isSourcePath,
   searchFiles,
+  sizeLabel,
   sourceFiles,
   toLines,
+  type FileChange,
+  type FileChanges,
   type SearchHit,
 } from '../lib/code-view';
 import { ProblemNote } from './BuilderBits';
@@ -32,17 +37,37 @@ const MAX_LINES = 2000;
 const hasCurrent = (n: TreeNode, current: string | null): boolean =>
   current !== null && n.children.some((c) => c.path === current || hasCurrent(c, current));
 
-/** The files of a site as a tree. Directories start closed and open on the way to the open file; a file is a button. */
+/** The type of a file at a glance (TS, SQL, JSON ...): a short mono label with a tint. Text only, taken from the extension. */
+export function FileGlyph({ path }: { path: string }) {
+  const g = fileGlyph(path);
+  return (
+    <span className="bwc-glyph" data-tone={g.tone} aria-hidden="true">
+      {g.label}
+    </span>
+  );
+}
+
+/**
+ * The files of a project as a tree. Directories start closed and open on the way to the open file; a file is a button with its type glyph. With `marks` a file that
+ * is new or changed in the shown version carries a marker; with `sizes` its size sits at the end of the row.
+ */
 export function Tree({
   nodes,
   current,
   onPick,
   depth = 0,
+  marks,
+  sizes = false,
+  changedLabel,
 }: {
   nodes: TreeNode[];
   current: string | null;
   onPick: (path: string) => void;
   depth?: number;
+  marks?: Record<string, FileChange>;
+  sizes?: boolean;
+  /** the words for a marker: `{added, modified}` (the tree only draws a dot; the words are for screen readers and the tooltip) */
+  changedLabel?: Record<FileChange, string>;
 }) {
   return (
     <ul className="bwc-tree" data-depth={depth}>
@@ -54,7 +79,15 @@ export function Tree({
                 <Icon name="chevron" size={14} />
                 <span dir="ltr">{n.name}</span>
               </summary>
-              <Tree nodes={n.children} current={current} onPick={onPick} depth={depth + 1} />
+              <Tree
+                nodes={n.children}
+                current={current}
+                onPick={onPick}
+                depth={depth + 1}
+                marks={marks}
+                sizes={sizes}
+                changedLabel={changedLabel}
+              />
             </details>
           </li>
         ) : (
@@ -63,15 +96,79 @@ export function Tree({
               type="button"
               className="bwc-file"
               aria-current={current === n.path ? 'true' : undefined}
+              data-change={marks?.[n.path]}
               onClick={() => onPick(n.path!)}
             >
-              <Icon name="list" size={14} />
+              <FileGlyph path={n.path} />
               <span dir="ltr">{n.name}</span>
+              {marks?.[n.path] && (
+                <span
+                  className="bwc-mark"
+                  data-change={marks[n.path]}
+                  title={changedLabel?.[marks[n.path]!]}
+                >
+                  <span className="nz-sr">{changedLabel?.[marks[n.path]!]}</span>
+                </span>
+              )}
+              {sizes && n.size !== undefined && (
+                <span className="bwc-fsize" dir="ltr">
+                  {sizeLabel(n.size)}
+                </span>
+              )}
             </button>
           </li>
         ),
       )}
     </ul>
+  );
+}
+
+/**
+ * The text of one file as numbered, tinted lines. Everything is rendered as React text (a generated file is UNTRUSTED data: nothing in it becomes markup). `jump` is
+ * a 1-based line to scroll to and highlight (from a search hit).
+ */
+export function CodeLines({
+  locale,
+  content,
+  path,
+  jump = null,
+}: {
+  locale: Locale;
+  content: string;
+  path: string;
+  jump?: number | null;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const lines = useMemo(() => toLines(highlight(content, fileKind(path))), [content, path]);
+  useEffect(() => {
+    if (jump === null || !ref.current) return;
+    ref.current.querySelector(`[data-line="${jump}"]`)?.scrollIntoView?.({ block: 'center' });
+  }, [jump, content]);
+  return (
+    <div className="bwc-code" ref={ref} dir="ltr" tabIndex={0}>
+      {lines.slice(0, MAX_LINES).map((l, i) => (
+        <div
+          key={i}
+          className="bwc-line"
+          data-line={i + 1}
+          data-hit={jump === i + 1 ? 'true' : undefined}
+        >
+          <span className="bwc-ln">{i + 1}</span>
+          <code>
+            {l.length === 0
+              ? '\u200b'
+              : l.map((tk, j) => (
+                  <span key={j} className={`tok tok-${tk.c}`}>
+                    {tk.s}
+                  </span>
+                ))}
+          </code>
+        </div>
+      ))}
+      {lines.length > MAX_LINES && (
+        <p className="nz-muted bwc-pad">{t(locale, 'bld.cx.truncated', { n: MAX_LINES })}</p>
+      )}
+    </div>
   );
 }
 
@@ -138,25 +235,34 @@ function PublishOutput({ locale, projectId }: { locale: Locale; projectId: strin
 }
 
 /**
- * The Code view: the generated files of the current version in a file tree with search, a line-numbered and tinted viewer, and a collapsible bottom panel with
- * the changes between versions and the last publish. Read-only on purpose: a site is generated from its structure, so a hand edit of a generated file would be
- * overwritten by the next change; edits are made in the visual editor or by asking in the chat. Files are shown as text only; nothing in them is executed.
+ * The Code view: the generated files of a version in a file tree with search, a line-numbered and tinted viewer, and a collapsible bottom panel with the changes
+ * between versions and the last publish. Read-only on purpose: a project is generated from its structure, so a hand edit of a generated file would be overwritten by
+ * the next change; edits are made by asking in the chat. Files are shown as text only; nothing in them is executed.
+ *
+ * `history` (the web-app studio): a version selector over the project's versions, a marker on every file that is new or changed in the shown version compared with the
+ * one before it (from the file hashes the files API returns), and the list of those changes in the bottom panel in place of the site-model diff. `openPath` opens a
+ * file from outside (a link in the chat); `n` makes the same path open again.
  */
 export function CodePane({
   locale,
   projectId,
   versionId,
   model,
+  history = false,
+  openPath = null,
 }: {
   locale: Locale;
   projectId: string;
   versionId: string;
   /** the site model of this version: its source files are shown beside the generated ones */
   model?: SiteModel;
+  history?: boolean;
+  openPath?: { path: string; n: number; line?: number } | null;
 }) {
   const files = useBuilderCall();
   const file = useBuilderCall();
   const vers = useBuilderCall();
+  const [viewId, setViewId] = useState(versionId);
   const [list, setList] = useState<ProjectFile[] | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
   const [open, setOpen] = useState<FileContent | null>(null);
@@ -165,19 +271,28 @@ export function CodePane({
   const [cache, setCache] = useState<Record<string, FileContent>>({});
   const [bottom, setBottom] = useState<'status' | 'changes' | 'publish' | null>('status');
   const [jump, setJump] = useState<number | null>(null);
-  const [copied, setCopied] = useState(false);
-  const codeRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<'path' | 'content' | null>(null);
+  const [changes, setChanges] = useState<FileChanges | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const handled = useRef<number>(-1);
+
+  // a new head (a build finished) moves the view to it; an older version stays selectable
+  useEffect(() => setViewId(versionId), [versionId]);
 
   useEffect(() => {
     setOpen(null);
     setCache({});
+    setList(null);
     void files.run(
       () =>
         bapi.get<{ items: ProjectFile[] }>(`/v1/builder/projects/${projectId}/files`, {
-          query: { versionId },
+          query: { versionId: viewId },
         }),
       (d) => setList(d.items),
     );
+    // the callbacks of useBuilderCall are stable
+  }, [projectId, viewId]);
+  useEffect(() => {
     void vers.run(
       () =>
         bapi.get<Page_<Version>>(`/v1/builder/projects/${projectId}/versions`, {
@@ -185,12 +300,36 @@ export function CodePane({
         }),
       (p) => setVersions(p.items),
     );
-    // the callbacks of useBuilderCall are stable
+    return () => clearTimeout(timer.current);
   }, [projectId, versionId]);
 
+  // the version before the shown one: its file list gives the "changed in this version" markers
+  const previous = useMemo(() => {
+    const cur = versions.find((v) => v.id === viewId);
+    if (!cur) return null;
+    return versions.filter((v) => v.seq < cur.seq).sort((a, b) => b.seq - a.seq)[0] ?? null;
+  }, [versions, viewId]);
+  useEffect(() => {
+    setChanges(null);
+    if (!history || !list || versions.length === 0) return;
+    if (!previous) return setChanges({ marks: {}, removed: [] });
+    let stop = false;
+    void bapi
+      .get<{ items: ProjectFile[] }>(`/v1/builder/projects/${projectId}/files`, {
+        query: { versionId: previous.id },
+      })
+      .then((r) => {
+        if (stop) return;
+        setChanges(r.response.ok && r.data ? diffFileLists(r.data.items, list) : null);
+      });
+    return () => {
+      stop = true;
+    };
+  }, [history, list, previous, versions.length, projectId]);
+
   const source = useMemo(
-    () => sourceFiles(model, { projectId, versionId }),
-    [model, projectId, versionId],
+    () => (viewId === versionId ? sourceFiles(model, { projectId, versionId }) : []),
+    [model, projectId, versionId, viewId],
   );
   const sourceByPath = useMemo(() => Object.fromEntries(source.map((f) => [f.path, f])), [source]);
   const all: ProjectFile[] | null = useMemo(
@@ -213,7 +352,7 @@ export function CodePane({
     void file.run(
       () =>
         bapi.get<FileContent>(`/v1/builder/projects/${projectId}/files/content`, {
-          query: { path, versionId },
+          query: { path, versionId: viewId },
         }),
       (c) => {
         setCache((m) => ({ ...m, [path]: c }));
@@ -222,7 +361,15 @@ export function CodePane({
     );
   };
 
-  // search reads the text of every file once (a generated site is a handful of small files)
+  // a link from outside (the chat's "produced" list): open that file once the list is here
+  useEffect(() => {
+    if (!openPath || !list || handled.current === openPath.n) return;
+    handled.current = openPath.n;
+    setSide('files');
+    if (list.some((f) => f.path === openPath.path)) read(openPath.path, openPath.line);
+  }, [openPath, list]);
+
+  // search reads the text of every file once (a generated project is a handful of small files)
   useEffect(() => {
     if (side !== 'search' || !list) return;
     const missing = list.filter((f) => !cache[f.path] && fileKind(f.path) !== 'image');
@@ -232,7 +379,7 @@ export function CodePane({
       missing.slice(0, 40).map((f) =>
         bapi
           .get<FileContent>(`/v1/builder/projects/${projectId}/files/content`, {
-            query: { path: f.path, versionId },
+            query: { path: f.path, versionId: viewId },
           })
           .then((r) => (r.response.ok && r.data ? r.data : null)),
       ),
@@ -247,7 +394,7 @@ export function CodePane({
     return () => {
       stop = true;
     };
-  }, [side, list, projectId, versionId]);
+  }, [side, list, projectId, viewId]);
 
   const texts = useMemo(
     () =>
@@ -260,29 +407,26 @@ export function CodePane({
   );
   const hits: SearchHit[] = useMemo(() => (all ? searchFiles(all, texts, q) : []), [all, texts, q]);
   const tree = useMemo(() => buildTree(all ?? []), [all]);
-  const lines = useMemo(
-    () =>
-      open && open.encoding === 'utf8' ? toLines(highlight(open.content, fileKind(open.path))) : [],
-    [open],
-  );
 
-  useEffect(() => {
-    if (jump === null || !codeRef.current) return;
-    codeRef.current.querySelector(`[data-line="${jump}"]`)?.scrollIntoView?.({ block: 'center' });
-  }, [jump, open]);
-
-  const copy = () => {
-    if (!open || open.encoding !== 'utf8') return;
-    void navigator.clipboard?.writeText(open.content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+  const copy = (what: 'path' | 'content') => {
+    if (!open) return;
+    if (what === 'content' && open.encoding !== 'utf8') return;
+    void navigator.clipboard?.writeText(what === 'path' ? open.path : open.content).then(() => {
+      setCopied(what);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(null), 1500);
     });
   };
   const tab = (id: 'status' | 'changes' | 'publish') => () =>
     setBottom((b) => (b === id ? null : id));
-  const seq = versions.find((v) => v.id === versionId)?.seq ?? versions[0]?.seq;
+  const seq = versions.find((v) => v.id === viewId)?.seq ?? versions[0]?.seq;
   const bytes = (list ?? []).reduce((n, f) => n + f.size, 0);
-  const sizeText = bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${bytes} B`;
+  const sizeText = sizeLabel(bytes);
+  const changedCount = changes ? Object.keys(changes.marks).length : 0;
+  const changedLabel = {
+    added: t(locale, 'wsp.code.added'),
+    modified: t(locale, 'wsp.code.modified'),
+  };
 
   return (
     <div className="bwc" data-bottom={bottom ?? 'closed'}>
@@ -308,6 +452,30 @@ export function CodePane({
               {t(locale, 'bld.cx.tab.search')}
             </button>
           </div>
+          {history && versions.length > 0 && (
+            <div className="bwc-ver">
+              <label htmlFor="bwc-ver-select">{t(locale, 'wsp.code.version')}</label>
+              <select
+                id="bwc-ver-select"
+                value={viewId}
+                onChange={(e) => setViewId(e.target.value)}
+              >
+                {versions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {t(locale, 'bld.ws.version', { seq: v.seq })}
+                    {v.id === versionId ? ` · ${t(locale, 'bld.dx.history.current')}` : ''}
+                  </option>
+                ))}
+              </select>
+              {changes && (
+                <span className="bwc-ver-note" role="status">
+                  {previous
+                    ? t(locale, 'wsp.code.changedVs', { n: changedCount, seq: previous.seq })
+                    : t(locale, 'wsp.code.firstVersion')}
+                </span>
+              )}
+            </div>
+          )}
           {files.problem && <ProblemNote locale={locale} problem={files.problem} />}
           {list === null && !files.problem && (
             <p role="status" aria-busy="true" className="nz-muted bwc-pad">
@@ -318,7 +486,14 @@ export function CodePane({
             <p className="nz-muted bwc-pad">{t(locale, 'bld.code.noFiles')}</p>
           )}
           {all && all.length > 0 && side === 'files' && (
-            <Tree nodes={tree} current={open?.path ?? null} onPick={(p) => read(p)} />
+            <Tree
+              nodes={tree}
+              current={open?.path ?? null}
+              onPick={(p) => read(p)}
+              marks={history ? (changes?.marks ?? undefined) : undefined}
+              sizes={history}
+              changedLabel={changedLabel}
+            />
           )}
           {all && all.length > 0 && side === 'search' && (
             <div className="bwc-search">
@@ -369,48 +544,38 @@ export function CodePane({
           ) : (
             <>
               <header className="bwc-bar">
-                <Icon name="list" size={15} />
-                <span dir="ltr" className="bwc-path" title={`${open.mime} · ${open.size} B`}>
-                  {open.path.split('/').pop()}
+                <FileGlyph path={open.path} />
+                <span dir="ltr" className="bwc-path" title={`${open.path} · ${open.mime}`}>
+                  {history ? open.path : open.path.split('/').pop()}
                 </span>
+                {history && (
+                  <span className="bwc-meta" dir="ltr">
+                    {sizeLabel(open.size)}
+                    {open.encoding === 'utf8' && ` · ${open.content.split('\n').length} L`}
+                  </span>
+                )}
                 <span className="bwc-chip" title={t(locale, 'bld.cx.empty.body')}>
-                  {isSourcePath(open.path)
+                  {!history && isSourcePath(open.path)
                     ? `${t(locale, 'bld.cx.source')} · ${t(locale, 'bld.cx.readonly')}`
                     : t(locale, 'bld.cx.readonly')}
                 </span>
+                {history && (
+                  <button type="button" className="bwc-copy" onClick={() => copy('path')}>
+                    {t(locale, copied === 'path' ? 'bld.cx.copied' : 'wsp.code.copyPath')}
+                  </button>
+                )}
                 {open.encoding === 'utf8' && (
-                  <button type="button" className="bwc-copy" onClick={copy}>
-                    {t(locale, copied ? 'bld.cx.copied' : 'bld.cx.copy')}
+                  <button
+                    type="button"
+                    className={history ? 'bwc-copy bwc-copy-next' : 'bwc-copy'}
+                    onClick={() => copy('content')}
+                  >
+                    {t(locale, copied === 'content' ? 'bld.cx.copied' : 'bld.cx.copy')}
                   </button>
                 )}
               </header>
               {open.encoding === 'utf8' ? (
-                <div className="bwc-code" ref={codeRef} dir="ltr" tabIndex={0}>
-                  {lines.slice(0, MAX_LINES).map((l, i) => (
-                    <div
-                      key={i}
-                      className="bwc-line"
-                      data-line={i + 1}
-                      data-hit={jump === i + 1 ? 'true' : undefined}
-                    >
-                      <span className="bwc-ln">{i + 1}</span>
-                      <code>
-                        {l.length === 0
-                          ? '​'
-                          : l.map((tk, j) => (
-                              <span key={j} className={`tok tok-${tk.c}`}>
-                                {tk.s}
-                              </span>
-                            ))}
-                      </code>
-                    </div>
-                  ))}
-                  {lines.length > MAX_LINES && (
-                    <p className="nz-muted bwc-pad">
-                      {t(locale, 'bld.cx.truncated', { n: MAX_LINES })}
-                    </p>
-                  )}
-                </div>
+                <CodeLines locale={locale} content={open.content} path={open.path} jump={jump} />
               ) : (
                 <p className="nz-muted bwc-pad">
                   {t(locale, 'bld.code.binary', { size: open.size })}
@@ -485,12 +650,21 @@ export function CodePane({
                 {t(locale, 'bld.cx.status.source', { n: source.length })}
               </p>
             )}
-            <p className="hint">{t(locale, 'bld.cx.status.hint')}</p>
+            <p className="hint">
+              {t(locale, history ? 'wsp.code.statusHint' : 'bld.cx.status.hint')}
+            </p>
           </div>
         )}
         {bottom === 'changes' && (
           <div className="bwc-bbody">
-            {vers.problem ? (
+            {history ? (
+              <FileChangeList
+                locale={locale}
+                changes={changes}
+                previousSeq={previous?.seq ?? null}
+                onPick={(p) => read(p)}
+              />
+            ) : vers.problem ? (
               <ProblemNote locale={locale} problem={vers.problem} />
             ) : (
               <VersionCompare
@@ -509,5 +683,53 @@ export function CodePane({
         )}
       </section>
     </div>
+  );
+}
+
+/** The files that are new, changed or gone in the shown version compared with the one before it (from the file hashes). A path opens its file. */
+function FileChangeList({
+  locale,
+  changes,
+  previousSeq,
+  onPick,
+}: {
+  locale: Locale;
+  changes: FileChanges | null;
+  previousSeq: number | null;
+  onPick: (path: string) => void;
+}) {
+  if (changes === null)
+    return (
+      <p role="status" aria-busy="true" className="nz-muted">
+        {t(locale, 'state.loading')}
+      </p>
+    );
+  if (previousSeq === null) return <p className="nz-muted">{t(locale, 'wsp.code.firstVersion')}</p>;
+  const rows = [
+    ...Object.entries(changes.marks).map(([path, kind]) => ({ path, kind })),
+    ...changes.removed.map((path) => ({ path, kind: 'removed' as const })),
+  ].sort((a, b) => a.path.localeCompare(b.path));
+  if (rows.length === 0)
+    return <p className="nz-muted">{t(locale, 'wsp.code.noChanges', { seq: previousSeq })}</p>;
+  return (
+    <>
+      <p className="nz-muted">{t(locale, 'wsp.code.changesTitle', { seq: previousSeq })}</p>
+      <ul className="bwc-changes">
+        {rows.map((r) => (
+          <li key={r.path}>
+            <span className="bwc-chg" data-change={r.kind}>
+              {t(locale, `wsp.code.${r.kind}` as 'wsp.code.added')}
+            </span>
+            {r.kind === 'removed' ? (
+              <span dir="ltr">{r.path}</span>
+            ) : (
+              <button type="button" dir="ltr" onClick={() => onPick(r.path)}>
+                {r.path}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

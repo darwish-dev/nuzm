@@ -194,10 +194,16 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
     await expect(page.getByRole('heading', { name: T(info, 'm10a.spec.roles') })).toBeVisible();
     await audit(page, info, 'm10a-spec');
     await page.goto(`${project}/design`);
-    await expect(page.getByRole('heading', { name: T(info, 'm10a.data.title') })).toBeVisible();
-    await expect(page.getByRole('heading', { name: T(info, 'm10a.api.title') })).toBeVisible();
-    await expect(page.getByRole('table', { name: T(info, 'm10a.access.title') })).toBeVisible();
+    // the Data panel: tables (columns, relations), the generated migrations with a SQL viewer, the endpoints per table, the role matrix
+    await expect(page.getByRole('tab', { name: T(info, 'wsp.data.view.tables') })).toBeVisible();
+    await expect(page.getByRole('table', { name: T(info, 'wsp.data.columns') })).toBeVisible();
     await audit(page, info, 'm10a-design');
+    await page.getByRole('tab', { name: T(info, 'wsp.data.view.migrations') }).click();
+    await expect(page.getByRole('list', { name: T(info, 'm10a.data.migrations') })).toBeVisible();
+    await page.getByRole('tab', { name: T(info, 'wsp.data.view.api') }).click();
+    await expect(page.getByRole('region', { name: T(info, 'm10a.api.title') })).toBeVisible();
+    await page.getByRole('tab', { name: T(info, 'wsp.data.view.access') }).click();
+    await expect(page.getByRole('table', { name: T(info, 'm10a.access.title') })).toBeVisible();
   } else {
     // the build did not produce a spec (no webapp fixtures in the mock model): the honest empty state, not a blank page
     await expect(page.getByText(T(info, 'm10a.bp.none.title'))).toBeVisible();
@@ -206,6 +212,8 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
 
   // ---- UI-M10-03: files and sandbox: the runtime label and the "NOT isolated" notice are ALWAYS there
   await page.goto(`${project}/ide`);
+  // the Code panel opens on the files (tree, search, viewer); the sandbox is its second view
+  await page.getByRole('tab', { name: T(info, 'wsp.code.sandbox') }).click();
   await page.getByRole('button', { name: T(info, 'm10.sbx.start') }).click();
   await expect(page.getByText(T(info, 'm10.sbx.notIsolated')).first()).toBeVisible();
   await expect(page.getByText(T(info, 'm10.sbx.runtime')).first()).toBeVisible();

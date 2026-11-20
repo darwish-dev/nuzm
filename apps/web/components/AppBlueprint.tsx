@@ -366,12 +366,39 @@ export function DataModelPanel({
   );
 }
 
-const METHOD_TONE: Record<string, 'success' | 'warn' | 'danger' | undefined> = {
+export const METHOD_TONE: Record<string, 'success' | 'warn' | 'danger' | undefined> = {
   GET: 'success',
   DELETE: 'danger',
   PUT: 'warn',
   PATCH: 'warn',
 };
+
+/** The dependency-policy verdict on the generated package manifest and its findings. */
+export function ApiDeps({ locale, api }: { locale: Locale; api: ApiView }) {
+  return (
+    <>
+      <h3 className="nz-h3">{t(locale, 'm10a.api.deps')}</h3>
+      <p role="status">
+        <Badge tone={api.dependencies.ok ? 'success' : 'warn'}>
+          {t(locale, api.dependencies.ok ? 'm10a.api.depsOk' : 'm10a.api.depsReview')}
+        </Badge>{' '}
+        <span className="nz-muted">
+          {t(locale, 'm10a.api.depCount', { count: api.dependencies.count })}
+        </span>
+      </p>
+      {api.dependencies.findings.length > 0 && (
+        <ul className="bld-list" aria-label={t(locale, 'm10a.api.deps')}>
+          {api.dependencies.findings.map((f, i) => (
+            <li key={`${f.level}-${i}`}>
+              <Badge tone={f.level === 'block' ? 'danger' : 'warn'}>{f.level}</Badge>{' '}
+              <bdi dir="auto">{f.message}</bdi>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
 
 /** UI-M10-02: the generated REST API (from its OpenAPI) and the dependency-policy verdict on the generated package manifest. */
 export function ApiPanel({ locale, api }: { locale: Locale; api: ApiView }) {
@@ -404,25 +431,7 @@ export function ApiPanel({ locale, api }: { locale: Locale; api: ApiView }) {
           ]}
         />
       )}
-      <h3 className="nz-h3">{t(locale, 'm10a.api.deps')}</h3>
-      <p role="status">
-        <Badge tone={api.dependencies.ok ? 'success' : 'warn'}>
-          {t(locale, api.dependencies.ok ? 'm10a.api.depsOk' : 'm10a.api.depsReview')}
-        </Badge>{' '}
-        <span className="nz-muted">
-          {t(locale, 'm10a.api.depCount', { count: api.dependencies.count })}
-        </span>
-      </p>
-      {api.dependencies.findings.length > 0 && (
-        <ul className="bld-list" aria-label={t(locale, 'm10a.api.deps')}>
-          {api.dependencies.findings.map((f, i) => (
-            <li key={`${f.level}-${i}`}>
-              <Badge tone={f.level === 'block' ? 'danger' : 'warn'}>{f.level}</Badge>{' '}
-              <bdi dir="auto">{f.message}</bdi>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ApiDeps locale={locale} api={api} />
     </>
   );
 }

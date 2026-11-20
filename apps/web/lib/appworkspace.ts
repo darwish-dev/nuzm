@@ -322,6 +322,13 @@ export interface EndpointView {
   summary: string;
 }
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
+/** A URL path with every segment masked on its own: `safeText` hides token-like runs of 24+ characters, and a whole path of slashes and words (`/api/v1/appointments/export`) is one such run. */
+const safePath = (v: string): string =>
+  v
+    .slice(0, 200)
+    .split('/')
+    .map((seg) => safeText(seg, 80))
+    .join('/');
 export interface ApiView {
   endpoints: EndpointView[];
   dependencies: { count: number; ok: boolean; findings: { level: string; message: string }[] };
@@ -339,7 +346,7 @@ export function readApi(payload: unknown): ApiView | null {
       if (isObj(op))
         endpoints.push({
           method: m.toUpperCase(),
-          path: safeText(path, 200),
+          path: safePath(path),
           summary: safeText(op.summary ?? op.operationId, 160),
         });
     }

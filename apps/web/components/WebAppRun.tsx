@@ -15,9 +15,11 @@ import { credits, isRunActive, num, type Run } from '../lib/builder';
 import { bapi, useBuilderCall, useRunStream } from '../lib/builder-client';
 import { runFailure } from '../lib/mobile';
 import { useRunSafetyPoll } from '../lib/run-poll';
+import { timelineOf, type OpenTarget } from '../lib/webapp-events';
 import { appPhase } from '../lib/webapp-workspace';
 import { PendingApprovals, type ApprovalLite } from './ApprovalPanels';
 import { ProblemNote } from './BuilderBits';
+import { ProducedList, RunTimeline, useProduced } from './WebAppTimeline';
 
 export interface AppRunProgress {
   active: boolean;
@@ -61,6 +63,7 @@ export function WebAppRunCard({
   mfaFactorId,
   onRun,
   onProgress,
+  onOpen,
 }: {
   locale: Locale;
   runId: string;
@@ -72,12 +75,15 @@ export function WebAppRunCard({
   /** called with the run row whenever its STATE changes (the workspace reloads the project when a run finishes) */
   onRun?: (run: Run) => void;
   onProgress?: (p: AppRunProgress) => void;
+  /** open a panel of the workspace (a link in the timeline or in "what was produced") */
+  onOpen?: (target: OpenTarget) => void;
 }) {
   const stream = useRunStream(runId);
   const call = useBuilderCall();
   const run = stream.run;
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [tick, setTick] = useState(0);
+  const [showEvents, setShowEvents] = useState<boolean | null>(null);
   const onRunRef = useRef(onRun);
   onRunRef.current = onRun;
   const onProgressRef = useRef(onProgress);
@@ -129,6 +135,8 @@ export function WebAppRunCard({
     onProgressRef.current?.({ active: active && !waiting, label });
   }, [active, waiting, label]);
 
+  const produced = useProduced(run, stream.events);
+
   const cancel = () =>
     void call.run(
       () => bapi.post<{ state: string }>(`/v1/ai/runs/${runId}/cancellation`),
@@ -148,6 +156,8 @@ export function WebAppRunCard({
   const meters = runBudgetMeters(run);
   const warn = budgetWarns(meters, stream.events);
   const working = active && !waiting;
+  const events = showEvents ?? (active || run.state === 'failed' || stream.events.length <= 12);
+  const timelineCount = timelineOf(stream.events).length;
   return (
     <section
       className="bld-run mws-run"
@@ -244,27 +254,6 @@ export function WebAppRunCard({
         <Banner tone="warn">{t(locale, 'bld.run.cancelledNote')}</Banner>
       )}
       {warn && <Banner tone="warn">{t(locale, 'm10.run.budgetWarn')}</Banner>}
-      <dl className="mws-meters">
-        {meters.map((m) => (
-          <div key={m.key}>
-            <dt>{t(locale, `m10a.meter.${m.key}`)}</dt>
-            <dd>
-              <Ltr>
-                {m.used.toLocaleString('en-US')}
-                {m.max ? ` / ${m.max.toLocaleString('en-US')}` : ''}
-              </Ltr>
-              {m.level !== 'ok' && (
-                <>
-                  {' '}
-                  <Badge tone={m.level === 'exceeded' ? 'danger' : 'warn'}>
-                    {t(locale, m.level === 'exceeded' ? 'm10.run.exceeded' : 'm10.run.warn80')}
-                  </Badge>
-                </>
-              )}
-            </dd>
-          </div>
-        ))}
-      </dl>
       {waiting && (
         <section aria-labelledby="mws-web-wait-h">
           <h3 className="nz-h3" id="mws-web-wait-h">
@@ -288,6 +277,47 @@ export function WebAppRunCard({
           {!canApprove && <p className="nz-muted">{t(locale, 'm10a.run.needsApprover')}</p>}
         </section>
       )}
+      <ProducedList locale={locale} items={produced} onOpen={onOpen} />
+      <section className="wsp-act" aria-labelledby="wsp-act-h">
+        <h3 className="wsp-act-h" id="wsp-act-h">
+          <button
+            type="button"
+            aria-expanded={events}
+            aria-controls="wsp-act-body"
+            onClick={() => setShowEvents(!events)}
+          >
+            <Icon name="chevron" size={13} />
+            {t(locale, 'wsp.ev.title')}
+            <span className="wsp-act-count">{stream.events.length > 0 ? timelineCount : ''}</span>
+          </button>
+        </h3>
+        {events && (
+          <div id="wsp-act-body">
+            <RunTimeline locale={locale} events={stream.events} live={working} onOpen={onOpen} />
+          </div>
+        )}
+      </section>
+      <dl className="mws-meters">
+        {meters.map((m) => (
+          <div key={m.key}>
+            <dt>{t(locale, `m10a.meter.${m.key}`)}</dt>
+            <dd>
+              <Ltr>
+                {m.used.toLocaleString('en-US')}
+                {m.max ? ` / ${m.max.toLocaleString('en-US')}` : ''}
+              </Ltr>
+              {m.level !== 'ok' && (
+                <>
+                  {' '}
+                  <Badge tone={m.level === 'exceeded' ? 'danger' : 'warn'}>
+                    {t(locale, m.level === 'exceeded' ? 'm10.run.exceeded' : 'm10.run.warn80')}
+                  </Badge>
+                </>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
       <footer className="bld-run-foot">
         <span className="nz-muted">
           {t(locale, 'bld.run.cost', {

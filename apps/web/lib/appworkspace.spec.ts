@@ -341,6 +341,18 @@ describe('generated schema, API and access', () => {
     expect(a.rbac[0]?.name).toBe('doctor');
     expect(readApi({ openapi: 'x' })).toBeNull();
   });
+  it('keeps a long URL path readable (only a token-like segment is masked)', () => {
+    const a = readApi({
+      openapi: {
+        paths: {
+          '/api/v1/appointments/export': { get: { summary: 'Export' } },
+          [`/api/v1/${'A1b2C3d4'.repeat(4)}`]: { get: { summary: 'Token-like' } },
+        },
+      },
+    })!;
+    expect(a.endpoints[0]?.path).toBe('/api/v1/appointments/export');
+    expect(a.endpoints[1]?.path).toBe('/api/v1/[REDACTED]');
+  });
   it('builds the roles × entities matrix: CRUD order, no entry = no access, entities only a role mentions are added', () => {
     const v = readSpec(SPEC)!;
     const m = rbacMatrix(

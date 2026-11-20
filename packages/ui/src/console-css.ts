@@ -1436,15 +1436,18 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 @media (max-width: 900px) { .bwc-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .bwc-side { max-block-size: 38vh; } }
 
 /* The floating AI builder card, and the slim bar of the full-screen start page */
-.nzc a.bfab { position: fixed; inset-block-end: 22px; inset-inline: 0; margin-inline: auto; inline-size: min(540px, calc(100vw - 150px)); z-index: 54; display: flex; align-items: center; gap: 14px; padding-block: 12px; padding-inline: 16px 14px; border-radius: 22px; background: linear-gradient(165deg, var(--nzc-accent), var(--nzc-accent-strong, var(--nzc-accent))); color: var(--nzc-on-accent); text-decoration: none; box-shadow: 0 14px 40px color-mix(in srgb, var(--nzc-accent) 28%, transparent), 0 2px 8px #0000003a; animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s; }
-.nzc a.bfab:hover { transform: translateY(-3px); color: var(--nzc-on-accent); box-shadow: 0 20px 50px color-mix(in srgb, var(--nzc-accent) 38%, transparent), 0 2px 8px #0000003a; }
+/* The AI builder button: a compact accent pill at the start edge of the page (left in English, right in Arabic), just beside the sidebar. Light on purpose: it is always there, so it stays small and quiet. */
+.nzc a.bfab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--rail-w, 68px) + 22px); z-index: 54; display: inline-flex; align-items: center; gap: 10px; padding: 6px 8px; padding-inline: 6px 8px; border-radius: 999px; background: var(--nzc-accent); color: var(--nzc-on-accent); text-decoration: none; box-shadow: 0 6px 18px #00000038; animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s; }
+.nzc a.bfab:hover { transform: translateY(-2px); color: var(--nzc-on-accent); box-shadow: 0 10px 24px #00000047; }
 .nzc a.bfab:focus-visible { outline: 3px solid var(--nzc-fg); outline-offset: 3px; }
-.bfab-icon { display: grid; place-items: center; inline-size: 42px; block-size: 42px; border-radius: 14px; background: var(--nzc-on-accent); color: var(--nzc-accent); flex: none; }
-.bfab-text { display: grid; flex: 1; min-inline-size: 0; }
-.bfab-text strong { font-size: 15px; font-weight: 750; }
-.bfab-text small { color: color-mix(in srgb, var(--nzc-on-accent) 72%, transparent); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bfab-go { display: grid; place-items: center; inline-size: 34px; block-size: 34px; border-radius: 50%; background: color-mix(in srgb, var(--nzc-on-accent) 14%, transparent); flex: none; }
+.bfab-icon { display: grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 50%; background: var(--nzc-on-accent); color: var(--nzc-accent); flex: none; }
+.bfab-text { display: grid; min-inline-size: 0; }
+.bfab-text strong { font-size: 13.5px; font-weight: 700; line-height: 1.2; }
+.bfab-text small { display: none; }
+.bfab-go { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; background: color-mix(in srgb, var(--nzc-on-accent) 14%, transparent); flex: none; }
 .nzc a.bfab:hover .bfab-go { background: var(--nzc-on-accent); color: var(--nzc-accent); }
+@media (max-width: 900px) { .nzc a.bfab { inset-inline-start: 14px; } }
+html[dir='rtl'] .bfab-go .nzc-icon { transform: scaleX(-1); }
 .nzc a.bws-exit { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--nzc-field); color: var(--nzc-muted); font-size: 13px; text-decoration: none; }
 .nzc a.bws-exit { padding: 0; inline-size: 36px; block-size: 36px; justify-content: center; }
 .nzc a.bws-exit:hover { background: var(--nzc-card-hi); color: var(--nzc-fg); }
@@ -1811,7 +1814,7 @@ button.bws-publish { border: 0; font: inherit; font-size: 13px; font-weight: 650
 @media (max-width: 720px) { .mws-device, .mws-device[data-device='tablet'] { max-inline-size: 100%; } .mws-dl { grid-template-columns: minmax(0, 1fr); } }
 
 /* Content never hides behind the floating AI builder card or the basket: the page body leaves room at its end. */
-.nzc-body { padding-block-end: 112px; }
+.nzc-body { padding-block-end: 84px; }
 .nzc-body:has(> .bl), .nzc-app:has(.bws) .nzc-body { padding-block-end: 0; }
 
 /* Hosting plans: hero, hosting-type cards, plan cards. */
@@ -1915,6 +1918,11 @@ html[lang='ar'] .ascene-layer h4 { letter-spacing: 0; text-transform: none; font
 /* Landing-style heroes (domain search, mailbox creation): the same look as the AI builder landing, inside the console. */
 .ld-hero { position: relative; overflow: hidden; box-sizing: border-box; display: grid; place-items: center; min-block-size: min(640px, calc(100vh - 220px)); padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 48px); border: 1px solid var(--nzc-border); border-radius: 28px; background: var(--nzc-card); margin-block-end: 24px; }
 .ld-hero[data-compact='true'] { min-block-size: 0; padding-block: 34px; }
+.ld-hero[data-size='md'] { min-block-size: 0; padding-block: clamp(34px, 4vw, 52px); }
+.ld-purposes { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.ld-purposes .ld-tld-name { font-size: 17px; }
+.ld-go { text-decoration: none; }
+.nzc a.ld-go, .nzc a.ld-go:hover { color: var(--nzc-on-accent); }
 .ld-glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 60% 50% at 12% 0%, color-mix(in srgb, var(--nzc-accent) 22%, transparent), transparent 70%), radial-gradient(ellipse 50% 45% at 92% 30%, color-mix(in srgb, var(--nzc-accent) 13%, transparent), transparent 70%), radial-gradient(ellipse 70% 50% at 50% 115%, color-mix(in srgb, var(--nzc-accent) 11%, transparent), transparent 70%); }
 .ld-art { position: absolute; inset-inline-end: 4%; inset-block-end: 6%; inline-size: 190px; opacity: 0.9; pointer-events: none; filter: drop-shadow(0 22px 36px #00000040); }
 .ld-hero[data-compact='true'] .ld-art { display: none; }
@@ -1930,7 +1938,9 @@ html[lang='ar'] .ld-title { letter-spacing: 0; line-height: 1.3; max-inline-size
 .ld-search { display: flex; align-items: center; gap: 12px; padding-block: 10px; padding-inline: 22px 10px; color: var(--nzc-muted); }
 .ld-search-input { flex: 1; min-inline-size: 0; border: 0; background: transparent; color: var(--nzc-fg); font: inherit; font-size: clamp(17px, 2vw, 22px); padding-block: 14px; outline: none; }
 .ld-search-input::placeholder { color: var(--nzc-muted); }
-.nzc .ld-search-input, .nzc .ld-search-input:focus { border: 0; background: transparent; box-shadow: none; }
+.nzc .ld-search-input, .nzc .ld-search-input:focus, .nzc .ld-search-input:hover { border: 0 !important; background: transparent !important; box-shadow: none !important; min-block-size: 0 !important; font-size: clamp(17px, 2vw, 22px) !important; padding-inline: 0 !important; }
+.nzc .ld-local, .nzc .ld-domain { font-size: 18px !important; min-block-size: 56px !important; border-radius: 16px !important; background-color: var(--nzc-card) !important; }
+.nzc .ld-custom input { min-block-size: 0 !important; font-size: 14px !important; padding-inline: 12px !important; border-radius: 12px !important; }
 .ld-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-inline-size: 124px; padding: 14px 24px; border: 0; border-radius: 18px; background: var(--nzc-accent); color: var(--nzc-on-accent); font: inherit; font-weight: 700; cursor: pointer; transition: transform 0.15s ease, opacity 0.15s ease; }
 .ld-go:hover:not(:disabled) { transform: translateY(-1px); }
 .ld-go:disabled { opacity: 0.55; cursor: not-allowed; }

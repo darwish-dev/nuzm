@@ -2257,7 +2257,7 @@ html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
 @media(prefers-reduced-motion:reduce) { .nzc-service-art,.nzc-service-art * { animation:none !important; } .nzc-slide-motion { display:none; } }
 
 /* Plain borderless surfaces, without decorative card patterns. */
-.nzc :is(.nz-card,.nzc-stat,.nzc-tile,.nzc-navcard,.nzc-service-tile,.nzc-panel,.nzc-shop-card,.nzc-shop-plan,.nzc-co-card,.nzc-cart-panel,.nzc-home-service,.nzc-home-build,.nzc-home-product,.nzc-split-card,.nzc-split-panel,.nzc-hero,.hs-plan,.hs-hero,.ld-card,.bl-pcard,.bl-hero,.mws-panel,.nzc-plan,.nzc-quota,.nzc-action,.nzc-callout,.nzc-host-planner-panel) { background-image:none !important; background-color:var(--nzc-card); }
+.nzc :is(.nz-card,.nzc-stat,.nzc-tile,.nzc-navcard,.nzc-service-tile,.nzc-panel,.nzc-shop-card,.nzc-shop-plan,.nzc-co-card,.nzc-cart-panel,.nzc-home-service,.nzc-home-build,.nzc-home-product,.nzc-hero,.hs-plan,.hs-hero,.ld-card,.bl-pcard,.bl-hero,.mws-panel,.nzc-plan,.nzc-quota,.nzc-action,.nzc-callout,.nzc-host-planner-panel) { background-image:none !important; background-color:var(--nzc-card); }
 .nzc-home-service::before { display:none; }
 .nzc .nzc-home-service[data-service='hosting'] { background-color:color-mix(in srgb,var(--nzc-card) 90%,#bcdccb); }
 .nzc .nzc-home-service[data-service='compute'] { background-color:color-mix(in srgb,var(--nzc-card) 90%,#93b6b3); }
@@ -2430,6 +2430,6 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 .nzc-dashboard .nzc-split { min-block-size:0; padding:0; background:transparent; }
 .nzc-body:has(.nzc-dash-layout) { padding-block-end:24px; }
 
-/* Status column resource cards: white background (the dark "needs attention" card keeps its own). Text colours are set for white so it reads in both themes. */
-.nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a; --nzc-fg: #17181a; --nzc-muted: #5b5f63; }
+/* Status column resource cards: white background in light mode only (dark mode keeps the dark card; the "needs attention" card keeps its own). */
+.nzc[data-theme="light"] .nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a; --nzc-fg: #17181a; --nzc-muted: #5b5f63; }
 `;

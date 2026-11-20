@@ -41,9 +41,10 @@ describe('ui tokens', () => {
     expect(consoleCss).toContain('.nzc-dash-layout :is(.nz-card, .nzc-stat, .nzc-status-card');
     expect(consoleCss).toMatch(/\{ border: 0 !important; \}/);
   });
-  it('the status column resource cards are white, with dark text, and the attention card is not', () => {
+  it('the status column resource cards are white in light mode only, with dark text, and the attention card is not', () => {
     expect(consoleCss).toContain(
-      '.nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a;',
+      '.nzc[data-theme="light"] .nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a;',
     );
+    expect(consoleCss).not.toContain('\n.nzc-status-card:not(.nzc-status-attention) { background: #ffffff;');
   });
 });

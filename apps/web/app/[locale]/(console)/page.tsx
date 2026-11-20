@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, formatMinor, isLocale, t } from '@nuzm/i18n';
-import { CountUp, Badge, Bars, Icon, Ltr, StatTile } from '@nuzm/ui';
+import { Art, CountUp, Badge, Bars, Icon, Ltr, StatTile } from '@nuzm/ui';
 import { OP_TERMINAL } from '../../../lib/compute';
 import { requireSession } from '../../../lib/server';
 import { flagEnabled, visibleServices } from '../../../lib/services';
@@ -56,14 +56,95 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   const top = meters[0] ? BigInt(meters[0].amountMinor!) : 1n;
   const services = visibleServices(s.can, (f) => flagEnabled(s.me.featureFlags, f));
 
+  const featuredServices = ['hosting', 'compute', 'domains']
+    .map((id) => services.find((service) => service.id === id))
+    .filter((service) => service !== undefined);
+  const otherServices = services.filter((service) => !featuredServices.includes(service));
+  const primaryService =
+    services.find((service) => service.id === 'builder') ?? featuredServices[0];
+  const ar = locale === 'ar';
+
   return (
     <div className="nzc-dashboard">
-      <section className="nzc-hero" aria-labelledby="d-hero">
-        <h1 id="d-hero">{t(locale, 'home.title', { name })}</h1>
-        <p>
-          {s.org.name} · <Badge>{t(locale, `org.type.${s.org.type}`)}</Badge>
-        </p>
+      <section className="nzc-home-banner" aria-labelledby="d-hero">
+        <div className="nzc-home-banner-copy">
+          <p className="nzc-home-org">
+            {s.org.name} <Badge>{t(locale, `org.type.${s.org.type}`)}</Badge>
+          </p>
+          <h1 id="d-hero">{t(locale, 'home.title', { name })}</h1>
+          <h2>{ar ? 'فكرتك التالية، تبدأ من هنا.' : 'Your next idea starts here.'}</h2>
+          <p className="nzc-home-intro">
+            {ar
+              ? 'من أول نطاق إلى تطبيقك القادم. استضف مواقعك وأدر مواردك السحابية من مكان واحد.'
+              : 'From your first domain to your next application. Bring your websites and cloud resources together.'}
+          </p>
+          {primaryService && (
+            <a
+              className="nz-btn nz-btn-primary nzc-home-cta"
+              href={`${base}${primaryService.href}`}
+            >
+              {primaryService.id === 'builder'
+                ? ar
+                  ? 'ابدأ البناء'
+                  : 'Start building'
+                : t(locale, primaryService.label)}
+              <Icon name="arrow" size={17} />
+            </a>
+          )}
+        </div>
+        <div className="nzc-home-banner-visual" aria-hidden="true">
+          <Art name="cloud" />
+          <span className="nzc-home-visual-label">
+            <Icon name="cloud" size={16} />
+            {ar ? 'كل أفكارك. منصة واحدة.' : 'All your ideas. One platform.'}
+          </span>
+        </div>
       </section>
+
+      {featuredServices.length > 0 && (
+        <section aria-labelledby="d-featured">
+          <div className="nzc-cardhead">
+            <h2 id="d-featured">{ar ? 'مساحتك للنمو' : 'Room to grow'}</h2>
+          </div>
+          <ul className="nzc-home-products">
+            {featuredServices.map((service) => {
+              const art = service.id === 'compute' ? 'cloud' : service.id;
+              return (
+                <li key={service.id}>
+                  <a className="nzc-home-product" href={`${base}${service.href}`}>
+                    <div className="nzc-home-product-image">
+                      <img
+                        src={`/images/services/${art}-studio.webp`}
+                        alt=""
+                        width={1536}
+                        height={1024}
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="nzc-home-product-body">
+                      <span className="nzc-home-product-heading">
+                        <Icon name={service.icon} size={20} />
+                        <strong>
+                          {service.id === 'compute'
+                            ? ar
+                              ? 'السحابة'
+                              : 'Cloud'
+                            : t(locale, service.label)}
+                        </strong>
+                        <Icon name="arrow" size={18} />
+                      </span>
+                      <p>{t(locale, service.desc)}</p>
+                      <span className="nzc-home-product-link">
+                        {ar ? 'إدارة الخدمة' : 'Manage service'}
+                      </span>
+                    </div>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <div className="nzc-stats">
         {balance && (
@@ -216,13 +297,13 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         </div>
       )}
 
-      {services.length > 0 && (
+      {otherServices.length > 0 && (
         <section aria-labelledby="d-services">
           <div className="nzc-cardhead">
             <h2 id="d-services">{t(locale, 'dash.services.title')}</h2>
           </div>
           <ul className="nzc-tiles">
-            {services.map((svc) => (
+            {otherServices.map((svc) => (
               <li key={svc.id}>
                 <a className="nzc-tile" href={`${base}${svc.href}`}>
                   <span className="nzc-tile-icon">

@@ -4,7 +4,7 @@ import { NotEnabledState } from '../../../../../../components/BuilderParts';
 import { WebAppWorkspace } from '../../../../../../components/WebAppWorkspace';
 import { MobileWorkspace } from '../../../../../../components/MobileWorkspace';
 import { Workspace } from '../../../../../../components/BuilderWorkspace';
-import { studioSection } from '../../../../../../components/StudioPanels';
+import { studioSection } from '../../../../../../lib/studio-sections';
 import { APP_BUILDER_FLAG } from '../../../../../../lib/appbuilder';
 import { latestWebappRun } from '../../../../../../lib/appworkspace';
 import { AI_STUDIO_FLAG } from '../../../../../../lib/ai-studio';

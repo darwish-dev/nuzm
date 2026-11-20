@@ -5,7 +5,8 @@ import { t } from '@nuzm/i18n';
 import type { ProjectDetail, SiteModel } from '../lib/builder';
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 import { Workspace } from './BuilderWorkspace';
-import { StudioPanel, studioSection, STUDIO_SECTIONS } from './StudioPanels';
+import { StudioPanel } from './StudioPanels';
+import { studioSection, STUDIO_SECTIONS } from '../lib/studio-sections';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -74,8 +75,7 @@ describe('studioSection', () => {
 });
 
 describe('StudioPanel', () => {
-  const panel = (section: (typeof STUDIO_SECTIONS)[number], over = {}) => {
-    const onClose = vi.fn();
+  const panel = (section: (typeof STUDIO_SECTIONS)[number]) => {
     const onSelect = vi.fn();
     render(
       <StudioPanel
@@ -85,11 +85,9 @@ describe('StudioPanel', () => {
         sections={[...STUDIO_SECTIONS]}
         can={can}
         onSelect={onSelect}
-        onClose={onClose}
-        {...over}
       />,
     );
-    return { onClose, onSelect };
+    return { onSelect };
   };
 
   it("offers the sections as tabs, marks the open one, and loads that site's data", async () => {
@@ -108,12 +106,9 @@ describe('StudioPanel', () => {
     expect(onSelect).toHaveBeenCalledWith('deployments');
   });
 
-  it('Escape and the close button hand control back to the studio', () => {
-    const { onClose } = panel('seo');
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.ws.panel.close') }));
-    expect(onClose).toHaveBeenCalledTimes(2);
+  it('is part of the page (no dialog, no overlay)', () => {
+    panel('seo');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('a failed read shows the error state, not a raw message', async () => {
@@ -134,7 +129,7 @@ describe('StudioPanel', () => {
   });
 });
 
-describe('Workspace + panel', () => {
+describe('Workspace + section', () => {
   const links = [
     { key: 'versions', href: '/en/builder/projects/p1?panel=versions', label: 'Versions' },
     { key: 'seo', href: '/en/builder/projects/p1?panel=seo', label: 'SEO' },
@@ -155,38 +150,63 @@ describe('Workspace + panel', () => {
         {...over}
       />,
     );
+  const selected = (root: HTMLElement) =>
+    within(root)
+      .getAllByRole('tab')
+      .find((x) => x.getAttribute('aria-selected') === 'true')?.textContent;
 
-  it('Publish opens the panel inside the studio (no navigation) and only the permitted sections are tabs', async () => {
+  it('Publish opens the section in the main area (next to the chat, in place of the preview); only permitted sections are tabs', async () => {
     ws();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('tablist', { name: t('en', 'bld.ws.sections') })).toBeNull();
     fireEvent.click(screen.getByRole('link', { name: t('en', 'bld.ws.publish') }));
-    const dialog = await screen.findByRole('dialog');
-    const tabs = within(dialog).getAllByRole('tab');
-    expect(tabs.map((x) => x.textContent)).toEqual([
+    const list = await screen.findByRole('tablist', { name: t('en', 'bld.ws.sections') });
+    expect(
+      within(list)
+        .getAllByRole('tab')
+        .map((x) => x.textContent),
+    ).toEqual([
       t('en', 'bld.tab.versions'),
       t('en', 'bld.tab.seo'),
       t('en', 'bld.tab.deployments'),
     ]);
-    expect(tabs.find((x) => x.getAttribute('aria-selected') === 'true')?.textContent).toBe(
-      t('en', 'bld.tab.deployments'),
+    expect(selected(list)).toBe(t('en', 'bld.tab.deployments'));
+    // it is inside the canvas section, the chat is still there, and there is no overlay
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('region', { name: t('en', 'bld.ws.canvas') }).contains(list)).toBe(
+      true,
     );
-    // closing returns to the studio
-    fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('region', { name: t('en', 'bld.ws.chat') })).toBeTruthy();
+  });
+
+  it('Preview, Code and Data bring the canvas back', async () => {
+    ws({ initialPanel: 'seo' });
+    await screen.findByRole('tablist', { name: t('en', 'bld.ws.sections') });
+    const top = screen.getByRole('banner');
+    // while a section is open no canvas view is pressed
+    expect(
+      within(top)
+        .getByRole('button', { name: t('en', 'bld.ws.preview') })
+        .getAttribute('aria-pressed'),
+    ).toBe('false');
+    fireEvent.click(within(top).getByRole('button', { name: t('en', 'bld.ws.data') }));
+    await waitFor(() =>
+      expect(screen.queryByRole('tablist', { name: t('en', 'bld.ws.sections') })).toBeNull(),
+    );
+    expect(
+      within(top)
+        .getByRole('button', { name: t('en', 'bld.ws.data') })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
   });
 
   it('opens straight into a section from the address (?panel=)', async () => {
     ws({ initialPanel: 'seo' });
-    const dialog = await screen.findByRole('dialog');
-    expect(
-      within(dialog)
-        .getAllByRole('tab')
-        .find((x) => x.getAttribute('aria-selected') === 'true')?.textContent,
-    ).toBe(t('en', 'bld.tab.seo'));
+    const list = await screen.findByRole('tablist', { name: t('en', 'bld.ws.sections') });
+    expect(selected(list)).toBe(t('en', 'bld.tab.seo'));
   });
 
   it('ignores a section this member may not open', () => {
     ws({ initialPanel: 'cms' });
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('tablist', { name: t('en', 'bld.ws.sections') })).toBeNull();
   });
 });

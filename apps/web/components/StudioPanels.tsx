@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Icon, Skeleton } from '@nuzm/ui';
+import { Skeleton } from '@nuzm/ui';
 import { bapi } from '../lib/builder-client';
 import type {
   BuilderForm,
@@ -13,17 +13,12 @@ import type {
   Submission,
   Version,
 } from '../lib/builder';
+import type { StudioSection } from '../lib/studio-sections';
 import { DeploymentsPanel } from './BuilderDeployments';
 import { FormsPanel } from './BuilderForms';
 import { CmsPanel } from './BuilderCms';
 import { SeoPanel } from './BuilderSeo';
 import { VersionsPanel } from './BuilderVersions';
-
-/** The sections of a site, in the order of the studio's tab row. Each one is a panel of the studio for THAT site (never a page of the console). */
-export const STUDIO_SECTIONS = ['versions', 'seo', 'forms', 'cms', 'deployments'] as const;
-export type StudioSection = (typeof STUDIO_SECTIONS)[number];
-export const studioSection = (v: string | null | undefined): StudioSection | null =>
-  (STUDIO_SECTIONS as readonly string[]).includes(v ?? '') ? (v as StudioSection) : null;
 
 type State<T> = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: T };
 
@@ -168,8 +163,9 @@ function SectionBody({
 }
 
 /**
- * A slide-over of the studio for the open site: Versions, SEO, Forms, Content and Publishing without leaving the studio (the preview, the chat and the
- * unsent text stay where they are). Escape or the close button hands control back; the sections offered are the ones this member may read.
+ * The site's other sections (Versions, SEO, Forms, Content, Publishing) in the main area of the studio for the open site, in place of the preview (like Data):
+ * the chat stays beside it and the unsent text stays where it is. Preview / Code / Data in the top bar bring the canvas back; the sections offered are the
+ * ones this member may read.
  */
 export function StudioPanel({
   locale,
@@ -178,7 +174,6 @@ export function StudioPanel({
   sections,
   can,
   onSelect,
-  onClose,
 }: {
   locale: Locale;
   projectId: string;
@@ -186,51 +181,25 @@ export function StudioPanel({
   sections: StudioSection[];
   can: StudioCan;
   onSelect: (s: StudioSection) => void;
-  onClose: () => void;
 }) {
-  const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
-    ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
   return (
-    <aside
-      className="bws-panel"
-      role="dialog"
-      aria-label={t(locale, `bld.tab.${section}` as 'bld.tab.versions')}
-      tabIndex={-1}
-      ref={ref}
-    >
-      <div className="bws-panel-head">
-        <div role="tablist" className="bws-panel-tabs">
-          {sections.map((s) => (
-            <button
-              key={s}
-              type="button"
-              role="tab"
-              aria-selected={s === section}
-              className="bws-panel-tab"
-              onClick={() => onSelect(s)}
-            >
-              {t(locale, `bld.tab.${s}` as 'bld.tab.versions')}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          className="bws-icon-btn"
-          aria-label={t(locale, 'bld.ws.panel.close')}
-          title={t(locale, 'bld.ws.panel.close')}
-          onClick={onClose}
-        >
-          <Icon name="close" size={18} />
-        </button>
+    <div className="bwd bws-panel">
+      <div className="bwd-tabs" role="tablist" aria-label={t(locale, 'bld.ws.sections')}>
+        {sections.map((s) => (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={s === section}
+            onClick={() => onSelect(s)}
+          >
+            {t(locale, `bld.tab.${s}` as 'bld.tab.versions')}
+          </button>
+        ))}
       </div>
       <div className="bws-panel-body" role="tabpanel">
         <SectionBody locale={locale} projectId={projectId} section={section} can={can} />
       </div>
-    </aside>
+    </div>
   );
 }

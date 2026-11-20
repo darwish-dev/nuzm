@@ -52,3 +52,12 @@ describe('builder prompts', () => {
       expect(MOBILE_DESIGN).toContain(w);
   });
 });
+
+describe('parseModelJson', () => {
+  it('reads plain and fenced JSON alike, and rejects prose', async () => {
+    const { parseModelJson } = await import('./prompts');
+    expect(parseModelJson('{"a":1}')).toEqual({ a: 1 });
+    expect(parseModelJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
+    expect(() => parseModelJson('here is your app')).toThrow();
+  });
+});

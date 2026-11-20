@@ -125,3 +125,13 @@ export const MOBILE_DESIGN = join(
     'only a screen of kind list may have items; a field of type choice needs at least two options and no other type has options; permissions come only from internet, camera, location, notifications, photos, without duplicates; ' +
     'colours are #RRGGBB; every text has both ar and en. No code, no URLs, no credentials.',
 );
+
+/** A model's JSON answer without the code fence some models wrap it in (```json … ```). Throws like JSON.parse when it is not JSON. */
+export function parseModelJson(text: string): unknown {
+  return JSON.parse(
+    text
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, ''),
+  );
+}

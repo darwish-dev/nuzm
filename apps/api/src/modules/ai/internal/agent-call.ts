@@ -2,6 +2,7 @@ import {
   checkToolCall,
   dataFence,
   envelopeSchema,
+  parseModelJson,
   sanitizeUntrusted,
   scanForSecrets,
   validateSchema,
@@ -15,11 +16,6 @@ import type { GatewayService } from './gateway.service';
 import { AgentOutputInvalid, type AgentCall, type RunRow } from './run-kinds';
 import type { AiConfig } from './model';
 
-const stripFences = (t: string) =>
-  t
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/, '');
 const cleanParams = (v: unknown, fence: string): unknown => {
   if (typeof v === 'string') return sanitizeUntrusted(v, fence).slice(0, 2000);
   if (Array.isArray(v)) return v.slice(0, 200).map((x) => cleanParams(x, fence));
@@ -105,7 +101,7 @@ export async function runAgent<T>(
     let parsed: unknown;
     let errors: string[];
     try {
-      parsed = JSON.parse(stripFences(r.text));
+      parsed = parseModelJson(r.text);
       errors = validateSchema(schema, parsed).map((e) => `${e.path} ${e.message}`);
       if (errors.length === 0 && a.check) {
         try {

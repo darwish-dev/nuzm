@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
-import { dataFence, webappInstruction, wrapUntrusted } from '@nuzm/domain';
+import { dataFence, parseModelJson, webappInstruction, wrapUntrusted } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
 import { ProblemException } from '../../../../common/errors';
 import type {
@@ -687,12 +687,7 @@ export class RealModelGateway extends ModelGatewayPort {
     }
     let output: unknown;
     try {
-      output = JSON.parse(
-        r.text
-          .trim()
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\s*```$/, ''),
-      );
+      output = parseModelJson(r.text);
     } catch {
       output = { error: 'the answer is not valid JSON' }; // fails schema validation → one billed repair attempt
     }

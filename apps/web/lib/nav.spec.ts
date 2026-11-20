@@ -40,15 +40,13 @@ describe('categories', () => {
     const nav = buildNav(all({ flag: () => false }));
     expect(ids(nav)).not.toContain('hosting');
     expect(ids(nav)).not.toContain('domains');
-    expect(ids(nav)).toContain('cloud'); // resources and operations do not need a flag, so the category stays
+    expect(ids(nav)).not.toContain('cloud'); // Cloud servers is one page behind the provisioning flag: nothing is left without it
   });
 
-  it('cloud keeps resources and operations while compute is off', () => {
-    const cloud = buildNav(all({ flag: () => false })).find((c) => c.id === 'cloud')!;
-    expect(cloud.groups.flatMap((g) => g.items.map((i) => i.id))).toEqual([
-      'resources',
-      'operations',
-    ]);
+  it('cloud servers is one page with no tab bar: no offers, resources or operations tabs', () => {
+    const cloud = buildNav(all()).find((c) => c.id === 'cloud')!;
+    expect(cloud.noTabs).toBe(true);
+    expect(cloud.groups.flatMap((g) => g.items.map((i) => i.id))).toEqual(['instances']);
   });
 
   it('a member without an organization only gets the dashboard and the profile', () => {

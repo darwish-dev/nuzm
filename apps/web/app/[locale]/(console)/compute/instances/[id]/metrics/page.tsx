@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { EmptyState, ForbiddenState, PageTitle } from '@nuzm/ui';
-import { ComputeTabs } from '../../../../../../../components/ComputeBits';
 import { InstanceNav } from '../../../../../../../components/ComputeInstanceDetail';
 import { MetricsPanel } from '../../../../../../../components/ComputeMetrics';
 import {
@@ -69,7 +68,6 @@ export default async function InstanceMetrics({
   return (
     <>
       {title}
-      <ComputeTabs locale={locale} current="instances" can={s.can} />
       {body}
     </>
   );

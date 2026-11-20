@@ -212,6 +212,8 @@ export const CATEGORIES: Category[] = [
     title: 'nc.title.cloud',
     roots: ['/compute', '/resources', '/operations'],
     org: true,
+    // Cloud servers is one page: no tab bar (Offers and regions, Resources and Operations are no longer offered here)
+    noTabs: true,
     groups: [
       {
         id: 'infrastructure',
@@ -223,20 +225,6 @@ export const CATEGORIES: Category[] = [
             href: '/compute/instances',
             perm: ['compute:instance:read'],
             flag: 'cloud.provisioning',
-          },
-          {
-            id: 'offers',
-            label: 'nc.item.offers',
-            href: '/compute/offers',
-            perm: ['offers:read'],
-            flag: 'cloud.provisioning',
-          },
-          { id: 'resources', label: 'nav.resources', href: '/resources', perm: ['resource:read'] },
-          {
-            id: 'operations',
-            label: 'nav.operations',
-            href: '/operations',
-            perm: ['operation:read'],
           },
         ],
       },

@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { ButtonLink, EmptyState, ForbiddenState, Icon, PageTitle } from '@nuzm/ui';
-import { ComputeTabs } from '../../../../../components/ComputeBits';
 import { InstancesPanel } from '../../../../../components/ComputeInstances';
 import { StartHero } from '../../../../../components/StartHero';
 import { one, unwrapCall, type Instance, type Paged } from '../../../../../lib/compute';
@@ -55,7 +54,6 @@ export default async function Instances({
   return (
     <>
       {title}
-      <ComputeTabs locale={locale} current="instances" can={s.can} />
       {s.can('compute:instance:create') && (
         <StartHero
           id="cloud-hero"
@@ -63,12 +61,6 @@ export default async function Instances({
           title={t(locale, 'cloud.hero.title')}
           body={t(locale, 'cloud.hero.body')}
         >
-          {s.can('offers:read') && (
-            <ButtonLink variant="secondary" href={`/${locale}/compute/offers`}>
-              <Icon name="pin" size={18} />
-              {t(locale, 'cloud.hero.offers')}
-            </ButtonLink>
-          )}
           <ButtonLink href={`/${locale}/compute/instances/new`}>
             <Icon name="cloud" size={18} />
             {t(locale, 'cloud.hero.new')}

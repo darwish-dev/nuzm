@@ -2384,4 +2384,42 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 @keyframes nb-draw { 0%,100% { stroke-dashoffset:0; opacity:1; } 50% { stroke-dashoffset:35; opacity:.65; } }
 @media(max-width:700px) { .nzc .nzc-home-slider { grid-template-columns:1fr; } .nzc-home-slider .nb-art { block-size:195px; margin-block:0 35px; } }
 @media(prefers-reduced-motion:reduce) { .nb-art,.nb-art * { animation:none !important; } }
+
+/* Smaller service cards: one clear heading, compact artwork, no description. */
+.nzc-home-bento { grid-auto-rows:200px; }
+.nzc .nzc-home-service { padding:14px 17px; gap:7px; justify-content:space-between; }
+.nzc-home-service-top { gap:10px; }
+.nzc .nzc-home-service h2 { margin:0; font-size:22px; line-height:1.2; font-weight:600; letter-spacing:-.025em; }
+.nzc-home-service-top > .nzc-icon:last-child { margin-inline-start:auto; }
+.nzc .nzc-home-service .nb-art-compact,.nzc .nzc-home-build .nb-art-compact { block-size:90px; min-block-size:0; }
+.nb-art-compact .nb-cluster-stack { transform:rotate(-3deg) scale(.67); }
+.nb-art-compact .nb-domain-scene { transform:scale(.53); }
+.nb-art-compact .nb-editor { max-inline-size:245px; padding:10px; transform:rotate(-2deg) scale(.85); }
+.nb-art-compact .nb-editor pre { font-size:8px; line-height:1.6; margin-block-start:8px; }
+.nzc .nzc-home-build { padding:14px 17px; gap:10px; }
+.nzc .nzc-home-build h2 { font-size:22px; line-height:1.2; margin-block-start:6px; }
+.nzc-home-overview { padding:19px; }
+.nzc-home-orbit { inline-size:155px; block-size:155px; margin-block:10px; }
+.nzc-home-overview-head h2 { font-size:17px; }
+.nb-host-scene { position:relative; inline-size:290px; block-size:175px; }
+.nb-host-browser { position:absolute; inset-inline-start:10px; inset-block-start:12px; inline-size:230px; padding:12px; border-radius:15px; background:var(--nb-paper); color:var(--nb-ink); transform:rotate(-5deg); box-shadow:9px 10px 0 #b6d8cb55,0 12px 25px #10252c15; }
+.nb-host-address { display:flex; align-items:center; gap:6px; font-size:8px; color:var(--nb-muted); }
+.nb-host-dots { margin-inline-start:auto; letter-spacing:2px; }
+.nb-host-preview { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-block:15px 10px; }
+.nb-host-preview > div { display:grid; align-content:center; gap:5px; }
+.nb-host-preview i { display:block; block-size:4px; border-radius:4px; background:#7ba69a; }
+.nb-host-preview i:nth-child(2) { inline-size:70%; }
+.nb-host-preview i:nth-child(3) { inline-size:85%; block-size:2px; opacity:.4; }
+.nb-host-preview b { inline-size:35px; block-size:10px; border-radius:4px; background:#bdded0; margin-block-start:4px; }
+.nb-host-preview > span { display:grid; place-items:center; block-size:62px; border-radius:9px; background:linear-gradient(140deg,#d4e8dc,#98bfb7); color:#57817b; }
+.nb-host-tiles { display:flex; gap:5px; }
+.nb-host-tiles i { flex:1; block-size:13px; background:var(--nb-well); border-radius:4px; }
+.nb-host-server { position:absolute; inset-inline-end:0; inset-block-end:0; display:grid; place-items:center; gap:6px; inline-size:90px; padding:13px 8px; border-radius:13px; background:#2d454b; color:#c4e8d7; box-shadow:0 8px 20px #10252c22; transform:rotate(5deg); animation:nb-host-drift 5s ease-in-out infinite; }
+.nb-host-server > span { font-size:6px; letter-spacing:.06em; }
+.nb-host-server > div { display:flex; gap:4px; }
+.nb-host-server i { inline-size:12px; block-size:3px; border-radius:2px; background:#a5d4c3; opacity:.65; }
+.nb-art-compact .nb-host-scene { transform:scale(.57); }
+@keyframes nb-host-drift { 0%,100% { translate:0 0; } 50% { translate:0 -4px; } }
+@media(max-width:560px) { .nzc-home-bento { grid-auto-rows:auto; } .nzc .nzc-home-service,.nzc .nzc-home-build { min-block-size:190px; } .nzc-home-overview { min-block-size:270px; } }
+@media(prefers-reduced-motion:reduce) { .nb-host-server { animation:none; } }
 `;

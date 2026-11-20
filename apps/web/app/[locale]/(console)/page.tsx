@@ -293,13 +293,10 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                 <span className="nzc-home-service-symbol">
                   <Icon name={service.icon} size={19} />
                 </span>
-                <Icon name="arrow" size={17} />
-              </div>
-              <div>
                 <h2>
                   {service.id === 'compute' ? (ar ? 'السحابة' : 'Cloud') : t(locale, service.label)}
                 </h2>
-                <p>{slides.find((slide) => slide.id === service.id)?.description}</p>
+                <Icon name="arrow" size={17} />
               </div>
               <ServiceArtwork service={service.id} ar={ar} compact />
               <div className="nzc-home-service-bottom">

@@ -1,4 +1,4 @@
-import { Icon, type IconName } from '@nuzm/ui';
+import { Icon } from '@nuzm/ui';
 
 /** Editable artwork adapted from the supplied Nuzm bento pack. No live telemetry. */
 export function ServiceArtwork({
@@ -10,11 +10,6 @@ export function ServiceArtwork({
   ar: boolean;
   compact?: boolean;
 }) {
-  const steps: { icon: IconName; text: string }[] = [
-    { icon: 'code', text: ar ? 'خطط' : 'Plan' },
-    { icon: 'projects', text: ar ? 'ابنِ' : 'Build' },
-    { icon: 'check', text: ar ? 'انشر' : 'Ship' },
-  ];
   return (
     <div
       className={`nzc-service-art nb-art${compact ? ' nb-art-compact' : ''}`}
@@ -22,19 +17,38 @@ export function ServiceArtwork({
       aria-hidden="true"
     >
       {service === 'hosting' ? (
-        <div className="nb-process-stack">
-          <div className="nb-stack-sheet nb-sheet-back" />
-          <div className="nb-stack-sheet nb-sheet-middle" />
-          <div className="nb-process-sheet">
-            {steps.map((step, index) => (
-              <div className="nb-process-step" key={step.text}>
-                <span>
-                  <Icon name={step.icon} size={19} />
-                  {step.text}
-                </span>
-                {index < 2 && <span className="nb-down">↓</span>}
+        <div className="nb-host-scene">
+          <div className="nb-host-browser">
+            <div className="nb-host-address">
+              <Icon name="shield" size={11} />
+              <span>your-site.com</span>
+              <span className="nb-host-dots">•••</span>
+            </div>
+            <div className="nb-host-preview">
+              <div>
+                <i />
+                <i />
+                <i />
+                <b />
               </div>
-            ))}
+              <span>
+                <Icon name="domains" size={40} />
+              </span>
+            </div>
+            <div className="nb-host-tiles">
+              <i />
+              <i />
+              <i />
+            </div>
+          </div>
+          <div className="nb-host-server">
+            <Icon name="hosting" size={27} />
+            <span>NUZM HOSTING</span>
+            <div>
+              <i />
+              <i />
+              <i />
+            </div>
           </div>
         </div>
       ) : service === 'compute' ? (

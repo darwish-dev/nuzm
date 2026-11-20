@@ -23,9 +23,7 @@ it('changes the slide and destination, wraps, and allows direct selection', () =
   render(<DashboardSlider ar={false} slides={slides} />);
   fireEvent.click(screen.getByRole('button', { name: 'Next slide' }));
   expect(screen.getByRole('link', { name: 'Explore' }).getAttribute('href')).toBe('/en/domains');
-  expect(document.querySelector('.nzc-slide-photograph img')?.getAttribute('src')).toBe(
-    '/images/dashboard/domains-hero.webp',
-  );
+  expect(document.querySelector('.nzc-service-art')?.getAttribute('data-service')).toBe('domains');
   fireEvent.click(screen.getByRole('button', { name: 'Next slide' }));
   expect(screen.getByRole('heading').textContent).toBe('Hosting');
   fireEvent.click(screen.getByRole('button', { name: 'Domains' }));

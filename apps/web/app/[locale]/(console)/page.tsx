@@ -67,15 +67,15 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
     title:
       service.id === 'hosting'
         ? ar
-          ? 'مساحة جديدة لموقعك.'
-          : 'A new home for your website.'
+          ? 'انشر موقعك القادم.'
+          : 'Publish your next website.'
         : service.id === 'compute'
           ? ar
-            ? 'موارد سحابية لطموحك.'
-            : 'More room for your next big idea.'
+            ? 'بنية تحتية متصلة.'
+            : 'Your infrastructure, connected.'
           : ar
-            ? 'اسمك. بدايتك التالية.'
-            : 'Your name. Your next beginning.',
+            ? 'عنوان جديد لفكرتك.'
+            : 'Give your idea an address.',
     description:
       service.id === 'hosting'
         ? ar

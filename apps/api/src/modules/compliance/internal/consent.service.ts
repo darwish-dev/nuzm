@@ -4,6 +4,7 @@ import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { decodeCursor, pageOf, type Page } from '../../../common/pagination';
 import type { PurposeCatalog } from './purposes';
+import { UUID } from '@nuzm/domain';
 
 export interface ConsentDto {
   id: string;
@@ -36,7 +37,6 @@ const dto = (r: Row): ConsentDto => ({
 });
 
 const SUBJECT = /^[A-Za-z0-9:_.-]{1,128}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The subject reference of a member acting for themselves (an opaque id: never an email or a name). */
 export const selfRef = (userId: string) => `member:${userId}`;

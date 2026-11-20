@@ -19,9 +19,9 @@ import { signDocumentHash, type KeyVault } from './signing';
 import { assemble, buildBody } from './ubl';
 import { validateDocument } from './validator';
 import type { ZatcaDocumentService } from './zatca-document.service';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const STEPS = ['csr', 'compliance_csid', 'compliance_checks', 'production_csid'] as const;
 export type OnboardingStep = (typeof STEPS)[number];
 /** Steps that create or request credentials need two people (docs/04): one requests, a different one approves. */

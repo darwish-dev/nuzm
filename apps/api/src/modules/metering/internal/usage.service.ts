@@ -1,8 +1,8 @@
 import type { Db } from '@nuzm/platform';
 import { ProblemException } from '../../../common/errors';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const METER = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 const MAX_RANGE_MS = 366 * 86_400_000;
 

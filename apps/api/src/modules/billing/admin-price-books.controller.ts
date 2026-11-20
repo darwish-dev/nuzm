@@ -4,8 +4,7 @@ import { ProblemException } from '../../common/errors';
 import { parseLimit } from '../../common/pagination';
 import { RealmOnly, StepUp } from '../identity';
 import { PriceBookService } from './internal/price-book.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** Price books (docs/04: GET/POST /v1/admin/billing/price-books · POST …/{id}/versions). */
 @RealmOnly('admin')

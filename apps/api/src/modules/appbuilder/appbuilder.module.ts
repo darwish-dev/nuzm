@@ -20,13 +20,15 @@ import {
   RunService,
   type AiConfig,
 } from '../ai';
-import { ProjectDelegates } from '../builder';
+import { LivePreviewRegistry, ProjectDelegates } from '../builder';
 import { ResidencyService } from '../compliance';
 import { DeployService, SitePublisherPort } from '../deploy';
 import { IdentityModule } from '../identity';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
+import { LivePreviewController } from './live-preview.controller';
+import { WebappLivePreviewService } from './internal/preview/live-preview.service';
 import { TestRunsController } from './test-runs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
@@ -82,6 +84,36 @@ import { DEFAULT_SANDBOX_CONFIG, SandboxService } from './internal/sandbox/sandb
 import { AppSpecService } from './internal/spec/spec.service';
 import { TestFixService } from './internal/tests/test-fix.service';
 import { TestRunService } from './internal/tests/test-run.service';
+import { SecretStore } from '../../common/secrets';
+import { ClaudeCodeService } from './internal/studio/claude-code.service';
+import { StudioFileWriter } from './internal/studio/files';
+import { StudioEnabledGuard } from './internal/studio/flag';
+import {
+  FakeGitHostAdapter,
+  GitHubAppAdapter,
+  type GitHostAdapter,
+} from './internal/studio/git-host';
+import { GitHubService } from './internal/studio/github.service';
+import { InstructionsService } from './internal/studio/instructions.service';
+import {
+  FakeSkillSource,
+  GithubPublicSkillSource,
+  SkillSource,
+} from './internal/studio/skill-source';
+import { StudioSettingsService } from './internal/studio/settings.service';
+import { SkillsService } from './internal/studio/skills.service';
+import {
+  AdminSkillsController,
+  GithubWebhooksController,
+  StudioClaudeCodeController,
+  StudioFilesController,
+  StudioGithubConnectionController,
+  StudioInstructionsController,
+  StudioProjectGithubController,
+  StudioProjectSkillsController,
+  StudioSettingsController,
+  StudioSkillsCatalogController,
+} from './studio-controllers';
 
 /**
  * THE M09 BOUNDARY, WIRED TO THE REAL SERVICES (docs/reports/M10-m09-interface-assumptions.md, "Integration" section): RunStorePort -> `ai.runs`, ModelGatewayPort -> M09's
@@ -179,6 +211,37 @@ export const makeRuntime = (env: NodeJS.ProcessEnv = process.env): SandboxRuntim
       ? new LocalDevSandboxRuntime()
       : new MockSandboxRuntime();
 
+/**
+ * The customer GitHub integration (D-39). The real App is used only when the owner registered it and stored its key and webhook secret as vault
+ * references (HG-AS-01): GITHUB_APP_ID, GITHUB_APP_SLUG, GITHUB_APP_PRIVATE_KEY_REF, GITHUB_APP_WEBHOOK_SECRET_REF. Outside production the in-memory
+ * fake stands in; production without the App answers 503 instead of pretending.
+ */
+export const STUDIO_GIT_HOST = 'STUDIO_GIT_HOST';
+export interface StudioGitHost {
+  adapter: GitHostAdapter | null;
+}
+export async function makeGitHost(
+  secrets: SecretStore,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<StudioGitHost> {
+  const {
+    GITHUB_APP_ID: appId,
+    GITHUB_APP_SLUG: appSlug,
+    GITHUB_APP_PRIVATE_KEY_REF: keyRef,
+    GITHUB_APP_WEBHOOK_SECRET_REF: hookRef,
+  } = env;
+  if (appId && appSlug && keyRef?.startsWith('vault://') && hookRef?.startsWith('vault://'))
+    return {
+      adapter: new GitHubAppAdapter({
+        appId,
+        appSlug,
+        privateKeyPem: await secrets.get(keyRef),
+        webhookSecret: await secrets.get(hookRef),
+      }),
+    };
+  return { adapter: env.NODE_ENV === 'production' ? null : new FakeGitHostAdapter() };
+}
+
 class LogSecurityAlerts extends SecurityAlertPort {
   async alert(a: { kind: string; sandboxId: string | null; canaryId?: string; where: string }) {
     process.stderr.write(JSON.stringify({ securityAlert: a, at: new Date().toISOString() }) + '\n'); // wired to paging in M12
@@ -192,11 +255,71 @@ class LogSecurityAlerts extends SecurityAlertPort {
  */
 @Module({
   imports: [IdentityModule],
-  controllers: [SandboxesController, TestRunsController, ExportsController, ApprovalsController],
+  controllers: [
+    SandboxesController,
+    TestRunsController,
+    ExportsController,
+    ApprovalsController,
+    LivePreviewController,
+    StudioInstructionsController,
+    StudioProjectSkillsController,
+    StudioSkillsCatalogController,
+    StudioFilesController,
+    StudioGithubConnectionController,
+    StudioProjectGithubController,
+    GithubWebhooksController,
+    StudioClaudeCodeController,
+    AdminSkillsController,
+    StudioSettingsController,
+  ],
   providers: [
     ...M09_PORT_PROVIDERS,
     AppBuilderEnabledGuard,
     M09StubGuard,
+    StudioEnabledGuard,
+    // ---- AI Studio (ADR-064) --------------------------------------------------------------------------------------------------------
+    {
+      provide: StudioFileWriter,
+      useFactory: (p: ProjectsPort, ch: ChangeService) => new StudioFileWriter(p, ch),
+      inject: [ProjectsPort, ChangeService],
+    },
+    {
+      provide: SkillSource,
+      useFactory: () =>
+        process.env.NODE_ENV === 'test' ? new FakeSkillSource() : new GithubPublicSkillSource(),
+    },
+    {
+      provide: InstructionsService,
+      useFactory: (db: Db, a: AuditSink, f: StudioFileWriter) => new InstructionsService(db, a, f),
+      inject: [DB, AuditSink, StudioFileWriter],
+    },
+    {
+      provide: SkillsService,
+      useFactory: (db: Db, a: AuditSink, src: SkillSource, f: StudioFileWriter) =>
+        new SkillsService(db, a, src, f),
+      inject: [DB, AuditSink, SkillSource, StudioFileWriter],
+    },
+    {
+      provide: STUDIO_GIT_HOST,
+      useFactory: (s: SecretStore) => makeGitHost(s),
+      inject: [SecretStore],
+    },
+    {
+      provide: GitHubService,
+      useFactory: (db: Db, a: AuditSink, p: ProjectsPort, f: StudioFileWriter, h: StudioGitHost) =>
+        new GitHubService(db, a, p, f, h.adapter, process.env.STUDIO_STATE_KEY),
+      inject: [DB, AuditSink, ProjectsPort, StudioFileWriter, STUDIO_GIT_HOST],
+    },
+    {
+      provide: StudioSettingsService,
+      useFactory: (db: Db, a: AuditSink) => new StudioSettingsService(db, a),
+      inject: [DB, AuditSink],
+    },
+    {
+      provide: ClaudeCodeService,
+      useFactory: (db: Db, a: AuditSink, s: SandboxService) => new ClaudeCodeService(db, a, s),
+      inject: [DB, AuditSink, SandboxService],
+    },
     { provide: SandboxRuntime, useFactory: () => makeRuntime() },
     {
       provide: SecurityAlertPort,
@@ -248,6 +371,12 @@ class LogSecurityAlerts extends SecurityAlertPort {
       provide: AppSpecService,
       useFactory: (db: Db, a: AuditSink) => new AppSpecService(db, a),
       inject: [DB, AuditSink],
+    },
+    {
+      provide: WebappLivePreviewService,
+      useFactory: (db: Db, a: AuditSink, s: AppSpecService, r: LivePreviewRegistry) =>
+        new WebappLivePreviewService(db, a, s, r),
+      inject: [DB, AuditSink, AppSpecService, LivePreviewRegistry],
     },
     { provide: EvaluationService, useFactory: (db: Db) => new EvaluationService(db), inject: [DB] },
     {
@@ -450,6 +579,10 @@ class LogSecurityAlerts extends SecurityAlertPort {
     AppRunService,
     GraphRunner,
     EvaluationService,
+    SkillsService,
+    InstructionsService,
+    GitHubService,
+    STUDIO_GIT_HOST,
   ],
 })
 export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -466,9 +599,8 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(ChangeService) private readonly changes: ChangeService,
     @Inject(AppDeploymentService) private readonly deployments: AppDeploymentService,
     @Inject(DB) private readonly db: Db,
-  ) {
-    void _runs;
-  }
+    @Inject(SkillsService) private readonly skills: SkillsService,
+  ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
     this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph));
@@ -483,6 +615,14 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
       this.deployments,
     );
     this.jobs.start();
+    // the Nuzm-owned starter skills (idempotent; a failure is logged and retried on the next start, it never blocks the API)
+    void this.skills
+      .ensureBuiltins()
+      .catch((e: unknown) =>
+        process.stderr.write(
+          JSON.stringify({ msg: 'ai studio builtins not seeded', error: String(e) }) + '\n',
+        ),
+      );
   }
   onApplicationShutdown() {
     this.jobs.stop();

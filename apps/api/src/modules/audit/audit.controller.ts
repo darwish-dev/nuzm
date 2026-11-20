@@ -2,8 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { ProblemException } from '../../common/errors';
 import { AuditQueryService, type AuditFilter } from './internal/audit-query.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** Parse the shared audit filter query string (also used by the admin controller). */
 export function parseAuditFilter(q: Record<string, string | undefined>): AuditFilter {

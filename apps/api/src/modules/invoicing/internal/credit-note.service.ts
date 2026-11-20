@@ -10,10 +10,10 @@ import { renderDocumentHtml } from './invoice-render';
 import type { PdfRenderer } from './pdf.renderer';
 import type { SequenceService } from './sequence.service';
 import { divRound, type RoundingMode } from './tax-engine';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
 type RevenueAccount = recipes.RevenueAccount;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface CreditNoteDto {
   id: string;

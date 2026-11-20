@@ -16,9 +16,9 @@ import {
 } from './evaluator';
 import { belowFloor, parsePolicyBody } from './policy-input';
 import type { RegionRegistry } from './regions';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface ResidencyOptions {
   defaultMode: Mode;

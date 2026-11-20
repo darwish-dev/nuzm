@@ -3,8 +3,7 @@ import { Access, Org, RequirePermission, type AccessContext } from '../../common
 import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { QuoteService } from './internal/quote.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** One quote endpoint for every kind (docs/04). Quotes are immutable once issued. */
 @Controller('v1/quotes')

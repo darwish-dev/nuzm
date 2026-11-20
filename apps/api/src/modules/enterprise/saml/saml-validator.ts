@@ -171,7 +171,6 @@ function checkSignatureElement(sig: El, parent: El): void {
 
 /** Verify `sig` with each pinned certificate; returns the canonical XML of the signed element. */
 function verify(xml: string, sig: El, certs: string[]): string {
-  let lastError: unknown;
   for (const cert of certs) {
     let publicKey: string;
     try {
@@ -192,10 +191,8 @@ function verify(xml: string, sig: El, certs: string[]): string {
       return signed[0]!;
     } catch (e) {
       if (e instanceof SamlError) throw e;
-      lastError = e;
     }
   }
-  void lastError;
   throw new SamlError(
     'bad_signature',
     'the signature does not verify with any pinned IdP certificate',

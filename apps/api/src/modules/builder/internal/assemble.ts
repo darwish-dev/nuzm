@@ -165,6 +165,5 @@ export function assembleGenerated(
       .slice(0, 12)
       .map((p) => ({ pageId: p.pageId })),
   };
-  void req;
   return m;
 }

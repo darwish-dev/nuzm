@@ -231,7 +231,8 @@ export class GraphRunner {
 
       const gather = ():
         { ok: true; inputs: Record<string, unknown> } | { ok: false; kind: string } => {
-        const inputs: Record<string, unknown> = {};
+        // the run's own inputs (the user's brief) reach every node; produced artifacts only the nodes that declare them
+        const inputs: Record<string, unknown> = { ...seeds };
         for (const kind of node.consumes) {
           if (artifacts[kind] === undefined) return { ok: false, kind };
           inputs[kind] = artifacts[kind];
@@ -464,12 +465,11 @@ export class GraphRunner {
   private async settleApprovals(
     orgId: string,
     runId: string,
-    row: Row,
+    _row: Row,
   ): Promise<{ state: 'pending' | 'approved' | 'rejected' | 'expired'; ids: string[] }> {
     const list = await this.approvals.list(orgId, { runId, limit: 200 });
     const mine = list.filter((a) => a.subjectId === runId);
     if (mine.length === 0) return { state: 'pending', ids: [] };
-    void row;
     if (mine.some((a) => a.status === 'rejected'))
       return { state: 'rejected', ids: mine.map((a) => a.id) };
     // the latest request per (type, hash) decides; an expired one with no approved twin is a failure
@@ -519,9 +519,8 @@ export class GraphRunner {
     runId: string,
     stepId: string,
     err: unknown,
-    model: GuardedModel,
+    _model: GuardedModel,
   ): Promise<RunOutcome> {
-    void model;
     if (err instanceof RunCancelled) {
       await this.db.withOrg(orgId, (c) =>
         c.query(`UPDATE ai.run_steps SET status = 'cancelled', finished_at = $2 WHERE id = $1`, [

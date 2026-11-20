@@ -8,10 +8,10 @@ import type { AccountContext } from './m05-contracts';
 import type { ComputeProvisioningPort, HostingAdapter } from './ports';
 import type { HostingConfig } from './config';
 import { ZERO_HASH, auditHash, type AuditEntry } from './agent/agent-runtime';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
 const iso = (d: unknown) => (d ? (d as Date).toISOString() : null);
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const DIMS = ['cpu_millicores', 'memory_mb', 'disk_mb', 'sites'] as const;
 export type Dim = (typeof DIMS)[number];
 

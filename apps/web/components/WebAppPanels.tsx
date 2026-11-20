@@ -1,7 +1,7 @@
 'use client';
 import type { ComponentProps } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Badge, Banner, EmptyState } from '@nuzm/ui';
+import { Badge, EmptyState } from '@nuzm/ui';
 import { pick, type SpecView } from '../lib/appworkspace';
 import type { HostingSiteRef, Page_, Version } from '../lib/builder';
 import { AppDeployments } from './AppDeployments';
@@ -10,6 +10,7 @@ import { Exports } from './BuilderExports';
 import { TestRuns } from './BuilderTests';
 import { Gate } from './PanelLoad';
 import { gone, Section, useApi, useBuilt } from './WebAppLoad';
+import { WebAppLivePreview } from './WebAppLivePreview';
 
 /** What the member may do in the web-app panels, decided on the server from the session (functions cannot cross to the browser). */
 export interface AppCan {
@@ -45,21 +46,28 @@ export interface AppProject {
   lastDeployment: { state: string; url: string | null } | null;
 }
 
-/** Preview: the project at a glance and what the agents built. There is no live preview of a web app yet, and the panel says so. */
+/** Preview: the project at a glance, the running app (live preview, ADR-063) and what the agents built. */
 export function AppPreviewPanel({
   locale,
   project,
   refresh,
+  canWrite,
 }: {
   locale: Locale;
   project: AppProject;
   refresh: number;
+  canWrite: boolean;
 }) {
   const [built, retry] = useBuilt(project.id, refresh);
   return (
     <div className="mws-app-preview">
       <AppSummary locale={locale} project={project} />
-      <Banner tone="warn">{t(locale, 'mws.web.preview.note')}</Banner>
+      <WebAppLivePreview
+        locale={locale}
+        projectId={project.id}
+        canWrite={canWrite}
+        buildId={project.headVersionId}
+      />
       <Section id="mws-web-built-h" title={t(locale, 'mws.web.preview.built')}>
         <Gate locale={locale} load={built} retry={retry} gone={gone(locale)}>
           {(b) =>

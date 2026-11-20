@@ -321,7 +321,7 @@ export const rc03: Reconciler = async ({ c, from, to, tolerance }) => {
 };
 
 /** RC-04 — provider cost records vs the ledger accrual (always), negative margin, and vs provider bills when a bill source exists (M05). */
-export const rc04: Reconciler = async ({ c, from, to, toExclusive, tolerance, sources }) => {
+export const rc04: Reconciler = async ({ c, from, to, tolerance, sources }) => {
   const breaks: Break[] = [];
   const summary: Record<string, unknown> = { toleranceBps: tolerance.rc04Bps };
   const costs = (
@@ -411,7 +411,6 @@ export const rc04: Reconciler = async ({ c, from, to, toExclusive, tolerance, so
         });
     summary.bills = { lines: bills.length };
   }
-  void toExclusive;
   return { checked, breaks: cap(breaks, summary), summary };
 };
 

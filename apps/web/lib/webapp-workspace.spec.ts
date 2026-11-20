@@ -9,7 +9,9 @@ describe('web-app workspace routing', () => {
     expect(appTab(undefined)).toBe('preview');
   });
   it('lists only the panels the member may open, each with the permission its former page needed', () => {
-    expect(appTabsFor(() => true)).toEqual([...APP_TABS]);
+    // AI Studio (ADR-064) is listed only with its flag on
+    expect(appTabsFor(() => true)).toEqual(APP_TABS.filter((x) => x !== 'studio'));
+    expect(appTabsFor(() => true, true)).toEqual([...APP_TABS]);
     expect(appTabsFor((p) => p === 'builder:read')).toEqual([
       'preview',
       'spec',

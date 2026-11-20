@@ -52,9 +52,9 @@ const panel = (items: unknown[], o: Partial<Parameters<typeof AiProvidersPanel>[
   );
 
 describe('tabs', () => {
-  it('lists the three sections and marks the current one', () => {
+  it('lists the four sections (providers, runs, quality, skills) and marks the current one', () => {
     render(<AiAdminTabs locale="en" current="runs" />);
-    expect(screen.getAllByRole('link')).toHaveLength(3);
+    expect(screen.getAllByRole('link')).toHaveLength(4);
     expect(
       screen.getByRole('link', { name: t('en', 'aia.tab.runs') }).getAttribute('aria-current'),
     ).toBe('page');

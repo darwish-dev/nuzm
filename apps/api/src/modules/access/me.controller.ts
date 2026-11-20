@@ -6,8 +6,7 @@ import { ProblemException } from '../../common/errors';
 import { DB } from '../../common/tokens';
 import { CurrentPrincipal, MfaService, RealmOnly, UserService, type Principal } from '../identity';
 import { PolicyService } from './policy.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 @AnyAuthenticated()
 @RealmOnly('any')

@@ -5,8 +5,8 @@ import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { ApiKeyService, DenyImpersonation, StepUp } from '../identity';
 import { PolicyService } from './policy.service';
+import { UUID } from '@nuzm/domain';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const sees = (role: string) => role === 'owner' || role === 'admin';
 
 @Controller('v1/api-keys')

@@ -7,9 +7,9 @@ import { decodeCursor, pageOf, type Page } from '../../../common/pagination';
 import { STAGES, stageIndex, type DunningPolicy, type DunningStage } from './dunning-policy';
 import type { SubscriptionService } from './subscription.service';
 import { daysBetween, todayUtc } from './subscription-period';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface DunningDto {
   id: string;

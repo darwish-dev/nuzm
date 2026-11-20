@@ -628,8 +628,6 @@ export class DatabaseFlow {
         );
       } catch (e) {
         // same mapping as a first run, under the reconciler's lease
-        const prev = this.worker;
-        void prev;
         if (e instanceof FlowFailure) {
           await this.audit.record({
             action: 'data.database.operation_failed',

@@ -4,3 +4,4 @@ export * from './secret-scan';
 export * from './untrusted';
 export * from './moderation';
 export * from './ssrf';
+export * from './prompts';

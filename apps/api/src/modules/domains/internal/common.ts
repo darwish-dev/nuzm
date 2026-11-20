@@ -1,8 +1,9 @@
 import { domainToASCII } from 'node:url';
 import { ProblemException } from '../../../common/errors';
+import { UUID } from '@nuzm/domain';
+export { UUID };
 
 export type Row = Record<string, unknown>;
-export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const pgCode = (e: unknown): string | undefined => (e as { code?: string }).code;
 
 export const DOMAINS_FLAG = 'domains.enabled';

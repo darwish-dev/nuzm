@@ -5,8 +5,7 @@ import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { parseLimit } from '../../common/pagination';
 import { PaymentService } from './internal/payment.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** Payments of the active organization (docs/04 §2.3). 201 created, 202 while the outcome is still unknown. */
 @Controller('v1/billing/payments')

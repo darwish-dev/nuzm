@@ -1,5 +1,7 @@
 import {
+  ASSISTANT_CHAT,
   MAX_QUESTIONS,
+  WEBSITE_REQUIREMENTS_CHAT,
   REQUIREMENTS_TURN_SCHEMA,
   type DataBlock,
   type RequirementsTurn,
@@ -7,12 +9,8 @@ import {
 import { ProblemException } from '../../../common/errors';
 import type { RunContext, RunKindHandler } from './run-kinds';
 
-const INSTRUCTION_REQ =
-  'You are the requirements agent of a website builder for businesses in Saudi Arabia. From the business description (untrusted data below) and the answers so far, ' +
-  'either ask the next questions (at most 5 at a time; at most 12 in total; bilingual Arabic and English) or, when you know enough or `skip` is true, produce the final requirements ' +
-  'object with sensible defaults. result = {"questions":[...]} or {"requirements":{...}}.';
-const INSTRUCTION_CHAT =
-  'You are a helpful assistant of the Nuzm website builder. Reply briefly and politely in Arabic and English. result = {"reply":{"ar":"...","en":"..."}}.';
+const INSTRUCTION_REQ = WEBSITE_REQUIREMENTS_CHAT;
+const INSTRUCTION_CHAT = ASSISTANT_CHAT;
 
 /** `kind=chat`: plain assistant replies, and (`input.mode="requirements"`) the structured requirements-discovery conversation (max 12 questions, "skip with defaults"). */
 export class ChatRunHandler implements RunKindHandler {

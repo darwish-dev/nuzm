@@ -6,6 +6,7 @@ import { FormsPanel } from '../../../../../../../components/BuilderForms';
 import type { BuilderForm, Page_, Submission } from '../../../../../../../lib/builder';
 import { builderGuard, builderView } from '../../../../../../../lib/builder-view';
 import { isUuid, one, unwrapCall } from '../../../../../../../lib/compute';
+import { redirectToStudio } from '../../../../../../../lib/app-redirect';
 
 /** UI-M09-06: forms, submissions (masked for viewers) and form creation. */
 export default async function Forms({
@@ -15,6 +16,7 @@ export default async function Forms({
   params: Promise<{ locale: string; id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await redirectToStudio(params, 'forms');
   const { locale, id } = await params;
   const sp = await searchParams;
   if (!isLocale(locale) || !isUuid(id)) notFound();

@@ -41,6 +41,10 @@ Rules: agents may **not** assume an answer to any item marked `OPEN`. A "propose
 | D-35 | Admin console network restriction (VPN/IP allow-list/zero-trust) and separate auth realm hosting | S04 | Owner/Security | OPEN |
 | D-36 | Authoritative DNS hosting (registrar-provided vs Nuzm-operated) | S30 | Registrar-provided where adapter supports `dns`; else Nuzm-operated authoritative service | OPEN |
 | D-34 | Data retention periods (financial: per ZATCA/VAT law; logs; backups) | S08 (financial records), S13 (rest) | Counsel | OPEN (legal) |
+| D-37 | AI Studio scope additions: GitHub App, Skills registry, project instructions, Claude Code in sandbox (ADR-064) | AI Studio S-A2 | Accept ADR-064 as proposed; spec change before any endpoint/table | **DECIDED 2026-11-20 (owner): accept ADR-064 points 1–3** — spec change then implementation |
+| D-38 | Hosted Claude Code: is "customer signs in to the unmodified binary inside a Nuzm sandbox" permitted for Nuzm's offer? (Anthropic legal-and-compliance page, read 2026-11-20) | AI Studio S-A8 | Counsel opinion recorded; flag `ai.claude_code_sandbox` off in production until then | **PARTLY DECIDED 2026-11-20 (owner): isolated proof of concept only**; commercial/production use OPEN (legal + provider compliance) |
+| D-39 | GitHub App: registering account, permissions set, webhook endpoint hosting/residency | AI Studio S-A7 | Nuzm-owned App, minimum permissions per ADR-064 | **DECIDED 2026-11-20 (owner): Nuzm-owned GitHub App, minimum permissions (ADR-064)**; registration + keys = HG-AS-01 |
+| D-40 | Third-party Skills: allowed sources, licence policy, approver roles | AI Studio S-A4 | Unknown licence ⇒ not publishable; two approvers for executable skills | **DECIDED 2026-11-20 (owner): ADR-064 governance** (pinned SHA, quarantine, scan, unknown licence not publishable, two approvers for executable skills) |
 
 ## B. Human gates and external blockers (HG-xx)
 Status vocabulary: `PENDING` (not started), `REQUESTED`, `GRANTED (evidence)`, `DENIED`. An agent **may not** mark `GRANTED` itself; the owner records evidence (document/screenshot id).
@@ -79,6 +83,8 @@ Status vocabulary: `PENDING` (not started), `REQUESTED`, `GRANTED (evidence)`, `
 | HG-12-01 | Independent penetration test (external vendor) | Owner | S56 | Final report, retest letter |
 | HG-12-02 | SSO test tenants at enterprise IdPs | Owner | S55 | Tenant ids |
 | HG-12-03 | Go/no-go decision, support training, runbook acceptance, on-call roster | Owner | S58 | Signed decision |
+
+| HG-AS-01 | Register the Nuzm GitHub App (D-39) and store its app id, private key and webhook secret as vault references | Owner | AI Studio S-A7 | App id + vault refs |
 
 ## C. External dependencies treated as BLOCKED until evidenced
 Saudi-region ECS availability per account (never assumed) · ZATCA production CSID · PSP production approval · registrar/`.sa` rights · app-store account approvals · pen-test completion · certifications.

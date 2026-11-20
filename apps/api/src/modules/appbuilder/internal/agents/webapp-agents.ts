@@ -1,4 +1,4 @@
-import { AGENTS, type AgentId, type Row } from '../core';
+import { type AgentId, type Row } from '../core';
 import { AppSpecService } from '../spec/spec.service';
 import { APP_SPEC_SCHEMA, validateAppSpec, type AppSpec } from '../spec/app-spec';
 import { WEBAPP_ARTIFACTS } from '../graph/dag';
@@ -29,7 +29,9 @@ const pick = (files: ReadonlyMap<string, string>, test: (p: string) => boolean):
 export class RequirementsAgent implements AgentExecutor {
   readonly agent = 'requirements' as const;
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const brief = ctx.inputs['brief'] ?? {};
+    const brief = ctx.inputs['brief'];
+    // without the brief the model can only invent a generic app; a missing brief is a wiring fault, not user input
+    if (brief === undefined) throw new Error('the requirements agent received no brief');
     const artifact = await ctx.model.ask<unknown>({
       agent: this.agent,
       purpose: 'requirements',
@@ -154,8 +156,6 @@ export class BackendAgent implements AgentExecutor {
             .map((f) => f.message)
             .join('; '),
       );
-    const rbacDoc = project.files.get('docs/RBAC.md')!;
-    void rbacDoc;
     return {
       artifact: {
         openapi: project.openapi,
@@ -250,7 +250,6 @@ export function webappExecutors(svc: AgentServices): Map<AgentId, AgentExecutor>
     new QaAgent(),
     new DevopsAgent(),
   ];
-  void AGENTS;
   return new Map(list.map((a) => [a.agent, a]));
 }
 

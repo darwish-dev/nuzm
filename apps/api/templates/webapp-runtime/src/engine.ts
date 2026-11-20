@@ -22,7 +22,7 @@ import type {
   Store,
   UserRow,
 } from './types.ts';
-import { coerceField, isUuid, validateInput } from './validation.ts';
+import { isUuid, validateInput } from './validation.ts';
 
 export interface EngineDeps {
   meta: AppMeta;
@@ -32,8 +32,6 @@ export interface EngineDeps {
   now?: () => number;
   sessionTtlSeconds?: number;
 }
-
-const ACTIONS = ['create', 'read', 'update', 'delete', 'import', 'export'];
 
 /** Builds the API of the generated application from its metadata: authentication, RBAC with row-level scope, CRUD, search/filter/sort/pagination, board, dashboard, CSV, audit trail. */
 export function buildRouter(deps: EngineDeps): Router {
@@ -673,7 +671,5 @@ export function buildRouter(deps: EngineDeps): Router {
         };
       });
   }
-  void ACTIONS;
-  void coerceField;
   return router;
 }

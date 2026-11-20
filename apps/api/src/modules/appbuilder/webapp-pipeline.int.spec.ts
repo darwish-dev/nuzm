@@ -58,6 +58,9 @@ describe('web-app pipeline with the real agents on the reference-CRM spec fixtur
           ),
       );
     expect(out.status).toBe('succeeded');
+    // the user's brief reaches the requirements agent (it once arrived empty, so every app came out as a generic template)
+    const req = e.model.calls.find((c) => c.purpose === 'requirements');
+    expect(req?.input).toMatchObject({ data: { brief: { prompt: 'a CRM' } } });
     const arts = (out as { artifacts: Record<string, unknown> }).artifacts;
     const files = assembleFiles(arts);
     for (const f of [

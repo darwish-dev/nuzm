@@ -5,8 +5,8 @@ import { parseLimit } from '../../common/pagination';
 import type { DocLocale } from './internal/doc-labels';
 import { InvoiceService } from './internal/invoice.service';
 import { ZatcaSubmissionService } from './internal/zatca/submission.service';
+import { UUID } from '@nuzm/domain';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const id = (v: string) => {
   if (!UUID.test(v)) throw new ProblemException('not_found');
   return v.toLowerCase();

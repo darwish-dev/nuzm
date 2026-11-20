@@ -31,3 +31,26 @@ export async function redirectWebapp(
   }
   if (type === 'webapp') redirect(workspaceHref(locale, id, APP_ROUTE_TAB[segment]));
 }
+
+/**
+ * The sections of a WEBSITE project (`/versions`, `/seo`, `/forms`, `/cms`, `/deployments`) are panels of the studio for that site: an old address, a bookmark or a
+ * link from another screen opens the studio with the panel open (`?panel=`). Other project types, and a project that cannot be read here, keep the page's own behaviour.
+ */
+export async function redirectToStudio(
+  params: Promise<{ locale: string; id: string }>,
+  section: 'versions' | 'seo' | 'forms' | 'cms' | 'deployments',
+): Promise<void> {
+  const { locale, id } = await params;
+  if (!isLocale(locale) || !isUuid(id)) notFound();
+  let type: string | null;
+  try {
+    const s = await requireSession(locale);
+    if (!s.org) return;
+    const c = await serverCompute(s.org.orgId);
+    const r = await c.get<{ type?: string }>(`/v1/builder/projects/${id}`);
+    type = r.response.ok ? (r.data?.type ?? null) : null;
+  } catch {
+    return;
+  }
+  if (type === 'website') redirect(`/${locale}/builder/projects/${id}?panel=${section}`);
+}

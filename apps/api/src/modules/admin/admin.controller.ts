@@ -31,8 +31,8 @@ import { OrgService } from '../tenancy';
 import { AdminReadService } from './internal/admin-read.service';
 import { FeatureFlagService } from './internal/feature-flag.service';
 import { ImpersonationService, type ImpersonationInput } from './internal/impersonation.service';
+import { UUID } from '@nuzm/domain';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const uuid = (v: string) => {
   if (!UUID.test(v)) throw new ProblemException('not_found');
   return v.toLowerCase();

@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import type { Db, OperationsService } from '@nuzm/platform';
-import { assertResidency, ResidencyDenied, type ResidencyEvaluator } from '@nuzm/domain';
+import { assertResidency, ResidencyDenied, type ResidencyEvaluator, UUID } from '@nuzm/domain';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { tokenFor } from './cloudpanel-adapter';
@@ -11,7 +11,6 @@ import { KIND, type Caller, type SitesService } from './sites.service';
 import { NeedsReconcile, PermanentError, recordStep } from './steps';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = (d: unknown) => (d ? (d as Date).toISOString() : null);
 
 export interface BackupDto {

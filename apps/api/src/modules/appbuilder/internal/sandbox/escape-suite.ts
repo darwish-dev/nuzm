@@ -70,9 +70,6 @@ export interface AttemptResult {
 
 const denied = (r: ExecResult) => r.exitCode !== 0 || r.timedOut;
 const noOutput = (r: ExecResult) => r.stdout.trim() === '' || r.exitCode !== 0;
-const noCanary = (c: SuiteContext) => (r: ExecResult) =>
-  !c.canaries.list().some((k) => (r.stdout + r.stderr).includes(k.value));
-void noCanary;
 const cp = (
   id: string,
   category: Category,

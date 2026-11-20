@@ -106,7 +106,7 @@ async function checkOne(
 function verdict(
   r: RequiredDnsRecord,
   values: string[],
-  domain: string,
+  _domain: string,
 ): { status: RecordStatus; detail?: string } {
   if (r.type === 'CNAME') {
     if (values.length === 0) return { status: 'missing' };
@@ -136,7 +136,6 @@ function verdict(
       ? { status: 'conflict', detail: `the SPF record lacks ${missing.join(', ')}` }
       : { status: 'ok' };
   }
-  void domain;
   return { status: 'missing' };
 }
 

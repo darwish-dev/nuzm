@@ -26,6 +26,7 @@ import {
   type AppCan,
   type AppProject,
 } from './WebAppPanels';
+import { AppStudioPanel } from './WebAppAiStudio';
 import { AppCodePanel } from './WebAppCode';
 import { AppDataPane, type DataView } from './WebAppData';
 import { WebAppRunHistory } from './WebAppHistory';
@@ -41,6 +42,7 @@ const TAB_ICON: Record<AppTab, IconName> = {
   deployments: 'cloud',
   exports: 'external',
   versions: 'refresh',
+  studio: 'sparkle',
 };
 const TAB_LABEL: Record<AppTab, MessageKey> = {
   preview: 'mws.web.tab.preview',
@@ -51,6 +53,7 @@ const TAB_LABEL: Record<AppTab, MessageKey> = {
   deployments: 'mws.web.tab.deployments',
   exports: 'mws.web.tab.exports',
   versions: 'mws.web.tab.versions',
+  studio: 'mws.web.tab.studio',
 };
 
 /**
@@ -264,6 +267,18 @@ export function WebAppWorkspace({
           refresh={refresh}
           open={codeOpen}
         />
+      ) : tab === 'studio' ? (
+        <AppStudioPanel
+          locale={locale}
+          projectId={project.id}
+          can={can}
+          refresh={refresh}
+          onOpenFile={(path) => openTarget({ tab: 'code', path })}
+          onChanged={() => {
+            void reload();
+            setRefresh((n) => n + 1);
+          }}
+        />
       ) : tab === 'design' ? (
         <AppDataPane
           locale={locale}
@@ -276,7 +291,12 @@ export function WebAppWorkspace({
       ) : (
         <div className="mws-panel" data-panel={tab}>
           {tab === 'preview' ? (
-            <AppPreviewPanel locale={locale} project={project} refresh={refresh} />
+            <AppPreviewPanel
+              locale={locale}
+              project={project}
+              refresh={refresh}
+              canWrite={can.write}
+            />
           ) : tab === 'spec' ? (
             <AppSpecTab locale={locale} projectId={project.id} refresh={refresh} />
           ) : tab === 'tests' ? (

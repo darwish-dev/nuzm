@@ -7,9 +7,9 @@ import { recipes, type LedgerPostingService } from '../../billing';
 import type { CreditNoteService, InvoiceService } from '../../invoicing';
 import { PspTimeoutError, type PspAdapter, type PspRefundResult } from './psp/psp';
 import type { PspRegistry } from './psp/registry';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MINOR = /^[1-9]\d{0,17}$/;
 
 export interface RefundDto {

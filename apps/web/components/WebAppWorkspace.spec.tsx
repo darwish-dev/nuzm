@@ -206,13 +206,48 @@ describe('web-app mode of the builder workspace (same shell as the website and m
     expect(calls.filter((c) => !c.url.startsWith('/v1/ai/runs?'))).toHaveLength(0);
   });
 
-  it('the Preview says plainly that there is no live preview of a web app yet, and lists what the agents built', async () => {
-    mockFetch((url) => built(url) ?? json(404, {}));
+  it('the Preview starts the app by itself in an isolated frame, and lists what the agents built', async () => {
+    const url = `http://${'a'.repeat(32)}.preview.localhost:4000/#/autologin=s3ss10n`;
+    mockFetch((u, method) =>
+      u === '/v1/builder/projects/p1/live-preview' && method === 'POST'
+        ? json(201, {
+            url,
+            expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+            specVersion: 2,
+          })
+        : (built(u) ?? json(404, {})),
+    );
     ws();
-    expect(screen.getByText(t('en', 'mws.web.preview.note'))).toBeTruthy();
+    // no button to press: opening the tab starts it, once
+    const frame = (await screen.findByTitle(t('en', 'mws.web.live.frame'))) as HTMLIFrameElement;
+    expect(
+      calls.filter((c) => c.method === 'POST' && c.url.endsWith('/live-preview')),
+    ).toHaveLength(1);
+    expect(frame.getAttribute('src')).toBe(url);
+    // its own (isolated) origin, never the console's: storage and same-origin calls work inside it, nothing of the console is reachable
+    expect(frame.getAttribute('sandbox')).toBe(
+      'allow-scripts allow-same-origin allow-forms allow-downloads',
+    );
+    expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
+    expect(screen.queryByText(/autologin/)).toBeNull(); // the address is only the frame src
     await waitFor(() => expect(screen.getByText('Patients')).toBeTruthy());
-    expect(screen.getByText(t('en', 'mws.web.preview.entities'))).toBeTruthy();
-    expect(screen.getByText('Patient')).toBeTruthy();
+  });
+
+  it('the Preview says so when live preview is not enabled for the organization', async () => {
+    mockFetch((u, method) =>
+      u.endsWith('/live-preview') && method === 'POST'
+        ? json(403, { status: 403, code: 'feature_disabled' })
+        : (built(u) ?? json(404, {})),
+    );
+    ws();
+    expect(await screen.findByText(t('en', 'mws.web.live.disabled'))).toBeTruthy();
+  });
+
+  it('a member who cannot edit the project does not start a preview', async () => {
+    mockFetch((u) => built(u) ?? json(404, {}));
+    ws({}, { write: false });
+    expect(await screen.findByText(t('en', 'mws.web.live.needsWriter'))).toBeTruthy();
+    expect(calls.some((c) => c.url.endsWith('/live-preview'))).toBe(false);
   });
 
   it('a project with no build yet says so in the Preview and Spec panels', async () => {

@@ -12,6 +12,7 @@ import { FormNotifier, FormsService, NoopFormNotifier } from './internal/forms.s
 import { ProjectDelegates } from './internal/delegates';
 import { MobileProjectService } from './internal/mobile-project.service';
 import { PreviewService } from './internal/preview.service';
+import { LivePreviewRegistry } from './internal/live-preview';
 import { ProjectService } from './internal/project.service';
 import { WebsiteRunHandler } from './internal/website.handler';
 import { ProjectsController } from './projects.controller';
@@ -44,6 +45,11 @@ import { PreviewServeController } from './public.controller';
       inject: [DB, AuditSink, ResidencyService, BUILDER_CONFIG, MobileProjectService],
     },
     {
+      provide: LivePreviewRegistry,
+      useFactory: (c: BuilderConfig) => new LivePreviewRegistry(c),
+      inject: [BUILDER_CONFIG],
+    },
+    {
       provide: PreviewService,
       useFactory: (db: Db, a: AuditSink, c: BuilderConfig) => new PreviewService(db, a, c),
       inject: [DB, AuditSink, BUILDER_CONFIG],
@@ -61,6 +67,7 @@ import { PreviewServeController } from './public.controller';
     },
   ],
   exports: [
+    LivePreviewRegistry,
     ProjectService,
     MobileProjectService,
     PreviewService,

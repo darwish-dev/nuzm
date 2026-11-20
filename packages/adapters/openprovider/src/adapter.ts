@@ -303,7 +303,6 @@ export class OpenproviderAdapter implements RegistrarAdapter {
           error: e.error,
           raw: this.evidence(op, 'login failed', undefined, { code: e.error.providerCode }),
         };
-      void mutating;
       throw e;
     }
   }
@@ -637,7 +636,6 @@ export class OpenproviderAdapter implements RegistrarAdapter {
     op: string,
     r: { ok: false; status: 'failed' | 'uncertain'; error: NormalizedError; ev: RawEvidence },
   ): OperationResult<T> {
-    void op;
     return { status: r.status, error: r.error, raw: r.ev };
   }
 
@@ -1244,8 +1242,6 @@ class OpenproviderDns implements DnsCapability {
           : applied === 0
             ? ('rejected' as const)
             : ('partial' as const);
-      const first = results.find((x) => x.status === 'failed');
-      void first;
       return {
         status:
           outcome === 'applied'

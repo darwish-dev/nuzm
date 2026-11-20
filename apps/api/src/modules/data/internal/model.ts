@@ -1,4 +1,6 @@
 import type { DataService } from '@nuzm/adapter-data';
+import { UUID, isUuid } from '@nuzm/domain';
+export { UUID, isUuid };
 
 /** Operation kinds of the data module (platform.operations.kind). */
 export const OP = {
@@ -20,8 +22,6 @@ export const OP = {
 export const DATA_OP_KINDS: readonly string[] = Object.values(OP);
 
 export type Row = Record<string, unknown>;
-export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const isUuid = (s: unknown): s is string => typeof s === 'string' && UUID.test(s);
 
 export const ENGINES = ['postgresql', 'mysql', 'redis'] as const;
 export type Engine = (typeof ENGINES)[number];

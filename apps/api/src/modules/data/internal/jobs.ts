@@ -158,7 +158,7 @@ export class DataJobs {
           ).rows[0]!.n,
         ),
       );
-      const b = await this.databases.enqueueBackup(
+      await this.databases.enqueueBackup(
         r.org_id as string,
         null,
         r,
@@ -175,7 +175,6 @@ export class DataJobs {
         ),
       );
       if (after > before) n++;
-      void b;
     }
     return n;
   }

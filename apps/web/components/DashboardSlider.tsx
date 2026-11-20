@@ -11,6 +11,7 @@ export function DashboardSlider({
   slides: { id: string; title: string; description: string; label: string; href: string }[];
 }) {
   const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
   const slide = slides[active] ?? slides[0];
   if (!slide) return null;
   const move = (step: number) =>
@@ -19,6 +20,7 @@ export function DashboardSlider({
     <section
       className="nzc-home-slider"
       data-slide={slide.id}
+      data-motion={paused ? 'paused' : 'playing'}
       aria-roledescription="carousel"
       aria-label={ar ? 'اكتشف خدماتك' : 'Explore your services'}
     >
@@ -43,7 +45,21 @@ export function DashboardSlider({
           <Icon name="arrow" size={15} />
         </a>
       </div>
-      <ServiceVisual service={slide.id} ar={ar} />
+      <ServiceVisual key={slide.id} service={slide.id} ar={ar} />
+      <button
+        className="nzc-slide-motion"
+        type="button"
+        aria-pressed={paused}
+        onClick={() => setPaused((value) => !value)}
+      >
+        {paused
+          ? ar
+            ? 'تشغيل الحركة'
+            : 'Play animation'
+          : ar
+            ? 'إيقاف الحركة'
+            : 'Pause animation'}
+      </button>
       {slides.length > 1 && (
         <div className="nzc-slide-controls">
           <button

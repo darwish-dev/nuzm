@@ -30,4 +30,11 @@ describe('ui tokens', () => {
     expect(consoleCss).not.toContain('view-transition');
     expect(consoleCss).toContain('html:has(.nzc) { background: #0b0b0c; }');
   });
+  it('the dashboard status column never gets a scroll bar of its own', () => {
+    const rules = consoleCss.split('\n').filter((l) => /^\.nzc-status[\s{,.:-]/.test(l));
+    expect(rules.length).toBeGreaterThan(5);
+    expect(rules.join('\n')).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
+    expect(consoleCss).toContain('.nzc-status::-webkit-scrollbar');
+    expect(consoleCss).toContain('.nzc-status, .nzc-status * { box-shadow: none !important;');
+  });
 });

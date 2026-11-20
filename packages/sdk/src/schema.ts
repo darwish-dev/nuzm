@@ -6916,6 +6916,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/knowledge/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a resumable upload session
+         * @description Body {name, resourceType, declaredBytes, sha256, filename}. Returns the session with `partSize` and the parts already received, so an interrupted upload resumes. State `UPLOADING`; the object is quarantined until completion. Quotas and size limits come from the settings. Permission `admin:ai_knowledge:manage`.
+         */
+        post: operations["createKnowledgeUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/uploads/{uploadId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an upload session
+         * @description State, bytes received and parts received (for resuming).
+         */
+        get: operations["getKnowledgeUpload"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel an upload
+         * @description Deletes the quarantined parts. A completed upload cannot be cancelled: use disable or archive.
+         */
+        delete: operations["cancelKnowledgeUpload"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/uploads/{uploadId}/parts/{partNumber}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload one part
+         * @description Raw bytes of one part; `X-Part-Sha256` is required and verified; re-sending the same part is idempotent. Permission `admin:ai_knowledge:manage`.
+         */
+        put: operations["putKnowledgeUploadPart"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/uploads/{uploadId}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete an upload and start ingestion
+         * @description Verifies the whole-object SHA-256 and the part list, creates the resource (or a new version of `resourceId`) and enqueues `knowledge.validate`. 202: ingestion is asynchronous; poll the resource and its processing jobs.
+         */
+        post: operations["completeKnowledgeUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List library resources
+         * @description Filters: `type`, `status`, `framework`, `platform`, `category`, `visibility`, `q` (name/tags), `source`, `createdFrom`, `createdTo`. Newest first. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a resource
+         * @description Resource, current version, permissions, manifest summary, quality scores and component counts. ETag = resource version.
+         */
+        get: operations["getKnowledgeResource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update metadata and permissions
+         * @description Body: any of {name, description, category, tags, frameworks, platform, license, visibility, defaultEligible, permissions{reuseScope, aiProcessing, componentReuse, starterEligible, architectureReference}}. `If-Match` required. Turning `aiProcessing` on requires `admin:ai_knowledge:publish`. Audited with before/after.
+         */
+        patch: operations["updateKnowledgeResource"];
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List versions
+         * @description Cursor pagination, newest first. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeResourceVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/deactivation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable a resource
+         * @description Body {reason}. New generations stop using it at once; existing customer projects are unaffected (they hold copies).
+         */
+        post: operations["disableKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/archival": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a resource
+         * @description Body {reason}. Soft delete under the retention policy.
+         */
+        post: operations["archiveKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12551,6 +12739,182 @@ export interface components {
         };
         MobileReleaseList: {
             items: components["schemas"]["MobileRelease"][];
+        };
+        KnowledgeActionInput: {
+            /** Format: uuid */
+            versionId?: string;
+            note?: string;
+            reason?: string;
+            force?: boolean;
+            /** @enum {string} */
+            decision?: "approve" | "reject";
+        };
+        KnowledgeJob: {
+            /** Format: uuid */
+            id?: string;
+            kind?: string;
+            /** @enum {string} */
+            state?: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | "DEAD_LETTER";
+            attempt?: number;
+            progress?: number;
+            errorCode?: string;
+            errorDetail?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        KnowledgeManifestSummary: {
+            schemaVersion?: string;
+            frameworks?: string[];
+            languages?: string[];
+            capabilities?: {
+                name?: string;
+                confidence?: number;
+                evidence?: {
+                    path?: string;
+                    line?: number;
+                }[];
+            }[];
+            modules?: string[];
+            components?: string[];
+        };
+        KnowledgeMetadata: {
+            name?: string;
+            description?: string;
+            /** @enum {string} */
+            resourceType?: "PROJECT" | "THEME" | "COMPONENT_LIBRARY" | "DESIGN_SYSTEM" | "DOCUMENTATION" | "API_SPECIFICATION" | "DATABASE_SCHEMA" | "STARTER_KIT" | "REUSABLE_MODULE";
+            /** @enum {string} */
+            platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            frameworks?: string[];
+            languages?: string[];
+            category?: string;
+            version?: string;
+            tags?: string[];
+            license?: string;
+            source?: string;
+            /** @enum {string} */
+            visibility?: "PLATFORM_PRIVATE" | "PLATFORM_PUBLISHED";
+            reusePermissions?: components["schemas"]["KnowledgePermissions"];
+            defaultEligible?: boolean;
+            /** @enum {string} */
+            processingPriority?: "LOW" | "NORMAL" | "HIGH";
+            dataRegion?: string;
+        };
+        KnowledgePermissions: {
+            /** @enum {string} */
+            reuseScope?: "NONE" | "ARCHITECTURE_ONLY" | "COMPONENTS" | "FULL_STARTER";
+            aiProcessing?: boolean;
+            componentReuse?: boolean;
+            starterEligible?: boolean;
+            architectureReference?: boolean;
+            licenseSpdx?: string;
+            /** @enum {string} */
+            licenseVerdict?: "ALLOWED" | "RESTRICTED" | "UNKNOWN" | "BLOCKED";
+        };
+        KnowledgeQualityScore: {
+            /** @enum {string} */
+            dimension?: "BUILD" | "TEST" | "ARCHITECTURE" | "DESIGN" | "SECURITY" | "COMPLETENESS";
+            score?: number;
+            method?: string;
+            evidenceRef?: string;
+            measured?: boolean;
+        };
+        KnowledgeResource: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** @enum {string} */
+            resourceType?: "PROJECT" | "THEME" | "COMPONENT_LIBRARY" | "DESIGN_SYSTEM" | "DOCUMENTATION" | "API_SPECIFICATION" | "DATABASE_SCHEMA" | "STARTER_KIT" | "REUSABLE_MODULE";
+            /** @enum {string} */
+            platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            frameworks?: string[];
+            /** @enum {string} */
+            status?: "UPLOADING" | "QUARANTINED" | "VALIDATING" | "ANALYZING" | "INDEXING" | "AWAITING_REVIEW" | "ACTIVE" | "FAILED" | "DISABLED" | "ARCHIVED";
+            /** Format: uuid */
+            currentVersionId?: string;
+            visibility?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            version?: number;
+        };
+        KnowledgeResourceDetail: components["schemas"]["KnowledgeResource"] & {
+            metadata?: components["schemas"]["KnowledgeMetadata"];
+            permissions?: components["schemas"]["KnowledgePermissions"];
+            manifest?: components["schemas"]["KnowledgeManifestSummary"];
+            quality?: components["schemas"]["KnowledgeQualityScore"][];
+            componentCount?: number;
+            jobs?: components["schemas"]["KnowledgeJob"][];
+        };
+        KnowledgeResourcePage: {
+            items: components["schemas"]["KnowledgeResource"][];
+            nextCursor: string | null;
+        };
+        KnowledgeResourcePatch: {
+            name?: string;
+            description?: string;
+            category?: string;
+            tags?: string[];
+            frameworks?: string[];
+            /** @enum {string} */
+            platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            license?: string;
+            visibility?: string;
+            defaultEligible?: boolean;
+            permissions?: components["schemas"]["KnowledgePermissions"];
+        };
+        KnowledgeUpload: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            state?: "OPEN" | "COMPLETED" | "CANCELLED" | "EXPIRED";
+            declaredBytes?: number;
+            receivedBytes?: number;
+            partSize?: number;
+            partsReceived?: number[];
+            /** Format: date-time */
+            expiresAt?: string;
+        };
+        KnowledgeUploadCompletion: {
+            parts: {
+                partNumber?: number;
+                sha256?: string;
+            }[];
+            /** Format: uuid */
+            resourceId?: string;
+            metadata: components["schemas"]["KnowledgeMetadata"];
+        };
+        KnowledgeUploadInput: {
+            name: string;
+            /** @enum {string} */
+            resourceType: "PROJECT" | "THEME" | "COMPONENT_LIBRARY" | "DESIGN_SYSTEM" | "DOCUMENTATION" | "API_SPECIFICATION" | "DATABASE_SCHEMA" | "STARTER_KIT" | "REUSABLE_MODULE";
+            declaredBytes: number;
+            sha256: string;
+            filename: string;
+            /** Format: uuid */
+            resourceId?: string;
+        };
+        KnowledgeVersion: {
+            /** Format: uuid */
+            id?: string;
+            seq?: number;
+            semver?: string;
+            /** @enum {string} */
+            state?: "UPLOADING" | "QUARANTINED" | "VALIDATING" | "ANALYZING" | "INDEXING" | "AWAITING_REVIEW" | "ACTIVE" | "FAILED" | "DISABLED" | "ARCHIVED";
+            checksumSha256?: string;
+            bytes?: number;
+            sourceCommit?: string;
+            licenseVerdict?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            activatedAt?: string;
+        };
+        KnowledgeVersionPage: {
+            items: components["schemas"]["KnowledgeVersion"][];
+            nextCursor: string | null;
         };
     };
     responses: {
@@ -26867,6 +27231,348 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createKnowledgeUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeUploadInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeUpload"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeUpload"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    cancelKnowledgeUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    putKnowledgeUploadPart: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Part-Sha256": string;
+            };
+            path: {
+                uploadId: string;
+                partNumber: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeUpload"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    completeKnowledgeUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeUploadCompletion"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeResource"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeResources: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                type?: string;
+                status?: string;
+                framework?: string;
+                platform?: string;
+                category?: string;
+                visibility?: string;
+                q?: string;
+                source?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeResourcePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeResourceDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    updateKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeResourcePatch"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeResourceDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeResourceVersions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeVersionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    disableKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeActionInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeResourceDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    archiveKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeActionInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeResourceDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

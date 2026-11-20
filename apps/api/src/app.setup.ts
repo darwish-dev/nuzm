@@ -33,6 +33,13 @@ export async function configureApp(app: INestApplication): Promise<void> {
       }
     },
   );
+  // AI Intelligence Center (ADR-065): one part of a resumable library upload arrives as raw bytes. The limit is the platform's largest part size (64 MiB);
+  // the route checks the real part size of the session and the X-Part-Sha256 header.
+  fastify.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer', bodyLimit: 64 * 1024 * 1024 },
+    (_req, body, done) => done(null, body),
+  );
   initTelemetry({ serviceName: 'nuzm-api' }); // idempotent; exporter only when OTEL_EXPORTER_OTLP_ENDPOINT is set
   const metrics = httpMetrics();
   fastify.addHook('onRequest', async (req, reply) => {

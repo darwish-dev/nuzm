@@ -14,7 +14,7 @@ import {
  * platform permissions; a staff member only sees what their roles allow. Routes are unchanged.
  */
 export type AdminCategoryId =
-  'orgs' | 'finance' | 'compliance' | 'infra' | 'ai' | 'platform' | 'ops';
+  'orgs' | 'finance' | 'compliance' | 'infra' | 'ai' | 'aik' | 'platform' | 'ops';
 type Category = NavCategory<MessageKey, AdminCategoryId>;
 
 const read = (perm: string) => ({ perm: [perm] });
@@ -362,6 +362,28 @@ export const ADMIN_CATEGORIES: Category[] = [
             ...read('admin:ai:read'),
           },
           { id: 'skills', label: 'aia.tab.skills', href: '/ai/skills', ...read('admin:ai:read') },
+        ],
+      },
+    ],
+  },
+  {
+    // AI Intelligence Center (ADR-065): the staff-managed library the AI Builder starts from. Items appear here as their slices ship.
+    id: 'aik',
+    icon: 'sparkle',
+    label: 'kn.cat',
+    title: 'kn.cat',
+    roots: ['/ai-intelligence'],
+    org: false,
+    groups: [
+      {
+        id: 'main',
+        items: [
+          {
+            id: 'library',
+            label: 'kn.nav.library',
+            href: '/ai-intelligence/library',
+            ...read('admin:ai_knowledge:read'),
+          },
         ],
       },
     ],

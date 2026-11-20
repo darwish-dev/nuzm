@@ -213,6 +213,29 @@ export const ERROR_REGISTRY = {
     title: 'The retention period is below the minimum set by the retention decision (D-34)',
   },
   // <<< M12
+  // >>> AI Intelligence Center error codes (ADR-065)
+  knowledge_resource_ineligible: {
+    status: 409,
+    title: 'The library resource is not eligible for this use',
+  },
+  knowledge_license_blocked: {
+    status: 409,
+    title: "The resource's licence does not allow this use",
+  },
+  knowledge_archive_rejected: {
+    status: 422,
+    title: 'The uploaded package was rejected by the ingestion safety checks',
+  },
+  knowledge_upload_incomplete: {
+    status: 409,
+    title: 'The upload is missing parts or does not match its declared size or checksum',
+  },
+  knowledge_template_incompatible: {
+    status: 422,
+    title: 'The selected template is not compatible with this request',
+  },
+  knowledge_approval_required: { status: 409, title: 'A second, different approver is required' },
+  // <<< AI Intelligence Center error codes
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;

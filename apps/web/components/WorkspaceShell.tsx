@@ -88,8 +88,13 @@ export function WorkspaceShell<T extends string>({
         <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
           <BrandMark />
         </a>
-        <a className="bws-back" href={backHref}>
-          {t(locale, 'bld.ws.back')}
+        <a
+          className="bws-back"
+          href={backHref}
+          aria-label={t(locale, 'bld.ws.back')}
+          title={t(locale, 'bld.ws.back')}
+        >
+          <Icon name="arrow" size={18} />
         </a>
         <h2 className="bws-title">
           <bdi dir="auto">{name}</bdi>

@@ -254,7 +254,7 @@ export function WebAppWorkspace({
       }
     >
       {!open ? (
-        <div className="mws-panel" data-panel={tab}>
+        <div className="mws-panel" data-panel={tab} data-table-default="table">
           <PanelForbidden locale={locale} />
         </div>
       ) : tab === 'code' ? (
@@ -289,14 +289,9 @@ export function WebAppWorkspace({
           onOpenFile={(path) => openTarget({ tab: 'code', path })}
         />
       ) : (
-        <div className="mws-panel" data-panel={tab}>
+        <div className="mws-panel" data-panel={tab} data-table-default="table">
           {tab === 'preview' ? (
-            <AppPreviewPanel
-              locale={locale}
-              project={project}
-              refresh={refresh}
-              canWrite={can.write}
-            />
+            <AppPreviewPanel locale={locale} project={project} canWrite={can.write} />
           ) : tab === 'spec' ? (
             <AppSpecTab locale={locale} projectId={project.id} refresh={refresh} />
           ) : tab === 'tests' ? (

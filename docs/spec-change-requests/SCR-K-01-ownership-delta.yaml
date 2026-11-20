@@ -1,0 +1,305 @@
+# SCR-K-01 — proposed spec/db/ownership.yaml delta (DRAFT). Not merged; run `pnpm compliance:classification-coverage` after the K1 migrations
+schemas:
+  knowledge:
+    owner_module: knowledge
+    created_by: K
+    extended_by: []
+    tables:
+      - analysis_results
+      - generation_evaluations
+      - generation_plans
+      - generation_resource_links
+      - processing_jobs
+      - quality_scores
+      - resource_components
+      - resource_dependencies
+      - resource_files
+      - resource_manifests
+      - resource_permissions
+      - resource_relationships
+      - resource_search_documents
+      - resource_versions
+      - resources
+      - template_defaults
+      - theme_tokens
+      - theme_variants
+      - uploads
+      - usage_events
+tenant_less:
+  - knowledge.analysis_results
+  - knowledge.processing_jobs
+  - knowledge.quality_scores
+  - knowledge.resource_components
+  - knowledge.resource_dependencies
+  - knowledge.resource_files
+  - knowledge.resource_manifests
+  - knowledge.resource_permissions
+  - knowledge.resource_relationships
+  - knowledge.resource_search_documents
+  - knowledge.resource_versions
+  - knowledge.resources
+  - knowledge.template_defaults
+  - knowledge.theme_tokens
+  - knowledge.theme_variants
+  - knowledge.uploads
+  - knowledge.usage_events
+tenant_less_note: knowledge.* rows with org_id NULL are the platform library (staff-owned); org_id set = a customer's private template or
+  import. Customers read platform rows only through the view knowledge.v_published_templates (metadata and previews, never files or object
+  keys). generation_plans, generation_resource_links and generation_evaluations are strictly tenant-owned (org_id NOT NULL, ordinary RLS
+  key); template_defaults is platform-only (no org_id).
+migration_ranges:
+  K: 1860-1899
+classification:
+  columns:
+    knowledge.analysis_results:
+      id: internal
+      version_id: internal
+      org_id: internal
+      analyzer: internal
+      analyzer_version: internal
+      content_hash: internal
+      result: customer-content
+      confidence: internal
+      evidence: customer-content
+      created_at: internal
+    knowledge.generation_evaluations:
+      id: internal
+      org_id: internal
+      plan_id: internal
+      run_id: internal
+      build_result: internal
+      test_result: internal
+      user_outcome: internal
+      tokens_in: internal
+      tokens_out: internal
+      cost_minor: internal
+      currency: internal
+      duration_ms: internal
+      evidence_ref: internal
+      created_at: internal
+    knowledge.generation_plans:
+      id: internal
+      org_id: internal
+      project_id: internal
+      run_id: internal
+      status: internal
+      selection_strategy: internal
+      adaptation_mode: internal
+      requirements: customer-content
+      plan: customer-content
+      created_by: internal
+      created_at: internal
+      version: internal
+    knowledge.generation_resource_links:
+      id: internal
+      org_id: internal
+      plan_id: internal
+      run_id: internal
+      resource_version_id: internal
+      role: internal
+      strategy: internal
+      created_at: internal
+    knowledge.processing_jobs:
+      id: internal
+      version_id: internal
+      org_id: internal
+      kind: internal
+      state: internal
+      attempt: internal
+      max_attempts: internal
+      progress: internal
+      error_code: internal
+      error_detail: internal
+      operation_id: internal
+      started_at: internal
+      finished_at: internal
+      created_at: internal
+    knowledge.quality_scores:
+      id: internal
+      version_id: internal
+      org_id: internal
+      dimension: internal
+      score: internal
+      method: internal
+      evidence_ref: internal
+      measured: internal
+      computed_at: internal
+    knowledge.resource_components:
+      id: internal
+      version_id: internal
+      org_id: internal
+      name: customer-content
+      kind: internal
+      framework: internal
+      path: customer-content
+      props: customer-content
+      dependencies: internal
+      style_deps: internal
+      assets: internal
+      platforms: internal
+      reuse_allowed: internal
+      quality_score: internal
+      preview_key: internal
+      created_at: internal
+    knowledge.resource_dependencies:
+      id: internal
+      version_id: internal
+      org_id: internal
+      ecosystem: internal
+      name: internal
+      range: internal
+      kind: internal
+      path: internal
+      license: internal
+      risk: internal
+      created_at: internal
+    knowledge.resource_files:
+      id: internal
+      version_id: internal
+      org_id: internal
+      path: customer-content
+      sha256: internal
+      bytes: internal
+      language: internal
+      is_binary: internal
+      is_executable: internal
+      object_key: internal
+      secret_findings: internal
+      created_at: internal
+    knowledge.resource_manifests:
+      id: internal
+      version_id: internal
+      org_id: internal
+      schema_version: internal
+      manifest: customer-content
+      created_at: internal
+    knowledge.resource_permissions:
+      id: internal
+      resource_id: internal
+      org_id: internal
+      reuse_scope: internal
+      ai_processing: internal
+      component_reuse: internal
+      starter_eligible: internal
+      architecture_reference: internal
+      license_spdx: internal
+      license_verdict: internal
+      updated_by: internal
+      updated_at: internal
+    knowledge.resource_relationships:
+      id: internal
+      version_id: internal
+      org_id: internal
+      from_kind: internal
+      from_ref: customer-content
+      to_kind: internal
+      to_ref: customer-content
+      relation: internal
+      evidence: customer-content
+      created_at: internal
+    knowledge.resource_search_documents:
+      id: internal
+      version_id: internal
+      org_id: internal
+      doc_kind: internal
+      ref: customer-content
+      title: customer-content
+      body: customer-content
+      content_hash: internal
+      created_at: internal
+    knowledge.resource_versions:
+      id: internal
+      resource_id: internal
+      org_id: internal
+      seq: internal
+      semver: internal
+      state: internal
+      checksum_sha256: internal
+      bytes: internal
+      archive_key: internal
+      snapshot_key: internal
+      provenance: internal
+      source_commit: internal
+      license_verdict: internal
+      parent_version_id: internal
+      created_by: internal
+      created_at: internal
+      activated_at: internal
+      activated_by: internal
+      retired_at: internal
+    knowledge.resources:
+      id: internal
+      org_id: internal
+      slug: internal
+      name: internal
+      description: internal
+      resource_type: internal
+      platform: internal
+      frameworks: internal
+      languages: internal
+      category: internal
+      tags: internal
+      visibility: internal
+      source_kind: internal
+      source_ref: internal
+      status: internal
+      current_version_id: internal
+      default_eligible: internal
+      data_region: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      deleted_at: internal
+      version: internal
+    knowledge.template_defaults:
+      id: internal
+      platform: internal
+      framework: internal
+      category: internal
+      plan: internal
+      mode: internal
+      resource_id: internal
+      version_pin: internal
+      updated_by: internal
+      updated_at: internal
+    knowledge.theme_tokens:
+      id: internal
+      version_id: internal
+      org_id: internal
+      category: internal
+      name: internal
+      value: internal
+      source_path: internal
+      created_at: internal
+    knowledge.theme_variants:
+      id: internal
+      version_id: internal
+      org_id: internal
+      kind: internal
+      name: internal
+      descriptor: internal
+      preview_key: internal
+      created_at: internal
+    knowledge.uploads:
+      id: internal
+      org_id: internal
+      resource_id: internal
+      filename: internal
+      state: internal
+      declared_bytes: internal
+      received_bytes: internal
+      part_size: internal
+      parts: internal
+      checksum_expected: internal
+      expires_at: internal
+      created_by: internal
+      created_at: internal
+    knowledge.usage_events:
+      id: internal
+      org_id: internal
+      resource_id: internal
+      version_id: internal
+      kind: internal
+      run_id: internal
+      outcome: internal
+      created_at: internal

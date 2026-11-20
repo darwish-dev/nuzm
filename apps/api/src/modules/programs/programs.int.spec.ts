@@ -461,6 +461,7 @@ describe('acting-as: the agency boundary (AC-M11-06, FR-PRG-03)', () => {
       if (/^\/v1\/(workflows|workflow-executions)/.test(path) || path.startsWith('/v1/auth/'))
         continue; // the delegable family has its own matrix above; /v1/auth/* is public
       if (path.startsWith('/scim/')) continue; // M12: SCIM accepts only its own bearer token; a session (with or without the header) cannot use it
+      if (path.startsWith('/v1/webhooks/')) continue; // inbound webhooks (e.g. the GitHub App, ADR-064) authenticate by signature, never by session: the header cannot matter
       for (const m of Object.keys(ops).filter((k) =>
         ['get', 'post', 'put', 'patch', 'delete'].includes(k),
       )) {

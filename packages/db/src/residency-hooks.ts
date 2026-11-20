@@ -36,7 +36,8 @@ export const loadHookRegistry = (path: string): HookRegistry => {
   return { tables: raw?.tables ?? {}, hooks: raw?.hooks ?? [] };
 };
 
-const MILESTONES = ['M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10', 'M11', 'M12'];
+/** 'K' is the AI Intelligence Center (ADR-065): a module slice, not a numbered milestone, so it is not in the M05..M12 "each has a hook" range below. */
+const MILESTONES = ['M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10', 'M11', 'M12', 'K'];
 const MARKER = /assertResidency\(|RequiresResidency\(|residency\.evaluate\(/;
 
 /**
@@ -57,7 +58,7 @@ export function evaluateHooks(
       out.push({ kind: 'duplicate_hook', object: h.id, detail: 'hook id used twice' });
     ids.add(h.id);
     if (
-      !/^m\d{2}-[a-z0-9-]+$/.test(h.id) ||
+      !/^(m\d{2}|k)-[a-z0-9-]+$/.test(h.id) ||
       !MILESTONES.includes(h.milestone) ||
       !h.id.startsWith(h.milestone.toLowerCase() + '-')
     )

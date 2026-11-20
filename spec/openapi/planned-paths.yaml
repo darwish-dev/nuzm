@@ -152,4 +152,52 @@ planned:
   - { path: '/v1/admin/recovery-exercises', milestone: M12, status: planned }
   - { path: '/v1/admin/policy-versions', milestone: M12, status: planned }
   - { path: '/v1/admin/audit-retention', milestone: M12, status: planned }
+  # AI Intelligence Center (ADR-065, SCR-K-01 approved 2026-11-20): approved contracts not yet implemented. The full operation and schema drafts are in docs/spec-change-requests/SCR-K-01-openapi-delta.yaml and move into openapi.yaml with the slice that implements them.
+  - { path: '/v1/admin/knowledge/imports/github', milestone: K, slice: S-K2, status: planned }
+  - {
+      path: '/v1/admin/knowledge/resources/{id}/analyses',
+      milestone: K,
+      slice: S-K3,
+      status: planned,
+    }
+  - {
+      path: '/v1/admin/knowledge/resources/{id}/reindexing',
+      milestone: K,
+      slice: S-K5,
+      status: planned,
+    }
+  - {
+      path: '/v1/admin/knowledge/resources/{id}/activation',
+      milestone: K,
+      slice: S-K2,
+      status: planned,
+    }
+  - {
+      path: '/v1/admin/knowledge/resources/{id}/reviews',
+      milestone: K,
+      slice: S-K2,
+      status: planned,
+    }
+  - {
+      path: '/v1/admin/knowledge/resources/{id}/components',
+      milestone: K,
+      slice: S-K3,
+      status: planned,
+    }
+  - {
+      path: '/v1/admin/knowledge/resources/{id}/processing-jobs',
+      milestone: K,
+      slice: S-K2,
+      status: planned,
+    }
+  - { path: '/v1/admin/knowledge/defaults', milestone: K, slice: S-K5, status: planned }
+  - { path: '/v1/admin/knowledge/analytics', milestone: K, slice: S-K8, status: planned }
+  - { path: '/v1/admin/knowledge/settings', milestone: K, slice: S-K5, status: planned }
+  - { path: '/v1/builder/templates', milestone: K, slice: S-K7, status: planned }
+  - { path: '/v1/builder/templates/{id}', milestone: K, slice: S-K7, status: planned }
+  - { path: '/v1/builder/template-recommendations', milestone: K, slice: S-K5, status: planned }
+  - { path: '/v1/builder/projects/from-template', milestone: K, slice: S-K7, status: planned }
+  - { path: '/v1/builder/projects/imports', milestone: K, slice: S-K7, status: planned }
+  - { path: '/v1/builder/generation-plans', milestone: K, slice: S-K6, status: planned }
+  - { path: '/v1/builder/generation-plans/{id}', milestone: K, slice: S-K6, status: planned }
 # shorthand tokens skipped: 57

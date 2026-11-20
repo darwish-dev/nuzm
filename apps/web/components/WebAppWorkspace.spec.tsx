@@ -206,7 +206,7 @@ describe('web-app mode of the builder workspace (same shell as the website and m
     expect(calls.filter((c) => !c.url.startsWith('/v1/ai/runs?'))).toHaveLength(0);
   });
 
-  it('the Preview starts the app by itself in an isolated frame, and lists what the agents built', async () => {
+  it('the Preview starts the app by itself in an isolated frame, and shows nothing but the app', async () => {
     const url = `http://${'a'.repeat(32)}.preview.localhost:4000/#/autologin=s3ss10n`;
     mockFetch((u, method) =>
       u === '/v1/builder/projects/p1/live-preview' && method === 'POST'
@@ -230,7 +230,13 @@ describe('web-app mode of the builder workspace (same shell as the website and m
     );
     expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(screen.queryByText(/autologin/)).toBeNull(); // the address is only the frame src
-    await waitFor(() => expect(screen.getByText('Patients')).toBeTruthy());
+    // the frame is the whole panel: what was built is in the conversation and the Spec panel, not above the app
+    expect(screen.queryByText('Patients')).toBeNull();
+    // hidden behind the placeholder until it has loaded, so an unloaded white page never flashes
+    const wrap = frame.closest('.mws-live-frame') as HTMLElement;
+    expect(wrap.getAttribute('data-loaded')).toBe('false');
+    fireEvent.load(frame);
+    expect(wrap.getAttribute('data-loaded')).toBe('true');
   });
 
   it('the Preview says so when live preview is not enabled for the organization', async () => {
@@ -250,12 +256,12 @@ describe('web-app mode of the builder workspace (same shell as the website and m
     expect(calls.some((c) => c.url.endsWith('/live-preview'))).toBe(false);
   });
 
-  it('a project with no build yet says so in the Preview and Spec panels', async () => {
+  it('a project with no build yet says so in the Spec panel and the Preview waits for a build', async () => {
     mockFetch((url) =>
       url.startsWith('/v1/ai/runs?') ? json(200, { items: [], nextCursor: null }) : json(404, {}),
     );
     ws();
-    await waitFor(() => expect(screen.getByText(t('en', 'm10a.bp.none.title'))).toBeTruthy());
+    expect(screen.queryByTitle(t('en', 'mws.web.live.frame'))).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: label('spec') }));
     await waitFor(() => expect(screen.getByText(t('en', 'm10a.bp.none.title'))).toBeTruthy());
   });

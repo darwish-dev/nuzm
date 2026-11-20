@@ -38,7 +38,13 @@ export interface AiEnv {
     org?: string,
     extra?: Record<string, string>,
   ): ReturnType<App['inject']>;
-  admin(who: string, method: 'GET' | 'POST', url: string, body?: object): ReturnType<App['inject']>;
+  admin(
+    who: string,
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    url: string,
+    body?: object | Buffer,
+    headers?: Record<string, string>,
+  ): ReturnType<App['inject']>;
   /** configure → attest (LOCAL-REFERENCE-NOT-VERIFIED) → request → enable a dev-reference provider through the admin API; returns the provider row */
   enableMock(
     code?: string,
@@ -141,7 +147,7 @@ export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}
         },
         ...(body ? { payload: body } : {}),
       }),
-    admin: (who, method, url, body) =>
+    admin: (who, method, url, body, headers = {}) =>
       app.inject({
         method,
         url,
@@ -149,6 +155,8 @@ export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}
           cookie: cookieHeader(jars[who]!),
           'x-csrf-token': jars[who]!.nuzm_admin_csrf ?? '',
           'idempotency-key': `k-${Math.random()}`,
+          ...(Buffer.isBuffer(body) ? { 'content-type': 'application/octet-stream' } : {}),
+          ...headers,
         },
         ...(body ? { payload: body } : {}),
       }),

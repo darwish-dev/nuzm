@@ -2432,4 +2432,33 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 
 /* Status column resource cards: white background (the dark "needs attention" card keeps its own). Text colours are set for white so it reads in both themes. */
 .nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a; --nzc-fg: #17181a; --nzc-muted: #5b5f63; }
+/* AI Studio panel (ADR-064): the workspace's own cards, lists and controls; no new colours. */
+.ais-body { display: block; }
+.ais-stack { display: grid; gap: 14px; align-content: start; max-inline-size: 960px; }
+.ais-card { display: grid; gap: 10px; padding: 16px 18px; border-radius: 16px; background: var(--nzc-field); }
+.ais-card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ais-card-h .nz-h2 { margin: 0; font-size: 15px; }
+.ais-card p { margin: 0; }
+.ais-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ais-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-radius: 12px; background: var(--nzc-card); font-size: 13px; }
+.ais-list li > span { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; min-inline-size: 0; overflow-wrap: anywhere; }
+.ais-section { display: grid; gap: 8px; margin: 0; padding: 12px; border: 0; border-radius: 12px; background: var(--nzc-card); }
+.ais-section-title { font-weight: 600; }
+.ais-rule { display: grid; grid-template-columns: minmax(96px, 120px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.ais-textarea { inline-size: 100%; min-block-size: 110px; resize: vertical; font: inherit; }
+.ais-actions { gap: 8px; flex-wrap: wrap; }
+.ais-md { margin: 0; max-block-size: 420px; overflow: auto; padding: 14px; border-radius: 12px; background: var(--nzc-card); font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
+.ais-baseline summary { cursor: pointer; color: var(--nzc-muted); font-size: 13px; }
+.ais-baseline ul { margin: 6px 0 10px; padding-inline-start: 18px; font-size: 13px; display: grid; gap: 4px; }
+.ais-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 13px; }
+.ais-dl dt { color: var(--nzc-muted); }
+.ais-dl dd { margin: 0; }
+.ais-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.ais-facts li { display: flex; align-items: center; gap: 8px; }
+.ais-link { padding: 0; border: 0; background: transparent; color: var(--nzc-accent); font: inherit; cursor: pointer; text-align: start; display: inline-flex; align-items: center; gap: 6px; }
+.ais-link:hover { text-decoration: underline; }
+.ais-link:focus-visible, .ais-card button:focus-visible { outline: 2px solid var(--nzc-accent); outline-offset: 2px; }
+.ais-preview { flex-basis: 100%; color: var(--nzc-muted); font-size: 12px; overflow-wrap: anywhere; }
+.ais-confirm { display: grid; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--nzc-danger-soft); }
+@media (max-width: 640px) { .ais-rule { grid-template-columns: 1fr auto; } .ais-rule select { grid-column: 1 / -1; } }
 `;

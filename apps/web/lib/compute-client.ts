@@ -29,6 +29,8 @@ export const browserCompute = {
     apiCall<T>(env, 'GET', path, o),
   post: <T>(path: string, o?: CallOptions): Promise<CallResult<T>> =>
     apiCall<T>(env, 'POST', path, o),
+  put: <T>(path: string, o?: CallOptions): Promise<CallResult<T>> =>
+    apiCall<T>(env, 'PUT', path, o),
   del: <T>(path: string, o?: CallOptions): Promise<CallResult<T>> =>
     apiCall<T>(env, 'DELETE', path, o),
 };

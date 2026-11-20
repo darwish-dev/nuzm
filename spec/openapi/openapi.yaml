@@ -84,6 +84,8 @@ tags:
     description: Operational health, incidents, alerts, recovery exercises (M12)
   - name: mobile
     description: 'Mobile (Flutter) builder (M10B): builds, signing credential references and release-preparation records; no store submission'
+  - name: ai-studio
+    description: Project instructions, Skills, GitHub and the Claude Code proof of concept (ADR-064)
   - name: app-builder
     description: 'AI app builder (M10A): sandboxes, tests, exports and approvals of generated web apps'
 paths:
@@ -11368,6 +11370,837 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
   # <<< M10B paths
+  # >>> AI Studio paths (ADR-064)
+  /v1/builder/projects/{projectId}/instructions:
+    get:
+      operationId: getProjectInstructions
+      tags: [ai-studio]
+      summary: 'Project instructions (CLAUDE.md)'
+      description: 'The project and customer layers on top of the read-only Nuzm baseline (platform + framework), the rendered `markdown`, detected `conflicts` and `canSync` (web-app and mobile projects have a file tree). `version` 0 before the first save. Permission `builder:read`. 404 while `ai_studio.enabled` is off.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectInstructions' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: putProjectInstructions
+      tags: [ai-studio]
+      summary: 'Save project instructions'
+      description: 'Body {projectLayer, customerLayer, customerBlock}. `If-Match: "<version>"` (0 before the first save): 428 without it, 412 when someone saved in between. A layer cannot relax a platform security rule (422 with the reasons). Every save is a new immutable version. Permission `builder:write`. Audited (`builder.instructions.updated`).'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectInstructionsInput' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectInstructions' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/instructions/versions:
+    get:
+      operationId: listProjectInstructionVersions
+      tags: [ai-studio]
+      summary: 'Instruction history'
+      description: 'Versions newest first (at most 100). Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstructionVersionList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/instructions/versions/{version}/restore:
+    post:
+      operationId: restoreProjectInstructions
+      tags: [ai-studio]
+      summary: 'Restore an instruction version'
+      description: 'Copies an old version forward as a NEW version (history is never rewritten). Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectInstructions' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/instructions/sync:
+    post:
+      operationId: syncProjectInstructions
+      tags: [ai-studio]
+      summary: 'Write CLAUDE.md into the project files'
+      description: 'Writes `CLAUDE.md` through the safe-diff change path (a new project version and commit). `{changed:false}` when it already matches. 422 `unsupported_capability` for a website project. Permission `builder:write`.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/skills:
+    get:
+      operationId: listProjectSkills
+      tags: [ai-studio]
+      summary: 'Installed skills of a project'
+      description: 'Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSkillList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: installProjectSkills
+      tags: [ai-studio]
+      summary: 'Install skills into a project'
+      description: "Body {skills: [slug\u2026]} or {auto: true, industry?}; dependencies are added. Writes `.claude/skills/<slug>/` (web-app and mobile). 409 when a requested skill is blocked or when skill files were changed in the project (send `overwrite: true` to replace them). Permission `builder:write`. Audited (`builder.project_skill.installed`)."
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/skills/recommendations:
+    get:
+      operationId: recommendProjectSkills
+      tags: [ai-studio]
+      summary: 'Skills that fit a project'
+      description: 'Compatibility-based: framework, language, industry, approval and scan state. Returns `install` (dependency order), `blocked` with reasons and `installed`. Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: industry, in: query, required: false, schema: { type: string } }
+        - {
+            name: requested,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'comma-separated slugs',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/skills/{skillId}:
+    delete:
+      operationId: uninstallProjectSkill
+      tags: [ai-studio]
+      summary: 'Remove a skill from a project'
+      description: 'Removes the skill and its files; 409 (and the skill stays installed) when its files were changed in the project unless `overwrite=true`. Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: skillId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: overwrite, in: query, required: false, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/builder/skills:
+    get:
+      operationId: listSkillCatalog
+      tags: [ai-studio]
+      summary: 'Skill catalog'
+      description: 'Approved platform skills plus the organization own skills, with their current version. Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SkillList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createOrganizationSkill
+      tags: [ai-studio]
+      summary: 'Create a private skill'
+      description: 'Body {files: [{path, content}]} with a SKILL.md. Scanned; a reject finding refuses it (422); never executable; visible to this organization only. Permission `builder:write`.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SkillFilesInput' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/files/search:
+    get:
+      operationId: searchProjectFiles
+      tags: [ai-studio]
+      summary: 'Search project files'
+      description: "Case-insensitive search over the text files of the head version: matching paths and line previews (at most 200). Edit, rename, move and delete go through `POST \u2026/changes`. Permission `builder:read`."
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+        - {
+            name: q,
+            in: query,
+            required: false,
+            schema: { type: string, maxLength: 200 },
+            description: 'fewer than 2 characters returns an empty result',
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/github:
+    get:
+      operationId: getGithubConnection
+      tags: [ai-studio]
+      summary: 'GitHub connection of the organization'
+      description: '`available` false when the GitHub App is not configured (production before HG-AS-01). `installUrl` carries a signed state bound to this user and organization (30 min). Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: disconnectGithub
+      tags: [ai-studio]
+      summary: 'Disconnect GitHub'
+      description: 'Removes the link on the Nuzm side and unlinks every project; uninstalling the App on GitHub revokes it there. Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/github/connect:
+    post:
+      operationId: connectGithub
+      tags: [ai-studio]
+      summary: 'Complete the GitHub App installation'
+      description: 'Body {installationId, state}. 403 when the state is not this session (or expired); 409 when the installation belongs to another organization or GitHub is already connected. Permission `builder:write`. Audited (`builder.github.connected`).'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/builder/github/repositories:
+    get:
+      operationId: listGithubRepositories
+      tags: [ai-studio]
+      summary: 'Repositories the installation can see'
+      description: 'Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/github:
+    get:
+      operationId: getProjectGithub
+      tags: [ai-studio]
+      summary: 'GitHub link and sync status of a project'
+      description: '`localChanged` / `remoteChanged` compare the project head and the branch tip with the last sync. Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/github/link:
+    post:
+      operationId: linkProjectGithub
+      tags: [ai-studio]
+      summary: 'Link a project to a repository'
+      description: 'Body {fullName}. Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: unlinkProjectGithub
+      tags: [ai-studio]
+      summary: 'Unlink a project from its repository'
+      description: 'Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/github/pull:
+    post:
+      operationId: pullProjectGithub
+      tags: [ai-studio]
+      summary: 'Import or pull the repository into the project'
+      description: 'Body {ref?, replace?}. Files move through the safe-diff change path (secret, canary and dependency checks apply). 409 when the project has changes that are not on GitHub unless `replace: true`. Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/github/push:
+    post:
+      operationId: pushProjectGithub
+      tags: [ai-studio]
+      summary: 'Push the project to a branch'
+      description: 'Body {branch?, message?}. Commits on top of the last synced commit; never forced: 409 when the branch moved on GitHub (pull first). Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/github/pulls:
+    get:
+      operationId: listProjectPullRequests
+      tags: [ai-studio]
+      summary: 'Open pull requests of the linked repository'
+      description: 'Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: openProjectPullRequest
+      tags: [ai-studio]
+      summary: 'Open a pull request'
+      description: 'Body {head, base?, title?, body?}. Permission `builder:write`. Audited.'
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/webhooks/github:
+    post:
+      operationId: githubWebhook
+      tags: [ai-studio]
+      summary: 'Receive a GitHub App webhook'
+      description: 'Unauthenticated by design: the HMAC-SHA256 over the RAW body (`X-Hub-Signature-256`) authenticates it (401 otherwise). Deduplicated on `X-GitHub-Delivery`: a duplicate answers {duplicate: true}. `installation` deleted/suspend/unsuspend update the connection. 503 when the App is not configured.'
+      security: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/claude-code:
+    get:
+      operationId: getClaudeCodeStatus
+      tags: [ai-studio]
+      summary: 'Claude Code proof-of-concept status'
+      description: 'Flag `ai.claude_code_sandbox` (default off); in production also the D-38 compliance approval. Nuzm never stores Claude credentials and never falls back to billable API use. Permission `builder:read`.'
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{projectId}/claude-code/sessions:
+    post:
+      operationId: startClaudeCodeSession
+      tags: [ai-studio]
+      summary: 'Start a Claude Code session in a sandbox'
+      description: 'Body {sandboxId} (a READY sandbox of the project). Probes the unmodified `claude` binary; records only observable states (NOT_CONFIGURED, AUTHENTICATION_REQUIRED, ERROR); sign-in happens in the sandbox terminal (hidden until PA-M10-01). 403 `feature_disabled` while the flag is off or D-38 is open in production. Permission `sandbox:use`. Audited.'
+      x-nuzm-permission: sandbox:use
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: stopClaudeCodeSession
+      tags: [ai-studio]
+      summary: 'Stop the Claude Code session'
+      description: 'Permission `sandbox:use`. Audited.'
+      x-nuzm-permission: sandbox:use
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      x-nuzm-feature-flag: ai_studio.enabled
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/skills:
+    get:
+      operationId: listAdminSkills
+      tags: [ai-studio]
+      summary: 'Skills registry'
+      description: 'Platform and imported skills with their review state. Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: status,
+            in: query,
+            required: false,
+            schema: { type: string, enum: [in_review, approved, rejected, disabled] },
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/skills/import:
+    post:
+      operationId: importAdminSkill
+      tags: [ai-studio]
+      summary: 'Import a skill into quarantine'
+      description: 'Body {github: {repo, ref, path}} (anonymous read of a PUBLIC repository, pinned to the commit `ref` resolves to; never customer credentials) or {files}. Nothing is executed; the scanner runs; the version waits in review. Platform permission `admin:ai:manage`. Audited.'
+      x-nuzm-platform-permission: admin:ai:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/skills/{id}:
+    get:
+      operationId: getAdminSkill
+      tags: [ai-studio]
+      summary: 'A skill with its versions and reviews'
+      description: 'Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/skills/{id}/status:
+    post:
+      operationId: setAdminSkillStatus
+      tags: [ai-studio]
+      summary: 'Disable or re-enable a skill'
+      description: 'Body {status: disabled|approved}. Disabling removes it from catalogs and new installs. Platform permission `admin:ai:manage`. Audited.'
+      x-nuzm-platform-permission: admin:ai:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/skills/versions/{versionId}/file:
+    get:
+      operationId: getAdminSkillFile
+      tags: [ai-studio]
+      summary: 'Read one file of a skill version'
+      description: 'For review; never executed. Platform permission `admin:ai:read`.'
+      x-nuzm-platform-permission: admin:ai:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: path, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/ai/skills/versions/{versionId}/reviews:
+    post:
+      operationId: reviewAdminSkillVersion
+      tags: [ai-studio]
+      summary: 'Review a skill version'
+      description: 'Body {decision: approve|reject, note}. Approval needs a known licence and a non-reject scan; a `review` verdict and every rejection need a note; executable skills need two approvers, neither the importer. Platform permission `admin:ai:approve`. Audited.'
+      x-nuzm-platform-permission: admin:ai:approve
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudioObject' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudioObject' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  # <<< AI Studio paths
 components:
   parameters:
     OrgHeader:
@@ -11439,6 +12272,127 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    # >>> AI Studio schemas (ADR-064)
+    StudioObject:
+      type: object
+      additionalProperties: true
+      description: AI Studio payload (see the operation description for its fields).
+    InstructionSection:
+      type: object
+      required: [id, title, rules]
+      properties:
+        id: { type: string }
+        title: { type: string, maxLength: 80 }
+        rules:
+          type: array
+          maxItems: 60
+          items:
+            type: object
+            required: [text, strength]
+            properties:
+              text: { type: string }
+              strength: { type: string, enum: [must, should, never, may] }
+              key: { type: string }
+    ProjectInstructionsInput:
+      type: object
+      properties:
+        projectLayer:
+          { type: array, maxItems: 30, items: { $ref: '#/components/schemas/InstructionSection' } }
+        customerLayer:
+          { type: array, maxItems: 30, items: { $ref: '#/components/schemas/InstructionSection' } }
+        customerBlock: { type: string, maxLength: 20000 }
+    ProjectInstructions:
+      type: object
+      required:
+        [
+          projectId,
+          version,
+          projectLayer,
+          customerLayer,
+          customerBlock,
+          baseline,
+          markdown,
+          conflicts,
+          canSync,
+        ]
+      properties:
+        projectId: { type: string, format: uuid }
+        version: { type: integer }
+        projectLayer: { type: array, items: { $ref: '#/components/schemas/InstructionSection' } }
+        customerLayer: { type: array, items: { $ref: '#/components/schemas/InstructionSection' } }
+        customerBlock: { type: string }
+        baseline: { type: array, items: { type: object, additionalProperties: true } }
+        markdown: { type: string }
+        conflicts: { type: array, items: { type: object, additionalProperties: true } }
+        updatedAt: { type: string, format: date-time, nullable: true }
+        canSync: { type: boolean }
+    InstructionVersionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [version, createdAt]
+            properties:
+              version: { type: integer }
+              createdBy: { type: string, format: uuid, nullable: true }
+              createdAt: { type: string, format: date-time }
+    Skill:
+      type: object
+      required: [id, slug, description, scope, status, owner]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        description: { type: string }
+        category: { type: string, nullable: true }
+        scope: { type: string }
+        frameworks: { type: array, items: { type: string } }
+        languages: { type: array, items: { type: string } }
+        industries: { type: array, items: { type: string } }
+        source: { type: object, additionalProperties: true }
+        status: { type: string, enum: [in_review, approved, rejected, disabled] }
+        owner: { type: string, enum: [platform, organization] }
+        currentVersion: { type: object, nullable: true, additionalProperties: true }
+        updatedAt: { type: string, format: date-time }
+    SkillList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Skill' } }
+    SkillFilesInput:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            required: [path, content]
+            properties:
+              path: { type: string }
+              content: { type: string }
+    ProjectSkillList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, skillId, slug, version, reason, installedAt]
+            properties:
+              id: { type: string, format: uuid }
+              skillId: { type: string, format: uuid }
+              slug: { type: string }
+              version: { type: string }
+              reason:
+                { type: string, enum: [recommended, requested, template, dependency, customer] }
+              installedAt: { type: string, format: date-time }
+    # <<< AI Studio schemas
     ResidencyMode:
       type: string
       enum: [in_kingdom_only, allow_listed, unrestricted_with_assessment]

@@ -6,6 +6,7 @@ import { MobileWorkspace } from '../../../../../../components/MobileWorkspace';
 import { Workspace } from '../../../../../../components/BuilderWorkspace';
 import { APP_BUILDER_FLAG } from '../../../../../../lib/appbuilder';
 import { latestWebappRun } from '../../../../../../lib/appworkspace';
+import { AI_STUDIO_FLAG } from '../../../../../../lib/ai-studio';
 import { appTab, appTabsFor } from '../../../../../../lib/webapp-workspace';
 import type { Message, Page_, ProjectDetail, Run, Session } from '../../../../../../lib/builder';
 import { builderGuard, builderView } from '../../../../../../lib/builder-view';
@@ -77,7 +78,7 @@ export default async function ProjectWorkspace({
             messages={d.messages}
             initialRun={d.run}
             initialTab={appTab(sp.tab)}
-            allowedTabs={appTabsFor(g.s.can)}
+            allowedTabs={appTabsFor(g.s.can, flagEnabled(g.s.me.featureFlags, AI_STUDIO_FLAG))}
             mfaFactorId={g.s.me.mfaFactorId ?? null}
             can={{
               ai: g.s.can('ai:write'),

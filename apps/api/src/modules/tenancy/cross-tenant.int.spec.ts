@@ -90,6 +90,9 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   // >>> M09: AI sessions/runs/artifacts, builder projects/versions, deployments
   if (p === 'artifactId') return A.aiArtifact;
   if (p === 'approvalId') return A.aiApproval; // M10A (agent approvals)
+  // AI Studio (ADR-064): the project decides isolation; the skill id and instruction version only need to be well-formed
+  if (p === 'skillId') return '00000000-0000-4000-8000-0000000000f2';
+  if (p === 'version' && o.path.includes('/instructions/')) return '1';
   if (p === 'projectId') return A.m10Project; // M10A routes name the project {projectId}; they resolve it through the M09 port
   if (p === 'sid') return A.m10Sandbox;
   if (p === 'testRunId') return A.m10TestRun;
@@ -394,6 +397,10 @@ beforeAll(async () => {
   // >>> M10A: the app builder is flagged off by default (the positive control needs it on) and org A holds one pending agent approval
   await h.env.sql(
     `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'app_builder.enabled', NULL, 'true')`,
+  );
+  // AI Studio (ADR-064) is flagged off by default: on here so org B's 404 is isolation, not a closed flag
+  await h.env.sql(
+    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'ai_studio.enabled', NULL, 'true')`,
   );
   await h.env.sql(
     `INSERT INTO ai.approval_requests (id, org_id, subject_type, subject_id, run_id, approval_type, action, action_hash, status, requested_by_kind, required_roles, expires_at, data_region)
@@ -714,11 +721,13 @@ describe("after all the hostile calls, org A's data is untouched", () => {
         });
         // the e-invoice XML is 409 by design until the ZATCA module exists; that still proves the id resolved (not a 404)
         // M09: a file read without ?path= is 422 once the project id resolved (a 404 would mean the fixture is wrong)
-        const expected = o.path.endsWith('/invoices/{id}/xml')
-          ? 409
-          : o.path.endsWith('/files/content')
-            ? 422
-            : 200;
+        // AI Studio: pull requests of a project that is not linked to GitHub are 409 once the project id resolved
+        const expected =
+          o.path.endsWith('/invoices/{id}/xml') || o.path.endsWith('/github/pulls')
+            ? 409
+            : o.path.endsWith('/files/content')
+              ? 422
+              : 200;
         expect(r.statusCode, `${o.path} → ${r.body.slice(0, 100)}`).toBe(expected);
       }
     },

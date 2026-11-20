@@ -523,7 +523,7 @@ export interface CallResult<T> {
  */
 export async function apiCall<T>(
   env: CallEnv,
-  method: 'GET' | 'POST' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   o: CallOptions = {},
 ): Promise<CallResult<T>> {

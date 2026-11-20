@@ -1,3 +1,4 @@
+import { DashboardSlider } from '../../../components/DashboardSlider';
 import { notFound, redirect } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, formatMinor, isLocale, t } from '@nuzm/i18n';
@@ -56,13 +57,126 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   const top = meters[0] ? BigInt(meters[0].amountMinor!) : 1n;
   const services = visibleServices(s.can, (f) => flagEnabled(s.me.featureFlags, f));
 
+  const featuredServices = ['hosting', 'compute', 'domains']
+    .map((id) => services.find((service) => service.id === id))
+    .filter((service) => service !== undefined);
+  const otherServices = services.filter((service) => !featuredServices.includes(service));
+  const ar = locale === 'ar';
+  const slides = featuredServices.map((service) => ({
+    id: service.id,
+    title:
+      service.id === 'hosting'
+        ? ar
+          ? 'مساحة جديدة لموقعك.'
+          : 'A new home for your website.'
+        : service.id === 'compute'
+          ? ar
+            ? 'موارد سحابية لطموحك.'
+            : 'More room for your next big idea.'
+          : ar
+            ? 'اسمك. بدايتك التالية.'
+            : 'Your name. Your next beginning.',
+    description:
+      service.id === 'hosting'
+        ? ar
+          ? 'مواقعك ونطاقاتك وشهاداتك، في مكان واحد.'
+          : 'Your sites, domains and certificates, together.'
+        : service.id === 'compute'
+          ? ar
+            ? 'أدر خوادمك ومواردك من لوحة واحدة.'
+            : 'Keep your servers and resources in one place.'
+          : ar
+            ? 'ابحث عن نطاقك وأدر سجلات DNS بسهولة.'
+            : 'Find your domain and make it your own.',
+    label: ar ? 'استكشف الخدمة' : 'Explore service',
+    href: `${base}${service.href}`,
+  }));
+
   return (
     <div className="nzc-dashboard">
-      <section className="nzc-hero" aria-labelledby="d-hero">
-        <h1 id="d-hero">{t(locale, 'home.title', { name })}</h1>
-        <p>
-          {s.org.name} · <Badge>{t(locale, `org.type.${s.org.type}`)}</Badge>
-        </p>
+      <header className="nzc-home-welcome">
+        <h1>{t(locale, 'home.title', { name })}</h1>
+        <span>
+          {s.org.name} <Badge>{t(locale, `org.type.${s.org.type}`)}</Badge>
+        </span>
+      </header>
+      <DashboardSlider ar={ar} slides={slides} />
+
+      <section
+        className="nzc-home-bento"
+        aria-label={ar ? 'نظرة عامة على مساحتك' : 'Your workspace overview'}
+      >
+        <div className="nzc-home-overview">
+          <div className="nzc-home-overview-head">
+            <h2>{ar ? 'مساحتك، بنظرة واحدة' : 'Your workspace at a glance'}</h2>
+            <Icon name="projects" size={18} />
+          </div>
+          <div
+            className="nzc-home-orbit"
+            role="img"
+            aria-label={`${services.length} ${ar ? 'خدمات متاحة' : 'available services'}`}
+          >
+            <div>
+              <span>{ar ? 'خدمات متاحة' : 'Available services'}</span>
+              <strong>{services.length}</strong>
+            </div>
+          </div>
+          <div className="nzc-home-overview-foot">
+            <span>
+              <i />
+              {ar ? 'البناء والإطلاق والإدارة' : 'Build. Launch. Manage.'}
+            </span>
+            <span>{s.org.name}</span>
+          </div>
+        </div>
+        {featuredServices.map((service) => (
+          <a
+            key={service.id}
+            className="nzc-home-service"
+            data-service={service.id}
+            href={`${base}${service.href}`}
+          >
+            <div className="nzc-home-service-top">
+              <span className="nzc-home-service-symbol">
+                <Icon name={service.icon} size={19} />
+              </span>
+              <Icon name="arrow" size={17} />
+            </div>
+            <div>
+              <h2>
+                {service.id === 'compute' ? (ar ? 'السحابة' : 'Cloud') : t(locale, service.label)}
+              </h2>
+              <p>{slides.find((slide) => slide.id === service.id)?.description}</p>
+            </div>
+            <div className="nzc-home-service-bottom">
+              <span>
+                {service.id === 'domains'
+                  ? '.com / .sa'
+                  : service.id === 'compute'
+                    ? ar
+                      ? 'مواردك السحابية'
+                      : 'Your cloud workspace'
+                    : ar
+                      ? 'موقعك التالي'
+                      : 'Your next website'}
+              </span>
+              <span className="nzc-home-service-open">
+                <Icon name="arrow" size={15} />
+              </span>
+            </div>
+          </a>
+        ))}
+        {services.some((service) => service.id === 'builder') && (
+          <a className="nzc-home-build" href={`${base}/builder/projects`}>
+            <div>
+              <span>{ar ? 'من الفكرة إلى الواقع' : 'FROM IDEA TO LAUNCH'}</span>
+              <h2>{ar ? 'ماذا ستبني اليوم؟' : 'What will you build today?'}</h2>
+            </div>
+            <span className="nzc-home-service-open">
+              <Icon name="code" size={22} />
+            </span>
+          </a>
+        )}
       </section>
 
       <div className="nzc-stats">
@@ -216,13 +330,13 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         </div>
       )}
 
-      {services.length > 0 && (
+      {otherServices.length > 0 && (
         <section aria-labelledby="d-services">
           <div className="nzc-cardhead">
             <h2 id="d-services">{t(locale, 'dash.services.title')}</h2>
           </div>
           <ul className="nzc-tiles">
-            {services.map((svc) => (
+            {otherServices.map((svc) => (
               <li key={svc.id}>
                 <a className="nzc-tile" href={`${base}${svc.href}`}>
                   <span className="nzc-tile-icon">

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { createServer, type Server } from 'node:http';
+import { createServer, type IncomingMessage, type Server } from 'node:http';
+import type { Http2ServerRequest } from 'node:http2';
 import type { AddressInfo } from 'node:net';
 import { Test } from '@nestjs/testing';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -48,7 +49,8 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   app = moduleRef.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter({
-      rewriteUrl: (req) => rewritePreviewUrl(req.headers.host, req.url ?? '/', DOMAIN),
+      rewriteUrl: (req: IncomingMessage | Http2ServerRequest) =>
+        rewritePreviewUrl(req.headers.host, req.url ?? '/', DOMAIN),
     }),
     { rawBody: true },
   );

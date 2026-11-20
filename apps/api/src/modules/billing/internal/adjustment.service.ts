@@ -5,9 +5,9 @@ import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import type { LedgerPostingService } from './ledger.service';
 import { adjustment, type PostingLine } from './recipes';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface AdjustmentDto {
   id: string;

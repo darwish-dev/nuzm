@@ -10,9 +10,9 @@ import type { EntitlementService } from './entitlement.service';
 import type { PriceBookService } from './price-book.service';
 import { prorate, type Proration } from './proration';
 import { addDays, nextPeriodEnd, parseYmd, todayUtc } from './subscription-period';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'unpaid' | 'cancelled';
 const STATUSES: SubscriptionStatus[] = ['trialing', 'active', 'past_due', 'unpaid', 'cancelled'];
 const MAX_CATCH_UP = 24; // periods a single run may bill when the scheduler was down for a long time

@@ -19,9 +19,9 @@ import {
 } from './plans.service';
 import { RUNTIME_ID, type HostingAdapter } from './ports';
 import type { AccountContext } from './m05-contracts';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NAME = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,62}$/;
 const DOMAIN = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 const iso = (d: unknown) => (d ? (d as Date).toISOString() : null);

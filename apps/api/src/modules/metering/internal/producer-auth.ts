@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { UUID } from '@nuzm/domain';
 
 export interface ProducerKey {
   /** `module@Mnn`: the ONLY source name this key may report as (the request body can never choose it). */
@@ -14,7 +15,6 @@ export interface Producer {
 }
 
 const SOURCE = /^[a-z][a-z0-9_-]*@M[0-9]{2}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Per-source service credentials for the internal metering endpoint (node agents, sandbox runners). DEV/CONFIG stand-in

@@ -4,9 +4,9 @@ import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { containsCardData } from './pan';
 import type { PspRegistry } from './psp/registry';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN = /^tok_[a-z0-9_]{3,80}$/;
 
 export interface PaymentMethodDto {

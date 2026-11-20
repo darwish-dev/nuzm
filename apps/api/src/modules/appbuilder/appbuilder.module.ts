@@ -20,13 +20,15 @@ import {
   RunService,
   type AiConfig,
 } from '../ai';
-import { ProjectDelegates } from '../builder';
+import { LivePreviewRegistry, ProjectDelegates } from '../builder';
 import { ResidencyService } from '../compliance';
 import { DeployService, SitePublisherPort } from '../deploy';
 import { IdentityModule } from '../identity';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
+import { LivePreviewController } from './live-preview.controller';
+import { WebappLivePreviewService } from './internal/preview/live-preview.service';
 import { TestRunsController } from './test-runs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
@@ -256,6 +258,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
     TestRunsController,
     ExportsController,
     ApprovalsController,
+    LivePreviewController,
     StudioInstructionsController,
     StudioProjectSkillsController,
     StudioSkillsCatalogController,
@@ -360,6 +363,12 @@ class LogSecurityAlerts extends SecurityAlertPort {
       provide: AppSpecService,
       useFactory: (db: Db, a: AuditSink) => new AppSpecService(db, a),
       inject: [DB, AuditSink],
+    },
+    {
+      provide: WebappLivePreviewService,
+      useFactory: (db: Db, a: AuditSink, s: AppSpecService, r: LivePreviewRegistry) =>
+        new WebappLivePreviewService(db, a, s, r),
+      inject: [DB, AuditSink, AppSpecService, LivePreviewRegistry],
     },
     { provide: EvaluationService, useFactory: (db: Db) => new EvaluationService(db), inject: [DB] },
     {
@@ -583,9 +592,7 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(AppDeploymentService) private readonly deployments: AppDeploymentService,
     @Inject(DB) private readonly db: Db,
     @Inject(SkillsService) private readonly skills: SkillsService,
-  ) {
-    void _runs;
-  }
+  ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
     this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph));

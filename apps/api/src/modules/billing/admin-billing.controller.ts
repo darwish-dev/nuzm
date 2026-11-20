@@ -5,8 +5,8 @@ import { parseLimit } from '../../common/pagination';
 import { RealmOnly } from '../identity';
 import { BillingReadService } from './internal/billing-read.service';
 import { PlanService } from './internal/plan.service';
+import { UUID } from '@nuzm/domain';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const uuid = (v: string | undefined, name: string) => {
   if (v === undefined) return undefined;
   if (!UUID.test(v)) throw new ProblemException('validation_failed', `${name} must be a UUID`);

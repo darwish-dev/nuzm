@@ -3,8 +3,7 @@ import { Org, RequirePermission } from '../../common/access';
 import { ProblemException } from '../../common/errors';
 import { parseLimit } from '../../common/pagination';
 import { CreditNoteService } from './internal/credit-note.service';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /** Credit notes of the active organization (docs/04 §2.3). They are issued by refunds and support flows, never by the customer. */
 @Controller('v1/billing/credit-notes')

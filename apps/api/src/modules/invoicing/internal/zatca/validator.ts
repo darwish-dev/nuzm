@@ -1,6 +1,7 @@
 import { buildBody } from './ubl';
 import type { ZatcaDocument } from './build-document';
 import type { ZatcaProfile } from './profile';
+import { UUID } from '@nuzm/domain';
 
 /**
  * Local validation harness (docs/11 §5). Two layers:
@@ -24,7 +25,6 @@ export interface OfficialValidator {
   validate(xml: string): Promise<Issue[]>;
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
 const halfUp = (a: bigint, b: bigint) => (a * 2n + b) / (2n * b);
 

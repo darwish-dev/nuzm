@@ -16,9 +16,9 @@ import {
   type WebhookEvent,
 } from './psp/psp';
 import type { PspRegistry } from './psp/registry';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MINOR = /^[1-9]\d{0,17}$/;
 const STATUSES: IntentStatus[] = [
   'requires_method',

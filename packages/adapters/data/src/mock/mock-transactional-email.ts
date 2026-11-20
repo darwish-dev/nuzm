@@ -179,7 +179,7 @@ export class MockTransactionalEmailAdapter extends MockCore implements Transacti
   verifyDomain(
     _ctx: AccountContext,
     domain: string,
-    token: string,
+    _token: string,
   ): Promise<OperationResult<EmailDomainStatus>> {
     return this.mutating('verifyDomain', () => {
       if (!this.sup('email.domain-verification'))
@@ -198,7 +198,6 @@ export class MockTransactionalEmailAdapter extends MockCore implements Transacti
         };
         this.domains.set(domain, d);
       }
-      void token;
       return this.ok('verifyDomain', 'registered', this.status(d), d.ref);
     });
   }

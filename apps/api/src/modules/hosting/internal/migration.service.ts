@@ -9,8 +9,7 @@ import { planLimits, planNeed, planRow } from './plans.service';
 import type { BackupRef, HostingAdapter } from './ports';
 import { KIND, type SitesService } from './sites.service';
 import { NeedsReconcile, PermanentError, recordStep } from './steps';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 /**
  * Admin-triggered site migration for drain/maintenance (M06 §4 task 13): backup (pre_migration) on the source → create the site on the TARGET → restore there →

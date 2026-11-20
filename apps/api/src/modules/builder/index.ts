@@ -1,7 +1,9 @@
 // Public surface of the builder module (M09). Other modules import ONLY from here.
 export { BuilderModule } from './builder.module';
 export { ProjectService } from './internal/project.service';
-export { PreviewService } from './internal/preview.service';
+export { PreviewService, newPreviewToken } from './internal/preview.service';
+export { LivePreviewRegistry } from './internal/live-preview';
+export type { LivePreview } from './internal/live-preview';
 export { FormsService, FormNotifier } from './internal/forms.service';
 export { CmsService } from './internal/cms.service';
 export { BUILDER_CONFIG, loadBuilderConfig } from './internal/model';

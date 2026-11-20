@@ -6,7 +6,6 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import {
-  ManualClock,
   MockCacheAdapter,
   MockDatabaseAdapter,
   MockMailboxAdapter,
@@ -73,7 +72,6 @@ const PRICERS = Symbol('DATA_PRICERS');
           );
           r.register('mailbox', 'mock-mailbox', new MockMailboxAdapter(clock));
         }
-        void ManualClock;
         return r;
       },
     },
@@ -302,9 +300,7 @@ export class DataModule implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly rotations: RotationService,
     private readonly storageFlow: StorageFlow,
     @Inject(PRICERS) _pricers: boolean,
-  ) {
-    void _pricers;
-  }
+  ) {}
   onApplicationBootstrap() {
     // background tasks that need services which depend on the jobs object are attached here (no constructor cycle)
     this.jobs.addTask({ name: 'restore-verification', run: (n) => this.restores.verifyDue(n) });

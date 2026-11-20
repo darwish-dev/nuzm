@@ -43,4 +43,18 @@ describe('application spec validation', () => {
     expect(m).toMatch(/stage field must be an enum/);
     expect(m).toMatch(/enum field needs values/);
   });
+
+  it('sends back dashboard widgets the runtime would silently leave empty', () => {
+    const s = clone();
+    const dash = s.pages.find((p) => p.path === '/')!;
+    const project = s.entities.find((e) => !e.stageField)!;
+    dash.widgets = [
+      { id: 'w1', kind: 'sum', entity: 'Task', field: 'title', title: { ar: 'م', en: 'S' } },
+      { id: 'w1', kind: 'by_stage', entity: project.name, title: { ar: 'م', en: 'B' } },
+    ];
+    const out = issues(s);
+    expect(out).toContain('a sum widget needs a decimal or integer field of Task');
+    expect(out).toContain('duplicate widget w1');
+    expect(out).toContain(`${project.name} has no stage field for a by_stage widget`);
+  });
 });

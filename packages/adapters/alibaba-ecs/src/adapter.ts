@@ -41,7 +41,6 @@ import {
   opOk,
   opUncertain,
   opUnsupported,
-  weakest,
   type HttpTransport,
 } from '@nuzm/adapter-http';
 import { acsDate, newNonce, signV3 } from './signer';
@@ -1236,5 +1235,3 @@ export class AlibabaEcsAdapter implements ComputeAdapter {
     return out;
   }
 }
-
-void weakest;

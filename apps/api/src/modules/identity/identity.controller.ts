@@ -36,9 +36,9 @@ import { safeReturnTo } from './internal/return-to';
 import { openLoginState, sealLoginState } from './internal/seal';
 import { SessionService, type Principal } from './internal/session.service';
 import { UserService } from './internal/user.service';
+import { UUID } from '@nuzm/domain';
 
 const LOGIN_COOKIE = 'nuzm_oidc';
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @AnyAuthenticated()
 @RealmOnly('any')

@@ -478,8 +478,7 @@ export class DnsService {
       if (!have.has(k) || touched.has(`${r.name}|${r.type}`))
         undo.push({ op: 'create', record: r });
     if (undo.length === 0) return true;
-    const r = await dns.applyChangeSet(acc.ctx, zone, undo);
-    void r;
+    await dns.applyChangeSet(acc.ctx, zone, undo);
     const check = await dns.listZone(acc.ctx, zone);
     return check.status === 'succeeded' && !!check.data && sameSet(check.data.records, snapshot);
   }

@@ -7,9 +7,9 @@ import { planLimits, planRow } from './plans.service';
 import type { HostingAdapter, SiteUsage } from './ports';
 import type { Notify } from './usage.service';
 import type { SitesService } from './sites.service';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = (d: unknown) => (d ? (d as Date).toISOString() : null);
 
 export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;

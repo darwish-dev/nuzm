@@ -1681,6 +1681,11 @@ button.bws-publish { border: 0; font: inherit; font-size: 13px; font-weight: 650
 .mws-meters dt { color: var(--nzc-muted); }
 .mws-meters dd { margin: 0; }
 .mws-app-preview { display: grid; gap: 14px; align-content: start; }
+.mws-live { display: grid; gap: 12px; }
+.mws-live-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mws-live-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.mws-live-frame { border-radius: 18px; overflow: hidden; background: #fff; block-size: min(72vh, 760px); min-block-size: 420px; }
+.mws-live-frame iframe { display: block; inline-size: 100%; block-size: 100%; border: 0; }
 .mws-built p { margin: 0 0 10px; }
 .bld-run .bld-steps .bld-st-detail { display: inline-flex; align-items: center; gap: 4px; }
 .mws-ico { display: block; }
@@ -2257,7 +2262,7 @@ html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
 @media(prefers-reduced-motion:reduce) { .nzc-service-art,.nzc-service-art * { animation:none !important; } .nzc-slide-motion { display:none; } }
 
 /* Plain borderless surfaces, without decorative card patterns. */
-.nzc :is(.nz-card,.nzc-stat,.nzc-tile,.nzc-navcard,.nzc-service-tile,.nzc-panel,.nzc-shop-card,.nzc-shop-plan,.nzc-co-card,.nzc-cart-panel,.nzc-home-service,.nzc-home-build,.nzc-home-product,.nzc-split-card,.nzc-split-panel,.nzc-hero,.hs-plan,.hs-hero,.ld-card,.bl-pcard,.bl-hero,.mws-panel,.nzc-plan,.nzc-quota,.nzc-action,.nzc-callout,.nzc-host-planner-panel) { background-image:none !important; background-color:var(--nzc-card); }
+.nzc :is(.nz-card,.nzc-stat,.nzc-tile,.nzc-navcard,.nzc-service-tile,.nzc-panel,.nzc-shop-card,.nzc-shop-plan,.nzc-co-card,.nzc-cart-panel,.nzc-home-service,.nzc-home-build,.nzc-home-product,.nzc-hero,.hs-plan,.hs-hero,.ld-card,.bl-pcard,.bl-hero,.mws-panel,.nzc-plan,.nzc-quota,.nzc-action,.nzc-callout,.nzc-host-planner-panel) { background-image:none !important; background-color:var(--nzc-card); }
 .nzc-home-service::before { display:none; }
 .nzc .nzc-home-service[data-service='hosting'] { background-color:color-mix(in srgb,var(--nzc-card) 90%,#bcdccb); }
 .nzc .nzc-home-service[data-service='compute'] { background-color:color-mix(in srgb,var(--nzc-card) 90%,#93b6b3); }
@@ -2430,8 +2435,9 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 .nzc-dashboard .nzc-split { min-block-size:0; padding:0; background:transparent; }
 .nzc-body:has(.nzc-dash-layout) { padding-block-end:24px; }
 
-/* Status column resource cards: white background (the dark "needs attention" card keeps its own). Text colours are set for white so it reads in both themes. */
-.nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a; --nzc-fg: #17181a; --nzc-muted: #5b5f63; }
+/* Status column resource cards: white background in light mode only (dark mode keeps the dark card; the "needs attention" card keeps its own). */
+.nzc[data-theme="light"] .nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a; --nzc-fg: #17181a; --nzc-muted: #5b5f63; }
+
 /* AI Studio panel (ADR-064): the workspace's own cards, lists and controls; no new colours. */
 .ais-body { display: block; }
 .ais-stack { display: grid; gap: 14px; align-content: start; max-inline-size: 960px; }

@@ -203,9 +203,7 @@ export class EmailModule implements OnApplicationBootstrap {
     private readonly mailboxes: MailboxService,
     private readonly messages: MessageService,
     @Inject(PRICERS) _pricers: boolean,
-  ) {
-    void _pricers;
-  }
+  ) {}
   onApplicationBootstrap() {
     // rows that still wait for an operation: the data jobs tick runs or reconciles them
     this.jobs.addOpSource(

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { webappInstruction } from '@nuzm/domain';
 import { RealModelGateway } from './m09-real';
+import { RESERVED, SYSTEM_COLUMNS } from '../spec/app-spec';
 
 type Invoke = Parameters<ConstructorParameters<typeof RealModelGateway>[0]['invoke']>[0];
 
@@ -65,7 +67,21 @@ describe('the real model gateway tells the model what to produce', () => {
     const { gw, calls } = make();
     await gw.complete(req({ schema: { description: 'x'.repeat(100_000) } }));
     const system = calls[0]!.messages.find((m) => m.role === 'system')!.content;
-    expect(system.length).toBeLessThan(62_000);
+    const instruction = webappInstruction('requirements', {
+      reserved: [...RESERVED],
+      systemColumns: SYSTEM_COLUMNS,
+    });
+    // the schema is capped at 60k characters; the rest is the trusted instruction and the fixed framing
+    expect(system.length).toBeLessThan(62_000 + instruction.length);
+  });
+
+  it('gives each web-app agent its own role instructions and the names the generator refuses', async () => {
+    const { gw, calls } = make();
+    await gw.complete(req({ purpose: 'app_spec' }));
+    const system = calls[0]!.messages.find((m) => m.role === 'system')!.content;
+    expect(system).toContain('solution architect');
+    expect(system).toContain('HOUSE RULES');
+    for (const n of ['select', 'audit_log', 'org_id', 'created_at']) expect(system).toContain(n);
   });
 
   it('a non-JSON answer becomes an invalid output (the caller repairs it), not a crash', async () => {

@@ -206,13 +206,52 @@ describe('web-app mode of the builder workspace (same shell as the website and m
     expect(calls.filter((c) => !c.url.startsWith('/v1/ai/runs?'))).toHaveLength(0);
   });
 
-  it('the Preview says plainly that there is no live preview of a web app yet, and lists what the agents built', async () => {
-    mockFetch((url) => built(url) ?? json(404, {}));
+  it('the Preview runs the app on request in an isolated frame, and lists what the agents built', async () => {
+    const url = `http://${'a'.repeat(32)}.preview.localhost:4000/#/autologin=s3ss10n`;
+    mockFetch((u, method) =>
+      u === '/v1/builder/projects/p1/live-preview' && method === 'POST'
+        ? json(201, {
+            url,
+            expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+            specVersion: 2,
+          })
+        : u === '/v1/builder/projects/p1/live-preview' && method === 'DELETE'
+          ? new Response(null, { status: 204 })
+          : (built(u) ?? json(404, {})),
+    );
     ws();
-    expect(screen.getByText(t('en', 'mws.web.preview.note'))).toBeTruthy();
     await waitFor(() => expect(screen.getByText('Patients')).toBeTruthy());
-    expect(screen.getByText(t('en', 'mws.web.preview.entities'))).toBeTruthy();
-    expect(screen.getByText('Patient')).toBeTruthy();
+    expect(screen.getByText(t('en', 'mws.web.live.intro'))).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'mws.web.live.start') }));
+    const frame = (await screen.findByTitle(t('en', 'mws.web.live.frame'))) as HTMLIFrameElement;
+    expect(frame.getAttribute('src')).toBe(url);
+    // its own (isolated) origin, never the console's: storage and same-origin calls work inside it, nothing of the console is reachable
+    expect(frame.getAttribute('sandbox')).toBe(
+      'allow-scripts allow-same-origin allow-forms allow-downloads',
+    );
+    expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
+    expect(screen.queryByText(/autologin/)).toBeNull(); // the address is only the frame src
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'mws.web.live.stop') }));
+    await waitFor(() => expect(screen.queryByTitle(t('en', 'mws.web.live.frame'))).toBeNull());
+    expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/live-preview'))).toBe(true);
+  });
+
+  it('the Preview says so when live preview is not enabled for the organization', async () => {
+    mockFetch((u, method) =>
+      u.endsWith('/live-preview') && method === 'POST'
+        ? json(403, { status: 403, code: 'feature_disabled' })
+        : (built(u) ?? json(404, {})),
+    );
+    ws();
+    fireEvent.click(await screen.findByRole('button', { name: t('en', 'mws.web.live.start') }));
+    expect(await screen.findByText(t('en', 'mws.web.live.disabled'))).toBeTruthy();
+  });
+
+  it('a member who cannot edit the project cannot start a preview', async () => {
+    mockFetch((u) => built(u) ?? json(404, {}));
+    ws({}, { write: false });
+    expect(await screen.findByText(t('en', 'mws.web.live.needsWriter'))).toBeTruthy();
+    expect(screen.queryByRole('button', { name: t('en', 'mws.web.live.start') })).toBeNull();
   });
 
   it('a project with no build yet says so in the Preview and Spec panels', async () => {

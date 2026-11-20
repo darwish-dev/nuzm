@@ -134,7 +134,6 @@ export function QuoteSummary({ locale, quote }: { locale: Locale; quote: QuoteVi
 
 /** Section links of the database screens. */
 export function SectionTabs({
-  locale,
   label,
   current,
   tabs,
@@ -144,7 +143,6 @@ export function SectionTabs({
   current: string;
   tabs: { key: string; href: string; label: string }[];
 }) {
-  void locale;
   return (
     <nav aria-label={label} className="nz-row nzc-subtabs">
       {tabs.map((x) => (

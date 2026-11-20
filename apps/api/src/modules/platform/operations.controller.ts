@@ -4,8 +4,7 @@ import { OperationsService, type Operation } from '@nuzm/platform';
 import { Org, RequirePermission } from '../../common/access';
 import { AuditSink } from '../../common/audit';
 import { ProblemException } from '../../common/errors';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from '@nuzm/domain';
 
 const shape = (o: Operation) => ({
   id: o.id,

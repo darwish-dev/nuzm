@@ -1,5 +1,5 @@
 import type { Db } from '@nuzm/platform';
-import type { DnsChangeInput, DnsRecord } from '@nuzm/domain';
+import type { DnsRecord } from '@nuzm/domain';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { UUID, badRequest, type Row } from './common';
@@ -206,11 +206,6 @@ export class DnsLinkageService {
       await this.dns.records(orgId, z.id as string, { name, type: 'TXT' })
     ).items.filter((r) => r.value === token);
     if (recs.length === 0) return;
-    const changes: DnsChangeInput[] = recs.map(() => ({
-      op: 'delete',
-      match: { name, type: 'TXT' },
-    }));
-    void changes;
     await this.dns.applyChangeSet(
       orgId,
       null,

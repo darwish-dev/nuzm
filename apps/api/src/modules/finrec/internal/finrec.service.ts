@@ -4,9 +4,9 @@ import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { decodeCursor, pageOf, type Page } from '../../../common/pagination';
 import { RECON_TYPES, RECONCILERS, type Ctx, type ReconType, type Sources } from './reconcilers';
+import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ACTIONS = ['assign', 'adjustment', 'accept'] as const;
 type Action = (typeof ACTIONS)[number];

@@ -1,3 +1,4 @@
+import { MOBILE_DESIGN } from '@nuzm/domain';
 import { PINNED_TOOLCHAIN } from './flutter/toolchain';
 import { MOBILE_SPEC_SCHEMA, validateMobileSpec, type MobileSpec } from './flutter/spec';
 import { analyzeProject } from './flutter/analysis';
@@ -6,15 +7,7 @@ import { ProblemException } from '../../../common/errors';
 import type { RunContext, RunKindHandler } from '../../ai';
 import type { MobileProjectService } from '../../builder';
 
-const INSTR_DESIGN =
-  'You are the mobile design agent of an app builder for businesses in Saudi Arabia. From the description, design a Flutter mobile app as a STRUCTURED SPEC: screens (kind home, list, form, detail or settings), ' +
-  'bilingual Arabic and English texts for every label (Arabic is a first-class language, not a translation), a bottom navigation of 1-5 tabs, a primary colour with readable contrast, whether sign-in is needed, ' +
-  'and the few Android permissions the app really needs (default none beyond internet). Use only the allowed enumerations. No code, no URLs, no credentials. result = the spec object. ' +
-  'HARD RULES (the design is rejected otherwise): every screen id and field id is lowercase letters, digits and underscores, starts with a letter, at most 31 characters, and is unique; ' +
-  'never use the ids login, splash, app, main or routes (a login screen is created for you when auth.enabled is true) nor the words class, enum, new, null, this, true, false, var, void, with; ' +
-  'navigation.initial and every navigation.tabs entry must be the id of a screen you defined, tabs are unique, 1 to 5 of them; a screen of kind form must have at least one field and no other kind may have fields; ' +
-  'only a screen of kind list may have items; a field of type choice needs at least two options and no other type has options; permissions come only from internet, camera, location, notifications, photos, without duplicates; ' +
-  'colours are #RRGGBB; every text has both ar and en.';
+const INSTR_DESIGN = MOBILE_DESIGN;
 
 /**
  * `kind=mobile` (M10 S48): description -> structured mobile spec (design agent) -> human approval of the design (`plan`, bound to the exact spec) -> the trusted template renderer writes the

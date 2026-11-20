@@ -176,7 +176,7 @@ interface ValueCheck {
   value?: unknown;
   error?: { code: DnsErrorCode; message: string };
 }
-function validateValue(type: DnsRecordType, v: unknown, o: DnsValidationOptions): ValueCheck {
+function validateValue(type: DnsRecordType, v: unknown, _o: DnsValidationOptions): ValueCheck {
   const bad = (message: string, code: DnsErrorCode = 'invalid_value') => ({
     error: { code, message },
   });
@@ -254,7 +254,6 @@ function validateValue(type: DnsRecordType, v: unknown, o: DnsValidationOptions)
       return { value: { flags: x.flags, tag: x.tag, value: x.value } };
     }
   }
-  void o;
 }
 
 const hostsOf = (r: DnsRecord): string[] => {

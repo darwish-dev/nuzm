@@ -1,9 +1,8 @@
+import { UUID } from '@nuzm/domain';
 export interface Page<T> {
   items: T[];
   nextCursor: string | null;
 }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function parseLimit(raw: unknown, def = 50): number {
   const n = raw === undefined ? def : Number(raw);

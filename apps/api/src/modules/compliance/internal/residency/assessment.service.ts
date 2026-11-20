@@ -4,6 +4,7 @@ import type { AuditSink } from '../../../../common/audit';
 import { ProblemException } from '../../../../common/errors';
 import { decodeCursor, pageOf, type Page } from '../../../../common/pagination';
 import { CLASSES } from './evaluator';
+import { UUID } from '@nuzm/domain';
 
 export interface AssessmentDto {
   id: string;
@@ -43,7 +44,6 @@ const dto = (r: Row, now: Date): AssessmentDto => ({
   createdAt: iso(r.created_at)!,
 });
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REGION = /^([A-Z]{2}|in_kingdom|gcc|eu|other)$/;
 
 export type AssessmentRequest =

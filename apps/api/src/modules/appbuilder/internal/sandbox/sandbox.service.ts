@@ -267,7 +267,7 @@ export class SandboxService {
     try {
       if (cur.runtime_handle) await this.runtime.destroy(cur.runtime_handle as string);
     } finally {
-      const done = await this.db.withOrg(
+      await this.db.withOrg(
         orgId,
         async (c) =>
           (
@@ -277,7 +277,6 @@ export class SandboxService {
             )
           ).rows[0] as Row | undefined,
       );
-      void done;
     }
     await this.audit.record({
       action: 'sandbox.sandbox.terminated',

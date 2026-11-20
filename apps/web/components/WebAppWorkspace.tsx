@@ -291,7 +291,12 @@ export function WebAppWorkspace({
       ) : (
         <div className="mws-panel" data-panel={tab}>
           {tab === 'preview' ? (
-            <AppPreviewPanel locale={locale} project={project} refresh={refresh} />
+            <AppPreviewPanel
+              locale={locale}
+              project={project}
+              refresh={refresh}
+              canWrite={can.write}
+            />
           ) : tab === 'spec' ? (
             <AppSpecTab locale={locale} projectId={project.id} refresh={refresh} />
           ) : tab === 'tests' ? (

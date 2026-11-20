@@ -16,7 +16,8 @@ import {
 import { BrandMark, BrandWordmark } from '../../../components/BrandLogo';
 import { VerifyEmailPill } from '../../../components/AuthForms';
 import { ActiveOrgCookie, OrgSwitcher } from '../../../components/ConsoleChrome';
-import { ConsoleFrame, ProfileMenu } from '../../../components/ConsoleShell';
+import { ConsoleFrame, ProfileMenu, SupportToggle } from '../../../components/ConsoleShell';
+import { SupportPanel, type SupportTopic } from '../../../components/SupportPanel';
 import { FloatingBuilder } from '../../../components/FloatingBuilder';
 import { FloatingCart } from '../../../components/FloatingCart';
 import { NotificationsMenu } from '../../../components/NotificationsMenu';
@@ -136,6 +137,15 @@ export default async function ConsoleLayout({
       current: currentId === i.id && activeCat.id === 'organization',
     }));
 
+  // quick links of the support panel: the areas of the console this member can reach
+  const topics: SupportTopic[] = cats
+    .filter((c) => ['hosting', 'domains', 'cloud', 'email', 'finance', 'build'].includes(c.id))
+    .map((c) => ({
+      id: c.id,
+      label: t(locale, c.label),
+      href: `${base}${c.home === '/' ? '' : c.home}`,
+      icon: c.icon,
+    }));
   const imp = s.me.impersonation;
   const brand = (
     <a className="nzc-brandlink" href={base} aria-label="Nuzm">
@@ -151,6 +161,10 @@ export default async function ConsoleLayout({
           closeMenu: t(locale, 'nc.top.close'),
         }}
         brand={brand}
+        support={{
+          label: t(locale, 'sup.title'),
+          content: <SupportPanel locale={locale} topics={topics} />,
+        }}
         rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
         tabs={<SectionTabs label={t(locale, 'nc.nav.side')} groups={groups} />}
         topbar={
@@ -219,6 +233,7 @@ export default async function ConsoleLayout({
                 }}
               />
             )}
+            <SupportToggle label={t(locale, 'sup.open')} />
             <ProfileMenu
               initials={initialsOf(s.me.displayName, s.me.email)}
               name={s.me.displayName ?? s.me.email}

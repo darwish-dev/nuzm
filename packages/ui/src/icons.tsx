@@ -18,6 +18,13 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  support: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="3.4" />
+      <path d="m6 6 3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="4" y="5.5" width="16" height="14" rx="2.2" />

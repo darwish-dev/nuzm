@@ -1,7 +1,15 @@
 'use client';
 import QRCode from 'qrcode';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { Button, Field, Input, Ltr } from './components';
 import { Icon, type IconName } from './icons';
 
@@ -294,12 +302,16 @@ export function ConsoleFrame(props: {
   banner?: ReactNode;
   children: ReactNode;
   labels: { openMenu: string; closeMenu: string };
+  /** A side panel docked beside the content (the support chat): opened from a `SupportToggle` in the top bar, it narrows the content instead of covering it. */
+  support?: { label: string; content: ReactNode };
 }) {
   const [drawer, setDrawer] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       setDrawer(false);
+      setSupportOpen(false);
       closeTabMenus();
     };
     const onDown = (e: PointerEvent) =>
@@ -312,47 +324,92 @@ export function ConsoleFrame(props: {
     };
   }, []);
   return (
-    <div
-      className="nzc-app"
-      data-drawer={drawer ? 'open' : 'closed'}
-      onClick={(e) => {
-        const link = (e.target as HTMLElement).closest('a');
-        if (!link) return;
-        // following a link closes the rail drawer on small screens and any open tab menu
-        if (drawer && link.closest('.nzc-rail')) setDrawer(false);
-        if (link.closest('.nzc-tab-menu')) closeTabMenus();
+    <SupportCtx.Provider
+      value={{
+        open: supportOpen,
+        toggle: () => setSupportOpen((o) => !o),
+        close: () => setSupportOpen(false),
       }}
     >
-      <div className="nzc-banner-slot">{props.banner}</div>
-      <header className="nzc-top">
-        <button
-          type="button"
-          className="nzc-icon-btn nzc-only-mobile"
-          aria-label={props.labels.openMenu}
-          aria-expanded={drawer}
-          onClick={() => setDrawer(true)}
-        >
-          <Icon name="menu" />
-        </button>
-        {props.brand}
-        {props.topbar}
-      </header>
-      <div className="nzc-frame">
-        {props.rail}
-        {drawer && (
+      <div
+        className="nzc-app"
+        data-drawer={drawer ? 'open' : 'closed'}
+        onClick={(e) => {
+          const link = (e.target as HTMLElement).closest('a');
+          if (!link) return;
+          // following a link closes the rail drawer on small screens and any open tab menu
+          if (drawer && link.closest('.nzc-rail')) setDrawer(false);
+          if (link.closest('.nzc-tab-menu')) closeTabMenus();
+        }}
+      >
+        <div className="nzc-banner-slot">{props.banner}</div>
+        <header className="nzc-top">
           <button
             type="button"
-            className="nzc-scrim"
-            aria-label={props.labels.closeMenu}
-            onClick={() => setDrawer(false)}
-          />
-        )}
-        <main id="main" tabIndex={-1} className="nzc-body">
-          {props.tabs}
-          {props.children}
-        </main>
+            className="nzc-icon-btn nzc-only-mobile"
+            aria-label={props.labels.openMenu}
+            aria-expanded={drawer}
+            onClick={() => setDrawer(true)}
+          >
+            <Icon name="menu" />
+          </button>
+          {props.brand}
+          {props.topbar}
+        </header>
+        <div className="nzc-frame" data-support={props.support && supportOpen ? 'open' : undefined}>
+          {props.rail}
+          {drawer && (
+            <button
+              type="button"
+              className="nzc-scrim"
+              aria-label={props.labels.closeMenu}
+              onClick={() => setDrawer(false)}
+            />
+          )}
+          <main id="main" tabIndex={-1} className="nzc-body">
+            {props.tabs}
+            {props.children}
+          </main>
+          {props.support && (
+            <aside
+              id="nzc-support"
+              className="nzc-support"
+              aria-label={props.support.label}
+              hidden={!supportOpen}
+            >
+              {props.support.content}
+            </aside>
+          )}
+        </div>
       </div>
-    </div>
+    </SupportCtx.Provider>
+  );
+}
+
+interface SupportState {
+  open: boolean;
+  toggle: () => void;
+  close: () => void;
+}
+const SupportCtx = createContext<SupportState | null>(null);
+/** The docked support panel's state, for what is rendered inside it (its close button) and for the top bar's toggle. */
+export function useSupportDock(): SupportState {
+  return useContext(SupportCtx) ?? { open: false, toggle: () => undefined, close: () => undefined };
+}
+/** The top bar's support button: opens and closes the docked panel of the `ConsoleFrame` it sits in. */
+export function SupportToggle({ label }: { label: string }) {
+  const s = useSupportDock();
+  return (
+    <button
+      type="button"
+      className="nzc-icon-btn nzc-support-btn"
+      aria-label={label}
+      aria-expanded={s.open}
+      aria-controls="nzc-support"
+      onClick={s.toggle}
+    >
+      <Icon name="support" />
+    </button>
   );
 }
 

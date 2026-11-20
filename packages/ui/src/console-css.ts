@@ -1858,7 +1858,7 @@ html[lang='ar'] .ld-label { letter-spacing: 0; text-transform: none; font-size: 
 /* Support: a chat-style panel docked beside the dashboard, on the system background (not inside the dashboard's own frame). Opening it narrows the dashboard (the frame keeps its small side margin as the gap) instead of covering it. */
 .nzc-main { flex: 1; min-block-size: 0; display: flex; }
 .nzc-main > .nzc-frame { flex: 1; min-inline-size: 0; }
-.nzc-support { flex: none; inline-size: min(360px, 34vw); display: flex; flex-direction: column; min-block-size: 0; margin-inline: 0 6px; border: 1px solid var(--nzc-border); border-block-end: 0; border-radius: 22px 22px 0 0; background: var(--nzc-card); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22); overflow: hidden; animation: nzc-support-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.nzc-support { flex: none; inline-size: min(360px, 34vw); display: flex; flex-direction: column; min-block-size: 0; margin-inline: 0 6px; border: 1px solid var(--nzc-border); border-block-end: 0; border-radius: 22px 22px 0 0; background: var(--nzc-card); box-shadow: none; overflow: hidden; animation: nzc-support-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .nzc-support[hidden] { display: none; }
 @keyframes nzc-support-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 html[dir='rtl'] .nzc-support { animation-name: nzc-support-in-rtl; }
@@ -1887,10 +1887,16 @@ html[lang='ar'] .sup-label { letter-spacing: 0; text-transform: none; font-size:
 html[dir='rtl'] .sup-topics a > .nzc-icon:last-child { transform: scaleX(-1); }
 .sup-topic-icon { display: grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 9px; background: color-mix(in srgb, var(--nzc-accent) 14%, var(--nzc-field)); color: var(--nzc-accent); }
 .sup-composer { padding: 12px 14px 14px; border-block-start: 1px solid var(--nzc-border); display: grid; gap: 8px; }
-.sup-composer-box { display: flex; align-items: flex-end; gap: 8px; padding: 8px; border: 1px solid var(--nzc-border); border-radius: 14px; background: var(--nzc-field); opacity: 0.7; }
+.sup-composer-box { display: flex; align-items: flex-end; gap: 8px; padding: 8px; border: 1px solid var(--nzc-border); border-radius: 14px; background: var(--nzc-field); }
+.sup-composer-box:focus-within { border-color: var(--nzc-accent); }
 .nzc .sup-composer textarea { flex: 1; min-inline-size: 0; min-block-size: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; resize: none; padding: 6px 8px !important; font-size: 14px !important; color: var(--nzc-fg); }
-.sup-composer button { display: grid; place-items: center; flex: none; inline-size: 36px; block-size: 36px; border: 0; border-radius: 10px; background: var(--nzc-grad); color: var(--nzc-on-accent); cursor: not-allowed; }
-.sup-composer button:disabled { opacity: 0.55; }
+.sup-composer button { display: grid; place-items: center; flex: none; inline-size: 36px; block-size: 36px; border: 0; border-radius: 10px; background: var(--nzc-grad); color: var(--nzc-on-accent); cursor: pointer; }
+.sup-composer button:disabled { opacity: 0.45; cursor: not-allowed; }
+.sup-mine { justify-self: end; display: grid; gap: 4px; max-inline-size: 88%; }
+.sup-mine p { margin: 0; padding: 10px 14px; border-radius: 16px 4px 16px 16px; background: color-mix(in srgb, var(--nzc-accent) 18%, var(--nzc-card)); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
+.sup-mine small { color: var(--nzc-muted); font-size: 12px; justify-self: end; }
+.nzc-support, .nzc-support * { box-shadow: none !important; }
 .sup-note { margin: 0; color: var(--nzc-muted); font-size: 12.5px; line-height: 1.5; }
 @media (max-width: 900px) { .nzc-support { position: fixed; inset-block: var(--top-h) 0; inset-inline-end: 0; inline-size: min(380px, 100vw); margin: 0; border-radius: 0; border-inline-end: 0; z-index: 70; box-shadow: var(--nzc-shadow); } }
 .nzc-app:has(:is(.bws, .bfs-float)) .nzc-support { display: none; }

@@ -2510,6 +2510,7 @@ export const messages = {
     'sup.topics': 'روابط سريعة',
     'sup.placeholder': 'اكتبوا رسالتكم…',
     'sup.send': 'إرسال',
+    'sup.notSent': 'لم تُرسل: المحادثة المباشرة مع فريق الدعم غير متصلة بعد.',
     'sup.offline':
       'المحادثة المباشرة مع فريق الدعم غير متصلة بعد، لذلك لا يمكن إرسال الرسائل حاليًا.',
     'ld.mail.eyebrow': 'بريد أعمالك',
@@ -9137,6 +9138,7 @@ export const messages = {
     'sup.topics': 'Quick links',
     'sup.placeholder': 'Type your message…',
     'sup.send': 'Send',
+    'sup.notSent': 'Not sent: live chat with the support team is not connected yet.',
     'sup.offline':
       'Live chat with the support team is not connected yet, so messages cannot be sent for now.',
     'ld.mail.eyebrow': 'Business email',

@@ -14,19 +14,41 @@ const topics = [
 ];
 
 describe('support panel', () => {
-  it('greets, offers quick links to the areas, and is honest that live chat is not connected (the composer is disabled)', () => {
+  it('greets and offers quick links to the areas of the console', () => {
     render(<SupportPanel locale="en" topics={topics} />);
     expect(screen.getByText(t('en', 'sup.greeting'))).toBeTruthy();
     expect(screen.getByRole('link', { name: /Hosting/ }).getAttribute('href')).toBe(
       '/en/hosting/sites',
     );
     expect(screen.getByRole('link', { name: /Domains/ })).toBeTruthy();
-    const box = screen.getByLabelText(t('en', 'sup.placeholder')) as HTMLTextAreaElement;
-    expect(box.disabled).toBe(true);
-    expect(
-      (screen.getByRole('button', { name: t('en', 'sup.send') }) as HTMLButtonElement).disabled,
-    ).toBe(true);
     expect(screen.getByText(t('en', 'sup.offline'))).toBeTruthy();
+  });
+  it('you can type and send: the message shows in the thread, marked as not sent because live chat is not connected', () => {
+    const { container } = render(<SupportPanel locale="en" topics={topics} />);
+    const box = screen.getByLabelText(t('en', 'sup.placeholder')) as HTMLTextAreaElement;
+    const send = screen.getByRole('button', { name: t('en', 'sup.send') }) as HTMLButtonElement;
+    expect(box.disabled).toBe(false);
+    expect(send.disabled).toBe(true); // nothing to send yet
+    fireEvent.change(box, { target: { value: '   ' } });
+    expect(send.disabled).toBe(true);
+    fireEvent.change(box, { target: { value: 'My domain is not resolving' } });
+    expect(send.disabled).toBe(false);
+    fireEvent.click(send);
+    expect(container.querySelector('.sup-mine p')?.textContent).toBe('My domain is not resolving');
+    expect(screen.getByText(t('en', 'sup.notSent'))).toBeTruthy();
+    expect(box.value).toBe('');
+  });
+  it('Enter sends and Shift+Enter keeps writing', () => {
+    const { container } = render(<SupportPanel locale="en" topics={[]} />);
+    const box = screen.getByLabelText(t('en', 'sup.placeholder')) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: 'first line' } });
+    fireEvent.keyDown(box, { key: 'Enter', shiftKey: true });
+    expect(container.querySelectorAll('.sup-mine')).toHaveLength(0);
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(container.querySelectorAll('.sup-mine')).toHaveLength(1);
+    fireEvent.change(box, { target: { value: 'second' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(container.querySelectorAll('.sup-mine')).toHaveLength(2);
   });
   it('without any reachable area it shows no empty list of links', () => {
     const { container } = render(<SupportPanel locale="en" topics={[]} />);

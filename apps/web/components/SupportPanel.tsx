@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Icon, useSupportDock, type IconName } from '@nuzm/ui';
 import { BrandMark } from './BrandLogo';
@@ -12,10 +13,28 @@ export interface SupportTopic {
 
 /**
  * The support panel docked beside the page (opened from the top bar's support button): a chat-style thread with a greeting and quick links to the areas of the
- * console. Live chat with the support team has no service behind it yet, so the composer is disabled and says so: nothing here pretends a message is sent.
+ * console. You can type and "send": the message shows in the thread, but live chat with the support team has no service behind it yet, so it is marked
+ * "not sent" and nothing pretends it was delivered.
  */
 export function SupportPanel({ locale, topics }: { locale: Locale; topics: SupportTopic[] }) {
   const dock = useSupportDock();
+  const [draft, setDraft] = useState('');
+  const [sent, setSent] = useState<{ id: number; text: string }[]>([]);
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    end.current?.scrollIntoView?.({ block: 'end' });
+  }, [sent.length]);
+  function send(e?: FormEvent) {
+    e?.preventDefault();
+    const text = draft.trim();
+    if (text === '') return;
+    setSent((m) => [...m, { id: m.length + 1, text: text.slice(0, 2000) }]);
+    setDraft('');
+  }
+  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) send();
+    if (e.key === 'Enter' && !e.shiftKey) e.preventDefault();
+  };
   return (
     <div className="sup">
       <header className="sup-head">
@@ -60,20 +79,31 @@ export function SupportPanel({ locale, topics }: { locale: Locale; topics: Suppo
             </ul>
           </nav>
         )}
+        {sent.map((m) => (
+          <div key={m.id} className="sup-mine">
+            <p dir="auto">{m.text}</p>
+            <small>{t(locale, 'sup.notSent')}</small>
+          </div>
+        ))}
+        <div ref={end} />
       </div>
-      <form className="sup-composer" onSubmit={(e) => e.preventDefault()}>
+      <form className="sup-composer" onSubmit={send}>
         <div className="sup-composer-box">
           <label className="nz-sr" htmlFor="sup-text">
             {t(locale, 'sup.placeholder')}
           </label>
           <textarea
             id="sup-text"
+            dir="auto"
             rows={2}
-            disabled
+            maxLength={2000}
+            value={draft}
             placeholder={t(locale, 'sup.placeholder')}
             aria-describedby="sup-note"
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKey}
           />
-          <button type="submit" disabled aria-label={t(locale, 'sup.send')}>
+          <button type="submit" disabled={draft.trim() === ''} aria-label={t(locale, 'sup.send')}>
             <Icon name="send" size={18} />
           </button>
         </div>

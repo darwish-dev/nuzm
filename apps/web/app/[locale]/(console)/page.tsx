@@ -211,7 +211,6 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   const featuredServices = ['hosting', 'compute', 'domains']
     .map((id) => services.find((service) => service.id === id))
     .filter((service) => service !== undefined);
-  const otherServices = services.filter((service) => !featuredServices.includes(service));
   const ar = locale === 'ar';
   const slides = featuredServices.map((service) => ({
     id: service.id,
@@ -293,13 +292,10 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                 <span className="nzc-home-service-symbol">
                   <Icon name={service.icon} size={19} />
                 </span>
-                <Icon name="arrow" size={17} />
-              </div>
-              <div>
                 <h2>
                   {service.id === 'compute' ? (ar ? 'السحابة' : 'Cloud') : t(locale, service.label)}
                 </h2>
-                <p>{slides.find((slide) => slide.id === service.id)?.description}</p>
+                <Icon name="arrow" size={17} />
               </div>
               <ServiceArtwork service={service.id} ar={ar} compact />
               <div className="nzc-home-service-bottom">
@@ -486,27 +482,6 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
               </section>
             )}
           </div>
-        )}
-
-        {otherServices.length > 0 && (
-          <section aria-labelledby="d-services">
-            <div className="nzc-cardhead">
-              <h2 id="d-services">{t(locale, 'dash.services.title')}</h2>
-            </div>
-            <ul className="nzc-tiles">
-              {otherServices.map((svc) => (
-                <li key={svc.id}>
-                  <a className="nzc-tile" href={`${base}${svc.href}`}>
-                    <span className="nzc-tile-icon">
-                      <Icon name={svc.icon} size={18} />
-                    </span>
-                    <strong>{t(locale, svc.label)}</strong>
-                    <span className="nzc-tile-sub">{t(locale, svc.desc)}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
         )}
       </div>
     </div>

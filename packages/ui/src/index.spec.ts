@@ -37,4 +37,8 @@ describe('ui tokens', () => {
     expect(consoleCss).toContain('.nzc-status::-webkit-scrollbar');
     expect(consoleCss).toContain('.nzc-status, .nzc-status * { box-shadow: none !important;');
   });
+  it('the dashboard cards have no stroke border', () => {
+    expect(consoleCss).toContain('.nzc-dash-layout :is(.nz-card, .nzc-stat, .nzc-status-card');
+    expect(consoleCss).toMatch(/\{ border: 0 !important; \}/);
+  });
 });

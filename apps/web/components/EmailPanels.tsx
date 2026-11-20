@@ -80,55 +80,59 @@ export function AddDomainForm({
     <form
       onSubmit={submit}
       noValidate
-      className="nzc-dsearch nzc-email-setup"
+      className="ld-hero ld-emailhero"
+      data-size="md"
       aria-labelledby="emd-add-h"
     >
-      <div className="nzc-dsearch-inner">
-        <header className="nzc-email-setup-head">
-          <div>
-            <h2 id="emd-add-h">{t(locale, 'm8.emd.add')}</h2>
-            <p className="nzc-dsearch-sub">{t(locale, 'm8.emd.help')}</p>
-          </div>
-          <Art name="email" />
-        </header>
-        <div className="nzc-emd-bar">
-          <Field
+      <div className="ld-glow" aria-hidden="true" />
+      <Art name="email" className="ld-art" />
+      <div className="ld-inner">
+        <span className="ld-brand">
+          <Icon name="mail" size={16} /> {t(locale, 'ld.mail.eyebrow')}
+        </span>
+        <h2 id="emd-add-h" className="ld-title">
+          {t(locale, 'ld.emd.title')}
+        </h2>
+        <p className="ld-sub">{t(locale, 'm8.emd.help')}</p>
+        <div className="ld-card ld-search">
+          <Icon name="globe" size={22} />
+          <label className="nz-sr" htmlFor="emd-domain">
+            {t(locale, 'm8.emd.domain')}
+          </label>
+          <input
             id="emd-domain"
-            label={t(locale, 'm8.emd.domain')}
-            help={t(locale, 'm8.emd.domainHelp')}
-            error={error}
-          >
-            {(x) => (
-              <Input
-                {...x}
-                dir="ltr"
-                placeholder="example.com"
-                autoComplete="off"
-                spellCheck={false}
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-              />
-            )}
-          </Field>
-          <Button type="submit" disabled={call.busy}>
-            {t(locale, 'm8.emd.addAction')}
-          </Button>
+            className="ld-search-input"
+            dir="ltr"
+            placeholder="example.com"
+            autoComplete="off"
+            spellCheck={false}
+            value={domain}
+            aria-invalid={error ? true : undefined}
+            aria-describedby="emd-domain-help"
+            onChange={(e) => setDomain(e.target.value)}
+          />
+          <button className="ld-go" type="submit" disabled={call.busy}>
+            <span>{t(locale, 'm8.emd.addAction')}</span>
+            <Icon name="arrow" size={18} />
+          </button>
         </div>
-        <div className="nzc-tlds" role="group" aria-labelledby="emd-purposes">
-          <p className="nzc-tlds-title" id="emd-purposes">
+        <p
+          className={error ? 'nz-error-text' : 'ld-note'}
+          id="emd-domain-help"
+          role={error ? 'alert' : undefined}
+        >
+          {error ?? t(locale, 'm8.emd.domainHelp')}
+        </p>
+        <div className="ld-tlds" role="group" aria-labelledby="emd-purposes">
+          <p className="ld-label" id="emd-purposes">
             {t(locale, 'm8.emd.purposes')}
           </p>
-          <div className="nzc-tlds-grid">
+          <div className="ld-tlds-grid ld-purposes">
             {(['transactional', 'mailbox'] as const).map((p) => (
-              <label key={p} className="nzc-tld nzc-purpose">
-                <span className="nzc-purpose-name">{t(locale, `m8.emd.purpose.${p}`)}</span>
-                <input
-                  type="checkbox"
-                  className="nzc-switch-input"
-                  checked={purposes.includes(p)}
-                  onChange={() => toggle(p)}
-                />
-                <span className="nzc-tld-hint">{t(locale, `m8.emd.purpose.${p}.desc`)}</span>
+              <label key={p} className="ld-tld">
+                <input type="checkbox" checked={purposes.includes(p)} onChange={() => toggle(p)} />
+                <span className="ld-tld-name">{t(locale, `m8.emd.purpose.${p}`)}</span>
+                <span className="ld-tld-hint">{t(locale, `m8.emd.purpose.${p}.desc`)}</span>
               </label>
             ))}
           </div>
@@ -398,10 +402,20 @@ export function NewMailboxForm({
   }
   if (domains.length === 0)
     return (
-      <Banner tone="warn">
-        {t(locale, 'm8.mb.noDomains')}{' '}
-        <a href={`/${locale}/email/domains`}>{t(locale, 'm8.em.tab.domains')}</a>
-      </Banner>
+      <section className="ld-hero ld-emailhero" data-size="md">
+        <div className="ld-glow" aria-hidden="true" />
+        <div className="ld-inner">
+          <span className="ld-brand">
+            <Icon name="mail" size={16} /> {t(locale, 'ld.mail.eyebrow')}
+          </span>
+          <h2 className="ld-title">{t(locale, 'ld.mail.needDomain')}</h2>
+          <p className="ld-sub">{t(locale, 'm8.mb.noDomains')}</p>
+          <a className="ld-go" href={`/${locale}/email/domains`}>
+            <span>{t(locale, 'm8.em.tab.domains')}</span>
+            <Icon name="arrow" size={18} />
+          </a>
+        </div>
+      </section>
     );
   return (
     <>

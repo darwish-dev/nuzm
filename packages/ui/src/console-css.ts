@@ -1790,6 +1790,11 @@ html[lang='ar'] .ascene-layer h4 { letter-spacing: 0; text-transform: none; font
 /* Landing-style heroes (domain search, mailbox creation): the same look as the AI builder landing, inside the console. */
 .ld-hero { position: relative; overflow: hidden; box-sizing: border-box; display: grid; place-items: center; min-block-size: min(640px, calc(100vh - 220px)); padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 48px); border: 1px solid var(--nzc-border); border-radius: 28px; background: var(--nzc-card); margin-block-end: 24px; }
 .ld-hero[data-compact='true'] { min-block-size: 0; padding-block: 34px; }
+.ld-hero[data-size='md'] { min-block-size: 0; padding-block: clamp(34px, 4vw, 52px); }
+.ld-purposes { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.ld-purposes .ld-tld-name { font-size: 17px; }
+.ld-go { text-decoration: none; }
+.nzc a.ld-go, .nzc a.ld-go:hover { color: var(--nzc-on-accent); }
 .ld-glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 60% 50% at 12% 0%, color-mix(in srgb, var(--nzc-accent) 22%, transparent), transparent 70%), radial-gradient(ellipse 50% 45% at 92% 30%, color-mix(in srgb, var(--nzc-accent) 13%, transparent), transparent 70%), radial-gradient(ellipse 70% 50% at 50% 115%, color-mix(in srgb, var(--nzc-accent) 11%, transparent), transparent 70%); }
 .ld-art { position: absolute; inset-inline-end: 4%; inset-block-end: 6%; inline-size: 190px; opacity: 0.9; pointer-events: none; filter: drop-shadow(0 22px 36px #00000040); }
 .ld-hero[data-compact='true'] .ld-art { display: none; }
@@ -1805,7 +1810,9 @@ html[lang='ar'] .ld-title { letter-spacing: 0; line-height: 1.3; max-inline-size
 .ld-search { display: flex; align-items: center; gap: 12px; padding-block: 10px; padding-inline: 22px 10px; color: var(--nzc-muted); }
 .ld-search-input { flex: 1; min-inline-size: 0; border: 0; background: transparent; color: var(--nzc-fg); font: inherit; font-size: clamp(17px, 2vw, 22px); padding-block: 14px; outline: none; }
 .ld-search-input::placeholder { color: var(--nzc-muted); }
-.nzc .ld-search-input, .nzc .ld-search-input:focus { border: 0; background: transparent; box-shadow: none; }
+.nzc .ld-search-input, .nzc .ld-search-input:focus, .nzc .ld-search-input:hover { border: 0 !important; background: transparent !important; box-shadow: none !important; min-block-size: 0 !important; font-size: clamp(17px, 2vw, 22px) !important; padding-inline: 0 !important; }
+.nzc .ld-local, .nzc .ld-domain { font-size: 18px !important; min-block-size: 56px !important; border-radius: 16px !important; background-color: var(--nzc-card) !important; }
+.nzc .ld-custom input { min-block-size: 0 !important; font-size: 14px !important; padding-inline: 12px !important; border-radius: 12px !important; }
 .ld-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-inline-size: 124px; padding: 14px 24px; border: 0; border-radius: 18px; background: var(--nzc-accent); color: var(--nzc-on-accent); font: inherit; font-weight: 700; cursor: pointer; transition: transform 0.15s ease, opacity 0.15s ease; }
 .ld-go:hover:not(:disabled) { transform: translateY(-1px); }
 .ld-go:disabled { opacity: 0.55; cursor: not-allowed; }

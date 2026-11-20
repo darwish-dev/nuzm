@@ -30,6 +30,8 @@ export interface RegistrarAccount {
   health: string;
   capabilities: Partial<Record<RegistrarCapabilityId, CapabilityState>>;
   tldSupport: TldSupport[];
+  /** Non-secret connection settings typed in the admin console (DNet: baseUrl, resellerId, timeoutMs). Never credentials. */
+  settings: Record<string, unknown>;
   evidenceKind: 'mock' | 'fixture' | 'live' | null;
   probedAt: string | null;
 }
@@ -55,6 +57,7 @@ export const toAccount = (r: Row): RegistrarAccount => ({
   health: r.health as string,
   capabilities: (r.capabilities ?? {}) as RegistrarAccount['capabilities'],
   tldSupport: (r.tld_support ?? []) as TldSupport[],
+  settings: (r.settings ?? {}) as Record<string, unknown>,
   evidenceKind: (r.evidence_kind as RegistrarAccount['evidenceKind']) ?? null,
   probedAt: r.probed_at ? (r.probed_at as Date).toISOString() : null,
 });

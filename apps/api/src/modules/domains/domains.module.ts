@@ -3,6 +3,8 @@ import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { OperationsService } from '@nuzm/platform';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
+import { SecretStore } from '../../common/secrets';
+import { IdentityModule } from '../identity';
 import { DB } from '../../common/tokens';
 import { LedgerPostingService } from '../billing';
 import { OrderService as CommerceOrders, QuotePricerRegistry } from '../commerce';
@@ -57,6 +59,7 @@ import { loadTldPolicy } from './internal/tld-policy';
  */
 @Global()
 @Module({
+  imports: [IdentityModule],
   controllers: [
     DomainsSearchController,
     DomainsController,
@@ -108,9 +111,14 @@ import { loadTldPolicy } from './internal/tld-policy';
     },
     {
       provide: RegistrarAdminService,
-      useFactory: (db: Db, a: RegistrarAccessService, au: AuditSink, cfg: DomainsConfig) =>
-        new RegistrarAdminService(db, a, au, cfg),
-      inject: [DB, RegistrarAccessService, AuditSink, DOMAINS_CONFIG],
+      useFactory: (
+        db: Db,
+        a: RegistrarAccessService,
+        au: AuditSink,
+        cfg: DomainsConfig,
+        sec: SecretStore,
+      ) => new RegistrarAdminService(db, a, au, cfg, sec),
+      inject: [DB, RegistrarAccessService, AuditSink, DOMAINS_CONFIG, SecretStore],
     },
     {
       provide: DomainOrderService,

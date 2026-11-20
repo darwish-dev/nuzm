@@ -54,6 +54,7 @@ Rules: agents may **not** assume an answer to any item marked `OPEN`. A "propose
 | D-47 | Embeddings: model/provider, residency, and whether the managed Postgres offers `vector` | AI Intelligence S-K5 | Deferred; lexical + metadata + symbol retrieval first; flag `knowledge.semantic_search` stays off | **DECIDED 2026-11-20 (owner, interim): lexical + metadata + symbol retrieval first**; embeddings stay BLOCKED (D-18, HG-09-01, `vector` probe); flag `knowledge.semantic_search` off |
 | D-48 | Initial recommendation weights (functional 25, framework 20, architecture 20, design 15, quality 10, reuse 10) | AI Intelligence S-K5 | Accept as editable initial configuration, evaluated against outcomes, not proven optimal | **DECIDED 2026-11-20 (owner): initial weights accepted as editable configuration**, evaluated against outcomes |
 | D-49 | Per-resource "AI processing permitted" default and who may change it | AI Intelligence S-K1 | Off by default; changed only with `admin:ai_knowledge:publish`; also needs residency and data-terms checks (HG-09-01) | **DECIDED 2026-11-20 (owner): off by default**; changed only with `admin:ai_knowledge:publish` and subject to residency and data-terms checks |
+| D-50 | **DNet (dnet.sa) as the `.sa` / Saudi registrar route** (proposal from the owner's integration brief of 2026-11-21; refines D-19) | S30 follow-up | Add DNet as a `RegistrarAdapter` (`providerCode: dnet`) behind the existing M07 registrar framework; sell `.sa` suffixes only after HG-07-02 and HG-07-03 evidence and the TLD-policy `evidence_ref`; DNS stays Nuzm-operated unless the verified API offers `dns` (D-36). No adapter code until DNet's API documentation is supplied ([DNET-S1 assessment](reports/DNET-S1-assessment.md)) | OPEN |
 
 ## B. Human gates and external blockers (HG-xx)
 Status vocabulary: `PENDING` (not started), `REQUESTED`, `GRANTED (evidence)`, `DENIED`. An agent **may not** mark `GRANTED` itself; the owner records evidence (document/screenshot id).
@@ -79,6 +80,7 @@ Status vocabulary: `PENDING` (not started), `REQUESTED`, `GRANTED (evidence)`, `
 | HG-06-01 | CloudPanel licensing/edition decision; nodes provisioned (from M05) | Owner | S24 | Node access |
 | HG-07-01 | Openprovider reseller account + API access + sandbox; ResellerClub reseller account + API IP-allow + sandbox | Owner | S28/S29 | Credentials in vault |
 | HG-07-02 | `.sa` eligibility route / registrar accreditation | Owner/Legal | S30 (Saudi TLD live) | Written confirmation |
+| HG-07-03 | DNet reseller account + written API documentation (auth, endpoints, sandbox, webhooks, eligibility/document rules) + sandbox credentials | Owner | D-50 (DNet adapter) | Documentation in `docs/adapters/dnet-source/`; credentials in vault (non-production) |
 | HG-08-01 | Data provider(s) for databases/Redis (D-05/D-06) contracted or verified; credentials | Owner | S32 | Contracts, keys, probe output |
 | HG-08-02 | Object-storage provider (D-07) contracted or verified; credentials | Owner | S34 | Same |
 | HG-08-03 | Business-email provider/program (D-09) contracted; reseller access | Owner | S35 | Contract, API access |

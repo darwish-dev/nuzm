@@ -7317,6 +7317,29 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/registrars/dnet:
+    put:
+      operationId: saveDnetRegistrarSettings
+      tags: [domains]
+      summary: Save the DNet connection settings (admin console)
+      description: 'Creates the DNet registrar account on the first save and updates it after that (owner request 2026-11-21, D-50). Body {label?, environment, baseUrl? (https), resellerId?, timeoutMs? (1000..60000), dataRegion? (default SA), currency? (default SAR), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. There is no DNet adapter until DNet documents its API (HG-07-03): verification answers 422 unsupported_capability. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dnet.settings_saved).'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DnetSettingsSave' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrarAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/admin/registrars/{id}/verification:
     post:
       operationId: verifyRegistrarAccount
@@ -18287,6 +18310,17 @@ components:
             type: object,
             additionalProperties: { type: string, enum: [supported, unsupported, unknown] },
           }
+        settings:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'Non-secret connection settings (DNet: baseUrl, resellerId, timeoutMs). Never credentials.',
+          }
+        credentialStored:
+          {
+            type: boolean,
+            description: A credential reference exists; the credential itself is never returned.,
+          }
         tldCount: { type: integer }
         evidenceKind: { type: [string, 'null'], enum: [mock, fixture, live, null] }
         verification: { type: string, enum: [NOT PROBED, NOT VERIFIED, LIVE-VERIFIED] }
@@ -18310,6 +18344,25 @@ components:
         dataRegion: { type: string }
         currency: { type: string }
         priority: { type: integer }
+    DnetSettingsSave:
+      type: object
+      required: [environment]
+      properties:
+        label: { type: string }
+        environment: { type: string, enum: [sandbox, production] }
+        baseUrl: { type: string, description: An https URL without credentials, query or fragment. }
+        resellerId: { type: string }
+        timeoutMs: { type: integer, minimum: 1000, maximum: 60000 }
+        dataRegion: { type: string }
+        currency: { type: string }
+        vaultRef:
+          { type: string, description: A vault:// reference. Not together with credentials. }
+        credentials:
+          type: object
+          description: Write-only; accepted outside production only (D-12).
+          properties:
+            apiKey: { type: string }
+            apiSecret: { type: string }
     RegistrarVerificationRequest:
       type: object
       properties: { enable: { type: boolean } }

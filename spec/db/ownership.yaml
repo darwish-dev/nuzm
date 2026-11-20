@@ -2367,6 +2367,7 @@ classification:
       health: internal
       capabilities: internal
       tld_support: internal
+      settings: internal
       evidence_kind: internal
       probed_at: internal
       created_by: internal

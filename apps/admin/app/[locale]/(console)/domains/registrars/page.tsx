@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
-import { Badge, EmptyState, ForbiddenState, Ltr, PageTitle, Table } from '@nuzm/ui';
+import { Badge, ButtonLink, EmptyState, ForbiddenState, Ltr, PageTitle, Table } from '@nuzm/ui';
 import { requireStaff } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
 import { VerifyButton } from '../../../../../components/DomainAdminPanels';
@@ -101,6 +101,11 @@ export default async function Registrars({ params }: { params: Promise<{ locale:
   return (
     <>
       <PageTitle>{t(locale, 'dom.admin.reg.title')}</PageTitle>
+      <p>
+        <ButtonLink variant="secondary" href={`/${locale}/domains/registrars/dnet`}>
+          {t(locale, 'dom.dnet.open')}
+        </ButtonLink>
+      </p>
       {body}
     </>
   );

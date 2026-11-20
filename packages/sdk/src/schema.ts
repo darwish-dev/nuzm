@@ -4196,6 +4196,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/registrars/dnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the DNet connection settings (admin console)
+         * @description Creates the DNet registrar account on the first save and updates it after that (owner request 2026-11-21, D-50). Body {label?, environment, baseUrl? (https), resellerId?, timeoutMs? (1000..60000), dataRegion? (default SA), currency? (default SAR), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. There is no DNet adapter until DNet documents its API (HG-07-03): verification answers 422 unsupported_capability. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dnet.settings_saved).
+         */
+        put: operations["saveDnetRegistrarSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/registrars/{id}/verification": {
         parameters: {
             query?: never;
@@ -11187,6 +11207,12 @@ export interface components {
             capabilities: {
                 [key: string]: "supported" | "unsupported" | "unknown";
             };
+            /** @description Non-secret connection settings (DNet: baseUrl, resellerId, timeoutMs). Never credentials. */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** @description A credential reference exists; the credential itself is never returned. */
+            credentialStored?: boolean;
             tldCount?: number;
             /** @enum {string|null} */
             evidenceKind?: "mock" | "fixture" | "live" | null;
@@ -11212,6 +11238,24 @@ export interface components {
             dataRegion: string;
             currency?: string;
             priority?: number;
+        };
+        DnetSettingsSave: {
+            label?: string;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            /** @description An https URL without credentials */
+            baseUrl?: string;
+            resellerId?: string;
+            timeoutMs?: number;
+            dataRegion?: string;
+            currency?: string;
+            /** @description A vault:// reference. Not together with credentials. */
+            vaultRef?: string;
+            /** @description Write-only; accepted outside production only (D-12). */
+            credentials?: {
+                apiKey?: string;
+                apiSecret?: string;
+            };
         };
         RegistrarVerificationRequest: {
             enable?: boolean;
@@ -21538,6 +21582,33 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    saveDnetRegistrarSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnetSettingsSave"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrarAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

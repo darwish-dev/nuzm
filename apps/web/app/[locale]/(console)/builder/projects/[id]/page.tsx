@@ -4,6 +4,7 @@ import { NotEnabledState } from '../../../../../../components/BuilderParts';
 import { WebAppWorkspace } from '../../../../../../components/WebAppWorkspace';
 import { MobileWorkspace } from '../../../../../../components/MobileWorkspace';
 import { Workspace } from '../../../../../../components/BuilderWorkspace';
+import { studioSection } from '../../../../../../components/StudioPanels';
 import { APP_BUILDER_FLAG } from '../../../../../../lib/appbuilder';
 import { latestWebappRun } from '../../../../../../lib/appworkspace';
 import { AI_STUDIO_FLAG } from '../../../../../../lib/ai-studio';
@@ -135,6 +136,12 @@ export default async function ProjectWorkspace({
             initialRun={d.run}
             canWrite={g.s.can('builder:write')}
             canAi={g.s.can('ai:write')}
+            initialPanel={studioSection(one(sp.panel))}
+            panelCan={{
+              write: g.s.can('builder:write'),
+              deployWrite: g.s.can('deploy:write'),
+              sitesRead: g.s.can('hosting:site:read'),
+            }}
             links={[
               { key: 'versions', perm: 'builder:read' },
               { key: 'seo', perm: 'builder:read' },
@@ -145,7 +152,7 @@ export default async function ProjectWorkspace({
               .filter((x) => g.s.can(x.perm))
               .map((x) => ({
                 key: x.key,
-                href: `/${locale}/builder/projects/${id}/${x.key}`,
+                href: `/${locale}/builder/projects/${id}?panel=${x.key}`,
                 label: t(locale, `bld.tab.${x.key}` as 'bld.tab.versions'),
               }))}
           />

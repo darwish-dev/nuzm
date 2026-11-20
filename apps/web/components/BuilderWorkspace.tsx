@@ -1,5 +1,11 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
 import {
@@ -34,6 +40,13 @@ import { Inspector, type Selection } from './BuilderInspector';
 import { PreviewPane } from './BuilderPreview';
 import { RunCard, type RunProgress } from './BuilderRunCard';
 import { DeleteProject } from './DeleteProject';
+import {
+  STUDIO_SECTIONS,
+  StudioPanel,
+  studioSection,
+  type StudioCan,
+  type StudioSection,
+} from './StudioPanels';
 
 type Mode = 'edit' | 'undo' | 'redo';
 
@@ -52,6 +65,8 @@ export function Workspace({
   canWrite,
   canAi,
   links = [],
+  initialPanel = null,
+  panelCan = { write: false, deployWrite: false, sitesRead: false },
 }: {
   locale: Locale;
   initial: ProjectDetail;
@@ -62,6 +77,9 @@ export function Workspace({
   canAi: boolean;
   /** the project's other screens (versions, SEO, forms, CMS, deployments) the person may open: shown under "More"; `publish` is the deployments link */
   links?: { key: string; href: string; label: string }[];
+  /** the section of this site to open inside the studio at once (`?panel=`: a saved link or an old page address) */
+  initialPanel?: StudioSection | null;
+  panelCan?: StudioCan;
 }) {
   const call = useBuilderCall();
   const [detail, setDetail] = useState(initial);
@@ -180,6 +198,39 @@ export function Workspace({
     [reload],
   );
 
+  // The site's other sections (versions, SEO, forms, content, publishing) open as a panel of THIS studio for THIS site; the address follows (`?panel=`)
+  const sections = STUDIO_SECTIONS.filter((k) => links.some((l) => l.key === k));
+  const [panel, setPanel] = useState<StudioSection | null>(
+    initialPanel && sections.includes(initialPanel) ? initialPanel : null,
+  );
+  const syncAddress = (next: StudioSection | null) => {
+    try {
+      const url = new URL(window.location.href);
+      if (next) url.searchParams.set('panel', next);
+      else url.searchParams.delete('panel');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    } catch {
+      /* the address is a convenience */
+    }
+  };
+  const openPanel = (next: StudioSection) => {
+    setPanel(next);
+    syncAddress(next);
+  };
+  const closePanel = useCallback(() => {
+    setPanel(null);
+    syncAddress(null);
+    // a restore or an edit made in a panel changes the site: the studio shows the head as the server has it now
+    void reload();
+  }, [reload]);
+  /** a plain click opens the panel; a new tab, a copied link or a modified click keeps the link's own behaviour */
+  const panelClick = (key: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    const s = studioSection(key);
+    if (!s || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    e.currentTarget.closest('details')?.removeAttribute('open');
+    openPanel(s);
+  };
   const model = detail.siteModel;
   const siteLocales = model.locales as SiteLocale[];
   const DEVICES: { id: Viewport; icon: IconName }[] = [
@@ -305,7 +356,9 @@ export function Workspace({
             </li>
             {more.map((l) => (
               <li key={l.key}>
-                <a href={l.href}>{l.label}</a>
+                <a href={l.href} onClick={panelClick(l.key)}>
+                  {l.label}
+                </a>
               </li>
             ))}
             {canWrite && (
@@ -321,7 +374,7 @@ export function Workspace({
           </ul>
         </details>
         {publish && (
-          <a className="bws-publish" href={publish.href}>
+          <a className="bws-publish" href={publish.href} onClick={panelClick(publish.key)}>
             {t(locale, 'bld.ws.publish')}
           </a>
         )}
@@ -428,6 +481,17 @@ export function Workspace({
             onRebase={() => void rebase()}
           />
         </aside>
+        {panel && (
+          <StudioPanel
+            locale={locale}
+            projectId={detail.id}
+            section={panel}
+            sections={sections}
+            can={panelCan}
+            onSelect={openPanel}
+            onClose={closePanel}
+          />
+        )}
       </div>
     </div>
   );

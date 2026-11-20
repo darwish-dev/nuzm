@@ -6,9 +6,11 @@ import { CmsPanel } from '../../../../../../../components/BuilderCms';
 import type { CmsCollection } from '../../../../../../../lib/builder';
 import { builderGuard, builderView } from '../../../../../../../lib/builder-view';
 import { isUuid, unwrapCall } from '../../../../../../../lib/compute';
+import { redirectToStudio } from '../../../../../../../lib/app-redirect';
 
 /** UI-M09-07: CMS collections and items. */
 export default async function Cms({ params }: { params: Promise<{ locale: string; id: string }> }) {
+  await redirectToStudio(params, 'cms');
   const { locale, id } = await params;
   if (!isLocale(locale) || !isUuid(id)) notFound();
   const g = await builderGuard(locale, 'builder:read', 'bld.tab.cms');

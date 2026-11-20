@@ -5028,12 +5028,28 @@ export interface paths {
          * @description Served ONLY on the host `<token>.<previewDomain>`; any other host, a wrong or expired token, or a deleted project is a plain 404. Strict CSP (`default-src self`, frame-ancestors limited to the console origin), `nosniff`, no cookies, no CORS, no credentials. The edge maps `https://<token>.<previewDomain>/<path>` to this route.
          */
         get: operations["servePreviewFile"];
-        put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * Forward a write to a running web-app preview (isolated origin only)
+         * @description Only for a live preview token (ADR-063) on the host `<token>.<previewDomain>`; anything else is a plain 404. The body and the headers content-type, accept, if-match and idempotency-key are forwarded to the preview process; `x-preview-authorization` is forwarded as its authorization. Bodies up to 8 MB (413).
+         */
+        put: operations["proxyLivePreviewPut"];
+        /**
+         * Forward a write to a running web-app preview (isolated origin only)
+         * @description Only for a live preview token (ADR-063) on the host `<token>.<previewDomain>`; anything else is a plain 404. The body and the headers content-type, accept, if-match and idempotency-key are forwarded to the preview process; `x-preview-authorization` is forwarded as its authorization. Bodies up to 8 MB (413).
+         */
+        post: operations["proxyLivePreviewPost"];
+        /**
+         * Forward a write to a running web-app preview (isolated origin only)
+         * @description Only for a live preview token (ADR-063) on the host `<token>.<previewDomain>`; anything else is a plain 404. The body and the headers content-type, accept, if-match and idempotency-key are forwarded to the preview process; `x-preview-authorization` is forwarded as its authorization. Bodies up to 8 MB (413).
+         */
+        delete: operations["proxyLivePreviewDelete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Forward a write to a running web-app preview (isolated origin only)
+         * @description Only for a live preview token (ADR-063) on the host `<token>.<previewDomain>`; anything else is a plain 404. The body and the headers content-type, accept, if-match and idempotency-key are forwarded to the preview process; `x-preview-authorization` is forwarded as its authorization. Bodies up to 8 MB (413).
+         */
+        patch: operations["proxyLivePreviewPatch"];
         trace?: never;
     };
     "/p/{projectId}/v1/public/forms/{formKey}": {
@@ -6039,6 +6055,30 @@ export interface paths {
          * @description Terminates the runtime (the record stays, state `terminated`). Idempotent. Permission `sandbox:use`. Audited (`sandbox.sandbox.terminated`).
          */
         delete: operations["deleteSandbox"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{projectId}/live-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a live preview of a web-app project
+         * @description Runs the newest application spec, rendered by the trusted generator (model-authored code is not run), as a child process with an in-memory store, sample data and a demo administrator, on the isolated preview origin `<token>.<previewDomain>`. Returns the address to frame (the one-time demo session is in the URL fragment) and when the preview stops (30 minutes). A new preview replaces the project's previous one. 403 `feature_disabled` unless flag `app_builder.live_preview` is on; 404 when nothing was built yet; 429 `rate_limited` (2 per organization); 503 `service_unavailable` when previews are busy or the preview did not start; 422 `unsupported_capability` in production (needs a sandbox: HG pending). Permission `builder:write`. Audited (`builder.webapp_preview.started`). ADR-063.
+         */
+        post: operations["startLivePreview"];
+        /**
+         * Stop the live preview of a web-app project
+         * @description Stops the running preview of the project, if any. Idempotent. Permission `builder:write`.
+         */
+        delete: operations["stopLivePreview"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11474,6 +11514,16 @@ export interface components {
             ttlMinutes?: number;
         } & {
             [key: string]: unknown;
+        };
+        LivePreview: {
+            /**
+             * Format: uri
+             * @description The address to frame, on the isolated preview origin; its fragment carries the one-time demo session.
+             */
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+            specVersion: number;
         };
         Sandbox: {
             /** Format: uuid */
@@ -22119,6 +22169,90 @@ export interface operations {
             404: components["responses"]["Problem"];
         };
     };
+    proxyLivePreviewPut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preview application answer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    proxyLivePreviewPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preview application answer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    proxyLivePreviewDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preview application answer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    proxyLivePreviewPatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preview application answer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
     submitPublicForm: {
         parameters: {
             query?: never;
@@ -24414,6 +24548,63 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Sandbox"];
                 };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    startLivePreview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LivePreview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    stopLivePreview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stopped */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];

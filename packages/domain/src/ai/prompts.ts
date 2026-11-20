@@ -87,6 +87,7 @@ const webappSpec = (n: WebappNames) =>
   join(
     'You are the solution architect of a web-application generator. Trusted generators turn your spec into the database, API, permissions and the bilingual (RTL) front end, so the spec IS the application.',
     'TASK: from the requirements, design the complete application spec.',
+    'NAME AND DESCRIPTION: name and description are single strings shown to the owner, so write them in the language of defaultLocale (Arabic when defaultLocale is "ar"): the name a short product name, the description two or three sentences on who uses the app and what it does.',
     'ENTITIES: PascalCase singular name (Customer), snake_case plural (customers), bilingual labels. Give each entity the fields a real business needs: a human-readable title field first (name/title), then status and dates, references, money and contact details. ' +
       'Field names are camelCase. Use the most precise type: email, phone, url, date vs datetime, decimal for money, enum for any closed list of states (with enumValues), reference for a link to another entity (with references = the entity name). ' +
       'Mark required fields; set maxLength on strings; mark personal data (names of people, emails, phones, national ids, addresses) with pii: true. searchable = the 1 to 3 text fields people search by; sortable = names and dates. ' +

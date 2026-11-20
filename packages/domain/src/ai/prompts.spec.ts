@@ -7,6 +7,7 @@ import {
   WEBSITE_EDIT,
   WEBSITE_REQUIREMENTS_CHAT,
   WEBSITE_REQUIREMENTS_DEFAULTS,
+  parseModelJson,
   webappInstruction,
   websitePage,
 } from './prompts';
@@ -39,6 +40,7 @@ describe('builder prompts', () => {
     expect(s).toContain('select, user');
     expect(s).toContain('id, org_id');
     expect(s).toContain('stageField');
+    expect(s).toContain('language of defaultLocale');
   });
 
   it('the page writer carries the component guide and design rules it is given', () => {
@@ -54,8 +56,7 @@ describe('builder prompts', () => {
 });
 
 describe('parseModelJson', () => {
-  it('reads plain and fenced JSON alike, and rejects prose', async () => {
-    const { parseModelJson } = await import('./prompts');
+  it('reads plain and fenced JSON alike, and rejects prose', () => {
     expect(parseModelJson('{"a":1}')).toEqual({ a: 1 });
     expect(parseModelJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(() => parseModelJson('here is your app')).toThrow();

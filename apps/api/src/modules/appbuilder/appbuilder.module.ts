@@ -20,13 +20,15 @@ import {
   RunService,
   type AiConfig,
 } from '../ai';
-import { ProjectDelegates } from '../builder';
+import { LivePreviewRegistry, ProjectDelegates } from '../builder';
 import { ResidencyService } from '../compliance';
 import { DeployService, SitePublisherPort } from '../deploy';
 import { IdentityModule } from '../identity';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
+import { LivePreviewController } from './live-preview.controller';
+import { WebappLivePreviewService } from './internal/preview/live-preview.service';
 import { TestRunsController } from './test-runs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
@@ -192,7 +194,13 @@ class LogSecurityAlerts extends SecurityAlertPort {
  */
 @Module({
   imports: [IdentityModule],
-  controllers: [SandboxesController, TestRunsController, ExportsController, ApprovalsController],
+  controllers: [
+    SandboxesController,
+    TestRunsController,
+    ExportsController,
+    ApprovalsController,
+    LivePreviewController,
+  ],
   providers: [
     ...M09_PORT_PROVIDERS,
     AppBuilderEnabledGuard,
@@ -248,6 +256,12 @@ class LogSecurityAlerts extends SecurityAlertPort {
       provide: AppSpecService,
       useFactory: (db: Db, a: AuditSink) => new AppSpecService(db, a),
       inject: [DB, AuditSink],
+    },
+    {
+      provide: WebappLivePreviewService,
+      useFactory: (db: Db, a: AuditSink, s: AppSpecService, r: LivePreviewRegistry) =>
+        new WebappLivePreviewService(db, a, s, r),
+      inject: [DB, AuditSink, AppSpecService, LivePreviewRegistry],
     },
     { provide: EvaluationService, useFactory: (db: Db) => new EvaluationService(db), inject: [DB] },
     {

@@ -81,6 +81,11 @@ const UI = {
     none: '—',
   },
 };
+// Live preview only (meta.preview, written by the platform's preview launcher): the session arrives once in the address fragment and is removed from it at once.
+if (meta.preview && location.hash.startsWith('#/autologin=')) {
+  sessionStorage.setItem('token', decodeURIComponent(location.hash.slice('#/autologin='.length)));
+  history.replaceState(null, '', location.pathname + '#/');
+}
 const st = {
   lang: localStorage.getItem('lang') || meta.defaultLocale,
   token: sessionStorage.getItem('token'),
@@ -114,7 +119,7 @@ function applyLang() {
 }
 async function api(method, path, body, opts = {}) {
   const headers = { accept: 'application/json' };
-  if (st.token) headers.authorization = 'Bearer ' + st.token;
+  if (st.token) headers[meta.authHeader || 'authorization'] = 'Bearer ' + st.token;
   if (body !== undefined && !opts.raw) headers['content-type'] = 'application/json';
   if (opts.ifMatch) headers['if-match'] = opts.ifMatch;
   const res = await fetch(API + path, {
@@ -293,8 +298,8 @@ function cell(f, v) {
   if (f.type === 'enum') return humanize(v);
   return String(v);
 }
-/** Columns a person scans first: the record's name, its stage, money and numbers, dates, then links and the rest (long text never). */
-const COLUMN_RANK = { decimal: 2, integer: 3, date: 4, datetime: 4, reference: 5, enum: 6 };
+/** Columns a person scans first: the record's name, its stage, who or what it links to, money and numbers, dates, then the rest (long text never). */
+const COLUMN_RANK = { reference: 2, decimal: 3, integer: 4, date: 5, datetime: 5, enum: 6 };
 function listColumns(em) {
   const first = em.fields.find((f) => f.type === 'string') || em.fields[0];
   const rank = (f) => (f === first ? 0 : f.name === em.stageField ? 1 : (COLUMN_RANK[f.type] ?? 7));

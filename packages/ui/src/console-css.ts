@@ -1681,6 +1681,11 @@ button.bws-publish { border: 0; font: inherit; font-size: 13px; font-weight: 650
 .mws-meters dt { color: var(--nzc-muted); }
 .mws-meters dd { margin: 0; }
 .mws-app-preview { display: grid; gap: 14px; align-content: start; }
+.mws-live { display: grid; gap: 12px; }
+.mws-live-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mws-live-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.mws-live-frame { border-radius: 18px; overflow: hidden; background: #fff; block-size: min(72vh, 760px); min-block-size: 420px; }
+.mws-live-frame iframe { display: block; inline-size: 100%; block-size: 100%; border: 0; }
 .mws-built p { margin: 0 0 10px; }
 .bld-run .bld-steps .bld-st-detail { display: inline-flex; align-items: center; gap: 4px; }
 .mws-ico { display: block; }

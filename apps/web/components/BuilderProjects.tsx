@@ -146,11 +146,14 @@ export function ProjectFilterTabs({
   current,
   appsEnabled,
   mobileEnabled = false,
+  onSelect,
 }: {
   locale: Locale;
   current: ProjectFilter;
   appsEnabled: boolean;
   mobileEnabled?: boolean;
+  /** switch in place: a plain click calls this instead of navigating (the link still works for a new tab, a copied link and without scripting) */
+  onSelect?: (filter: ProjectFilter) => void;
 }) {
   const tabs = PROJECT_FILTERS.filter(
     (f) => (f !== 'webapp' || appsEnabled) && (f !== 'mobile' || mobileEnabled),
@@ -164,6 +167,12 @@ export function ProjectFilterTabs({
           className="bl-chip"
           href={`/${locale}/builder/projects${f === 'all' ? '' : `?type=${f}`}`}
           aria-current={f === current ? 'page' : undefined}
+          onClick={(e) => {
+            if (!onSelect || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+              return;
+            e.preventDefault();
+            onSelect(f);
+          }}
         >
           {t(locale, `m10a.proj.filter.${f}`)}
         </a>

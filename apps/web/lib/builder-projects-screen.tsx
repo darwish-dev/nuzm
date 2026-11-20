@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { isLocale, t } from '@nuzm/i18n';
 import { Icon } from '@nuzm/ui';
 import { BuilderStart } from '../components/BuilderStart';
-import { ProjectCards, ProjectFilterTabs } from '../components/BuilderProjects';
+import { ProjectCards } from '../components/BuilderProjects';
+import { FilterableProjects } from '../components/ProjectList';
 import { APP_BUILDER_FLAG } from './appbuilder';
 import { MOBILE_FLAG } from './mobile';
 import { applyFilter, filterOf, type ProjectFilter } from './appworkspace';
@@ -60,27 +61,29 @@ export async function ProjectsScreen({
       return { page, wallet };
     },
     ({ page, wallet }) => {
-      const items = applyFilter(page.items, filter);
-      const list = (
-        <>
-          {!fixed && (
-            <ProjectFilterTabs
-              locale={locale}
-              current={filter}
-              appsEnabled={appsOn}
-              mobileEnabled={mobileOn}
-            />
-          )}
-          <ProjectCards
-            locale={locale}
-            items={items}
-            nextCursor={page.nextCursor}
-            canCreate={canCreate}
-            canDelete={canCreate}
-            mfaFactorId={g.s.me.mfaFactorId ?? null}
-            filtered={filter !== 'all'}
-          />
-        </>
+      // the web-app entry has no filter row: its list is fixed. Everywhere else the list filters in place on the client (no reload).
+      const list = fixed ? (
+        <ProjectCards
+          locale={locale}
+          items={applyFilter(page.items, filter)}
+          nextCursor={page.nextCursor}
+          canCreate={canCreate}
+          canDelete={canCreate}
+          mfaFactorId={g.s.me.mfaFactorId ?? null}
+          filtered={filter !== 'all'}
+        />
+      ) : (
+        <FilterableProjects
+          locale={locale}
+          items={page.items}
+          nextCursor={page.nextCursor}
+          canCreate={canCreate}
+          canDelete={canCreate}
+          mfaFactorId={g.s.me.mfaFactorId ?? null}
+          appsEnabled={appsOn}
+          mobileEnabled={mobileOn}
+          initial={filter}
+        />
       );
       // a filter or a page of results means the person is browsing their projects: open that tab
       const browsing = filter !== 'all' || Boolean(one(sp.cursor));

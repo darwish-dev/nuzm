@@ -1,3 +1,4 @@
+import { ServiceArtwork } from '../../../components/ServiceArtwork';
 import { DashboardSlider } from '../../../components/DashboardSlider';
 import { DashboardStatus } from '../../../components/DashboardStatus';
 import { notFound, redirect } from 'next/navigation';
@@ -300,6 +301,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                 </h2>
                 <p>{slides.find((slide) => slide.id === service.id)?.description}</p>
               </div>
+              <ServiceArtwork service={service.id} ar={ar} compact />
               <div className="nzc-home-service-bottom">
                 <span>
                   {service.id === 'domains'
@@ -324,9 +326,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                 <span>{ar ? 'من الفكرة إلى الواقع' : 'FROM IDEA TO LAUNCH'}</span>
                 <h2>{ar ? 'ماذا ستبني اليوم؟' : 'What will you build today?'}</h2>
               </div>
-              <span className="nzc-home-service-open">
-                <Icon name="code" size={22} />
-              </span>
+              <ServiceArtwork service="builder" ar={ar} compact />
             </a>
           )}
         </section>

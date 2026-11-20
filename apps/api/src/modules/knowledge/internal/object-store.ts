@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { once } from 'node:events';
 import { ProblemException } from '../../../common/errors';
@@ -161,3 +162,20 @@ export class UnconfiguredObjectStore extends KnowledgeObjectStore {
     return this.fail();
   }
 }
+
+/**
+ * Which object store the platform uses (D-42, ADR-065). There is NO production adapter yet: outside production the development filesystem adapter is used;
+ * in production the "unconfigured" adapter, which refuses every call, so no package can be written to local disk by accident. `status` says so in words for
+ * the readiness report and the tests. When the ADR-052 provider is chosen, a provider adapter is selected here (by configuration) and `status.production`
+ * becomes "provider".
+ */
+export function createKnowledgeObjectStore(
+  env: NodeJS.ProcessEnv = process.env,
+): KnowledgeObjectStore {
+  if (env.NODE_ENV === 'production') return new UnconfiguredObjectStore();
+  return new FsObjectStore(env.KNOWLEDGE_STORE_DIR ?? join(tmpdir(), 'nuzm-knowledge-store'));
+}
+export const knowledgeObjectStoreStatus = (env: NodeJS.ProcessEnv = process.env) =>
+  env.NODE_ENV === 'production'
+    ? ({ adapter: 'unconfigured', production: 'none', blockedBy: 'D-42' } as const)
+    : ({ adapter: 'filesystem', production: 'none', blockedBy: 'D-42' } as const);

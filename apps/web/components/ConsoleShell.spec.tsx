@@ -122,7 +122,8 @@ describe('account menu', () => {
         {...extra}
       />,
     );
-  const open = () => fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+  // WCAG 2.5.3 (label in name): the visible initials ("SC") come first in the accessible name
+  const open = () => fireEvent.click(screen.getByRole('button', { name: 'SC Account menu' }));
 
   it("lists the organization's pages under its name, marking the current one", () => {
     menu('dark', {
@@ -144,7 +145,7 @@ describe('account menu', () => {
 
   it('opens with the profile link, language, dark mode and sign out, and closes on Escape', () => {
     menu();
-    const btn = screen.getByRole('button', { name: 'Account menu' });
+    const btn = screen.getByRole('button', { name: 'SC Account menu' });
     expect(btn.getAttribute('aria-expanded')).toBe('false');
     open();
     expect(btn.getAttribute('aria-expanded')).toBe('true');

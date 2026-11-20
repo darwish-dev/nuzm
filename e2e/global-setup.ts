@@ -1,12 +1,15 @@
 import { execSync } from 'node:child_process';
 import { Client } from 'pg';
+import { rmSync } from 'node:fs';
+import { E2E_DB, IDP, PG_ADMIN, STORE_DIR } from './tests/env';
 
-const ADMIN = 'postgres://nuzm_admin@127.0.0.1:54329';
-const DB = 'nuzm_e2e';
-const ISSUER = 'http://127.0.0.1:4010';
+const ADMIN = PG_ADMIN;
+const DB = E2E_DB;
+const ISSUER = IDP;
 
 /** Fresh database every run: migrate, then seed the two staff users (platform_admin) that the admin tests sign in as. */
 export default async function globalSetup() {
+  rmSync(STORE_DIR, { recursive: true, force: true }); // the knowledge object store starts empty, like the database
   const root = new Client({ connectionString: `${ADMIN}/postgres` });
   await root.connect();
   await root.query(`DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`);

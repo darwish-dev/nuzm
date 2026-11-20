@@ -3,7 +3,12 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FsObjectStore, UnconfiguredObjectStore } from './object-store';
+import {
+  FsObjectStore,
+  UnconfiguredObjectStore,
+  createKnowledgeObjectStore,
+  knowledgeObjectStoreStatus,
+} from './object-store';
 
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 let root: string;
@@ -100,3 +105,28 @@ describe('UnconfiguredObjectStore (production until D-42)', () => {
   });
 });
 void readFileSync;
+
+describe('which object store the platform uses (D-42)', () => {
+  const dir = () => mkdtempSync(join(tmpdir(), 'nuzm-store-sel-'));
+  it('outside production it is the development filesystem adapter', () => {
+    const s = createKnowledgeObjectStore({ NODE_ENV: 'development', KNOWLEDGE_STORE_DIR: dir() });
+    expect(s).toBeInstanceOf(FsObjectStore);
+    expect(knowledgeObjectStoreStatus({ NODE_ENV: 'test' })).toEqual({
+      adapter: 'filesystem',
+      production: 'none',
+      blockedBy: 'D-42',
+    });
+  });
+  it('in production there is NO adapter yet: the unconfigured one answers 404 and nothing can reach local disk, even with a store directory configured', async () => {
+    const d = dir();
+    const s = createKnowledgeObjectStore({ NODE_ENV: 'production', KNOWLEDGE_STORE_DIR: d });
+    expect(s).toBeInstanceOf(UnconfiguredObjectStore);
+    await expect(s.putPart('u', 1, Buffer.from('x'))).rejects.toMatchObject({ code: 'not_found' });
+    expect(existsSync(join(d, 'uploads'))).toBe(false);
+    expect(knowledgeObjectStoreStatus({ NODE_ENV: 'production' })).toEqual({
+      adapter: 'unconfigured',
+      production: 'none',
+      blockedBy: 'D-42',
+    });
+  });
+});

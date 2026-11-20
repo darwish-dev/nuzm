@@ -28,6 +28,13 @@ export class Db {
 
   constructor(url: string, opts: { max?: number } = {}) {
     this.pool = new Pool({ connectionString: url, max: opts.max ?? 10 });
+    // An idle pooled connection can be ended by the server (restart, failover, `DROP DATABASE ... FORCE`). pg re-emits that as an 'error' event on the pool, and an
+    // EventEmitter without a listener throws: the whole process would crash. The pool already discards the dead client; the next query gets a fresh one.
+    this.pool.on('error', (e) => {
+      process.stderr.write(
+        `${JSON.stringify({ level: 'warn', event: 'db_pool_idle_client_error', message: e.message })}\n`,
+      );
+    });
   }
 
   private async tx<T>(gucs: Record<string, string>, fn: (c: PoolClient) => Promise<T>): Promise<T> {

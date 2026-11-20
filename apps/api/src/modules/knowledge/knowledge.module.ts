@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
@@ -8,11 +6,7 @@ import { IdentityModule } from '../identity';
 import { AdminKnowledgeResourcesController } from './admin-knowledge-resources.controller';
 import { AdminKnowledgeUploadsController } from './admin-knowledge-uploads.controller';
 import { KnowledgeLibraryGuard } from './internal/flag';
-import {
-  FsObjectStore,
-  KnowledgeObjectStore,
-  UnconfiguredObjectStore,
-} from './internal/object-store';
+import { KnowledgeObjectStore, createKnowledgeObjectStore } from './internal/object-store';
 import { ResourceService } from './internal/resource.service';
 import { UploadService } from './internal/upload.service';
 
@@ -28,12 +22,7 @@ import { UploadService } from './internal/upload.service';
     KnowledgeLibraryGuard,
     {
       provide: KnowledgeObjectStore,
-      useFactory: (): KnowledgeObjectStore =>
-        process.env.NODE_ENV === 'production'
-          ? new UnconfiguredObjectStore()
-          : new FsObjectStore(
-              process.env.KNOWLEDGE_STORE_DIR ?? join(tmpdir(), 'nuzm-knowledge-store'),
-            ),
+      useFactory: (): KnowledgeObjectStore => createKnowledgeObjectStore(),
     },
     {
       provide: UploadService,

@@ -2,7 +2,12 @@
 export { KnowledgeModule } from './knowledge.module';
 export { ResourceService } from './internal/resource.service';
 export { UploadService } from './internal/upload.service';
-export { KnowledgeObjectStore, FsObjectStore } from './internal/object-store';
+export {
+  KnowledgeObjectStore,
+  FsObjectStore,
+  createKnowledgeObjectStore,
+  knowledgeObjectStoreStatus,
+} from './internal/object-store';
 export {
   KNOWLEDGE_LIBRARY_FLAG,
   KNOWLEDGE_CUSTOMER_TEMPLATES_FLAG,

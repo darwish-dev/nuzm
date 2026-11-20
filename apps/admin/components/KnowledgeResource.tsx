@@ -305,7 +305,7 @@ export function KnowledgeResource({
         )}
       </Card>
 
-      <section aria-label={t(locale, 'kn.d.versions')}>
+      <section>
         {versions.length === 0 ? (
           <EmptyState title={t(locale, 'kn.d.versions')} body={t(locale, 'kn.d.versions.none')} />
         ) : (

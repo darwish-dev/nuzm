@@ -2429,4 +2429,7 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 .nzc-dashboard { align-content:start; }
 .nzc-dashboard .nzc-split { min-block-size:0; padding:0; background:transparent; }
 .nzc-body:has(.nzc-dash-layout) { padding-block-end:24px; }
+
+/* Status column resource cards: white background (the dark "needs attention" card keeps its own). Text colours are set for white so it reads in both themes. */
+.nzc-status-card:not(.nzc-status-attention) { background: #ffffff; color: #17181a; --nzc-fg: #17181a; --nzc-muted: #5b5f63; }
 `;

@@ -35,5 +35,6 @@ describe('ui tokens', () => {
     expect(rules.length).toBeGreaterThan(5);
     expect(rules.join('\n')).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
     expect(consoleCss).toContain('.nzc-status::-webkit-scrollbar');
+    expect(consoleCss).toContain('.nzc-status, .nzc-status * { box-shadow: none !important;');
   });
 });

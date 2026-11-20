@@ -2144,6 +2144,8 @@ html[dir='rtl'] .sup-mine p { border-radius: 4px 16px 16px 16px; }
 .nzc-status, .nzc-status * { scrollbar-width: none; -ms-overflow-style: none; }
 .nzc-status::-webkit-scrollbar, .nzc-status *::-webkit-scrollbar { display: none; inline-size: 0; block-size: 0; }
 .nzc-status-card { min-inline-size: 0; overflow: hidden; }
+/* Flat cards: no shadow, no glow, in any state. */
+.nzc-status, .nzc-status * { box-shadow: none !important; text-shadow: none !important; filter: none !important; }
 .nzc-status-card { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--nzc-border); border-radius: 20px; background: var(--nzc-card); }
 .nzc-status-card > header { display: flex; align-items: center; gap: 10px; }
 .nzc-status-card h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 700; }

@@ -255,6 +255,76 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         </header>
         <DashboardSlider ar={ar} slides={slides} />
 
+        <div className="nzc-stats">
+          {balance && (
+            <StatTile
+              icon="wallet"
+              featured
+              label={t(locale, 'dash.stat.wallet')}
+              href={`${base}/billing/payments#wallet`}
+              value={
+                wallet ? (
+                  <Ltr>{formatMinor(wallet.balanceMinor, wallet.currency, locale)}</Ltr>
+                ) : (
+                  '—'
+                )
+              }
+              sub={wallet ? undefined : t(locale, 'dash.stat.wallet.none')}
+            />
+          )}
+          {summary && (
+            <StatTile
+              icon="finance"
+              label={t(locale, 'dash.stat.mtd')}
+              href={`${base}/billing/usage`}
+              value={
+                summary.totalMinor && summary.currency ? (
+                  <Ltr>{formatMinor(summary.totalMinor, summary.currency, locale)}</Ltr>
+                ) : (
+                  '—'
+                )
+              }
+              sub={t(locale, 'dash.stat.mtd.sub', { date: summary.periodStart })}
+            />
+          )}
+          {capPercent !== null && cap && (
+            <StatTile
+              icon="shield"
+              label={t(locale, 'dash.stat.cap')}
+              href={`${base}/billing/spending-limits`}
+              value={<Ltr>{`${Math.min(capPercent, 999)}%`}</Ltr>}
+              sub={t(locale, 'dash.stat.cap.sub', {
+                cap: formatMinor(cap.monthlyCapMinor, cap.currency, locale),
+              })}
+            />
+          )}
+          {activeOps !== null && ops && (
+            <StatTile
+              icon="cloud"
+              label={t(locale, 'dash.stat.ops')}
+              href={`${base}/operations`}
+              value={
+                <Ltr>
+                  <CountUp value={activeOps} />
+                </Ltr>
+              }
+              sub={t(locale, 'dash.stat.ops.sub', { n: ops.items.length })}
+            />
+          )}
+          {notes && (
+            <StatTile
+              icon="bell"
+              label={t(locale, 'dash.stat.unread')}
+              href={`${base}/notifications`}
+              value={
+                <Ltr>
+                  <CountUp value={notes.unreadCount} />
+                </Ltr>
+              }
+            />
+          )}
+        </div>
+
         <section
           className="nzc-home-bento"
           aria-label={ar ? 'نظرة عامة على مساحتك' : 'Your workspace overview'}
@@ -327,76 +397,6 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             </a>
           )}
         </section>
-
-        <div className="nzc-stats">
-          {balance && (
-            <StatTile
-              icon="wallet"
-              featured
-              label={t(locale, 'dash.stat.wallet')}
-              href={`${base}/billing/payments#wallet`}
-              value={
-                wallet ? (
-                  <Ltr>{formatMinor(wallet.balanceMinor, wallet.currency, locale)}</Ltr>
-                ) : (
-                  '—'
-                )
-              }
-              sub={wallet ? undefined : t(locale, 'dash.stat.wallet.none')}
-            />
-          )}
-          {summary && (
-            <StatTile
-              icon="finance"
-              label={t(locale, 'dash.stat.mtd')}
-              href={`${base}/billing/usage`}
-              value={
-                summary.totalMinor && summary.currency ? (
-                  <Ltr>{formatMinor(summary.totalMinor, summary.currency, locale)}</Ltr>
-                ) : (
-                  '—'
-                )
-              }
-              sub={t(locale, 'dash.stat.mtd.sub', { date: summary.periodStart })}
-            />
-          )}
-          {capPercent !== null && cap && (
-            <StatTile
-              icon="shield"
-              label={t(locale, 'dash.stat.cap')}
-              href={`${base}/billing/spending-limits`}
-              value={<Ltr>{`${Math.min(capPercent, 999)}%`}</Ltr>}
-              sub={t(locale, 'dash.stat.cap.sub', {
-                cap: formatMinor(cap.monthlyCapMinor, cap.currency, locale),
-              })}
-            />
-          )}
-          {activeOps !== null && ops && (
-            <StatTile
-              icon="cloud"
-              label={t(locale, 'dash.stat.ops')}
-              href={`${base}/operations`}
-              value={
-                <Ltr>
-                  <CountUp value={activeOps} />
-                </Ltr>
-              }
-              sub={t(locale, 'dash.stat.ops.sub', { n: ops.items.length })}
-            />
-          )}
-          {notes && (
-            <StatTile
-              icon="bell"
-              label={t(locale, 'dash.stat.unread')}
-              href={`${base}/notifications`}
-              value={
-                <Ltr>
-                  <CountUp value={notes.unreadCount} />
-                </Ltr>
-              }
-            />
-          )}
-        </div>
 
         {(summary || audit) && (
           <div className="nzc-split">

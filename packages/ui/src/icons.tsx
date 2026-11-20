@@ -20,9 +20,8 @@ const PATHS: Record<string, ReactNode> = {
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   support: (
     <>
-      <circle cx="12" cy="12" r="8.5" />
-      <circle cx="12" cy="12" r="3.4" />
-      <path d="m6 6 3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6" />
+      <path d="M20 12a7.5 7.5 0 0 1-7.5 7.5H6.2L3.5 21.5l.8-3.6A7.5 7.5 0 1 1 20 12Z" />
+      <path d="M8.6 12h.01M12 12h.01M15.4 12h.01" strokeWidth="2.4" />
     </>
   ),
   calendar: (

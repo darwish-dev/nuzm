@@ -4958,6 +4958,8 @@ export const messages = {
     'bld.chat.input': 'ما الذي تريدون تغييره؟',
     'bld.chat.help': 'يقترح المساعد التعديل فقط، ولا يُطبَّق شيء حتى توافقوا عليه.',
     'bld.chat.send': 'إرسال',
+    'bld.chat.copy': 'نسخ الرسالة',
+    'bld.chat.copied': 'تم النسخ',
     'bld.chat.runActive': 'هناك تشغيلة جارية. يمكنكم إرسال الطلب التالي عند انتهائها.',
     'bld.run.title': 'الجدول الزمني للتشغيلة',
     'bld.run.none': 'لا توجد تشغيلة لهذا المشروع بعد.',
@@ -11815,6 +11817,8 @@ export const messages = {
     'bld.chat.help':
       'The assistant only proposes the change. Nothing is applied until you approve it.',
     'bld.chat.send': 'Send',
+    'bld.chat.copy': 'Copy message',
+    'bld.chat.copied': 'Copied',
     'bld.chat.runActive': 'A run is in progress. You can send the next request when it finishes.',
     'bld.run.title': 'Run timeline',
     'bld.run.none': 'No run yet for this project.',

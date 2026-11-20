@@ -1,9 +1,10 @@
 'use client';
 import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { t, type Locale } from '@nuzm/i18n';
+import { t, type Locale, type MessageKey } from '@nuzm/i18n';
 import { Banner, Icon } from '@nuzm/ui';
 import type { Message, Page_, Run, Session } from '../lib/builder';
 import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
+import { BrandMark } from './BrandLogo';
 import { ProblemNote, when } from './BuilderBits';
 
 /** What each workspace's chat starts: the kind of run, its input, the length limits and the texts. */
@@ -42,6 +43,50 @@ const CHAT = {
     help: 'mws.web.chat.help',
   },
 } as const;
+
+/** One message of the conversation: your words as a soft bubble on the end side; the assistant's as plain text under the brand mark, with a copy button. The time is kept for assistive technology and as a tooltip. */
+function ChatMessage({ locale, m }: { locale: Locale; m: Message }) {
+  const [copied, setCopied] = useState(false);
+  const when_ = when(m.createdAt, locale);
+  if (m.role === 'user')
+    return (
+      <li className="bld-msg" data-role="user" title={when_}>
+        <bdi dir="auto" className="bld-msg-body">
+          {m.content}
+        </bdi>
+        <time className="nz-sr" dateTime={m.createdAt}>
+          {t(locale, 'bld.chat.role.user')} · {when_}
+        </time>
+      </li>
+    );
+  const copy = () =>
+    void navigator.clipboard?.writeText(m.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  return (
+    <li className="bld-msg" data-role={m.role}>
+      <span className="bld-msg-head">
+        <BrandMark />
+        <strong>{m.role === 'assistant' ? 'Nuzm' : t(locale, `bld.chat.role.${m.role}`)}</strong>
+      </span>
+      <bdi dir="auto" className="bld-msg-body">
+        {m.content}
+      </bdi>
+      <span className="bld-msg-actions">
+        <button
+          type="button"
+          onClick={copy}
+          aria-label={t(locale, copied ? 'bld.chat.copied' : 'bld.chat.copy')}
+          title={t(locale, copied ? 'bld.chat.copied' : 'bld.chat.copy')}
+        >
+          <Icon name={copied ? 'check' : 'copy'} size={15} />
+        </button>
+        <time dateTime={m.createdAt}>{when_}</time>
+      </span>
+    </li>
+  );
+}
 
 /**
  * UI-M09-03 left panel: the conversation of the project's AI session. "Edit by chat": the instruction is stored as a message and starts a `kind=edit` run; the
@@ -178,14 +223,7 @@ export function Chat({
             {hist.before}
             {messages.map((m) => (
               <Fragment key={m.id}>
-                <li className="bld-msg" data-role={m.role}>
-                  <span className="bld-msg-meta">
-                    {t(locale, `bld.chat.role.${m.role}`)} · {when(m.createdAt, locale)}
-                  </span>
-                  <bdi dir="auto" className="bld-msg-body">
-                    {m.content}
-                  </bdi>
-                </li>
+                <ChatMessage locale={locale} m={m} />
                 {hist.after?.(m)}
               </Fragment>
             ))}
@@ -216,8 +254,12 @@ export function Chat({
               }}
             />
             <div className="bld-composer-foot">
-              <span className="bld-composer-help" id="bld-chat-help">
-                {t(locale, cfg.help)}
+              <span className="bld-chip">
+                <Icon
+                  name={mode === 'website' ? 'globe' : mode === 'webapp' ? 'code' : 'phone'}
+                  size={14}
+                />
+                {t(locale, `bld.start.type.${mode}` as MessageKey)}
               </span>
               <button
                 type="submit"
@@ -229,6 +271,9 @@ export function Chat({
               </button>
             </div>
           </div>
+          <p className="bld-composer-help" id="bld-chat-help">
+            {t(locale, cfg.help)}
+          </p>
         </form>
       ) : (
         <Banner tone="warn">{t(locale, 'bld.readonly')}</Banner>

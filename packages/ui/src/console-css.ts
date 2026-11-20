@@ -1257,12 +1257,14 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 .bws-logo .nzc-logo { block-size: 22px; inline-size: auto; }
 .bws-chat, .bws-canvas, .bws-insp { min-block-size: 0; min-inline-size: 0; overflow: auto; border-radius: 18px; background: var(--nzc-card); }
 .bws-chat { display: flex; flex-direction: column; }
-.bld-composer-box { padding: 10px 12px 8px; border-radius: 18px; background: var(--nzc-field); }
-.bld-composer-box:focus-within { box-shadow: 0 0 0 1px var(--nzc-accent); }
-.bld-composer-input { inline-size: 100%; min-block-size: 64px; border: 0; outline: 0; background: transparent; color: var(--nzc-fg); resize: none; font: inherit; font-size: 14px; }
+.bld-composer-box { padding: 14px 14px 10px; border: 1px solid var(--nzc-border); border-radius: 22px; background: var(--nzc-card-hi); transition: border-color 0.15s ease; }
+.bld-composer-box:focus-within { border-color: var(--nzc-accent); box-shadow: none; }
+.bld-composer-input { inline-size: 100%; min-block-size: 72px; border: 0; outline: 0; background: transparent; color: var(--nzc-fg); resize: none; font: inherit; font-size: 14px; }
+.nzc .bld-composer-input, .nzc .bld-composer-input:hover, .nzc .bld-composer-input:focus { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; min-block-size: 72px !important; font-size: 14.5px !important; }
 .bld-composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.bld-composer-help { font-size: 11px; color: var(--nzc-muted); }
-.bld-send { display: grid; place-items: center; inline-size: 34px; block-size: 34px; border: 0; border-radius: 50%; background: var(--nzc-accent); color: var(--nzc-card); cursor: pointer; flex-shrink: 0; }
+.bld-composer-help { margin: 8px 6px 0; font-size: 11.5px; line-height: 1.5; color: var(--nzc-muted); }
+.bld-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--nzc-border); border-radius: 999px; background: transparent; color: var(--nzc-muted); font-size: 12.5px; font-weight: 600; }
+.bld-send { display: grid; place-items: center; inline-size: 38px; block-size: 38px; border: 0; border-radius: 50%; background: var(--nzc-accent); color: var(--nzc-on-accent); cursor: pointer; flex-shrink: 0; }
 .bld-send:disabled { opacity: 0.4; cursor: default; }
 .bws-canvas { display: flex; flex-direction: column; overflow: hidden; }
 .bws-canvas .bld-preview-bare { flex: 1; min-block-size: 0; display: flex; flex-direction: column; }
@@ -1286,10 +1288,16 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 .bld-chat-scroll { flex: 1; min-block-size: 0; overflow-y: auto; padding: 8px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
 .bld-chat-scroll .bld-list { display: flex; flex-direction: column; gap: 10px; }
 .bld-chat-empty { margin: 0; }
-.bld-msg { display: flex; flex-direction: column; gap: 4px; max-inline-size: 92%; padding: 10px 14px; border: 0; border-radius: 16px; background: var(--nzc-field); }
-.bld-msg[data-role='user'] { align-self: flex-end; background: var(--nzc-accent-soft); border-end-end-radius: 5px; }
-.bld-msg-meta { font-size: 11px; color: var(--nzc-muted); }
-.bld-msg-body { white-space: pre-wrap; font-size: 14px; }
+.bld-msg { display: flex; flex-direction: column; gap: 8px; max-inline-size: 100%; padding: 0; border: 0; background: transparent; }
+.bld-msg[data-role='user'] { align-self: flex-end; max-inline-size: 88%; padding: 12px 18px; border-radius: 22px; background: var(--nzc-elev); }
+.bld-msg-body { white-space: pre-wrap; font-size: 14.5px; line-height: 1.65; overflow-wrap: anywhere; }
+.bld-msg-head { display: inline-flex; align-items: center; gap: 8px; }
+.bld-msg-head .nzc-logo { block-size: 15px; inline-size: auto; }
+.bld-msg-head strong { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+.bld-msg-actions { display: flex; align-items: center; gap: 6px; color: var(--nzc-muted); }
+.bld-msg-actions button { display: grid; place-items: center; inline-size: 28px; block-size: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--nzc-muted); cursor: pointer; }
+.bld-msg-actions button:hover { background: var(--nzc-elev); color: var(--nzc-fg); }
+.bld-msg-actions time { font-size: 11px; opacity: 0.8; }
 .bld-composer { flex: none; padding: 0 18px 18px; }
 .bld-run { display: grid; gap: 12px; padding: 14px; border-radius: 18px; background: var(--nzc-field); }
 .bld-run-head { display: flex; align-items: center; gap: 12px; }

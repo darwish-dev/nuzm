@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/next-env.d.ts',
       '.dev-vault/**',
       '.local/**', // git-ignored local scratch (run logs, dev logins, backups)
+      'apps/api/.gen-tmp/**', // git-ignored: generated apps written by tests and live previews
       'packages/sdk/src/schema.ts',
       '.claude/worktrees/**',
       'apps/api/templates/webapp-runtime/public/**', // M10A: browser code shipped inside generated apps

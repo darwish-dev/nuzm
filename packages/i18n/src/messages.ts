@@ -6593,12 +6593,8 @@ export const messages = {
     'mws.web.live.title': 'المعاينة المباشرة',
     'mws.web.live.intro':
       'شغّلوا التطبيق وجرّبوه كما سيراه مستخدموه: القوائم والنماذج ولوحة المعلومات، ببيانات تجريبية ومستخدم مدير جاهز. لا يُحفظ شيء، وتتوقف المعاينة بعد 30 دقيقة.',
-    'mws.web.live.start': 'تشغيل المعاينة',
     'mws.web.live.starting': 'جارٍ تشغيل التطبيق…',
-    'mws.web.live.restart': 'إعادة التشغيل',
-    'mws.web.live.stop': 'إيقاف',
     'mws.web.live.frame': 'معاينة التطبيق',
-    'mws.web.live.expired': 'انتهت مدة المعاينة. شغّلوها من جديد لمتابعة التجربة.',
     'mws.web.live.disabled':
       'المعاينة المباشرة غير مفعّلة لهذه المؤسسة. تصفحوا الملفات المولّدة في الشيفرة وجرّبوها في بيئة تجريبية.',
     'mws.web.live.needsWriter': 'تحتاجون صلاحية تعديل المشروع لتشغيل المعاينة.',
@@ -13705,12 +13701,8 @@ export const messages = {
     'mws.web.live.title': 'Live preview',
     'mws.web.live.intro':
       'Run the app and try it as its users will: lists, forms and the dashboard, with sample data and a ready administrator. Nothing is saved, and the preview stops after 30 minutes.',
-    'mws.web.live.start': 'Run preview',
     'mws.web.live.starting': 'Starting the app…',
-    'mws.web.live.restart': 'Restart',
-    'mws.web.live.stop': 'Stop',
     'mws.web.live.frame': 'App preview',
-    'mws.web.live.expired': 'The preview has ended. Run it again to keep trying the app.',
     'mws.web.live.disabled':
       'Live preview is not enabled for this organization. Browse the generated files in Code and try them in a sandbox.',
     'mws.web.live.needsWriter': 'You need permission to edit the project to run a preview.',

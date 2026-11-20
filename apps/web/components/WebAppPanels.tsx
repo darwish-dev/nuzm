@@ -66,7 +66,7 @@ export function AppPreviewPanel({
         locale={locale}
         projectId={project.id}
         canWrite={canWrite}
-        hasBuild={project.headVersionId !== null}
+        buildId={project.headVersionId}
       />
       <Section id="mws-web-built-h" title={t(locale, 'mws.web.preview.built')}>
         <Gate locale={locale} load={built} retry={retry} gone={gone(locale)}>

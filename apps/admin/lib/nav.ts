@@ -361,6 +361,7 @@ export const ADMIN_CATEGORIES: Category[] = [
             href: '/ai/quality',
             ...read('admin:ai:read'),
           },
+          { id: 'skills', label: 'aia.tab.skills', href: '/ai/skills', ...read('admin:ai:read') },
         ],
       },
     ],

@@ -14,3 +14,4 @@ export * from './builder/ops';
 export * from './builder/cms';
 export * from './builder/evaluation';
 export * from './ids';
+export * from './ai-studio';

@@ -139,8 +139,8 @@ schemas:
   builder:
     owner_module: builder
     created_by: M09
-    extended_by: [ M10, M10-INT, M10B-INT ]
-    tables: [ app_specs, changes, cms_collections, cms_items, exports, form_submissions, forms, git_repos, pages, previews, project_files, project_versions, projects, sandboxes, test_runs ]
+    extended_by: [ M10, M10-INT, M10B-INT, AS ]
+    tables: [ app_specs, changes, claude_code_sessions, cms_collections, cms_items, exports, form_submissions, forms, git_repos, github_connections, github_events, github_repos, instruction_versions, pages, previews, project_files, project_instructions, project_skills, project_versions, projects, sandboxes, skill_reviews, skill_versions, skills, test_runs ]
   deploy:
     owner_module: deploy
     created_by: M09
@@ -283,6 +283,11 @@ tenant_less:
   - ops.slo_definitions
   - ops.probe_runs
   - ops.launch_gates
+  # AI Studio (ADR-064): platform skills have org_id NULL (a customer's own skills carry its org_id); reviews and webhook deliveries are platform-scoped
+  - builder.skills
+  - builder.skill_versions
+  - builder.skill_reviews
+  - builder.github_events
 rls_keyed:
   - tenancy.organizations
 migration_ranges:
@@ -302,6 +307,8 @@ migration_ranges:
   M10-INT: "1800-1819"
   # M10B (Flutter mobile builder) migrations, numbered above every applied ordinal for the same reason (originally 1500-1502 and 1510, which a database already at 17xx could not apply)
   M10B-INT: "1820-1839"
+  # AI Studio (ADR-064): GitHub, Skills, project instructions, Claude Code sandbox prototype
+  AS: "1840-1859"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
@@ -3502,6 +3509,128 @@ classification:
       started_at: internal
       terminated_at: internal
       version: internal
+    builder.skills:
+      id: internal
+      org_id: internal
+      slug: internal
+      description: internal
+      category: internal
+      scope: internal
+      frameworks: internal
+      languages: internal
+      industries: internal
+      source_kind: internal
+      source_repo: internal
+      status: internal
+      current_version_id: internal
+      created_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    builder.skill_versions:
+      id: internal
+      skill_id: internal
+      org_id: internal
+      semver: internal
+      source_commit: internal
+      source_path: internal
+      manifest: customer-content
+      files: customer-content
+      content_hash: internal
+      bytes: internal
+      license: internal
+      scan: internal
+      executable: internal
+      review_state: internal
+      created_by: internal
+      created_at: internal
+    builder.skill_reviews:
+      id: internal
+      skill_version_id: internal
+      reviewer_id: internal
+      decision: internal
+      note: internal
+      created_at: internal
+    builder.project_skills:
+      id: internal
+      org_id: internal
+      project_id: internal
+      skill_id: internal
+      skill_version_id: internal
+      slug: internal
+      reason: internal
+      state: internal
+      installed_by: internal
+      installed_at: internal
+      removed_at: internal
+    builder.project_instructions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      project_layer: customer-content
+      customer_layer: customer-content
+      customer_block: customer-content
+      updated_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
+    builder.instruction_versions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      version: internal
+      project_layer: customer-content
+      customer_layer: customer-content
+      customer_block: customer-content
+      markdown: customer-content
+      created_by: internal
+      created_at: internal
+    builder.github_connections:
+      id: internal
+      org_id: internal
+      installation_id: internal
+      account_login: personal
+      account_type: internal
+      repository_selection: internal
+      adapter: internal
+      state: internal
+      connected_by: internal
+      created_at: internal
+      updated_at: internal
+    builder.github_repos:
+      id: internal
+      org_id: internal
+      project_id: internal
+      connection_id: internal
+      repo_id: internal
+      full_name: customer-content
+      default_branch: internal
+      private: internal
+      last_synced_sha: internal
+      last_synced_version_id: internal
+      state: internal
+      linked_by: internal
+      created_at: internal
+      updated_at: internal
+    builder.github_events:
+      id: internal
+      delivery_id: internal
+      event: internal
+      action: internal
+      installation_id: internal
+      payload_hash: internal
+      received_at: internal
+    builder.claude_code_sessions:
+      id: internal
+      org_id: internal
+      project_id: internal
+      sandbox_id: internal
+      state: internal
+      binary_version: internal
+      error_code: internal
+      started_by: internal
+      created_at: internal
+      updated_at: internal
     builder.git_repos:
       id: internal
       org_id: internal

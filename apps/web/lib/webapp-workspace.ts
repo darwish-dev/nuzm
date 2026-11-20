@@ -12,6 +12,7 @@ export const APP_TABS = [
   'deployments',
   'exports',
   'versions',
+  'studio',
 ] as const;
 export type AppTab = (typeof APP_TABS)[number];
 
@@ -25,14 +26,16 @@ export const APP_TAB_PERMISSION: Record<AppTab, string> = {
   deployments: 'deploy:read',
   exports: 'builder:export',
   versions: 'builder:read',
+  studio: 'builder:read',
 };
 /** `?tab=` of the workspace route; anything else opens the preview. */
 export function appTab(raw: string | string[] | undefined): AppTab {
   const v = Array.isArray(raw) ? raw[0] : raw;
   return (APP_TABS as readonly string[]).includes(v ?? '') ? (v as AppTab) : 'preview';
 }
-export const appTabsFor = (can: (permission: string) => boolean): AppTab[] =>
-  APP_TABS.filter((x) => can(APP_TAB_PERMISSION[x]));
+/** `studio` (AI Studio, ADR-064) is listed only while the organization has `ai_studio.enabled` (default off). */
+export const appTabsFor = (can: (permission: string) => boolean, studio = false): AppTab[] =>
+  APP_TABS.filter((x) => can(APP_TAB_PERMISSION[x]) && (x !== 'studio' || studio));
 
 /** The former route segments of a web-app project and the panel each one became (`/builder/projects/{id}/ide` is the Code panel, and so on). */
 export const APP_ROUTE_TAB = {

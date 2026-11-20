@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Icon } from '@nuzm/ui';
 import {
@@ -34,28 +34,22 @@ const cell = (v: unknown): string =>
         : JSON.stringify(v);
 
 /**
- * The Data view: what the site has collected or stores, as tables (form submissions such as leads, and content collections), the images it uses, and the
- * history of its versions. Read-only here; each table links to its full screen for creating forms and collections. Values come from the API as text and are
- * shown as text only (masked values stay masked: the API decides who sees what).
+ * The tables a project collects: its forms (submissions such as leads) and its content collections, as cards with a browsable table of rows. Read-only; each table
+ * links to its full screen for creating forms and collections. Values come from the API as text and are shown as text only (masked values stay masked: the API
+ * decides who sees what). `empty` replaces the "no tables yet" state (a web app has no forms or collections of its own).
  */
-export function DataPane({
+export function RecordsPane({
   locale,
   projectId,
-  model,
-  siteLocale,
+  empty,
 }: {
   locale: Locale;
   projectId: string;
-  model: SiteModel;
-  siteLocale: SiteLocale;
+  empty?: ReactNode;
 }) {
-  const call = useBuilderCall();
-  const [tab, setTab] = useState<'tables' | 'files' | 'history'>('tables');
   const [tables, setTables] = useState<Table[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [versions, setVersions] = useState<Version[] | null>(null);
   const base = `/${locale}/builder/projects/${projectId}`;
-
   useEffect(() => {
     let stop = false;
     void (async () => {
@@ -106,6 +100,121 @@ export function DataPane({
     };
   }, [projectId, locale]);
 
+  const current = useMemo(() => tables?.find((x) => x.id === selected) ?? null, [tables, selected]);
+  return (
+    <>
+      {tables === null ? (
+        <p role="status" aria-busy="true" className="nz-muted">
+          {t(locale, 'state.loading')}
+        </p>
+      ) : tables.length === 0 ? (
+        (empty ?? (
+          <div className="bwd-empty">
+            <Icon name="data" size={26} />
+            <strong>{t(locale, 'bld.dx.empty.title')}</strong>
+            <p className="nz-muted">{t(locale, 'bld.dx.empty.body')}</p>
+            <span className="bwd-links">
+              <a href={`${base}/forms`}>{t(locale, 'bld.tab.forms')}</a>
+              <a href={`${base}/cms`}>{t(locale, 'bld.tab.cms')}</a>
+            </span>
+          </div>
+        ))
+      ) : (
+        <>
+          <ul className="bwd-cards">
+            {tables.map((x) => (
+              <li key={x.id}>
+                <button
+                  type="button"
+                  aria-pressed={selected === x.id}
+                  onClick={() => setSelected(x.id)}
+                >
+                  <Icon name={x.kind === 'form' ? 'mail' : 'grid'} size={18} />
+                  <span className="bwd-card-name">
+                    <bdi dir="auto">{x.name}</bdi>
+                    <small>{t(locale, `bld.dx.kind.${x.kind}` as 'bld.dx.kind.form')}</small>
+                  </span>
+                  <span className="bwd-card-count">
+                    {t(locale, x.kind === 'form' ? 'bld.dx.rows' : 'bld.dx.items', {
+                      n: x.count,
+                    })}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {current && (
+            <div className="bwd-table">
+              <div className="bwd-table-head">
+                <strong>
+                  <bdi dir="auto">{current.name}</bdi>
+                </strong>
+                <a href={`${base}/${current.kind === 'form' ? 'forms' : 'cms'}`}>
+                  {t(locale, 'bld.dx.manage')}
+                </a>
+              </div>
+              {current.masked && <p className="nz-muted">{t(locale, 'bld.dx.masked')}</p>}
+              {current.rows.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'bld.dx.noRows')}</p>
+              ) : (
+                <div className="bwd-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        {current.columns.map((c) => (
+                          <th key={c} scope="col">
+                            {c === 'createdAt'
+                              ? t(locale, 'bld.dx.col.date')
+                              : c === 'state'
+                                ? t(locale, 'bld.dx.col.state')
+                                : c}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {current.rows.map((r, i) => (
+                        <tr key={i}>
+                          {current.columns.map((c) => (
+                            <td key={c}>
+                              <bdi dir="auto">{cell(r[c])}</bdi>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * The Data view: what the site has collected or stores, as tables (form submissions such as leads, and content collections), the images it uses, and the
+ * history of its versions. Read-only here; each table links to its full screen for creating forms and collections. Values come from the API as text and are
+ * shown as text only (masked values stay masked: the API decides who sees what).
+ */
+export function DataPane({
+  locale,
+  projectId,
+  model,
+  siteLocale,
+}: {
+  locale: Locale;
+  projectId: string;
+  model: SiteModel;
+  siteLocale: SiteLocale;
+}) {
+  const call = useBuilderCall();
+  const [tab, setTab] = useState<'tables' | 'files' | 'history'>('tables');
+  const [versions, setVersions] = useState<Version[] | null>(null);
+  const base = `/${locale}/builder/projects/${projectId}`;
+
   useEffect(() => {
     if (tab !== 'history' || versions) return;
     void call.run(
@@ -117,7 +226,6 @@ export function DataPane({
     );
   }, [tab, versions, projectId]);
 
-  const current = useMemo(() => tables?.find((x) => x.id === selected) ?? null, [tables, selected]);
   const assets = model.assets ?? [];
   const TABS = ['tables', 'files', 'history'] as const;
 
@@ -141,91 +249,7 @@ export function DataPane({
         <section className="bwd-body" aria-label={t(locale, 'bld.dx.tab.tables')}>
           <h2>{t(locale, 'bld.dx.tables.title')}</h2>
           <p className="nz-muted">{t(locale, 'bld.dx.tables.help')}</p>
-          {tables === null ? (
-            <p role="status" aria-busy="true" className="nz-muted">
-              {t(locale, 'state.loading')}
-            </p>
-          ) : tables.length === 0 ? (
-            <div className="bwd-empty">
-              <Icon name="data" size={26} />
-              <strong>{t(locale, 'bld.dx.empty.title')}</strong>
-              <p className="nz-muted">{t(locale, 'bld.dx.empty.body')}</p>
-              <span className="bwd-links">
-                <a href={`${base}/forms`}>{t(locale, 'bld.tab.forms')}</a>
-                <a href={`${base}/cms`}>{t(locale, 'bld.tab.cms')}</a>
-              </span>
-            </div>
-          ) : (
-            <>
-              <ul className="bwd-cards">
-                {tables.map((x) => (
-                  <li key={x.id}>
-                    <button
-                      type="button"
-                      aria-pressed={selected === x.id}
-                      onClick={() => setSelected(x.id)}
-                    >
-                      <Icon name={x.kind === 'form' ? 'mail' : 'grid'} size={18} />
-                      <span className="bwd-card-name">
-                        <bdi dir="auto">{x.name}</bdi>
-                        <small>{t(locale, `bld.dx.kind.${x.kind}` as 'bld.dx.kind.form')}</small>
-                      </span>
-                      <span className="bwd-card-count">
-                        {t(locale, x.kind === 'form' ? 'bld.dx.rows' : 'bld.dx.items', {
-                          n: x.count,
-                        })}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {current && (
-                <div className="bwd-table">
-                  <div className="bwd-table-head">
-                    <strong>
-                      <bdi dir="auto">{current.name}</bdi>
-                    </strong>
-                    <a href={`${base}/${current.kind === 'form' ? 'forms' : 'cms'}`}>
-                      {t(locale, 'bld.dx.manage')}
-                    </a>
-                  </div>
-                  {current.masked && <p className="nz-muted">{t(locale, 'bld.dx.masked')}</p>}
-                  {current.rows.length === 0 ? (
-                    <p className="nz-muted">{t(locale, 'bld.dx.noRows')}</p>
-                  ) : (
-                    <div className="bwd-scroll">
-                      <table>
-                        <thead>
-                          <tr>
-                            {current.columns.map((c) => (
-                              <th key={c} scope="col">
-                                {c === 'createdAt'
-                                  ? t(locale, 'bld.dx.col.date')
-                                  : c === 'state'
-                                    ? t(locale, 'bld.dx.col.state')
-                                    : c}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {current.rows.map((r, i) => (
-                            <tr key={i}>
-                              {current.columns.map((c) => (
-                                <td key={c}>
-                                  <bdi dir="auto">{cell(r[c])}</bdi>
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
+          <RecordsPane locale={locale} projectId={projectId} />
         </section>
       )}
 

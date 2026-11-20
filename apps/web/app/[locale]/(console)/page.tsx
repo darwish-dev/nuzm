@@ -102,40 +102,82 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
       </header>
       <DashboardSlider ar={ar} slides={slides} />
 
-      {featuredServices.length > 0 && (
-        <section aria-labelledby="d-featured">
-          <div className="nzc-cardhead">
-            <h2 id="d-featured">{ar ? 'مساحتك للنمو' : 'Room to grow'}</h2>
+      <section
+        className="nzc-home-bento"
+        aria-label={ar ? 'نظرة عامة على مساحتك' : 'Your workspace overview'}
+      >
+        <div className="nzc-home-overview">
+          <div className="nzc-home-overview-head">
+            <h2>{ar ? 'مساحتك، بنظرة واحدة' : 'Your workspace at a glance'}</h2>
+            <Icon name="projects" size={18} />
           </div>
-          <ul className="nzc-home-products">
-            {featuredServices.map((service) => {
-              return (
-                <li key={service.id} data-service={service.id}>
-                  <a className="nzc-home-product" href={`${base}${service.href}`}>
-                    <div className="nzc-home-product-body">
-                      <span className="nzc-home-product-heading">
-                        <Icon name={service.icon} size={20} />
-                        <strong>
-                          {service.id === 'compute'
-                            ? ar
-                              ? 'السحابة'
-                              : 'Cloud'
-                            : t(locale, service.label)}
-                        </strong>
-                        <Icon name="arrow" size={18} />
-                      </span>
-                      <p>{slides.find((slide) => slide.id === service.id)?.description}</p>
-                      <span className="nzc-home-product-link">
-                        {ar ? 'إدارة الخدمة' : 'Manage service'}
-                      </span>
-                    </div>
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
+          <div
+            className="nzc-home-orbit"
+            role="img"
+            aria-label={`${services.length} ${ar ? 'خدمات متاحة' : 'available services'}`}
+          >
+            <div>
+              <span>{ar ? 'خدمات متاحة' : 'Available services'}</span>
+              <strong>{services.length}</strong>
+            </div>
+          </div>
+          <div className="nzc-home-overview-foot">
+            <span>
+              <i />
+              {ar ? 'البناء والإطلاق والإدارة' : 'Build. Launch. Manage.'}
+            </span>
+            <span>{s.org.name}</span>
+          </div>
+        </div>
+        {featuredServices.map((service) => (
+          <a
+            key={service.id}
+            className="nzc-home-service"
+            data-service={service.id}
+            href={`${base}${service.href}`}
+          >
+            <div className="nzc-home-service-top">
+              <span className="nzc-home-service-symbol">
+                <Icon name={service.icon} size={19} />
+              </span>
+              <Icon name="arrow" size={17} />
+            </div>
+            <div>
+              <h2>
+                {service.id === 'compute' ? (ar ? 'السحابة' : 'Cloud') : t(locale, service.label)}
+              </h2>
+              <p>{slides.find((slide) => slide.id === service.id)?.description}</p>
+            </div>
+            <div className="nzc-home-service-bottom">
+              <span>
+                {service.id === 'domains'
+                  ? '.com / .sa'
+                  : service.id === 'compute'
+                    ? ar
+                      ? 'مواردك السحابية'
+                      : 'Your cloud workspace'
+                    : ar
+                      ? 'موقعك التالي'
+                      : 'Your next website'}
+              </span>
+              <span className="nzc-home-service-open">
+                <Icon name="arrow" size={15} />
+              </span>
+            </div>
+          </a>
+        ))}
+        {services.some((service) => service.id === 'builder') && (
+          <a className="nzc-home-build" href={`${base}/builder/projects`}>
+            <div>
+              <span>{ar ? 'من الفكرة إلى الواقع' : 'FROM IDEA TO LAUNCH'}</span>
+              <h2>{ar ? 'ماذا ستبني اليوم؟' : 'What will you build today?'}</h2>
+            </div>
+            <span className="nzc-home-service-open">
+              <Icon name="code" size={22} />
+            </span>
+          </a>
+        )}
+      </section>
 
       <div className="nzc-stats">
         {balance && (

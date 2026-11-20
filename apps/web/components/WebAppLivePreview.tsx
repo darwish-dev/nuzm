@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Banner, Button } from '@nuzm/ui';
+import { Banner } from '@nuzm/ui';
 import { isPreviewUrl } from '../lib/builder';
 import { bapi, useBuilderCall } from '../lib/builder-client';
 import { ProblemNote } from './BuilderBits';
@@ -17,17 +17,19 @@ interface LivePreview {
  * `allow-scripts allow-same-origin allow-forms`: the app needs its own origin for its session storage and its API calls, and because that origin is not the console's,
  * it still cannot reach the console's cookies or storage. The address carries a one-time demo session in its fragment, so it is only ever the frame `src`: never shown,
  * copied or linked.
+ * It starts by itself when the tab opens, and again when a new build lands or the preview expires: no button to press.
  */
 export function WebAppLivePreview({
   locale,
   projectId,
   canWrite,
-  hasBuild,
+  buildId,
 }: {
   locale: Locale;
   projectId: string;
   canWrite: boolean;
-  hasBuild: boolean;
+  /** the project's head version: a new build restarts the preview; null = nothing built yet */
+  buildId: string | null;
 }) {
   const call = useBuilderCall();
   const [preview, setPreview] = useState<LivePreview | null>(null);
@@ -49,17 +51,28 @@ export function WebAppLivePreview({
         return false;
       },
     );
-  const stop = () =>
-    void call.run(
-      () => bapi.del<null>(`/v1/builder/projects/${projectId}/live-preview`),
-      () => setPreview(null),
-    );
+  const startRef = useRef(start);
+  startRef.current = start;
 
+  // start on open and on every new build (once per build, even if React mounts the effect twice in development)
+  const startedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!canWrite || !buildId || startedFor.current === buildId) return;
+    startedFor.current = buildId;
+    startRef.current();
+  }, [canWrite, buildId]);
+
+  // an expired preview starts again by itself while the tab is open
   useEffect(() => {
     if (!preview) return;
-    const ms = Date.parse(preview.expiresAt) - Date.now();
-    if (ms <= 0) return setExpired(true);
-    const h = setTimeout(() => setExpired(true), Math.min(ms, 2_147_000_000));
+    const ms = Math.max(0, Date.parse(preview.expiresAt) - Date.now());
+    const h = setTimeout(
+      () => {
+        setExpired(true);
+        startRef.current();
+      },
+      Math.min(ms, 2_147_000_000),
+    );
     return () => clearTimeout(h);
   }, [preview]);
 
@@ -67,29 +80,10 @@ export function WebAppLivePreview({
   const src = preview && !expired && isPreviewUrl(preview.url) ? preview.url : null;
   return (
     <section className="mws-live" aria-labelledby="mws-live-h">
-      <div className="mws-live-head">
-        <h2 id="mws-live-h">{t(locale, 'mws.web.live.title')}</h2>
-        {canWrite && hasBuild && (
-          <div className="nz-row">
-            {src ? (
-              <>
-                <Button variant="secondary" disabled={call.busy} onClick={start}>
-                  {t(locale, 'mws.web.live.restart')}
-                </Button>
-                <Button variant="secondary" disabled={call.busy} onClick={stop}>
-                  {t(locale, 'mws.web.live.stop')}
-                </Button>
-              </>
-            ) : (
-              <Button disabled={call.busy} onClick={start}>
-                {call.busy ? t(locale, 'mws.web.live.starting') : t(locale, 'mws.web.live.start')}
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+      <h2 id="mws-live-h" className="nz-sr">
+        {t(locale, 'mws.web.live.title')}
+      </h2>
       {!canWrite && <Banner tone="warn">{t(locale, 'mws.web.live.needsWriter')}</Banner>}
-      {expired && <Banner tone="warn">{t(locale, 'mws.web.live.expired')}</Banner>}
       {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
       {src ? (
         <div className="mws-live-frame">
@@ -103,7 +97,9 @@ export function WebAppLivePreview({
         </div>
       ) : (
         <p className="nz-muted" role="status" aria-busy={call.busy}>
-          {call.busy ? t(locale, 'mws.web.live.starting') : t(locale, 'mws.web.live.intro')}
+          {call.busy || (canWrite && buildId && !call.problem)
+            ? t(locale, 'mws.web.live.starting')
+            : t(locale, 'mws.web.live.intro')}
         </p>
       )}
     </section>

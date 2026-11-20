@@ -26,4 +26,8 @@ describe('ui tokens', () => {
     expect(consoleCss).toContain('--nzc-bg: #0b0b0c;');
     expect(consoleCss).toContain('prefers-reduced-motion');
   });
+  it('has no cross-document view transition (it showed the background between pages) and keeps an opaque canvas', () => {
+    expect(consoleCss).not.toContain('view-transition');
+    expect(consoleCss).toContain('html:has(.nzc) { background: #0b0b0c; }');
+  });
 });

@@ -1000,16 +1000,12 @@ a.nzc-navcard:hover, .nzc-tile:hover { background: var(--nzc-card); }
 .nzc-hero-art.nzc-art-render { max-inline-size:360px; inline-size:100%; justify-self:center; }
 .nzc-shop-type .nzc-art-render { max-inline-size:180px; justify-self:center; }
 /* ================= page transitions =================
-   Moving between pages: the old content clears out, then the new page's blocks rise in one after another and the dashboard figures count up.
-   The chrome (top bar, rail) stays still: only the content area is its own transition layer. A browser without cross-document view transitions
-   still gets the staggered entrance. Everything is off for people who ask for reduced motion. */
-@view-transition { navigation: auto; }
-.nzc-body { view-transition-name: nzc-content; }
-::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
-::view-transition-old(nzc-content) { animation: nzc-fade-out 140ms cubic-bezier(.4, 0, 1, 1) both; }
-::view-transition-new(nzc-content) { animation: nzc-fade-in 240ms ease-out 60ms both; }
-@keyframes nzc-fade-out { to { opacity: 0; transform: translateY(-6px); } }
-@keyframes nzc-fade-in { from { opacity: 0; } }
+   Moving between pages: the new page's blocks rise in one after another and the dashboard figures count up. There is deliberately NO cross-document view
+   transition: it cut the content out of the page into its own layer, and while the old content faded out (and the new one was not in yet) whatever lay behind
+   showed for a moment. The browser keeps the old page on screen until the new one paints, and the new page's own background is opaque from its first frame.
+   Everything is off for people who ask for reduced motion. */
+html:has(.nzc) { background: #0b0b0c; }
+html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 @keyframes nzc-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .nzc-body > * { animation: nzc-rise 520ms cubic-bezier(.16, 1, .3, 1) both; }
 .nzc-body > *:nth-child(2) { animation-delay: 60ms; }
@@ -1024,9 +1020,7 @@ a.nzc-navcard:hover, .nzc-tile:hover { background: var(--nzc-card); }
 .nzc .nz-table-wrap[data-view="cards"] tbody tr:nth-child(4), .nzc-stat:nth-child(4), .nzc-shop-plan:nth-child(4) { animation-delay: 320ms; }
 .nzc .nz-table-wrap[data-view="cards"] tbody tr:nth-child(n + 5) { animation-delay: 380ms; }
 @media (prefers-reduced-motion: reduce) {
-  @view-transition { navigation: none; }
   .nzc-body > *, .nzc .nz-table-wrap[data-view="cards"] tbody tr, .nzc-stat, .nzc-shop-plan, a.nzc-method, .nzc .nzc-tlds label.nzc-tld { animation: none; }
-  ::view-transition-old(nzc-content), ::view-transition-new(nzc-content) { animation: none; }
 }
 
 /* Builder composer: compact hierarchy, neutral surfaces, focused teal accents. */

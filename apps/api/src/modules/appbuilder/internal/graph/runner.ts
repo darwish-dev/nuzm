@@ -231,7 +231,8 @@ export class GraphRunner {
 
       const gather = ():
         { ok: true; inputs: Record<string, unknown> } | { ok: false; kind: string } => {
-        const inputs: Record<string, unknown> = {};
+        // the run's own inputs (the user's brief) reach every node; produced artifacts only the nodes that declare them
+        const inputs: Record<string, unknown> = { ...seeds };
         for (const kind of node.consumes) {
           if (artifacts[kind] === undefined) return { ok: false, kind };
           inputs[kind] = artifacts[kind];

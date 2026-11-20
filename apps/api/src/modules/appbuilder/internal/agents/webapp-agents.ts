@@ -29,7 +29,9 @@ const pick = (files: ReadonlyMap<string, string>, test: (p: string) => boolean):
 export class RequirementsAgent implements AgentExecutor {
   readonly agent = 'requirements' as const;
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const brief = ctx.inputs['brief'] ?? {};
+    const brief = ctx.inputs['brief'];
+    // without the brief the model can only invent a generic app; a missing brief is a wiring fault, not user input
+    if (brief === undefined) throw new Error('the requirements agent received no brief');
     const artifact = await ctx.model.ask<unknown>({
       agent: this.agent,
       purpose: 'requirements',

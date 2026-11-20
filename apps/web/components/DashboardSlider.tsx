@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Icon, type IconName } from '@nuzm/ui';
+import { Icon } from '@nuzm/ui';
 
 export function DashboardSlider({
   ar,
@@ -13,8 +13,6 @@ export function DashboardSlider({
   const [active, setActive] = useState(0);
   const slide = slides[active] ?? slides[0];
   if (!slide) return null;
-  const slideIcon: IconName =
-    slide.id === 'hosting' ? 'hosting' : slide.id === 'domains' ? 'domains' : 'cloud';
   const move = (step: number) =>
     setActive((current) => (current + step + slides.length) % slides.length);
   return (
@@ -35,21 +33,15 @@ export function DashboardSlider({
           <Icon name="arrow" size={15} />
         </a>
       </div>
-      <div className="nzc-slide-scene" aria-hidden="true">
-        <span className="nzc-slide-orbit nzc-slide-orbit-outer" />
-        <span className="nzc-slide-orbit nzc-slide-orbit-inner" />
-        <span className="nzc-slide-icon-satellite nzc-slide-satellite-one">
-          <Icon name="shield" size={21} />
-        </span>
-        <span className="nzc-slide-icon-main" key={slide.id}>
-          <Icon name={slideIcon} size={52} />
-        </span>
-        <span className="nzc-slide-icon-satellite nzc-slide-satellite-two">
-          <Icon name={slide.id === 'domains' ? 'hosting' : 'domains'} size={23} />
-        </span>
-        <span className="nzc-slide-icon-satellite nzc-slide-satellite-three">
-          <Icon name="code" size={17} />
-        </span>
+      <div className="nzc-slide-photograph" aria-hidden="true">
+        <img
+          key={slide.id}
+          src={`/images/dashboard/${slide.id}-hero.webp`}
+          alt=""
+          width={1672}
+          height={941}
+          decoding="async"
+        />
       </div>
       {slides.length > 1 && (
         <div className="nzc-slide-controls">

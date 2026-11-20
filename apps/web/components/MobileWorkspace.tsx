@@ -250,6 +250,7 @@ export function MobileWorkspace({
       }
       banner={reloadError ? t(locale, 'mws.reloadFailed') : null}
       working={progress}
+      scene={tab === 'preview' && progress.active}
       chat={
         <Chat
           locale={locale}

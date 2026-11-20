@@ -103,61 +103,27 @@ export function HostingShop({
   const planName = (p: CatalogPlan) => p.name[locale];
 
   return (
-    <div className="nzc-shop">
-      <header className="nzc-showcase nzc-host-planner">
-        <div className="nzc-host-planner-copy">
-          <span className="nzc-showcase-pill">{t(locale, 'host.shop.eyebrow')}</span>
+    <div className="nzc-shop hs">
+      <header className="hs-hero">
+        <div className="hs-glow" aria-hidden="true" />
+        <div className="hs-hero-copy">
+          <span className="hs-pill">{t(locale, 'host.shop.eyebrow')}</span>
           <h2>{t(locale, 'host.shop.title')}</h2>
           <p>{t(locale, 'host.shop.sub')}</p>
         </div>
-        <div className="nzc-host-planner-panel">
-          <div className="nzc-host-planner-heading">
-            <Icon name="hosting" size={22} />
-            <strong>{locale === 'ar' ? 'خطّط لاستضافتك' : 'Find your hosting fit'}</strong>
-          </div>
-          <label htmlFor={`${uid}-planner`}>
-            {locale === 'ar' ? 'ما الذي تريد استضافته؟' : 'What are you hosting?'}
-          </label>
-          <select
-            id={`${uid}-planner`}
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value as HostingType);
-              setCompare(false);
-            }}
-          >
-            {groups.map((g) => (
-              <option key={g.type} value={g.type}>
-                {typeName(g.type)}
-              </option>
-            ))}
-          </select>
-          <p>{t(locale, `host.type.${type}.tag` as MessageKey)}</p>
-          <button
-            className="nz-btn"
-            type="button"
-            onClick={() =>
-              document.getElementById(`${uid}-plans`)?.scrollIntoView({
-                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                  ? 'instant'
-                  : 'smooth',
-                block: 'start',
-              })
-            }
-          >
-            {locale === 'ar' ? 'استعرض الخطط' : 'Explore plans'}
-            <Icon name="arrow" size={18} />
-          </button>
+        <div className="hs-hero-art" aria-hidden="true">
+          <Art name={TYPE_ART[type]} />
         </div>
       </header>
 
-      <div className="nzc-shop-card" id={`${uid}-plans`}>
-        <div className="nzc-shop-tabs" role="tablist" aria-label={t(locale, 'host.shop.types')}>
+      <div className="hs-body" id={`${uid}-plans`}>
+        <div className="hs-types" role="tablist" aria-label={t(locale, 'host.shop.types')}>
           {groups.map((g) => (
             <button
               key={g.type}
               type="button"
               role="tab"
+              className="hs-type"
               id={`${uid}-tab-${g.type}`}
               aria-selected={g.type === type}
               aria-controls={`${uid}-panel`}
@@ -176,37 +142,36 @@ export function HostingShop({
                 document.getElementById(`${uid}-tab-${groups[j]!.type}`)?.focus();
               }}
             >
+              <span className="hs-type-icon" aria-hidden="true">
+                <Icon name={TYPE_ICON[g.type]} size={20} />
+              </span>
               {typeName(g.type)}
             </button>
           ))}
         </div>
 
         <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${type}`}>
-          <div className="nzc-shop-type">
-            <p>
-              <strong>{typeName(type)}</strong>
-              {t(locale, `host.type.${type}.tag` as MessageKey)}
-            </p>
-            <Art name={TYPE_ART[type]} />
-          </div>
-          <div className="nzc-shop-grid">
+          <p className="hs-tag">
+            <strong>{typeName(type)}</strong>
+            <span>{t(locale, `host.type.${type}.tag` as MessageKey)}</span>
+          </p>
+          <div className="hs-grid">
             {group.plans.map((p) => (
-              <article key={p.id} className="nzc-shop-plan" aria-labelledby={`${uid}-p-${p.id}`}>
-                <div className="nzc-shop-plan-top">
+              <article key={p.id} className="hs-plan" aria-labelledby={`${uid}-p-${p.id}`}>
+                <div className="hs-plan-top">
                   <h3 id={`${uid}-p-${p.id}`}>{planName(p)}</h3>
-                  <span className="nzc-shop-mark" aria-hidden="true">
+                  <span className="hs-plan-mark" aria-hidden="true">
                     <Icon name={TYPE_ICON[type]} size={20} />
                   </span>
                 </div>
-                <p className="nzc-shop-price">
+                <p className="hs-price">
                   {prices[p.id] ? (
                     <strong dir="ltr">{prices[p.id]}</strong>
                   ) : (
                     <span className="nz-muted">{t(locale, 'host.shop.priceLater')}</span>
                   )}
                 </p>
-                <ChoosePlan locale={locale} orgId={orgId} plan={p} />
-                <ul className="nzc-shop-specs">
+                <ul className="hs-specs">
                   <li>
                     <Icon name="check" size={16} />
                     {p.quotas.sitesCount === 1
@@ -222,13 +187,16 @@ export function HostingShop({
                     })}
                   </li>
                 </ul>
-                <div className="nzc-shop-runtimes">
+                <div className="hs-runtimes">
                   <span className="nz-muted">{t(locale, 'host.shop.includes')}</span>
                   {RUNTIME_GROUPS.filter((g) => offersRuntime(p, g.match)).map((g) => (
-                    <span key={g.id} className="nzc-shop-chip" dir="ltr">
+                    <span key={g.id} className="hs-chip" dir="ltr">
                       {g.label}
                     </span>
                   ))}
+                </div>
+                <div className="hs-choose">
+                  <ChoosePlan locale={locale} orgId={orgId} plan={p} />
                 </div>
               </article>
             ))}

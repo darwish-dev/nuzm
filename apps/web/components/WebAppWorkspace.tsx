@@ -165,6 +165,7 @@ export function WebAppWorkspace({
       }
       banner={reloadError ? t(locale, 'mws.web.reloadFailed') : null}
       working={progress}
+      scene={tab === 'preview' && progress.active}
       chat={
         <Chat
           locale={locale}

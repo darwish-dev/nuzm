@@ -1,8 +1,10 @@
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
+import { AppBuildingScene } from './AppBuildingScene';
 import { BrandMark } from './BrandLogo';
+import { MobileBuildingScene } from './MobileBuildingScene';
 
 export interface ShellTab<T extends string = string> {
   id: T;
@@ -47,6 +49,7 @@ export function WorkspaceShell<T extends string>({
   chat,
   banner,
   working,
+  scene = false,
   children,
 }: {
   locale: Locale;
@@ -68,8 +71,17 @@ export function WorkspaceShell<T extends string>({
   banner?: string | null;
   /** the step being worked on while a run works: shown as a toast over the canvas */
   working?: { active: boolean; label: string };
+  /** show the "being built" scene over the canvas (a run is working and the preview is open); it stays a moment after the run ends so it fades out */
+  scene?: boolean;
   children: ReactNode;
 }) {
+  const [phase, setPhase] = useState<'off' | 'on' | 'leaving'>('off');
+  useEffect(() => {
+    if (scene) return setPhase('on');
+    setPhase((p) => (p === 'on' ? 'leaving' : p));
+    const h = setTimeout(() => setPhase((p) => (p === 'leaving' ? 'off' : p)), 700);
+    return () => clearTimeout(h);
+  }, [scene]);
   return (
     <div className="bws mws" data-inspector="closed" data-mode={mode}>
       <header className="bws-top">
@@ -123,6 +135,15 @@ export function WorkspaceShell<T extends string>({
         </section>
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {banner && <Banner tone="danger">{banner}</Banner>}
+          {phase !== 'off' && (
+            <div className="bscene-wrap" data-leaving={phase === 'leaving' ? 'true' : undefined}>
+              {mode === 'mobile' ? (
+                <MobileBuildingScene locale={locale} label={working?.label ?? ''} />
+              ) : (
+                <AppBuildingScene locale={locale} label={working?.label ?? ''} />
+              )}
+            </div>
+          )}
           {working?.active && (
             <div className="bws-working" role="status">
               <span className="bld-spinner" aria-hidden="true" />

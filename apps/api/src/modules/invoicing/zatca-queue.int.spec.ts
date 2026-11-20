@@ -523,7 +523,8 @@ describe('the submission pipeline', () => {
         [d],
       ),
     ).toBe(1);
-    await pipeline().run(new Date(now.getTime() + 86_400_000 + 1000));
+    // the manual retry is scheduled at the real current time, so run after whichever is later (the fixed test clock starts in the past)
+    await pipeline().run(new Date(Math.max(now.getTime() + 86_400_000, Date.now()) + 1000));
     expect((await stateOf(d)).state).toBe('reported');
     expect(
       (await admin('fin1', 'POST', `/v1/admin/billing/zatca/submissions/${row.id}/retry`))

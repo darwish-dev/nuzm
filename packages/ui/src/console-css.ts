@@ -1982,4 +1982,32 @@ html[lang='ar'] .ld-label { letter-spacing: 0; text-transform: none; font-size: 
 .ld-mail .ld-note { max-inline-size: none; }
 @media (max-width: 760px) { .ld-art { display: none; } .ld-search { flex-wrap: wrap; padding: 12px; } .ld-search .nzc-icon { display: none; } .ld-search-input { flex-basis: 100%; padding-inline: 8px; } .ld-go { inline-size: 100%; } .ld-at { display: none; } .ld-custom { margin-inline-start: 0; inline-size: 100%; justify-content: space-between; } }
 @media (prefers-reduced-motion: reduce) { .ld-tld, .ld-go, .ld-preset, .ld-card { transition: none; } .ld-tld:hover { transform: none; } }
+
+/* Dashboard welcome and illustrated service entry points. */
+.nzc-home-banner { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); align-items:center; overflow:hidden; border:1px solid var(--nzc-border); border-radius:22px; background:radial-gradient(ellipse at 100% 80%,var(--nzc-accent-soft),transparent 65%),var(--nzc-card); }
+.nzc-home-banner-copy { padding:32px; min-inline-size:0; }
+.nzc-home-org { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 22px; color:var(--nzc-muted); font-size:12px; }
+.nzc-home-banner h1 { margin:0 0 10px; color:var(--nzc-muted); font-size:15px; font-weight:500; overflow-wrap:anywhere; }
+.nzc-home-banner h2 { margin:0; font-size:clamp(25px,3vw,38px); line-height:1.25; letter-spacing:-.025em; text-wrap:balance; }
+.nzc-home-intro { max-inline-size:48ch; color:var(--nzc-muted); font-size:14px; line-height:1.7; margin:14px 0 22px; }
+.nzc .nzc-home-cta { display:inline-flex; align-items:center; gap:12px; padding:11px 18px; min-block-size:44px; }
+.nzc-home-banner-visual { position:relative; display:grid; place-items:center; padding:12px 24px 38px; min-inline-size:0; }
+.nzc-home-banner-visual .nzc-art-render { inline-size:100%; max-inline-size:390px; block-size:250px; object-fit:contain; }
+.nzc-home-visual-label { display:flex; align-items:center; gap:8px; color:var(--nzc-muted); font-size:12px; }
+.nzc-home-products { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:18px; list-style:none; padding:0; margin:0; }
+.nzc-home-product { display:block; block-size:100%; overflow:hidden; border:1px solid var(--nzc-border); border-radius:18px; background:var(--nzc-card); color:var(--nzc-fg) !important; text-decoration:none !important; transition:border-color .2s,transform .2s; }
+.nzc-home-product:hover { border-color:var(--nzc-accent); transform:translateY(-3px); }
+.nzc-home-product:focus-visible,.nzc-home-cta:focus-visible { outline:2px solid var(--nzc-accent); outline-offset:4px; }
+.nzc-home-product-image { overflow:hidden; aspect-ratio:2.3; background:#002c25; }
+.nzc-home-product-image img { display:block; inline-size:100%; block-size:100%; object-fit:cover; object-position:center 48%; }
+.nzc-home-product-body { padding:20px; }
+.nzc-home-product-heading { display:flex; align-items:center; gap:10px; }
+.nzc-home-product-heading strong { font-size:17px; font-weight:600; }
+.nzc-home-product-heading > .nzc-icon { color:var(--nzc-accent); }
+.nzc-home-product-heading > .nzc-icon:last-child { margin-inline-start:auto; }
+.nzc-home-product-body p { color:var(--nzc-muted); margin:12px 0 18px; font-size:13px; line-height:1.65; }
+.nzc-home-product-link { color:var(--nzc-accent); font-size:12px; font-weight:600; }
+.nzc[dir="rtl"] .nzc-home-product-heading > .nzc-icon:last-child,.nzc[dir="rtl"] .nzc-home-cta .nzc-icon { transform:scaleX(-1); }
+@media(max-width:700px) { .nzc-home-banner { grid-template-columns:1fr; } .nzc-home-banner-copy { padding:24px; } .nzc-home-banner-visual { padding:0 24px 24px; } .nzc-home-banner-visual .nzc-art-render { block-size:170px; } }
+@media(prefers-reduced-motion:reduce) { .nzc-home-product { transition:none; } .nzc-home-product:hover { transform:none; } }
 `;

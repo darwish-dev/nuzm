@@ -2500,6 +2500,13 @@ export const messages = {
     'm8.emd.dmarcHelp':
       'ابدأ بـ p=none لمتابعة التقارير، ثم انتقل إلى الحجر ثم الرفض عندما تنجح رسائلك المشروعة.',
     'm8.mb.new': 'صندوق بريد جديد',
+    'ld.mail.eyebrow': 'بريد أعمالك',
+    'ld.mail.title': 'أنشئوا بريدًا باسم نطاقكم',
+    'ld.mail.sub': 'اختاروا الاسم والنطاق ثم احصلوا على السعر قبل إنشاء أي شيء.',
+    'ld.mail.preview': 'عنوان البريد',
+    'ld.mail.quota': 'مساحة التخزين',
+    'ld.mail.gb': '{n} جيجابايت',
+    'ld.mail.custom': 'مخصّص (ميجابايت)',
     'm8.mb.noDomains': 'لا يوجد نطاق موثّق لصناديق البريد بعد. أضف نطاقًا ووثّقه أولًا.',
     'm8.mb.providerDisabled':
       'صناديق البريد غير متاحة: لا يوجد مزوّد مفعّل لحسابك. لا يمكن إنشاء شيء حتى يُفعَّل مزوّد.',
@@ -9206,6 +9213,13 @@ export const messages = {
     'm8.emd.dmarcHelp':
       'Start with p=none to watch reports, then move to quarantine and reject once your legitimate mail passes.',
     'm8.mb.new': 'New mailbox',
+    'ld.mail.eyebrow': 'Business email',
+    'ld.mail.title': 'Create email on your own domain',
+    'ld.mail.sub': 'Pick a name and a domain, then see the price before anything is created.',
+    'ld.mail.preview': 'Your address',
+    'ld.mail.quota': 'Storage',
+    'ld.mail.gb': '{n} GB',
+    'ld.mail.custom': 'Custom (MB)',
     'm8.mb.noDomains': 'No verified domain for mailboxes yet. Add and verify one first.',
     'm8.mb.providerDisabled':
       'Mailboxes are not available: no mailbox provider is enabled for your account. Nothing can be created until one is.',

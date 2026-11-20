@@ -84,6 +84,9 @@ export function DashboardStatus({
 }) {
   return (
     <aside className="nzc-status" aria-label={t(locale, 'ds.title')}>
+      <p className="nzc-status-title" aria-hidden="true">
+        {t(locale, 'ds.title')}
+      </p>
       <section className="nzc-status-card nzc-status-attention" aria-labelledby="ds-attention">
         <header>
           <span className="nzc-status-icon" aria-hidden="true">

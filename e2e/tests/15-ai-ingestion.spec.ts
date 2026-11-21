@@ -68,6 +68,7 @@ async function startWorker() {
       WORKER_DATABASE_URL: `postgres://nuzm_worker:nuzm_dev_only@127.0.0.1:${PG_PORT}/${E2E_DB}`,
       KNOWLEDGE_INGEST_ENABLED: 'true',
       KNOWLEDGE_DETECT_ENABLED: 'true',
+      KNOWLEDGE_COMPONENTS_ENABLED: 'true',
       KNOWLEDGE_STORE_DRIVER: 'fs',
       KNOWLEDGE_STORE_DIR: STORE_DIR,
       OTEL_SDK_DISABLED: 'true',
@@ -222,14 +223,15 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
   await expect(kni.getByText(T(info, 'ki.kind.VALIDATE'))).toBeVisible();
   await expect(kni.getByText(T(info, 'ki.kind.EXTRACT'))).toBeVisible();
   await expect(kni.getByText(T(info, 'ki.kind.DETECT'))).toBeVisible();
-  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(3);
+  await expect(kni.getByText(T(info, 'ki.kind.COMPONENTS'), { exact: true })).toBeVisible();
+  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(4);
   await kni
     .getByRole('button', { name: T(info, 'ki.logs'), exact: true })
     .first()
     .click();
   await expect(
     kni.getByText(
-      /static project detection started over \d+ files; nothing from the package is executed/,
+      /component analysis started over \d+ source files .*nothing from the package is executed/,
     ),
   ).toBeVisible();
   // findings: the planted lifecycle script is reported, never run
@@ -248,6 +250,19 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
   await expect(
     proj.locator('.nz-badge', { hasText: T(info, 'km.kind.application') }),
   ).toBeVisible();
+  // components and architecture (parse-only AST analysis): components with props, their kind from the folder convention, relationships with evidence
+  const kc = staff.page.getByLabel(T(info, 'kc.title'));
+  await expect(kc.getByText('Sidebar', { exact: true }).first()).toBeVisible();
+  await expect(
+    kc.locator('.nz-badge', { hasText: T(info, 'kc.kind.next-page') }).first(),
+  ).toBeVisible();
+  await expect(kc.getByText(T(info, 'kc.arch'), { exact: true })).toBeVisible();
+  await expect(kc.getByText(T(info, 'kc.arch.cycles.none'))).toBeVisible();
+  await kc
+    .getByRole('button', { name: T(info, 'kc.details') })
+    .first()
+    .click();
+  await expect(kc.getByText(T(info, 'kc.reuse.no'))).toBeVisible();
   await audit(staff.page, info, 'ai-ingestion-review-uploader');
   expect(
     (
@@ -363,12 +378,22 @@ test('1b. the Flutter and full-stack samples are detected from their files, with
   await expect(fk.getByText('gym_app/pubspec.yaml', { exact: false }).first()).toBeVisible();
   await expect(fk.getByText('HomeScreen')).toBeVisible();
   await expect(fk.getByText(T(info, 'km.role.mobile'))).toBeVisible();
+  const fc = staff.page.getByLabel(T(info, 'kc.title'));
+  await expect(fc.getByText('HomeScreen', { exact: true }).first()).toBeVisible();
+  await expect(
+    fc.locator('.nz-badge', { hasText: T(info, 'kc.kind.flutter-widget') }).first(),
+  ).toBeVisible();
   await audit(staff.page, info, 'ai-ingestion-manifest-flutter');
 
   await staff.page.goto(resourcePage(info, s.id));
   const sk = staff.page.getByLabel(T(info, 'km.title'));
   await expect(sk.locator('strong', { hasText: 'Next.js' })).toBeVisible();
   await expect(sk.locator('strong', { hasText: 'NestJS' })).toBeVisible();
+  const sc = staff.page.getByLabel(T(info, 'kc.title'));
+  await expect(sc.getByText('PropertiesController', { exact: true }).first()).toBeVisible();
+  await expect(
+    sc.locator('.nz-badge', { hasText: T(info, 'kc.kind.nest-controller') }).first(),
+  ).toBeVisible();
   await audit(staff.page, info, 'ai-ingestion-manifest-fullstack');
 
   // the stored manifests: evidence for everything, nothing executed, nothing invented
@@ -402,6 +427,27 @@ test('1b. the Flutter and full-stack samples are detected from their files, with
       )
     ).length,
   ).toBe(2);
+  // components and relationships were written by the worker, none of them reusable, with the schema-2 manifest beside the schema-1 one
+  for (const v of [f.vid, s.vid]) {
+    const rows = await sql<{ n: string; reuse: string }>(
+      `SELECT count(*)::text AS n, count(*) FILTER (WHERE reuse_allowed)::text AS reuse FROM knowledge.resource_components WHERE version_id = $1`,
+      [v],
+    );
+    expect(Number(rows[0]!.n)).toBeGreaterThan(0);
+    expect(rows[0]!.reuse).toBe('0');
+    expect(
+      (await sql(`SELECT 1 FROM knowledge.resource_relationships WHERE version_id = $1`, [v]))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      (
+        await sql<{ schema_version: string }>(
+          `SELECT schema_version FROM knowledge.resource_manifests WHERE version_id = $1 ORDER BY schema_version`,
+          [v],
+        )
+      ).map((x) => x.schema_version),
+    ).toEqual(['1', '2']);
+  }
   await staff.ctx.close();
 });
 

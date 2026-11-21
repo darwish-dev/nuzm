@@ -15,6 +15,7 @@ import {
   type SnapshotSink,
 } from '@nuzm/domain';
 import { KnowledgeObjectStore, ObjectStoreError } from '@nuzm/adapter-knowledge-store';
+import { analyzeComponentsStage } from './components-stage';
 
 /**
  * Secure project ingestion worker (S-K2a, ADR-065). It claims platform-library jobs (VALIDATE, EXTRACT) from `knowledge.processing_jobs` and drives a version through
@@ -29,7 +30,7 @@ type Tx = Parameters<Parameters<Db['withKnowledgeWorker']>[0]>[0];
 export interface IngestJob {
   id: string;
   versionId: string;
-  kind: 'VALIDATE' | 'EXTRACT' | 'DETECT';
+  kind: 'VALIDATE' | 'EXTRACT' | 'DETECT' | 'COMPONENTS';
   attempt: number;
   maxAttempts: number;
 }
@@ -45,6 +46,8 @@ export interface IngestServiceOptions {
   heartbeatMs?: number;
   /** The DETECT stage (S-K2b): off by default. When on, a clean EXTRACT queues DETECT and the version waits in ANALYZING until the manifest is written. */
   detect?: boolean;
+  /** The COMPONENTS stage (S-K2c): off by default; needs `detect`. After DETECT the worker queues COMPONENTS and the version waits in ANALYZING until the schema-2 manifest, components and relationships are written. */
+  components?: boolean;
 }
 
 const TRANSIENT_DELAY = (attempt: number) => Math.min(30 * 2 ** Math.max(0, attempt - 1), 600);
@@ -71,7 +74,12 @@ export class KnowledgeIngestService {
     this.workerId = opts.workerId ?? `kw-${process.pid}-${uuidv7().slice(-6)}`;
     this.lease = opts.leaseSeconds ?? 120;
     this.limits = opts.limits ?? {};
-    this.kinds = opts.detect ? ['VALIDATE', 'EXTRACT', 'DETECT'] : ['VALIDATE', 'EXTRACT'];
+    this.kinds = [
+      'VALIDATE',
+      'EXTRACT',
+      ...(opts.detect ? ['DETECT'] : []),
+      ...(opts.detect && opts.components ? ['COMPONENTS'] : []),
+    ];
     this.say = opts.log ?? (() => undefined);
   }
 
@@ -85,6 +93,7 @@ export class KnowledgeIngestService {
     try {
       if (job.kind === 'VALIDATE') await this.validate(job);
       else if (job.kind === 'DETECT') await this.detectProject(job);
+      else if (job.kind === 'COMPONENTS') await this.componentsStage(job);
       else await this.extract(job);
       this.say('knowledge_job_done', { job: job.id, kind: job.kind, ms: Date.now() - t0 });
     } catch (e) {
@@ -205,7 +214,7 @@ export class KnowledgeIngestService {
       // the version moves in the same transaction as the claim, so a dead worker can never leave a job running against a QUARANTINED version
       if (row.kind === 'VALIDATE')
         await this.setVersion(c, row.version_id, ['QUARANTINED'], 'VALIDATING', null);
-      else if (row.kind === 'DETECT') {
+      else if (row.kind === 'DETECT' || row.kind === 'COMPONENTS') {
         // normally the version is already ANALYZING; after an operator retry it is QUARANTINED and walks the same two edges the state machine allows
         await this.setVersion(c, row.version_id, ['QUARANTINED'], 'VALIDATING', null);
         await this.setVersion(c, row.version_id, ['VALIDATING'], 'ANALYZING', null);
@@ -619,7 +628,12 @@ export class KnowledgeIngestService {
       );
       if (upd.rowCount !== 1) throw new Stop('lease_lost');
       await this.finishJob(c, job, 'SUCCEEDED', { result });
-      await this.setVersion(c, job.versionId, ['ANALYZING'], 'AWAITING_REVIEW', null);
+      if (this.opts.components && !degraded) {
+        await c.query(
+          `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind) VALUES ($1,$2,NULL,'COMPONENTS') ON CONFLICT DO NOTHING`,
+          [uuidv7(), job.versionId],
+        );
+      } else await this.setVersion(c, job.versionId, ['ANALYZING'], 'AWAITING_REVIEW', null);
       await this.writeLog(
         c,
         job.id,
@@ -638,6 +652,24 @@ export class KnowledgeIngestService {
         },
       );
     });
+  }
+
+  private componentsStage(job: IngestJob): Promise<void> {
+    return analyzeComponentsStage(
+      {
+        db: this.db,
+        store: this.store,
+        guarded: (j, fn) => this.guarded(j as IngestJob, fn),
+        log: (j, level, code, message, data) =>
+          this.log(j as IngestJob, level, code, message, data),
+        finish: (c, j, result) => this.finishJob(c, j as IngestJob, 'SUCCEEDED', { result }),
+        setVersion: (c, v, from, to, reason) => this.setVersion(c, v, from, to, reason),
+        writeLog: (c, jobId, versionId, level, stage, code, message, data) =>
+          this.writeLog(c, jobId, versionId, level, stage, code, message, data),
+        stop: (why) => new Stop(why),
+      },
+      job,
+    );
   }
 
   private summary(r: IngestResult): Record<string, unknown> {

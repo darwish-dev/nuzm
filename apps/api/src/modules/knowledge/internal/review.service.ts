@@ -11,6 +11,32 @@ import { isUuid, newId, oneOf, text, type Row } from './model';
  */
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : null);
 const REVIEWABLE = ['AWAITING_REVIEW'];
+const COMPONENT_KINDS = [
+  'react-component',
+  'react-class-component',
+  'next-page',
+  'next-layout',
+  'nest-module',
+  'nest-controller',
+  'nest-provider',
+  'nest-dto',
+  'flutter-widget',
+  'flutter-stateful-widget',
+  'flutter-state',
+  'flutter-state-holder',
+  'flutter-provider',
+] as const;
+const RELATIONS = [
+  'renders',
+  'imports',
+  'declares',
+  'exports',
+  'injects',
+  'guarded_by',
+  'state_of',
+  'routes_to',
+  'route_renders',
+] as const;
 const RETRYABLE_REASONS = ['processing_failed', 'archive_missing', 'cancelled'];
 
 export interface ReviewEntry {
@@ -213,6 +239,118 @@ export class ReviewService {
       isExecutable: f.is_executable as boolean,
       stored: f.stored as boolean,
       secretFindings: Number(f.secret_findings),
+    }));
+    return {
+      items,
+      nextCursor:
+        rows.length > limit ? Buffer.from(items[items.length - 1]!.id).toString('base64url') : null,
+    };
+  }
+
+  /** The component registry of a version (S-K2c): name, kind, framework, file, props, dependencies, style and asset imports, platforms. Never file content. */
+  async components(
+    resourceId: string,
+    versionId: string,
+    q: { q?: string; kind?: string; framework?: string },
+    rawLimit?: string,
+    rawCursor?: string,
+  ) {
+    this.id(resourceId);
+    this.id(versionId);
+    const limit = parseLimit(rawLimit, 100);
+    const cursor = decodeCursor(rawCursor);
+    const rows = await this.db.withPlatformScope(async (c) => {
+      await this.resource(c, resourceId);
+      await this.version(c, resourceId, versionId);
+      const args: unknown[] = [versionId, limit + 1];
+      let where = 'version_id = $1';
+      if (q.q) {
+        args.push(`%${q.q.slice(0, 100).replace(/[%_\\]/g, '\\$&')}%`);
+        where += ` AND (name ILIKE $${args.length} OR path ILIKE $${args.length})`;
+      }
+      if (q.kind) {
+        args.push(oneOf(COMPONENT_KINDS, q.kind, 'kind'));
+        where += ` AND kind = $${args.length}`;
+      }
+      if (q.framework) {
+        args.push(oneOf(['react', 'next', 'nestjs', 'flutter'] as const, q.framework, 'framework'));
+        where += ` AND framework = $${args.length}`;
+      }
+      if (cursor) {
+        args.push(cursor);
+        where += ` AND id > $${args.length}`;
+      }
+      return (
+        await c.query(
+          `SELECT id, name, kind, framework, path, props, dependencies, style_deps, assets, platforms, reuse_allowed FROM knowledge.resource_components WHERE ${where} ORDER BY id LIMIT $2`,
+          args,
+        )
+      ).rows as Row[];
+    });
+    const items = rows.slice(0, limit).map((r) => ({
+      id: r.id as string,
+      name: r.name as string,
+      kind: r.kind as string,
+      framework: (r.framework as string | null) ?? null,
+      path: r.path as string,
+      props: r.props as Row[],
+      dependencies: r.dependencies as string[],
+      styleDeps: r.style_deps as string[],
+      assets: r.assets as string[],
+      platforms: r.platforms as string[],
+      reuseAllowed: r.reuse_allowed === true,
+    }));
+    return {
+      items,
+      nextCursor:
+        rows.length > limit ? Buffer.from(items[items.length - 1]!.id).toString('base64url') : null,
+    };
+  }
+
+  /** Relationships of a version (renders, imports, declares, injects, routes_to, ...); `ref` matches either end. */
+  async relationships(
+    resourceId: string,
+    versionId: string,
+    q: { relation?: string; ref?: string },
+    rawLimit?: string,
+    rawCursor?: string,
+  ) {
+    this.id(resourceId);
+    this.id(versionId);
+    const limit = parseLimit(rawLimit, 100);
+    const cursor = decodeCursor(rawCursor);
+    const rows = await this.db.withPlatformScope(async (c) => {
+      await this.resource(c, resourceId);
+      await this.version(c, resourceId, versionId);
+      const args: unknown[] = [versionId, limit + 1];
+      let where = 'version_id = $1';
+      if (q.relation) {
+        args.push(oneOf(RELATIONS, q.relation, 'relation'));
+        where += ` AND relation = $${args.length}`;
+      }
+      if (q.ref) {
+        args.push(q.ref.slice(0, 300));
+        where += ` AND (from_ref = $${args.length} OR to_ref = $${args.length})`;
+      }
+      if (cursor) {
+        args.push(cursor);
+        where += ` AND id > $${args.length}`;
+      }
+      return (
+        await c.query(
+          `SELECT id, from_kind, from_ref, to_kind, to_ref, relation, evidence FROM knowledge.resource_relationships WHERE ${where} ORDER BY id LIMIT $2`,
+          args,
+        )
+      ).rows as Row[];
+    });
+    const items = rows.slice(0, limit).map((r) => ({
+      id: r.id as string,
+      fromKind: r.from_kind as string,
+      fromRef: r.from_ref as string,
+      toKind: r.to_kind as string,
+      toRef: r.to_ref as string,
+      relation: r.relation as string,
+      evidence: r.evidence as Row,
     }));
     return {
       items,
@@ -554,19 +692,23 @@ export class ReviewService {
     const jobId = await this.db.withPlatformScope(async (c) => {
       await this.resource(c, resourceId, true);
       const v = await this.version(c, resourceId, versionId, true);
-      // an analysed version keeps its files; only the detection stage (S-K2b) can be re-run, and only while no manifest exists
-      let kind: 'VALIDATE' | 'DETECT' = 'VALIDATE';
+      // an analysed version keeps its files; only the later stages can be re-run: detection (S-K2b) while no manifest exists, components (S-K2c) while only schema 1 exists
+      let kind: 'VALIDATE' | 'DETECT' | 'COMPONENTS' = 'VALIDATE';
       if (v.analysis_job_id) {
-        const has = await c.query(
-          `SELECT 1 FROM knowledge.resource_manifests WHERE version_id = $1`,
-          [versionId],
+        const have = new Set(
+          (
+            await c.query(
+              `SELECT schema_version FROM knowledge.resource_manifests WHERE version_id = $1`,
+              [versionId],
+            )
+          ).rows.map((r) => r.schema_version as string),
         );
-        if (has.rowCount)
+        if (have.has('2'))
           throw new ProblemException(
             'conflict',
             'this version was already analysed; upload a new version to analyse again',
           );
-        kind = 'DETECT';
+        kind = have.has('1') ? 'COMPONENTS' : 'DETECT';
       }
       if (
         !['FAILED', 'QUARANTINED'].includes(v.state as string) ||

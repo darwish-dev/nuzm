@@ -364,7 +364,74 @@ export interface ProjectManifestView {
   moduleFacts: ManFact[];
   ambiguities: { code: string; detail: string; paths: string[] }[];
   stats: { truncated: string[] };
+  architecture?: ArchitectureView;
+  componentStats?: { total: number; relationships: number };
 }
 export const levelTone = (l: string): 'success' | 'danger' | 'warn' | undefined =>
   l === 'high' ? 'success' : l === 'low' ? 'warn' : undefined;
 export const evidenceText = (e: ManEvidence) => (e.line ? `${e.path}:${e.line}` : e.path);
+
+// ---- S-K2c: components and architecture (SCR-K-04) --------------------------------------------------------------------------------------
+export interface ComponentView {
+  id: string;
+  name: string;
+  kind: string;
+  framework: string | null;
+  path: string;
+  props: { name: string; type: string | null; required: boolean }[];
+  dependencies: string[];
+  styleDeps: string[];
+  assets: string[];
+  platforms: string[];
+  reuseAllowed: boolean;
+}
+export interface RelationshipView {
+  id: string;
+  fromKind: string;
+  fromRef: string;
+  toKind: string;
+  toRef: string;
+  relation: string;
+  evidence: { path: string; line?: number };
+}
+export interface ArchitectureView {
+  layers: { project: string; name: string; role: string; files: number }[];
+  modules: {
+    name: string;
+    project: string;
+    files: number;
+    dependsOn: { module: string; weight: number }[];
+  }[];
+  cycles: { files: string[]; size: number }[];
+  entryReachability: {
+    roots: number;
+    analysedFiles: number;
+    unreachable: number;
+    sample: string[];
+  } | null;
+  publicSurface: { project: string; file: string; exports: string[] }[];
+  orphanComponents: { name: string; path: string }[];
+  stats: {
+    files: number;
+    skipped: Record<string, number>;
+    internalImports: number;
+    unresolvedImports: number;
+    truncated: string[];
+  };
+}
+export const COMPONENT_KINDS = [
+  'react-component',
+  'react-class-component',
+  'next-page',
+  'next-layout',
+  'nest-module',
+  'nest-controller',
+  'nest-provider',
+  'nest-dto',
+  'flutter-widget',
+  'flutter-stateful-widget',
+  'flutter-state',
+  'flutter-state-holder',
+  'flutter-provider',
+] as const;
+export const COMPONENT_FRAMEWORKS = ['react', 'next', 'nestjs', 'flutter'] as const;

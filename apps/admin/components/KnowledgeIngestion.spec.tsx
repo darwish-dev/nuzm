@@ -3,6 +3,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@nuzm/i18n';
 import type {
+  ArchitectureView,
+  ComponentView,
+  RelationshipView,
   ProjectManifestView,
   IngestFile,
   IngestFinding,
@@ -180,6 +183,8 @@ interface World {
   files?: IngestFile[] | Response;
   logs?: IngestLog[];
   manifest?: ProjectManifestView | null | Response;
+  components?: ComponentView[] | Response;
+  relationships?: RelationshipView[];
 }
 const world =
   (w: World = {}): Handler =>
@@ -191,8 +196,23 @@ const world =
     if (s.url.endsWith('/processing-jobs') && s.method === 'GET') return wrap(w.jobs ?? [job()]);
     if (s.url.endsWith('/manifest'))
       return w.manifest instanceof Response
-        ? w.manifest
+        ? w.manifest.clone()
         : json(200, { manifest: w.manifest === undefined ? null : w.manifest });
+    if (s.url.endsWith('/components')) {
+      if (w.components instanceof Response) return w.components.clone();
+      const list = w.components ?? [];
+      const kind = new URL(`http://x${s.search}`).searchParams.get('kind');
+      const q = new URL(`http://x${s.search}`).searchParams.get('q');
+      return json(200, {
+        items: list.filter(
+          (c) =>
+            (!kind || c.kind === kind) && (!q || c.name.toLowerCase().includes(q.toLowerCase())),
+        ),
+        nextCursor: null,
+      });
+    }
+    if (s.url.endsWith('/relationships'))
+      return json(200, { items: w.relationships ?? [], nextCursor: null });
     if (s.url.endsWith('/logs')) return json(200, { items: w.logs ?? [log()], nextCursor: null });
     if (s.url.endsWith('/findings'))
       return wrap(w.findings ?? [finding()], { summary: { info: 0, warn: 1, block: 0 } });
@@ -718,5 +738,210 @@ describe('KnowledgeIngestion: the detected project (S-K2b)', () => {
     await waitFor(() =>
       expect(seen.some((x) => x.url.includes(`/versions/${V2}/manifest`))).toBe(true),
     );
+  });
+});
+
+const comp = (over: Partial<ComponentView> = {}): ComponentView => ({
+  id: 'c1',
+  name: 'Button',
+  kind: 'react-component',
+  framework: 'react',
+  path: 'src/components/button.tsx',
+  props: [
+    { name: 'label', type: 'string', required: true },
+    { name: 'primary', type: 'boolean', required: false },
+  ],
+  dependencies: ['react'],
+  styleDeps: ['./button.module.css'],
+  assets: [],
+  platforms: ['web'],
+  reuseAllowed: false,
+  ...over,
+});
+const arch = (over: Partial<ArchitectureView> = {}): ArchitectureView => ({
+  layers: [
+    { project: '.', name: 'components', role: 'ui', files: 12 },
+    { project: '.', name: 'app', role: 'presentation', files: 5 },
+  ],
+  modules: [
+    {
+      name: 'src/app',
+      project: '.',
+      files: 5,
+      dependsOn: [{ module: 'src/components', weight: 7 }],
+    },
+  ],
+  cycles: [{ files: ['src/a.tsx', 'src/b.tsx'], size: 2 }],
+  entryReachability: { roots: 3, analysedFiles: 17, unreachable: 2, sample: ['src/old.tsx'] },
+  publicSurface: [],
+  orphanComponents: [{ name: 'Unused', path: 'src/components/unused.tsx' }],
+  stats: {
+    files: 17,
+    skipped: { minified: 1, parse_error: 2 },
+    internalImports: 30,
+    unresolvedImports: 4,
+    truncated: ['files'],
+  },
+  ...over,
+});
+const v2 = (a: ArchitectureView = arch()) =>
+  manifest({ schemaVersion: '2', architecture: a, componentStats: { total: 2, relationships: 3 } });
+
+describe('KnowledgeIngestion: components and architecture (S-K2c)', () => {
+  it('lists components with kind and file, opens details with props, platforms and relationships, and says they are not reusable yet', async () => {
+    mockFetch(
+      world({
+        manifest: v2(),
+        components: [
+          comp(),
+          comp({
+            id: 'c2',
+            name: 'Home',
+            kind: 'next-page',
+            framework: 'next',
+            path: 'src/app/page.tsx',
+            props: [],
+          }),
+        ],
+        relationships: [
+          {
+            id: 'r1',
+            fromKind: 'component',
+            fromRef: 'src/app/page.tsx#Home',
+            toKind: 'component',
+            toRef: 'src/components/button.tsx#Button',
+            relation: 'renders',
+            evidence: { path: 'src/app/page.tsx', line: 3 },
+          },
+        ],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByText('Button')).toBeTruthy();
+    expect(within(card).getByText(en('kc.kind.next-page'), { selector: '.nz-badge' })).toBeTruthy();
+    expect(within(card).getByText('src/components/button.tsx')).toBeTruthy();
+    fireEvent.click(within(card).getAllByRole('button', { name: en('kc.details') })[0]!);
+    const detail = await within(card).findByLabelText('Button');
+    expect(within(detail).getByText(en('kc.reuse.no'))).toBeTruthy();
+    expect(within(detail).getByText('label')).toBeTruthy();
+    expect(within(detail).getByText('string')).toBeTruthy();
+    expect(within(detail).getByText(en('kc.prop.required'))).toBeTruthy();
+    expect(within(detail).getByText('./button.module.css')).toBeTruthy();
+    expect(await within(detail).findByText(en('kc.rel.renders'))).toBeTruthy();
+    expect(within(detail).getByText('src/app/page.tsx:3')).toBeTruthy();
+    // the relationships are requested for THIS component
+    await waitFor(() =>
+      expect(
+        seen.some(
+          (x) =>
+            x.url.endsWith('/relationships') &&
+            decodeURIComponent(x.search).includes('ref=src/components/button.tsx#Button'),
+        ),
+      ).toBe(true),
+    );
+    fireEvent.click(within(card).getByRole('button', { name: en('kc.hide') }));
+    expect(within(card).queryByLabelText('Button')).toBeNull();
+  });
+  it('filters by kind, framework and search through the API', async () => {
+    mockFetch(
+      world({
+        manifest: v2(),
+        components: [
+          comp(),
+          comp({
+            id: 'c2',
+            name: 'Home',
+            kind: 'next-page',
+            framework: 'next',
+            path: 'src/app/page.tsx',
+          }),
+        ],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    await within(card).findByText('Home');
+    fireEvent.change(within(card).getByLabelText(en('kc.kind')), {
+      target: { value: 'next-page' },
+    });
+    await waitFor(() => expect(within(card).queryByText('src/components/button.tsx')).toBeNull());
+    expect(
+      seen.some((x) => x.url.endsWith('/components') && x.search.includes('kind=next-page')),
+    ).toBe(true);
+    fireEvent.change(within(card).getByLabelText(en('kc.framework')), {
+      target: { value: 'flutter' },
+    });
+    await waitFor(() =>
+      expect(seen.some((x) => x.search.includes('framework=flutter'))).toBe(true),
+    );
+    fireEvent.change(within(card).getByLabelText(en('kc.search')), { target: { value: 'zzz' } });
+    expect(await within(card).findByText(en('kc.components.none'))).toBeTruthy();
+  });
+  it('shows layers, modules with weights, cycles, reachability, orphans, skipped files and the truncation note', async () => {
+    mockFetch(world({ manifest: v2(), components: [comp()] }));
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByText(en('kc.arch'))).toBeTruthy();
+    expect(within(card).getByText(en('kc.role.ui'))).toBeTruthy();
+    expect(within(card).getByText('src/components (7)')).toBeTruthy();
+    expect(within(card).getByText('src/a.tsx ⇄ src/b.tsx')).toBeTruthy();
+    expect(within(card).getByText(en('kc.arch.reach.text', { n: 2, total: 17 }))).toBeTruthy();
+    expect(within(card).getByText('Unused')).toBeTruthy();
+    expect(within(card).getByText(/minified 1/)).toBeTruthy();
+    expect(within(card).getByText('files')).toBeTruthy();
+  });
+  it('clean architecture: no cycles, no entry points', async () => {
+    mockFetch(
+      world({
+        manifest: v2(
+          arch({
+            cycles: [],
+            entryReachability: null,
+            orphanComponents: [],
+            stats: {
+              files: 1,
+              skipped: {},
+              internalImports: 0,
+              unresolvedImports: 0,
+              truncated: [],
+            },
+          }),
+        ),
+        components: [comp()],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByText(en('kc.arch.cycles.none'))).toBeTruthy();
+    expect(within(card).getByText(en('kc.arch.reach.none'))).toBeTruthy();
+    expect(within(card).getByText(en('kc.arch.orphans.none'))).toBeTruthy();
+  });
+  it('Arabic labels', async () => {
+    mockFetch(world({ manifest: v2(), components: [comp()] }));
+    ui({ locale: 'ar' });
+    const card = await screen.findByLabelText(t('ar', 'kc.title'));
+    expect(await within(card).findByText(t('ar', 'kc.kind.react-component'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kc.arch.cycles'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kc.role.ui'))).toBeTruthy();
+  });
+  it('not analysed (no manifest, or only schema 1), forbidden and failed reads', async () => {
+    mockFetch(world({ manifest: null }));
+    ui();
+    expect(await screen.findByText(en('kc.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: manifest() })); // schema 1: detection only
+    ui();
+    expect(await screen.findByText(en('kc.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: v2(), components: json(500, {}) }));
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByRole('alert')).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: json(403, {}) }));
+    ui();
+    const c2 = await screen.findByLabelText(en('kc.title'));
+    expect(await within(c2).findByText(en('ki.forbidden'))).toBeTruthy();
   });
 });

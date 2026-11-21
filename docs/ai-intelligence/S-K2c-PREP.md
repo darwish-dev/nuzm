@@ -1,6 +1,6 @@
 # S-K2c preparation — AST-based component and architecture analysis
 
-Date: 2026-11-21 · Status: **PREPARED, not started** · Depends on S-K2a (snapshots, file inventory), S-K2b (manifest, project boundaries, routes) · Plan section: `S-K2-PLAN.md` §7.
+Date: 2026-11-21 · Status: **IMPLEMENTED 2026-11-21 (see docs/reports/K-S2c-report.md and SCR-K-04; deviations: lexical Dart analyzer instead of a grammar, no parser thread)** · Depends on S-K2a (snapshots, file inventory), S-K2b (manifest, project boundaries, routes) · Plan section: `S-K2-PLAN.md` §7.
 Rule unchanged: **nothing from a package is executed, installed, built or imported**; analysis is parse-only, bounded, deterministic, evidence-backed, and runs in the isolated worker (`nuzm_worker`, scope `knowledge`).
 
 ## 1. What S-K2b leaves for S-K2c

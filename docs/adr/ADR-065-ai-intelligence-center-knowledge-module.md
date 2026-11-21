@@ -151,5 +151,12 @@ Decided while implementing S-K2a; none of it changes an accepted decision, it fi
 - **Evidence tables stay append-only;** the worker may write a manifest only for a version in `ANALYZING` (database trigger), bounded in size, platform rows only.
 - **AST and component analysis are S-K2c** (parse-only, thread-isolated); S-K2b's route and screen facts are labelled heuristic with their confidence.
 
+## Addendum C — S-K2c component and architecture analysis (2026-11-21, SCR-K-04)
+- **Parse-only:** TypeScript/JavaScript via `ts.createSourceFile` alone (no program, type checker, module resolution or plugins), traversed iteratively under a node budget; Dart via an interim lexical analyzer. Facts are path-independent and cached by content
+  hash, so an unchanged file is never analysed again, in this version or the next. D-45 (bundled Dart grammar) stays open; the lexical analyzer is reversible.
+- **Evidence tables stay append-only and bounded:** components and relationships have natural unique keys and are written by the worker only for a version in `ANALYZING`, never with `reuse_allowed = true`; the schema-2 manifest is a second row beside schema 1.
+- **Stage placement:** COMPONENTS follows DETECT in the same queue and role; one transaction writes everything, so a stopped or failed stage leaves nothing. Behind `KNOWLEDGE_COMPONENTS_ENABLED` (default off).
+- **Deferred:** a memory-limited parser thread; a Dart grammar; reuse permissions for components (a later, permission-gated decision).
+
 ## Owner / date
 Owner / 2026-11-20 (session decision, recorded by the agent; drafted by the agent the same day)

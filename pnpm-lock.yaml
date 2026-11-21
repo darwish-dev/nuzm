@@ -290,13 +290,16 @@ importers:
       '@nuzm/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
     devDependencies:
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
       vitest:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))

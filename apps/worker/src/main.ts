@@ -80,6 +80,7 @@ const knowledge = knowledgeStore?.store
       log,
       canaries: canariesFromEnv(),
       detect: process.env.KNOWLEDGE_DETECT_ENABLED === 'true', // S-K2b project detection stage: off until accepted
+      components: process.env.KNOWLEDGE_COMPONENTS_ENABLED === 'true', // S-K2c component and architecture stage: off until accepted (needs detect)
     })
   : null;
 log(

@@ -19,10 +19,15 @@ import {
   type IngestJob,
   type IngestLog,
   type KnowledgeVersion,
+  type ArchitectureView,
+  type ComponentView,
   type ManDetection,
   type ManProject,
   type ProjectManifestView,
+  type RelationshipView,
   type ReviewState,
+  COMPONENT_FRAMEWORKS,
+  COMPONENT_KINDS,
 } from '../lib/knowledge';
 
 /**
@@ -153,6 +158,13 @@ export function KnowledgeIngestion({
       />
       <ManifestSection
         key={`m-${versionId}`}
+        locale={locale}
+        resourceId={resourceId}
+        versionId={versionId}
+        rev={rev}
+      />
+      <ComponentsSection
+        key={`c-${versionId}`}
         locale={locale}
         resourceId={resourceId}
         versionId={versionId}
@@ -1185,5 +1197,404 @@ function ManifestSection({
         }}
       </Frame>
     </Card>
+  );
+}
+
+// ---- components and architecture (S-K2c) --------------------------------------------------------------------------------------------
+function ComponentsSection({
+  locale,
+  resourceId,
+  versionId,
+  rev,
+}: {
+  locale: Locale;
+  resourceId: string;
+  versionId: string;
+  rev: number;
+}) {
+  const [man, reloadMan] = useRemote<{ manifest: ProjectManifestView | null }>(async () => {
+    const x = await browserApi().GET(
+      `${BASE}/versions/{versionId}/manifest` as never,
+      { params: { path: { id: resourceId, versionId } } } as never,
+    );
+    return { ok: x.response.ok, status: x.response.status, data: (x.data as never) ?? null };
+  }, [resourceId, versionId, rev]);
+  return (
+    <Card aria-label={t(locale, 'kc.title')}>
+      <h2 className="nz-h2">{t(locale, 'kc.title')}</h2>
+      <p className="nz-muted">{t(locale, 'kc.intro')}</p>
+      <Frame locale={locale} r={man} reload={reloadMan}>
+        {({ manifest: m }) =>
+          !m || m.schemaVersion !== '2' || !m.architecture ? (
+            <EmptyState title={t(locale, 'kc.title')} body={t(locale, 'kc.none')} />
+          ) : (
+            <>
+              <ComponentList
+                locale={locale}
+                resourceId={resourceId}
+                versionId={versionId}
+                rev={rev}
+              />
+              <ArchitecturePanel locale={locale} a={m.architecture} />
+            </>
+          )
+        }
+      </Frame>
+    </Card>
+  );
+}
+
+function ComponentList({
+  locale,
+  resourceId,
+  versionId,
+  rev,
+}: {
+  locale: Locale;
+  resourceId: string;
+  versionId: string;
+  rev: number;
+}) {
+  const [q, setQ] = useState('');
+  const [kind, setKind] = useState('');
+  const [framework, setFramework] = useState('');
+  const [items, setItems] = useState<ComponentView[]>([]);
+  const [next, setNext] = useState<string | null>(null);
+  const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [open, setOpen] = useState<string | null>(null);
+  const load = useCallback(
+    async (cursor?: string) => {
+      setState('loading');
+      const query: Record<string, string | number> = { limit: 50 };
+      if (q) query.q = q;
+      if (kind) query.kind = kind;
+      if (framework) query.framework = framework;
+      if (cursor) query.cursor = cursor;
+      const x = await browserApi().GET(
+        `${BASE}/versions/{versionId}/components` as never,
+        { params: { path: { id: resourceId, versionId }, query } } as never,
+      );
+      if (!x.response.ok) return setState('error');
+      const d = x.data as unknown as { items: ComponentView[]; nextCursor: string | null };
+      setItems((cur) => (cursor ? [...cur, ...d.items] : d.items));
+      setNext(d.nextCursor);
+      setState('ok');
+    },
+    [resourceId, versionId, q, kind, framework],
+  );
+  useEffect(() => {
+    setItems([]);
+    setOpen(null);
+    void load();
+  }, [load, rev]); // `rev` re-loads the list after a change elsewhere on the page
+  const sel = items.find((x) => x.id === open) ?? null;
+  return (
+    <>
+      <h3 className="nz-h3">{t(locale, 'kc.components')}</h3>
+      <div className="kni-toolbar">
+        <Field id="kc-q" label={t(locale, 'kc.search')}>
+          {(a) => (
+            <Input
+              {...a}
+              dir="ltr"
+              value={q}
+              maxLength={100}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field id="kc-kind" label={t(locale, 'kc.kind')}>
+          {(a) => (
+            <Select {...a} value={kind} onChange={(e) => setKind(e.target.value)}>
+              <option value="">{t(locale, 'kc.all')}</option>
+              {COMPONENT_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {t(locale, `kc.kind.${k}` as MessageKey)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field id="kc-fw" label={t(locale, 'kc.framework')}>
+          {(a) => (
+            <Select {...a} value={framework} onChange={(e) => setFramework(e.target.value)}>
+              <option value="">{t(locale, 'kc.all')}</option>
+              {COMPONENT_FRAMEWORKS.map((k) => (
+                <option key={k} value={k}>
+                  {t(locale, `kc.fw.${k}` as MessageKey)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      </div>
+      {state === 'error' && (
+        <p role="alert" className="nz-error-text">
+          {t(locale, 'ki.load.error')}
+        </p>
+      )}
+      {state === 'loading' && items.length === 0 && (
+        <p className="nz-muted" role="status">
+          {t(locale, 'ki.loading')}
+        </p>
+      )}
+      {state === 'ok' && items.length === 0 && (
+        <EmptyState title={t(locale, 'kc.components')} body={t(locale, 'kc.components.none')} />
+      )}
+      {items.length > 0 && (
+        <Table
+          caption={t(locale, 'kc.components')}
+          rows={items}
+          rowKey={(c: ComponentView) => c.id}
+          columns={[
+            {
+              key: 'name',
+              header: t(locale, 'kc.col.name'),
+              card: 'title',
+              render: (c: ComponentView) => <Ltr>{c.name}</Ltr>,
+            },
+            {
+              key: 'kind',
+              header: t(locale, 'kc.col.kind'),
+              card: 'badge',
+              render: (c: ComponentView) => (
+                <Badge>{tDynamic(locale, `kc.kind.${c.kind}`, c.kind)}</Badge>
+              ),
+            },
+            {
+              key: 'file',
+              header: t(locale, 'kc.col.file'),
+              card: 'meta',
+              render: (c: ComponentView) => <Ltr>{c.path}</Ltr>,
+            },
+            {
+              key: 'props',
+              header: t(locale, 'kc.col.props'),
+              card: 'meta',
+              render: (c: ComponentView) => <Ltr>{String(c.props.length)}</Ltr>,
+            },
+            {
+              key: 'act',
+              header: t(locale, 'ki.col.actions'),
+              card: 'footer',
+              render: (c: ComponentView) => (
+                <Button
+                  variant="secondary"
+                  aria-expanded={open === c.id}
+                  onClick={() => setOpen(open === c.id ? null : c.id)}
+                >
+                  {t(locale, open === c.id ? 'kc.hide' : 'kc.details')}
+                </Button>
+              ),
+            },
+          ]}
+        />
+      )}
+      {next && (
+        <Button variant="secondary" disabled={state === 'loading'} onClick={() => void load(next)}>
+          {t(locale, 'kc.more')}
+        </Button>
+      )}
+      {sel && (
+        <ComponentDetail locale={locale} resourceId={resourceId} versionId={versionId} c={sel} />
+      )}
+    </>
+  );
+}
+
+function ComponentDetail({
+  locale,
+  resourceId,
+  versionId,
+  c,
+}: {
+  locale: Locale;
+  resourceId: string;
+  versionId: string;
+  c: ComponentView;
+}) {
+  const ref = `${c.path}#${c.name}`;
+  const [r, reload] = useRemote<{ items: RelationshipView[] }>(async () => {
+    const x = await browserApi().GET(
+      `${BASE}/versions/{versionId}/relationships` as never,
+      { params: { path: { id: resourceId, versionId }, query: { ref, limit: 100 } } } as never,
+    );
+    return { ok: x.response.ok, status: x.response.status, data: (x.data as never) ?? null };
+  }, [resourceId, versionId, ref]);
+  const list = (label: MessageKey, xs: string[]) => (
+    <div>
+      <dt>{t(locale, label)}</dt>
+      <dd>{xs.length ? <Ltr>{xs.join(', ')}</Ltr> : '—'}</dd>
+    </div>
+  );
+  return (
+    <div aria-label={c.name}>
+      <h4 className="nz-h3">
+        <Ltr>{c.name}</Ltr> <Badge>{t(locale, 'kc.reuse.no')}</Badge>
+      </h4>
+      <dl className="kni-facts">
+        {list('kc.deps', c.dependencies)}
+        {list('kc.styles', c.styleDeps)}
+        {list('kc.assets', c.assets)}
+        {list('kc.platforms', c.platforms)}
+      </dl>
+      <h4 className="nz-h3">{t(locale, 'kc.props')}</h4>
+      {c.props.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'kc.props.none')}</p>
+      ) : (
+        <ul className="kni-list">
+          {c.props.map((p) => (
+            <li key={p.name}>
+              <Ltr>{p.name}</Ltr>
+              {p.type && (
+                <>
+                  : <Ltr>{p.type}</Ltr>
+                </>
+              )}{' '}
+              {p.required && <Badge>{t(locale, 'kc.prop.required')}</Badge>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <h4 className="nz-h3">{t(locale, 'kc.rels')}</h4>
+      <Frame locale={locale} r={r} reload={reload}>
+        {(d) =>
+          d.items.length === 0 ? (
+            <p className="nz-muted">{t(locale, 'kc.rels.none')}</p>
+          ) : (
+            <ul className="kni-list">
+              {d.items.map((x) => (
+                <li key={x.id}>
+                  <Ltr>{x.fromRef === ref ? c.name : x.fromRef}</Ltr>{' '}
+                  <strong>{tDynamic(locale, `kc.rel.${x.relation}`, x.relation)}</strong>{' '}
+                  <Ltr>{x.toRef === ref ? c.name : x.toRef}</Ltr>{' '}
+                  <span className="nz-muted">
+                    <Ltr>{evidenceText({ kind: '', ...x.evidence })}</Ltr>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </Frame>
+    </div>
+  );
+}
+
+function ArchitecturePanel({ locale, a }: { locale: Locale; a: ArchitectureView }) {
+  const skipped = Object.entries(a.stats.skipped);
+  return (
+    <>
+      <h3 className="nz-h3">{t(locale, 'kc.arch')}</h3>
+      <h4 className="nz-h3">{t(locale, 'kc.arch.layers')}</h4>
+      <ul className="kni-list">
+        {a.layers.map((l) => (
+          <li key={`${l.project}${l.name}`}>
+            <Ltr>{l.project === '.' ? l.name : `${l.project}/${l.name}`}</Ltr>{' '}
+            <Badge>{t(locale, `kc.role.${l.role}` as MessageKey)}</Badge>{' '}
+            <span className="nz-muted">{t(locale, 'kc.arch.files', { n: l.files })}</span>
+          </li>
+        ))}
+      </ul>
+      <h4 className="nz-h3">{t(locale, 'kc.arch.modules')}</h4>
+      <ul className="kni-list">
+        {a.modules.slice(0, 20).map((m) => (
+          <li key={`${m.project}${m.name}`}>
+            <Ltr>{m.name}</Ltr>{' '}
+            <span className="nz-muted">{t(locale, 'kc.arch.files', { n: m.files })}</span>
+            {m.dependsOn.length > 0 && (
+              <>
+                {' '}
+                →{' '}
+                <Ltr>
+                  {m.dependsOn
+                    .slice(0, 5)
+                    .map((d) => `${d.module} (${d.weight})`)
+                    .join(', ')}
+                </Ltr>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      <h4 className="nz-h3">{t(locale, 'kc.arch.cycles')}</h4>
+      {a.cycles.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'kc.arch.cycles.none')}</p>
+      ) : (
+        <ul className="kni-list">
+          {a.cycles.map((c) => (
+            <li key={c.files.join()}>
+              <Ltr>{c.files.join(' ⇄ ')}</Ltr>
+              {c.size > c.files.length && (
+                <span className="nz-muted"> (+{c.size - c.files.length})</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <h4 className="nz-h3">{t(locale, 'kc.arch.reach')}</h4>
+      {a.entryReachability ? (
+        <p>
+          {t(locale, 'kc.arch.reach.text', {
+            n: a.entryReachability.unreachable,
+            total: a.entryReachability.analysedFiles,
+          })}{' '}
+          <span className="nz-muted">
+            <Ltr>{a.entryReachability.sample.join(', ')}</Ltr>
+          </span>
+        </p>
+      ) : (
+        <p className="nz-muted">{t(locale, 'kc.arch.reach.none')}</p>
+      )}
+      {a.publicSurface.length > 0 && (
+        <>
+          <h4 className="nz-h3">{t(locale, 'kc.arch.surface')}</h4>
+          <ul className="kni-list">
+            {a.publicSurface.map((s) => (
+              <li key={s.file}>
+                <Ltr>{s.file}</Ltr>: <Ltr>{s.exports.slice(0, 12).join(', ')}</Ltr>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <h4 className="nz-h3">{t(locale, 'kc.arch.orphans')}</h4>
+      {a.orphanComponents.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'kc.arch.orphans.none')}</p>
+      ) : (
+        <ul className="kni-list">
+          {a.orphanComponents.map((o) => (
+            <li key={`${o.path}${o.name}`}>
+              <Ltr>{o.name}</Ltr>{' '}
+              <span className="nz-muted">
+                <Ltr>{o.path}</Ltr>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {(skipped.length > 0 || a.stats.unresolvedImports > 0) && (
+        <p className="nz-muted">
+          {skipped.length > 0 && (
+            <>
+              {t(locale, 'kc.arch.skipped')}:{' '}
+              {skipped.map(([k, n]) => `${tDynamic(locale, `kc.skip.${k}`, k)} ${n}`).join('، ')}
+              .{' '}
+            </>
+          )}
+          {a.stats.unresolvedImports > 0 && (
+            <>
+              {t(locale, 'kc.arch.unresolved')}: <Ltr>{String(a.stats.unresolvedImports)}</Ltr>
+              .{' '}
+            </>
+          )}
+        </p>
+      )}
+      {a.stats.truncated.length > 0 && (
+        <p className="nz-muted">
+          {t(locale, 'kc.truncated')} <Ltr>{a.stats.truncated.join(', ')}</Ltr>
+        </p>
+      )}
+    </>
   );
 }

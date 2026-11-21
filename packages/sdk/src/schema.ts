@@ -7255,7 +7255,7 @@ export interface paths {
         put?: never;
         /**
          * Retry an interrupted version
-         * @description Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation); for an analysed version without a manifest it queues project detection again. A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
+         * @description Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation); for an analysed version without a manifest it queues project detection again, and for one with only the schema-1 manifest it queues the component analysis again. A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
          */
         post: operations["reprocessKnowledgeVersion"];
         delete?: never;
@@ -7316,6 +7316,46 @@ export interface paths {
          * @description The evidence-backed project manifest produced by static detection (S-K2b): frameworks with versions and confidence, languages, package managers, projects and workspaces, build configuration, dependencies, routes, screens, modules and capabilities, each with evidence paths. `manifest` is null while detection has not run. Nothing is executed to produce it. Permission `admin:ai_knowledge:read`.
          */
         get: operations["getKnowledgeManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/components": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the components of a version
+         * @description The component registry produced by parse-only analysis (S-K2c): name, kind, framework, file, props, dependencies, style and asset imports, platforms. `reuseAllowed` is always false until a person allows reuse. Never file content. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeComponents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the relationships of a version
+         * @description Component and file relationships with evidence (`path`, `line`): renders, imports, declares, exports, injects, guarded_by, state_of, routes_to, route_renders. `ref` matches either end. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeRelationships"];
         put?: never;
         post?: never;
         delete?: never;
@@ -13328,6 +13368,45 @@ export interface components {
             manifest: {
                 [key: string]: unknown;
             } | null;
+        };
+        KnowledgeComponent: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            kind?: string;
+            framework?: string | null;
+            path?: string;
+            props?: {
+                name?: string;
+                type?: string | null;
+                required?: boolean;
+            }[];
+            dependencies?: string[];
+            styleDeps?: string[];
+            assets?: string[];
+            platforms?: string[];
+            reuseAllowed?: boolean;
+        };
+        KnowledgeComponentPage: {
+            items: components["schemas"]["KnowledgeComponent"][];
+            nextCursor: string | null;
+        };
+        KnowledgeRelationship: {
+            /** Format: uuid */
+            id?: string;
+            fromKind?: string;
+            fromRef?: string;
+            toKind?: string;
+            toRef?: string;
+            relation?: string;
+            evidence?: {
+                path?: string;
+                line?: number;
+            };
+        };
+        KnowledgeRelationshipPage: {
+            items: components["schemas"]["KnowledgeRelationship"][];
+            nextCursor: string | null;
         };
     };
     responses: {
@@ -28329,6 +28408,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeManifestDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeComponents: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Name or path contains. */
+                q?: string;
+                /** @description Component kind. */
+                kind?: string;
+                /** @description Framework. */
+                framework?: "react" | "next" | "nestjs" | "flutter";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeComponentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeRelationships: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Relation name. */
+                relation?: string;
+                /** @description A component (`path#Name`), file path or route path that is either end of the relationship. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRelationshipPage"];
                 };
             };
             401: components["responses"]["Problem"];

@@ -683,7 +683,143 @@ describe('the project manifest (S-K2b)', () => {
     const t = await submit();
     await analysed(t);
     await e.sql(
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb),(gen_random_uuid(),$1,NULL,'2','{}'::jsonb)`,
+      [t.versionId],
+    );
+    await detectionDied(t.versionId);
+    expect(
+      (
+        await admin(
+          'padmin',
+          'POST',
+          `${R}/resources/${t.resourceId}/versions/${t.versionId}/reprocessing`,
+          {},
+        )
+      ).statusCode,
+    ).toBe(409);
+  });
+});
+
+describe('components and relationships (S-K2c)', () => {
+  it('lists the registry with filters and paging, and the relationships with evidence; read-only staff may read; nothing is reusable', async () => {
+    const s = await submit();
+    await analysed(s);
+    const rows: [string, string, string, string][] = [
+      ['Button', 'react-component', 'react', 'src/components/button.tsx'],
+      ['Home', 'next-page', 'next', 'src/app/page.tsx'],
+      ['UsersService', 'nest-provider', 'nestjs', 'src/users.service.ts'],
+      ['Card', 'react-component', 'react', 'src/components/card.tsx'],
+    ];
+    for (const [name, kind, fw, path] of rows)
+      await e.sql(
+        `INSERT INTO knowledge.resource_components (id, version_id, org_id, name, kind, framework, path, props, dependencies, platforms) VALUES (gen_random_uuid(),$1,NULL,$2,$3,$4,$5,$6::jsonb,'{react}','{web}')`,
+        [
+          s.versionId,
+          name,
+          kind,
+          fw,
+          path,
+          JSON.stringify([{ name: 'label', type: 'string', required: true }]),
+        ],
+      );
+    await e.sql(
+      `INSERT INTO knowledge.resource_relationships (id, version_id, org_id, from_kind, from_ref, to_kind, to_ref, relation, evidence) VALUES (gen_random_uuid(),$1,NULL,'component','src/app/page.tsx#Home','component','src/components/button.tsx#Button','renders','{"path":"src/app/page.tsx","line":3}'::jsonb),(gen_random_uuid(),$1,NULL,'file','src/app/page.tsx','file','src/components/button.tsx','imports','{"path":"src/app/page.tsx","line":1}'::jsonb)`,
+      [s.versionId],
+    );
+    const base = `${R}/resources/${s.resourceId}/versions/${s.versionId}`;
+    const all = ok<{ items: Row[]; nextCursor: string | null }>(
+      await admin('psupport2', 'GET', `${base}/components`),
+    );
+    expect(all.items.map((x) => x.name).sort()).toEqual(['Button', 'Card', 'Home', 'UsersService']);
+    expect(all.items.every((x) => x.reuseAllowed === false)).toBe(true);
+    expect(all.items[0]).toMatchObject({
+      props: [{ name: 'label', type: 'string', required: true }],
+      dependencies: ['react'],
+      platforms: ['web'],
+    });
+    expect(
+      ok<{ items: Row[] }>(
+        await admin('padmin', 'GET', `${base}/components?kind=next-page`),
+      ).items.map((x) => x.name),
+    ).toEqual(['Home']);
+    expect(
+      ok<{ items: Row[] }>(
+        await admin('padmin', 'GET', `${base}/components?framework=nestjs`),
+      ).items.map((x) => x.name),
+    ).toEqual(['UsersService']);
+    expect(
+      ok<{ items: Row[] }>(await admin('padmin', 'GET', `${base}/components?q=card`)).items.map(
+        (x) => x.name,
+      ),
+    ).toEqual(['Card']);
+    expect((await admin('padmin', 'GET', `${base}/components?kind=nope`)).statusCode).toBe(422);
+    const page = ok<{ items: Row[]; nextCursor: string | null }>(
+      await admin('padmin', 'GET', `${base}/components?limit=3`),
+    );
+    expect(page.items).toHaveLength(3);
+    expect(page.nextCursor).toBeTruthy();
+    const rest = ok<{ items: Row[]; nextCursor: string | null }>(
+      await admin('padmin', 'GET', `${base}/components?limit=3&cursor=${page.nextCursor}`),
+    );
+    expect(rest.items).toHaveLength(1);
+    const rel = ok<{ items: Row[] }>(await admin('psupport2', 'GET', `${base}/relationships`));
+    expect(rel.items.map((x) => x.relation).sort()).toEqual(['imports', 'renders']);
+    expect(
+      ok<{ items: Row[] }>(await admin('padmin', 'GET', `${base}/relationships?relation=renders`))
+        .items[0],
+    ).toMatchObject({
+      fromRef: 'src/app/page.tsx#Home',
+      toRef: 'src/components/button.tsx#Button',
+      evidence: { path: 'src/app/page.tsx', line: 3 },
+    });
+    expect(
+      ok<{ items: Row[] }>(
+        await admin(
+          'padmin',
+          'GET',
+          `${base}/relationships?ref=${encodeURIComponent('src/components/button.tsx#Button')}`,
+        ),
+      ).items,
+    ).toHaveLength(1);
+    expect((await admin('padmin', 'GET', `${base}/relationships?relation=nope`)).statusCode).toBe(
+      422,
+    );
+    const other = await submit();
+    expect(
+      (
+        await admin(
+          'padmin',
+          'GET',
+          `${R}/resources/${other.resourceId}/versions/${s.versionId}/components`,
+        )
+      ).statusCode,
+    ).toBe(404);
+    expect((await e.call('alice', 'GET', `${base}/components`)).statusCode).not.toBe(200);
+  });
+  it('re-queues the component analysis (not detection) for a version that has only the schema-1 manifest', async () => {
+    const s = await submit();
+    await analysed(s);
+    await e.sql(
       `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb)`,
+      [s.versionId],
+    );
+    await detectionDied(s.versionId);
+    const r = ok<Row>(
+      await admin(
+        'padmin',
+        'POST',
+        `${R}/resources/${s.resourceId}/versions/${s.versionId}/reprocessing`,
+        {},
+      ),
+    );
+    expect(
+      (await e.sql(`SELECT kind FROM knowledge.processing_jobs WHERE id = $1`, [r.jobId]))[0]!.kind,
+    ).toBe('COMPONENTS');
+    // with the schema-2 manifest present the version is complete: no retry
+    const t = await submit();
+    await analysed(t);
+    await e.sql(
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb),(gen_random_uuid(),$1,NULL,'2','{}'::jsonb)`,
       [t.versionId],
     );
     await detectionDied(t.versionId);

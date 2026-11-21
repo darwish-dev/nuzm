@@ -13161,7 +13161,7 @@ paths:
         - admin
       summary: Retry an interrupted version
       description: >-
-        Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation); for an analysed version without a manifest it queues project detection again. A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
+        Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation); for an analysed version without a manifest it queues project detection again, and for one with only the schema-1 manifest it queues the component analysis again. A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
       x-nuzm-platform-permission: admin:ai_knowledge:manage
       x-nuzm-realm: admin
       security:
@@ -13321,6 +13321,123 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KnowledgeManifestDetail'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/components:
+    get:
+      operationId: listKnowledgeComponents
+      tags:
+        - admin
+      summary: List the components of a version
+      description: >-
+        The component registry produced by parse-only analysis (S-K2c): name, kind, framework, file, props, dependencies, style and asset imports, platforms. `reuseAllowed` is always false until a person allows reuse. Never file content. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          description: Name or path contains.
+          schema:
+            type: string
+        - name: kind
+          in: query
+          required: false
+          description: Component kind.
+          schema:
+            type: string
+        - name: framework
+          in: query
+          required: false
+          description: Framework.
+          schema:
+            type: string
+            enum: [react, next, nestjs, flutter]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeComponentPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/relationships:
+    get:
+      operationId: listKnowledgeRelationships
+      tags:
+        - admin
+      summary: List the relationships of a version
+      description: >-
+        Component and file relationships with evidence (`path`, `line`): renders, imports, declares, exports, injects, guarded_by, state_of, routes_to, route_renders. `ref` matches either end. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: relation
+          in: query
+          required: false
+          description: Relation name.
+          schema:
+            type: string
+        - name: ref
+          in: query
+          required: false
+          description: A component (`path#Name`), file path or route path that is either end of the relationship.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeRelationshipPage'
         '401':
           $ref: '#/components/responses/Problem'
         '403':
@@ -21797,4 +21914,61 @@ components:
           nullable: true
           additionalProperties: true
           description: ProjectManifest (schemaVersion 1); see docs/spec-change-requests/SCR-K-03-project-detection.md for the shape.
+    KnowledgeComponent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        kind: { type: string }
+        framework: { type: string, nullable: true }
+        path: { type: string }
+        props:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              type: { type: string, nullable: true }
+              required: { type: boolean }
+        dependencies: { type: array, items: { type: string } }
+        styleDeps: { type: array, items: { type: string } }
+        assets: { type: array, items: { type: string } }
+        platforms: { type: array, items: { type: string } }
+        reuseAllowed: { type: boolean }
+    KnowledgeComponentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeComponent'
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeRelationship:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        fromKind: { type: string }
+        fromRef: { type: string }
+        toKind: { type: string }
+        toRef: { type: string }
+        relation: { type: string }
+        evidence:
+          type: object
+          properties:
+            path: { type: string }
+            line: { type: integer }
+    KnowledgeRelationshipPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeRelationship'
+        nextCursor:
+          type: string
+          nullable: true
     # <<< AI Intelligence Center schemas

@@ -1,6 +1,6 @@
 # S-K2 implementation plan — secure ingestion, archive extraction, framework detection and project intelligence
 
-Date: 2026-11-20 · Status: **S-K2a IMPLEMENTED (docs/reports/K-S2a-report.md); S-K2b IMPLEMENTED (docs/reports/K-S2b-report.md); S-K2c PREPARED (docs/ai-intelligence/S-K2c-PREP.md), not started.** Depends on S-K1 (accepted on its evidence, see `docs/reports/K-S1-report.md`), ADR-065 and SCR-K-01.
+Date: 2026-11-20 · Status: **S-K2a IMPLEMENTED (docs/reports/K-S2a-report.md); S-K2b IMPLEMENTED (docs/reports/K-S2b-report.md); S-K2c IMPLEMENTED (docs/reports/K-S2c-report.md; preparation in docs/ai-intelligence/S-K2c-PREP.md).** Depends on S-K1 (accepted on its evidence, see `docs/reports/K-S1-report.md`), ADR-065 and SCR-K-01.
 Rule for the whole slice: **nothing from an uploaded package is ever executed, installed, built or imported.** Archives are parsed as bytes by pure functions with hard limits;
 analysis reads text. Anything that would need a runtime (build, preview, tests) stays BLOCKED on D-21.
 

@@ -87,6 +87,33 @@ export class AdminKnowledgeProcessingController {
   }
 
   @RequirePlatformPermission(READ)
+  @Get(':id/versions/:versionId/components')
+  components(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @Query('q') q?: string,
+    @Query('kind') kind?: string,
+    @Query('framework') framework?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.reviews.components(id, versionId, { q, kind, framework }, limit, cursor);
+  }
+
+  @RequirePlatformPermission(READ)
+  @Get(':id/versions/:versionId/relationships')
+  relationships(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @Query('relation') relation?: string,
+    @Query('ref') ref?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.reviews.relationships(id, versionId, { relation, ref }, limit, cursor);
+  }
+
+  @RequirePlatformPermission(READ)
   @Get(':id/versions/:versionId/manifest')
   manifest(@Param('id') id: string, @Param('versionId') versionId: string) {
     return this.reviews.manifest(id, versionId);

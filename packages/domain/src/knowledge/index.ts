@@ -6,3 +6,4 @@ export * as knowledgeArchiveTesting from './archive/testing/builders';
 export * from './detect';
 /** Fixture packages (positive, negative, ambiguous) for tests of every consumer of project detection. Pure data; not used at runtime. */
 export * as knowledgeDetectTesting from './detect/testing/fixtures';
+export * from './components';

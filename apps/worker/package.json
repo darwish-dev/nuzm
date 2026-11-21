@@ -12,13 +12,14 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
-    "typescript": "5.9.3",
+    "fast-check": "^4.10.2",
     "vitest": "^5.1.0"
   },
   "dependencies": {
     "@nuzm/adapter-knowledge-store": "workspace:*",
     "@nuzm/domain": "workspace:*",
     "@nuzm/platform": "workspace:*",
-    "@nuzm/telemetry": "workspace:*"
+    "@nuzm/telemetry": "workspace:*",
+    "typescript": "5.9.3"
   }
 }

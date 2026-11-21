@@ -845,8 +845,20 @@ export class ReviewService {
       await this.resource(c, resourceId, true);
       const v = await this.version(c, resourceId, versionId, true);
       // an analysed version keeps its files; only the later stages can be re-run: detection (S-K2b) while no manifest exists, components (S-K2c) while only schema 1 exists
-      let kind: 'VALIDATE' | 'DETECT' | 'COMPONENTS' | 'DESIGN' = 'VALIDATE';
-      if (v.analysis_job_id) {
+      let kind: 'VALIDATE' | 'DETECT' | 'COMPONENTS' | 'DESIGN' | 'INDEX' = 'VALIDATE';
+      // the indexing stage (S-K5) runs last and leaves no manifest of its own: an interrupted INDEX job is retried as itself
+      const last = (
+        await c.query(
+          `SELECT kind, state FROM knowledge.processing_jobs WHERE version_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
+          [versionId],
+        )
+      ).rows[0] as Row | undefined;
+      const indexInterrupted =
+        !!v.analysis_job_id &&
+        last?.kind === 'INDEX' &&
+        ['FAILED', 'CANCELLED', 'DEAD_LETTER'].includes(String(last.state));
+      if (indexInterrupted) kind = 'INDEX';
+      else if (v.analysis_job_id) {
         const have = new Set(
           (
             await c.query(

@@ -13619,6 +13619,323 @@ paths:
           $ref: '#/components/responses/Problem'
         '422':
           $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/search:
+    get:
+      operationId: searchKnowledge
+      tags:
+        - admin
+      summary: Search the platform library
+      description: >-
+        Hybrid retrieval over the platform library (S-K5): structured filters, lexical and symbol matching with bilingual (Arabic and English) concept groups, component names and design traits. Every hit says whether it is eligible and, if not, every reason. Relevance is the share of the requirement's concept groups the resource covers. No model is used. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - name: q
+          in: query
+          required: false
+          description: Free text, Arabic or English.
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          description: Resource type.
+          schema:
+            type: string
+        - name: platform
+          in: query
+          required: false
+          description: Platform.
+          schema:
+            type: string
+            enum: [WEB, MOBILE, BACKEND, FULL_STACK, CROSS_PLATFORM]
+        - name: framework
+          in: query
+          required: false
+          description: Framework (entered or detected).
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: false
+          description: Language.
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          description: Category.
+          schema:
+            type: string
+        - name: tag
+          in: query
+          required: false
+          description: Tag.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Resource status.
+          schema:
+            type: string
+        - name: eligible
+          in: query
+          required: false
+          description: Only eligible (true) or only ineligible (false) resources.
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - name: mode
+          in: query
+          required: false
+          description: Adaptation mode used to judge eligibility (default ADAPTIVE).
+          schema:
+            type: string
+            enum: [STRICT, ADAPTIVE, CREATIVE]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSearchResult'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/recommendations:
+    post:
+      operationId: recommendKnowledge
+      tags:
+        - admin
+      summary: Recommend library resources for a requirement
+      description: >-
+        Ranks the eligible library for a requirement and explains the result (S-K5). Hard filters run first (licence, publication, reuse permission, platform and framework compatibility, adaptation mode); excluded resources are listed with every reason. Eligible ones are scored with the configured weights (functional, framework, architecture, design, quality, reuse) over the dimensions the requirement exercises; a dimension with no evidence is not measured. The strategy (AUTO_SELECT, USER_SELECTED, ADMIN_DEFAULT, GENERATE_FROM_SCRATCH) is applied: a user's choice is honoured or explained, never substituted. Read-only: nothing is written. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeRecommendationRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeRecommendation'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/settings/recommendation:
+    get:
+      operationId: getKnowledgeRecommendationSettings
+      tags:
+        - admin
+      summary: The recommendation weights
+      description: >-
+        The weights of the recommendation model (D-48; defaults functional 25, framework 20, architecture 20, design 15, quality 10, reuse 10) and the minimum score for automatic selection, with the revision. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeEngineSettings'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: updateKnowledgeRecommendationSettings
+      tags:
+        - admin
+      summary: Change the recommendation weights
+      description: >-
+        Replaces the weights (integers adding up to 100) and the minimum score. `If-Match` carries the current revision; a `reason` of 10 to 500 characters is required. The previous value goes to the append-only history and the audit log. Permission `admin:ai_knowledge:publish`.
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: true
+          description: The current settings revision (0 while the defaults are in use); a stale value returns 412.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeEngineSettingsUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeEngineSettings'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '412':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/settings/recommendation/revisions:
+    get:
+      operationId: listKnowledgeRecommendationRevisions
+      tags:
+        - admin
+      summary: History of the recommendation weights
+      description: >-
+        Every change of the weights, newest first: who, why, the new and the previous value. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeEngineSettingsRevisionList'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/defaults:
+    get:
+      operationId: listKnowledgeDefaults
+      tags:
+        - admin
+      summary: Admin defaults
+      description: >-
+        The admin default resources by platform, framework, category, plan and mode (`*` matches anything). A default is a preference: it still passes every compatibility and permission check. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDefaultList'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: setKnowledgeDefault
+      tags:
+        - admin
+      summary: Set an admin default
+      description: >-
+        Creates or replaces the default for a combination of platform, framework, category, plan and mode. The resource must be a platform resource that is not archived; an optional `versionPin` must be one of its versions. Audited. Permission `admin:ai_knowledge:publish`.
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeDefaultInput'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDefault'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/defaults/{id}:
+    delete:
+      operationId: deleteKnowledgeDefault
+      tags:
+        - admin
+      summary: Remove an admin default
+      description: >-
+        Removes one default. Audited. Permission `admin:ai_knowledge:publish`.
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDefaultRemoved'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
   # <<< AI Intelligence Center paths
 components:
   parameters:
@@ -22198,4 +22515,298 @@ components:
         nextCursor:
           type: string
           nullable: true
+    KnowledgeSearchHit:
+      type: object
+      properties:
+        resourceId: { type: string, format: uuid }
+        versionId: { type: string, format: uuid, nullable: true }
+        versionSeq: { type: integer, nullable: true }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        resourceType: { type: string }
+        platform: { type: string, nullable: true }
+        frameworks: { type: array, items: { type: string } }
+        category: { type: string, nullable: true }
+        tags: { type: array, items: { type: string } }
+        status: { type: string }
+        relevance:
+          {
+            type: number,
+            nullable: true,
+            description: 'Share (0-100) of the requirement concept groups the resource covers; null without text.',
+          }
+        matchedGroups: { type: array, items: { type: string } }
+        matches:
+          type: array
+          items:
+            type: object
+            properties:
+              kind: { type: string }
+              ref: { type: string }
+              title: { type: string }
+              snippet: { type: string }
+        components:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              ref: { type: string }
+        eligibility:
+          type: object
+          properties:
+            eligible: { type: boolean }
+            reasons: { type: array, items: { type: string } }
+        license:
+          type: object
+          properties:
+            spdx: { type: string, nullable: true }
+            verdict: { type: string }
+        permissions:
+          type: object
+          nullable: true
+          additionalProperties: true
+    KnowledgeSearchResult:
+      type: object
+      required: [query, total, items]
+      properties:
+        query:
+          type: object
+          properties:
+            text: { type: string }
+            groups:
+              type: array
+              items:
+                type: object
+                properties:
+                  key: { type: string }
+                  from: { type: array, items: { type: string } }
+                  concept: { type: boolean }
+        total: { type: integer }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeSearchHit'
+    KnowledgeRecommendationRequest:
+      type: object
+      properties:
+        text:
+          { type: string, maxLength: 2000, description: 'The requirement in Arabic or English.' }
+        platform: { type: string, enum: [WEB, MOBILE, BACKEND, FULL_STACK, CROSS_PLATFORM] }
+        frameworks: { type: array, maxItems: 10, items: { type: string } }
+        frameworksRequired:
+          {
+            type: boolean,
+            description: 'Exclude resources that lack a requested framework (otherwise frameworks only score).',
+          }
+        category: { type: string }
+        plan: { type: string }
+        mode: { type: string, enum: [STRICT, ADAPTIVE, CREATIVE], default: ADAPTIVE }
+        strategy:
+          {
+            type: string,
+            enum: [AUTO_SELECT, USER_SELECTED, ADMIN_DEFAULT, GENERATE_FROM_SCRATCH],
+            default: AUTO_SELECT,
+          }
+        resourceId:
+          {
+            type: string,
+            format: uuid,
+            description: 'The resource the person chose (strategy USER_SELECTED).',
+          }
+        requiresAiProcessing:
+          {
+            type: boolean,
+            description: 'The generation will send source to a model: the resource must permit AI processing.',
+          }
+        design:
+          type: object
+          properties:
+            darkMode: { type: boolean }
+            rtl: { type: boolean }
+            arabicFont: { type: boolean }
+            tailwind: { type: boolean }
+            primaryColor: { type: string, example: '#2563eb' }
+        limit: { type: integer, minimum: 1, maximum: 20, default: 10 }
+    KnowledgeRecommendationDimension:
+      type: object
+      properties:
+        dimension:
+          { type: string, enum: [functional, framework, architecture, design, quality, reuse] }
+        weight: { type: number }
+        effectiveWeight: { type: number }
+        score: { type: number, nullable: true }
+        applicable: { type: boolean }
+        points: { type: number }
+        note: { type: string }
+        detail: { type: object, additionalProperties: true }
+    KnowledgeRecommendedResource:
+      type: object
+      properties:
+        resourceId: { type: string, format: uuid }
+        versionId: { type: string, format: uuid, nullable: true }
+        versionSeq: { type: integer, nullable: true }
+        name: { type: string }
+        resourceType: { type: string }
+        platform: { type: string, nullable: true }
+        frameworks: { type: array, items: { type: string } }
+        category: { type: string, nullable: true }
+        score: { type: number }
+        confidence: { type: number }
+        gated:
+          type: boolean
+          description: True when the requirement states needs and the resource meets none of them; its score is then 0 whatever its structure, quality or permissions.
+        dimensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeRecommendationDimension'
+        usage:
+          type: object
+          properties:
+            recommended:
+              { type: string, nullable: true, enum: [FULL_STARTER, COMPONENTS, ARCHITECTURE_ONLY] }
+            allowed: { type: array, items: { type: string } }
+        license:
+          type: object
+          properties:
+            spdx: { type: string, nullable: true }
+            verdict: { type: string }
+        permissions: { type: object, nullable: true, additionalProperties: true }
+        matches: { type: array, items: { type: object, additionalProperties: true } }
+        components: { type: array, items: { type: object, additionalProperties: true } }
+    KnowledgeRecommendation:
+      type: object
+      required: [decision, ranked, excluded, stats, settings]
+      properties:
+        requirement: { type: object, additionalProperties: true }
+        settings:
+          type: object
+          properties:
+            weights: { type: object, additionalProperties: { type: integer } }
+            minScore: { type: integer }
+            revision: { type: integer }
+        decision:
+          type: object
+          properties:
+            requested: { type: string }
+            strategy:
+              {
+                type: string,
+                enum: [AUTO_SELECT, USER_SELECTED, ADMIN_DEFAULT, GENERATE_FROM_SCRATCH],
+              }
+            selectedResourceId: { type: string, format: uuid, nullable: true }
+            notes: { type: array, items: { type: string } }
+        selected:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/KnowledgeRecommendedResource'
+        userChoice:
+          type: object
+          nullable: true
+          properties:
+            resourceId: { type: string, format: uuid }
+            name: { type: string, nullable: true }
+            reasons: { type: array, items: { type: string } }
+        adminDefault: { type: object, nullable: true, additionalProperties: true }
+        ranked:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeRecommendedResource'
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeRecommendedResource'
+        excluded:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId: { type: string, format: uuid }
+              name: { type: string }
+              reasons: { type: array, items: { type: string } }
+        stats:
+          type: object
+          properties:
+            considered: { type: integer }
+            eligible: { type: integer }
+            ranked: { type: integer }
+            excluded: { type: integer }
+            truncated: { type: boolean }
+    KnowledgeEngineSettings:
+      type: object
+      required: [weights, minScore, revision]
+      properties:
+        weights:
+          type: object
+          additionalProperties: { type: integer }
+          description: functional, framework, architecture, design, quality, reuse; integers adding up to 100.
+        minScore: { type: integer, minimum: 0, maximum: 100 }
+        revision: { type: integer, description: '0 while the defaults are in use.' }
+        updatedAt: { type: string, format: date-time, nullable: true }
+        updatedBy: { type: string, format: uuid, nullable: true }
+        defaults: { type: object, additionalProperties: true }
+        isDefault: { type: boolean }
+    KnowledgeEngineSettingsUpdate:
+      type: object
+      required: [weights, minScore, reason]
+      properties:
+        weights: { type: object, additionalProperties: { type: integer } }
+        minScore: { type: integer, minimum: 0, maximum: 100 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    KnowledgeEngineSettingsRevisionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              revision: { type: integer }
+              value: { type: object, additionalProperties: true }
+              previous: { type: object, nullable: true, additionalProperties: true }
+              changedBy: { type: string, format: uuid, nullable: true }
+              reason: { type: string }
+              createdAt: { type: string, format: date-time, nullable: true }
+    KnowledgeDefault:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        platform: { type: string }
+        framework: { type: string }
+        category: { type: string }
+        plan: { type: string }
+        mode: { type: string }
+        resourceId: { type: string, format: uuid }
+        resourceName: { type: string, nullable: true }
+        versionPin: { type: string, format: uuid, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
+    KnowledgeDefaultList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeDefault'
+    KnowledgeDefaultInput:
+      type: object
+      required: [resourceId]
+      properties:
+        platform:
+          {
+            type: string,
+            enum: ['*', WEB, MOBILE, BACKEND, FULL_STACK, CROSS_PLATFORM],
+            default: '*',
+          }
+        framework: { type: string, default: '*' }
+        category: { type: string, default: '*' }
+        plan: { type: string, default: '*' }
+        mode: { type: string, enum: ['*', STRICT, ADAPTIVE, CREATIVE], default: '*' }
+        resourceId: { type: string, format: uuid }
+        versionPin: { type: string, format: uuid, nullable: true }
+    KnowledgeDefaultRemoved:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
     # <<< AI Intelligence Center schemas

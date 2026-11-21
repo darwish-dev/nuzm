@@ -61,8 +61,8 @@ export interface StageDeps {
   /** Wall-clock budget of the whole parsing phase and the number of sandbox failures tolerated before the remaining files are skipped (defaults 10 min / 25). */
   parserBudgetMs?: number;
   parserMaxFailures?: number;
-  /** The DESIGN stage (S-K4) follows: COMPONENTS queues it in the same transaction instead of moving the version to review. */
-  design?: boolean;
+  /** The stage that follows this one (S-K4 DESIGN, S-K5 INDEX): it is queued in the same transaction instead of moving the version to review. */
+  next?: 'DESIGN' | 'INDEX' | null;
 }
 const TS_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
 const SKIP =
@@ -337,10 +337,10 @@ export async function analyzeComponentsStage(d: StageDeps, job: StageJob): Promi
     );
     if (upd.rowCount !== 1) throw d.stop('lease_lost');
     await d.finish(c, job, summary);
-    if (d.design)
+    if (d.next)
       await c.query(
-        `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind) VALUES ($1,$2,NULL,'DESIGN') ON CONFLICT DO NOTHING`,
-        [uuidv7(), job.versionId],
+        `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind) VALUES ($1,$2,NULL,$3) ON CONFLICT DO NOTHING`,
+        [uuidv7(), job.versionId, d.next],
       );
     else await d.setVersion(c, job.versionId, ['ANALYZING'], 'AWAITING_REVIEW', null);
     await d.writeLog(
@@ -350,8 +350,8 @@ export async function analyzeComponentsStage(d: StageDeps, job: StageJob): Promi
       'info',
       'COMPONENTS',
       'components.done',
-      d.design
-        ? 'component analysis finished; design analysis follows'
+      d.next
+        ? `component analysis finished; ${d.next === 'DESIGN' ? 'design' : 'index'} analysis follows`
         : 'component analysis finished; the package awaits review',
       summary,
     );

@@ -5,10 +5,12 @@ import { DB } from '../../common/tokens';
 import { IdentityModule } from '../identity';
 import { AdminKnowledgeProcessingController } from './admin-knowledge-processing.controller';
 import { AdminKnowledgeResourcesController } from './admin-knowledge-resources.controller';
+import { AdminKnowledgeRetrievalController } from './admin-knowledge-retrieval.controller';
 import { AdminKnowledgeUploadsController } from './admin-knowledge-uploads.controller';
 import { KnowledgeLibraryGuard } from './internal/flag';
 import { KnowledgeObjectStore, createKnowledgeObjectStore } from './internal/object-store';
 import { ResourceService } from './internal/resource.service';
+import { RetrievalService } from './internal/retrieval.service';
 import { ReviewService } from './internal/review.service';
 import { UploadService } from './internal/upload.service';
 
@@ -23,6 +25,7 @@ import { UploadService } from './internal/upload.service';
     AdminKnowledgeUploadsController,
     AdminKnowledgeResourcesController,
     AdminKnowledgeProcessingController,
+    AdminKnowledgeRetrievalController,
   ],
   providers: [
     KnowledgeLibraryGuard,
@@ -42,11 +45,16 @@ import { UploadService } from './internal/upload.service';
       inject: [DB, AuditSink],
     },
     {
+      provide: RetrievalService,
+      useFactory: (db: Db, audit: AuditSink) => new RetrievalService(db, audit),
+      inject: [DB, AuditSink],
+    },
+    {
       provide: ResourceService,
       useFactory: (db: Db, audit: AuditSink) => new ResourceService(db, audit),
       inject: [DB, AuditSink],
     },
   ],
-  exports: [ResourceService, ReviewService, UploadService, KnowledgeObjectStore],
+  exports: [ResourceService, ReviewService, RetrievalService, UploadService, KnowledgeObjectStore],
 })
 export class KnowledgeModule {}

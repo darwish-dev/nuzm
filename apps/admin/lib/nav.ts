@@ -384,6 +384,12 @@ export const ADMIN_CATEGORIES: Category[] = [
             href: '/ai-intelligence/library',
             ...read('admin:ai_knowledge:read'),
           },
+          {
+            id: 'search',
+            label: 'kr.nav',
+            href: '/ai-intelligence/search',
+            ...read('admin:ai_knowledge:read'),
+          },
         ],
       },
     ],

@@ -7424,6 +7424,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search the platform library
+         * @description Hybrid retrieval over the platform library (S-K5): structured filters, lexical and symbol matching with bilingual (Arabic and English) concept groups, component names and design traits. Every hit says whether it is eligible and, if not, every reason. Relevance is the share of the requirement's concept groups the resource covers. No model is used. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["searchKnowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend library resources for a requirement
+         * @description Ranks the eligible library for a requirement and explains the result (S-K5). Hard filters run first (licence, publication, reuse permission, platform and framework compatibility, adaptation mode); excluded resources are listed with every reason. Eligible ones are scored with the configured weights (functional, framework, architecture, design, quality, reuse) over the dimensions the requirement exercises; a dimension with no evidence is not measured. The strategy (AUTO_SELECT, USER_SELECTED, ADMIN_DEFAULT, GENERATE_FROM_SCRATCH) is applied: a user's choice is honoured or explained, never substituted. Read-only: nothing is written. Permission `admin:ai_knowledge:read`.
+         */
+        post: operations["recommendKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/settings/recommendation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The recommendation weights
+         * @description The weights of the recommendation model (D-48; defaults functional 25, framework 20, architecture 20, design 15, quality 10, reuse 10) and the minimum score for automatic selection, with the revision. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeRecommendationSettings"];
+        /**
+         * Change the recommendation weights
+         * @description Replaces the weights (integers adding up to 100) and the minimum score. `If-Match` carries the current revision; a `reason` of 10 to 500 characters is required. The previous value goes to the append-only history and the audit log. Permission `admin:ai_knowledge:publish`.
+         */
+        put: operations["updateKnowledgeRecommendationSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/settings/recommendation/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History of the recommendation weights
+         * @description Every change of the weights, newest first: who, why, the new and the previous value. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeRecommendationRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin defaults
+         * @description The admin default resources by platform, framework, category, plan and mode (`*` matches anything). A default is a preference: it still passes every compatibility and permission check. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeDefaults"];
+        /**
+         * Set an admin default
+         * @description Creates or replaces the default for a combination of platform, framework, category, plan and mode. The resource must be a platform resource that is not archived; an optional `versionPin` must be one of its versions. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        put: operations["setKnowledgeDefault"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/defaults/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an admin default
+         * @description Removes one default. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        delete: operations["deleteKnowledgeDefault"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -13508,6 +13636,273 @@ export interface components {
         KnowledgeThemeVariantPage: {
             items: components["schemas"]["KnowledgeThemeVariant"][];
             nextCursor: string | null;
+        };
+        KnowledgeSearchHit: {
+            /** Format: uuid */
+            resourceId?: string;
+            /** Format: uuid */
+            versionId?: string | null;
+            versionSeq?: number | null;
+            name?: string;
+            description?: string | null;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            category?: string | null;
+            tags?: string[];
+            status?: string;
+            /** @description Share (0-100) of the requirement concept groups the resource covers; null without text. */
+            relevance?: number | null;
+            matchedGroups?: string[];
+            matches?: {
+                kind?: string;
+                ref?: string;
+                title?: string;
+                snippet?: string;
+            }[];
+            components?: {
+                name?: string;
+                ref?: string;
+            }[];
+            eligibility?: {
+                eligible?: boolean;
+                reasons?: string[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            permissions?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        KnowledgeSearchResult: {
+            query: {
+                text?: string;
+                groups?: {
+                    key?: string;
+                    from?: string[];
+                    concept?: boolean;
+                }[];
+            };
+            total: number;
+            items: components["schemas"]["KnowledgeSearchHit"][];
+        };
+        KnowledgeRecommendationRequest: {
+            /** @description The requirement in Arabic or English. */
+            text?: string;
+            /** @enum {string} */
+            platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            frameworks?: string[];
+            /** @description Exclude resources that lack a requested framework (otherwise frameworks only score). */
+            frameworksRequired?: boolean;
+            category?: string;
+            plan?: string;
+            /**
+             * @default ADAPTIVE
+             * @enum {string}
+             */
+            mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /**
+             * @default AUTO_SELECT
+             * @enum {string}
+             */
+            strategy?: "AUTO_SELECT" | "USER_SELECTED" | "ADMIN_DEFAULT" | "GENERATE_FROM_SCRATCH";
+            /**
+             * Format: uuid
+             * @description The resource the person chose (strategy USER_SELECTED).
+             */
+            resourceId?: string;
+            /** @description The generation will send source to a model: the resource must permit AI processing. */
+            requiresAiProcessing?: boolean;
+            design?: {
+                darkMode?: boolean;
+                rtl?: boolean;
+                arabicFont?: boolean;
+                tailwind?: boolean;
+                /** @example #2563eb */
+                primaryColor?: string;
+            };
+            /** @default 10 */
+            limit?: number;
+        };
+        KnowledgeRecommendationDimension: {
+            /** @enum {string} */
+            dimension?: "functional" | "framework" | "architecture" | "design" | "quality" | "reuse";
+            weight?: number;
+            effectiveWeight?: number;
+            score?: number | null;
+            applicable?: boolean;
+            points?: number;
+            note?: string;
+            detail?: {
+                [key: string]: unknown;
+            };
+        };
+        KnowledgeRecommendedResource: {
+            /** Format: uuid */
+            resourceId?: string;
+            /** Format: uuid */
+            versionId?: string | null;
+            versionSeq?: number | null;
+            name?: string;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            category?: string | null;
+            score?: number;
+            confidence?: number;
+            /** @description True when the requirement states needs and the resource meets none of them; its score is then 0 whatever its structure, quality or permissions. */
+            gated?: boolean;
+            dimensions?: components["schemas"]["KnowledgeRecommendationDimension"][];
+            usage?: {
+                /** @enum {string|null} */
+                recommended?: "FULL_STARTER" | "COMPONENTS" | "ARCHITECTURE_ONLY" | null;
+                allowed?: string[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            permissions?: {
+                [key: string]: unknown;
+            } | null;
+            matches?: {
+                [key: string]: unknown;
+            }[];
+            components?: {
+                [key: string]: unknown;
+            }[];
+        };
+        KnowledgeRecommendation: {
+            requirement?: {
+                [key: string]: unknown;
+            };
+            settings: {
+                weights?: {
+                    [key: string]: number;
+                };
+                minScore?: number;
+                revision?: number;
+            };
+            decision: {
+                requested?: string;
+                /** @enum {string} */
+                strategy?: "AUTO_SELECT" | "USER_SELECTED" | "ADMIN_DEFAULT" | "GENERATE_FROM_SCRATCH";
+                /** Format: uuid */
+                selectedResourceId?: string | null;
+                notes?: string[];
+            };
+            selected?: components["schemas"]["KnowledgeRecommendedResource"] | null;
+            userChoice?: {
+                /** Format: uuid */
+                resourceId?: string;
+                name?: string | null;
+                reasons?: string[];
+            } | null;
+            adminDefault?: {
+                [key: string]: unknown;
+            } | null;
+            ranked: components["schemas"]["KnowledgeRecommendedResource"][];
+            alternatives?: components["schemas"]["KnowledgeRecommendedResource"][];
+            excluded: {
+                /** Format: uuid */
+                resourceId?: string;
+                name?: string;
+                reasons?: string[];
+            }[];
+            stats: {
+                considered?: number;
+                eligible?: number;
+                ranked?: number;
+                excluded?: number;
+                truncated?: boolean;
+            };
+        };
+        KnowledgeEngineSettings: {
+            /** @description functional, framework, architecture, design, quality, reuse; integers adding up to 100. */
+            weights: {
+                [key: string]: number;
+            };
+            minScore: number;
+            /** @description 0 while the defaults are in use. */
+            revision: number;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: uuid */
+            updatedBy?: string | null;
+            defaults?: {
+                [key: string]: unknown;
+            };
+            isDefault?: boolean;
+        };
+        KnowledgeEngineSettingsUpdate: {
+            weights: {
+                [key: string]: number;
+            };
+            minScore: number;
+            reason: string;
+        };
+        KnowledgeEngineSettingsRevisionList: {
+            items: {
+                revision?: number;
+                value?: {
+                    [key: string]: unknown;
+                };
+                previous?: {
+                    [key: string]: unknown;
+                } | null;
+                /** Format: uuid */
+                changedBy?: string | null;
+                reason?: string;
+                /** Format: date-time */
+                createdAt?: string | null;
+            }[];
+        };
+        KnowledgeDefault: {
+            /** Format: uuid */
+            id?: string;
+            platform?: string;
+            framework?: string;
+            category?: string;
+            plan?: string;
+            mode?: string;
+            /** Format: uuid */
+            resourceId?: string;
+            resourceName?: string | null;
+            /** Format: uuid */
+            versionPin?: string | null;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        KnowledgeDefaultList: {
+            items: components["schemas"]["KnowledgeDefault"][];
+        };
+        KnowledgeDefaultInput: {
+            /**
+             * @default *
+             * @enum {string}
+             */
+            platform?: "*" | "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            /** @default * */
+            framework?: string;
+            /** @default * */
+            category?: string;
+            /** @default * */
+            plan?: string;
+            /**
+             * @default *
+             * @enum {string}
+             */
+            mode?: "*" | "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /** Format: uuid */
+            resourceId: string;
+            /** Format: uuid */
+            versionPin?: string | null;
+        };
+        KnowledgeDefaultRemoved: {
+            /** Format: uuid */
+            id?: string;
         };
     };
     responses: {
@@ -28689,6 +29084,239 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    searchKnowledge: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Free text, Arabic or English. */
+                q?: string;
+                /** @description Resource type. */
+                type?: string;
+                /** @description Platform. */
+                platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+                /** @description Framework (entered or detected). */
+                framework?: string;
+                /** @description Language. */
+                language?: string;
+                /** @description Category. */
+                category?: string;
+                /** @description Tag. */
+                tag?: string;
+                /** @description Resource status. */
+                status?: string;
+                /** @description Only eligible (true) or only ineligible (false) resources. */
+                eligible?: "true" | "false";
+                /** @description Adaptation mode used to judge eligibility (default ADAPTIVE). */
+                mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSearchResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    recommendKnowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRecommendation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeRecommendationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeEngineSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateKnowledgeRecommendationSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The current settings revision (0 while the defaults are in use); a stale value returns 412. */
+                "If-Match": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeEngineSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeEngineSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeRecommendationRevisions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeEngineSettingsRevisionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeDefaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDefaultList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    setKnowledgeDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeDefaultInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDefault"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteKnowledgeDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDefaultRemoved"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
 }

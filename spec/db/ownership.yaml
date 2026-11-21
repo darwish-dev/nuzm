@@ -218,6 +218,8 @@ schemas:
     extended_by: []
     tables:
       - analysis_results
+      - engine_setting_revisions
+      - engine_settings
       - generation_evaluations
       - generation_plans
       - generation_resource_links
@@ -319,6 +321,8 @@ tenant_less:
   - builder.github_events
   # AI Intelligence Center (ADR-065): knowledge.* rows with org_id NULL are the platform library (staff-owned); org_id set = a customer's private template or import. Customers read platform rows only through the view knowledge.v_published_templates (metadata and previews, never files or object keys). generation_plans, generation_resource_links and generation_evaluations are strictly tenant-owned (org_id NOT NULL, ordinary RLS key); template_defaults is platform-only (no org_id).
   - knowledge.analysis_results
+  - knowledge.engine_setting_revisions
+  - knowledge.engine_settings
   - knowledge.processing_jobs
   - knowledge.processing_logs
   - knowledge.quality_scores
@@ -3775,6 +3779,21 @@ classification:
       finished_at: internal
       version: internal
     # AI Intelligence Center (ADR-065)
+    knowledge.engine_setting_revisions:
+      id: internal
+      key: internal
+      revision: internal
+      value: internal
+      previous: internal
+      changed_by: internal
+      reason: internal
+      created_at: internal
+    knowledge.engine_settings:
+      key: internal
+      value: internal
+      revision: internal
+      updated_by: internal
+      updated_at: internal
     knowledge.analysis_results:
       id: internal
       version_id: internal

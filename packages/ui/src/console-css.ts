@@ -2591,5 +2591,9 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 .kni-pad { padding-block: 8px; }
 .kd-swatches { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
 .kd-swatch { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--nzc-border); border-radius: 10px; background: var(--nzc-field); overflow-wrap: anywhere; }
+.kr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.kr-cand { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--nzc-border); border-radius: 10px; background: var(--nzc-field); overflow-wrap: anywhere; }
+.kr-score { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kr-bar { inline-size: min(100%, 220px); block-size: 10px; accent-color: var(--nzc-accent, currentColor); }
 .kd-chip { flex: none; inline-size: 36px; block-size: 36px; border-radius: 8px; border: 1px solid var(--nzc-border); background: repeating-conic-gradient(var(--nzc-border) 0% 25%, transparent 0% 50%) 50% / 12px 12px; }
 `;

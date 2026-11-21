@@ -17,6 +17,7 @@ import {
 import { KnowledgeObjectStore, ObjectStoreError } from '@nuzm/adapter-knowledge-store';
 import { analyzeComponentsStage, type StageDeps } from './components-stage';
 import { analyzeDesignStage } from './design-stage';
+import { indexStage } from './index-stage';
 import type { ParseSandbox, SandboxOptions } from './ast/parser-sandbox';
 
 /**
@@ -32,7 +33,7 @@ type Tx = Parameters<Parameters<Db['withKnowledgeWorker']>[0]>[0];
 export interface IngestJob {
   id: string;
   versionId: string;
-  kind: 'VALIDATE' | 'EXTRACT' | 'DETECT' | 'COMPONENTS' | 'DESIGN';
+  kind: 'VALIDATE' | 'EXTRACT' | 'DETECT' | 'COMPONENTS' | 'DESIGN' | 'INDEX';
   attempt: number;
   maxAttempts: number;
 }
@@ -52,6 +53,8 @@ export interface IngestServiceOptions {
   components?: boolean;
   /** The DESIGN stage (S-K4): off by default; needs `components`. After COMPONENTS the worker queues DESIGN and the version waits in ANALYZING until the design tokens, variants and Design DNA are written. */
   design?: boolean;
+  /** The INDEX stage (S-K5): off by default; needs `detect`. It runs last: after DETECT, COMPONENTS or DESIGN, whichever is the last enabled, and writes the search documents retrieval uses. */
+  index?: boolean;
   /** Limits and size of the parser sandbox used by COMPONENTS (threads, timeout per file, heap per thread, …). Defaults are strict; see ADR-065 addendum D. */
   sandbox?: SandboxOptions;
   /** Test seam: a ready-made sandbox (not closed by the stage). */
@@ -91,6 +94,7 @@ export class KnowledgeIngestService {
       ...(opts.detect ? ['DETECT'] : []),
       ...(opts.detect && opts.components ? ['COMPONENTS'] : []),
       ...(opts.detect && opts.components && opts.design ? ['DESIGN'] : []),
+      ...(opts.detect && opts.index ? ['INDEX'] : []),
     ];
     this.say = opts.log ?? (() => undefined);
   }
@@ -107,6 +111,7 @@ export class KnowledgeIngestService {
       else if (job.kind === 'DETECT') await this.detectProject(job);
       else if (job.kind === 'COMPONENTS') await this.componentsStage(job);
       else if (job.kind === 'DESIGN') await this.designStage(job);
+      else if (job.kind === 'INDEX') await this.indexJob(job);
       else await this.extract(job);
       this.say('knowledge_job_done', { job: job.id, kind: job.kind, ms: Date.now() - t0 });
     } catch (e) {
@@ -641,10 +646,17 @@ export class KnowledgeIngestService {
       );
       if (upd.rowCount !== 1) throw new Stop('lease_lost');
       await this.finishJob(c, job, 'SUCCEEDED', { result });
-      if (this.opts.components && !degraded) {
+      const after = degraded
+        ? null
+        : this.opts.components
+          ? 'COMPONENTS'
+          : this.opts.index
+            ? 'INDEX'
+            : null;
+      if (after) {
         await c.query(
-          `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind) VALUES ($1,$2,NULL,'COMPONENTS') ON CONFLICT DO NOTHING`,
-          [uuidv7(), job.versionId],
+          `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind) VALUES ($1,$2,NULL,$3) ON CONFLICT DO NOTHING`,
+          [uuidv7(), job.versionId, after],
         );
       } else await this.setVersion(c, job.versionId, ['ANALYZING'], 'AWAITING_REVIEW', null);
       await this.writeLog(
@@ -668,15 +680,19 @@ export class KnowledgeIngestService {
   }
 
   private componentsStage(job: IngestJob): Promise<void> {
-    return analyzeComponentsStage(this.stageDeps(), job);
+    return analyzeComponentsStage(this.stageDeps('COMPONENTS'), job);
   }
 
   private designStage(job: IngestJob): Promise<void> {
-    return analyzeDesignStage(this.stageDeps(), job);
+    return analyzeDesignStage(this.stageDeps('DESIGN'), job);
+  }
+
+  private indexJob(job: IngestJob): Promise<void> {
+    return indexStage(this.stageDeps('INDEX'), job);
   }
 
   /** What the derived-analysis stages (COMPONENTS, DESIGN) need from the service. */
-  private stageDeps(): StageDeps {
+  private stageDeps(stage: 'COMPONENTS' | 'DESIGN' | 'INDEX'): StageDeps {
     return {
       db: this.db,
       store: this.store,
@@ -695,7 +711,16 @@ export class KnowledgeIngestService {
       ...(this.opts.parserMaxFailures !== undefined
         ? { parserMaxFailures: this.opts.parserMaxFailures }
         : {}),
-      design: !!(this.opts.design && this.opts.components && this.opts.detect),
+      next:
+        stage === 'COMPONENTS'
+          ? this.opts.design
+            ? 'DESIGN'
+            : this.opts.index
+              ? 'INDEX'
+              : null
+          : stage === 'DESIGN' && this.opts.index
+            ? 'INDEX'
+            : null,
     };
   }
 

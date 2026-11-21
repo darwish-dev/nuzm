@@ -8,3 +8,4 @@ export * from './detect';
 export * as knowledgeDetectTesting from './detect/testing/fixtures';
 export * from './components';
 export * from './design';
+export * from './retrieval';

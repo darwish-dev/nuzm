@@ -1190,3 +1190,678 @@ describe('the review gate', () => {
     expect(JSON.stringify(rows)).not.toMatch(/AKIA|PRIVATE KEY/);
   });
 });
+
+describe('retrieval and recommendation (S-K5)', () => {
+  interface Item {
+    name: string;
+    platform?: string;
+    frameworks?: string[];
+    scope?: 'NONE' | 'ARCHITECTURE_ONLY' | 'COMPONENTS' | 'FULL_STARTER';
+    starter?: boolean;
+    components?: boolean;
+    architecture?: boolean;
+    ai?: boolean;
+    published?: boolean;
+    license?: 'ALLOWED' | 'RESTRICTED';
+    quality?: number;
+    dna?: Row;
+    docs?: [string, string, string, string][];
+    description?: string;
+  }
+  /** An ACTIVE library resource (through the real gate) with permissions, documents, a manifest, a Design DNA and quality evidence written directly. */
+  async function item(o: Item) {
+    const s = await submit(
+      'padmin',
+      {
+        provenanceClass: 'FIRST_PARTY',
+        platform: o.platform ?? 'WEB',
+        frameworks: o.frameworks ?? ['nextjs'],
+        ...(o.description ? { description: o.description } : {}),
+      },
+      o.name,
+    );
+    await analysed(s);
+    ok<Row>(await review('padmin', s, 'approve'), 201);
+    ok<Row>(await activate('padmin', s));
+    const v = s.versionId;
+    await e.sql(`UPDATE knowledge.resources SET visibility = $2 WHERE id = $1`, [
+      s.resourceId,
+      o.published === false ? 'PLATFORM_PRIVATE' : 'PLATFORM_PUBLISHED',
+    ]);
+    await e.sql(
+      `UPDATE knowledge.resource_permissions SET reuse_scope = $2, starter_eligible = $3, component_reuse = $4, architecture_reference = $5, ai_processing = $6, license_verdict = $7 WHERE resource_id = $1`,
+      [
+        s.resourceId,
+        o.scope ?? 'FULL_STARTER',
+        o.starter ?? (o.scope ?? 'FULL_STARTER') === 'FULL_STARTER',
+        ['COMPONENTS', 'FULL_STARTER'].includes(o.scope ?? 'FULL_STARTER'),
+        true,
+        o.ai ?? true,
+        o.license ?? 'ALLOWED',
+      ],
+    );
+    await e.sql(
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1',$2::jsonb)`,
+      [v, JSON.stringify({ frameworks: o.frameworks ?? ['nextjs'] })],
+    );
+    if (o.architecture !== false) {
+      await e.sql(
+        `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'2',$2::jsonb)`,
+        [
+          v,
+          JSON.stringify({
+            frameworks: o.frameworks ?? ['nextjs'],
+            architecture: {
+              layers: [{}, {}],
+              cycles: [],
+              entryReachability: { roots: 1, analysedFiles: 10, unreachable: 0 },
+            },
+          }),
+        ],
+      );
+      await e.sql(
+        `INSERT INTO knowledge.resource_components (id, version_id, org_id, name, kind, path) VALUES (gen_random_uuid(),$1,NULL,'Card','react-component','src/card.tsx')`,
+        [v],
+      );
+    }
+    for (const [kind, ref, title, body] of o.docs ?? [])
+      await e.sql(
+        `INSERT INTO knowledge.resource_search_documents (id, version_id, org_id, doc_kind, ref, title, body, content_hash) VALUES (gen_random_uuid(),$1,NULL,$2,$3,$4,$5,$6)`,
+        [v, kind, ref, title, body, 'c'.repeat(64)],
+      );
+    if (o.dna)
+      await e.sql(
+        `INSERT INTO knowledge.analysis_results (id, version_id, org_id, analyzer, analyzer_version, content_hash, result) VALUES (gen_random_uuid(),$1,NULL,'design-dna','1.0.0',$2,$3::jsonb)`,
+        [v, 'd'.repeat(64), JSON.stringify(o.dna)],
+      );
+    if (o.quality !== undefined)
+      await e.sql(
+        `INSERT INTO knowledge.quality_scores (id, version_id, org_id, dimension, score, method, evidence_ref, measured) VALUES (gen_random_uuid(),$1,NULL,'BUILD',$2,'build-log','job:1',true)`,
+        [v, o.quality],
+      );
+    return s;
+  }
+  const dna = (darkMode: boolean, rtl: boolean, primary: string): Row => ({
+    schemaVersion: '1',
+    primary: 0,
+    projects: [
+      {
+        traits: { darkMode, rtl, arabicFont: false, tailwind: true },
+        palette: [{ mode: 'base', roles: [{ role: 'primary', hex: primary }] }],
+      },
+    ],
+  });
+  let dash: { resourceId: string; versionId: string };
+  let store: { resourceId: string; versionId: string };
+  let draft: { resourceId: string; versionId: string };
+  const rec = (body: Row, who = 'psupport2') => admin(who, 'POST', `${R}/recommendations`, body);
+  const names = (xs: Row[]) => xs.map((x) => x.name as string);
+
+  beforeAll(async () => {
+    dash = await item({
+      name: 'Admin Dashboard Pro',
+      description: 'Analytics dashboard with charts',
+      quality: 90,
+      dna: dna(true, true, '#2563eb'),
+      docs: [
+        [
+          'SUMMARY',
+          'summary',
+          'Admin Dashboard Pro',
+          'frameworks: nextjs tailwind capabilities: analytics dashboard charts tables',
+        ],
+        [
+          'COMPONENT',
+          'src/data-table.tsx#DataTable',
+          'DataTable',
+          'DataTable data table sorting columns',
+        ],
+        ['DESIGN', 'design', 'design', 'design dark mode rtl tailwind colours: primary #2563eb'],
+      ],
+    });
+    store = await item({
+      name: 'Store Starter',
+      docs: [
+        [
+          'SUMMARY',
+          'summary',
+          'Store Starter',
+          'frameworks: nextjs capabilities: store checkout cart products payments',
+        ],
+        ['FEATURE', 'route:/checkout', 'route /checkout', 'page route checkout cart'],
+      ],
+    });
+    await item({
+      name: 'Gym Mobile',
+      platform: 'MOBILE',
+      frameworks: ['flutter'],
+      scope: 'COMPONENTS',
+      ai: false,
+      docs: [
+        [
+          'SUMMARY',
+          'summary',
+          'Gym Mobile',
+          'frameworks: flutter capabilities: gym fitness members workouts',
+        ],
+      ],
+    });
+    draft = await item({
+      name: 'Private Draft Store',
+      published: false,
+      docs: [['SUMMARY', 'summary', 'Private Draft Store', 'store checkout cart perfect match']],
+    });
+    await item({
+      name: 'No Reuse Dashboard',
+      scope: 'NONE',
+      docs: [['SUMMARY', 'summary', 'No Reuse Dashboard', 'dashboard analytics']],
+    });
+    await item({
+      name: 'Restricted Licence Dashboard',
+      license: 'RESTRICTED',
+      docs: [['SUMMARY', 'summary', 'Restricted Licence Dashboard', 'dashboard analytics']],
+    });
+  }, 180_000);
+
+  it('hard filters run BEFORE ranking: private, unpermitted and restricted resources are never ranked and are listed with every reason', async () => {
+    const r = ok<Row>(await rec({ text: 'store with checkout and cart', platform: 'WEB' }));
+    expect(names(r.ranked as Row[])).toEqual(expect.arrayContaining(['Store Starter']));
+    expect(names(r.ranked as Row[])).not.toContain('Private Draft Store'); // the better text match is not published
+    const ex = Object.fromEntries((r.excluded as Row[]).map((x) => [x.name, x.reasons]));
+    expect(ex['Private Draft Store']).toEqual(['not_published']);
+    expect(ex['No Reuse Dashboard']).toEqual(['no_reuse_permission']);
+    expect(ex['Restricted Licence Dashboard']).toEqual(['license_not_allowed']);
+    expect(ex['Gym Mobile']).toEqual(['platform_incompatible']);
+    expect(r.stats).toMatchObject({ considered: expect.any(Number), eligible: expect.any(Number) });
+    expect((r.stats as Row).eligible as number).toBeGreaterThanOrEqual(2);
+  });
+
+  it('an Arabic requirement finds the same resource as the English one; the strategy auto-selects it and every score is explained', async () => {
+    const ar = ok<Row>(await rec({ text: 'أريد متجر إلكتروني', platform: 'WEB' }));
+    const en = ok<Row>(await rec({ text: 'online shop', platform: 'WEB' }));
+    expect(names(ar.ranked as Row[])[0]).toBe('Store Starter');
+    expect(names(en.ranked as Row[])[0]).toBe('Store Starter');
+    expect(ar.decision).toMatchObject({
+      strategy: 'AUTO_SELECT',
+      selectedResourceId: store.resourceId,
+      notes: ['auto_selected'],
+    });
+    const top = (ar.ranked as Row[])[0]!;
+    expect(top.versionId).toBe(store.versionId); // the pinned, ACTIVE version
+    const dims = top.dimensions as Row[];
+    expect(dims.map((d) => d.dimension)).toEqual([
+      'functional',
+      'framework',
+      'architecture',
+      'design',
+      'quality',
+      'reuse',
+    ]);
+    expect(dims.find((d) => d.dimension === 'functional')).toMatchObject({
+      applicable: true,
+      note: 'functional.coverage',
+    });
+    expect(dims.find((d) => d.dimension === 'framework')).toMatchObject({ applicable: false });
+    expect(dims.find((d) => d.dimension === 'quality')).toMatchObject({
+      applicable: false,
+      note: 'quality.not_measured',
+    });
+    expect((top.matches as Row[]).length).toBeGreaterThan(0);
+    expect(top.usage).toMatchObject({ recommended: 'FULL_STARTER' });
+    expect(ar.settings).toMatchObject({
+      revision: 0,
+      minScore: 35,
+      weights: {
+        functional: 25,
+        framework: 20,
+        architecture: 20,
+        design: 15,
+        quality: 10,
+        reuse: 10,
+      },
+    });
+  });
+
+  it('design hints, frameworks, quality and architecture all enter the score with the D-48 weights', async () => {
+    const r = ok<Row>(
+      await rec({
+        text: 'admin dashboard',
+        platform: 'WEB',
+        frameworks: ['next.js'],
+        design: { darkMode: true, rtl: true, primaryColor: '#2563eb' },
+      }),
+    );
+    const top = (r.ranked as Row[])[0]!;
+    expect(top.name).toBe('Admin Dashboard Pro');
+    const dims = Object.fromEntries((top.dimensions as Row[]).map((d) => [d.dimension, d]));
+    expect(dims.design).toMatchObject({ applicable: true, score: 1 });
+    expect(dims.framework).toMatchObject({ applicable: true, score: 1 });
+    expect(dims.quality).toMatchObject({ applicable: true, score: 0.9 });
+    expect(dims.architecture.applicable).toBe(true);
+    expect(top.confidence).toBe(100);
+    expect(top.score as number).toBeGreaterThan(90);
+    // the same requirement without the design hints scores the dashboard lower on design only
+    const other = ok<Row>(
+      await rec({ text: 'admin dashboard', platform: 'WEB', design: { darkMode: false } }),
+    );
+    expect(
+      ((other.ranked as Row[])[0]!.dimensions as Row[]).find((d) => d.dimension === 'design'),
+    ).toMatchObject({ score: 0 });
+  });
+
+  it('a user choice is honoured when eligible and NEVER substituted when not: it is explained and the alternatives are offered', async () => {
+    const good = ok<Row>(
+      await rec({ strategy: 'USER_SELECTED', resourceId: dash.resourceId, text: 'store' }),
+    );
+    expect(good.decision).toMatchObject({
+      strategy: 'USER_SELECTED',
+      selectedResourceId: dash.resourceId,
+      notes: ['user_choice_honoured'],
+    });
+    const bad = ok<Row>(
+      await rec({ strategy: 'USER_SELECTED', resourceId: draft.resourceId, text: 'store' }),
+    );
+    expect(bad.decision).toMatchObject({
+      strategy: 'USER_SELECTED',
+      selectedResourceId: null,
+      notes: ['user_choice_ineligible'],
+    });
+    expect(bad.selected).toBeNull();
+    expect(bad.userChoice).toMatchObject({
+      resourceId: draft.resourceId,
+      name: 'Private Draft Store',
+      reasons: ['not_published'],
+    });
+    expect((bad.alternatives as Row[]).length).toBeGreaterThan(0); // offered, not applied
+    const unknown = ok<Row>(await rec({ strategy: 'USER_SELECTED', resourceId: randomUUID() }));
+    expect(unknown.userChoice).toMatchObject({ reasons: ['not_found'] });
+  });
+
+  it('adaptation mode and AI processing are hard filters too', async () => {
+    const strict = ok<Row>(await rec({ mode: 'STRICT', platform: 'MOBILE' }));
+    expect((strict.excluded as Row[]).find((x) => x.name === 'Gym Mobile')!.reasons).toEqual([
+      'mode_needs_starter',
+    ]);
+    const adaptive = ok<Row>(await rec({ mode: 'ADAPTIVE', platform: 'MOBILE' }));
+    expect(names(adaptive.ranked as Row[])).toContain('Gym Mobile');
+    expect(((adaptive.ranked as Row[])[0]!.usage as Row).recommended).toBe('COMPONENTS');
+    const ai = ok<Row>(await rec({ platform: 'MOBILE', requiresAiProcessing: true }));
+    expect((ai.excluded as Row[]).find((x) => x.name === 'Gym Mobile')!.reasons).toEqual([
+      'ai_processing_not_allowed',
+    ]);
+    const fw = ok<Row>(await rec({ frameworks: ['flutter'], frameworksRequired: true }));
+    expect(names(fw.ranked as Row[])).toEqual(['Gym Mobile']);
+  });
+
+  it('nothing relevant: generate from scratch, with the reason', async () => {
+    const r = ok<Row>(await rec({ text: 'quantum telescope scheduler' }));
+    expect(r.decision).toMatchObject({
+      strategy: 'GENERATE_FROM_SCRATCH',
+      selectedResourceId: null,
+      notes: ['below_min_score'],
+    });
+    expect((r.ranked as Row[]).length).toBeGreaterThan(0); // still ranked and explained, just not selected
+    const none = ok<Row>(await rec({ platform: 'BACKEND' }));
+    expect(none.decision).toMatchObject({
+      strategy: 'GENERATE_FROM_SCRATCH',
+      notes: ['no_eligible_resource'],
+    });
+    expect(
+      ok<Row>(await rec({ strategy: 'GENERATE_FROM_SCRATCH', text: 'store' })).decision,
+    ).toMatchObject({ strategy: 'GENERATE_FROM_SCRATCH', selectedResourceId: null });
+  });
+
+  it('admin defaults: a preference that still passes every check, and a pin that must match the active version', async () => {
+    expect(
+      (
+        await admin('psupport2', 'PUT', `${R}/defaults`, {
+          platform: 'WEB',
+          resourceId: store.resourceId,
+        })
+      ).statusCode,
+    ).toBe(403);
+    const set = ok<Row>(
+      await admin('padmin', 'PUT', `${R}/defaults`, {
+        platform: 'WEB',
+        resourceId: store.resourceId,
+      }),
+    );
+    expect(set).toMatchObject({
+      platform: 'WEB',
+      framework: '*',
+      resourceId: store.resourceId,
+      resourceName: 'Store Starter',
+    });
+    // replaced, not duplicated
+    ok<Row>(
+      await admin('padmin', 'PUT', `${R}/defaults`, {
+        platform: 'WEB',
+        resourceId: store.resourceId,
+      }),
+    );
+    expect(
+      ok<{ items: Row[] }>(await admin('psupport2', 'GET', `${R}/defaults`)).items.filter(
+        (x) => x.platform === 'WEB',
+      ),
+    ).toHaveLength(1);
+    const used = ok<Row>(
+      await rec({ strategy: 'ADMIN_DEFAULT', platform: 'WEB', text: 'admin dashboard analytics' }),
+    );
+    expect(used.decision).toMatchObject({
+      strategy: 'ADMIN_DEFAULT',
+      selectedResourceId: store.resourceId,
+      notes: ['admin_default_used'],
+    });
+    expect(names(used.ranked as Row[])[0]).toBe('Admin Dashboard Pro'); // the ranking itself is unaffected
+    // a default that is not eligible is not used: the automatic choice is, and says why
+    ok<Row>(
+      await admin('padmin', 'PUT', `${R}/defaults`, {
+        platform: 'WEB',
+        resourceId: draft.resourceId,
+      }),
+    );
+    const fall = ok<Row>(
+      await rec({ strategy: 'ADMIN_DEFAULT', platform: 'WEB', text: 'admin dashboard analytics' }),
+    );
+    expect(fall.decision).toMatchObject({
+      strategy: 'AUTO_SELECT',
+      notes: ['admin_default_ineligible', 'auto_selected'],
+    });
+    // a pin to another version of the resource is refused unless it is a version of that resource; a wrong pin makes the default ineligible
+    expect(
+      (
+        await admin('padmin', 'PUT', `${R}/defaults`, {
+          platform: 'WEB',
+          resourceId: store.resourceId,
+          versionPin: dash.versionId,
+        })
+      ).statusCode,
+    ).toBe(422);
+    const other = await submit(
+      'padmin',
+      { provenanceClass: 'FIRST_PARTY' },
+      'Store Starter',
+      store.resourceId,
+    );
+    ok<Row>(
+      await admin('padmin', 'PUT', `${R}/defaults`, {
+        platform: 'WEB',
+        resourceId: store.resourceId,
+        versionPin: other.versionId,
+      }),
+    );
+    const pinned = ok<Row>(
+      await rec({ strategy: 'ADMIN_DEFAULT', platform: 'WEB', text: 'store' }),
+    );
+    expect(pinned.adminDefault).toMatchObject({
+      resourceId: store.resourceId,
+      eligible: false,
+      reasons: ['pinned_version_unavailable'],
+    });
+    expect(pinned.decision).toMatchObject({ strategy: 'AUTO_SELECT' });
+    // remove it
+    const id = ok<{ items: Row[] }>(await admin('padmin', 'GET', `${R}/defaults`)).items.find(
+      (x) => x.platform === 'WEB',
+    )!.id as string;
+    ok<Row>(await admin('padmin', 'DELETE', `${R}/defaults/${id}`));
+    expect((await admin('padmin', 'DELETE', `${R}/defaults/${id}`)).statusCode).toBe(404);
+    expect(
+      ok<{ items: Row[] }>(await admin('padmin', 'GET', `${R}/defaults`)).items.filter(
+        (x) => x.platform === 'WEB',
+      ),
+    ).toHaveLength(0);
+    expect(
+      e.sink.events
+        .filter((x) => String(x.action).startsWith('knowledge.default.'))
+        .map((x) => x.action),
+    ).toEqual(expect.arrayContaining(['knowledge.default.set', 'knowledge.default.removed']));
+  });
+
+  it('the weights are configurable with an audit trail: optimistic revision, a reason, valid integers, publish permission', async () => {
+    const cur = ok<Row>(await admin('psupport2', 'GET', `${R}/settings/recommendation`));
+    expect(cur).toMatchObject({ revision: 0, isDefault: true, minScore: 35 });
+    const w = {
+      functional: 40,
+      framework: 10,
+      architecture: 10,
+      design: 10,
+      quality: 10,
+      reuse: 20,
+    };
+    const put = (who: string, ifMatch: string | undefined, b: Row) =>
+      admin(
+        who,
+        'PUT',
+        `${R}/settings/recommendation`,
+        b,
+        ifMatch === undefined ? {} : { 'if-match': ifMatch },
+      );
+    expect(
+      (
+        await put('psupport2', '0', {
+          weights: w,
+          minScore: 40,
+          reason: 'Prefer functional fit for launch.',
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (
+        await put('padmin', undefined, {
+          weights: w,
+          minScore: 40,
+          reason: 'Prefer functional fit for launch.',
+        })
+      ).statusCode,
+    ).toBe(422);
+    for (const bad of [
+      {
+        weights: { ...w, functional: 41 },
+        minScore: 40,
+        reason: 'Does not add up to one hundred.',
+      },
+      {
+        weights: { ...w, functional: 40.5, reuse: 19.5 },
+        minScore: 40,
+        reason: 'Fractions are not allowed here.',
+      },
+      { weights: w, minScore: 101, reason: 'The minimum score is too high.' },
+      { weights: w, minScore: 40, reason: 'short' },
+      { weights: { ...w, extra: 0 }, minScore: 40, reason: 'Unknown weights are refused.' },
+    ])
+      expect((await put('padmin', '0', bad)).statusCode, JSON.stringify(bad)).toBe(422);
+    expect(
+      (await put('padmin', '5', { weights: w, minScore: 40, reason: 'Stale revision on purpose.' }))
+        .statusCode,
+    ).toBe(412);
+    const done = ok<Row>(
+      await put('padmin', '0', {
+        weights: w,
+        minScore: 40,
+        reason: 'Prefer functional fit for launch.',
+      }),
+    );
+    expect(done).toMatchObject({
+      revision: 1,
+      isDefault: false,
+      minScore: 40,
+      weights: w,
+      updatedBy: e.ids.padmin,
+    });
+    // a second writer with the old revision loses
+    expect(
+      (
+        await put('padmin', '0', {
+          weights: w,
+          minScore: 40,
+          reason: 'Second writer, old revision.',
+        })
+      ).statusCode,
+    ).toBe(412);
+    // the new weights are the ones the recommendation uses, and it says which revision
+    const r = ok<Row>(await rec({ text: 'online shop', platform: 'WEB' }));
+    expect(r.settings).toMatchObject({ revision: 1, minScore: 40, weights: w });
+    // history: who, why, what, and the previous value
+    const hist = ok<{ items: Row[] }>(
+      await admin('psupport2', 'GET', `${R}/settings/recommendation/revisions`),
+    );
+    expect(hist.items[0]).toMatchObject({
+      revision: 1,
+      reason: 'Prefer functional fit for launch.',
+      changedBy: e.ids.padmin,
+      previous: null,
+      value: { minScore: 40 },
+    });
+    const second = ok<Row>(
+      await put('padmin', '1', {
+        weights: {
+          functional: 25,
+          framework: 20,
+          architecture: 20,
+          design: 15,
+          quality: 10,
+          reuse: 10,
+        },
+        minScore: 35,
+        reason: 'Back to the initial configuration.',
+      }),
+    );
+    expect(second.revision).toBe(2);
+    const hist2 = ok<{ items: Row[] }>(
+      await admin('psupport2', 'GET', `${R}/settings/recommendation/revisions`),
+    );
+    expect(hist2.items.map((x) => x.revision)).toEqual([2, 1]);
+    expect((hist2.items[0]!.previous as Row).minScore).toBe(40);
+    expect(
+      e.sink.events
+        .filter((x) => x.action === 'knowledge.settings.updated')
+        .map((x) => (x.detail as Row).revision),
+    ).toEqual([1, 2]);
+    // the history is append-only in the database
+    await expect(e.sql(`DELETE FROM knowledge.engine_setting_revisions`)).rejects.toThrow(
+      /append-only/,
+    );
+    await expect(
+      e.sql(`UPDATE knowledge.engine_setting_revisions SET reason = 'x'`),
+    ).rejects.toThrow(/append-only/);
+  });
+
+  it('search: Arabic and English, structured filters, eligibility with reasons, symbol/component matches; hostile text is data', async () => {
+    const ar = ok<{ items: Row[]; query: Row; total: number }>(
+      await admin(
+        'psupport2',
+        'GET',
+        `${R}/search?q=${encodeURIComponent('لوحة تحكم')}&mode=ADAPTIVE`,
+      ),
+    );
+    expect(ar.items[0]!.name).toBe('Admin Dashboard Pro');
+    expect(ar.items[0]).toMatchObject({
+      relevance: expect.any(Number),
+      eligibility: { eligible: true, reasons: [] },
+    });
+    expect((ar.query.groups as Row[]).map((g) => g.key)).toEqual(['dashboard']);
+    const en = ok<{ items: Row[] }>(await admin('psupport2', 'GET', `${R}/search?q=data+table`));
+    expect(en.items[0]!.name).toBe('Admin Dashboard Pro');
+    expect((en.items[0]!.components as Row[])[0]!.name).toBe('DataTable'); // a symbol/component match with its evidence
+    const dashboards = ok<{ items: Row[] }>(
+      await admin('padmin', 'GET', `${R}/search?q=dashboard&eligible=false`),
+    );
+    const inel = Object.fromEntries(
+      dashboards.items.map((x) => [x.name, (x.eligibility as Row).reasons]),
+    );
+    expect(inel['No Reuse Dashboard']).toEqual(['no_reuse_permission']);
+    expect(inel['Restricted Licence Dashboard']).toEqual(['license_not_allowed']);
+    expect(inel['Admin Dashboard Pro']).toBeUndefined();
+    const web = ok<{ items: Row[] }>(await admin('padmin', 'GET', `${R}/search?platform=MOBILE`));
+    expect(names(web.items)).toEqual(['Gym Mobile']);
+    expect(
+      names(
+        ok<{ items: Row[] }>(await admin('padmin', 'GET', `${R}/search?framework=flutter`)).items,
+      ),
+    ).toEqual(['Gym Mobile']);
+    expect(
+      ok<{ items: Row[] }>(await admin('padmin', 'GET', `${R}/search?limit=2`)).items,
+    ).toHaveLength(2);
+    // injection attempts and operators are plain text
+    for (const hostile of [
+      "'; DROP TABLE knowledge.resources; --",
+      'a & b | !c',
+      'foo:* <-> bar',
+      '(((',
+      '%',
+      'x'.repeat(250),
+    ]) {
+      const r = await admin('padmin', 'GET', `${R}/search?q=${encodeURIComponent(hostile)}`);
+      expect(r.statusCode, hostile).toBe(200);
+    }
+    expect((await e.sql(`SELECT count(*)::int n FROM knowledge.resources`))[0]!.n).toBeGreaterThan(
+      5,
+    );
+    for (const bad of ['platform=nope', 'mode=nope', 'eligible=maybe'])
+      expect((await admin('padmin', 'GET', `${R}/search?${bad}`)).statusCode).toBe(422);
+    expect((await e.call('alice', 'GET', `${R}/search?q=store`)).statusCode).not.toBe(200);
+  });
+
+  it('validates the requirement, never writes, and customers cannot reach it', async () => {
+    for (const bad of [
+      { mode: 'WILD' },
+      { platform: 'TV' },
+      { frameworks: Array.from({ length: 11 }, (_, i) => `f${i}`) },
+      { frameworks: [1] },
+      { design: { primaryColor: 'not-a-colour' } },
+      { design: { darkMode: 'yes' } },
+      { limit: 0 },
+      { limit: 21 },
+      { text: 'x'.repeat(2001) },
+      { strategy: 'NOPE' },
+      { strategy: 'USER_SELECTED' },
+      { resourceId: 'x' },
+      { frameworksRequired: 'true' },
+    ])
+      expect((await rec(bad)).statusCode, JSON.stringify(bad)).toBe(422);
+    const count = async () =>
+      JSON.stringify(
+        await e.sql(
+          `SELECT (SELECT count(*) FROM knowledge.usage_events) a, (SELECT count(*) FROM knowledge.resource_search_documents) b, (SELECT count(*) FROM knowledge.theme_tokens) c, (SELECT count(*) FROM knowledge.template_defaults) d, (SELECT count(*) FROM knowledge.engine_settings) f`,
+        ),
+      );
+    const before = await count();
+    ok<Row>(await rec({ text: 'store', platform: 'WEB' }));
+    ok<Row>(await rec({ strategy: 'ADMIN_DEFAULT', text: 'store' }));
+    expect(await count()).toBe(before);
+    expect(
+      (await e.call('alice', 'POST', `${R}/recommendations`, { text: 'store' })).statusCode,
+    ).not.toBe(200);
+  });
+
+  it('is deterministic: the same requirement gives the same ranking and explanation', async () => {
+    const body = { text: 'dashboard store', platform: 'WEB', design: { darkMode: true } };
+    const a = ok<Row>(await rec(body));
+    const b = ok<Row>(await rec(body));
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+
+  it('retries the indexing stage when it was the one interrupted', async () => {
+    const s = await submit();
+    await analysed(s);
+    await e.sql(
+      `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind, state, finished_at) VALUES (gen_random_uuid(),$1,NULL,'INDEX','FAILED',now())`,
+      [s.versionId],
+    );
+    await e.sql(
+      `UPDATE knowledge.resource_versions SET state = 'QUARANTINED', state_reason = 'processing_failed' WHERE id = $1`,
+      [s.versionId],
+    );
+    const r = ok<Row>(
+      await admin(
+        'padmin',
+        'POST',
+        `${R}/resources/${s.resourceId}/versions/${s.versionId}/reprocessing`,
+        {},
+      ),
+    );
+    expect(
+      (await e.sql(`SELECT kind FROM knowledge.processing_jobs WHERE id = $1`, [r.jobId]))[0]!.kind,
+    ).toBe('INDEX');
+  });
+});

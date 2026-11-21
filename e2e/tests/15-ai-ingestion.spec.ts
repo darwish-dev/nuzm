@@ -70,6 +70,7 @@ async function startWorker() {
       KNOWLEDGE_DETECT_ENABLED: 'true',
       KNOWLEDGE_COMPONENTS_ENABLED: 'true',
       KNOWLEDGE_DESIGN_ENABLED: 'true',
+      KNOWLEDGE_INDEX_ENABLED: 'true',
       KNOWLEDGE_STORE_DRIVER: 'fs',
       KNOWLEDGE_STORE_DIR: STORE_DIR,
       OTEL_SDK_DISABLED: 'true',
@@ -226,14 +227,15 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
   await expect(kni.getByText(T(info, 'ki.kind.DETECT'))).toBeVisible();
   await expect(kni.getByText(T(info, 'ki.kind.COMPONENTS'), { exact: true })).toBeVisible();
   await expect(kni.getByText(T(info, 'ki.kind.DESIGN'), { exact: true })).toBeVisible();
-  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(5);
+  await expect(kni.getByText(T(info, 'ki.kind.INDEX'), { exact: true })).toBeVisible();
+  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(6);
   await kni
     .getByRole('button', { name: T(info, 'ki.logs'), exact: true })
     .first()
     .click();
   await expect(
     kni.getByText(
-      /design analysis started over \d+ style, token and theme files .*nothing from the package is executed/,
+      /search indexing started over \d+ components and \d+ documentation files; nothing from the package is executed/,
     ),
   ).toBeVisible();
   // findings: the planted lifecycle script is reported, never run
@@ -346,6 +348,95 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
     )[0],
   ).toMatchObject({ visibility: 'PLATFORM_PRIVATE', status: 'ACTIVE' });
   expect((await sql(`SELECT 1 FROM knowledge.v_published_templates`)).length).toBe(0); // private: customers see nothing
+
+  // ---- retrieval and recommendation (S-K5): the hard filters run before ranking, and the engine explains every exclusion and every score
+  const searchUrl = `${ADMIN}/${L}/ai-intelligence/search`;
+  await a2.page.goto(searchUrl);
+  const ks = a2.page.getByLabel(T(info, 'kr.search.title'));
+  await ks.getByLabel(T(info, 'kr.search.q')).fill('dashboard');
+  await ks.getByRole('button', { name: T(info, 'kr.search.run') }).click();
+  const hitRow = ks.locator('tr', { hasText: name });
+  await expect(hitRow).toBeVisible(); // staff can search a resource that is active but private ...
+  await expect(hitRow.getByText(T(info, 'kr.ineligible'))).toBeVisible(); // ... and see why it is not eligible
+  await expect(
+    hitRow.getByText(T(info, 'kr.reason.not_published'), { exact: false }),
+  ).toBeVisible();
+  await expect(
+    hitRow.getByText(T(info, 'kr.reason.no_reuse_permission'), { exact: false }),
+  ).toBeVisible();
+  await audit(a2.page, info, 'ai-retrieval-search');
+
+  const kr = a2.page.getByLabel(T(info, 'kr.rec.title'));
+  await kr.getByLabel(T(info, 'kr.rec.text')).fill('لوحة تحكم لإدارة المبيعات');
+  await kr.getByLabel(T(info, 'kr.platform'), { exact: true }).last().selectOption('WEB');
+  await kr.getByRole('button', { name: T(info, 'kr.rec.run') }).click();
+  const r1 = kr.getByLabel(T(info, 'kr.result'));
+  await expect(
+    r1.getByText(T(info, 'kr.decision.no_eligible_resource'), { exact: false }),
+  ).toBeVisible();
+  await expect(r1.locator('li', { hasText: name }).first()).toContainText(
+    T(info, 'kr.reason.not_published'),
+  );
+
+  // publishing and the reuse permission are separate decisions (covered by 14-ai-knowledge); here they are set directly so the engine has something it may recommend
+  await sql(`UPDATE knowledge.resources SET visibility = 'PLATFORM_PUBLISHED' WHERE id = $1`, [id]);
+  await sql(
+    `UPDATE knowledge.resource_permissions SET reuse_scope = 'FULL_STARTER', starter_eligible = true, component_reuse = true, architecture_reference = true WHERE resource_id = $1`,
+    [id],
+  );
+  await a2.page.goto(searchUrl);
+  const kr2 = a2.page.getByLabel(T(info, 'kr.rec.title'));
+  await kr2.getByLabel(T(info, 'kr.rec.text')).fill('admin dashboard with a sidebar');
+  await kr2.getByLabel(T(info, 'kr.rec.frameworks')).fill('nextjs');
+  await kr2.getByRole('button', { name: T(info, 'kr.rec.run') }).click();
+  const r2 = kr2.getByLabel(T(info, 'kr.result'));
+  const cand = r2.locator('li[aria-label]', { hasText: name });
+  await expect(cand).toBeVisible();
+  await expect(cand.getByRole('progressbar')).toBeVisible();
+  await cand.getByRole('button', { name: T(info, 'kc.details') }).click();
+  const dimTable = cand.getByRole('table');
+  await expect(dimTable.getByText(T(info, 'kr.dimension.functional'))).toBeVisible();
+  await expect(dimTable.getByText(T(info, 'kr.dimension.framework'))).toBeVisible();
+  await expect(dimTable.getByText(T(info, 'kr.note.quality.not_measured'))).toBeVisible(); // nothing was measured: it is said, not scored
+  await audit(a2.page, info, 'ai-retrieval-recommendation');
+
+  // the weights: changed with a reason, recorded in the history and the audit log
+  const ksw = a2.page.getByLabel(T(info, 'kr.set.title'));
+  await expect(ksw.getByText(T(info, 'kr.set.sum', { n: 100 }))).toBeVisible();
+  await ksw.getByLabel(T(info, 'kr.dimension.functional')).fill('30');
+  await ksw.getByLabel(T(info, 'kr.dimension.reuse')).fill('5');
+  await ksw.getByLabel(T(info, 'kr.set.reason')).fill(`Prefer functional fit (${L}).`);
+  await ksw.getByRole('button', { name: T(info, 'kr.set.save') }).click();
+  await expect(ksw.getByText(T(info, 'kr.set.saved'))).toBeVisible();
+  await expect(ksw.getByText(`Prefer functional fit (${L}).`, { exact: false })).toBeVisible();
+
+  // the database agrees: documents written by the worker, the weights with their history, the change audited
+  expect(
+    (
+      await sql<{ n: string }>(
+        `SELECT count(*)::text AS n FROM knowledge.resource_search_documents WHERE version_id = $1`,
+        [vid],
+      )
+    )[0]!.n,
+  ).not.toBe('0');
+  expect(
+    (
+      await sql<{ reason: string }>(
+        `SELECT reason FROM knowledge.engine_setting_revisions WHERE reason = $1`,
+        [`Prefer functional fit (${L}).`],
+      )
+    ).length,
+  ).toBe(1);
+  expect(
+    (await sql(`SELECT 1 FROM audit.audit_logs WHERE action = 'knowledge.settings.updated'`))
+      .length,
+  ).toBeGreaterThan(0);
+  // leave the library as found for the next locale
+  await sql(`UPDATE knowledge.resources SET visibility = 'PLATFORM_PRIVATE' WHERE id = $1`, [id]);
+  await sql(
+    `UPDATE knowledge.resource_permissions SET reuse_scope = 'NONE', starter_eligible = false, component_reuse = false, architecture_reference = false WHERE resource_id = $1`,
+    [id],
+  );
   const acts = await sql<{ action: string }>(
     `SELECT action FROM audit.audit_logs WHERE resource_id = $1 AND action LIKE 'knowledge.version.%' ORDER BY occurred_at`,
     [id],

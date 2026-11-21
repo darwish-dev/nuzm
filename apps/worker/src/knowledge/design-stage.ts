@@ -284,7 +284,12 @@ export async function analyzeDesignStage(d: StageDeps, job: StageJob): Promise<v
     );
     if (upd.rowCount !== 1) throw d.stop('lease_lost');
     await d.finish(c, job, summary);
-    await d.setVersion(c, job.versionId, ['ANALYZING'], 'AWAITING_REVIEW', null);
+    if (d.next)
+      await c.query(
+        `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind) VALUES ($1,$2,NULL,$3) ON CONFLICT DO NOTHING`,
+        [uuidv7(), job.versionId, d.next],
+      );
+    else await d.setVersion(c, job.versionId, ['ANALYZING'], 'AWAITING_REVIEW', null);
     await d.writeLog(
       c,
       job.id,
@@ -292,7 +297,9 @@ export async function analyzeDesignStage(d: StageDeps, job: StageJob): Promise<v
       'info',
       'DESIGN',
       'design.done',
-      'design analysis finished; the package awaits review',
+      d.next
+        ? 'design analysis finished; indexing follows'
+        : 'design analysis finished; the package awaits review',
       summary,
     );
   });

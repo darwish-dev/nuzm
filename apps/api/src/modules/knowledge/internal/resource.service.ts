@@ -401,6 +401,17 @@ export class ResourceService {
         `UPDATE knowledge.resource_versions SET state = $2, retired_at = now() WHERE resource_id = $1 AND state = 'ACTIVE'`,
         [id, status],
       );
+      // processing of a retired resource is pointless: queued jobs are cancelled, a running one is asked to stop (the worker also skips jobs of retired resources)
+      await c.query(
+        `UPDATE knowledge.processing_jobs SET state = 'CANCELLED', finished_at = now(), error_code = 'cancelled', error_detail = 'the resource was disabled or archived'
+          WHERE state = 'QUEUED' AND version_id IN (SELECT id FROM knowledge.resource_versions WHERE resource_id = $1)`,
+        [id],
+      );
+      await c.query(
+        `UPDATE knowledge.processing_jobs SET cancel_requested = true
+          WHERE state = 'RUNNING' AND version_id IN (SELECT id FROM knowledge.resource_versions WHERE resource_id = $1)`,
+        [id],
+      );
       return { before, after };
     });
     await this.audit.record({

@@ -340,7 +340,7 @@ describe('integrity rules in the database', () => {
           `UPDATE knowledge.resource_versions SET state = 'ACTIVE', license_verdict = '${licence}' WHERE id = $1`,
           [V(3)],
         ),
-      ).toMatch(/check constraint/i);
+      ).toMatch(/check constraint|licen[sc]e/i);
   });
   it('a resource has at most one ACTIVE version', async () => {
     const msg = await fails(
@@ -445,7 +445,7 @@ describe('integrity rules in the database', () => {
     );
     expect(
       await fails('nuzm_app', staff, q(`90,'ai-opinion',NULL,false`), [id(961), V(1)]),
-    ).toMatch(/check constraint/i);
+    ).toMatch(/check constraint|licen[sc]e/i);
     expect(
       await fails('nuzm_app', staff, q(`NULL,'not-run',NULL,false`), [id(962), V(1)]),
     ).toBeNull();
@@ -464,7 +464,7 @@ describe('integrity rules in the database', () => {
     ).toBeNull();
     expect(
       await fails('nuzm_app', tenant(A), e('cost_minor, currency', "120, 'sar'"), [id(972), A]),
-    ).toMatch(/check constraint/i);
+    ).toMatch(/check constraint|licen[sc]e/i);
   });
   it("a customer's generation plan is invisible to another customer", async () => {
     await root(

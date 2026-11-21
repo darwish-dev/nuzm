@@ -171,6 +171,8 @@ export interface Sample {
   tags: string[];
   license: string;
   build: (opts?: { padBytes?: number }) => Buffer;
+  /** The files of the package, for tests that add a file of their own (S-K2a ingestion). */
+  entries: () => ZipEntry[];
 }
 const pad = (entries: ZipEntry[], padBytes: number | undefined, dir: string): ZipEntry[] =>
   padBytes
@@ -189,6 +191,7 @@ export const SAMPLES: Sample[] = [
     category: 'dashboard',
     tags: ['saas', 'sidebar'],
     license: 'MIT',
+    entries: nextjs,
     build: (o) => zip(pad(nextjs(), o?.padBytes, 'modern-saas')),
   },
   {
@@ -202,6 +205,7 @@ export const SAMPLES: Sample[] = [
     category: 'fitness',
     tags: ['mobile', 'bloc'],
     license: 'MIT',
+    entries: flutter,
     build: (o) => zip(pad(flutter(), o?.padBytes, 'gym_app')),
   },
   {
@@ -215,6 +219,7 @@ export const SAMPLES: Sample[] = [
     category: 'real-estate',
     tags: ['saas', 'multi-tenant'],
     license: 'MIT',
+    entries: fullstack,
     build: (o) => zip(pad(fullstack(), o?.padBytes, 'property-suite')),
   },
 ];

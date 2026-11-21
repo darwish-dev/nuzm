@@ -488,7 +488,8 @@ describe('Resource page', () => {
     fireEvent.click(screen.getByRole('button', { name: t('en', 'kn.d.disable') }));
     fireEvent.click(screen.getByRole('button', { name: t('en', 'kn.d.confirm') }));
     expect(await screen.findByText(t('en', 'kn.d.reasonRequired'))).toBeTruthy();
-    expect(seen).toHaveLength(0);
+    // the processing and review sections (S-K2a) read on mount; nothing may be WRITTEN before the reason is given
+    expect(seen.filter((s) => s.method !== 'GET')).toHaveLength(0);
     fireEvent.change(screen.getByLabelText(t('en', 'kn.d.reason')), {
       target: { value: 'licence under review' },
     });

@@ -128,5 +128,20 @@ Constraints already decided or open, and which this ADR must respect (see the au
   conventions; the mapping is in the SCR. Where the request and a higher source conflict, the higher source is followed (audit §1, C1–C9).
 - ADR-064's GitHub App (D-39) is the only repository-import path; real private-repo import stays BLOCKED on HG-AS-01.
 
+## Addendum A — S-K2a secure ingestion (2026-11-21, SCR-K-02)
+Decided while implementing S-K2a; none of it changes an accepted decision, it fixes details the ADR left open.
+- **Queue:** the pipeline queues on `knowledge.processing_jobs` (claimed with `FOR UPDATE SKIP LOCKED`, a lease, a heartbeat and a cancel flag) instead of `platform.operations`: operations are keyed by
+  organization, the platform library has none. Retry, back-off, dead-letter and cancellation semantics are the same as ADR-007's.
+- **Isolation of the worker:** a dedicated worker scope (`app.worker_scope = 'knowledge'`) opens ONLY platform rows (`org_id IS NULL`) of the knowledge schema, and column grants limit what `nuzm_worker`
+  may write. It cannot set a licence verdict, write a review or activate a version. The generic `claim` scope sees nothing of this schema.
+- **No execution, ever:** the worker parses bytes (pure functions with hard limits). A package is analysed twice: a dry pass proves every size, checksum, path, limit and scan WITHOUT storing a byte; only a
+  package that passes and has no blocking finding is written to the snapshot. A rejected or quarantined upload leaves nothing in the object store except its original archive.
+- **Activation gate in the database:** a guarded state machine, an activation guard (ALLOWED licence verdict AND proposal, completed analysis, no blocking finding, approvals from different people: two for
+  third-party resources, neither the uploader; one for first-party), and a review guard. The API can only produce clearer errors than the database; it cannot bypass it.
+- **Third-party is the default** (`resources.provenance_class`); FIRST_PARTY needs the publish permission and is fixed at creation.
+- **Object store (D-42):** the port moves to `@nuzm/adapter-knowledge-store` with a development filesystem adapter and an S3-compatible adapter (own SigV4, encryption verified on every write, presigned
+  reads, private-bucket self-test). Production uploads stay OFF until a complete configuration, vault-resolved credentials and a human attestation exist; D-42 stays the production blocker.
+- **Malware (D-44):** unchanged — a pattern scan, never called a malware scan. **Licence (D-43):** the scanner only PROPOSES; a version can be activated only when the proposal is ALLOWED and people approve.
+
 ## Owner / date
 Owner / 2026-11-20 (session decision, recorded by the agent; drafted by the agent the same day)

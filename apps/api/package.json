@@ -28,6 +28,7 @@
     "@nuzm/adapter-data": "workspace:*",
     "@nuzm/adapter-http": "workspace:*",
     "@nuzm/adapter-huawei-ecs": "workspace:*",
+    "@nuzm/adapter-knowledge-store": "workspace:*",
     "@nuzm/adapter-live-verify": "workspace:*",
     "@nuzm/adapter-mock-compute": "workspace:*",
     "@nuzm/adapter-model": "workspace:*",

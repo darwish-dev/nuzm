@@ -16,6 +16,8 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
+    "@nuzm/adapter-knowledge-store": "workspace:*",
+    "@nuzm/domain": "workspace:*",
     "@nuzm/platform": "workspace:*",
     "@nuzm/telemetry": "workspace:*"
   }

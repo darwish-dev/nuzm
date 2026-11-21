@@ -195,3 +195,116 @@ export const licenseTone = (s: string): 'success' | 'danger' | 'warn' | undefine
 
 export const isUuidLike = (v: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+
+// ---- S-K2a: ingestion, review and activation (SCR-K-02) ----------------------------------------------------------------------------------
+export interface IngestJob {
+  id: string;
+  versionId: string;
+  versionSeq: number;
+  kind: string;
+  state: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'DEAD_LETTER';
+  attempt: number;
+  maxAttempts: number;
+  progress: number;
+  errorCode: string | null;
+  errorDetail: string | null;
+  cancelRequested: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string | null;
+}
+export interface IngestLog {
+  id: string;
+  seq: number;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  stage: string;
+  code: string;
+  message: string;
+  createdAt: string | null;
+}
+export interface IngestFinding {
+  id: string;
+  scanner: string;
+  code: string;
+  severity: 'info' | 'warn' | 'block';
+  path: string | null;
+  line: number | null;
+  detail: string;
+}
+export interface IngestFile {
+  id: string;
+  path: string;
+  sha256: string;
+  bytes: number;
+  language: string | null;
+  isBinary: boolean;
+  isExecutable: boolean;
+  stored: boolean;
+  secretFindings: number;
+}
+export interface ReviewBlocker {
+  code:
+    | 'state'
+    | 'not_analyzed'
+    | 'blocking_findings'
+    | 'license_not_allowed'
+    | 'rejected'
+    | 'approvals_missing';
+  detail: string;
+}
+export interface ReviewState {
+  versionId: string;
+  resourceId: string;
+  state: string;
+  stateReason: string | null;
+  provenanceClass: 'FIRST_PARTY' | 'THIRD_PARTY';
+  uploadedBy: string | null;
+  analysisJobId: string | null;
+  licenseProposal: { spdx: string | null; verdict: string; reason?: string } | null;
+  licenseVerdict: string;
+  findings: { info: number; warn: number; block: number };
+  requiredApprovals: number;
+  approvals: string[];
+  reviews: {
+    id: string;
+    decision: 'APPROVE' | 'REJECT';
+    reviewerId: string;
+    reason: string | null;
+    createdAt: string | null;
+  }[];
+  blockers: ReviewBlocker[];
+  canActivate: boolean;
+  you: { canReview: boolean; hasApproved: boolean; isUploader: boolean };
+}
+/** Reasons the UI has a translation for; any other `stateReason` is an archive rejection code, shown with the generic text and the code itself. */
+export const KNOWN_REASONS = [
+  'secrets_found',
+  'license_blocked',
+  'denied_dependency',
+  'install_script_network',
+  'blocking_findings',
+  'cancelled',
+  'rejected',
+  'processing_failed',
+  'archive_missing',
+] as const;
+export const isKnownReason = (r: string): r is (typeof KNOWN_REASONS)[number] =>
+  (KNOWN_REASONS as readonly string[]).includes(r);
+export const severityTone = (s: string): 'success' | 'danger' | 'warn' | undefined =>
+  s === 'block' ? 'danger' : s === 'warn' ? 'warn' : undefined;
+export const jobTone = (s: string): 'success' | 'danger' | 'warn' | undefined =>
+  s === 'SUCCEEDED'
+    ? 'success'
+    : s === 'FAILED' || s === 'DEAD_LETTER'
+      ? 'danger'
+      : s === 'CANCELLED'
+        ? 'warn'
+        : undefined;
+/** Jobs that can still be asked to stop. */
+export const isCancellable = (j: Pick<IngestJob, 'state' | 'cancelRequested'>) =>
+  (j.state === 'QUEUED' || j.state === 'RUNNING') && !j.cancelRequested;
+/** A version whose processing was interrupted (not rejected) can be queued again. */
+export const isRetryable = (v: { state: string }, reason: string | null) =>
+  (v.state === 'FAILED' || v.state === 'QUARANTINED') &&
+  !!reason &&
+  ['processing_failed', 'archive_missing', 'cancelled'].includes(reason);

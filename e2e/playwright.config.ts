@@ -7,6 +7,7 @@ import {
   API_PORT,
   E2E_DB,
   IDP_PORT,
+  PG_PORT,
   STORE_DIR,
   WEB,
   WEB_PORT,
@@ -26,6 +27,11 @@ export const USERS = [
   { sub: 'e2e-billing-en', email: 'billing-en@example.test', name: 'Omar Billing' },
   { sub: 'e2e-staff-ar', email: 'staff-ar@example.test', name: 'Sara Staff' },
   { sub: 'e2e-staff-en', email: 'staff-en@example.test', name: 'Sara Staff' },
+  // S-K2a: the two other people a third-party package needs before it can be activated (the uploader cannot be one of them)
+  { sub: 'e2e-approver1-ar', email: 'approver1-ar@example.test', name: 'Huda Security' },
+  { sub: 'e2e-approver1-en', email: 'approver1-en@example.test', name: 'Huda Security' },
+  { sub: 'e2e-approver2-ar', email: 'approver2-ar@example.test', name: 'Faisal Admin' },
+  { sub: 'e2e-approver2-en', email: 'approver2-en@example.test', name: 'Faisal Admin' },
 ];
 
 export default defineConfig({
@@ -59,7 +65,7 @@ export default defineConfig({
         DEV_IDP_PORT: String(IDP_PORT),
         WEB_ORIGIN: WEB,
         ADMIN_ORIGIN: `http://127.0.0.1:${ADMIN_PORT}`,
-        DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/${E2E_DB}`,
+        DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:${PG_PORT}/${E2E_DB}`,
         DEV_IDP_USERS: JSON.stringify(USERS),
         DATA_LOCAL_REFERENCE: 'true', // M08: in-memory dev-reference adapters (mock-*, NOT VERIFIED) so the managed-data screens can be exercised; never production
         // M07: local MOCK registrars (Openprovider/ResellerClub shaped from their docs: NOT VERIFIED vendor behaviour) behind the real adapters, dev only

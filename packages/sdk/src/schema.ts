@@ -7124,6 +7124,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/knowledge/resources/{id}/processing-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List processing jobs with progress and actionable errors
+         * @description Cursor pagination, newest first; `versionId` narrows to one version. Shows state, attempt, progress and the error code and detail of a failure. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeProcessingJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the processing log of one job
+         * @description Oldest first; `cursor` is the last `seq` received. Logs carry stages, codes and counts, never file content or a matched secret. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeProcessingLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a processing job
+         * @description A queued job is cancelled at once; a running job is asked to stop at its next checkpoint and records nothing. The version returns to QUARANTINED. Audited. Permission `admin:ai_knowledge:manage`.
+         */
+        post: operations["cancelKnowledgeProcessingJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the scan findings of a version
+         * @description Secret, licence, dependency, lifecycle-script and risky-file findings of the current analysis (plus archive rejections). Evidence is a kind and `path:line`; the matched text is never stored or returned. `summary` counts by severity. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the file inventory of a version
+         * @description Path, size, SHA-256, language, binary and executable flags and whether the content was kept in the snapshot. Never file content. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the review state of a version
+         * @description The licence proposal, the finding counts of the current analysis, the approvals recorded and required, every decision, the blockers that stop activation right now, and what the caller may do. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeReviewState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/reprocessing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry an interrupted version
+         * @description Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation). A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
+         */
+        post: operations["reprocessKnowledgeVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an approval or a rejection
+         * @description Body {versionId, decision: approve|reject, note?, checklist?}. Append-only. An approval states that the findings and the licence were reviewed (`checklist.findingsReviewed` and `checklist.licenseReviewed` true); a rejection needs a note and returns the version to QUARANTINED. A third-party resource needs two approvals from different staff accounts, and its uploader cannot review it. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        post: operations["reviewKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a version
+         * @description Body {versionId, note?}. Needs a completed analysis without blocking findings, a licence proposal and verdict of ALLOWED, and the approvals above; the database checks every condition again. The previous active version is retired to DISABLED (restorable through the same gate), never overwritten. Publishing the resource to customers is a separate, explicit visibility change. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        post: operations["activateKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12796,6 +12976,13 @@ export interface components {
         KnowledgeJob: {
             /** Format: uuid */
             id?: string;
+            /** Format: uuid */
+            versionId?: string;
+            versionSeq?: number;
+            maxAttempts?: number;
+            cancelRequested?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
             kind?: string;
             /** @enum {string} */
             state?: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | "DEAD_LETTER";
@@ -12844,6 +13031,11 @@ export interface components {
             /** @enum {string} */
             processingPriority?: "LOW" | "NORMAL" | "HIGH";
             dataRegion?: string;
+            /**
+             * @description Default THIRD_PARTY (two approvers, neither the uploader). FIRST_PARTY needs the publish permission and is fixed at creation.
+             * @enum {string}
+             */
+            provenanceClass?: "FIRST_PARTY" | "THIRD_PARTY";
         };
         KnowledgePermissions: {
             /** @enum {string} */
@@ -12877,6 +13069,8 @@ export interface components {
             status?: "UPLOADING" | "QUARANTINED" | "VALIDATING" | "ANALYZING" | "INDEXING" | "AWAITING_REVIEW" | "ACTIVE" | "FAILED" | "DISABLED" | "ARCHIVED";
             /** Format: uuid */
             currentVersionId?: string;
+            /** @enum {string} */
+            provenanceClass?: "FIRST_PARTY" | "THIRD_PARTY";
             visibility?: string;
             /** Format: date-time */
             createdAt?: string;
@@ -12959,6 +13153,150 @@ export interface components {
         KnowledgeVersionPage: {
             items: components["schemas"]["KnowledgeVersion"][];
             nextCursor: string | null;
+        };
+        KnowledgeJobPage: {
+            items: components["schemas"]["KnowledgeJob"][];
+            nextCursor: string | null;
+        };
+        KnowledgeLog: {
+            /** Format: uuid */
+            id?: string;
+            seq?: number;
+            /** @enum {string} */
+            level?: "debug" | "info" | "warn" | "error";
+            stage?: string;
+            code?: string;
+            message?: string;
+            data?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        KnowledgeLogPage: {
+            items: components["schemas"]["KnowledgeLog"][];
+            nextCursor: string | null;
+        };
+        KnowledgeJobCancellation: {
+            /** Format: uuid */
+            jobId?: string;
+            /** @enum {string} */
+            result?: "CANCELLED" | "CANCEL_REQUESTED";
+        };
+        KnowledgeReprocessing: {
+            /** Format: uuid */
+            versionId?: string;
+            /** Format: uuid */
+            jobId?: string;
+        };
+        KnowledgeFinding: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            scanner?: "secrets" | "license" | "dependencies" | "risky_files" | "sensitive_files" | "archive";
+            code?: string;
+            /** @enum {string} */
+            severity?: "info" | "warn" | "block";
+            path?: string | null;
+            line?: number | null;
+            detail?: string;
+        };
+        KnowledgeFindingPage: {
+            items: components["schemas"]["KnowledgeFinding"][];
+            nextCursor: string | null;
+            summary: {
+                info?: number;
+                warn?: number;
+                block?: number;
+            };
+        };
+        KnowledgeFile: {
+            /** Format: uuid */
+            id?: string;
+            path?: string;
+            sha256?: string;
+            bytes?: number;
+            language?: string | null;
+            isBinary?: boolean;
+            isExecutable?: boolean;
+            stored?: boolean;
+            secretFindings?: number;
+        };
+        KnowledgeFilePage: {
+            items: components["schemas"]["KnowledgeFile"][];
+            nextCursor: string | null;
+        };
+        KnowledgeReviewEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            decision?: "APPROVE" | "REJECT";
+            /** Format: uuid */
+            reviewerId?: string;
+            reason?: string | null;
+            checklist?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        KnowledgeReviewBlocker: {
+            /** @enum {string} */
+            code?: "state" | "not_analyzed" | "blocking_findings" | "license_not_allowed" | "rejected" | "approvals_missing";
+            detail?: string;
+        };
+        KnowledgeReviewState: {
+            /** Format: uuid */
+            versionId?: string;
+            /** Format: uuid */
+            resourceId?: string;
+            state?: string;
+            stateReason?: string | null;
+            /** @enum {string} */
+            provenanceClass?: "FIRST_PARTY" | "THIRD_PARTY";
+            /** Format: uuid */
+            uploadedBy?: string | null;
+            /** Format: uuid */
+            analysisJobId?: string | null;
+            licenseProposal?: {
+                [key: string]: unknown;
+            } | null;
+            /** @enum {string} */
+            licenseVerdict?: "ALLOWED" | "RESTRICTED" | "UNKNOWN" | "BLOCKED";
+            summary?: {
+                [key: string]: unknown;
+            } | null;
+            findings?: {
+                info?: number;
+                warn?: number;
+                block?: number;
+            };
+            requiredApprovals?: number;
+            approvals?: string[];
+            reviews?: components["schemas"]["KnowledgeReviewEntry"][];
+            blockers?: components["schemas"]["KnowledgeReviewBlocker"][];
+            canActivate?: boolean;
+            you?: {
+                canReview?: boolean;
+                hasApproved?: boolean;
+                isUploader?: boolean;
+            };
+        };
+        KnowledgeReviewInput: {
+            /** Format: uuid */
+            versionId: string;
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            note?: string;
+            checklist?: {
+                findingsReviewed?: boolean;
+                licenseReviewed?: boolean;
+            };
+        };
+        KnowledgeActivationInput: {
+            /** Format: uuid */
+            versionId: string;
+            note?: string;
         };
     };
     responses: {
@@ -27638,6 +27976,300 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeResourceDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeProcessingJobs: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Only the jobs of this version. */
+                versionId?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeJobPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeProcessingLogs: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The last `seq` received. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeLogPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    cancelKnowledgeProcessingJob: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeJobCancellation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeFindings: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Filter by severity. */
+                severity?: "info" | "warn" | "block";
+                /** @description Filter by scanner. */
+                scanner?: "secrets" | "license" | "dependencies" | "risky_files" | "sensitive_files" | "archive";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFindingPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeFiles: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Path contains. */
+                q?: string;
+                /** @description Only stored or only not-stored files. */
+                stored?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFilePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeReviewState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReviewState"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    reprocessKnowledgeVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReprocessing"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    reviewKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReviewState"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    activateKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeActivationInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReviewState"];
                 };
             };
             401: components["responses"]["Problem"];

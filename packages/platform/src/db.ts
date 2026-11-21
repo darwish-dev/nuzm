@@ -87,6 +87,14 @@ export class Db {
   }
 
   /**
+   * AI Intelligence Center ingestion worker (S-K2a). The database opens ONLY platform library rows (org_id IS NULL) of the knowledge schema to this scope, and
+   * only for the columns the nuzm_worker role is granted: it cannot activate a version, set a licence verdict or write a review.
+   */
+  withKnowledgeWorker<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
+    return this.tx({ 'app.worker_scope': 'knowledge' }, fn);
+  }
+
+  /**
    * Admin-console scope: cross-organization reads (organizations, memberships, audit) and global flag writes.
    * Call ONLY from the admin module AFTER the access guard has verified a platform permission.
    */

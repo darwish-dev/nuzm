@@ -2577,4 +2577,16 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 .knd-check { display: flex; align-items: center; gap: 8px; }
 .knd .nz-card { display: grid; gap: 12px; align-content: start; }
 .knd .nz-h2, .knd .nz-h3 { margin: 0; }
+.kni { display: grid; gap: 16px; }
+.kni .nz-card { display: grid; gap: 12px; align-content: start; }
+.kni .nz-h2, .kni .nz-h3 { margin: 0; }
+.kni-toolbar { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; }
+.kni-toolbar > * { min-inline-size: min(100%, 200px); }
+.kni-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px 20px; margin: 0; }
+.kni-facts dt { color: var(--nzc-muted); }
+.kni-facts dd { margin: 0; overflow-wrap: anywhere; }
+.kni-list { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; }
+.kni-log { margin: 0; padding: 10px 12px; max-block-size: 260px; overflow: auto; border: 1px solid var(--nzc-border); border-radius: 10px; background: var(--nzc-field); font-size: 0.85em; list-style: none; display: grid; gap: 4px; }
+.kni-log li { display: grid; grid-template-columns: max-content max-content 1fr; gap: 8px; align-items: baseline; }
+.kni-pad { padding-block: 8px; }
 `;

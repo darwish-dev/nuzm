@@ -222,6 +222,7 @@ schemas:
       - generation_plans
       - generation_resource_links
       - processing_jobs
+      - processing_logs
       - quality_scores
       - resource_components
       - resource_dependencies
@@ -229,9 +230,11 @@ schemas:
       - resource_manifests
       - resource_permissions
       - resource_relationships
+      - resource_reviews
       - resource_search_documents
       - resource_versions
       - resources
+      - scan_findings
       - template_defaults
       - theme_tokens
       - theme_variants
@@ -317,6 +320,7 @@ tenant_less:
   # AI Intelligence Center (ADR-065): knowledge.* rows with org_id NULL are the platform library (staff-owned); org_id set = a customer's private template or import. Customers read platform rows only through the view knowledge.v_published_templates (metadata and previews, never files or object keys). generation_plans, generation_resource_links and generation_evaluations are strictly tenant-owned (org_id NOT NULL, ordinary RLS key); template_defaults is platform-only (no org_id).
   - knowledge.analysis_results
   - knowledge.processing_jobs
+  - knowledge.processing_logs
   - knowledge.quality_scores
   - knowledge.resource_components
   - knowledge.resource_dependencies
@@ -324,9 +328,11 @@ tenant_less:
   - knowledge.resource_manifests
   - knowledge.resource_permissions
   - knowledge.resource_relationships
+  - knowledge.resource_reviews
   - knowledge.resource_search_documents
   - knowledge.resource_versions
   - knowledge.resources
+  - knowledge.scan_findings
   - knowledge.template_defaults
   - knowledge.theme_tokens
   - knowledge.theme_variants
@@ -3832,6 +3838,26 @@ classification:
       started_at: internal
       finished_at: internal
       created_at: internal
+      lease_owner: internal
+      lease_expires_at: internal
+      heartbeat_at: internal
+      run_after: internal
+      cancel_requested: internal
+      trace_id: internal
+      result: internal
+      created_by: internal
+    knowledge.processing_logs:
+      id: internal
+      seq: internal
+      job_id: internal
+      version_id: internal
+      org_id: internal
+      level: internal
+      stage: internal
+      code: internal
+      message: internal
+      data: internal
+      created_at: internal
     knowledge.quality_scores:
       id: internal
       version_id: internal
@@ -3915,6 +3941,17 @@ classification:
       relation: internal
       evidence: customer-content
       created_at: internal
+    knowledge.resource_reviews:
+      id: internal
+      version_id: internal
+      resource_id: internal
+      org_id: internal
+      analysis_job_id: internal
+      decision: internal
+      reviewer_id: internal
+      reason: internal
+      checklist: internal
+      created_at: internal
     knowledge.resource_search_documents:
       id: internal
       version_id: internal
@@ -3946,6 +3983,10 @@ classification:
       activated_at: internal
       activated_by: internal
       retired_at: internal
+      state_reason: internal
+      analysis_job_id: internal
+      license_proposal: internal
+      ingest_summary: internal
     knowledge.resources:
       id: internal
       org_id: internal
@@ -3970,6 +4011,19 @@ classification:
       updated_at: internal
       deleted_at: internal
       version: internal
+      provenance_class: internal
+    knowledge.scan_findings:
+      id: internal
+      version_id: internal
+      org_id: internal
+      job_id: internal
+      scanner: internal
+      code: internal
+      severity: internal
+      path: customer-content
+      line: internal
+      detail: internal
+      created_at: internal
     knowledge.template_defaults:
       id: internal
       platform: internal

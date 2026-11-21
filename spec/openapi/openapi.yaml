@@ -12864,6 +12864,428 @@ paths:
           $ref: '#/components/responses/Problem'
         '422':
           $ref: '#/components/responses/Problem'
+  # S-K2a (SCR-K-02): secure ingestion, review gate and activation
+  /v1/admin/knowledge/resources/{id}/processing-jobs:
+    get:
+      operationId: listKnowledgeProcessingJobs
+      tags:
+        - admin
+      summary: List processing jobs with progress and actionable errors
+      description: >-
+        Cursor pagination, newest first; `versionId` narrows to one version. Shows state, attempt, progress and the error code and detail of a failure. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: query
+          required: false
+          description: Only the jobs of this version.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeJobPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/logs:
+    get:
+      operationId: listKnowledgeProcessingLogs
+      tags:
+        - admin
+      summary: Read the processing log of one job
+      description: >-
+        Oldest first; `cursor` is the last `seq` received. Logs carry stages, codes and counts, never file content or a matched secret. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - name: cursor
+          in: query
+          required: false
+          description: The last `seq` received.
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeLogPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/cancellation:
+    post:
+      operationId: cancelKnowledgeProcessingJob
+      tags:
+        - admin
+      summary: Cancel a processing job
+      description: >-
+        A queued job is cancelled at once; a running job is asked to stop at its next checkpoint and records nothing. The version returns to QUARANTINED. Audited. Permission `admin:ai_knowledge:manage`.
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeJobCancellation'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/findings:
+    get:
+      operationId: listKnowledgeFindings
+      tags:
+        - admin
+      summary: List the scan findings of a version
+      description: >-
+        Secret, licence, dependency, lifecycle-script and risky-file findings of the current analysis (plus archive rejections). Evidence is a kind and `path:line`; the matched text is never stored or returned. `summary` counts by severity. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: severity
+          in: query
+          required: false
+          description: Filter by severity.
+          schema:
+            type: string
+            enum: [info, warn, block]
+        - name: scanner
+          in: query
+          required: false
+          description: Filter by scanner.
+          schema:
+            type: string
+            enum: [secrets, license, dependencies, risky_files, sensitive_files, archive]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeFindingPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/files:
+    get:
+      operationId: listKnowledgeFiles
+      tags:
+        - admin
+      summary: List the file inventory of a version
+      description: >-
+        Path, size, SHA-256, language, binary and executable flags and whether the content was kept in the snapshot. Never file content. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          description: Path contains.
+          schema:
+            type: string
+        - name: stored
+          in: query
+          required: false
+          description: Only stored or only not-stored files.
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeFilePage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/review:
+    get:
+      operationId: getKnowledgeReviewState
+      tags:
+        - admin
+      summary: Read the review state of a version
+      description: >-
+        The licence proposal, the finding counts of the current analysis, the approvals recorded and required, every decision, the blockers that stop activation right now, and what the caller may do. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeReviewState'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/reprocessing:
+    post:
+      operationId: reprocessKnowledgeVersion
+      tags:
+        - admin
+      summary: Retry an interrupted version
+      description: >-
+        Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation). A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeReprocessing'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/reviews:
+    post:
+      operationId: reviewKnowledgeResource
+      tags:
+        - admin
+      summary: Record an approval or a rejection
+      description: >-
+        Body {versionId, decision: approve|reject, note?, checklist?}. Append-only. An approval states that the findings and the licence were reviewed (`checklist.findingsReviewed` and `checklist.licenseReviewed` true); a rejection needs a note and returns the version to QUARANTINED. A third-party resource needs two approvals from different staff accounts, and its uploader cannot review it. Audited. Permission `admin:ai_knowledge:publish`.
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeReviewInput'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeReviewState'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/activation:
+    post:
+      operationId: activateKnowledgeResource
+      tags:
+        - admin
+      summary: Activate a version
+      description: >-
+        Body {versionId, note?}. Needs a completed analysis without blocking findings, a licence proposal and verdict of ALLOWED, and the approvals above; the database checks every condition again. The previous active version is retired to DISABLED (restorable through the same gate), never overwritten. Publishing the resource to customers is a separate, explicit visibility change. Audited. Permission `admin:ai_knowledge:publish`.
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeActivationInput'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeReviewState'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
   # <<< AI Intelligence Center paths
 components:
   parameters:
@@ -20684,6 +21106,18 @@ components:
         id:
           type: string
           format: uuid
+        versionId:
+          type: string
+          format: uuid
+        versionSeq:
+          type: integer
+        maxAttempts:
+          type: integer
+        cancelRequested:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
         kind:
           type: string
         state:
@@ -20812,6 +21246,12 @@ components:
             - HIGH
         dataRegion:
           type: string
+        provenanceClass:
+          type: string
+          enum:
+            - FIRST_PARTY
+            - THIRD_PARTY
+          description: Default THIRD_PARTY (two approvers, neither the uploader). FIRST_PARTY needs the publish permission and is fixed at creation.
     KnowledgePermissions:
       type: object
       properties:
@@ -20907,6 +21347,11 @@ components:
         currentVersionId:
           type: string
           format: uuid
+        provenanceClass:
+          type: string
+          enum:
+            - FIRST_PARTY
+            - THIRD_PARTY
         visibility:
           type: string
         createdAt:
@@ -21112,4 +21557,189 @@ components:
         nextCursor:
           type: string
           nullable: true
+    KnowledgeJobPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeJob'
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeLog:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        seq: { type: integer }
+        level: { type: string, enum: [debug, info, warn, error] }
+        stage: { type: string }
+        code: { type: string }
+        message: { type: string }
+        data: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    KnowledgeLogPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeLog'
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeJobCancellation:
+      type: object
+      properties:
+        jobId: { type: string, format: uuid }
+        result: { type: string, enum: [CANCELLED, CANCEL_REQUESTED] }
+    KnowledgeReprocessing:
+      type: object
+      properties:
+        versionId: { type: string, format: uuid }
+        jobId: { type: string, format: uuid }
+    KnowledgeFinding:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        scanner:
+          {
+            type: string,
+            enum: [secrets, license, dependencies, risky_files, sensitive_files, archive],
+          }
+        code: { type: string }
+        severity: { type: string, enum: [info, warn, block] }
+        path: { type: string, nullable: true }
+        line: { type: integer, nullable: true }
+        detail: { type: string }
+    KnowledgeFindingPage:
+      type: object
+      required: [items, nextCursor, summary]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeFinding'
+        nextCursor:
+          type: string
+          nullable: true
+        summary:
+          type: object
+          properties:
+            info: { type: integer }
+            warn: { type: integer }
+            block: { type: integer }
+    KnowledgeFile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        path: { type: string }
+        sha256: { type: string }
+        bytes: { type: integer }
+        language: { type: string, nullable: true }
+        isBinary: { type: boolean }
+        isExecutable: { type: boolean }
+        stored: { type: boolean }
+        secretFindings: { type: integer }
+    KnowledgeFilePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeFile'
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeReviewEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        decision: { type: string, enum: [APPROVE, REJECT] }
+        reviewerId: { type: string, format: uuid }
+        reason: { type: string, nullable: true }
+        checklist: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    KnowledgeReviewBlocker:
+      type: object
+      properties:
+        code:
+          {
+            type: string,
+            enum:
+              [
+                state,
+                not_analyzed,
+                blocking_findings,
+                license_not_allowed,
+                rejected,
+                approvals_missing,
+              ],
+          }
+        detail: { type: string }
+    KnowledgeReviewState:
+      type: object
+      properties:
+        versionId: { type: string, format: uuid }
+        resourceId: { type: string, format: uuid }
+        state: { type: string }
+        stateReason: { type: string, nullable: true }
+        provenanceClass: { type: string, enum: [FIRST_PARTY, THIRD_PARTY] }
+        uploadedBy: { type: string, format: uuid, nullable: true }
+        analysisJobId: { type: string, format: uuid, nullable: true }
+        licenseProposal:
+          type: object
+          nullable: true
+          additionalProperties: true
+        licenseVerdict: { type: string, enum: [ALLOWED, RESTRICTED, UNKNOWN, BLOCKED] }
+        summary:
+          type: object
+          nullable: true
+          additionalProperties: true
+        findings:
+          type: object
+          properties:
+            info: { type: integer }
+            warn: { type: integer }
+            block: { type: integer }
+        requiredApprovals: { type: integer }
+        approvals:
+          type: array
+          items: { type: string, format: uuid }
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeReviewEntry'
+        blockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeReviewBlocker'
+        canActivate: { type: boolean }
+        you:
+          type: object
+          properties:
+            canReview: { type: boolean }
+            hasApproved: { type: boolean }
+            isUploader: { type: boolean }
+    KnowledgeReviewInput:
+      type: object
+      required: [versionId, decision]
+      properties:
+        versionId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, reject] }
+        note: { type: string, maxLength: 2000 }
+        checklist:
+          type: object
+          properties:
+            findingsReviewed: { type: boolean }
+            licenseReviewed: { type: boolean }
+    KnowledgeActivationInput:
+      type: object
+      required: [versionId]
+      properties:
+        versionId: { type: string, format: uuid }
+        note: { type: string, maxLength: 500 }
     # <<< AI Intelligence Center schemas

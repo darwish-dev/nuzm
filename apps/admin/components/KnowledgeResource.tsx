@@ -26,6 +26,7 @@ import {
   type KnowledgeDetail,
   type KnowledgeVersion,
 } from '../lib/knowledge';
+import { KnowledgeIngestion } from './KnowledgeIngestion';
 import { KnowledgeUpload } from './KnowledgeUpload';
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
@@ -362,6 +363,17 @@ export function KnowledgeResource({
           />
         )}
       </section>
+
+      {versions.length > 0 && (
+        <KnowledgeIngestion
+          locale={locale}
+          resourceId={d.id}
+          versions={versions}
+          currentVersionId={d.currentVersionId}
+          canManage={canManage && !retired}
+          canPublish={canPublish && !retired}
+        />
+      )}
 
       {canManage && !retired && (
         <>

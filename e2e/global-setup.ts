@@ -31,6 +31,21 @@ export default async function globalSetup() {
       `INSERT INTO tenancy.platform_roles (user_id, role) VALUES ($1, 'platform_admin')`,
       [r.rows[0].id],
     );
+    // S-K2a approvers: a security reviewer and a second platform admin (both hold admin:ai_knowledge:publish)
+    for (const [who, role] of [
+      ['approver1', 'security'],
+      ['approver2', 'platform_admin'],
+    ] as const) {
+      const a = await db.query(
+        `INSERT INTO identity.users (id, issuer, subject, email, email_verified, is_platform_user)
+         VALUES (gen_random_uuid(), $1, $2, $3, true, true) RETURNING id`,
+        [ISSUER, `e2e-${who}-${loc}`, `${who}-${loc}@example.test`],
+      );
+      await db.query(`INSERT INTO tenancy.platform_roles (user_id, role) VALUES ($1, $2)`, [
+        a.rows[0].id,
+        role,
+      ]);
+    }
   }
   await db.end();
 }

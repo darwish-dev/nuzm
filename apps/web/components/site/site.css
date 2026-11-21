@@ -1,0 +1,505 @@
+/*
+ * Public service pages. They sit on top of landing.css, so the identity is the landing page's own: its colors (--bg, --surface, --ink, --muted, --blue, --line),
+ * the 28px / 16px radii, the gradient 10px buttons (.button, .button-white, .button-blue, .button-outline), the eyebrow, the sky and the footer. Only the layout of
+ * the new pages is defined here. Logical properties only, so the same CSS serves Arabic (right to left) and English.
+ */
+/* the locale layout's body does not scroll (the console scrolls inside its own panes), so the page scrolls in this wrapper */
+.landing.svc-site {
+  --control-gradient: linear-gradient(165deg, #cfe8da 0%, #93b6b3 100%);
+  font-family: Manrope, 'Cairo Variable', sans-serif;
+  block-size: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: none; /* the landing page snaps between its sections; these pages scroll freely */
+}
+.svc-site .site-footer {
+  scroll-snap-align: none;
+}
+.svc-site .eyebrow {
+  text-transform: uppercase;
+}
+html[lang='ar'] .svc-site .eyebrow {
+  text-transform: none;
+}
+html[lang='ar'] .svc-site {
+  font-family: 'Cairo Variable', Manrope, sans-serif;
+}
+html[lang='ar'] .svc-site :is(h1, h2, h3, .eyebrow, .svc-lead) {
+  letter-spacing: 0;
+}
+html[lang='ar'] .svc-site .eyebrow {
+  font-size: 13px;
+}
+/* arrows and chevrons point the way the text reads */
+[dir='rtl'] .svc-site :is(.svc-more, .svc-ghost, .svc-menu-all, .svc-crumbs) svg {
+  transform: scaleX(-1);
+}
+
+/* header: the landing header, laid over the sky */
+.svc-topbar {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  z-index: 5;
+}
+.svc-header .main-nav {
+  position: relative;
+}
+.svc-header .main-nav a,
+.svc-menu > summary {
+  color: #fff;
+}
+.svc-menu {
+  position: relative;
+}
+.svc-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  opacity: 0.9;
+  border-radius: 10px;
+  padding: 6px 4px;
+}
+.svc-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.svc-menu > summary:hover,
+.svc-menu[open] > summary {
+  opacity: 1;
+}
+.svc-menu[open] > summary svg {
+  transform: rotate(90deg);
+}
+.svc-menu-panel {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: calc(100% + 18px);
+  inline-size: min(680px, 90vw);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #8da49e55;
+  border-radius: 20px;
+  background: #253531f5;
+  box-shadow: 0 15px 40px #111a1855;
+  backdrop-filter: blur(14px);
+  z-index: 20;
+}
+.svc-header .svc-menu-panel a {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  opacity: 1;
+  color: #efebe4;
+}
+.svc-header .svc-menu-panel a:hover {
+  background: #ffffff12;
+}
+.svc-menu-panel strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+}
+.svc-menu-panel small {
+  display: block;
+  color: #aabbb7;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-block-start: 2px;
+}
+.svc-menu-icon,
+.svc-card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: #14181b;
+  background: var(--control-gradient);
+}
+.svc-menu-icon {
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: 11px;
+}
+.svc-header .svc-menu-panel a.svc-menu-all {
+  grid-column: 1 / -1;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #c8e6d6;
+  border-block-start: 1px solid #8da49e33;
+  border-radius: 0 0 14px 14px;
+  margin-block-start: 4px;
+}
+.svc-lang {
+  font-weight: 600;
+}
+
+/* hero */
+.svc-hero {
+  min-block-size: 0;
+  padding-block: 100px 70px;
+}
+.svc-hero-body {
+  position: relative;
+  padding-block-start: 56px;
+}
+.svc-hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 56px;
+  align-items: center;
+}
+.svc-hero h1 {
+  color: #fff;
+  font-size: clamp(34px, 4.6vw, 58px);
+  font-weight: 450;
+  line-height: 1.14;
+  letter-spacing: -1.8px;
+  text-wrap: balance;
+}
+.svc-lead {
+  max-inline-size: 58ch;
+  margin-block: 22px 30px !important;
+  color: #dfe9e6 !important;
+  font-size: 18px !important;
+  line-height: 1.7;
+}
+.svc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.svc-ghost {
+  background: #ffffff10 !important;
+  color: #fff !important;
+  border-color: #b2cec866 !important;
+  backdrop-filter: blur(10px);
+}
+.svc-ghost:hover {
+  background: #ffffff22 !important;
+}
+.svc-crumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 22px;
+  font-size: 13px;
+  color: #cfe0dc;
+}
+.svc-crumbs a:hover {
+  text-decoration: underline;
+}
+.svc-crumbs span {
+  color: #fff;
+}
+.svc-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 24px !important;
+  padding: 8px 14px;
+  border: 1px solid #b2cec845;
+  border-radius: 999px;
+  background: #ffffff0e;
+  color: #e4eeec !important;
+  font-size: 13px !important;
+}
+.svc-visual {
+  display: grid;
+  place-items: center;
+  min-block-size: 300px;
+  padding: 28px;
+  border: 1px solid #b2cec840;
+  border-radius: var(--radius-card, 28px);
+  background: #ffffff10;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+.svc-visual-panel {
+  display: grid;
+  gap: 24px;
+  justify-items: center;
+}
+.svc-visual-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 84px;
+  block-size: 84px;
+  border-radius: 28px;
+  color: #14181b;
+  background: var(--control-gradient);
+  box-shadow:
+    inset 0 1px 2px #ffffff80,
+    0 8px 25px #67988c33;
+}
+.svc-visual-panel ol {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  inline-size: min(300px, 100%);
+}
+.svc-visual-panel li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid #b2cec840;
+  border-radius: var(--radius-panel, 16px);
+  background: #ffffff0d;
+  color: #eaf2ef;
+  font-size: 14px;
+  font-weight: 600;
+}
+.svc-visual-panel li span {
+  display: grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 50%;
+  background: #c8e6d6;
+  color: #22262d;
+  font-size: 12px;
+  font-weight: 750;
+}
+.svc-index-hero {
+  max-inline-size: 820px;
+  margin-inline: auto;
+  text-align: center;
+}
+.svc-index-hero .eyebrow {
+  color: #c8e6d6;
+}
+.svc-index-hero .svc-lead {
+  margin-inline: auto;
+}
+.svc-index-hero .svc-actions {
+  justify-content: center;
+}
+
+/* sections */
+.svc-section {
+  padding-block: 72px 8px;
+}
+.svc-section:last-of-type {
+  padding-block-end: 80px;
+}
+.svc-head {
+  max-inline-size: 720px;
+  margin-block-end: 32px;
+}
+.svc-head h2 {
+  text-wrap: balance;
+}
+.svc-points,
+.svc-grid,
+.svc-steps {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.svc-points {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.svc-points-3 {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.svc-grid {
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+}
+.svc-steps {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  counter-reset: step;
+}
+.svc-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card, 28px);
+  background: var(--surface);
+  color: var(--ink);
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+}
+.svc-card h3 {
+  margin: 20px 0 8px;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.svc-card p {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+.svc-card-icon {
+  inline-size: 46px;
+  block-size: 46px;
+  border-radius: 14px;
+}
+.svc-link-card:hover {
+  border-color: #93b6b3;
+  transform: translateY(-3px);
+}
+.svc-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: auto;
+  padding-block-start: 18px;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 650;
+}
+.svc-link-card:hover .svc-more {
+  gap: 12px;
+}
+.svc-step-no {
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--blue);
+  font-size: 16px;
+  font-weight: 700;
+}
+.svc-steps .svc-card h3 {
+  margin-block-start: 18px;
+}
+.svc-price-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 22px !important;
+  color: var(--muted);
+  font-size: 13px !important;
+}
+
+/* questions */
+.svc-faq {
+  display: grid;
+  max-inline-size: 820px;
+  border-block-start: 1px solid var(--line);
+}
+.svc-faq details {
+  border-block-end: 1px solid var(--line);
+}
+.svc-faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-block: 20px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.svc-faq summary::-webkit-details-marker {
+  display: none;
+}
+.svc-faq summary svg {
+  flex: none;
+  color: var(--blue);
+  transition: transform 0.2s;
+}
+.svc-faq details[open] summary svg {
+  transform: rotate(45deg);
+}
+.svc-faq details p {
+  max-inline-size: 70ch;
+  padding-block-end: 22px;
+  font-size: 15px !important;
+  line-height: 1.75;
+}
+
+/* footer */
+.svc-footer-links {
+  grid-template-columns: 2fr 1.3fr 1fr;
+}
+.svc-cta-text {
+  margin-block-start: 16px;
+  color: var(--muted);
+}
+
+@media (min-width: 1000px) {
+  .svc-points:not(.svc-points-3) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 1100px) {
+  .svc-nav-link {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .svc-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .svc-visual {
+    min-block-size: 240px;
+  }
+}
+@media (max-width: 767px) {
+  .svc-hero {
+    padding-block: 82px 50px;
+  }
+  .svc-hero-body {
+    padding-block-start: 34px;
+  }
+  .svc-lead {
+    font-size: 16px !important;
+  }
+  .svc-section {
+    padding-block: 52px 4px;
+  }
+  .svc-card {
+    padding: 22px;
+  }
+  .svc-header .main-nav {
+    position: absolute;
+    inset-inline: 20px;
+    inset-block-start: 74px;
+  }
+  .svc-menu-panel {
+    position: static;
+    inline-size: 100%;
+    grid-template-columns: 1fr;
+    margin-block-start: 10px;
+    box-shadow: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+  }
+  .svc-footer-links {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .svc-card,
+  .svc-more,
+  .svc-faq summary svg {
+    transition: none;
+  }
+  .svc-link-card:hover {
+    transform: none;
+  }
+}

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from '@nuzm/ui';
 import { locales, type Locale } from '@nuzm/i18n';
+import { doc } from '../../lib/docs-content';
 import { SERVICES, pick, site } from '../../lib/site-content';
 import { BrandWordmark } from '../BrandLogo';
 import { SiteHeader } from './SiteHeader';
@@ -52,6 +53,7 @@ export function SiteFrame({
             start: site('start', locale),
             menu: site('menu', locale),
             closeMenu: site('closeMenu', locale),
+            developers: doc('developers', locale),
           }}
         />
       </div>
@@ -95,6 +97,7 @@ export function SiteFrame({
               <h3>{site('footerAccount', locale)}</h3>
               <a href={`/${locale}/login`}>{site('login', locale)}</a>
               <a href={`/${locale}/register`}>{site('start', locale)}</a>
+              <a href={`/${locale}/docs`}>{doc('developers', locale)}</a>
               <a href={`/${other}${path}`} lang={other} hrefLang={other}>
                 {site('language', locale)}
               </a>

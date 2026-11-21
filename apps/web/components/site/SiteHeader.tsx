@@ -33,6 +33,7 @@ export function SiteHeader({
     start: string;
     menu: string;
     closeMenu: string;
+    developers: string;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -80,6 +81,9 @@ export function SiteHeader({
             {s.name}
           </a>
         ))}
+        <a className="svc-nav-link svc-nav-dev" href={`/${locale}/docs`}>
+          {labels.developers}
+        </a>
       </nav>
       <div className="header-actions">
         <a

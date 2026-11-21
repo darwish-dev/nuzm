@@ -113,7 +113,7 @@ export function LandingPage() {
               ['Cloud & domains', '#cloud'],
               ['Integrations', '#integrations'],
             ].map(([label, href]) => (
-              <a key={href} href={href} onClick={() => setMenuOpen(false)}>
+              <a key={label} href={href} onClick={() => setMenuOpen(false)}>
                 {label}
               </a>
             ))}

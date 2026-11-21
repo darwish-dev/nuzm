@@ -16,7 +16,7 @@ const services: { name: string; description: string; icon: IconName; href: strin
       description:
         'A strong foundation for your next big thing. Provision and manage your compute in one place.',
       icon: 'cloud',
-      href: '/en/compute/instances',
+      href: '/en/services/cloud',
       tag: 'BUILT TO SCALE',
     },
     {
@@ -24,7 +24,7 @@ const services: { name: string; description: string; icon: IconName; href: strin
       description:
         'Every great idea starts with a name. Find yours, connect it, and make it unmistakably you.',
       icon: 'globe',
-      href: '/en/domains/search',
+      href: '/en/services/domains',
       tag: 'MAKE IT YOURS',
     },
     {
@@ -32,7 +32,7 @@ const services: { name: string; description: string; icon: IconName; href: strin
       description:
         'From your first launch to your next milestone. Give your websites a place to grow.',
       icon: 'hosting',
-      href: '/en/hosting/sites',
+      href: '/en/services/hosting',
       tag: 'READY FOR LAUNCH',
     },
     {
@@ -40,7 +40,7 @@ const services: { name: string; description: string; icon: IconName; href: strin
       description:
         'Vibe code websites and connect multiple systems, from the first prompt to deployment.',
       icon: 'code',
-      href: '/en/builder/projects',
+      href: '/en/services/ai-builder',
       tag: 'FROM IDEA TO LAUNCH',
     },
   ];
@@ -107,6 +107,7 @@ export function LandingPage() {
           </a>
           <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Main navigation">
             {[
+              ['Services', '/en/services'],
               ['AI agents', '#agents'],
               ['Workspace', '#cloud'],
               ['Cloud & domains', '#cloud'],
@@ -430,10 +431,11 @@ export function LandingPage() {
             </div>
             <div>
               <h3>Build on Nuzm</h3>
-              <a href="/en/compute/instances">Cloud servers</a>
-              <a href="/en/domains/search">Domains</a>
-              <a href="/en/hosting/sites">Website cloud</a>
-              <a href="/en/builder/apps">Multi systems</a>
+              <a href="/en/services/cloud">Cloud servers</a>
+              <a href="/en/services/domains">Domains</a>
+              <a href="/en/services/hosting">Website cloud</a>
+              <a href="/en/services/ai-builder">AI builder</a>
+              <a href="/en/services">All services</a>
             </div>
             <div>
               <h3>Your workspace</h3>

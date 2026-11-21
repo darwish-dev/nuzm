@@ -205,6 +205,12 @@ tables:
       hook: m09-builder-assets,
       note: 'a project carries the data_region its files and versions are stored in',
     }
+  knowledge.resources:
+    {
+      owner: K,
+      hook: k-knowledge-library,
+      note: 'a library resource carries the data_region its archives, snapshots and analysis are stored in; source or text reaches a model or embedding vendor only through the residency check',
+    }
   builder.form_submissions:
     {
       owner: M09,
@@ -488,4 +494,13 @@ hooks:
     processor_kind: model
     enforcement: listed
     flag: residency.enforce.agent_runs
+    call_site: null
+  - id: k-knowledge-library
+    milestone: K
+    where: 'AI Intelligence Center: placement of library archives and snapshots, and any send of resource source or documentation to a model or embedding vendor (ADR-065)'
+    data_classes:
+      - customer-content
+    processor_kind: model
+    enforcement: listed
+    flag: residency.enforce.knowledge
     call_site: null

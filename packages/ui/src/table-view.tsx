@@ -14,13 +14,20 @@ type View = 'cards' | 'table';
 const KEY = 'nuzm.tableView';
 const EVENT = 'nuzm:table-view';
 
-function stored(): View {
+/** The remembered choice, or null when none was made (then the surroundings decide: see `defaultFor`). */
+function stored(): View | null {
   try {
-    return localStorage.getItem(KEY) === 'table' ? 'table' : 'cards';
+    const v = localStorage.getItem(KEY);
+    return v === 'table' || v === 'cards' ? v : null;
   } catch {
-    return 'cards'; // storage can be blocked: cards stay the default
+    return null; // storage can be blocked: the default applies
   }
 }
+/** Cards are the default everywhere except inside an area that asks for tables (`data-table-default="table"`: the workspace panels, where tables hold many small columns). */
+const defaultFor = (el: Element | null): View =>
+  el?.closest('[data-table-default]')?.getAttribute('data-table-default') === 'table'
+    ? 'table'
+    : 'cards';
 
 /** The Cards / Table switch at the top of every data table. One choice for all tables, remembered in this browser. */
 export function TableViewToggle() {
@@ -34,7 +41,7 @@ export function TableViewToggle() {
       const wrap = ref.current?.closest('.nz-table-wrap');
       if (wrap) wrap.setAttribute('data-view', v);
     };
-    apply(stored());
+    apply(stored() ?? defaultFor(ref.current));
     const on = (e: Event) => apply((e as CustomEvent<View>).detail);
     window.addEventListener(EVENT, on);
     return () => window.removeEventListener(EVENT, on);

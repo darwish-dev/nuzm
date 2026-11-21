@@ -86,6 +86,28 @@ describe('preview pane (the sandbox is the security boundary)', () => {
     );
     expect(frame).toBeTruthy();
   });
+  it('keeps the loaded frame on screen until the next one has loaded (no white flash), then shows only the new one', async () => {
+    mockFetch(() => json(201, preview('https://tok.preview.example/ar/')));
+    render(
+      <PreviewPane locale="en" projectId="p1" versionId="v1" siteLocales={['ar', 'en']} canWrite />,
+    );
+    const title = t('en', 'bld.preview.frame');
+    const first = await screen.findByTitle(title);
+    // hidden until it has loaded
+    expect(first.getAttribute('data-role')).toBe('first');
+    fireEvent.load(first);
+    await waitFor(() => expect(first.getAttribute('data-role')).toBe('front'));
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.lang.en') }));
+    await waitFor(() => expect(screen.getAllByTitle(title)).toHaveLength(2));
+    const [shown, next] = screen.getAllByTitle(title);
+    expect(shown!.getAttribute('src')).toBe('https://tok.preview.example/ar/');
+    expect(shown!.getAttribute('data-role')).toBe('front');
+    expect(next!.getAttribute('src')).toBe('https://tok.preview.example/en/');
+    expect(next!.getAttribute('data-role')).toBe('back');
+    fireEvent.load(next!);
+    await waitFor(() => expect(screen.getAllByTitle(title)).toHaveLength(1));
+    expect(screen.getByTitle(title).getAttribute('data-role')).toBe('front');
+  });
   it('never frames a URL that is not http(s)', async () => {
     mockFetch(() => json(201, preview('javascript:alert(1)')));
     render(<PreviewPane locale="en" projectId="p1" versionId="v1" siteLocales={['en']} canWrite />);

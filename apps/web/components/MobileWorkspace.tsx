@@ -282,7 +282,7 @@ export function MobileWorkspace({
       }
     >
       {!allowed ? (
-        <div className="mws-panel">
+        <div className="mws-panel" data-table-default="table">
           <PanelForbidden locale={locale} />
         </div>
       ) : tab === 'preview' ? (
@@ -320,7 +320,7 @@ export function MobileWorkspace({
       ) : tab === 'code' ? (
         <MobileCode locale={locale} projectId={project.id} versionId={project.versionId} />
       ) : (
-        <div className="mws-panel">
+        <div className="mws-panel" data-table-default="table">
           {tab === 'spec' && <MobileSpecPane locale={locale} manifest={project.manifest} />}
           {tab === 'builds' && (
             <BuildsPanel

@@ -43,6 +43,7 @@ describe('platform scope usage', () => {
           !f.startsWith('modules/programs/') &&
           !f.startsWith('modules/domains/') &&
           !f.startsWith('modules/appbuilder/') && // M10A: sandbox reaper and CPU metering sweep across organizations
+          !f.startsWith('modules/knowledge/') && // ADR-065: the AI knowledge library is platform-owned (org_id NULL) and managed by staff; customers never use this scope
           // >>> M09: model provider registry, run oversight and sweepers (admin console register tables, service-level callers)
           !f.startsWith('modules/ai/') &&
           !f.startsWith('modules/builder/') &&

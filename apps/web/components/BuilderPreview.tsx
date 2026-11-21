@@ -95,6 +95,9 @@ export function PreviewPane({
 
   const src =
     preview && isPreviewUrl(preview.url) ? previewForLocale(preview.url, siteLocale) : null;
+  const frameKey = `${preview?.id}-${siteLocale}`;
+  const [front, setFront] = useState<{ k: string; src: string } | null>(null);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   return (
     <div className={bare ? 'bld-preview-bare' : undefined}>
       {!bare && (
@@ -149,16 +152,37 @@ export function PreviewPane({
         tabIndex={0}
       >
         {src ? (
-          <iframe
-            key={`${preview?.id}-${siteLocale}`}
-            className="bld-frame"
-            title={t(locale, 'bld.preview.frame')}
-            src={src}
-            sandbox="allow-scripts"
-            referrerPolicy="no-referrer"
-            data-viewport={viewport}
-            style={{ inlineSize: VIEWPORTS[viewport] }}
-          />
+          <>
+            {/* the frame that is on screen stays until the next one has LOADED, then the new one fades in: no white flash between versions or languages */}
+            {front && front.k !== frameKey && loadedKey !== frameKey && (
+              <iframe
+                key={front.k}
+                className="bld-frame"
+                title={t(locale, 'bld.preview.frame')}
+                src={front.src}
+                sandbox="allow-scripts"
+                referrerPolicy="no-referrer"
+                data-viewport={viewport}
+                data-role="front"
+                style={{ inlineSize: VIEWPORTS[viewport] }}
+              />
+            )}
+            <iframe
+              key={frameKey}
+              className="bld-frame"
+              title={t(locale, 'bld.preview.frame')}
+              src={src}
+              sandbox="allow-scripts"
+              referrerPolicy="no-referrer"
+              data-viewport={viewport}
+              data-role={loadedKey === frameKey ? 'front' : front ? 'back' : 'first'}
+              style={{ inlineSize: VIEWPORTS[viewport] }}
+              onLoad={() => {
+                setLoadedKey(frameKey);
+                setFront({ k: frameKey, src });
+              }}
+            />
+          </>
         ) : (
           <p role="status" aria-busy={call.busy} className="nz-muted">
             {canWrite ? t(locale, 'bld.preview.loading') : t(locale, 'bld.preview.none')}

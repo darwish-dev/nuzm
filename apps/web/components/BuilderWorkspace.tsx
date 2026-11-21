@@ -40,13 +40,8 @@ import { Inspector, type Selection } from './BuilderInspector';
 import { PreviewPane } from './BuilderPreview';
 import { RunCard, type RunProgress } from './BuilderRunCard';
 import { DeleteProject } from './DeleteProject';
-import {
-  STUDIO_SECTIONS,
-  StudioPanel,
-  studioSection,
-  type StudioCan,
-  type StudioSection,
-} from './StudioPanels';
+import { StudioPanel, type StudioCan } from './StudioPanels';
+import { STUDIO_SECTIONS, studioSection, type StudioSection } from '../lib/studio-sections';
 
 type Mode = 'edit' | 'undo' | 'redo';
 
@@ -198,7 +193,7 @@ export function Workspace({
     [reload],
   );
 
-  // The site's other sections (versions, SEO, forms, content, publishing) open as a panel of THIS studio for THIS site; the address follows (`?panel=`)
+  // The site's other sections (versions, SEO, forms, content, publishing) open in the main area of THIS studio for THIS site, in place of the preview (like Data); the address follows (`?panel=`)
   const sections = STUDIO_SECTIONS.filter((k) => links.some((l) => l.key === k));
   const [panel, setPanel] = useState<StudioSection | null>(
     initialPanel && sections.includes(initialPanel) ? initialPanel : null,
@@ -231,6 +226,11 @@ export function Workspace({
     e.currentTarget.closest('details')?.removeAttribute('open');
     openPanel(s);
   };
+  /** Preview / Code / Data bring the canvas back (a section open in the main area closes) */
+  const showView = (v: 'preview' | 'code' | 'data') => {
+    setView(v);
+    if (panel) closePanel();
+  };
   const model = detail.siteModel;
   const siteLocales = model.locales as SiteLocale[];
   const DEVICES: { id: Viewport; icon: IconName }[] = [
@@ -241,13 +241,18 @@ export function Workspace({
   const publish = links.find((l) => l.key === 'deployments');
   const more = links.filter((l) => l.key !== 'deployments');
   return (
-    <div className="bws" data-inspector={inspectorOpen ? 'open' : 'closed'}>
+    <div className="bws" data-inspector={inspectorOpen && !panel ? 'open' : 'closed'}>
       <header className="bws-top">
         <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
           <BrandMark />
         </a>
-        <a className="bws-back" href={`/${locale}/builder/projects`}>
-          {t(locale, 'bld.ws.back')}
+        <a
+          className="bws-back"
+          href={`/${locale}/builder/projects`}
+          aria-label={t(locale, 'bld.ws.back')}
+          title={t(locale, 'bld.ws.back')}
+        >
+          <Icon name="arrow" size={18} />
         </a>
         <h2 className="bws-title">
           <bdi dir="auto">{detail.name}</bdi>
@@ -260,23 +265,31 @@ export function Workspace({
         <div className="bws-seg" role="group" aria-label={t(locale, 'bld.ws.view')}>
           <button
             type="button"
-            aria-pressed={view === 'preview'}
-            onClick={() => setView('preview')}
+            aria-pressed={!panel && view === 'preview'}
+            onClick={() => showView('preview')}
           >
             <Icon name="eye" size={16} />
             {t(locale, 'bld.ws.preview')}
           </button>
-          <button type="button" aria-pressed={view === 'code'} onClick={() => setView('code')}>
+          <button
+            type="button"
+            aria-pressed={!panel && view === 'code'}
+            onClick={() => showView('code')}
+          >
             <Icon name="code" size={16} />
             {t(locale, 'bld.ws.code')}
           </button>
-          <button type="button" aria-pressed={view === 'data'} onClick={() => setView('data')}>
+          <button
+            type="button"
+            aria-pressed={!panel && view === 'data'}
+            onClick={() => showView('data')}
+          >
             <Icon name="data" size={16} />
             {t(locale, 'bld.ws.data')}
           </button>
         </div>
         <span className="bws-spacer" />
-        {view === 'preview' && (
+        {!panel && view === 'preview' && (
           <div
             className="bws-seg bws-seg-icons"
             role="group"
@@ -296,7 +309,7 @@ export function Workspace({
             ))}
           </div>
         )}
-        {view === 'preview' && siteLocales.length > 1 && (
+        {!panel && view === 'preview' && siteLocales.length > 1 && (
           <div className="bws-seg" role="group" aria-label={t(locale, 'bld.ws.lang')}>
             {siteLocales.map((l) => (
               <button
@@ -415,7 +428,7 @@ export function Workspace({
 
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {reloadError && <Banner tone="danger">{t(locale, 'bld.ws.reloadFailed')}</Banner>}
-          {view === 'preview' && scene !== 'off' && (
+          {!panel && view === 'preview' && scene !== 'off' && (
             <div className="bscene-wrap" data-leaving={scene === 'leaving' ? 'true' : undefined}>
               <BuildingScene locale={locale} label={progress.label} />
             </div>
@@ -426,7 +439,16 @@ export function Workspace({
               {progress.label || t(locale, 'bld.card.working')}
             </div>
           )}
-          {view === 'preview' ? (
+          {panel ? (
+            <StudioPanel
+              locale={locale}
+              projectId={detail.id}
+              section={panel}
+              sections={sections}
+              can={panelCan}
+              onSelect={openPanel}
+            />
+          ) : view === 'preview' ? (
             <PreviewPane
               bare
               locale={locale}
@@ -454,7 +476,7 @@ export function Workspace({
         <aside
           className="bws-insp"
           aria-label={t(locale, 'bld.ws.inspector')}
-          hidden={!inspectorOpen}
+          hidden={!inspectorOpen || Boolean(panel)}
         >
           <Inspector
             locale={locale}
@@ -476,17 +498,6 @@ export function Workspace({
             onRebase={() => void rebase()}
           />
         </aside>
-        {panel && (
-          <StudioPanel
-            locale={locale}
-            projectId={detail.id}
-            section={panel}
-            sections={sections}
-            can={panelCan}
-            onSelect={openPanel}
-            onClose={closePanel}
-          />
-        )}
       </div>
     </div>
   );

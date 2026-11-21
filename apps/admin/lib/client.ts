@@ -17,3 +17,6 @@ export const browserApi = () =>
     realm: 'admin',
     getCsrf: () => read('nuzm_admin_csrf'),
   });
+
+/** The admin realm's CSRF token (for requests the typed client cannot make, such as raw part uploads). */
+export const adminCsrf = () => read('nuzm_admin_csrf');

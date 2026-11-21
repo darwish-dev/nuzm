@@ -1002,20 +1002,22 @@ function ProjectGithub({
               )}
               <PullRequests locale={locale} base={base} n={n} />
               {can.write && (
-                <button
-                  type="button"
-                  className="nz-btn"
-                  data-variant="secondary"
-                  disabled={call.busy}
-                  onClick={() =>
-                    void act(
-                      () => bapi.del(`${base}/link`),
-                      () => undefined,
-                    )
-                  }
-                >
-                  {t(locale, 'ais.gh.unlink')}
-                </button>
+                <div className="ais-foot">
+                  <button
+                    type="button"
+                    className="nz-btn"
+                    data-variant="secondary"
+                    disabled={call.busy}
+                    onClick={() =>
+                      void act(
+                        () => bapi.del(`${base}/link`),
+                        () => undefined,
+                      )
+                    }
+                  >
+                    {t(locale, 'ais.gh.unlink')}
+                  </button>
+                </div>
               )}
             </Card>
           )

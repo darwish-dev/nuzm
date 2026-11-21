@@ -18,6 +18,7 @@ describe('admin navigation', () => {
       'compliance',
       'infra',
       'ai',
+      'aik',
       'platform',
       'ops',
     ]);
@@ -98,5 +99,14 @@ describe('admin navigation', () => {
           seen.add(i.id);
         }
     }
+  });
+
+  it('the AI Intelligence Center shows its library only to staff who may read it (admin:ai_knowledge:read)', () => {
+    const only = (perm: string) => buildAdminNav((p: string) => p === perm);
+    const cats = only('admin:ai_knowledge:read');
+    expect(ids(cats)).toEqual(['aik']);
+    expect(cats[0]!.groups[0]!.items.map((i) => i.href)).toEqual(['/ai-intelligence/library']);
+    expect(ids(only('admin:ai:read'))).not.toContain('aik'); // the older AI permission does not open it
+    expect(ids(only('admin:ai_knowledge:manage'))).toEqual([]); // manage without read shows nothing: the API needs read for every list
   });
 });

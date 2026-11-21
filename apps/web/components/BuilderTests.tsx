@@ -24,22 +24,28 @@ const POLL_MS = 3000;
 export function TestResult({ locale, summary }: { locale: Locale; summary: TestSummaryView }) {
   return (
     <>
-      <dl>
-        <dt>{t(locale, 'm10.tst.totals.tests')}</dt>
-        <dd>
-          <Ltr>{String(summary.totals.tests)}</Ltr>
-        </dd>
-        <dt>{t(locale, 'm10.tst.totals.failures')}</dt>
-        <dd>
-          <Ltr>{String(summary.totals.failures)}</Ltr>
-        </dd>
-        <dt>{t(locale, 'm10.tst.totals.skipped')}</dt>
-        <dd>
-          <Ltr>{String(summary.totals.skipped)}</Ltr>
-        </dd>
+      <dl className="mws-stats">
+        <div>
+          <dt>{t(locale, 'm10.tst.totals.tests')}</dt>
+          <dd>
+            <Ltr>{String(summary.totals.tests)}</Ltr>
+          </dd>
+        </div>
+        <div>
+          <dt>{t(locale, 'm10.tst.totals.failures')}</dt>
+          <dd>
+            <Ltr>{String(summary.totals.failures)}</Ltr>
+          </dd>
+        </div>
+        <div>
+          <dt>{t(locale, 'm10.tst.totals.skipped')}</dt>
+          <dd>
+            <Ltr>{String(summary.totals.skipped)}</Ltr>
+          </dd>
+        </div>
       </dl>
       {summary.note && (
-        <p>
+        <p className="mws-note">
           <bdi dir="auto">{summary.note}</bdi>
         </p>
       )}

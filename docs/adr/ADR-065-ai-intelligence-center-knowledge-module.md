@@ -1,0 +1,132 @@
+# ADR-065: AI Intelligence Center — a `knowledge` module for admin-curated projects, themes, components and documentation
+
+- Status: **Accepted by the owner in the session of 2026-11-20, as drafted** (reply "Approve as drafted" to the agent's request to approve ADR-065 and
+  SCR-K-01 so that slice S-K1 can start). The agent recorded the decision; the owner made it. Acceptance covers the design in this ADR and the
+  contracts in `docs/spec-change-requests/SCR-K-01-ai-intelligence-center.md`; it does **not** lift any gate listed under "Depends on" (D-18, D-21,
+  HG-09-01, HG-AS-01, PA-M10-01), and it does not accept a model-tool-use contract (D-46: separate SCR).
+- Related decisions: D-41 … D-49 (new, OPEN in `docs/07`); depends on open D-18, D-21, HG-09-01, HG-AS-01, PA-M10-01
+- Evidence: `docs/ai-intelligence/AUDIT_AND_PLAN.md` (audit 2026-11-20)
+- Related ADRs: ADR-004 (schema per module + RLS), ADR-007 (durable operations), ADR-012 (residency), ADR-013 (metering), ADR-015 (sandbox, OPEN),
+  ADR-052 (object storage provider), ADR-061 (model gateway), ADR-064 (AI Studio: GitHub, Skills, instructions)
+
+## Context
+
+The AI Builder generates web apps from an **app spec** through a deterministic scaffold (`appbuilder/internal/gen`) and Flutter apps from built-in
+templates. It cannot start from an administrator-approved existing project or theme, cannot learn a theme's design language, and has no retrieval over
+reusable components or documentation. The owner asks for a staff-managed library ("AI Intelligence Center") of source projects, themes, component
+libraries, design systems and documentation that the builder uses to produce better, editable customer projects.
+
+Constraints already decided or open, and which this ADR must respect (see the audit §1–2):
+- Uploaded source is untrusted. There is no isolated sandbox runtime (D-21 open): nothing uploaded may be installed, built, run or previewed.
+- No real model provider contract or data terms (HG-09-01, D-18): no live generation, no embeddings sent to a vendor.
+- Durable work is `platform.operations` + outbox (ADR-007); there is no BullMQ/Redis queue.
+- Contracts are OpenAPI-first; tables live in one module's schema and are listed in `spec/db/ownership.yaml` with a data class per column.
+- Customer-imported repositories (ADR-064) are tenant data and must never reach a global library.
+
+## Decision (proposed)
+
+1. **A new modular-monolith module `knowledge`** (`apps/api/src/modules/knowledge`, pure libraries in `packages/domain/src/knowledge`, worker consumers
+   in `apps/worker/src/knowledge-consumers.ts`, admin UI under `apps/admin/.../ai-knowledge`). It owns the Postgres schema `knowledge`. No new service,
+   no graph database, no vector database.
+
+2. **Data model** (20 tables, all in `spec/db/ownership.yaml`, forced RLS, UUIDv7, `snake_case`, UTC): `resources`, `resource_versions`, `resource_files`,
+   `resource_permissions`, `resource_manifests`, `resource_components`, `resource_dependencies`, `resource_relationships`, `resource_search_documents`,
+   `processing_jobs`, `analysis_results`, `quality_scores`, `usage_events`, `theme_tokens`, `theme_variants`, `template_defaults`, `uploads`,
+   `generation_plans`, `generation_resource_links`, `generation_evaluations`. Versions are immutable once past `VALIDATING`; a state change is a new
+   row or an append-only transition record, never an overwrite of source bytes. Checksums (SHA-256) and provenance (source kind, commit, uploader,
+   time) are stored on every version. Soft delete (`deleted_at`) plus a retention field; hard deletion only through the data-retention job.
+
+3. **Visibility and tenancy.** A resource row has `org_id NULL` (platform library, staff-owned) or `org_id = <tenant>` (a customer's private template
+   or import). RLS:
+   - staff (platform realm) read and write platform rows through `admin:ai_knowledge:*` permissions;
+   - a customer session reads tenant rows of its own org only, and platform rows **only through the view `knowledge.v_published_templates`**, which
+     exposes metadata, compatibility facts, design summary and preview asset references — never file contents, manifests' source excerpts or object
+     keys — and only for versions that are `ACTIVE`, published, licence-eligible and reuse-permitted;
+   - file bytes and analysis internals are readable by the worker/orchestrator role only, and are copied into a project workspace by the
+     orchestrator, never returned by an API.
+   Every query path gets a cross-tenant test (CLAUDE.md §4). Customer imports and customer-authored templates are stored with their own `org_id`
+   and have **no write path** into platform rows.
+
+4. **Platform object-store port.** Original archives, extracted snapshots, preview assets and reports live in object storage, not in Postgres
+   (`ai.artifacts` stores bytes in Postgres and is unsuitable for archives). A port `KnowledgeObjectStore` (put/get stream, multipart, head, delete,
+   short-lived signed URL) with a **dev filesystem adapter** and a **provider adapter** built on the existing `ObjectStorageAdapter` once the
+   ADR-052 provider and region are chosen (D-42). Content-addressed keys allow safe deduplication by checksum.
+
+5. **Ingestion is a state machine run by workers, with no execution of uploaded code.**
+   `UPLOADING → QUARANTINED → VALIDATING → ANALYZING → INDEXING → AWAITING_REVIEW → ACTIVE` (plus `FAILED`, `DISABLED`, `ARCHIVED`). Job kinds are
+   `platform.operations` types `knowledge.validate|extract|detect|analyze|components|design|document|index|quality` (and later `embed`, `preview`),
+   each with timeout, bounded retries, cancel, dead-letter state and progress rows in `knowledge.processing_jobs`.
+   Safety rules, all enforced by pure, unit/property-tested functions: allow-listed extension/MIME; entry-count, extracted-size, ratio and depth
+   limits; rejection of absolute, `..`, NUL, drive-letter and confusable paths; rejection of symlinks, hardlinks and device entries; binary and
+   executable policy; secret detection with redaction (reusing `packages/domain/src/ai/secret-scan.ts`); dependency-manifest and licence inspection
+   (reusing the dependency policy and marketplace scan patterns); prompt-injection fencing of README/docs (reusing `ai/untrusted.ts`).
+   **No `child_process`, no package manager, no lifecycle script** in any analyzer. Malware scanning is not claimed unless an engine is chosen (D-44).
+   Activation of third-party or licensed resources needs two different staff approvers (same rule as D-40); unknown licence ⇒ not activatable (D-43).
+
+6. **Analysis is deterministic first.** A versioned, extensible **framework registry** of pure detectors (Next.js, React, Vue, Angular, Flutter, NestJS,
+   Express, Django, Laravel, …; a resource may match several). TypeScript/JavaScript use the TypeScript compiler API; Dart uses a bundled parser that
+   never runs the Dart/Flutter SDK (D-45). Output: a **Project Intelligence Manifest** (schema-versioned JSON) where every capability carries
+   `evidence` (file/line references) and `confidence`; capabilities without evidence are not written. Theme analysis emits **Design DNA** and design
+   tokens from static CSS/Tailwind/theme files. Results are cached by content hash (`analysis_results.content_hash`); unchanged files are not
+   re-analysed. A model may add semantic summaries only when the resource permission, `ResidencyPolicyService`, data terms and budget all allow it.
+
+7. **Retrieval is hybrid and permission-first.** Hard eligibility filters (visibility, licence, reuse/AI permissions, platform and framework
+   compatibility, availability) run in SQL **before** ranking. Layers: structured metadata; lexical (`tsvector` + trigram, no extra service); symbol and
+   dependency-graph search over `resource_components` / `resource_relationships`; design search over `theme_tokens` / Design DNA. A semantic layer
+   (embeddings) is added only if the managed Postgres exposes `vector` (capability probe, "unknown = unsupported") **and** D-47 selects a permitted
+   embedding model; until then it is `BLOCKED`, and the others work without it. Results return resource id, pinned version, relevance,
+   compatibility and quality scores, licence eligibility, permissions, matching components, evidence and a recommended usage strategy.
+
+8. **Recommendation** is a configurable weighted model after the hard filters. Initial configuration (not proven optimal, D-48): functional
+   relevance 25%, framework compatibility 20%, architecture compatibility 20%, design relevance 15%, quality 10%, reuse efficiency 10%. Weights live
+   in `knowledge` settings with an audit trail; outcomes (`usage_events`, `generation_evaluations`) feed evaluation, never silent auto-tuning of a
+   customer-visible default. Strategies: `AUTO_SELECT`, `USER_SELECTED`, `ADMIN_DEFAULT`, `GENERATE_FROM_SCRATCH`. A user's explicit theme choice is
+   honoured unless unavailable, unauthorised or incompatible, and the incompatibility is explained, never silently substituted. Admin defaults
+   (`template_defaults`) are preferences that still pass compatibility and permission checks.
+
+9. **Generation integration reuses the existing run engine.** New: a requirement-analysis and planning step (structured output) stored as
+   `knowledge.generation_plans`; a **workspace initialiser** that copies an immutable resource version into the customer's `builder.project_files`
+   (the source version is never modified); context assembly with a token budget (manifest, Design DNA, relevant paths and snippets, component
+   contracts, constraints, instruction layers from ADR-064), fetching more files on demand. Changes go through the existing changes/approvals
+   pipeline and internal Git so follow-up prompts operate on the current project state. Execution is **not** a new endpoint: it is `POST /v1/ai/runs`
+   with a new run kind and a `planId`, so budgets, credits, metering, audit and cancellation stay in one place.
+   An agentic coding loop (read/search/edit/create files, run approved commands, view build errors) needs a **tool-use extension of the
+   `ModelAdapter` contract** (today: chat, structured output, long context, embeddings, vision), specified separately (D-46). The Claude Code binary and
+   customer subscriptions are not used by this engine (D-38 stands). Build/test/visual validation steps are wired but run only on an `isolated`
+   runtime that has passed the escape suite (D-21); before that they report `BLOCKED`, never a pass.
+
+10. **Quality and analytics are evidence-based.** `quality_scores` rows reference the evidence that produced them (analysis result, test run,
+    build log, scan result); a dimension with no evidence is shown as "not measured". Analytics read real counts (resources, jobs, usage, cost via
+    metering). Nothing is trained or fine-tuned on customer source; any future training workflow needs a new ADR and explicit controls.
+
+11. **Operational rules.** Feature flags, all default OFF: `knowledge.library` (admin console, ingestion), `knowledge.customer_templates`
+    (gallery, from-template), `knowledge.import_projects` (customer import), `knowledge.semantic_search` (stays off until D-47). Metering event for every
+    billable AI step; audit event for every mutation; `data_region` on every resource, `ResidencyPolicyService` before any vendor call; per-org and
+    global concurrency/storage quotas; Arabic + English UI with RTL, e2e test and screenshot per screen.
+
+## Alternatives considered
+- **Reuse `builder.skills` tables for the library** — skills are small text bundles with a different lifecycle; sharing tables would blur ownership
+  and RLS. Governance (approvals, scanning) is reused, tables are not.
+- **Separate microservice** — contradicts ADR-001; no scale evidence.
+- **BullMQ + Redis** — contradicts ADR-007 and adds an operational dependency for no needed capability.
+- **Graph database for the architecture graph** — edge tables with indexes answer the queries needed; revisit only with measured need.
+- **Dedicated vector database** — premature and adds a data-residency surface; revisit after D-47 and a measured retrieval gap.
+- **Store archives in `ai.artifacts` (Postgres)** — poor for large objects; no signed-URL or lifecycle support.
+- **Execute uploaded projects on the API/worker host to "verify" them** — unacceptable for untrusted code; rejected until D-21.
+
+## Consequences
+- New public contracts (OpenAPI paths, tables, audit events, error codes, permissions, flags) — proposed in SCR-K-01; none exists until approved.
+- A new RLS shape (platform-owned rows readable by customers only through a published-metadata view) is introduced; it needs dedicated
+  isolation tests and a security review before `knowledge.customer_templates` can be turned on.
+- Several acceptance rows of the request stay `BLOCKED` until D-18, D-21, D-42, D-44, D-46, D-47 and HG-AS-01 are resolved; the deterministic
+  slices (S-K1 … S-K5 in the audit) are not blocked by them.
+- Licence risk for third-party themes is a legal matter, not an engineering one (D-43); no commercial theme is activated before counsel review.
+
+## Consistency check (agent, 2026-11-20)
+- Does not conflict with ADR-004/007/012/013/061/064. It depends on ADR-015 (OPEN) for any execution and does not assume its outcome.
+- The request's endpoint names (`/admin/ai-resources`, `/ai-builder/...`) and table names (`ai_resource_*`) are adapted to `docs/04` and ADR-004
+  conventions; the mapping is in the SCR. Where the request and a higher source conflict, the higher source is followed (audit §1, C1–C9).
+- ADR-064's GitHub App (D-39) is the only repository-import path; real private-repo import stays BLOCKED on HG-AS-01.
+
+## Owner / date
+Owner / 2026-11-20 (session decision, recorded by the agent; drafted by the agent the same day)

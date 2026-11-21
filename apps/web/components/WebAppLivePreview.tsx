@@ -86,22 +86,40 @@ export function WebAppLivePreview({
       {!canWrite && <Banner tone="warn">{t(locale, 'mws.web.live.needsWriter')}</Banner>}
       {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
       {src ? (
-        <div className="mws-live-frame">
-          <iframe
-            key={src}
-            title={t(locale, 'mws.web.live.frame')}
-            src={src}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-            referrerPolicy="no-referrer"
-          />
-        </div>
+        <LiveFrame key={src} locale={locale} src={src} />
       ) : (
-        <p className="nz-muted" role="status" aria-busy={call.busy}>
+        <p className="mws-live-wait" role="status" aria-busy={call.busy}>
+          <span className="bld-spinner" aria-hidden="true" />
           {call.busy || (canWrite && buildId && !call.problem)
             ? t(locale, 'mws.web.live.starting')
             : t(locale, 'mws.web.live.intro')}
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * The running app in its frame. The frame stays hidden (a quiet placeholder with the spinner) until the app has loaded and then fades in, so the
+ * white of an unloaded page never flashes before the preview.
+ */
+function LiveFrame({ locale, src }: { locale: Locale; src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="mws-live-frame" data-loaded={loaded ? 'true' : 'false'}>
+      {!loaded && (
+        <p className="mws-live-wait" role="status">
+          <span className="bld-spinner" aria-hidden="true" />
+          {t(locale, 'mws.web.live.starting')}
+        </p>
+      )}
+      <iframe
+        title={t(locale, 'mws.web.live.frame')}
+        src={src}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
+        referrerPolicy="no-referrer"
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
   );
 }

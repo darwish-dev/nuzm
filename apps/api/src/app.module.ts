@@ -22,6 +22,7 @@ import { HostingModule } from './modules/hosting';
 import { PlatformModule } from './modules/platform';
 // M10A (app builder): append-only block
 import { AppBuilderModule } from './modules/appbuilder';
+import { KnowledgeModule } from './modules/knowledge';
 import { MobileModule } from './modules/mobile';
 // >>> M09 modules
 import { AiModule } from './modules/ai';
@@ -75,6 +76,7 @@ import { ProgramsModule } from './modules/programs';
     ProgramsModule,
     AppBuilderModule, // M10A
     MobileModule, // M10B
+    KnowledgeModule, // AI Intelligence Center (ADR-065)
   ],
 })
 export class AppModule {}

@@ -1,11 +1,10 @@
 'use client';
 import type { ComponentProps } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
-import { Badge, EmptyState } from '@nuzm/ui';
-import { pick, type SpecView } from '../lib/appworkspace';
+import { EmptyState } from '@nuzm/ui';
 import type { HostingSiteRef, Page_, Version } from '../lib/builder';
 import { AppDeployments } from './AppDeployments';
-import { AppSpecPanel, AppSummary, AppVersions, NoBuildYet } from './AppBlueprint';
+import { AppSpecPanel, AppVersions, NoBuildYet } from './AppBlueprint';
 import { Exports } from './BuilderExports';
 import { TestRuns } from './BuilderTests';
 import { Gate } from './PanelLoad';
@@ -46,81 +45,26 @@ export interface AppProject {
   lastDeployment: { state: string; url: string | null } | null;
 }
 
-/** Preview: the project at a glance, the running app (live preview, ADR-063) and what the agents built. */
+/**
+ * Preview: the running app (live preview, ADR-063) alone, edge to edge in the canvas like the website preview. What the agents built is listed in the
+ * conversation, the spec in its own panel and the project's details in Deployments and Versions, so none of it repeats above the app.
+ */
 export function AppPreviewPanel({
   locale,
   project,
-  refresh,
   canWrite,
 }: {
   locale: Locale;
   project: AppProject;
-  refresh: number;
   canWrite: boolean;
 }) {
-  const [built, retry] = useBuilt(project.id, refresh);
   return (
-    <div className="mws-app-preview">
-      <AppSummary locale={locale} project={project} />
-      <WebAppLivePreview
-        locale={locale}
-        projectId={project.id}
-        canWrite={canWrite}
-        buildId={project.headVersionId}
-      />
-      <Section id="mws-web-built-h" title={t(locale, 'mws.web.preview.built')}>
-        <Gate locale={locale} load={built} retry={retry} gone={gone(locale)}>
-          {(b) =>
-            b?.spec ? <BuiltList locale={locale} spec={b.spec} /> : <NoBuildYet locale={locale} />
-          }
-        </Gate>
-      </Section>
-    </div>
-  );
-}
-
-/** Entities, pages and roles of the agreed spec as three short lists (the Spec panel has the detail). */
-function BuiltList({ locale, spec }: { locale: Locale; spec: SpecView }) {
-  return (
-    <div className="mws-built">
-      <p>
-        <bdi dir="auto">
-          <strong>{spec.name}</strong>
-        </bdi>
-        {spec.description && (
-          <span className="nz-muted">
-            {' '}
-            <bdi dir="auto">{spec.description}</bdi>
-          </span>
-        )}
-      </p>
-      <dl className="mws-dl">
-        <dt>{t(locale, 'mws.web.preview.entities')}</dt>
-        <dd>
-          {spec.entities.map((e) => (
-            <Badge key={e.name}>
-              <bdi dir="auto">{pick(e.label, locale, e.name)}</bdi>
-            </Badge>
-          ))}
-        </dd>
-        <dt>{t(locale, 'mws.web.preview.pages')}</dt>
-        <dd>
-          {spec.pages.map((p, i) => (
-            <Badge key={`${p.path}:${i}`}>
-              <bdi dir="auto">{pick(p.title, locale, p.path)}</bdi>
-            </Badge>
-          ))}
-        </dd>
-        <dt>{t(locale, 'mws.web.preview.roles')}</dt>
-        <dd>
-          {spec.roles.map((r) => (
-            <Badge key={r.name}>
-              <bdi dir="auto">{pick(r.label, locale, r.name)}</bdi>
-            </Badge>
-          ))}
-        </dd>
-      </dl>
-    </div>
+    <WebAppLivePreview
+      locale={locale}
+      projectId={project.id}
+      canWrite={canWrite}
+      buildId={project.headVersionId}
+    />
   );
 }
 

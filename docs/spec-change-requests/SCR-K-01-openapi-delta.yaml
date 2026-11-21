@@ -1,0 +1,2297 @@
+# SCR-K-01 — proposed OpenAPI delta (DRAFT). Not merged into spec/; see docs/spec-change-requests/SCR-K-01-ai-intelligence-center.md
+x-scr: "SCR-K-01 (PROPOSED, NOT APPROVED): fragment to merge into spec/openapi/openapi.yaml only after the owner approves ADR-065 and this SCR"
+paths:
+  /v1/admin/knowledge/uploads:
+    post:
+      operationId: createKnowledgeUpload
+      tags:
+        - admin
+      summary: Open a resumable upload session
+      description: Body {name, resourceType, declaredBytes, sha256, filename}. Returns the session with `partSize` and the parts already received,
+        so an interrupted upload resumes. State `UPLOADING`; the object is quarantined until completion. Quotas and size limits come from
+        the settings. Permission `admin:ai_knowledge:manage`.
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeUploadInput"
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeUpload"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/uploads/{uploadId}:
+    get:
+      operationId: getKnowledgeUpload
+      tags:
+        - admin
+      summary: Read an upload session
+      description: State, bytes received and parts received (for resuming).
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeUpload"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: cancelKnowledgeUpload
+      tags:
+        - admin
+      summary: Cancel an upload
+      description: "Deletes the quarantined parts. A completed upload cannot be cancelled: use disable or archive."
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Success
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/uploads/{uploadId}/parts/{partNumber}:
+    put:
+      operationId: putKnowledgeUploadPart
+      tags:
+        - admin
+      summary: Upload one part
+      description: Raw bytes of one part; `X-Part-Sha256` is required and verified; re-sending the same part is idempotent. Permission
+        `admin:ai_knowledge:manage`.
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: partNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-Part-Sha256
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeUpload"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/uploads/{uploadId}/completion:
+    post:
+      operationId: completeKnowledgeUpload
+      tags:
+        - admin
+      summary: Complete an upload and start ingestion
+      description: "Verifies the whole-object SHA-256 and the part list, creates the resource (or a new version of `resourceId`) and enqueues
+        `knowledge.validate`. 202: ingestion is asynchronous; poll the resource and its processing jobs."
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeUploadCompletion"
+      responses:
+        "202":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResource"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/imports/github:
+    post:
+      operationId: importKnowledgeFromGithub
+      tags:
+        - admin
+      summary: Import a repository through the Nuzm GitHub App
+      description: "Body {installationId, repository, ref, resourceType, name?}. Uses the AI Studio `GitHostAdapter` (ADR-064): installation
+        tokens are minted per operation, no token is accepted in the body. Pins the commit SHA, then follows the same ingestion path as an
+        upload. Unavailable (409 `feature_disabled`) until the GitHub App is registered (HG-AS-01)."
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeGithubImportInput"
+      responses:
+        "202":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResource"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources:
+    get:
+      operationId: listKnowledgeResources
+      tags:
+        - admin
+      summary: List library resources
+      description: "Filters: `type`, `status`, `framework`, `platform`, `category`, `visibility`, `q` (name/tags), `source`, `createdFrom`,
+        `createdTo`. Newest first. Permission `admin:ai_knowledge:read`."
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: framework
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: platform
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: visibility
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResourcePage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}:
+    get:
+      operationId: getKnowledgeResource
+      tags:
+        - admin
+      summary: Get a resource
+      description: Resource, current version, permissions, manifest summary, quality scores and component counts. ETag = resource version.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResourceDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updateKnowledgeResource
+      tags:
+        - admin
+      summary: Update metadata and permissions
+      description: "Body: any of {name, description, category, tags, frameworks, platform, license, visibility, defaultEligible,
+        permissions{reuseScope, aiProcessing, componentReuse, starterEligible, architectureReference}}. `If-Match` required. Turning
+        `aiProcessing` on requires `admin:ai_knowledge:publish`. Audited with before/after."
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeResourcePatch"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResourceDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/analyses:
+    post:
+      operationId: analyzeKnowledgeResource
+      tags:
+        - admin
+      summary: Analyze or re-analyze a version
+      description: Body {versionId?, force?}. Unchanged files are skipped by content hash unless `force`. 202; enqueues `knowledge.analyze`.
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeActionInput"
+      responses:
+        "202":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeJobRef"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/reindexing:
+    post:
+      operationId: reindexKnowledgeResource
+      tags:
+        - admin
+      summary: Rebuild the search index of a version
+      description: Body {versionId?}. Incremental by content hash. 202; enqueues `knowledge.index`.
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeActionInput"
+      responses:
+        "202":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeJobRef"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/activation:
+    post:
+      operationId: activateKnowledgeResource
+      tags:
+        - admin
+      summary: Activate a version
+      description: "Body {versionId, note?}. Requires state `AWAITING_REVIEW`, a licence verdict that allows reuse, and — for third-party or
+        licensed resources — two different approvers (`admin:ai_knowledge:publish`). Never overwrites an active version: the previous one is
+        retired and can be restored."
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeActionInput"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResourceDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/deactivation:
+    post:
+      operationId: disableKnowledgeResource
+      tags:
+        - admin
+      summary: Disable a resource
+      description: Body {reason}. New generations stop using it at once; existing customer projects are unaffected (they hold copies).
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeActionInput"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResourceDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/archival:
+    post:
+      operationId: archiveKnowledgeResource
+      tags:
+        - admin
+      summary: Archive a resource
+      description: Body {reason}. Soft delete under the retention policy.
+      x-nuzm-platform-permission: admin:ai_knowledge:manage
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeActionInput"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResourceDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/reviews:
+    post:
+      operationId: reviewKnowledgeResource
+      tags:
+        - admin
+      summary: Record an approval decision
+      description: "Body {versionId, decision: approve|reject, note}. Append-only. The two approvers of an activation must be different staff accounts."
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeActionInput"
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeResourceDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/versions:
+    get:
+      operationId: listKnowledgeResourceVersions
+      tags:
+        - admin
+      summary: List versions
+      description: Cursor pagination, newest first. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeVersionPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/components:
+    get:
+      operationId: listKnowledgeComponents
+      tags:
+        - admin
+      summary: "List discovered components (filters: framework, kind, q)"
+      description: Cursor pagination, newest first. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeComponentPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/resources/{id}/processing-jobs:
+    get:
+      operationId: listKnowledgeProcessingJobs
+      tags:
+        - admin
+      summary: List processing jobs with progress and actionable errors
+      description: Cursor pagination, newest first. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeJobPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/defaults:
+    get:
+      operationId: listKnowledgeDefaults
+      tags:
+        - admin
+      summary: List default resources
+      description: "By platform, framework, category, customer plan and generation mode. A default is a preference: compatibility and permissions
+        are still checked."
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeDefaultPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: setKnowledgeDefault
+      tags:
+        - admin
+      summary: Set a default resource
+      description: Body {platform, framework?, category?, plan?, mode?, resourceId, versionPin?}. Audited.
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeDefaultInput"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeDefaultPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/analytics:
+    get:
+      operationId: getKnowledgeAnalytics
+      tags:
+        - admin
+      summary: Overview and analytics
+      description: Filters `from`, `to`, `type`, `status`, `source`. Counts come from the tables and from metering; a figure with no data is
+        `null`, never an estimate (generation and build success rates stay `null` until builds actually run).
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeAnalytics"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/knowledge/settings:
+    get:
+      operationId: getKnowledgeSettings
+      tags:
+        - admin
+      summary: Engine settings
+      description: Ranking weights, ingestion limits (entries, extracted bytes, ratio, depth), quotas, retention, model routing hints.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSettings"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updateKnowledgeSettings
+      tags:
+        - admin
+      summary: Change engine settings
+      description: "`If-Match` required. Weights must sum to 100; limits cannot exceed the platform hard caps. Audited with before/after."
+      x-nuzm-platform-permission: admin:ai_knowledge:publish
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeSettingsPatch"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSettings"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/builder/templates:
+    get:
+      operationId: listBuilderTemplates
+      tags:
+        - builder
+      summary: Browse templates and themes
+      description: "Published platform templates plus the organization's own. Filters: `kind` (website, dashboard, saas, mobile, flutter,
+        full-stack, e-commerce, landing), `framework`, `q`. Returns metadata, compatibility facts, Design DNA summary and preview image
+        references only — never source files. Flag `knowledge.customer_templates`; 404 when off."
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/OrgHeader"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: framework
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderTemplatePage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/builder/templates/{id}:
+    get:
+      operationId: getBuilderTemplate
+      tags:
+        - builder
+      summary: Get a template
+      description: Compatibility details, supported adaptation modes, editable areas, preview assets. A template that is not published, not
+        eligible or not the organization's is 404.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/OrgHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderTemplate"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/builder/template-recommendations:
+    post:
+      operationId: recommendBuilderTemplates
+      tags:
+        - builder
+      summary: Recommend starting points for a description
+      description: "Body {description, platform?, frameworkPreference?, locale?}. Hard filters first, then the configured weighted ranking; each
+        result carries relevance, compatibility, quality, licence eligibility, matching components, evidence and a usage strategy. No
+        private resource content is returned. Deterministic: no model call unless the organization enabled AI processing and policy allows
+        it."
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/OrgHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateRecommendationInput"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateRecommendationResult"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/builder/projects/from-template:
+    post:
+      operationId: createBuilderProjectFromTemplate
+      tags:
+        - builder
+      summary: Create a project from a template version
+      description: "Body {templateId, versionId?, name, adaptationMode: STRICT|ADAPTIVE|CREATIVE (default ADAPTIVE), direction: rtl|ltr, colors?,
+        typography?}. Copies the pinned immutable version into the project's own files (the template is never modified) and records
+        `knowledge.generation_resource_links`. 201."
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/OrgHeader"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FromTemplateInput"
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderProjectDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/builder/projects/imports:
+    post:
+      operationId: importBuilderProject
+      tags:
+        - builder
+      summary: Import an existing project
+      description: "Body {source: github|upload, installationId?, repository?, uploadId?, name}. The import is a tenant project: it is isolated
+        from the platform library and has no write path into it. GitHub uses the org's AI Studio connection; no token is accepted. Flag
+        `knowledge.import_projects`."
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/OrgHeader"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectImportInput"
+      responses:
+        "202":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderProjectDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/builder/generation-plans:
+    post:
+      operationId: createGenerationPlan
+      tags:
+        - builder
+      summary: Plan a generation from requirements
+      description: "Body {projectId, prompt, templateId?, selectionStrategy: AUTO_SELECT|USER_SELECTED|ADMIN_DEFAULT|GENERATE_FROM_SCRATCH,
+        adaptationMode?}. Returns the structured plan (requirements, chosen resource versions with reasons or the incompatibility
+        explanation, files to change, migrations, tests). The plan is stored; execution is `POST /v1/ai/runs` with `kind:
+        knowledge-generation` and `planId` (budgets, credits, metering and cancellation are the run engine's)."
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/OrgHeader"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerationPlanInput"
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationPlan"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/builder/generation-plans/{id}:
+    get:
+      operationId: getGenerationPlan
+      tags:
+        - builder
+      summary: Get a plan
+      description: Plan, selection explanation and, once run, its evaluation summary.
+      x-nuzm-permission: ai:read
+      x-nuzm-org-scoped: true
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/OrgHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationPlan"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+components:
+  schemas:
+    KnowledgeUploadInput:
+      type: object
+      required:
+        - name
+        - resourceType
+        - declaredBytes
+        - sha256
+        - filename
+      properties:
+        name:
+          type: string
+        resourceType:
+          type: string
+          enum:
+            - PROJECT
+            - THEME
+            - COMPONENT_LIBRARY
+            - DESIGN_SYSTEM
+            - DOCUMENTATION
+            - API_SPECIFICATION
+            - DATABASE_SCHEMA
+            - STARTER_KIT
+            - REUSABLE_MODULE
+        declaredBytes:
+          type: integer
+        sha256:
+          type: string
+        filename:
+          type: string
+        resourceId:
+          type: string
+          format: uuid
+    KnowledgeUpload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+            - OPEN
+            - COMPLETED
+            - CANCELLED
+            - EXPIRED
+        declaredBytes:
+          type: integer
+        receivedBytes:
+          type: integer
+        partSize:
+          type: integer
+        partsReceived:
+          type: array
+          items:
+            type: integer
+        expiresAt:
+          type: string
+          format: date-time
+    KnowledgeUploadCompletion:
+      type: object
+      required:
+        - parts
+        - metadata
+      properties:
+        parts:
+          type: array
+          items:
+            type: object
+            properties:
+              partNumber:
+                type: integer
+              sha256:
+                type: string
+        resourceId:
+          type: string
+          format: uuid
+        metadata:
+          $ref: "#/components/schemas/KnowledgeMetadata"
+    KnowledgeMetadata:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        resourceType:
+          type: string
+          enum:
+            - PROJECT
+            - THEME
+            - COMPONENT_LIBRARY
+            - DESIGN_SYSTEM
+            - DOCUMENTATION
+            - API_SPECIFICATION
+            - DATABASE_SCHEMA
+            - STARTER_KIT
+            - REUSABLE_MODULE
+        platform:
+          type: string
+          enum:
+            - WEB
+            - MOBILE
+            - BACKEND
+            - FULL_STACK
+            - CROSS_PLATFORM
+        frameworks:
+          type: array
+          items:
+            type: string
+        languages:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        version:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        license:
+          type: string
+        source:
+          type: string
+        visibility:
+          type: string
+          enum:
+            - PLATFORM_PRIVATE
+            - PLATFORM_PUBLISHED
+        reusePermissions:
+          $ref: "#/components/schemas/KnowledgePermissions"
+        defaultEligible:
+          type: boolean
+        processingPriority:
+          type: string
+          enum:
+            - LOW
+            - NORMAL
+            - HIGH
+        dataRegion:
+          type: string
+    KnowledgePermissions:
+      type: object
+      properties:
+        reuseScope:
+          type: string
+          enum:
+            - NONE
+            - ARCHITECTURE_ONLY
+            - COMPONENTS
+            - FULL_STARTER
+        aiProcessing:
+          type: boolean
+        componentReuse:
+          type: boolean
+        starterEligible:
+          type: boolean
+        architectureReference:
+          type: boolean
+        licenseSpdx:
+          type: string
+        licenseVerdict:
+          type: string
+          enum:
+            - ALLOWED
+            - RESTRICTED
+            - UNKNOWN
+            - BLOCKED
+    KnowledgeGithubImportInput:
+      type: object
+      required:
+        - installationId
+        - repository
+        - ref
+        - resourceType
+      properties:
+        installationId:
+          type: string
+        repository:
+          type: string
+        ref:
+          type: string
+        resourceType:
+          type: string
+          enum:
+            - PROJECT
+            - THEME
+            - COMPONENT_LIBRARY
+            - DESIGN_SYSTEM
+            - DOCUMENTATION
+            - API_SPECIFICATION
+            - DATABASE_SCHEMA
+            - STARTER_KIT
+            - REUSABLE_MODULE
+        name:
+          type: string
+    KnowledgeResource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        resourceType:
+          type: string
+          enum:
+            - PROJECT
+            - THEME
+            - COMPONENT_LIBRARY
+            - DESIGN_SYSTEM
+            - DOCUMENTATION
+            - API_SPECIFICATION
+            - DATABASE_SCHEMA
+            - STARTER_KIT
+            - REUSABLE_MODULE
+        platform:
+          type: string
+          enum:
+            - WEB
+            - MOBILE
+            - BACKEND
+            - FULL_STACK
+            - CROSS_PLATFORM
+        frameworks:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum:
+            - UPLOADING
+            - QUARANTINED
+            - VALIDATING
+            - ANALYZING
+            - INDEXING
+            - AWAITING_REVIEW
+            - ACTIVE
+            - FAILED
+            - DISABLED
+            - ARCHIVED
+        currentVersionId:
+          type: string
+          format: uuid
+        visibility:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+    KnowledgeResourcePage:
+      type: object
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeResource"
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeResourceDetail:
+      allOf:
+        - $ref: "#/components/schemas/KnowledgeResource"
+        - type: object
+          properties:
+            metadata:
+              $ref: "#/components/schemas/KnowledgeMetadata"
+            permissions:
+              $ref: "#/components/schemas/KnowledgePermissions"
+            manifest:
+              $ref: "#/components/schemas/KnowledgeManifestSummary"
+            quality:
+              type: array
+              items:
+                $ref: "#/components/schemas/KnowledgeQualityScore"
+            componentCount:
+              type: integer
+            jobs:
+              type: array
+              items:
+                $ref: "#/components/schemas/KnowledgeJob"
+    KnowledgeResourcePatch:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        frameworks:
+          type: array
+          items:
+            type: string
+        platform:
+          type: string
+          enum:
+            - WEB
+            - MOBILE
+            - BACKEND
+            - FULL_STACK
+            - CROSS_PLATFORM
+        license:
+          type: string
+        visibility:
+          type: string
+        defaultEligible:
+          type: boolean
+        permissions:
+          $ref: "#/components/schemas/KnowledgePermissions"
+    KnowledgeActionInput:
+      type: object
+      properties:
+        versionId:
+          type: string
+          format: uuid
+        note:
+          type: string
+        reason:
+          type: string
+        force:
+          type: boolean
+        decision:
+          type: string
+          enum:
+            - approve
+            - reject
+    KnowledgeJobRef:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        operationId:
+          type: string
+          format: uuid
+        state:
+          type: string
+    KnowledgeManifestSummary:
+      type: object
+      properties:
+        schemaVersion:
+          type: string
+        frameworks:
+          type: array
+          items:
+            type: string
+        languages:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              confidence:
+                type: number
+              evidence:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    path:
+                      type: string
+                    line:
+                      type: integer
+        modules:
+          type: array
+          items:
+            type: string
+        components:
+          type: array
+          items:
+            type: string
+    KnowledgeQualityScore:
+      type: object
+      properties:
+        dimension:
+          type: string
+          enum:
+            - BUILD
+            - TEST
+            - ARCHITECTURE
+            - DESIGN
+            - SECURITY
+            - COMPLETENESS
+        score:
+          type: number
+        method:
+          type: string
+        evidenceRef:
+          type: string
+        measured:
+          type: boolean
+    KnowledgeVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+        semver:
+          type: string
+        state:
+          type: string
+          enum:
+            - UPLOADING
+            - QUARANTINED
+            - VALIDATING
+            - ANALYZING
+            - INDEXING
+            - AWAITING_REVIEW
+            - ACTIVE
+            - FAILED
+            - DISABLED
+            - ARCHIVED
+        checksumSha256:
+          type: string
+        bytes:
+          type: integer
+        sourceCommit:
+          type: string
+        licenseVerdict:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type: string
+          format: date-time
+    KnowledgeVersionPage:
+      type: object
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeVersion"
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeComponent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          type: string
+        framework:
+          type: string
+        path:
+          type: string
+        props:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+              required:
+                type: boolean
+        dependencies:
+          type: array
+          items:
+            type: string
+        platforms:
+          type: array
+          items:
+            type: string
+        reuseAllowed:
+          type: boolean
+        qualityScore:
+          type: number
+        previewRef:
+          type: string
+    KnowledgeComponentPage:
+      type: object
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeComponent"
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        state:
+          type: string
+          enum:
+            - QUEUED
+            - RUNNING
+            - SUCCEEDED
+            - FAILED
+            - CANCELLED
+            - DEAD_LETTER
+        attempt:
+          type: integer
+        progress:
+          type: number
+        errorCode:
+          type: string
+        errorDetail:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+    KnowledgeJobPage:
+      type: object
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeJob"
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeDefaultInput:
+      type: object
+      required:
+        - platform
+        - resourceId
+      properties:
+        platform:
+          type: string
+          enum:
+            - WEB
+            - MOBILE
+            - BACKEND
+            - FULL_STACK
+            - CROSS_PLATFORM
+        framework:
+          type: string
+        category:
+          type: string
+        plan:
+          type: string
+        mode:
+          type: string
+          enum:
+            - STRICT
+            - ADAPTIVE
+            - CREATIVE
+        resourceId:
+          type: string
+          format: uuid
+        versionPin:
+          type: string
+          format: uuid
+    KnowledgeDefaultPage:
+      type: object
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeDefaultInput"
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeAnalytics:
+      type: object
+      properties:
+        totals:
+          type: object
+          properties:
+            resources:
+              type: integer
+            analyzedProjects:
+              type: integer
+            activeThemes:
+              type: integer
+            indexedComponents:
+              type: integer
+            documentation:
+              type: integer
+            awaitingProcessing:
+              type: integer
+            failedJobs:
+              type: integer
+            storageBytes:
+              type: integer
+        retrieval:
+          type: object
+          properties:
+            queries:
+              type: integer
+            hitRate:
+              type: number
+              nullable: true
+        generation:
+          type: object
+          properties:
+            selectionsByResource:
+              type: array
+              items:
+                type: object
+                properties:
+                  resourceId:
+                    type: string
+                    format: uuid
+                  count:
+                    type: integer
+            successRate:
+              type: number
+              nullable: true
+            buildSuccessRate:
+              type: number
+              nullable: true
+            avgDurationMs:
+              type: integer
+              nullable: true
+        cost:
+          type: object
+          properties:
+            currency:
+              type: string
+            estimatedMinor:
+              type: integer
+            actualMinor:
+              type: integer
+            byProvider:
+              type: array
+              items:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                  actualMinor:
+                    type: integer
+    KnowledgeSettings:
+      type: object
+      properties:
+        rankingWeights:
+          type: object
+          properties:
+            functional:
+              type: number
+            framework:
+              type: number
+            architecture:
+              type: number
+            design:
+              type: number
+            quality:
+              type: number
+            reuse:
+              type: number
+        ingestion:
+          type: object
+          properties:
+            maxEntries:
+              type: integer
+            maxExtractedBytes:
+              type: integer
+            maxCompressionRatio:
+              type: number
+            maxDepth:
+              type: integer
+            maxUploadBytes:
+              type: integer
+        quotas:
+          type: object
+          properties:
+            storageBytesPerOrg:
+              type: integer
+            concurrentJobs:
+              type: integer
+        retentionDays:
+          type: integer
+        version:
+          type: integer
+    KnowledgeSettingsPatch:
+      type: object
+      properties:
+        rankingWeights:
+          type: object
+        ingestion:
+          type: object
+        quotas:
+          type: object
+        retentionDays:
+          type: integer
+    BuilderTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          type: string
+        platform:
+          type: string
+          enum:
+            - WEB
+            - MOBILE
+            - BACKEND
+            - FULL_STACK
+            - CROSS_PLATFORM
+        frameworks:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        designDna:
+          type: object
+          properties:
+            style:
+              type: string
+            layout:
+              type: string
+            density:
+              type: string
+            navigation:
+              type: string
+            rtlSupported:
+              type: boolean
+            responsive:
+              type: boolean
+        adaptationModes:
+          type: array
+          items:
+            type: string
+            enum:
+              - STRICT
+              - ADAPTIVE
+              - CREATIVE
+        editableAreas:
+          type: array
+          items:
+            type: string
+        previewAssets:
+          type: array
+          items:
+            type: string
+        versionId:
+          type: string
+          format: uuid
+        own:
+          type: boolean
+    BuilderTemplatePage:
+      type: object
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BuilderTemplate"
+        nextCursor:
+          type: string
+          nullable: true
+    TemplateRecommendationInput:
+      type: object
+      required:
+        - description
+      properties:
+        description:
+          type: string
+        platform:
+          type: string
+          enum:
+            - WEB
+            - MOBILE
+            - BACKEND
+            - FULL_STACK
+            - CROSS_PLATFORM
+        frameworkPreference:
+          type: string
+        locale:
+          type: string
+    TemplateRecommendationResult:
+      type: object
+      properties:
+        classification:
+          type: object
+          properties:
+            projectType:
+              type: string
+            platform:
+              type: string
+              enum:
+                - WEB
+                - MOBILE
+                - BACKEND
+                - FULL_STACK
+                - CROSS_PLATFORM
+            requirements:
+              type: array
+              items:
+                type: string
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId:
+                type: string
+                format: uuid
+              versionId:
+                type: string
+                format: uuid
+              relevance:
+                type: number
+              compatibility:
+                type: number
+              quality:
+                type: number
+                nullable: true
+              licenseEligible:
+                type: boolean
+              matchingComponents:
+                type: array
+                items:
+                  type: string
+              evidence:
+                type: array
+                items:
+                  type: string
+              strategy:
+                type: string
+        excluded:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId:
+                type: string
+                format: uuid
+              reason:
+                type: string
+    FromTemplateInput:
+      type: object
+      required:
+        - templateId
+        - name
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        versionId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        adaptationMode:
+          type: string
+          enum:
+            - STRICT
+            - ADAPTIVE
+            - CREATIVE
+        direction:
+          type: string
+          enum:
+            - rtl
+            - ltr
+        colors:
+          type: object
+        typography:
+          type: object
+    ProjectImportInput:
+      type: object
+      required:
+        - source
+        - name
+      properties:
+        source:
+          type: string
+          enum:
+            - github
+            - upload
+        installationId:
+          type: string
+        repository:
+          type: string
+        uploadId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    GenerationPlanInput:
+      type: object
+      required:
+        - projectId
+        - prompt
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        prompt:
+          type: string
+        templateId:
+          type: string
+          format: uuid
+        selectionStrategy:
+          type: string
+          enum:
+            - AUTO_SELECT
+            - USER_SELECTED
+            - ADMIN_DEFAULT
+            - GENERATE_FROM_SCRATCH
+        adaptationMode:
+          type: string
+          enum:
+            - STRICT
+            - ADAPTIVE
+            - CREATIVE
+    GenerationPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - PLANNED
+            - RUNNING
+            - COMPLETED
+            - FAILED
+            - CANCELLED
+        selectionStrategy:
+          type: string
+          enum:
+            - AUTO_SELECT
+            - USER_SELECTED
+            - ADMIN_DEFAULT
+            - GENERATE_FROM_SCRATCH
+        adaptationMode:
+          type: string
+          enum:
+            - STRICT
+            - ADAPTIVE
+            - CREATIVE
+        requirements:
+          type: object
+          properties:
+            projectType:
+              type: string
+            platforms:
+              type: array
+              items:
+                type: string
+            features:
+              type: array
+              items:
+                type: string
+            pages:
+              type: array
+              items:
+                type: string
+            roles:
+              type: array
+              items:
+                type: string
+            integrations:
+              type: array
+              items:
+                type: string
+        selection:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId:
+                type: string
+                format: uuid
+              versionId:
+                type: string
+                format: uuid
+              role:
+                type: string
+                enum:
+                  - STARTER
+                  - THEME
+                  - COMPONENT
+                  - DOCUMENTATION
+                  - API_SPEC
+              reason:
+                type: string
+        incompatibilities:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId:
+                type: string
+                format: uuid
+              reason:
+                type: string
+        filesToChange:
+          type: array
+          items:
+            type: string
+        migrations:
+          type: array
+          items:
+            type: string
+        tests:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+x-new-error-codes:
+  - knowledge_resource_ineligible
+  - knowledge_license_blocked
+  - knowledge_archive_rejected
+  - knowledge_upload_incomplete
+  - knowledge_template_incompatible
+  - knowledge_approval_required
+x-new-permissions:
+  admin:ai_knowledge:read: view library, jobs, analytics
+  admin:ai_knowledge:manage: upload, edit metadata, analyze, reindex, disable, archive
+  admin:ai_knowledge:publish: activate/publish, approve, set defaults, change settings and AI-processing permission
+x-new-feature-flags:
+  knowledge.library: off
+  knowledge.customer_templates: off
+  knowledge.import_projects: off
+  knowledge.semantic_search: off (until D-47)
+x-new-audit-events:
+  - knowledge.upload.opened
+  - knowledge.upload.completed
+  - knowledge.upload.cancelled
+  - knowledge.resource.imported
+  - knowledge.resource.updated
+  - knowledge.resource.analyzed
+  - knowledge.resource.reindexed
+  - knowledge.resource.activated
+  - knowledge.resource.disabled
+  - knowledge.resource.archived
+  - knowledge.review.recorded
+  - knowledge.default.set
+  - knowledge.settings.updated
+  - knowledge.template.copied
+  - knowledge.plan.created

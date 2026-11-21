@@ -1,7 +1,16 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SERVICES, SITE, pick, serviceBySlug, site, type L } from './site-content';
+import {
+  MOSAIC,
+  SERVICES,
+  SITE,
+  illustration,
+  pick,
+  serviceBySlug,
+  site,
+  type L,
+} from './site-content';
 
 const texts = (): { where: string; v: L }[] => [
   ...Object.entries(SITE).map(([k, v]) => ({ where: `SITE.${k}`, v })),
@@ -77,5 +86,23 @@ describe('public site content', () => {
     expect(site('start', 'en')).toBe('Get started');
     expect(site('start', 'ar')).toBe('ابدأ الآن');
     expect(() => site('missing', 'en')).toThrow();
+  });
+
+  it('every service has an illustration that exists, and the mosaic tiles lead to real pages', () => {
+    const exists = (url: string) => existsSync(join(__dirname, '..', 'public', url));
+    for (const sv of SERVICES) expect(exists(sv.image), sv.slug).toBe(true);
+    const slugs = new Set(SERVICES.map((x) => x.slug));
+    expect(MOSAIC).toHaveLength(11);
+    for (const t of MOSAIC) {
+      expect(exists(illustration(t.image)), t.image).toBe(true);
+      expect(t.label.ar.trim()).not.toBe('');
+      expect(t.label.en.trim()).not.toBe('');
+      const ok =
+        t.href === '' ||
+        t.href === '/services' ||
+        t.href === '/docs' ||
+        (t.href.startsWith('/services/') && slugs.has(t.href.slice('/services/'.length)));
+      expect(ok, `${t.image} -> ${t.href}`).toBe(true);
+    }
   });
 });

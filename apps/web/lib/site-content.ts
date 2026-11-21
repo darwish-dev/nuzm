@@ -17,8 +17,8 @@ export interface ServicePoint {
 export interface ServiceContent {
   slug: string;
   icon: IconName;
-  /** which bento artwork of the console fits this service (the others use an icon panel) */
-  art: 'compute' | 'hosting' | 'builder' | null;
+  /** the illustration of this service (`/images/illustrations/...`) */
+  image: string;
   /** the console page this service opens (without the locale) */
   href: string;
   name: L;
@@ -38,7 +38,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'hosting',
     icon: 'hosting',
-    art: 'hosting',
+    image: '/images/illustrations/dashboard.webp',
     href: '/hosting/sites',
     name: { ar: 'استضافة المواقع', en: 'Website hosting' },
     tagline: {
@@ -140,7 +140,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'cloud',
     icon: 'cloud',
-    art: 'compute',
+    image: '/images/illustrations/cloud.webp',
     href: '/compute/offers',
     name: { ar: 'الخوادم السحابية', en: 'Cloud servers' },
     tagline: { ar: 'قوة حوسبة بحجم مشروعك', en: 'Compute sized for your project' },
@@ -229,7 +229,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'domains',
     icon: 'domains',
-    art: null,
+    image: '/images/illustrations/domain.webp',
     href: '/domains/search',
     name: { ar: 'النطاقات و DNS', en: 'Domains & DNS' },
     tagline: { ar: 'اسم موقعك، وربطه بخدماتك', en: 'Your name, connected to your services' },
@@ -319,7 +319,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'ai-builder',
     icon: 'sparkle',
-    art: 'builder',
+    image: '/images/illustrations/builder.webp',
     href: '/builder/projects',
     name: { ar: 'منشئ الذكاء الاصطناعي', en: 'AI builder' },
     tagline: { ar: 'من الفكرة إلى موقع أو تطبيق', en: 'From idea to a website or app' },
@@ -408,7 +408,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'email',
     icon: 'email',
-    art: null,
+    image: '/images/illustrations/email.svg',
     href: '/email/mailboxes',
     name: { ar: 'البريد الإلكتروني للأعمال', en: 'Business email' },
     tagline: { ar: 'بريد باسم نطاقك', en: 'Email on your own domain' },
@@ -493,7 +493,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'data',
     icon: 'data',
-    art: null,
+    image: '/images/illustrations/data.svg',
     href: '/databases',
     name: { ar: 'قواعد البيانات والتخزين', en: 'Databases & storage' },
     tagline: { ar: 'بيانات مُدارة بنسخ احتياطية', en: 'Managed data, with backups' },
@@ -572,7 +572,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'automation',
     icon: 'workflow',
-    art: null,
+    image: '/images/illustrations/integrations.webp',
     href: '/automation/workflows',
     name: { ar: 'الأتمتة والسوق', en: 'Automation & marketplace' },
     tagline: { ar: 'اربط أدواتك ودع العمل يمضي', en: 'Connect your tools and let work flow' },
@@ -666,6 +666,10 @@ export const SITE: Record<string, L> = {
   menu: { ar: 'القائمة', en: 'Menu' },
   closeMenu: { ar: 'إغلاق القائمة', en: 'Close menu' },
   home: { ar: 'نظم، الصفحة الرئيسية', en: 'Nuzm home' },
+  mosaicTitle: {
+    ar: 'كل شيء في منصة واحدة',
+    en: 'Everything in one platform',
+  },
   idxEyebrow: { ar: 'خدمات نظم', en: 'NUZM SERVICES' },
   idxTitle: {
     ar: 'كل ما يحتاجه عملك على الإنترنت، في حساب واحد.',
@@ -723,3 +727,53 @@ export const site = (key: string, locale: Locale): string => {
   if (!v) throw new Error(`unknown site text ${key}`);
   return v[locale];
 };
+
+/** The illustration mosaic (services index and landing page): the owner's illustration sheet, each tile leading to the page it is about. */
+export interface MosaicTile {
+  image: string;
+  label: L;
+  /** address without the locale; '' = the home page */
+  href: string;
+}
+export const MOSAIC: MosaicTile[] = [
+  {
+    image: 'dashboard.webp',
+    label: { ar: 'استضافة المواقع', en: 'Website hosting' },
+    href: '/services/hosting',
+  },
+  {
+    image: 'cloud.webp',
+    label: { ar: 'الخوادم السحابية', en: 'Cloud servers' },
+    href: '/services/cloud',
+  },
+  {
+    image: 'domain.webp',
+    label: { ar: 'النطاقات وDNS', en: 'Domains & DNS' },
+    href: '/services/domains',
+  },
+  {
+    image: 'builder.webp',
+    label: { ar: 'منشئ المواقع', en: 'Website builder' },
+    href: '/services/ai-builder',
+  },
+  { image: 'shop.webp', label: { ar: 'فاتورة واحدة', en: 'One bill' }, href: '/services' },
+  { image: 'ai.webp', label: { ar: 'الذكاء الاصطناعي', en: 'AI' }, href: '/services/ai-builder' },
+  {
+    image: 'mobile.webp',
+    label: { ar: 'تطبيقات الجوال', en: 'Mobile apps' },
+    href: '/services/ai-builder',
+  },
+  { image: 'robot.webp', label: { ar: 'مساعد نظم', en: 'Nuzm AI' }, href: '' },
+  {
+    image: 'integrations.webp',
+    label: { ar: 'الأتمتة والتكامل', en: 'Automation' },
+    href: '/services/automation',
+  },
+  {
+    image: 'security.webp',
+    label: { ar: 'أمان وتحكم', en: 'Security & control' },
+    href: '/services',
+  },
+  { image: 'support.webp', label: { ar: 'التوثيق والدعم', en: 'Docs & support' }, href: '/docs' },
+];
+export const illustration = (file: string): string => `/images/illustrations/${file}`;

@@ -30,10 +30,12 @@ export default async function DocsHome({ params }: { params: Promise<{ locale: s
       mode={mode}
       title={doc('title', locale)}
       lead={doc('intro', locale)}
+      art="/images/illustrations/api.svg"
       toc={[
         { id: 'guides', label: doc('guides', locale) },
         { id: 'reference', label: doc('reference', locale) },
         { id: 'downloads', label: doc('downloads', locale) },
+        { id: 'help', label: doc('helpTitle', locale) },
       ]}
     >
       <div className="svc-actions doc-actions">
@@ -85,6 +87,11 @@ export default async function DocsHome({ params }: { params: Promise<{ locale: s
             <Rich text={doc('sdkText', locale)} />
           </p>
         </div>
+      </div>
+      <h2 id="help">{doc('helpTitle', locale)}</h2>
+      <div className="doc-help">
+        <img src="/images/illustrations/support.webp" alt="" width={367} height={289} loading="lazy" />
+        <p>{doc('helpText', locale)}</p>
       </div>
     </DocsFrame>
   );

@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
-import { ServiceArtwork } from '../ServiceArtwork';
+import { Mosaic } from '../site/Mosaic';
 import { useSectionScroll } from './useSectionScroll';
 
 // Native CSS with the owner’s attached Nuzm bento identity and logo.
@@ -313,9 +313,12 @@ export function LandingPage() {
                 </span>
               </div>
               <div className="service-art">
-                <ServiceArtwork
-                  service={['compute', 'domains', 'hosting', 'builder'][index] ?? 'compute'}
-                  ar={false}
+                <img
+                  src={`/images/illustrations/${['cloud.webp', 'domain.webp', 'dashboard.webp', 'builder.webp'][index] ?? 'cloud.webp'}`}
+                  alt=""
+                  width={380}
+                  height={290}
+                  loading="lazy"
                 />
               </div>
               <div className="cloud-card-content">
@@ -367,6 +370,22 @@ export function LandingPage() {
             </button>
           </div>
         </form>
+      </section>
+
+      <section
+        id="platform"
+        className="section wrap platform-section"
+        aria-labelledby="platform-title"
+      >
+        <div className="section-heading">
+          <h2 id="platform-title">
+            One platform.
+            <br />
+            <em>Everything you need.</em>
+          </h2>
+          <p>Hosting, domains, servers, AI and the tools around them, designed to work together.</p>
+        </div>
+        <Mosaic locale="en" prefix="/en" title="The Nuzm platform" homeHref="#agents" />
       </section>
 
       <section className="section integrations-section wrap" id="integrations">

@@ -1,6 +1,5 @@
 import { Icon } from '@nuzm/ui';
 import type { Locale } from '@nuzm/i18n';
-import { ServiceArtwork } from '../ServiceArtwork';
 import { SERVICES, pick, site, type ServiceContent } from '../../lib/site-content';
 
 /** The hero of a service page: the eyebrow, headline and intro on one side, the service's artwork (or an icon panel with its three steps) on the other. */
@@ -30,24 +29,8 @@ export function ServiceHero({ locale, s }: { locale: Locale; s: ServiceContent }
           </p>
         )}
       </div>
-      <div className="svc-visual" aria-hidden="true">
-        {s.art ? (
-          <ServiceArtwork service={s.art} ar={locale === 'ar'} />
-        ) : (
-          <div className="svc-visual-panel">
-            <span className="svc-visual-icon">
-              <Icon name={s.icon} size={34} />
-            </span>
-            <ol>
-              {s.steps.map((st, i) => (
-                <li key={i}>
-                  <span>{i + 1}</span>
-                  {pick(st.title, locale)}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
+      <div className="svc-visual">
+        <img src={s.image} alt="" width={380} height={290} />
       </div>
     </div>
   );
@@ -124,9 +107,7 @@ export function FaqSection({ locale, s }: { locale: Locale; s: ServiceContent })
 export function ServiceCard({ locale, s }: { locale: Locale; s: ServiceContent }) {
   return (
     <a className="svc-card svc-link-card" href={`/${locale}/services/${s.slug}`}>
-      <span className="svc-card-icon">
-        <Icon name={s.icon} size={22} />
-      </span>
+      <img className="svc-card-art" src={s.image} alt="" width={380} height={290} loading="lazy" />
       <h3>{pick(s.name, locale)}</h3>
       <p>{pick(s.tagline, locale)}</p>
       <span className="svc-more">

@@ -10,7 +10,8 @@ import {
   StepsSection,
   relatedOf,
 } from './SiteSections';
-import { SERVICES, pick, site } from '../../lib/site-content';
+import { Mosaic } from './Mosaic';
+import { MOSAIC, SERVICES, pick, site } from '../../lib/site-content';
 
 afterEach(cleanup);
 
@@ -86,5 +87,27 @@ describe('service page', () => {
   it('marks the Saudi domains limitation on the domains page', () => {
     page('en', 'domains');
     expect(screen.getByRole('note').textContent).toMatch(/\.sa/);
+  });
+
+  it('shows the service illustration in the hero and on its card, as decoration (empty alt)', () => {
+    page('en', 'hosting');
+    const imgs = Array.from(document.querySelectorAll('img')).filter((i) =>
+      i.getAttribute('src')?.startsWith('/images/illustrations/'),
+    );
+    expect(imgs.length).toBeGreaterThanOrEqual(4);
+    for (const i of imgs) expect(i.getAttribute('alt')).toBe('');
+    expect(document.querySelector('.svc-visual img')?.getAttribute('src')).toBe(SERVICES[0]!.image);
+  });
+});
+
+describe('illustration mosaic', () => {
+  it('has a labelled link per tile, in the page language, with its own page for the home tile', () => {
+    render(<Mosaic locale="ar" title="x" homeHref="#agents" />);
+    const links = screen.getAllByRole('link');
+    expect(links).toHaveLength(MOSAIC.length);
+    for (const t of MOSAIC) {
+      const a = screen.getByRole('link', { name: pick(t.label, 'ar') });
+      expect(a.getAttribute('href')).toBe(t.href === '' ? '#agents' : `/ar${t.href}`);
+    }
   });
 });

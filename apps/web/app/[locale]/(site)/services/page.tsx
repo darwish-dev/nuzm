@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { Icon } from '@nuzm/ui';
 import { isLocale } from '@nuzm/i18n';
 import { SiteFrame } from '../../../../components/site/SiteFrame';
+import { Mosaic } from '../../../../components/site/Mosaic';
 import { ServiceCard } from '../../../../components/site/SiteSections';
 import { SERVICES, site } from '../../../../lib/site-content';
 
@@ -55,6 +56,13 @@ export default async function ServicesIndex({ params }: { params: Promise<{ loca
         <p className="svc-price-note">
           <Icon name="tag" size={15} /> {site('priceNote', locale)}
         </p>
+      </section>
+      <section className="section wrap svc-section" aria-labelledby="svc-mosaic">
+        <div className="svc-head">
+          <span className="eyebrow">{site('services', locale)}</span>
+          <h2 id="svc-mosaic">{site('mosaicTitle', locale)}</h2>
+        </div>
+        <Mosaic locale={locale} title={site('mosaicTitle', locale)} />
       </section>
       <section className="section wrap svc-section" aria-labelledby="svc-together">
         <div className="svc-head">

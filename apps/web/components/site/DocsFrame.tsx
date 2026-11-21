@@ -23,6 +23,7 @@ export function DocsFrame({
   crumb,
   title,
   lead,
+  art,
   toc = [],
   children,
 }: {
@@ -33,6 +34,8 @@ export function DocsFrame({
   crumb?: { label: string; href: string };
   title: string;
   lead?: string;
+  /** an illustration shown beside the title (the documentation home) */
+  art?: string;
   toc?: TocItem[];
   children: ReactNode;
 }) {
@@ -89,8 +92,13 @@ export function DocsFrame({
               {crumb.label}
             </a>
           )}
-          <h1>{title}</h1>
-          {lead && <p className="doc-lead">{lead}</p>}
+          <div className={art ? 'doc-head doc-head-art' : 'doc-head'}>
+            <div>
+              <h1>{title}</h1>
+              {lead && <p className="doc-lead">{lead}</p>}
+            </div>
+            {art && <img className="doc-art" src={art} alt="" width={380} height={290} />}
+          </div>
           <div className="doc-content">{children}</div>
         </main>
         <aside className="doc-aside">

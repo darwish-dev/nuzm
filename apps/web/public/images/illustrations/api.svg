@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 290" width="380" height="290" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6f9fc"/><stop offset="1" stop-color="#e6eff6"/></linearGradient>
+    <linearGradient id="blob" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d7ece9"/><stop offset="1" stop-color="#c9e3e6"/></linearGradient>
+    <linearGradient id="dark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b5b66"/><stop offset="0.55" stop-color="#22404b"/><stop offset="1" stop-color="#13262e"/></linearGradient>
+    <linearGradient id="darkSide" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1a323b"/><stop offset="1" stop-color="#0e1d24"/></linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e9eef3"/></linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf6ec"/><stop offset="1" stop-color="#e8dcc4"/></linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b8f0df"/><stop offset="1" stop-color="#5fd0c2"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8f7fb"/><stop offset="1" stop-color="#9fdbe6"/></linearGradient>
+    <radialGradient id="floor" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#1b3a46" stop-opacity="0.28"/><stop offset="1" stop-color="#1b3a46" stop-opacity="0"/></radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#17323c" flood-opacity="0.22"/></filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <clipPath id="tile"><rect width="380" height="290" rx="26"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="380" height="290" fill="url(#bg)"/>
+    <path d="M214 38c42-24 108-6 128 36s-2 88-44 112-96 14-124-24-4-102 40-124z" fill="url(#blob)" opacity="0.85"/>
+    <path d="M-10 190c16-34 70-48 104-22s30 74-8 96-92 8-110-28z" fill="url(#blob)" opacity="0.5"/>
+
+    <ellipse cx="190" cy="248" rx="112" ry="13" fill="url(#floor)"/>
+    <g filter="url(#soft)">
+      <rect x="64" y="70" width="196" height="132" rx="18" fill="url(#paper)"/>
+      <circle cx="84" cy="90" r="5" fill="#ef8d84"/><circle cx="100" cy="90" r="5" fill="#f2cf72"/><circle cx="116" cy="90" r="5" fill="#7fd4a6"/>
+      <rect x="84" y="112" width="52" height="9" rx="4.5" fill="#9fdbe6"/>
+      <rect x="142" y="112" width="84" height="9" rx="4.5" fill="#c9d6df"/>
+      <rect x="84" y="134" width="96" height="9" rx="4.5" fill="#c9d6df"/>
+      <rect x="186" y="134" width="40" height="9" rx="4.5" fill="#b8f0df"/>
+      <rect x="84" y="156" width="64" height="9" rx="4.5" fill="#c9d6df"/>
+      <rect x="154" y="156" width="72" height="9" rx="4.5" fill="#9fdbe6"/>
+      <rect x="84" y="178" width="40" height="9" rx="4.5" fill="#c9d6df"/>
+    </g>
+    <g filter="url(#soft)">
+      <rect x="200" y="120" width="112" height="112" rx="28" fill="url(#dark)"/>
+      <rect x="200" y="120" width="112" height="112" rx="28" fill="none" stroke="#6fd7e6" stroke-opacity="0.55" stroke-width="2"/>
+    </g>
+    <g filter="url(#glow)" fill="none" stroke="#8ff0df" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M238 152c-12 0-14 6-14 14v8c0 6-4 10-10 10 6 0 10 4 10 10v8c0 8 2 14 14 14"/>
+      <path d="M274 152c12 0 14 6 14 14v8c0 6 4 10 10 10-6 0-10 4-10 10v8c0 8-2 14-14 14"/>
+    </g>
+
+  </g>
+</svg>

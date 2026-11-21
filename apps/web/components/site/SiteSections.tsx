@@ -1,6 +1,7 @@
 import { Icon } from '@nuzm/ui';
 import type { Locale } from '@nuzm/i18n';
 import { SERVICES, pick, site, type ServiceContent } from '../../lib/site-content';
+import { ThemedImage } from './ThemedImage';
 
 /** The hero of a service page: the eyebrow, headline and intro on one side, the service's artwork (or an icon panel with its three steps) on the other. */
 export function ServiceHero({ locale, s }: { locale: Locale; s: ServiceContent }) {
@@ -30,7 +31,7 @@ export function ServiceHero({ locale, s }: { locale: Locale; s: ServiceContent }
         )}
       </div>
       <div className="svc-visual">
-        <img src={s.image} alt="" width={380} height={290} />
+        <ThemedImage src={s.image} width={380} height={290} eager />
       </div>
     </div>
   );
@@ -107,7 +108,7 @@ export function FaqSection({ locale, s }: { locale: Locale; s: ServiceContent })
 export function ServiceCard({ locale, s }: { locale: Locale; s: ServiceContent }) {
   return (
     <a className="svc-card svc-link-card" href={`/${locale}/services/${s.slug}`}>
-      <img className="svc-card-art" src={s.image} alt="" width={380} height={290} loading="lazy" />
+      <ThemedImage className="svc-card-art" src={s.image} width={380} height={290} />
       <h3>{pick(s.name, locale)}</h3>
       <p>{pick(s.tagline, locale)}</p>
       <span className="svc-more">

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
 import { Mosaic } from '../site/Mosaic';
+import { ThemedImage } from '../site/ThemedImage';
 import { useSectionScroll } from './useSectionScroll';
 
 // Native CSS with the owner’s attached Nuzm bento identity and logo.
@@ -313,12 +314,10 @@ export function LandingPage() {
                 </span>
               </div>
               <div className="service-art">
-                <img
+                <ThemedImage
                   src={`/images/illustrations/${['cloud.webp', 'domain.webp', 'dashboard.webp', 'builder.webp'][index] ?? 'cloud.webp'}`}
-                  alt=""
                   width={380}
                   height={290}
-                  loading="lazy"
                 />
               </div>
               <div className="cloud-card-content">

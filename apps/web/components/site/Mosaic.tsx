@@ -1,5 +1,6 @@
 import type { Locale } from '@nuzm/i18n';
 import { MOSAIC, illustration, pick } from '../../lib/site-content';
+import { ThemedImage } from './ThemedImage';
 
 /**
  * The illustration mosaic: the owner's illustration sheet as a bento grid, each tile a link to the page it is about, with its name on a small label.
@@ -24,13 +25,7 @@ export function Mosaic({
       {MOSAIC.map((t, i) => (
         <li key={t.image} className="mz-item" data-pos={i + 1}>
           <a className="mz-tile" href={t.href === '' ? homeHref : `${base}${t.href}`}>
-            <img
-              src={illustration(t.image)}
-              alt=""
-              width={380}
-              height={290}
-              loading={i < 3 ? 'eager' : 'lazy'}
-            />
+            <ThemedImage src={illustration(t.image)} width={380} height={290} eager={i < 3} />
             <span className="mz-label">{pick(t.label, locale)}</span>
           </a>
         </li>

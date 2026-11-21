@@ -90,11 +90,17 @@ describe('public site content', () => {
 
   it('every service has an illustration that exists, and the mosaic tiles lead to real pages', () => {
     const exists = (url: string) => existsSync(join(__dirname, '..', 'public', url));
-    for (const sv of SERVICES) expect(exists(sv.image), sv.slug).toBe(true);
+    const dark = (url: string) =>
+      url.replace('/images/illustrations/', '/images/illustrations/dark/');
+    for (const sv of SERVICES) {
+      expect(exists(sv.image), sv.slug).toBe(true);
+      expect(exists(dark(sv.image)), `${sv.slug} (dark)`).toBe(true);
+    }
     const slugs = new Set(SERVICES.map((x) => x.slug));
     expect(MOSAIC).toHaveLength(11);
     for (const t of MOSAIC) {
       expect(exists(illustration(t.image)), t.image).toBe(true);
+      expect(exists(dark(illustration(t.image))), `${t.image} (dark)`).toBe(true);
       expect(t.label.ar.trim()).not.toBe('');
       expect(t.label.en.trim()).not.toBe('');
       const ok =

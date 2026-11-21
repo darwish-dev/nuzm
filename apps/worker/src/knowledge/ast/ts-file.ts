@@ -60,11 +60,15 @@ const nameOf = (n: ts.Node | undefined): string | null =>
 const isCap = (s: string) => /^[A-Z]/.test(s);
 
 /** All descendants of `root` (iteratively), calling `fn`; stops descending into a node when `fn` returns false. */
-function walk(root: ts.Node, fn: (n: ts.Node) => boolean | void, budget: { n: number }): void {
+function walk(
+  root: ts.Node,
+  fn: (n: ts.Node) => boolean | void,
+  budget: { n: number; max: number },
+): void {
   const stack: ts.Node[] = [root];
   while (stack.length) {
     const n = stack.pop()!;
-    if (++budget.n > MAX_NODES) throw new Error('budget');
+    if (++budget.n > budget.max) throw new Error('budget');
     if (fn(n) === false) continue;
     ts.forEachChild(n, (c) => void stack.push(c));
   }
@@ -130,7 +134,7 @@ function propsOf(
 function hooksAndChildren(
   root: ts.Node,
   self: string,
-  budget: { n: number },
+  budget: { n: number; max: number },
 ): { jsx: boolean; hooks: string[]; children: string[] } {
   let jsx = false;
   const hooks = new Set<string>();
@@ -182,11 +186,15 @@ const idArgs = (e: ts.Expression | undefined): string[] =>
         .filter((x): x is string => !!safeName(x))
     : [];
 
-export function analyzeTsFile(text: string, fileName: string): FileFacts {
+export function analyzeTsFile(
+  text: string,
+  fileName: string,
+  opts: { maxNodes?: number } = {},
+): FileFacts {
   const facts = emptyFacts('ts');
   if (longestLine(text) > L.maxLine) return emptyFacts('ts', 'minified');
   if (text.includes('\u0000')) return emptyFacts('ts', 'parse_error');
-  const budget = { n: 0 };
+  const budget = { n: 0, max: Math.min(opts.maxNodes ?? MAX_NODES, MAX_NODES) };
   try {
     const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, false, kindOf(fileName));
     const lineOf = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;

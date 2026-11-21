@@ -7351,6 +7351,10 @@ export const messages = {
     'kc.skip.budget': 'معقّد جدًا',
     'kc.skip.too_large': 'كبير جدًا',
     'kc.skip.generated': 'مولَّد',
+    'kc.skip.timeout': 'تجاوز المهلة',
+    'kc.skip.memory': 'تجاوز حد الذاكرة',
+    'kc.skip.crashed': 'تعطّل المحلّل',
+    'kc.skip.deadline': 'لم يُحلَّل (حد الوقت أو الأخطاء)',
     'kc.truncated': 'قطع حدٌّ التحليل:',
     // <<< AI Intelligence Center
   },
@@ -14938,6 +14942,10 @@ export const messages = {
     'kc.skip.budget': 'too complex',
     'kc.skip.too_large': 'too large',
     'kc.skip.generated': 'generated',
+    'kc.skip.timeout': 'exceeded the time limit',
+    'kc.skip.memory': 'exceeded the memory limit',
+    'kc.skip.crashed': 'the parser failed',
+    'kc.skip.deadline': 'not analysed (time or failure limit)',
     'kc.truncated': 'The analysis was cut short by a limit:',
     // <<< AI Intelligence Center
   },

@@ -9,7 +9,7 @@ import {
 import { lines } from '../detect/util';
 
 /**
- * Lexical Dart analyzer (S-K2c, interim for D-45): comments and string contents are blanked, then declarations are read by brace matching. It is not a Dart parser: it
+ * Lexical Dart analyzer (S-K2c, interim until the bundled tree-sitter grammar of D-45 is selected, licence-checked and pinned): comments and string contents are blanked, then declarations are read by brace matching. It is not a Dart parser: it
  * extracts what Flutter projects declare in a regular way (widgets, state classes, state holders, providers, constructors' parameters, widget constructor calls in `build`,
  * imports, `GoRoute` → screen links). Everything it cannot read with certainty is simply absent; nothing is guessed. Linear in the size of the file.
  */

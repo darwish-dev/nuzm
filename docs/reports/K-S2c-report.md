@@ -5,7 +5,7 @@ Governing documents: ADR-065 (addendum C), SCR-K-04 (`docs/spec-change-requests/
 
 ## A. Repository findings and assumptions
 - S-K2b ends a clean package at `AWAITING_REVIEW` with a schema-1 manifest whose `components` was reserved and empty. S-K2c inserts a COMPONENTS stage after DETECT (same queue, lease, cancel, retry, dead letter; same `nuzm_worker` role and scope).
-- **Deviations from the preparation (recorded, reversible):** (1) **D-45 is not decided**, so no Dart grammar was bundled: Dart is read by an interim *lexical* analyzer (blanked comments/strings, brace matching) that extracts only what regular Flutter code declares and otherwise says nothing; (2) the proposed **`worker_threads` parser sandbox was not built**: analysis runs in the worker process under per-file hard limits (512 KiB, minified/NUL files skipped, a 400 000-node budget, per-file caps, iterative traversal) plus the lease/cancel machinery. Both are listed as open items.
+- **Deviations from the preparation (recorded, reversible):** (1) no Dart grammar was bundled (D-45 is DECIDED in `docs/07` as bundled tree-sitter, but selecting, licence-checking and pinning the grammar was not done; this report first called D-45 undecided, which was wrong, see K-S2c-sandbox-report): Dart is read by an interim *lexical* analyzer (blanked comments/strings, brace matching) that extracts only what regular Flutter code declares and otherwise says nothing; (2) the proposed **`worker_threads` parser sandbox was not built in this slice** (added afterwards, see K-S2c-sandbox-report): analysis ran in the worker process under per-file hard limits (512 KiB, minified/NUL files skipped, a 400 000-node budget, per-file caps, iterative traversal) plus the lease/cancel machinery. Both are listed as open items.
 - Assumptions: component rows are never reusable (`reuse_allowed` stays false; the database refuses otherwise); example/test/docs projects are not analysed unless nothing else exists; generated, test, story, `dist` and `.d.ts` files are not components.
 - Environment: this worktree used its own Postgres on :54339 and E2E ports 3300/3301/4300/4310 (another workspace owns :54329); nothing of it was touched.
 
@@ -54,7 +54,7 @@ Not run: `pnpm verify:full` (browser E2E of other milestones was not re-run; onl
 
 ## G. Human gates and live checks still needed
 - **D-42 (BLOCKING production)**: real provider, region, retention, `selfTest()` against the real bucket, vault credentials, attestation `HG-…`; the S3 adapter is verified only against a signature-verifying fake. Production uploads, ingestion, detection and component analysis stay off.
-- D-45 (Dart grammar) if the lexical analyzer proves insufficient; D-43 (counsel review for commercial themes); D-44 (no malware claim).
+- D-45 grammar selection, licence check and pin (the approach is decided); D-43 (counsel review for commercial themes); D-44 (no malware claim).
 
 ## H. Acceptance checklist (S-K2c criteria)
 | Criterion | Status |

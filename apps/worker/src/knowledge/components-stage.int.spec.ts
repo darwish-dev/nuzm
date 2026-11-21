@@ -2,12 +2,19 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { uuidv7 } from '@nuzm/platform';
 import { createEnv, type TestEnv } from '@nuzm/platform/testing';
 import { FsObjectStore } from '@nuzm/adapter-knowledge-store';
 import { knowledgeArchiveTesting } from '@nuzm/domain';
 import { KnowledgeIngestService, type IngestServiceOptions } from './ingest-service';
+import {
+  SandboxAborted,
+  SandboxUnavailable,
+  ThreadParserSandbox,
+  type ParseSandbox,
+} from './ast/parser-sandbox';
+import type { ParseOutcome } from './ast/sandbox-protocol';
 
 /**
  * S-K2c on a real PostgreSQL under the real `nuzm_worker` role: VALIDATE -> EXTRACT -> DETECT -> COMPONENTS, with components, relationships, the schema-2 manifest and
@@ -17,6 +24,8 @@ const { buildZip } = knowledgeArchiveTesting;
 let env: TestEnv;
 let dir: string;
 let store: FsObjectStore;
+// one pool of real parser threads shared by the suite (starting a thread from source takes seconds); tests of the stage's own lifecycle opt out with `parser: undefined`
+let shared: ThreadParserSandbox;
 const UPLOADER = '00000000-0000-7000-8000-0000000000f1';
 const MIT =
   'MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software';
@@ -76,8 +85,10 @@ beforeAll(async () => {
   env = await createEnv();
   dir = mkdtempSync(join(tmpdir(), 'nuzm-comp-'));
   store = new FsObjectStore(dir);
+  shared = new ThreadParserSandbox({ threads: 2, startupTimeoutMs: 60_000 });
 });
 afterAll(async () => {
+  await shared.close();
   await env.close();
   rmSync(dir, { recursive: true, force: true });
 });
@@ -86,6 +97,7 @@ const service = (opts: IngestServiceOptions = {}, s: FsObjectStore = store) =>
     heartbeatMs: 50,
     detect: true,
     components: true,
+    parser: shared,
     ...opts,
   });
 
@@ -426,6 +438,183 @@ describe('the COMPONENTS stage', () => {
         )
       ).length,
     ).toBe(0);
+  });
+});
+
+/** A sandbox that delegates to the real one but fails chosen files the way the limits would, so a stage can be exercised deterministically. */
+class Scripted implements ParseSandbox {
+  readonly size = 2;
+  readonly calls: string[] = [];
+  aborted = false;
+  constructor(
+    private readonly script: (path: string) => ParseOutcome | 'hang' | 'unavailable' | null,
+    private readonly real: ParseSandbox = shared,
+  ) {}
+  stats() {
+    return { parsed: 0, failed: {}, threadsStarted: 0, threadsRecycled: 0, maxMs: 0 };
+  }
+  async close() {}
+  async parse(f: Parameters<ParseSandbox['parse']>[0], signal?: AbortSignal) {
+    this.calls.push(f.path);
+    const r = this.script(f.path);
+    if (r === 'unavailable') throw new SandboxUnavailable('the thread could not start');
+    if (r === 'hang')
+      return new Promise<ParseOutcome>((_, reject) => {
+        signal?.addEventListener('abort', () => {
+          this.aborted = true;
+          reject(new SandboxAborted());
+        });
+      });
+    return r ?? this.real.parse(f, signal);
+  }
+}
+const fail = (reason: 'timeout' | 'memory' | 'crashed'): ParseOutcome => ({
+  ok: false,
+  reason,
+  ms: 1,
+});
+const astRows = async (vid: string) =>
+  Number(
+    (
+      await env.sql(
+        `SELECT count(*)::int n FROM knowledge.analysis_results WHERE version_id = $1 AND analyzer = 'ast-file'`,
+        [vid],
+      )
+    )[0]!.n,
+  );
+const logCodes = async (vid: string) =>
+  (
+    await env.sql(
+      `SELECT code, level FROM knowledge.processing_logs WHERE version_id = $1 ORDER BY created_at`,
+      [vid],
+    )
+  ).map((r) => `${r.level}:${r.code}`);
+
+describe('the parser sandbox inside the COMPONENTS stage', () => {
+  it('with no sandbox injected the stage creates its own threads, completes, and closes them', async () => {
+    const close = vi.spyOn(ThreadParserSandbox.prototype, 'close');
+    try {
+      const s = await submit(zipOf(NEXT));
+      await service({
+        parser: undefined,
+        sandbox: { threads: 1, startupTimeoutMs: 60_000 },
+      }).drain();
+      expect(await state(s.vid)).toMatchObject({ state: 'AWAITING_REVIEW' });
+      expect((await comps(s.vid)).map((c) => c.name)).toContain('Card');
+      expect(await logCodes(s.vid)).toContain('info:components.parser');
+      expect(close).toHaveBeenCalledTimes(1);
+    } finally {
+      close.mockRestore();
+    }
+  });
+
+  it('a file stopped at the limits is reported as skipped, never guessed, never cached; the rest of the package is analysed', async () => {
+    const s = await submit(zipOf(NEXT));
+    const sb = new Scripted((p) =>
+      p.endsWith('unused.tsx') ? fail('timeout') : p.endsWith('icon.tsx') ? fail('memory') : null,
+    );
+    await service({ parser: sb }).drain();
+    expect(await state(s.vid)).toMatchObject({ state: 'AWAITING_REVIEW' });
+    const names = (await comps(s.vid)).map((c) => c.name);
+    expect(names).toContain('Card');
+    expect(names).not.toContain('Unused');
+    expect(names).not.toContain('Icon');
+    const m = await manifest2(s.vid);
+    expect(m!.architecture.stats.skipped).toMatchObject({ timeout: 1, memory: 1 });
+    expect(await logCodes(s.vid)).toContain('warn:components.parser_limits');
+    // results of failed files are not cached: only files that were really analysed (or deterministically skipped) are
+    const clean = await submit(zipOf(NEXT));
+    await service().drain();
+    expect(await astRows(s.vid)).toBe((await astRows(clean.vid)) - 2);
+    // a later run over the same content re-parses exactly the two files that hit limits, and now they succeed
+    const again = await submit(zipOf(NEXT), s.rid);
+    await service().drain();
+    expect(await astRows(again.vid)).toBe(2);
+    expect((await comps(again.vid)).map((c) => c.name)).toContain('Unused');
+  });
+
+  it('too many sandbox failures stop further parsing: the remaining files are skipped as "deadline" and the package still reaches review', async () => {
+    const s = await submit(zipOf(NEXT));
+    const sb = new Scripted(() => fail('crashed'));
+    await service({ parser: sb, parserMaxFailures: 2 }).drain();
+    expect(await state(s.vid)).toMatchObject({ state: 'AWAITING_REVIEW' });
+    const skipped = (await manifest2(s.vid))!.architecture.stats.skipped as Record<string, number>;
+    expect(skipped.crashed).toBeGreaterThanOrEqual(2);
+    expect(skipped.crashed! + (skipped.deadline ?? 0)).toBeGreaterThanOrEqual(8);
+    expect(skipped.deadline).toBeGreaterThan(0);
+    expect(sb.calls.length).toBeLessThan(skipped.crashed! + skipped.deadline!);
+    expect(await astRows(s.vid)).toBe(0);
+    expect(await comps(s.vid)).toEqual([]);
+  });
+
+  it('the wall-clock budget of the parsing phase is enforced: once spent, no further file is sent to a thread', async () => {
+    const s = await submit(zipOf(NEXT));
+    const sb = new Scripted(() => null);
+    await service({ parser: sb, parserBudgetMs: 0 }).drain();
+    expect(await state(s.vid)).toMatchObject({ state: 'AWAITING_REVIEW' });
+    expect(sb.calls).toEqual([]);
+    const skipped = (await manifest2(s.vid))!.architecture.stats.skipped as Record<string, number>;
+    expect(skipped.deadline).toBeGreaterThanOrEqual(8);
+    expect(await comps(s.vid)).toEqual([]);
+    expect(await astRows(s.vid)).toBe(0);
+  });
+
+  it('a sandbox that cannot start is infrastructure trouble: the job is retried, nothing is written', async () => {
+    const s = await submit(zipOf(NEXT));
+    await service({ parser: new Scripted(() => 'unavailable') }).drain();
+    expect(await jobs(s.vid)).toContain('COMPONENTS:QUEUED');
+    expect(await state(s.vid)).toMatchObject({ state: 'ANALYZING' });
+    expect(await comps(s.vid)).toEqual([]);
+    expect(await manifest2(s.vid)).toBeUndefined();
+    expect(await astRows(s.vid)).toBe(0);
+    expect(await logCodes(s.vid)).toContain('warn:job.retry');
+    // the retry (after the back-off) succeeds on a healthy sandbox
+    await env.sql(
+      `UPDATE knowledge.processing_jobs SET run_after = now() WHERE version_id = $1 AND kind = 'COMPONENTS'`,
+      [s.vid],
+    );
+    await service().drain();
+    expect(await state(s.vid)).toMatchObject({ state: 'AWAITING_REVIEW' });
+  });
+
+  it('cancellation terminates a parse that is in flight and writes nothing', async () => {
+    const s = await submit(zipOf(NEXT));
+    for (let i = 0; i < 3; i++) await service().runOnce(); // VALIDATE, EXTRACT, DETECT
+    const sb = new Scripted(() => 'hang');
+    const running = service({ parser: sb }).runOnce();
+    setTimeout(
+      () =>
+        void env.sql(
+          `UPDATE knowledge.processing_jobs SET cancel_requested = true WHERE version_id = $1 AND kind = 'COMPONENTS'`,
+          [s.vid],
+        ),
+      300,
+    );
+    await running;
+    expect(sb.aborted).toBe(true); // the in-flight parse was aborted, not waited for
+    expect(await jobs(s.vid)).toContain('COMPONENTS:CANCELLED');
+    expect(await state(s.vid)).toMatchObject({ state: 'QUARANTINED', state_reason: 'cancelled' });
+    expect(await comps(s.vid)).toEqual([]);
+    expect(await manifest2(s.vid)).toBeUndefined();
+    expect(await astRows(s.vid)).toBe(0);
+  });
+
+  it('the stage closes the threads it created when it fails or is cancelled', async () => {
+    const close = vi.spyOn(ThreadParserSandbox.prototype, 'close');
+    try {
+      const s = await submit(zipOf(NEXT));
+      for (let i = 0; i < 3; i++) await service().runOnce();
+      class Missing extends FsObjectStore {
+        override async read(): Promise<Buffer> {
+          throw new Error('the store is down');
+        }
+      }
+      await service({ parser: undefined, sandbox: { threads: 1 } }, new Missing(dir)).runOnce();
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(await comps(s.vid)).toEqual([]);
+    } finally {
+      close.mockRestore();
+    }
   });
 });
 

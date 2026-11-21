@@ -16,6 +16,7 @@ import {
 } from '@nuzm/domain';
 import { KnowledgeObjectStore, ObjectStoreError } from '@nuzm/adapter-knowledge-store';
 import { analyzeComponentsStage } from './components-stage';
+import type { ParseSandbox, SandboxOptions } from './ast/parser-sandbox';
 
 /**
  * Secure project ingestion worker (S-K2a, ADR-065). It claims platform-library jobs (VALIDATE, EXTRACT) from `knowledge.processing_jobs` and drives a version through
@@ -48,6 +49,13 @@ export interface IngestServiceOptions {
   detect?: boolean;
   /** The COMPONENTS stage (S-K2c): off by default; needs `detect`. After DETECT the worker queues COMPONENTS and the version waits in ANALYZING until the schema-2 manifest, components and relationships are written. */
   components?: boolean;
+  /** Limits and size of the parser sandbox used by COMPONENTS (threads, timeout per file, heap per thread, …). Defaults are strict; see ADR-065 addendum D. */
+  sandbox?: SandboxOptions;
+  /** Test seam: a ready-made sandbox (not closed by the stage). */
+  parser?: ParseSandbox;
+  /** Wall-clock budget of the parsing phase and the tolerated number of sandbox failures per job. */
+  parserBudgetMs?: number;
+  parserMaxFailures?: number;
 }
 
 const TRANSIENT_DELAY = (attempt: number) => Math.min(30 * 2 ** Math.max(0, attempt - 1), 600);
@@ -667,6 +675,14 @@ export class KnowledgeIngestService {
         writeLog: (c, jobId, versionId, level, stage, code, message, data) =>
           this.writeLog(c, jobId, versionId, level, stage, code, message, data),
         stop: (why) => new Stop(why),
+        ...(this.opts.parser ? { parser: this.opts.parser } : {}),
+        ...(this.opts.sandbox ? { parserOptions: this.opts.sandbox } : {}),
+        ...(this.opts.parserBudgetMs !== undefined
+          ? { parserBudgetMs: this.opts.parserBudgetMs }
+          : {}),
+        ...(this.opts.parserMaxFailures !== undefined
+          ? { parserMaxFailures: this.opts.parserMaxFailures }
+          : {}),
       },
       job,
     );

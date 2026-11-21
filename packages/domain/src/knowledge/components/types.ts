@@ -51,7 +51,17 @@ export interface ImportFact {
   style: boolean;
   asset: boolean;
 }
-export type SkipReason = 'too_large' | 'minified' | 'parse_error' | 'budget' | 'generated';
+/** Why a file produced no facts. `timeout`, `memory`, `crashed` and `deadline` come from the parser sandbox (limits hit on this run) and are never cached: a later run may succeed. */
+export type SkipReason =
+  | 'too_large'
+  | 'minified'
+  | 'parse_error'
+  | 'budget'
+  | 'generated'
+  | 'timeout'
+  | 'memory'
+  | 'crashed'
+  | 'deadline';
 export interface FileFacts {
   lang: FileLang;
   imports: ImportFact[];

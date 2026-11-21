@@ -81,6 +81,11 @@ const knowledge = knowledgeStore?.store
       canaries: canariesFromEnv(),
       detect: process.env.KNOWLEDGE_DETECT_ENABLED === 'true', // S-K2b project detection stage: off until accepted
       components: process.env.KNOWLEDGE_COMPONENTS_ENABLED === 'true', // S-K2c component and architecture stage: off until accepted (needs detect)
+      sandbox: {
+        threads: Number(process.env.KNOWLEDGE_PARSER_THREADS) || undefined, // parser sandbox (S-K2c): threads, 1-4, default 2
+        timeoutMs: Number(process.env.KNOWLEDGE_PARSER_TIMEOUT_MS) || undefined, // per file, default 10 000
+        maxOldGenerationSizeMb: Number(process.env.KNOWLEDGE_PARSER_HEAP_MB) || undefined, // per thread, default 384
+      },
     })
   : null;
 log(

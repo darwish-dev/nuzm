@@ -5,15 +5,21 @@ import {
   COMPONENT_ANALYZER_VERSION,
   COMPONENT_LIMITS as L,
   aliasesOf,
-  analyzeDart,
   assemble,
   buildManifestV2,
+  emptyFacts,
   parseJsonc,
   type AssembleFile,
   type AssembleProject,
   type FileFacts,
 } from '@nuzm/domain';
-import { analyzeTsFile } from './ast/ts-file';
+import { DEFAULT_SANDBOX_LIMITS } from './ast/sandbox-protocol';
+import {
+  SandboxAborted,
+  ThreadParserSandbox,
+  type ParseSandbox,
+  type SandboxOptions,
+} from './ast/parser-sandbox';
 
 type Tx = Parameters<Parameters<Db['withKnowledgeWorker']>[0]>[0];
 export interface StageJob {
@@ -53,6 +59,12 @@ export interface StageDeps {
     data?: Record<string, unknown>,
   ): Promise<void>;
   stop(why: 'cancelled' | 'lease_lost'): Error;
+  /** Parser sandbox: injected by tests; by default a pool of isolated threads is created for the stage and closed at its end. */
+  parser?: ParseSandbox;
+  parserOptions?: SandboxOptions;
+  /** Wall-clock budget of the whole parsing phase and the number of sandbox failures tolerated before the remaining files are skipped (defaults 10 min / 25). */
+  parserBudgetMs?: number;
+  parserMaxFailures?: number;
 }
 const TS_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
 const SKIP =
@@ -158,20 +170,128 @@ export async function analyzeComponentsStage(d: StageDeps, job: StageJob): Promi
     `component analysis started over ${cands.length} source files (${cached.size} results reused); nothing from the package is executed`,
     { files: cands.length, reused: cached.size },
   );
-  const assembled = await d.guarded(job, async (stopped) => {
+  const parseFiles = async (stopped: () => 'cancelled' | 'lease_lost' | null): Promise<void> => {
+    const todo: typeof cands = [];
+    const seen = new Set<string>();
     for (const f of cands) {
-      const s = stopped();
-      if (s) throw d.stop(s);
       const h = hashOf(f);
-      if (factsByHash.has(h)) continue;
-      let facts: FileFacts;
-      if (Number(f.bytes) > 512 * 1024) facts = { ...emptyOf(f.path), skipped: 'too_large' };
-      else {
-        const text = (await d.store.read(f.object_key!)).toString('utf8');
-        facts = f.path.endsWith('.dart') ? analyzeDart(text) : analyzeTsFile(text, f.path);
+      if (factsByHash.has(h) || seen.has(h)) continue;
+      seen.add(h);
+      todo.push(f);
+    }
+    if (!todo.length) return;
+    const t0 = Date.now();
+    const deadline = t0 + (d.parserBudgetMs ?? 600_000);
+    const maxFailures = d.parserMaxFailures ?? 25;
+    let failures = 0;
+    const limited: Record<string, number> = {}; // files that hit a limit on THIS run (not cached, may succeed next time)
+    const hit = (k: string) => (limited[k] = (limited[k] ?? 0) + 1);
+    let next = 0;
+    const abort = new AbortController();
+    // a cancellation or a lost lease terminates the parse in flight at once instead of waiting for it
+    const watch = setInterval(() => {
+      if (stopped()) abort.abort();
+    }, 200);
+    const results = new Map<string, { facts: FileFacts; cache: boolean }>();
+    const lane = async (): Promise<void> => {
+      for (;;) {
+        const s = stopped();
+        if (s) throw d.stop(s);
+        if (abort.signal.aborted) return;
+        const f = todo[next++];
+        if (!f) return;
+        const h = hashOf(f);
+        const lang = f.path.endsWith('.dart') ? 'dart' : 'ts';
+        if (
+          Number(f.bytes) > (d.parserOptions?.maxFileBytes ?? DEFAULT_SANDBOX_LIMITS.maxFileBytes)
+        ) {
+          results.set(h, { facts: emptyFacts(lang, 'too_large'), cache: true });
+          continue;
+        }
+        if (Date.now() >= deadline || failures >= maxFailures) {
+          hit('deadline');
+          results.set(h, { facts: emptyFacts(lang, 'deadline'), cache: false });
+          continue;
+        }
+        const buf = await d.store.read(f.object_key!);
+        const bytes = buf.buffer.slice(
+          buf.byteOffset,
+          buf.byteOffset + buf.byteLength,
+        ) as ArrayBuffer;
+        let out;
+        try {
+          out = await sandbox.parse({ kind: lang, path: f.path, bytes }, abort.signal);
+        } catch (e) {
+          if (e instanceof SandboxAborted) {
+            const why = stopped();
+            if (why) throw d.stop(why);
+            return;
+          }
+          throw e;
+        }
+        if (out.ok) results.set(h, { facts: out.facts, cache: true });
+        else {
+          const deterministic = out.reason === 'too_large' || out.reason === 'oversize';
+          if (!deterministic) {
+            failures++;
+            hit(out.reason);
+          }
+          const skipped =
+            out.reason === 'too_large'
+              ? 'too_large'
+              : out.reason === 'oversize'
+                ? 'budget'
+                : out.reason === 'invalid'
+                  ? 'parse_error'
+                  : out.reason;
+          results.set(h, {
+            facts: emptyFacts(lang, skipped),
+            cache: out.reason === 'too_large' || out.reason === 'oversize',
+          });
+        }
       }
-      factsByHash.set(h, facts);
-      fresh.push({ hash: h, facts });
+    };
+    try {
+      await Promise.all(Array.from({ length: Math.min(sandbox.size, todo.length) }, lane)).catch(
+        (e) => {
+          abort.abort(); // the other lanes stop; their in-flight parses are terminated
+          throw e;
+        },
+      );
+    } finally {
+      clearInterval(watch);
+    }
+    const s = stopped();
+    if (s) throw d.stop(s);
+    // deterministic order, whatever the threads' timing
+    for (const f of todo) {
+      const h = hashOf(f);
+      const r = results.get(h);
+      if (!r) throw d.stop('lease_lost'); // cannot happen: every lane finished without an abort
+      factsByHash.set(h, r.facts);
+      if (r.cache) fresh.push({ hash: h, facts: r.facts });
+    }
+    const st = sandbox.stats();
+    const limitedTotal = Object.values(limited).reduce((a, b) => a + b, 0);
+    await d.log(
+      job,
+      limitedTotal ? 'warn' : 'info',
+      limitedTotal ? 'components.parser_limits' : 'components.parser',
+      limitedTotal
+        ? `${limitedTotal} file(s) hit a parser limit (${Object.entries(limited)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ')}); they are reported as skipped, nothing was guessed`
+        : `parsed ${todo.length} file(s) in the parser sandbox`,
+      { files: todo.length, limited, sandbox: st, ms: Date.now() - t0, threads: sandbox.size },
+    );
+  };
+  const sandbox: ParseSandbox = d.parser ?? new ThreadParserSandbox(d.parserOptions);
+  const ownsSandbox = !d.parser;
+  const assembled = await d.guarded(job, async (stopped) => {
+    try {
+      await parseFiles(stopped);
+    } finally {
+      if (ownsSandbox) await sandbox.close();
     }
     // tsconfig aliases per project
     for (const r of roots) {
@@ -303,18 +423,4 @@ export async function analyzeComponentsStage(d: StageDeps, job: StageJob): Promi
       summary,
     );
   });
-}
-function emptyOf(path: string): FileFacts {
-  return {
-    lang: path.endsWith('.dart') ? 'dart' : 'ts',
-    imports: [],
-    exports: [],
-    reexports: [],
-    components: [],
-    directives: [],
-    routeRefs: [],
-    hasTheme: false,
-    skipped: null,
-    truncated: false,
-  };
 }

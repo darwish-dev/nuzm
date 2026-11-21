@@ -102,7 +102,7 @@ schemas:
   domains:
     owner_module: domains
     created_by: M07
-    extended_by: []
+    extended_by: [ M07-INT ]
     tables: [ dns_records, dns_zones, domain_contacts, domain_orders, domain_transfers, domains, eligibility_checks, registrar_accounts, registrars ]
   data:
     owner_module: data
@@ -355,6 +355,8 @@ migration_ranges:
   AS: "1840-1859"
   # AI Intelligence Center (ADR-065)
   K: "1860-1899"
+  # M07 domains additions made after later milestones were applied (DNet registrar settings): above every applied ordinal, because the runner is forward-only
+  M07-INT: "1900-1919"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.

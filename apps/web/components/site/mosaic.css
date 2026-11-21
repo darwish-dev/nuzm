@@ -121,22 +121,3 @@
 .landing .platform-section .section-heading {
   margin-block-end: 36px;
 }
-
-/* one look per theme: the light picture or its dark-mode version */
-.il-dark {
-  display: none !important;
-}
-.landing[data-mode='dark'] .il-dark {
-  display: block !important;
-}
-.landing[data-mode='dark'] .il-light {
-  display: none !important;
-}
-.landing[data-mode='dark'] .mz-tile,
-.landing[data-mode='dark'] .svc-card-art,
-.landing[data-mode='dark'] .doc-help {
-  background: #1e252b;
-}
-.landing[data-mode='dark'] .mz-tile {
-  box-shadow: 0 12px 30px #00000066;
-}

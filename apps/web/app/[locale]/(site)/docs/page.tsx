@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { Icon } from '@nuzm/ui';
 import { isLocale } from '@nuzm/i18n';
 import { DocsFrame } from '../../../../components/site/DocsFrame';
-import { ThemedImage } from '../../../../components/site/ThemedImage';
 import { Rich } from '../../../../components/docs/DocsParts';
 import { GUIDES, doc } from '../../../../lib/docs-content';
 import { REF } from '../../../../lib/api-docs';
@@ -91,7 +90,7 @@ export default async function DocsHome({ params }: { params: Promise<{ locale: s
       </div>
       <h2 id="help">{doc('helpTitle', locale)}</h2>
       <div className="doc-help">
-        <ThemedImage src="/images/illustrations/support.webp" width={367} height={289} />
+        <img src="/images/illustrations/support.webp" alt="" width={367} height={289} loading="lazy" />
         <p>{doc('helpText', locale)}</p>
       </div>
     </DocsFrame>

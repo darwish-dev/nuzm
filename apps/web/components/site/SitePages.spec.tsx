@@ -11,7 +11,6 @@ import {
   relatedOf,
 } from './SiteSections';
 import { Mosaic } from './Mosaic';
-import { ThemedImage } from './ThemedImage';
 import { MOSAIC, SERVICES, pick, site } from '../../lib/site-content';
 
 afterEach(cleanup);
@@ -109,22 +108,6 @@ describe('illustration mosaic', () => {
     for (const t of MOSAIC) {
       const a = screen.getByRole('link', { name: pick(t.label, 'ar') });
       expect(a.getAttribute('href')).toBe(t.href === '' ? '#agents' : `/ar${t.href}`);
-    }
-  });
-
-  it('every picture comes in a light and a dark version, the dark one in /dark/, both decorative', () => {
-    render(
-      <ThemedImage src="/images/illustrations/cloud.webp" width={380} height={290} className="x" />,
-    );
-    const imgs = Array.from(document.querySelectorAll('img'));
-    expect(imgs.map((i) => i.getAttribute('src'))).toEqual([
-      '/images/illustrations/cloud.webp',
-      '/images/illustrations/dark/cloud.webp',
-    ]);
-    expect(imgs.map((i) => i.className)).toEqual(['il-light x', 'il-dark x']);
-    for (const i of imgs) {
-      expect(i.getAttribute('alt')).toBe('');
-      expect(i.getAttribute('loading')).toBe('lazy');
     }
   });
 });

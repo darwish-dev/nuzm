@@ -6,7 +6,6 @@ import { DocsSearch, type SearchEntry } from '../docs/DocsSearch';
 import { DocsToc, type TocItem } from '../docs/DocsToc';
 import { HelpfulRating } from '../docs/HelpfulRating';
 import { ThemeToggle } from '../docs/ThemeToggle';
-import { ThemedImage } from './ThemedImage';
 import { DocsSidebar } from '../docs/DocsParts';
 import { GUIDES, doc } from '../../lib/docs-content';
 import { REF } from '../../lib/api-docs';
@@ -98,7 +97,7 @@ export function DocsFrame({
               <h1>{title}</h1>
               {lead && <p className="doc-lead">{lead}</p>}
             </div>
-            {art && <ThemedImage className="doc-art" src={art} width={380} height={290} eager />}
+            {art && <img className="doc-art" src={art} alt="" width={380} height={290} />}
           </div>
           <div className="doc-content">{children}</div>
         </main>

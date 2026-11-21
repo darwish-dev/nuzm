@@ -3,6 +3,7 @@ import { Access, Org, RequirePermission, type AccessContext } from '../../common
 import { Idempotent } from '../../common/idempotency';
 import { CustomerTemplateService, KnowledgeCustomerTemplatesGuard } from '../knowledge';
 import { AppBuilderEnabledGuard } from './internal/flag.guard';
+import { GenerationService } from './internal/studio/generation';
 import { TemplateStartService } from './internal/studio/template-start';
 
 const body = (x: unknown): Record<string, unknown> =>
@@ -18,6 +19,7 @@ export class TemplateStartController {
   constructor(
     private readonly start: TemplateStartService,
     private readonly templates: CustomerTemplateService,
+    private readonly gen: GenerationService,
   ) {}
 
   @RequirePermission('builder:write')
@@ -32,13 +34,14 @@ export class TemplateStartController {
   @Idempotent()
   @Post('generation-plans')
   @HttpCode(201)
-  createPlan(@Org() orgId: string, @Access() a: AccessContext, @Body() b: unknown) {
-    return this.start.plan(orgId, a.actor.userId, body(b));
+  async createPlan(@Org() orgId: string, @Access() a: AccessContext, @Body() b: unknown) {
+    const plan = await this.start.plan(orgId, a.actor.userId, body(b));
+    return this.gen.plan(orgId, plan.id);
   }
 
   @RequirePermission('builder:read')
   @Get('generation-plans/:id')
   getPlan(@Org() orgId: string, @Param('id') id: string) {
-    return this.templates.getPlan(orgId, id);
+    return this.gen.plan(orgId, id);
   }
 }

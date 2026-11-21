@@ -7672,6 +7672,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/builder/projects/{id}/template-workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A project compared with its template copy
+         * @description The project's current files compared with the baseline its template copy recorded (what the copy wrote: path and checksum), so the comparison needs neither the template nor its files and keeps working after the template changes or is withdrawn. Lists added, modified and removed paths of the customer's own project, with exact counts. A project that was not copied from a template (or was copied before baselines were recorded) answers `linked: false`. Requires `builder:read`; 404 while `knowledge.generation` is off.
+         */
+        get: operations["getBuilderTemplateWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans/{id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a model would receive for a plan
+         * @description The bounded, ordered context assembled for a plan from the CURRENT state of the project: the platform policy for the adaptation mode (trusted), then the requirement, template facts, the file index and file contents by priority, each as a data block. Shows what was left out and why. Source of a template is sent only when the template's AI-processing permission allows it: contents of files that are still the template's are withheld otherwise (paths and sizes only); the customer's own work is always eligible. Nothing is sent anywhere by this call. Requires `builder:read`; 404 while `knowledge.generation` is off.
+         */
+        get: operations["getBuilderGenerationContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adapt the template copy
+         * @description Starts a run of the existing `webapp` kind with `input.templatePlanId`: ONE structured model call over the assembled context (metered, residency-checked, budget-capped, output secret-scanned, repair loop), then the proposed change set passes the same safety checks as every change and is committed on the AI branch `work/ai`, never on the main branch. Not the coding agent: no tool use, no on-demand file fetch, nothing is executed (D-46 open, D-21 blocks any run of the result). A plan starts once (409 otherwise). Requires `ai:write`, `app_builder.enabled` and `knowledge.generation`; audited. Model quality is NOT VERIFIED.
+         */
+        post: operations["startBuilderGenerationPlanRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -14218,6 +14278,87 @@ export interface components {
             };
             /** Format: date-time */
             createdAt?: string | null;
+        };
+        BuilderWorkspaceDiff: {
+            added?: string[];
+            modified?: string[];
+            removed?: string[];
+            unchanged?: number;
+            baselineFiles?: number;
+            currentFiles?: number;
+            /** @description Share of baseline files that were modified or removed. */
+            departure?: number;
+            truncated?: boolean;
+            counts?: {
+                added?: number;
+                modified?: number;
+                removed?: number;
+            };
+        };
+        BuilderTemplateWorkspace: {
+            linked: boolean;
+            project: {
+                /** Format: uuid */
+                id?: string;
+                /** Format: uuid */
+                headVersionId?: string | null;
+            };
+            /** Format: date-time */
+            copiedAt?: string | null;
+            templateAvailable?: boolean;
+            template?: {
+                /** Format: uuid */
+                resourceId?: string;
+                /** Format: uuid */
+                versionId?: string;
+                versionSeq?: number;
+                name?: string;
+                license?: string | null;
+            } | null;
+            diff?: components["schemas"]["BuilderWorkspaceDiff"];
+        };
+        BuilderGenerationContext: {
+            /** Format: uuid */
+            planId?: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** @enum {string} */
+            mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /** @description The template's permission to send its source to a model; false also when the template is no longer available. */
+            aiProcessing?: boolean;
+            template?: {
+                /** Format: uuid */
+                resourceId?: string;
+                /** Format: uuid */
+                versionId?: string;
+                name?: string;
+                license?: string | null;
+            } | null;
+            policy?: string;
+            tokens?: {
+                used?: number;
+                budget?: number;
+            };
+            blocks?: {
+                /** @enum {string} */
+                kind?: "requirement" | "template" | "file_index" | "file";
+                label?: string;
+                tokens?: number;
+                text?: string;
+            }[];
+            included?: string[];
+            excluded?: {
+                path?: string;
+                /** @enum {string} */
+                reason?: "ai_processing_not_allowed" | "too_large" | "over_budget" | "too_many_files" | "not_text";
+            }[];
+            notes?: string[];
+        };
+        BuilderGenerationRunRequest: {
+            budget?: {
+                maxTokens?: number;
+                maxCredits?: number;
+            };
         };
     };
     responses: {
@@ -29830,6 +29971,103 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderTemplateWorkspace: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplateWorkspace"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderGenerationContext: {
+        parameters: {
+            query?: {
+                /** @description Token budget of the pack (clamped). */
+                budget?: number;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationContext"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    startBuilderGenerationPlanRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BuilderGenerationRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
         };
     };
 }

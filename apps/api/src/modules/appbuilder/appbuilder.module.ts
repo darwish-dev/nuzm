@@ -18,6 +18,7 @@ import {
   ModelProviderService,
   RunKindRegistry,
   RunService,
+  SessionService,
   type AiConfig,
 } from '../ai';
 import { BuilderModule, LivePreviewRegistry, ProjectDelegates, ProjectService } from '../builder';
@@ -27,6 +28,9 @@ import { IdentityModule } from '../identity';
 import { CustomerTemplateService, KnowledgeModule } from '../knowledge';
 import { TemplateStartController } from './template-start.controller';
 import { TemplateStartService } from './internal/studio/template-start';
+import { GenerationController } from './generation.controller';
+import { GenerationService } from './internal/studio/generation';
+import { TemplateAdaptRunner } from './internal/studio/template-adapt';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
@@ -275,6 +279,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
     AdminSkillsController,
     StudioSettingsController,
     TemplateStartController,
+    GenerationController,
   ],
   providers: [
     ...M09_PORT_PROVIDERS,
@@ -291,6 +296,25 @@ class LogSecurityAlerts extends SecurityAlertPort {
         c: ChangeService,
       ) => new TemplateStartService(db, t, b, p, c),
       inject: [DB, CustomerTemplateService, ProjectService, ProjectsPort, ChangeService],
+    },
+    // S-K6: the adaptation of a copied template
+    {
+      provide: GenerationService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        t: CustomerTemplateService,
+        p: ProjectsPort,
+        r: RunService,
+        s: SessionService,
+      ) => new GenerationService(db, a, t, p, r, s),
+      inject: [DB, AuditSink, CustomerTemplateService, ProjectsPort, RunService, SessionService],
+    },
+    {
+      provide: TemplateAdaptRunner,
+      useFactory: (db: Db, g: GenerationService, c: ChangeService) =>
+        new TemplateAdaptRunner(db, g, c),
+      inject: [DB, GenerationService, ChangeService],
     },
     // ---- AI Studio (ADR-064) --------------------------------------------------------------------------------------------------------
     {
@@ -615,10 +639,11 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(AppDeploymentService) private readonly deployments: AppDeploymentService,
     @Inject(DB) private readonly db: Db,
     @Inject(SkillsService) private readonly skills: SkillsService,
+    @Inject(TemplateAdaptRunner) private readonly adapt: TemplateAdaptRunner,
   ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
-    this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph));
+    this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph, this.adapt));
     this.registry.register(new TestFixRunHandler(this.store, this.projects, this.testFix));
     this.projectDelegates.register(
       'webapp',

@@ -407,6 +407,8 @@ export class CustomerTemplateService {
       copied: number;
       skipped: number;
       planId?: string | null;
+      /** path → sha256 of exactly the files the copy wrote (S-K6: what the workspace is later compared with) */
+      baseline?: Record<string, string>;
     },
   ) {
     await this.db.withOrg(orgId, async (c) => {
@@ -416,8 +418,15 @@ export class CustomerTemplateService {
           [newId(), orgId, a.resourceId, a.versionId, kind],
         );
       await c.query(
-        `INSERT INTO knowledge.generation_resource_links (id, org_id, plan_id, resource_version_id, role, strategy) VALUES ($1,$2,$3,$4,'STARTER','COPY')`,
-        [newId(), orgId, a.planId ?? null, a.versionId],
+        `INSERT INTO knowledge.generation_resource_links (id, org_id, plan_id, resource_version_id, role, strategy, project_id, baseline) VALUES ($1,$2,$3,$4,'STARTER','COPY',$5,$6::jsonb)`,
+        [
+          newId(),
+          orgId,
+          a.planId ?? null,
+          a.versionId,
+          a.projectId,
+          a.baseline ? JSON.stringify(a.baseline) : null,
+        ],
       );
     });
     await this.audit.record({
@@ -534,5 +543,104 @@ export class CustomerTemplateService {
       plan: r.plan as Row,
       createdAt: iso(r.created_at),
     };
+  }
+
+  // ---- S-K6: the workspace of a copied project, and the plan's run -------------------------------------------------------------------
+  /** A plan of this organization, with the run it started (if any). 404 for another organization's plan. */
+  async planRow(orgId: string, id: string): Promise<Row> {
+    if (!isUuid(id)) throw new ProblemException('not_found', 'plan not found');
+    const r = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(`SELECT * FROM knowledge.generation_plans WHERE id = $1`, [
+            id.toLowerCase(),
+          ])
+        ).rows[0] as Row | undefined,
+    );
+    if (!r) throw new ProblemException('not_found', 'plan not found');
+    return r;
+  }
+
+  /** The newest template copy recorded for a project that has a baseline (copies made before S-K6 have none). Tenant rows only. */
+  async linkForProject(
+    orgId: string,
+    projectId: string,
+  ): Promise<{
+    versionId: string;
+    baseline: Record<string, string>;
+    createdAt: string | null;
+  } | null> {
+    if (!isUuid(projectId)) return null;
+    const r = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `SELECT resource_version_id, baseline, created_at FROM knowledge.generation_resource_links
+              WHERE project_id = $1 AND baseline IS NOT NULL ORDER BY created_at DESC LIMIT 1`,
+            [projectId.toLowerCase()],
+          )
+        ).rows[0] as Row | undefined,
+    );
+    if (!r) return null;
+    return {
+      versionId: r.resource_version_id as string,
+      baseline: r.baseline as Record<string, string>,
+      createdAt: iso(r.created_at),
+    };
+  }
+
+  /** What may be said about the template of a copy and what its permission allows. `null` once the template is no longer eligible (disabled, withdrawn, licence changed): the diff still works from the baseline. */
+  async templateFacts(
+    orgId: string,
+    versionId: string,
+  ): Promise<{ template: TemplateDto; aiProcessing: boolean } | null> {
+    if (!isUuid(versionId)) return null;
+    const rows = await this.db.withOrg(orgId, async (c) => {
+      const t = (
+        await c.query(`SELECT * FROM knowledge.v_published_templates WHERE version_id = $1`, [
+          versionId.toLowerCase(),
+        ])
+      ).rows[0] as Row | undefined;
+      const p = (
+        await c.query(
+          `SELECT ai_processing FROM knowledge.v_template_context_permissions WHERE version_id = $1`,
+          [versionId.toLowerCase()],
+        )
+      ).rows[0] as Row | undefined;
+      return { t, p };
+    });
+    if (!rows.t) return null;
+    return { template: toDto(rows.t, orgId), aiProcessing: rows.p?.ai_processing === true };
+  }
+
+  /** The plan has started a run: PLANNED → RUNNING, once. `false` when it was not PLANNED any more (a second start). */
+  async attachRun(orgId: string, planId: string, runId: string): Promise<boolean> {
+    return this.db.withOrg(
+      orgId,
+      async (c) =>
+        ((
+          await c.query(
+            `UPDATE knowledge.generation_plans SET status = 'RUNNING', run_id = $2, version = version + 1
+              WHERE id = $1 AND status = 'PLANNED' AND run_id IS NULL`,
+            [planId, runId],
+          )
+        ).rowCount ?? 0) === 1,
+    );
+  }
+
+  /** The plan follows its run: RUNNING → COMPLETED | FAILED | CANCELLED (never backwards). */
+  async settlePlan(
+    orgId: string,
+    planId: string,
+    status: 'COMPLETED' | 'FAILED' | 'CANCELLED',
+  ): Promise<void> {
+    await this.db.withOrg(orgId, async (c) => {
+      await c.query(
+        `UPDATE knowledge.generation_plans SET status = $2, version = version + 1 WHERE id = $1 AND status = 'RUNNING'`,
+        [planId, status],
+      );
+    });
   }
 }

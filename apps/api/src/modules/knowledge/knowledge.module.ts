@@ -9,7 +9,11 @@ import { AdminKnowledgeRetrievalController } from './admin-knowledge-retrieval.c
 import { AdminKnowledgeUploadsController } from './admin-knowledge-uploads.controller';
 import { CustomerTemplatesController } from './customer-templates.controller';
 import { CustomerTemplateService } from './internal/customer-templates.service';
-import { KnowledgeCustomerTemplatesGuard, KnowledgeLibraryGuard } from './internal/flag';
+import {
+  KnowledgeCustomerTemplatesGuard,
+  KnowledgeGenerationGuard,
+  KnowledgeLibraryGuard,
+} from './internal/flag';
 import { KnowledgeObjectStore, createKnowledgeObjectStore } from './internal/object-store';
 import { ResourceService } from './internal/resource.service';
 import { RetrievalService } from './internal/retrieval.service';
@@ -33,6 +37,7 @@ import { UploadService } from './internal/upload.service';
   providers: [
     KnowledgeLibraryGuard,
     KnowledgeCustomerTemplatesGuard,
+    KnowledgeGenerationGuard,
     {
       provide: KnowledgeObjectStore,
       useFactory: (): KnowledgeObjectStore => createKnowledgeObjectStore(),
@@ -71,6 +76,7 @@ import { UploadService } from './internal/upload.service';
     RetrievalService,
     CustomerTemplateService,
     KnowledgeCustomerTemplatesGuard,
+    KnowledgeGenerationGuard,
     UploadService,
     KnowledgeObjectStore,
   ],

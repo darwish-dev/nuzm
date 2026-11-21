@@ -107,6 +107,15 @@ export class TemplateStartService {
       copied: patches.length,
       skipped: skipped.length,
       planId: typeof b.planId === 'string' ? b.planId : null,
+      // what this copy wrote, so the workspace can be compared with it later without the template
+      baseline: Object.fromEntries(
+        patches.map((p) => [
+          p.path,
+          createHash('sha256')
+            .update(p.content ?? '', 'utf8')
+            .digest('hex'),
+        ]),
+      ),
     });
     return {
       project: { id: created.id, name: created.name, type: created.type },

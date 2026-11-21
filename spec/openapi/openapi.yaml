@@ -14130,6 +14130,92 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/{id}/template-workspace:
+    get:
+      operationId: getBuilderTemplateWorkspace
+      tags: [builder]
+      summary: 'A project compared with its template copy'
+      description: >-
+        The project's current files compared with the baseline its template copy recorded (what the copy wrote: path and checksum), so the comparison needs neither the template nor its files and keeps working after the template changes or is withdrawn. Lists added, modified and removed paths of the customer's own project, with exact counts. A project that was not copied from a template (or was copied before baselines were recorded) answers `linked: false`. Requires `builder:read`; 404 while `knowledge.generation` is off.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.generation
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderTemplateWorkspace' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/generation-plans/{id}/context:
+    get:
+      operationId: getBuilderGenerationContext
+      tags: [builder]
+      summary: 'What a model would receive for a plan'
+      description: >-
+        The bounded, ordered context assembled for a plan from the CURRENT state of the project: the platform policy for the adaptation mode (trusted), then the requirement, template facts, the file index and file contents by priority, each as a data block. Shows what was left out and why. Source of a template is sent only when the template's AI-processing permission allows it: contents of files that are still the template's are withheld otherwise (paths and sizes only); the customer's own work is always eligible. Nothing is sent anywhere by this call. Requires `builder:read`; 404 while `knowledge.generation` is off.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.generation
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - {
+            name: budget,
+            in: query,
+            required: false,
+            description: 'Token budget of the pack (clamped).',
+            schema: { type: integer, minimum: 1000, maximum: 60000 },
+          }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderGenerationContext' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/generation-plans/{id}/runs:
+    post:
+      operationId: startBuilderGenerationPlanRun
+      tags: [builder]
+      summary: 'Adapt the template copy'
+      description: >-
+        Starts a run of the existing `webapp` kind with `input.templatePlanId`: ONE structured model call over the assembled context (metered, residency-checked, budget-capped, output secret-scanned, repair loop), then the proposed change set passes the same safety checks as every change and is committed on the AI branch `work/ai`, never on the main branch. Not the coding agent: no tool use, no on-demand file fetch, nothing is executed (D-46 open, D-21 blocks any run of the result). A plan starts once (409 otherwise). Requires `ai:write`, `app_builder.enabled` and `knowledge.generation`; audited. Model quality is NOT VERIFIED.
+      x-nuzm-permission: ai:write
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.generation
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderGenerationRunRequest' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderGenerationPlan' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   # <<< AI Intelligence Center paths
 components:
   parameters:
@@ -23212,4 +23298,105 @@ components:
         requirements: { type: object, additionalProperties: true }
         plan: { type: object, additionalProperties: true }
         createdAt: { type: string, format: date-time, nullable: true }
+    BuilderWorkspaceDiff:
+      type: object
+      properties:
+        added: { type: array, items: { type: string } }
+        modified: { type: array, items: { type: string } }
+        removed: { type: array, items: { type: string } }
+        unchanged: { type: integer }
+        baselineFiles: { type: integer }
+        currentFiles: { type: integer }
+        departure:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 100,
+            description: 'Share of baseline files that were modified or removed.',
+          }
+        truncated: { type: boolean }
+        counts:
+          type: object
+          properties:
+            added: { type: integer }
+            modified: { type: integer }
+            removed: { type: integer }
+    BuilderTemplateWorkspace:
+      type: object
+      required: [linked, project]
+      properties:
+        linked: { type: boolean }
+        project:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            headVersionId: { type: string, format: uuid, nullable: true }
+        copiedAt: { type: string, format: date-time, nullable: true }
+        templateAvailable: { type: boolean }
+        template:
+          type: object
+          nullable: true
+          properties:
+            resourceId: { type: string, format: uuid }
+            versionId: { type: string, format: uuid }
+            versionSeq: { type: integer }
+            name: { type: string }
+            license: { type: string, nullable: true }
+        diff: { $ref: '#/components/schemas/BuilderWorkspaceDiff' }
+    BuilderGenerationContext:
+      type: object
+      properties:
+        planId: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        mode: { type: string, enum: [STRICT, ADAPTIVE, CREATIVE] }
+        aiProcessing:
+          {
+            type: boolean,
+            description: "The template's permission to send its source to a model; false also when the template is no longer available.",
+          }
+        template:
+          type: object
+          nullable: true
+          properties:
+            resourceId: { type: string, format: uuid }
+            versionId: { type: string, format: uuid }
+            name: { type: string }
+            license: { type: string, nullable: true }
+        policy: { type: string }
+        tokens:
+          type: object
+          properties:
+            used: { type: integer }
+            budget: { type: integer }
+        blocks:
+          type: array
+          items:
+            type: object
+            properties:
+              kind: { type: string, enum: [requirement, template, file_index, file] }
+              label: { type: string }
+              tokens: { type: integer }
+              text: { type: string }
+        included: { type: array, items: { type: string } }
+        excluded:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              reason:
+                {
+                  type: string,
+                  enum:
+                    [ai_processing_not_allowed, too_large, over_budget, too_many_files, not_text],
+                }
+        notes: { type: array, items: { type: string } }
+    BuilderGenerationRunRequest:
+      type: object
+      properties:
+        budget:
+          type: object
+          properties:
+            maxTokens: { type: integer, minimum: 1 }
+            maxCredits: { type: integer, minimum: 1 }
     # <<< AI Intelligence Center schemas

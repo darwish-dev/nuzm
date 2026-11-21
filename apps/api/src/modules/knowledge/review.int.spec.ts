@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupAiEnv, type AiEnv, type Row } from '../ai/testing/ai-harness';
 import { FsObjectStore } from '@nuzm/adapter-knowledge-store';
+import { MockModelAdapter } from '@nuzm/adapter-model';
+import { RunService } from '../ai';
 import { ProjectsPort } from '../appbuilder';
 
 /**
@@ -2510,5 +2512,575 @@ describe('customer templates (S-K7)', () => {
     expect(
       (await e.sql(`SELECT count(*)::int n FROM ai.runs WHERE org_id = $1`, [A()]))[0]!.n,
     ).toBe(0);
+  });
+});
+
+describe('adapting a copied template (S-K6)', () => {
+  const MIT =
+    'MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software';
+  const files = (tag: string) => [
+    {
+      path: 'package.json',
+      content: JSON.stringify({
+        name: tag,
+        version: '1.0.0',
+        dependencies: { next: '15.0.0', react: '19.0.0' },
+      }),
+    },
+    { path: 'README.md', content: `# ${tag}\nTEMPLATE-README-${tag}\n` },
+    { path: 'LICENSE', content: MIT },
+    {
+      path: 'src/app/page.tsx',
+      content: `export default function Home() { return <main>TEMPLATE-PAGE-${tag}</main>; }\n`,
+    },
+    { path: 'src/lib/util.ts', content: `export const util = 'TEMPLATE-UTIL-${tag}';\n` },
+  ];
+  const A = () => e.org.A!;
+  const B = () => e.org.B!;
+  const call = (
+    who: string,
+    method: 'GET' | 'POST',
+    url: string,
+    body?: object,
+    org = A(),
+    extra: Record<string, string> = {},
+  ) => e.call(who, method, url, body, org, { 'idempotency-key': randomUUID(), ...extra });
+  const orgFlag = async (org: string, key: string, on: boolean | null) => {
+    await e.sql(`DELETE FROM platform.feature_flags WHERE key = $1 AND org_id = $2`, [key, org]);
+    if (on !== null)
+      await e.sql(
+        `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, $2, $3::jsonb)`,
+        [key, org, JSON.stringify(on)],
+      );
+  };
+  const count = async (sqlText: string, args: unknown[]) =>
+    Number((await e.sql(sqlText, args))[0]!.n);
+  const runCount = (org: string) =>
+    count(`SELECT count(*)::int n FROM ai.runs WHERE org_id = $1`, [org]);
+  const usageCount = (org: string) =>
+    count(`SELECT count(*)::int n FROM knowledge.usage_events WHERE org_id = $1`, [org]);
+  let allowed: { resourceId: string; versionId: string };
+  let withheld: { resourceId: string; versionId: string };
+  let adapter: MockModelAdapter;
+  let reply: (messages: { role: string; content: string }[]) => unknown = () => ({
+    result: { summary: 'no change', patches: [] },
+    toolCalls: [],
+  });
+
+  const copy = async (
+    who: string,
+    org: string,
+    t: { resourceId: string },
+    name: string,
+    mode = 'ADAPTIVE',
+  ) => {
+    const r = ok<Row>(
+      await call(
+        who,
+        'POST',
+        '/v1/builder/projects/from-template',
+        { resourceId: t.resourceId, name, adaptationMode: mode },
+        org,
+      ),
+      201,
+    );
+    return (r.project as Row).id as string;
+  };
+  const plan = async (
+    who: string,
+    org: string,
+    projectId: string,
+    text: string,
+    mode = 'ADAPTIVE',
+  ) =>
+    ok<Row>(
+      await call(
+        who,
+        'POST',
+        '/v1/builder/generation-plans',
+        { projectId, text, platform: 'WEB', mode },
+        org,
+      ),
+      201,
+    ).id as string;
+  const head = async (projectId: string) =>
+    (await e.sql(`SELECT head_version_id FROM builder.projects WHERE id = $1`, [projectId]))[0]!
+      .head_version_id as string;
+  const change = async (who: string, org: string, projectId: string, patches: object[]) =>
+    call(
+      who,
+      'POST',
+      `/v1/builder/projects/${projectId}/changes`,
+      { baseVersion: await head(projectId), patches, source: 'user' },
+      org,
+    );
+  const filesOf = async (org: string, projectId: string) =>
+    (await e.app.get<ProjectsPort>(ProjectsPort).readFiles(org, projectId, await head(projectId)))!;
+  const drive = async (org: string, runId: string) => {
+    const r = (await e.sql(`SELECT operation_id FROM ai.runs WHERE id = $1`, [runId]))[0]!;
+    await e.app.get(RunService).runOne(org, r.operation_id as string);
+    return (await e.sql(`SELECT state, error, result FROM ai.runs WHERE id = $1`, [runId]))[0]!;
+  };
+  const promptOf = () =>
+    adapter.calls
+      .at(-1)!
+      .req.messages.map((m) => m.content)
+      .join('\n');
+
+  beforeAll(async () => {
+    for (const org of [A(), B()]) {
+      await orgFlag(org, 'knowledge.customer_templates', true);
+      await orgFlag(org, 'app_builder.enabled', true);
+      await orgFlag(org, 'knowledge.generation', null);
+      await e.fund(org, '10000000');
+    }
+    adapter = new MockModelAdapter({
+      id: 'mock-model',
+      handler: (req) => JSON.stringify(reply(req.messages as { role: string; content: string }[])),
+    });
+    await e.enableMock('mock-model', { adapter });
+    allowed = await item({ name: 'Adapt Allowed', ai: true, files: files('ALLOWED') });
+    withheld = await item({ name: 'Adapt Withheld', ai: false, files: files('WITHHELD') });
+  }, 300_000);
+
+  it('is OFF by default and per organization: workspace, context and run answer 404; the plan says why it cannot run', async () => {
+    const pj = await copy('alice', A(), allowed, 'Gen Off');
+    const pl = await plan('alice', A(), pj, 'a dashboard');
+    for (const [m, u] of [
+      ['GET', `/v1/builder/projects/${pj}/template-workspace`],
+      ['GET', `/v1/builder/generation-plans/${pl}/context`],
+      ['POST', `/v1/builder/generation-plans/${pl}/runs`],
+    ] as const)
+      expect((await call('alice', m, u)).statusCode, u).toBe(404);
+    const p = ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${pl}`));
+    expect((p.plan as Row).execution).toMatchObject({ status: 'BLOCKED' });
+    await orgFlag(A(), 'knowledge.generation', true);
+    expect(
+      (await call('alice', 'GET', `/v1/builder/projects/${pj}/template-workspace`)).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        (ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${pl}`)).plan as Row)
+          .execution as Row
+      ).status,
+    ).toBe('READY');
+    const pjB = await copy('bob', B(), allowed, 'Gen Off B');
+    expect(
+      (await call('bob', 'GET', `/v1/builder/projects/${pjB}/template-workspace`, undefined, B()))
+        .statusCode,
+    ).toBe(404); // another organization is still off
+  });
+
+  it('the workspace is compared with what the copy wrote, and keeps working after the template is withdrawn', async () => {
+    const pj = await copy('alice', A(), allowed, 'Gen Workspace');
+    const w0 = ok<Row>(await call('alice', 'GET', `/v1/builder/projects/${pj}/template-workspace`));
+    expect(w0).toMatchObject({
+      linked: true,
+      templateAvailable: true,
+      template: { name: 'Adapt Allowed', license: 'MIT' },
+    });
+    expect(w0.diff).toMatchObject({
+      added: [],
+      modified: [],
+      removed: [],
+      unchanged: 5,
+      baselineFiles: 5,
+      currentFiles: 5,
+      departure: 0,
+    });
+    ok(
+      await change('alice', A(), pj, [
+        {
+          op: 'modify',
+          path: 'src/app/page.tsx',
+          content: 'export default function Home() { return <main>MINE</main>; }\n',
+        },
+        { op: 'add', path: 'src/mine.ts', content: 'export const mine = 1;\n' },
+        { op: 'delete', path: 'README.md' },
+      ]),
+      200,
+    );
+    const w1 = ok<Row>(await call('carol', 'GET', `/v1/builder/projects/${pj}/template-workspace`))
+      .diff as Row; // a viewer may read
+    expect(w1).toMatchObject({
+      added: ['src/mine.ts'],
+      modified: ['src/app/page.tsx'],
+      removed: ['README.md'],
+      unchanged: 3,
+      departure: 40,
+      counts: { added: 1, modified: 1, removed: 1 },
+    });
+    await e.sql(`UPDATE knowledge.resources SET status = 'DISABLED' WHERE id = $1`, [
+      allowed.resourceId,
+    ]);
+    const w2 = ok<Row>(await call('alice', 'GET', `/v1/builder/projects/${pj}/template-workspace`));
+    expect(w2).toMatchObject({ linked: true, templateAvailable: false, template: null });
+    expect(w2.diff).toEqual(w1);
+    await e.sql(`UPDATE knowledge.resources SET status = 'ACTIVE' WHERE id = $1`, [
+      allowed.resourceId,
+    ]);
+    // nothing of the template's files is in the answer, and another organization cannot see this project
+    expect(JSON.stringify(w0)).not.toMatch(/TEMPLATE-|snapshots|objectKey/);
+    expect(
+      (await call('bob', 'GET', `/v1/builder/projects/${pj}/template-workspace`, undefined, B()))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await call('alice', 'GET', '/v1/builder/projects/not-an-id/template-workspace')).statusCode,
+    ).toBe(404);
+  });
+
+  it('a project that was not copied from a template says so', async () => {
+    const pr = await call('alice', 'POST', '/v1/builder/projects', {
+      name: 'Plain Webapp',
+      type: 'webapp',
+    });
+    const id = ok<Row>(pr, 201).id as string;
+    expect(
+      ok<Row>(await call('alice', 'GET', `/v1/builder/projects/${id}/template-workspace`)),
+    ).toMatchObject({ linked: false, project: { id } });
+  });
+
+  it('the context preview shows exactly what a model would receive, in priority order, and writes and sends nothing', async () => {
+    const pj = await copy('alice', A(), allowed, 'Gen Context');
+    ok(
+      await change('alice', A(), pj, [
+        { op: 'add', path: 'src/mine.ts', content: 'export const MY_OWN_WORK = 1;\n' },
+        { op: 'add', path: 'src/big.ts', content: `export const big = '${'x'.repeat(8000)}';\n` },
+      ]),
+      200,
+    );
+    const pl = await plan('alice', A(), pj, 'لوحة تحكم للمبيعات');
+    const runs0 = await runCount(A());
+    const usage0 = await usageCount(A());
+    const calls0 = adapter.calls.length;
+    const c = ok<Row>(await call('carol', 'GET', `/v1/builder/generation-plans/${pl}/context`));
+    expect(c).toMatchObject({
+      planId: pl,
+      projectId: pj,
+      mode: 'ADAPTIVE',
+      aiProcessing: true,
+      template: { name: 'Adapt Allowed' },
+    });
+    const blocks = c.blocks as Row[];
+    expect(blocks.map((b) => b.kind)).toEqual([
+      'requirement',
+      'template',
+      'file_index',
+      'file',
+      'file',
+      'file',
+      'file',
+      'file',
+      'file',
+      'file',
+    ]);
+    expect(blocks[0]!.text).toContain('لوحة تحكم للمبيعات');
+    expect(
+      blocks
+        .slice(3, 5)
+        .map((b) => b.text)
+        .join('\n'),
+    ).toContain('MY_OWN_WORK'); // the customer's own work comes first (two files), the template's after
+    expect(
+      blocks
+        .slice(5)
+        .map((b) => b.text)
+        .join('\n'),
+    ).not.toContain('MY_OWN_WORK');
+    expect(String(c.policy)).toContain('ADAPTIVE');
+    expect(c.included).toContain('src/app/page.tsx'); // the template permits AI processing: its files may be sent
+    expect((c.tokens as Row).used as number).toBeLessThanOrEqual(
+      (c.tokens as Row).budget as number,
+    );
+    // a small budget leaves files out and says so
+    const tight = ok<Row>(
+      await call('alice', 'GET', `/v1/builder/generation-plans/${pl}/context?budget=1000`),
+    );
+    expect((tight.excluded as Row[]).some((x) => x.reason === 'over_budget')).toBe(true);
+    // nothing was written, nothing was sent
+    expect(await runCount(A())).toBe(runs0);
+    expect(await usageCount(A())).toBe(usage0);
+    expect(adapter.calls.length).toBe(calls0);
+    expect(
+      (await call('bob', 'GET', `/v1/builder/generation-plans/${pl}/context`, undefined, B()))
+        .statusCode,
+    ).toBe(404);
+  });
+
+  it("a template that does not permit AI processing has its unchanged source withheld: only paths are sent, the customer's own work still is", async () => {
+    const pj = await copy('alice', A(), withheld, 'Gen Withheld');
+    ok(
+      await change('alice', A(), pj, [
+        { op: 'add', path: 'src/mine.ts', content: 'export const MY_OWN_WORK = 2;\n' },
+      ]),
+      200,
+    );
+    const pl = await plan('alice', A(), pj, 'a shop');
+    const c = ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${pl}/context`));
+    expect(c).toMatchObject({ aiProcessing: false });
+    expect(c.included).toEqual(['src/mine.ts']);
+    expect((c.excluded as Row[]).every((x) => x.reason === 'ai_processing_not_allowed')).toBe(true);
+    expect(c.notes).toContain('template_contents_withheld');
+    const text = (c.blocks as Row[]).map((b) => b.text).join('\n');
+    expect(text).not.toContain('TEMPLATE-PAGE-WITHHELD');
+    expect(text).toContain('src/app/page.tsx | '); // the path is sent, not the content
+    // a withdrawn template cannot vouch for its permission: it is treated as not allowed, and the customer's own work is still eligible
+    const pj2 = await copy('alice', A(), allowed, 'Gen Withdrawn');
+    ok(
+      await change('alice', A(), pj2, [
+        { op: 'add', path: 'src/mine.ts', content: 'export const MINE = 1;\n' },
+      ]),
+      200,
+    );
+    const pl2 = await plan('alice', A(), pj2, 'x');
+    await e.sql(`UPDATE knowledge.resources SET status = 'DISABLED' WHERE id = $1`, [
+      allowed.resourceId,
+    ]);
+    const gone = ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${pl2}/context`));
+    await e.sql(`UPDATE knowledge.resources SET status = 'ACTIVE' WHERE id = $1`, [
+      allowed.resourceId,
+    ]);
+    expect(gone).toMatchObject({ aiProcessing: false, template: null });
+    expect(gone.included).toEqual(['src/mine.ts']);
+    expect((gone.blocks as Row[]).map((x) => x.kind)).not.toContain('template');
+  });
+
+  it('starts a run that makes ONE model call over the previewed context and commits the proposal on the AI branch, once', async () => {
+    const pj = await copy('alice', A(), withheld, 'Gen Run');
+    ok(
+      await change('alice', A(), pj, [
+        { op: 'add', path: 'src/mine.ts', content: 'export const MY_OWN_WORK = 3;\n' },
+      ]),
+      200,
+    );
+    const pl = await plan('alice', A(), pj, 'add a pricing page for my shop');
+    const preview = ok<Row>(
+      await call('alice', 'GET', `/v1/builder/generation-plans/${pl}/context`),
+    );
+    reply = () => ({
+      result: {
+        summary: 'Add a pricing page',
+        patches: [
+          {
+            op: 'add',
+            path: 'src/app/pricing/page.tsx',
+            content: 'export default function Pricing() { return <main>Pricing</main>; }\n',
+          },
+          { op: 'modify', path: 'src/mine.ts', content: 'export const MY_OWN_WORK = 4;\n' },
+        ],
+      },
+      toolCalls: [],
+    });
+    expect(
+      (await call('carol', 'POST', `/v1/builder/generation-plans/${pl}/runs`)).statusCode,
+    ).toBe(403);
+    const calls0 = adapter.calls.length;
+    const key = randomUUID();
+    const r = ok<Row>(
+      await call('alice', 'POST', `/v1/builder/generation-plans/${pl}/runs`, {}, A(), {
+        'idempotency-key': key,
+      }),
+      201,
+    );
+    expect(r).toMatchObject({ status: 'RUNNING', plan: { execution: { status: 'RUNNING' } } });
+    const runId = ((r.plan as Row).execution as Row).runId as string;
+    expect(
+      (await call('alice', 'POST', `/v1/builder/generation-plans/${pl}/runs`)).statusCode,
+    ).toBe(409); // a plan starts once
+    expect(
+      (
+        await call('alice', 'POST', `/v1/builder/generation-plans/${pl}/runs`, {}, A(), {
+          'idempotency-key': key,
+        })
+      ).statusCode,
+    ).toBe(201); // the same key replays
+    expect(adapter.calls.length).toBe(calls0); // nothing is sent until the run is driven
+    const done = await drive(A(), runId);
+    expect(done.state).toBe('succeeded');
+    expect(adapter.calls.length).toBe(calls0 + 1); // ONE call
+    // the model received the policy, the requirement and the customer's work, and NOT the withheld template source
+    const sent = promptOf();
+    expect(sent).toContain('Adaptation mode ADAPTIVE');
+    expect(sent).toContain('add a pricing page for my shop');
+    expect(sent).toContain('MY_OWN_WORK = 3');
+    expect(sent).not.toContain('TEMPLATE-PAGE-WITHHELD');
+    expect(sent).toContain('UNTRUSTED DATA'); // inside the run engine's fenced data blocks
+    // the proposal is applied through the safe pipeline: the project has the changes; the template's own files are untouched
+    const fs = await filesOf(A(), pj);
+    expect(fs.get('src/app/pricing/page.tsx')).toContain('Pricing');
+    expect(fs.get('src/mine.ts')).toContain('MY_OWN_WORK = 4');
+    expect(fs.get('src/app/page.tsx')).toContain('TEMPLATE-PAGE-WITHHELD');
+    expect(
+      Number(
+        (
+          await e.sql(
+            `SELECT count(*)::int n FROM knowledge.resource_files WHERE version_id = $1`,
+            [withheld.versionId],
+          )
+        )[0]!.n,
+      ),
+    ).toBe(5);
+    expect((done.result as Row).outcome).toBe('adapted');
+    expect((done.result as Row).branch).toBe('work/ai');
+    // the plan follows its run, and the workspace shows what changed against the copy
+    const after = ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${pl}`));
+    expect(after).toMatchObject({
+      status: 'COMPLETED',
+      plan: { execution: { status: 'COMPLETED', runState: 'succeeded' } },
+    });
+    const w = ok<Row>(await call('alice', 'GET', `/v1/builder/projects/${pj}/template-workspace`))
+      .diff as Row;
+    expect(w).toMatchObject({ added: ['src/app/pricing/page.tsx', 'src/mine.ts'] });
+    expect(
+      e.sink.events.some((x) => x.action === 'knowledge.plan.run_started' && x.orgId === A()),
+    ).toBe(true);
+    // what was sent is what the preview showed (same included files)
+    expect(preview.included).toEqual(['src/mine.ts']);
+  });
+
+  it('STRICT mode: a proposal that deletes a template file is sent back to the model, repaired once, and only the repaired change is applied', async () => {
+    const pj = await copy('alice', A(), allowed, 'Gen Strict', 'STRICT');
+    const pl = await plan('alice', A(), pj, 'tidy up', 'STRICT');
+    let n = 0;
+    reply = () =>
+      ++n === 1
+        ? {
+            result: { summary: 'tidy', patches: [{ op: 'delete', path: 'src/lib/util.ts' }] },
+            toolCalls: [],
+          }
+        : {
+            result: {
+              summary: 'tidy',
+              patches: [{ op: 'add', path: 'NOTES.md', content: '# notes\n' }],
+            },
+            toolCalls: [],
+          };
+    const r = ok<Row>(
+      await call('alice', 'POST', `/v1/builder/generation-plans/${pl}/runs`, {}),
+      201,
+    );
+    const done = await drive(A(), ((r.plan as Row).execution as Row).runId as string);
+    expect(done.state).toBe('succeeded');
+    expect(n).toBe(2);
+    expect(promptOf()).toMatch(/STRICT mode: src\/lib\/util\.ts is a template file/); // the repair message reached the model
+    const fs = await filesOf(A(), pj);
+    expect(fs.has('src/lib/util.ts')).toBe(true);
+    expect(fs.get('NOTES.md')).toBe('# notes\n');
+  });
+
+  it('a proposal that never passes the checks fails the run and the plan, and the project is untouched', async () => {
+    const pj = await copy('alice', A(), allowed, 'Gen Bad', 'STRICT');
+    const pl = await plan('alice', A(), pj, 'x', 'STRICT');
+    const v0 = await head(pj);
+    reply = () => ({
+      result: { summary: 'bad', patches: [{ op: 'delete', path: 'src/lib/util.ts' }] },
+      toolCalls: [],
+    });
+    const r = ok<Row>(
+      await call('alice', 'POST', `/v1/builder/generation-plans/${pl}/runs`, {}),
+      201,
+    );
+    const done = await drive(A(), ((r.plan as Row).execution as Row).runId as string);
+    expect(done.state).toBe('failed');
+    expect(await head(pj)).toBe(v0);
+    expect(ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${pl}`))).toMatchObject(
+      { status: 'FAILED' },
+    );
+  });
+
+  it('a secret or a platform path in the proposal is refused by the same checks as every change; nothing is applied', async () => {
+    const pj = await copy('alice', A(), allowed, 'Gen Secret');
+    const pl = await plan('alice', A(), pj, 'x');
+    const v0 = await head(pj);
+    const key = ['-----BEGIN', 'PRIVATE KEY-----'].join(' ');
+    reply = () => ({
+      result: {
+        summary: 's',
+        patches: [{ op: 'add', path: 'src/keys.ts', content: `export const k = \`${key}\nabc\`` }],
+      },
+      toolCalls: [],
+    });
+    const r = ok<Row>(
+      await call('alice', 'POST', `/v1/builder/generation-plans/${pl}/runs`, {}),
+      201,
+    );
+    const done = await drive(A(), ((r.plan as Row).execution as Row).runId as string);
+    expect(done.state).toBe('failed');
+    expect(await head(pj)).toBe(v0);
+    const pj2 = await copy('alice', A(), allowed, 'Gen Path');
+    const pl2 = await plan('alice', A(), pj2, 'x');
+    reply = () => ({
+      result: { summary: 's', patches: [{ op: 'add', path: '../outside.ts', content: 'x' }] },
+      toolCalls: [],
+    });
+    const r2 = ok<Row>(
+      await call('alice', 'POST', `/v1/builder/generation-plans/${pl2}/runs`, {}),
+      201,
+    );
+    expect((await drive(A(), ((r2.plan as Row).execution as Row).runId as string)).state).toBe(
+      'failed',
+    );
+  });
+
+  it("a run made through the generic run endpoint cannot bypass the flag or reach another organization's plan", async () => {
+    // B: flag off; its own plan, run created directly
+    const pjB = await copy('bob', B(), allowed, 'Gen Direct B');
+    const plB = await plan('bob', B(), pjB, 'x');
+    const sid = ok<Row>(
+      await call('bob', 'POST', '/v1/ai/sessions', { title: 'S', projectId: pjB }, B()),
+      201,
+    ).id as string;
+    const calls0 = adapter.calls.length;
+    const run = ok<Row>(
+      await call(
+        'bob',
+        'POST',
+        '/v1/ai/runs',
+        { sessionId: sid, kind: 'webapp', projectId: pjB, input: { templatePlanId: plB } },
+        B(),
+      ),
+      202,
+    );
+    expect((await drive(B(), run.id as string)).state).toBe('failed');
+    expect(adapter.calls.length).toBe(calls0); // no model call
+    // A: a plan id of another organization is not found
+    const pjA = await copy('alice', A(), allowed, 'Gen Direct A');
+    const sidA = ok<Row>(
+      await call('alice', 'POST', '/v1/ai/sessions', { title: 'S', projectId: pjA }),
+      201,
+    ).id as string;
+    const runA = ok<Row>(
+      await call('alice', 'POST', '/v1/ai/runs', {
+        sessionId: sidA,
+        kind: 'webapp',
+        projectId: pjA,
+        input: { templatePlanId: plB },
+      }),
+      202,
+    );
+    expect((await drive(A(), runA.id as string)).state).toBe('failed');
+    expect(adapter.calls.length).toBe(calls0);
+    // malformed input
+    expect(
+      (
+        await call('alice', 'POST', '/v1/ai/runs', {
+          sessionId: sidA,
+          kind: 'webapp',
+          projectId: pjA,
+          input: { templatePlanId: 'nope' },
+        })
+      ).statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await call('alice', 'POST', '/v1/ai/runs', {
+          sessionId: sidA,
+          kind: 'webapp',
+          projectId: pjA,
+          input: { templatePlanId: plB, brief: { prompt: 'x' } },
+        })
+      ).statusCode,
+    ).toBe(422);
   });
 });

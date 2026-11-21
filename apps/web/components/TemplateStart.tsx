@@ -27,6 +27,7 @@ export function TemplateStart({
   templateName,
   canWrite,
   appsEnabled,
+  generationEnabled = false,
 }: {
   locale: Locale;
   resourceId: string;
@@ -37,6 +38,8 @@ export function TemplateStart({
   canWrite: boolean;
   /** `app_builder.enabled` for the organization: a copy is a web-app project */
   appsEnabled: boolean;
+  /** `knowledge.generation` is on for the organization: the result links to the template workspace (S-K6) */
+  generationEnabled?: boolean;
 }) {
   const [name, setName] = useState(defaultProjectName(templateName));
   const [mode, setMode] = useState<AdaptationMode>('ADAPTIVE');
@@ -120,7 +123,15 @@ export function TemplateStart({
           <p>
             <ButtonLink href={`/${locale}/builder/projects/${done.project.id}`}>
               {t(locale, 'tpl.done.open')}
-            </ButtonLink>
+            </ButtonLink>{' '}
+            {generationEnabled && (
+              <ButtonLink
+                variant="secondary"
+                href={`/${locale}/builder/projects/${done.project.id}/template`}
+              >
+                {t(locale, 'gen.link')}
+              </ButtonLink>
+            )}
           </p>
         )}
       </Card>

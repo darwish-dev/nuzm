@@ -1,10 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { Client } from 'pg';
-import { DB_URL as DB, STORE_DIR, WEB } from './env';
+import { WEB } from './env';
 import { T, audit, loc, signIn } from './helpers';
+import { orgFlag, ownerOrg, publishTemplate, sql } from './fixtures/templates';
 
 /**
  * AI Intelligence Center, slice S-K7 (SCR-K-08): the customer experience, END TO END in Arabic (RTL) and English with real browsers:
@@ -17,156 +15,6 @@ import { T, audit, loc, signIn } from './helpers';
  * The templates are written with SQL and the object store directly (the ingestion pipeline has its own end-to-end test, 15-ai-ingestion); they stand for what an approved,
  * published library item looks like. The customer organization is created through the sign-up screen by the first test, so this file does not depend on another spec.
  */
-const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
-  const c = new Client({ connectionString: DB });
-  await c.connect();
-  try {
-    return (await c.query(q, args)).rows as R[];
-  } finally {
-    await c.end();
-  }
-};
-const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
-
-/** An organization row beats the global one; `null` removes it. */
-async function orgFlag(orgId: string, key: string, on: boolean | null) {
-  await sql(`DELETE FROM platform.feature_flags WHERE key = $1 AND org_id = $2`, [key, orgId]);
-  if (on !== null)
-    await sql(
-      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, $2, $3::jsonb)`,
-      [key, orgId, JSON.stringify(on)],
-    );
-}
-
-const FILES = (name: string) => [
-  {
-    path: 'package.json',
-    content: JSON.stringify({
-      name: 'e2e-starter',
-      version: '1.0.0',
-      dependencies: { next: '15.0.0', react: '19.0.0' },
-    }),
-  },
-  { path: 'README.md', content: `# ${name}\n\nA dashboard starter.\n` },
-  {
-    path: 'LICENSE',
-    content:
-      'MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software',
-  },
-  {
-    path: 'src/app/page.tsx',
-    content: 'export default function Home() { return <main>E2E-SECRET-FILE-TEXT</main>; }\n',
-  },
-];
-
-async function publishTemplate(o: {
-  name: string;
-  slug: string;
-  published: boolean;
-  description: string;
-}) {
-  const rid = randomUUID();
-  const vid = randomUUID();
-  await sql(
-    `INSERT INTO knowledge.resources (id, org_id, slug, name, description, resource_type, platform, frameworks, category, tags, visibility, source_kind, status, data_region, current_version_id)
-     VALUES ($1, NULL, $2, $3, $4, 'THEME', 'WEB', '{nextjs}', 'dashboard', '{admin,analytics}', $5, 'upload', 'ACTIVE', 'sa-central', $6)`,
-    [
-      rid,
-      o.slug,
-      o.name,
-      o.description,
-      o.published ? 'PLATFORM_PUBLISHED' : 'PLATFORM_PRIVATE',
-      vid,
-    ],
-  );
-  await sql(
-    `INSERT INTO knowledge.resource_versions (id, resource_id, org_id, seq, semver, state, checksum_sha256, bytes, archive_key, license_verdict)
-     VALUES ($1, $2, NULL, 1, '1.2.0', 'ACTIVE', $3, 100, $4, 'ALLOWED')`,
-    [vid, rid, sha(o.slug), `archives/${sha(o.slug)}`],
-  );
-  await sql(
-    `INSERT INTO knowledge.resource_permissions (id, resource_id, org_id, reuse_scope, starter_eligible, component_reuse, architecture_reference, ai_processing, license_verdict, license_spdx)
-     VALUES (gen_random_uuid(), $1, NULL, 'FULL_STARTER', true, true, true, true, 'ALLOWED', 'MIT')`,
-    [rid],
-  );
-  for (const f of FILES(o.name)) {
-    const buf = Buffer.from(f.content);
-    const key = `snapshots/${vid}/${sha(buf).slice(0, 16)}`;
-    const p = join(STORE_DIR, key);
-    mkdirSync(dirname(p), { recursive: true });
-    writeFileSync(p, buf);
-    await sql(
-      `INSERT INTO knowledge.resource_files (id, version_id, org_id, path, sha256, bytes, language, is_binary, object_key)
-       VALUES (gen_random_uuid(), $1, NULL, $2, $3, $4, $5, false, $6)`,
-      [
-        vid,
-        f.path,
-        sha(buf),
-        buf.length,
-        f.path.endsWith('.json') ? 'json' : f.path.endsWith('.md') ? 'markdown' : 'typescript',
-        key,
-      ],
-    );
-  }
-  await sql(
-    `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest)
-     VALUES (gen_random_uuid(), $1, NULL, '2', $2::jsonb)`,
-    [
-      vid,
-      JSON.stringify({
-        frameworks: ['nextjs'],
-        capabilities: [
-          { name: 'Authentication', evidence: [{ path: 'src/secret/auth.ts', line: 1 }] },
-          { name: 'Analytics dashboard', evidence: [] },
-        ],
-        architecture: {
-          layers: [{}, {}],
-          cycles: [],
-          entryReachability: { roots: 1, analysedFiles: 4, unreachable: 0 },
-        },
-      }),
-    ],
-  );
-  await sql(
-    `INSERT INTO knowledge.analysis_results (id, version_id, org_id, analyzer, analyzer_version, content_hash, result)
-     VALUES (gen_random_uuid(), $1, NULL, 'design-dna', '1.0.0', $2, $3::jsonb)`,
-    [
-      vid,
-      'd'.repeat(64),
-      JSON.stringify({
-        primary: 0,
-        projects: [
-          {
-            modes: ['base', 'dark'],
-            traits: { darkMode: true, rtl: true },
-            palette: [
-              {
-                mode: 'base',
-                roles: [
-                  {
-                    role: 'primary',
-                    hex: '#2563eb',
-                    token: '--primary',
-                    evidence: { path: 'src/secret/globals.css', line: 4 },
-                  },
-                ],
-              },
-            ],
-            typography: { families: [{ value: 'Cairo' }] },
-            spacing: { baseUnit: 4 },
-          },
-        ],
-      }),
-    ],
-  );
-  await sql(
-    `INSERT INTO knowledge.resource_search_documents (id, version_id, org_id, doc_kind, ref, title, body, content_hash)
-     VALUES (gen_random_uuid(), $1, NULL, 'SUMMARY', 'summary', $2, 'frameworks: nextjs capabilities: analytics dashboard charts tables', $3)`,
-    [vid, o.name, 'c'.repeat(64)],
-  );
-  return { rid, vid };
-}
-
 const NAME = 'E2E Analytics Dashboard';
 const DRAFT = 'E2E Unpublished Draft';
 let seeded: { rid: string; vid: string } | null = null;
@@ -194,14 +42,6 @@ test.afterAll(async () => {
     `UPDATE knowledge.resources SET status = 'ARCHIVED', deleted_at = now() WHERE org_id IS NULL AND deleted_at IS NULL AND name LIKE 'E2E %'`,
   );
 });
-
-const ownerOrg = async (L: string) =>
-  (
-    await sql<{ id: string }>(
-      `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
-      [`owner-${L}@example.test`],
-    )
-  )[0]?.id;
 
 /** No screen of the customer console ever shows where the source lives, or what is in a file. */
 async function expectNoSource(page: Page) {

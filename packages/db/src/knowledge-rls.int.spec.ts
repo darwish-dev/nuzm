@@ -763,3 +763,111 @@ describe('a customer records its own usage and plans, and nobody else does (S-K7
     ).toMatch(/row-level security/);
   });
 });
+
+describe('the workspace baseline and the AI-processing permission (S-K6)', () => {
+  const asOrg = <T>(org: string, fn: (c: Client) => Promise<T>) => as('nuzm_app', tenant(org), fn);
+  it("a copy's baseline is a tenant row: written with the link, readable by its organization only, and append-only", async () => {
+    await root(
+      `INSERT INTO knowledge.generation_resource_links (id, org_id, resource_version_id, role, strategy, project_id, baseline) VALUES ($1,$2,$3,'STARTER','COPY',$4,$5::jsonb)`,
+      [id(820), A, V(1), id(821), JSON.stringify({ 'src/a.ts': HASH })],
+    );
+    const own = await asOrg(
+      A,
+      async (c) =>
+        (
+          await c.query(
+            `SELECT project_id, baseline FROM knowledge.generation_resource_links WHERE project_id = $1`,
+            [id(821)],
+          )
+        ).rows,
+    );
+    expect(own).toEqual([{ project_id: id(821), baseline: { 'src/a.ts': HASH } }]);
+    expect(
+      await asOrg(
+        B,
+        async (c) =>
+          (
+            await c.query(
+              `SELECT 1 FROM knowledge.generation_resource_links WHERE project_id = $1`,
+              [id(821)],
+            )
+          ).rowCount,
+      ),
+    ).toBe(0);
+    // the baseline is an object, and a link is never changed or removed
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(A),
+        `INSERT INTO knowledge.generation_resource_links (id, org_id, resource_version_id, role, strategy, project_id, baseline) VALUES ($1,$2,$3,'STARTER','COPY',$4,'[]'::jsonb)`,
+        [id(822), A, V(1), id(821)],
+      ),
+    ).toMatch(/check constraint/i);
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(A),
+        `UPDATE knowledge.generation_resource_links SET baseline = '{}'::jsonb`,
+      ),
+    ).toMatch(/permission denied|append-only/);
+    expect(
+      await fails('nuzm_app', tenant(A), `DELETE FROM knowledge.generation_resource_links`),
+    ).toMatch(/permission denied|append-only/);
+    // a forged organization is refused
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(B),
+        `INSERT INTO knowledge.generation_resource_links (id, org_id, resource_version_id, role, strategy, project_id, baseline) VALUES ($1,$2,$3,'STARTER','COPY',$4,'{}'::jsonb)`,
+        [id(823), A, V(1), id(821)],
+      ),
+    ).toMatch(/row-level security/);
+  });
+  it('v_template_context_permissions says only whether AI processing is permitted, and only for a version a customer may use', async () => {
+    await root(
+      `UPDATE knowledge.resource_permissions SET ai_processing = true WHERE resource_id = $1`,
+      [P_PUB],
+    );
+    const q = (org: string) =>
+      asOrg(
+        org,
+        async (c) =>
+          (
+            await c.query(
+              `SELECT * FROM knowledge.v_template_context_permissions ORDER BY version_id`,
+            )
+          ).rows,
+      );
+    const rows = await q(A);
+    expect(rows.find((r) => r.version_id === V(1))).toEqual({
+      version_id: V(1),
+      ai_processing: true,
+    });
+    expect(Object.keys(rows[0]!).sort()).toEqual(['ai_processing', 'version_id']);
+    // not for a private resource or a restricted licence; a tenant's OWN template is visible to that tenant only
+    for (const v of [V(2), V(3)])
+      expect(
+        rows.find((r) => r.version_id === v),
+        v,
+      ).toBeUndefined();
+    expect(rows.find((r) => r.version_id === V(4))).toBeDefined();
+    expect((await q(B)).find((r) => r.version_id === V(4))).toBeUndefined();
+    await root(
+      `UPDATE knowledge.resource_permissions SET ai_processing = false WHERE resource_id = $1`,
+      [P_PUB],
+    );
+    expect((await q(B)).find((r) => r.version_id === V(1))).toEqual({
+      version_id: V(1),
+      ai_processing: false,
+    });
+    // the base permissions table stays closed to a tenant session
+    expect(
+      await asOrg(
+        A,
+        async (c) =>
+          (await c.query(`SELECT 1 FROM knowledge.resource_permissions WHERE org_id IS NULL`))
+            .rowCount,
+      ),
+    ).toBe(0);
+  });
+});

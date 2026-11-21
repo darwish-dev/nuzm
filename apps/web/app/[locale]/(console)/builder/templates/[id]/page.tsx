@@ -6,6 +6,7 @@ import { APP_BUILDER_FLAG } from '../../../../../../lib/appbuilder';
 import { builderGuard, builderView, NotAvailable } from '../../../../../../lib/builder-view';
 import { isUuid, unwrapCall } from '../../../../../../lib/compute';
 import { flagEnabled } from '../../../../../../lib/services';
+import { GENERATION_FLAG } from '../../../../../../lib/generation';
 import { TEMPLATES_FLAG, type Template } from '../../../../../../lib/templates';
 
 /**
@@ -37,6 +38,7 @@ export default async function TemplatePage({
             templateName={x.name ?? ''}
             canWrite={g.s.can('builder:write')}
             appsEnabled={flagEnabled(g.s.me.featureFlags, APP_BUILDER_FLAG)}
+            generationEnabled={flagEnabled(g.s.me.featureFlags, GENERATION_FLAG)}
           />
         )}
       </>

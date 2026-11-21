@@ -6,6 +6,7 @@ import type { GraphRunner } from './graph/runner';
 import { PgRunStore } from './ports/m09-real';
 import type { ProjectsPort } from './ports/m09';
 import type { TestFixService } from './tests/test-fix.service';
+import type { TemplateAdaptRunner } from './studio/template-adapt';
 
 /**
  * The run kinds `webapp` and `test-fix` as handlers of M09's `RunKindRegistry` (M09 contract §3: "M10 registers `webapp|mobile|test-fix` the same way"). M09's segment
@@ -53,10 +54,23 @@ export class WebappRunHandler extends AppRunHandler {
     store: PgRunStore,
     projects: ProjectsPort,
     private readonly graph: GraphRunner,
+    /** S-K6: the adaptation of a copied template (`input.templatePlanId`); absent where the knowledge module is not wired */
+    private readonly adapt?: TemplateAdaptRunner,
   ) {
     super(store, projects);
   }
   protected validateKind(input: Record<string, unknown>): void {
+    const plan = input.templatePlanId;
+    if (plan !== undefined) {
+      if (typeof plan !== 'string' || !/^[0-9a-f-]{36}$/i.test(plan))
+        throw new ProblemException('validation_failed', 'input.templatePlanId must be a plan id');
+      if (input.brief !== undefined)
+        throw new ProblemException(
+          'validation_failed',
+          'a template adaptation takes no brief: its requirement is in the plan',
+        );
+      return;
+    }
     const b = input.brief;
     if (b === undefined) return;
     if (typeof b !== 'object' || b === null || Array.isArray(b))
@@ -70,6 +84,14 @@ export class WebappRunHandler extends AppRunHandler {
   }
   async execute(ctx: RunContext): Promise<void> {
     await this.webappProject(ctx);
+    if (ctx.run.input.templatePlanId !== undefined) {
+      if (!this.adapt)
+        throw new ProblemException(
+          'unsupported_capability',
+          'template adaptation is not available',
+        );
+      return this.adapt.run(ctx);
+    }
     const out = await this.graph.run(
       ctx.orgId,
       ctx.run.id,

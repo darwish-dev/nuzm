@@ -3842,6 +3842,8 @@ classification:
       role: internal
       strategy: internal
       created_at: internal
+      project_id: internal
+      baseline: customer-content
     knowledge.processing_jobs:
       id: internal
       version_id: internal

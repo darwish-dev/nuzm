@@ -11,7 +11,10 @@ export {
 export {
   KNOWLEDGE_LIBRARY_FLAG,
   KNOWLEDGE_CUSTOMER_TEMPLATES_FLAG,
+  KNOWLEDGE_GENERATION_FLAG,
   KNOWLEDGE_IMPORT_PROJECTS_FLAG,
+  knowledgeGenerationEnabled,
+  KnowledgeGenerationGuard,
   KNOWLEDGE_SEMANTIC_SEARCH_FLAG,
 } from './internal/flag';
 export { CustomerTemplateService } from './internal/customer-templates.service';

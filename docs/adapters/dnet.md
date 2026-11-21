@@ -62,7 +62,7 @@ None done. Every row stays `NOT VERIFIED` until a sandbox run with owner-supplie
 
 Admin → Domains → Registrars → **DNet settings** (`/domains/registrars/dnet`, `PUT /v1/admin/registrars/dnet`, needs `admin:domains:manage` and a recent MFA check).
 
-- Stores the non-secret settings in `domains.registrar_accounts.settings` (migration `0930`): label, environment, base URL (https only), reseller id, timeout. The `dnet` registrar row is seeded **disabled**.
+- Stores the non-secret settings in `domains.registrar_accounts.settings` (migration `1870`, numbered after the latest applied migration because the migration runner is forward-only): label, environment, base URL (https only), reseller id, timeout. The `dnet` registrar row is seeded **disabled**.
 - Credentials (API key, optional secret) are **write-only**. Outside production they are typed into the form and kept in the sealed secret store (dev profile, D-12); only the `vault://` reference is stored. In production only a `vaultRef` is accepted.
 - Any save disables the account and clears its probe. The page says "Not connected" and has no test button: there is no DNet adapter yet, so a verification answers `unsupported_capability`.
 - The field names are generic on purpose. When DNet's documentation arrives, the exact authentication fields, the egress host allow-list and the read-only "test connection" call are added with the adapter. The domains module's vault client is still the refusing `UnavailableVault` (D-12), so the adapter will also need the sealed store wired in for non-production runs.

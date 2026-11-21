@@ -5,6 +5,12 @@ import { t } from '@nuzm/i18n';
 import type {
   ArchitectureView,
   ComponentView,
+  DesignDnaView,
+  DnaEntryView,
+  DnaRoleView,
+  ProjectDnaView,
+  ThemeTokenView,
+  ThemeVariantView,
   RelationshipView,
   ProjectManifestView,
   IngestFile,
@@ -213,6 +219,10 @@ const world =
     }
     if (s.url.endsWith('/relationships'))
       return json(200, { items: w.relationships ?? [], nextCursor: null });
+    if (s.url.endsWith('/design'))
+      return json(200, { versionId: V1, createdAt: null, design: null }); // the design analysis (S-K4) has not run unless a test says so
+    if (s.url.endsWith('/theme-tokens') || s.url.endsWith('/theme-variants'))
+      return json(200, { items: [], nextCursor: null });
     if (s.url.endsWith('/logs')) return json(200, { items: w.logs ?? [log()], nextCursor: null });
     if (s.url.endsWith('/findings'))
       return wrap(w.findings ?? [finding()], { summary: { info: 0, warn: 1, block: 0 } });
@@ -943,5 +953,401 @@ describe('KnowledgeIngestion: components and architecture (S-K2c)', () => {
     ui();
     const c2 = await screen.findByLabelText(en('kc.title'));
     expect(await within(c2).findByText(en('ki.forbidden'))).toBeTruthy();
+  });
+});
+
+// ---- Design DNA (S-K4) -----------------------------------------------------------------------------------------------------------
+const ev = (path = 'src/app/globals.css', line = 5) => ({ path, line });
+const role = (over: Partial<DnaRoleView> = {}): DnaRoleView => ({
+  role: 'primary',
+  token: '--primary',
+  value: '221 83% 53%',
+  hex: '#2563eb',
+  mode: 'base',
+  via: 'name+usage',
+  confidence: 0.95,
+  evidence: ev(),
+  ...over,
+});
+const entry = (over: Partial<DnaEntryView> = {}): DnaEntryView => ({
+  name: '--radius',
+  value: '0.5rem',
+  resolved: null,
+  px: 8,
+  mode: 'base',
+  origin: 'css-var',
+  evidence: ev('src/app/globals.css', 8),
+  ...over,
+});
+const projectDna = (over: Partial<ProjectDnaView> = {}): ProjectDnaView => ({
+  root: '.',
+  name: 'shop',
+  frameworks: ['nextjs'],
+  sources: [{ path: 'src/app/globals.css', kind: 'css', tokens: 9 }],
+  modes: ['base', 'dark'],
+  palette: [
+    {
+      mode: 'base',
+      roles: [
+        role(),
+        role({
+          role: 'background',
+          token: '--background',
+          hex: '#ffffff',
+          via: 'name',
+          confidence: 0.85,
+        }),
+      ],
+      colors: [
+        entry({ name: '--border', value: '214 32% 91%', resolved: 'hsl(214 32% 91%)', px: null }),
+      ],
+    },
+    {
+      mode: 'dark',
+      roles: [role({ role: 'background', token: '--background', hex: '#020617', mode: 'dark' })],
+      colors: [],
+    },
+  ],
+  typography: {
+    families: [entry({ name: '--font-sans', value: 'Cairo, sans-serif', px: null })],
+    sizes: [entry({ name: 'fontSize.sm', value: '0.875rem', px: 14 })],
+    weights: [],
+    lineHeights: [],
+  },
+  spacing: {
+    scale: [entry({ name: 'spacing.4', value: '1rem', px: 16 })],
+    baseUnit: 4,
+    baseUnitInferred: true,
+  },
+  radius: [entry()],
+  shadows: [],
+  breakpoints: [],
+  motion: [],
+  contrast: [
+    {
+      mode: 'base',
+      pair: 'text/background',
+      foreground: '#020617',
+      background: '#ffffff',
+      ratio: 19.8,
+      aa: true,
+      aaLarge: true,
+      aaa: true,
+    },
+    {
+      mode: 'base',
+      pair: 'primary/background',
+      foreground: '#2563eb',
+      background: '#ffffff',
+      ratio: 3.9,
+      aa: false,
+      aaLarge: true,
+      aaa: false,
+    },
+    {
+      mode: 'dark',
+      pair: 'text/background',
+      foreground: '#f8fafc',
+      background: '#020617',
+      ratio: 18.1,
+      aa: true,
+      aaLarge: true,
+      aaa: true,
+    },
+  ],
+  traits: {
+    darkMode: true,
+    multiTheme: false,
+    schemes: ['dark'],
+    rtl: true,
+    logicalProperties: false,
+    arabicFont: true,
+    tailwind: true,
+    cssVariables: true,
+    material3: null,
+  },
+  dynamic: [{ name: 'colors.plugin', path: 'tailwind.config.ts', line: 4 }],
+  stats: { files: 2, tokens: 9, resolved: 3, unresolved: 0, dynamic: 1 },
+  ...over,
+});
+const dna = (over: Partial<DesignDnaView> = {}): DesignDnaView => ({
+  schemaVersion: '1',
+  analyzerVersion: '1.0.0',
+  primary: 0,
+  projects: [projectDna()],
+  stats: {
+    files: 2,
+    tokens: 9,
+    variants: 2,
+    skipped: { minified: 1, timeout: 1 },
+    truncated: ['palette_colors'],
+  },
+  ...over,
+});
+const token = (over: Partial<ThemeTokenView> = {}): ThemeTokenView => ({
+  id: 't1',
+  category: 'color',
+  name: '--primary',
+  value: '221 83% 53%',
+  resolvedValue: null,
+  sourcePath: 'src/app/globals.css',
+  mode: 'base',
+  line: 5,
+  origin: 'css-var',
+  dynamic: false,
+  ...over,
+});
+interface DesignWorld {
+  design?: DesignDnaView | null | Response;
+  tokens?: ThemeTokenView[] | Response;
+  variants?: ThemeVariantView[] | Response;
+}
+const designWorld =
+  (d: DesignWorld = {}): Handler =>
+  (s) => {
+    if (s.url.endsWith('/design'))
+      return d.design instanceof Response
+        ? d.design.clone()
+        : json(200, {
+            versionId: V1,
+            createdAt: null,
+            design: d.design === undefined ? dna() : d.design,
+          });
+    if (s.url.endsWith('/theme-tokens')) {
+      if (d.tokens instanceof Response) return d.tokens.clone();
+      const sp = new URL(`http://x${s.search}`).searchParams;
+      const cat = sp.get('category');
+      const q = sp.get('q');
+      return json(200, {
+        items: (d.tokens ?? []).filter(
+          (x) =>
+            (!cat || x.category === cat) && (!q || x.name.toLowerCase().includes(q.toLowerCase())),
+        ),
+        nextCursor: null,
+      });
+    }
+    if (s.url.endsWith('/theme-variants'))
+      return d.variants instanceof Response
+        ? d.variants.clone()
+        : json(200, { items: d.variants ?? [], nextCursor: null });
+    return world({ manifest: v2() })(s);
+  };
+
+describe('KnowledgeIngestion: Design DNA (S-K4)', () => {
+  it('shows roles with their colour, token, confidence and evidence, contrast with WCAG levels, typography, spacing, traits, and says nothing is reusable yet', async () => {
+    mockFetch(designWorld({ tokens: [token()] }));
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    expect(await within(card).findByText(en('kd.role.primary'))).toBeTruthy();
+    expect(within(card).getByText('#2563eb')).toBeTruthy();
+    expect(within(card).getAllByText('--primary').length).toBeGreaterThan(0);
+    expect(within(card).getByText(/95%/)).toBeTruthy();
+    expect(within(card).getAllByText('src/app/globals.css:5').length).toBeGreaterThan(0);
+    expect(within(card).getByText(en('kc.reuse.no'))).toBeTruthy();
+    // contrast, base mode only
+    const table = within(card).getByRole('table', { name: en('kd.contrast') });
+    expect(within(table).getByText('19.8:1')).toBeTruthy();
+    expect(within(table).getByText(en('kd.pair.text_background'))).toBeTruthy();
+    expect(within(table).getAllByText(en('kd.aa.pass')).length).toBe(1);
+    expect(within(table).getByText(en('kd.aa.fail'))).toBeTruthy();
+    expect(within(table).queryByText('18.1:1')).toBeNull();
+    // typography, spacing and radius
+    expect(within(card).getByText('Cairo, sans-serif')).toBeTruthy();
+    expect(within(card).getByText(en('kd.baseUnit', { n: 4 }), { exact: false })).toBeTruthy();
+    expect(within(card).getByText(en('kd.inferred'), { exact: false })).toBeTruthy();
+    expect(within(card).getAllByText('0.5rem').length).toBeGreaterThan(0);
+    // traits
+    for (const k of [
+      'kd.trait.darkMode',
+      'kd.trait.rtl',
+      'kd.trait.arabicFont',
+      'kd.trait.tailwind',
+    ] as const)
+      expect(within(card).getByText(en(k), { selector: '.nz-badge' })).toBeTruthy();
+    expect(within(card).queryByText(en('kd.trait.material3'))).toBeNull();
+    // computed values are listed as such, with where they are
+    expect(within(card).getByText(en('kd.dynamic.note'))).toBeTruthy();
+    expect(within(card).getByText('colors.plugin')).toBeTruthy();
+    expect(within(card).getByText('tailwind.config.ts:4')).toBeTruthy();
+    // stats with skipped reasons and truncation
+    expect(within(card).getByText(/2 files, 9 tokens, 2 variants/)).toBeTruthy();
+    expect(within(card).getByText(new RegExp(en('kc.skip.timeout')))).toBeTruthy();
+    expect(within(card).getByText('palette_colors')).toBeTruthy();
+  });
+
+  it('a colour that is not a plain hex never reaches a style attribute', async () => {
+    mockFetch(
+      designWorld({
+        design: dna({
+          projects: [
+            projectDna({
+              palette: [
+                {
+                  mode: 'base',
+                  roles: [
+                    role({ hex: 'red;background:url(//evil/x)' }),
+                    role({ role: 'accent', hex: '#abc123' }),
+                  ],
+                  colors: [],
+                },
+              ],
+              modes: ['base'],
+            }),
+          ],
+        }),
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    await within(card).findByText(en('kd.role.accent'));
+    const chips = [...card.querySelectorAll('.kd-chip')] as HTMLElement[];
+    expect(chips).toHaveLength(2);
+    expect(chips[0]!.getAttribute('style')).toBeNull();
+    expect(chips[1]!.style.backgroundColor).not.toBe('');
+    expect(card.innerHTML).not.toContain('evil');
+  });
+
+  it('switches the mode and the project', async () => {
+    mockFetch(
+      designWorld({
+        design: dna({
+          primary: 1,
+          projects: [
+            projectDna({
+              root: 'app',
+              name: 'app',
+              modes: ['base'],
+              palette: [
+                {
+                  mode: 'base',
+                  roles: [role({ role: 'info', token: 'info', hex: '#00aaff' })],
+                  colors: [],
+                },
+              ],
+              contrast: [],
+            }),
+            projectDna(),
+          ],
+        }),
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    expect(await within(card).findByText('#ffffff')).toBeTruthy(); // the primary project (index 1) is shown first
+    fireEvent.change(within(card).getByLabelText(en('kd.mode')), { target: { value: 'dark' } });
+    expect(await within(card).findByText('#020617')).toBeTruthy();
+    expect(within(card).queryByText('#ffffff')).toBeNull();
+    const table = within(card).getByRole('table', { name: en('kd.contrast') });
+    expect(within(table).getByText('18.1:1')).toBeTruthy();
+    fireEvent.change(within(card).getByLabelText(en('kd.project')), { target: { value: '0' } });
+    expect(await within(card).findByText(en('kd.role.info'))).toBeTruthy();
+    expect(within(card).getByText(en('kd.contrast.none'))).toBeTruthy();
+  });
+
+  it('lists the tokens (computed ones marked, resolved values shown), filters through the API, and lists the variants', async () => {
+    mockFetch(
+      designWorld({
+        tokens: [
+          token(),
+          token({
+            id: 't2',
+            name: 'colors.brand',
+            value: 'hsl(var(--primary))',
+            resolvedValue: 'hsl(221 83% 53%)',
+            origin: 'tailwind-config',
+            sourcePath: 'tailwind.config.ts',
+            line: 3,
+          }),
+          token({
+            id: 't3',
+            name: 'colors.plugin',
+            value: null,
+            dynamic: true,
+            origin: 'tailwind-config',
+          }),
+          token({ id: 't4', category: 'radius', name: '--radius', value: '0.5rem', mode: 'dark' }),
+        ],
+        variants: [
+          {
+            id: 'v1',
+            kind: 'color-scheme',
+            name: 'dark',
+            descriptor: { path: 'src/app/globals.css' },
+            hasPreview: false,
+          },
+          {
+            id: 'v2',
+            kind: 'sidebar',
+            name: 'Sidebar',
+            descriptor: { path: 'src/components/sidebar.tsx' },
+            hasPreview: false,
+          },
+        ],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    const table = await within(card).findByRole('table', { name: en('kd.tokens') });
+    expect(within(table).getByText('hsl(var(--primary)) → hsl(221 83% 53%)')).toBeTruthy();
+    expect(within(table).getByText(en('kd.computed'))).toBeTruthy();
+    expect(
+      within(table).getAllByText(en('kd.origin.tailwind-config'), { exact: false }).length,
+    ).toBe(2);
+    expect(
+      within(card).getByText(en('kd.variant.sidebar'), { selector: '.nz-badge' }),
+    ).toBeTruthy();
+    expect(within(card).getByText('src/components/sidebar.tsx')).toBeTruthy();
+    fireEvent.change(within(card).getByLabelText(en('kd.category')), {
+      target: { value: 'radius' },
+    });
+    await waitFor(() =>
+      expect(
+        seen.some((x) => x.url.endsWith('/theme-tokens') && x.search.includes('category=radius')),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(within(card).queryByText('colors.brand')).toBeNull());
+    fireEvent.change(within(card).getByLabelText(en('kd.search')), {
+      target: { value: 'nothing-like-this' },
+    });
+    expect(await within(card).findByText(en('kd.tokens.none'))).toBeTruthy();
+  });
+
+  it('Arabic labels', async () => {
+    mockFetch(designWorld({ tokens: [token()] }));
+    ui({ locale: 'ar' });
+    const card = await screen.findByLabelText(t('ar', 'kd.title'));
+    expect(await within(card).findByText(t('ar', 'kd.role.primary'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kd.contrast'), { selector: 'h3' })).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kd.trait.rtl'), { selector: '.nz-badge' })).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kd.palette'))).toBeTruthy();
+  });
+
+  it('not analysed, forbidden and failed reads; a failed token list does not hide the document', async () => {
+    mockFetch(designWorld({ design: null }));
+    ui();
+    expect(await screen.findByText(en('kd.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(designWorld({ design: json(403, {}) }));
+    ui();
+    const c1 = await screen.findByLabelText(en('kd.title'));
+    expect(await within(c1).findByText(en('ki.forbidden'))).toBeTruthy();
+    cleanup();
+    mockFetch(designWorld({ design: json(500, {}) }));
+    ui();
+    const c2 = await screen.findByLabelText(en('kd.title'));
+    expect(await within(c2).findByRole('alert')).toBeTruthy();
+    cleanup();
+    mockFetch(designWorld({ tokens: json(500, {}) }));
+    ui();
+    const c3 = await screen.findByLabelText(en('kd.title'));
+    expect(await within(c3).findByText(en('kd.role.primary'))).toBeTruthy();
+    expect(await within(c3).findByText(en('ki.load.error'))).toBeTruthy();
+  });
+
+  it('the component section still works with the schema-3 manifest', async () => {
+    mockFetch(designWorld({ tokens: [] }));
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(within(card).queryByText(en('kc.none'))).toBeNull();
   });
 });

@@ -13446,6 +13446,179 @@ paths:
           $ref: '#/components/responses/Problem'
         '422':
           $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/design:
+    get:
+      operationId: getKnowledgeDesign
+      tags:
+        - admin
+      summary: The Design DNA of a version
+      description: >-
+        The design analysis of a version (S-K4): palette roles per mode with the file and line that prove them, confidence and WCAG contrast of role pairs, typography, spacing, radius, shadows, breakpoints, motion and traits, per project. Computed values are listed as dynamic, never invented. `design` is null when the design analysis has not run. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDesignDetail'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-tokens:
+    get:
+      operationId: listKnowledgeThemeTokens
+      tags:
+        - admin
+      summary: List the design tokens of a version
+      description: >-
+        Design tokens read from stylesheets, token files and theme configuration: category, name, the value as written, the value after references were resolved, the mode (base, light, dark or a named scheme), the file and line. Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          description: Name or path contains.
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [color, typography, spacing, radius, shadow, breakpoint, motion, other]
+        - name: mode
+          in: query
+          required: false
+          description: base, light, dark, scoped or a named scheme.
+          schema:
+            type: string
+        - name: origin
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              [
+                css-var,
+                scss-var,
+                less-var,
+                tailwind-theme,
+                tailwind-config,
+                tokens-json,
+                js-theme,
+                flutter-theme,
+              ]
+        - name: dynamic
+          in: query
+          required: false
+          description: Only computed (true) or only literal (false) tokens.
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeThemeTokenPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-variants:
+    get:
+      operationId: listKnowledgeThemeVariants
+      tags:
+        - admin
+      summary: List the theme variants of a version
+      description: >-
+        Colour schemes, layouts, sidebars, headers, footers, page templates, dashboard shells and screens found in the package, each with a descriptor (file, component, mode). Permission `admin:ai_knowledge:read`.
+      x-nuzm-platform-permission: admin:ai_knowledge:read
+      x-nuzm-realm: admin
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeThemeVariantPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
   # <<< AI Intelligence Center paths
 components:
   parameters:
@@ -21968,6 +22141,60 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/KnowledgeRelationship'
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeDesignDetail:
+      type: object
+      required: [versionId, createdAt, design]
+      properties:
+        versionId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time, nullable: true }
+        design:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Design DNA (schemaVersion 1); see docs/spec-change-requests/SCR-K-06-design-dna.md for the shape.
+    KnowledgeThemeToken:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        category: { type: string }
+        name: { type: string }
+        value: { type: string, nullable: true }
+        resolvedValue: { type: string, nullable: true }
+        sourcePath: { type: string, nullable: true }
+        mode: { type: string }
+        line: { type: integer, nullable: true }
+        origin: { type: string }
+        dynamic: { type: boolean }
+    KnowledgeThemeTokenPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeThemeToken'
+        nextCursor:
+          type: string
+          nullable: true
+    KnowledgeThemeVariant:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        name: { type: string }
+        descriptor: { type: object, additionalProperties: true }
+        hasPreview: { type: boolean }
+    KnowledgeThemeVariantPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeThemeVariant'
         nextCursor:
           type: string
           nullable: true

@@ -1,4 +1,4 @@
-import type { FileFacts } from '@nuzm/domain';
+import type { DesignFileFacts, FileFacts } from '@nuzm/domain';
 
 /**
  * Wire protocol and limits of the parser sandbox (S-K2c hardening, ADR-065 addendum D).
@@ -40,7 +40,10 @@ export const DEFAULT_SANDBOX_LIMITS: SandboxLimits = {
   startupTimeoutMs: 20_000,
 };
 
-export type FileKind = 'ts' | 'dart';
+/** What a thread parses: component facts (`ts`, `dart`, S-K2c) or design facts (S-K4). */
+export type FileKind = 'ts' | 'dart' | 'css' | 'tokens-json' | 'theme-config' | 'dart-theme';
+export type FactsOf<K extends FileKind> = K extends 'ts' | 'dart' ? FileFacts : DesignFileFacts;
+export const isDesignKind = (k: FileKind): boolean => k !== 'ts' && k !== 'dart';
 
 export interface ParseRequest {
   /** Correlates the reply with the request; chosen by the sandbox. */
@@ -54,7 +57,13 @@ export interface ParseRequest {
 
 export type ThreadMessage =
   | { type: 'ready' }
-  | { type: 'result'; id: number; ok: true; facts: FileFacts; resultBytes: number }
+  | {
+      type: 'result';
+      id: number;
+      ok: true;
+      facts: FileFacts | DesignFileFacts;
+      resultBytes: number;
+    }
   | {
       type: 'result';
       id: number;
@@ -65,8 +74,8 @@ export type ThreadMessage =
 /** Why a file produced no facts of its own. `cancelled` never appears here: cancellation rejects the call. */
 export type FailureReason = 'timeout' | 'memory' | 'crashed' | 'too_large' | 'oversize' | 'invalid';
 
-export type ParseOutcome =
-  | { ok: true; facts: FileFacts; ms: number }
+export type ParseOutcome<F = FileFacts> =
+  | { ok: true; facts: F; ms: number }
   | { ok: false; reason: FailureReason; ms: number; detail?: string };
 
 /** What the thread is started with (structured-clone data only). */

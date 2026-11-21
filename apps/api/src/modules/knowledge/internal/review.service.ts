@@ -37,6 +37,26 @@ const RELATIONS = [
   'routes_to',
   'route_renders',
 ] as const;
+const THEME_CATEGORIES = [
+  'color',
+  'typography',
+  'spacing',
+  'radius',
+  'shadow',
+  'breakpoint',
+  'motion',
+  'other',
+] as const;
+const THEME_ORIGINS = [
+  'css-var',
+  'scss-var',
+  'less-var',
+  'tailwind-theme',
+  'tailwind-config',
+  'tokens-json',
+  'js-theme',
+  'flutter-theme',
+] as const;
 const RETRYABLE_REASONS = ['processing_failed', 'archive_missing', 'cancelled'];
 
 export interface ReviewEntry {
@@ -351,6 +371,138 @@ export class ReviewService {
       toRef: r.to_ref as string,
       relation: r.relation as string,
       evidence: r.evidence as Row,
+    }));
+    return {
+      items,
+      nextCursor:
+        rows.length > limit ? Buffer.from(items[items.length - 1]!.id).toString('base64url') : null,
+    };
+  }
+
+  /** The Design DNA of a version (S-K4): palette roles per mode with evidence and contrast, typography, spacing, radius, shadows, breakpoints, motion, traits; `design: null` when the design analysis has not run. */
+  async design(resourceId: string, versionId: string) {
+    this.id(resourceId);
+    this.id(versionId);
+    const row = await this.db.withPlatformScope(async (c) => {
+      await this.resource(c, resourceId);
+      await this.version(c, resourceId, versionId);
+      return (
+        await c.query(
+          `SELECT result, created_at FROM knowledge.analysis_results WHERE version_id = $1 AND analyzer = 'design-dna' ORDER BY created_at DESC LIMIT 1`,
+          [versionId],
+        )
+      ).rows[0] as Row | undefined;
+    });
+    return row
+      ? { versionId, createdAt: iso(row.created_at), design: row.result as Row }
+      : { versionId, createdAt: null, design: null };
+  }
+
+  /** The design tokens of a version: category, name, the value as written, the value after references were resolved, the mode, file and line. Computed values are `dynamic` with no value. */
+  async themeTokens(
+    resourceId: string,
+    versionId: string,
+    q: { q?: string; category?: string; mode?: string; origin?: string; dynamic?: string },
+    rawLimit?: string,
+    rawCursor?: string,
+  ) {
+    this.id(resourceId);
+    this.id(versionId);
+    const limit = parseLimit(rawLimit, 100);
+    const cursor = decodeCursor(rawCursor);
+    const rows = await this.db.withPlatformScope(async (c) => {
+      await this.resource(c, resourceId);
+      await this.version(c, resourceId, versionId);
+      const args: unknown[] = [versionId, limit + 1];
+      let where = 'version_id = $1';
+      if (q.q) {
+        args.push(`%${q.q.slice(0, 100).replace(/[%_\\]/g, '\\$&')}%`);
+        where += ` AND (name ILIKE $${args.length} OR source_path ILIKE $${args.length})`;
+      }
+      if (q.category) {
+        args.push(oneOf(THEME_CATEGORIES, q.category, 'category'));
+        where += ` AND category = $${args.length}`;
+      }
+      if (q.mode) {
+        args.push(q.mode.slice(0, 40));
+        where += ` AND mode = $${args.length}`;
+      }
+      if (q.origin) {
+        args.push(oneOf(THEME_ORIGINS, q.origin, 'origin'));
+        where += ` AND origin = $${args.length}`;
+      }
+      if (q.dynamic !== undefined) {
+        args.push(oneOf(['true', 'false'] as const, q.dynamic, 'dynamic') === 'true');
+        where += ` AND dynamic = $${args.length}`;
+      }
+      if (cursor) {
+        args.push(cursor);
+        where += ` AND id > $${args.length}`;
+      }
+      return (
+        await c.query(
+          `SELECT id, category, name, value, resolved_value, source_path, mode, line, origin, dynamic FROM knowledge.theme_tokens WHERE ${where} ORDER BY id LIMIT $2`,
+          args,
+        )
+      ).rows as Row[];
+    });
+    const items = rows.slice(0, limit).map((r) => ({
+      id: r.id as string,
+      category: r.category as string,
+      name: r.name as string,
+      value: (r.value as string | null) ?? null,
+      resolvedValue: (r.resolved_value as string | null) ?? null,
+      sourcePath: (r.source_path as string | null) ?? null,
+      mode: r.mode as string,
+      line: (r.line as number | null) ?? null,
+      origin: r.origin as string,
+      dynamic: r.dynamic === true,
+    }));
+    return {
+      items,
+      nextCursor:
+        rows.length > limit ? Buffer.from(items[items.length - 1]!.id).toString('base64url') : null,
+    };
+  }
+
+  /** Theme variants of a version: colour schemes, layouts, sidebars, headers, page templates, screens, each with its descriptor (file, component, mode). */
+  async themeVariants(
+    resourceId: string,
+    versionId: string,
+    q: { kind?: string },
+    rawLimit?: string,
+    rawCursor?: string,
+  ) {
+    this.id(resourceId);
+    this.id(versionId);
+    const limit = parseLimit(rawLimit, 100);
+    const cursor = decodeCursor(rawCursor);
+    const rows = await this.db.withPlatformScope(async (c) => {
+      await this.resource(c, resourceId);
+      await this.version(c, resourceId, versionId);
+      const args: unknown[] = [versionId, limit + 1];
+      let where = 'version_id = $1';
+      if (q.kind) {
+        args.push(q.kind.slice(0, 40));
+        where += ` AND kind = $${args.length}`;
+      }
+      if (cursor) {
+        args.push(cursor);
+        where += ` AND id > $${args.length}`;
+      }
+      return (
+        await c.query(
+          `SELECT id, kind, name, descriptor, preview_key FROM knowledge.theme_variants WHERE ${where} ORDER BY id LIMIT $2`,
+          args,
+        )
+      ).rows as Row[];
+    });
+    const items = rows.slice(0, limit).map((r) => ({
+      id: r.id as string,
+      kind: r.kind as string,
+      name: r.name as string,
+      descriptor: r.descriptor as Row,
+      hasPreview: r.preview_key != null,
     }));
     return {
       items,
@@ -693,7 +845,7 @@ export class ReviewService {
       await this.resource(c, resourceId, true);
       const v = await this.version(c, resourceId, versionId, true);
       // an analysed version keeps its files; only the later stages can be re-run: detection (S-K2b) while no manifest exists, components (S-K2c) while only schema 1 exists
-      let kind: 'VALIDATE' | 'DETECT' | 'COMPONENTS' = 'VALIDATE';
+      let kind: 'VALIDATE' | 'DETECT' | 'COMPONENTS' | 'DESIGN' = 'VALIDATE';
       if (v.analysis_job_id) {
         const have = new Set(
           (
@@ -703,12 +855,12 @@ export class ReviewService {
             )
           ).rows.map((r) => r.schema_version as string),
         );
-        if (have.has('2'))
+        if (have.has('3'))
           throw new ProblemException(
             'conflict',
             'this version was already analysed; upload a new version to analyse again',
           );
-        kind = have.has('1') ? 'COMPONENTS' : 'DETECT';
+        kind = have.has('2') ? 'DESIGN' : have.has('1') ? 'COMPONENTS' : 'DETECT';
       }
       if (
         !['FAILED', 'QUARANTINED'].includes(v.state as string) ||

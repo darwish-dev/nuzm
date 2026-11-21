@@ -69,6 +69,7 @@ async function startWorker() {
       KNOWLEDGE_INGEST_ENABLED: 'true',
       KNOWLEDGE_DETECT_ENABLED: 'true',
       KNOWLEDGE_COMPONENTS_ENABLED: 'true',
+      KNOWLEDGE_DESIGN_ENABLED: 'true',
       KNOWLEDGE_STORE_DRIVER: 'fs',
       KNOWLEDGE_STORE_DIR: STORE_DIR,
       OTEL_SDK_DISABLED: 'true',
@@ -224,14 +225,15 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
   await expect(kni.getByText(T(info, 'ki.kind.EXTRACT'))).toBeVisible();
   await expect(kni.getByText(T(info, 'ki.kind.DETECT'))).toBeVisible();
   await expect(kni.getByText(T(info, 'ki.kind.COMPONENTS'), { exact: true })).toBeVisible();
-  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(4);
+  await expect(kni.getByText(T(info, 'ki.kind.DESIGN'), { exact: true })).toBeVisible();
+  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(5);
   await kni
     .getByRole('button', { name: T(info, 'ki.logs'), exact: true })
     .first()
     .click();
   await expect(
     kni.getByText(
-      /component analysis started over \d+ source files .*nothing from the package is executed/,
+      /design analysis started over \d+ style, token and theme files .*nothing from the package is executed/,
     ),
   ).toBeVisible();
   // findings: the planted lifecycle script is reported, never run
@@ -263,6 +265,20 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
     .first()
     .click();
   await expect(kc.getByText(T(info, 'kc.reuse.no'))).toBeVisible();
+  // Design DNA (static reading of the stylesheet and the Tailwind configuration): roles with evidence, contrast, traits, tokens with their mode
+  const kd = staff.page.getByLabel(T(info, 'kd.title'));
+  await expect(kd.getByText(T(info, 'kd.role.background'), { exact: true })).toBeVisible();
+  await expect(kd.getByText(T(info, 'kd.role.primary'), { exact: true })).toBeVisible();
+  await expect(
+    kd.getByText('modern-saas/app/globals.css:4', { exact: false }).first(),
+  ).toBeVisible();
+  await expect(kd.getByRole('table', { name: T(info, 'kd.contrast') })).toBeVisible();
+  await expect(kd.locator('.nz-badge', { hasText: T(info, 'kd.trait.rtl') })).toBeVisible();
+  await expect(kd.locator('.nz-badge', { hasText: T(info, 'kd.trait.arabicFont') })).toBeVisible();
+  await expect(kd.locator('.nz-badge', { hasText: T(info, 'kd.trait.tailwind') })).toBeVisible();
+  const tokenTable = kd.getByRole('table', { name: T(info, 'kd.tokens') });
+  await expect(tokenTable.getByText('--primary', { exact: true }).first()).toBeVisible();
+  await expect(kd.getByText(T(info, 'kc.reuse.no'))).toBeVisible();
   await audit(staff.page, info, 'ai-ingestion-review-uploader');
   expect(
     (
@@ -383,6 +399,10 @@ test('1b. the Flutter and full-stack samples are detected from their files, with
   await expect(
     fc.locator('.nz-badge', { hasText: T(info, 'kc.kind.flutter-widget') }).first(),
   ).toBeVisible();
+  const fd = staff.page.getByLabel(T(info, 'kd.title'));
+  await expect(fd.getByText(T(info, 'kd.role.primary'), { exact: true })).toBeVisible();
+  await expect(fd.getByText('#1e88e5', { exact: true }).first()).toBeVisible();
+  await expect(fd.locator('.nz-badge', { hasText: T(info, 'kd.trait.material3') })).toBeVisible();
   await audit(staff.page, info, 'ai-ingestion-manifest-flutter');
 
   await staff.page.goto(resourcePage(info, s.id));
@@ -446,8 +466,26 @@ test('1b. the Flutter and full-stack samples are detected from their files, with
           [v],
         )
       ).map((x) => x.schema_version),
-    ).toEqual(['1', '2']);
+    ).toEqual(['1', '2', '3']);
   }
+  // design tokens, variants and the Design DNA were written by the worker: platform rows, dynamic tokens without a value, every token with its file and mode
+  const dt = await sql<{ n: string; bad: string }>(
+    `SELECT count(*)::text AS n, count(*) FILTER (WHERE (value IS NULL AND NOT dynamic) OR source_path IS NULL OR mode = '' OR org_id IS NOT NULL)::text AS bad FROM knowledge.theme_tokens WHERE version_id = $1`,
+    [f.vid],
+  );
+  expect(Number(dt[0]!.n)).toBeGreaterThan(3);
+  expect(dt[0]!.bad).toBe('0');
+  expect(
+    (
+      await sql(
+        `SELECT 1 FROM knowledge.analysis_results WHERE version_id IN ($1,$2) AND analyzer = 'design-dna'`,
+        [f.vid, s.vid],
+      )
+    ).length,
+  ).toBe(2);
+  expect(
+    (await sql(`SELECT 1 FROM knowledge.theme_variants WHERE version_id = $1`, [f.vid])).length,
+  ).toBeGreaterThan(0);
   await staff.ctx.close();
 });
 

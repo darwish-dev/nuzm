@@ -114,6 +114,46 @@ export class AdminKnowledgeProcessingController {
   }
 
   @RequirePlatformPermission(READ)
+  @Get(':id/versions/:versionId/design')
+  design(@Param('id') id: string, @Param('versionId') versionId: string) {
+    return this.reviews.design(id, versionId);
+  }
+
+  @RequirePlatformPermission(READ)
+  @Get(':id/versions/:versionId/theme-tokens')
+  themeTokens(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @Query('q') q?: string,
+    @Query('category') category?: string,
+    @Query('mode') mode?: string,
+    @Query('origin') origin?: string,
+    @Query('dynamic') dynamic?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.reviews.themeTokens(
+      id,
+      versionId,
+      { q, category, mode, origin, dynamic },
+      limit,
+      cursor,
+    );
+  }
+
+  @RequirePlatformPermission(READ)
+  @Get(':id/versions/:versionId/theme-variants')
+  themeVariants(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @Query('kind') kind?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.reviews.themeVariants(id, versionId, { kind }, limit, cursor);
+  }
+
+  @RequirePlatformPermission(READ)
   @Get(':id/versions/:versionId/manifest')
   manifest(@Param('id') id: string, @Param('versionId') versionId: string) {
     return this.reviews.manifest(id, versionId);

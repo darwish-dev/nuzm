@@ -3,13 +3,15 @@ import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 import {
   DEFAULT_SANDBOX_LIMITS,
+  isDesignKind,
+  type FactsOf,
   type FileKind,
   type ParseOutcome,
   type SandboxLimits,
   type ThreadData,
   type ThreadMessage,
 } from './sandbox-protocol';
-import type { FileFacts } from '@nuzm/domain';
+import type { DesignFileFacts, FileFacts } from '@nuzm/domain';
 
 /**
  * Parser sandbox (S-K2c hardening). A small pool of `worker_threads`, each parsing ONE file at a time under hard limits:
@@ -62,10 +64,10 @@ export interface SandboxStats {
 export interface ParseSandbox {
   /** Number of files that may be parsed at the same time. */
   readonly size: number;
-  parse(
-    file: { kind: FileKind; path: string; bytes: ArrayBuffer },
+  parse<K extends FileKind>(
+    file: { kind: K; path: string; bytes: ArrayBuffer },
     signal?: AbortSignal,
-  ): Promise<ParseOutcome>;
+  ): Promise<ParseOutcome<FactsOf<K>>>;
   stats(): SandboxStats;
   close(): Promise<void>;
 }
@@ -80,6 +82,24 @@ function resolveEntry(): { file: string; execArgv: string[] } {
   };
 }
 
+const isDesignFacts = (x: unknown): x is DesignFileFacts => {
+  const f = x as Partial<DesignFileFacts> | null;
+  return (
+    !!f &&
+    typeof f === 'object' &&
+    (f.kind === 'css' ||
+      f.kind === 'tokens-json' ||
+      f.kind === 'theme-config' ||
+      f.kind === 'dart-theme') &&
+    Array.isArray(f.tokens) &&
+    Array.isArray(f.usage) &&
+    Array.isArray(f.schemes) &&
+    !!f.traits &&
+    typeof f.traits === 'object' &&
+    typeof f.truncated === 'boolean' &&
+    (f.skipped === null || typeof f.skipped === 'string')
+  );
+};
 const isFacts = (x: unknown): x is FileFacts => {
   const f = x as Partial<FileFacts> | null;
   return (
@@ -159,11 +179,11 @@ class Slot {
     msg: { kind: FileKind; path: string; bytes: ArrayBuffer },
     timeoutMs: number,
     signal: AbortSignal | undefined,
-  ): Promise<ParseOutcome> {
+  ): Promise<ParseOutcome<FileFacts | DesignFileFacts>> {
     const w = this.worker;
     if (!w) return Promise.resolve({ ok: false, reason: 'crashed', ms: 0, detail: 'no thread' });
     const t0 = Date.now();
-    return new Promise<ParseOutcome>((resolve, reject) => {
+    return new Promise<ParseOutcome<FileFacts | DesignFileFacts>>((resolve, reject) => {
       let done = false;
       const finish = (fn: () => void) => {
         if (done) return;
@@ -184,7 +204,8 @@ class Slot {
         const r = m as ThreadMessage | null;
         if (!r || r.type !== 'result' || r.id !== id) return; // not ours: ignore (a thread only answers the request it has)
         if (r.ok) {
-          if (!isFacts(r.facts)) return failWith('invalid', 'the reply was not a facts object');
+          if (!(isDesignKind(msg.kind) ? isDesignFacts(r.facts) : isFacts(r.facts)))
+            return failWith('invalid', 'the reply was not a facts object of the expected kind');
           finish(() => resolve({ ok: true, facts: r.facts, ms: Date.now() - t0 }));
         } else if (r.reason === 'failed') failWith('crashed', 'the analyzer failed on this file');
         else if (r.reason === 'invalid') failWith('invalid', 'the thread refused the request');
@@ -259,10 +280,10 @@ export class ThreadParserSandbox implements ParseSandbox {
     return { ...this.st, failed: { ...this.st.failed } };
   }
 
-  async parse(
-    file: { kind: FileKind; path: string; bytes: ArrayBuffer },
+  async parse<K extends FileKind>(
+    file: { kind: K; path: string; bytes: ArrayBuffer },
     signal?: AbortSignal,
-  ): Promise<ParseOutcome> {
+  ): Promise<ParseOutcome<FactsOf<K>>> {
     if (file.bytes.byteLength > this.limits.maxFileBytes) {
       this.count('too_large');
       return { ok: false, reason: 'too_large', ms: 0 };
@@ -278,7 +299,7 @@ export class ThreadParserSandbox implements ParseSandbox {
         this.st.threadsRecycled++;
         slot.kill();
       }
-      return out;
+      return out as ParseOutcome<FactsOf<K>>;
     } finally {
       this.release(slot);
     }

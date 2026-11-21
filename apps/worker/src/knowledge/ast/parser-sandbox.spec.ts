@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { analyzeDart } from '@nuzm/domain';
+import { analyzeCss, analyzeDart, analyzeFlutterTheme, analyzeTokensJson } from '@nuzm/domain';
 import { handle } from './parser-thread';
 import {
   SandboxAborted,
@@ -9,6 +9,7 @@ import {
   ThreadParserSandbox,
   type SandboxOptions,
 } from './parser-sandbox';
+import { analyzeThemeConfig } from './theme-config';
 import { analyzeTsFile } from './ts-file';
 
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
@@ -329,5 +330,87 @@ describe('concurrency', () => {
     expect(out.every((r) => !r.ok && r.reason === 'crashed')).toBe(true);
     expect(sb.stats().failed.crashed).toBe(40);
     await sb.close();
+  });
+});
+
+describe('design file kinds (S-K4)', () => {
+  const CSS = ':root { --primary: #3b82f6; --radius: 8px; }\n.dark { --primary: #93c5fd; }';
+  const JSON_TOKENS = JSON.stringify({ color: { brand: { $value: '#0055ff', $type: 'color' } } });
+  const CONFIG = "export default { theme: { extend: { colors: { primary: '#3b82f6' } } } };";
+  const FLUTTER = 'static const Color primary = Color(0xFF1E88E5);';
+  const real = new ThreadParserSandbox({ threads: 1, startupTimeoutMs: 60_000 });
+  open.push(real);
+
+  it('parses stylesheets, token JSON, theme configuration and Flutter themes in a thread, like the direct analyzers', async () => {
+    const css = await real.parse({ kind: 'css', path: 'a.css', bytes: buf(CSS) });
+    const json = await real.parse({
+      kind: 'tokens-json',
+      path: 'tokens.json',
+      bytes: buf(JSON_TOKENS),
+    });
+    const cfg = await real.parse({
+      kind: 'theme-config',
+      path: 'tailwind.config.ts',
+      bytes: buf(CONFIG),
+    });
+    const dart = await real.parse({
+      kind: 'dart-theme',
+      path: 'lib/theme.dart',
+      bytes: buf(FLUTTER),
+    });
+    expect(css).toMatchObject({ ok: true, facts: analyzeCss(CSS, 'a.css') });
+    expect(json).toMatchObject({ ok: true, facts: analyzeTokensJson(JSON_TOKENS, 'tokens.json') });
+    expect(cfg).toMatchObject({
+      ok: true,
+      facts: analyzeThemeConfig(CONFIG, 'tailwind.config.ts'),
+    });
+    expect(dart).toMatchObject({ ok: true, facts: analyzeFlutterTheme(FLUTTER, 'lib/theme.dart') });
+    expect(css.ok && css.facts.tokens.map((t) => `${t.mode}:${t.name}`)).toEqual([
+      'base:--primary',
+      'base:--radius',
+      'dark:--primary',
+    ]);
+  });
+  it('refuses a reply whose shape does not match the kind that was asked', async () => {
+    const sb = hostile('ok', { threads: 1 }); // answers with component facts whatever it is asked
+    expect(await sb.parse({ kind: 'css', path: 'a.css', bytes: buf(CSS) })).toMatchObject({
+      ok: false,
+      reason: 'invalid',
+    });
+    expect(await sb.parse({ kind: 'ts', path: 'a.ts', bytes: buf('x') })).toMatchObject({
+      ok: true,
+    });
+  });
+  it('contains hostile design input: huge custom-property lists, deep CSS nesting, deep JSON, odd names', async () => {
+    const bombs: [string, string, string][] = [
+      [
+        'css',
+        'a.css',
+        `:root{${Array.from({ length: 20_000 }, (_, i) => `--v${i}:${i}px;`).join('\n')}}`,
+      ],
+      ['css', 'b.scss', 'a{\n'.repeat(40_000) + '}\n'.repeat(40_000)],
+      ['tokens-json', 'tokens.json', '{"a":'.repeat(2000) + '"#fff"' + '}'.repeat(2000)],
+      [
+        'theme-config',
+        'theme.ts',
+        `export const theme = ${'{ a:\n'.repeat(2000)}1${' }\n'.repeat(2000)};`,
+      ],
+      [
+        'dart-theme',
+        'lib/theme.dart',
+        Array.from(
+          { length: 10_000 },
+          (_, i) =>
+            `static const c${i} = Color(0xFF${(i % 255).toString(16).padStart(2, '0')}0000);`,
+        ).join('\n'),
+      ],
+    ];
+    for (const [kind, path, body] of bombs) {
+      const r = await real.parse({ kind: kind as 'css', path, bytes: buf(body) });
+      expect(r.ok || ['timeout', 'too_large', 'oversize'].includes(r.reason)).toBe(true);
+    }
+    expect(await real.parse({ kind: 'css', path: 'a.css', bytes: buf(CSS) })).toMatchObject({
+      ok: true,
+    });
   });
 });

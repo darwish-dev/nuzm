@@ -8,12 +8,8 @@ import { createEnv, type TestEnv } from '@nuzm/platform/testing';
 import { FsObjectStore } from '@nuzm/adapter-knowledge-store';
 import { knowledgeArchiveTesting } from '@nuzm/domain';
 import { KnowledgeIngestService, type IngestServiceOptions } from './ingest-service';
-import {
-  SandboxAborted,
-  SandboxUnavailable,
-  ThreadParserSandbox,
-  type ParseSandbox,
-} from './ast/parser-sandbox';
+import { ThreadParserSandbox } from './ast/parser-sandbox';
+import { scriptedSandbox } from './ast/scripted-sandbox.testing';
 import type { ParseOutcome } from './ast/sandbox-protocol';
 
 /**
@@ -441,33 +437,7 @@ describe('the COMPONENTS stage', () => {
   });
 });
 
-/** A sandbox that delegates to the real one but fails chosen files the way the limits would, so a stage can be exercised deterministically. */
-class Scripted implements ParseSandbox {
-  readonly size = 2;
-  readonly calls: string[] = [];
-  aborted = false;
-  constructor(
-    private readonly script: (path: string) => ParseOutcome | 'hang' | 'unavailable' | null,
-    private readonly real: ParseSandbox = shared,
-  ) {}
-  stats() {
-    return { parsed: 0, failed: {}, threadsStarted: 0, threadsRecycled: 0, maxMs: 0 };
-  }
-  async close() {}
-  async parse(f: Parameters<ParseSandbox['parse']>[0], signal?: AbortSignal) {
-    this.calls.push(f.path);
-    const r = this.script(f.path);
-    if (r === 'unavailable') throw new SandboxUnavailable('the thread could not start');
-    if (r === 'hang')
-      return new Promise<ParseOutcome>((_, reject) => {
-        signal?.addEventListener('abort', () => {
-          this.aborted = true;
-          reject(new SandboxAborted());
-        });
-      });
-    return r ?? this.real.parse(f, signal);
-  }
-}
+const Scripted = scriptedSandbox(() => shared);
 const fail = (reason: 'timeout' | 'memory' | 'crashed'): ParseOutcome => ({
   ok: false,
   reason,

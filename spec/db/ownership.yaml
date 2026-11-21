@@ -4044,6 +4044,11 @@ classification:
       value: internal
       source_path: internal
       created_at: internal
+      mode: internal
+      line: internal
+      origin: internal
+      dynamic: internal
+      resolved_value: internal
     knowledge.theme_variants:
       id: internal
       version_id: internal

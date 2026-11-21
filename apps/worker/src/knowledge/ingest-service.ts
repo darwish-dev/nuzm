@@ -15,7 +15,8 @@ import {
   type SnapshotSink,
 } from '@nuzm/domain';
 import { KnowledgeObjectStore, ObjectStoreError } from '@nuzm/adapter-knowledge-store';
-import { analyzeComponentsStage } from './components-stage';
+import { analyzeComponentsStage, type StageDeps } from './components-stage';
+import { analyzeDesignStage } from './design-stage';
 import type { ParseSandbox, SandboxOptions } from './ast/parser-sandbox';
 
 /**
@@ -31,7 +32,7 @@ type Tx = Parameters<Parameters<Db['withKnowledgeWorker']>[0]>[0];
 export interface IngestJob {
   id: string;
   versionId: string;
-  kind: 'VALIDATE' | 'EXTRACT' | 'DETECT' | 'COMPONENTS';
+  kind: 'VALIDATE' | 'EXTRACT' | 'DETECT' | 'COMPONENTS' | 'DESIGN';
   attempt: number;
   maxAttempts: number;
 }
@@ -49,6 +50,8 @@ export interface IngestServiceOptions {
   detect?: boolean;
   /** The COMPONENTS stage (S-K2c): off by default; needs `detect`. After DETECT the worker queues COMPONENTS and the version waits in ANALYZING until the schema-2 manifest, components and relationships are written. */
   components?: boolean;
+  /** The DESIGN stage (S-K4): off by default; needs `components`. After COMPONENTS the worker queues DESIGN and the version waits in ANALYZING until the design tokens, variants and Design DNA are written. */
+  design?: boolean;
   /** Limits and size of the parser sandbox used by COMPONENTS (threads, timeout per file, heap per thread, …). Defaults are strict; see ADR-065 addendum D. */
   sandbox?: SandboxOptions;
   /** Test seam: a ready-made sandbox (not closed by the stage). */
@@ -87,6 +90,7 @@ export class KnowledgeIngestService {
       'EXTRACT',
       ...(opts.detect ? ['DETECT'] : []),
       ...(opts.detect && opts.components ? ['COMPONENTS'] : []),
+      ...(opts.detect && opts.components && opts.design ? ['DESIGN'] : []),
     ];
     this.say = opts.log ?? (() => undefined);
   }
@@ -102,6 +106,7 @@ export class KnowledgeIngestService {
       if (job.kind === 'VALIDATE') await this.validate(job);
       else if (job.kind === 'DETECT') await this.detectProject(job);
       else if (job.kind === 'COMPONENTS') await this.componentsStage(job);
+      else if (job.kind === 'DESIGN') await this.designStage(job);
       else await this.extract(job);
       this.say('knowledge_job_done', { job: job.id, kind: job.kind, ms: Date.now() - t0 });
     } catch (e) {
@@ -663,29 +668,35 @@ export class KnowledgeIngestService {
   }
 
   private componentsStage(job: IngestJob): Promise<void> {
-    return analyzeComponentsStage(
-      {
-        db: this.db,
-        store: this.store,
-        guarded: (j, fn) => this.guarded(j as IngestJob, fn),
-        log: (j, level, code, message, data) =>
-          this.log(j as IngestJob, level, code, message, data),
-        finish: (c, j, result) => this.finishJob(c, j as IngestJob, 'SUCCEEDED', { result }),
-        setVersion: (c, v, from, to, reason) => this.setVersion(c, v, from, to, reason),
-        writeLog: (c, jobId, versionId, level, stage, code, message, data) =>
-          this.writeLog(c, jobId, versionId, level, stage, code, message, data),
-        stop: (why) => new Stop(why),
-        ...(this.opts.parser ? { parser: this.opts.parser } : {}),
-        ...(this.opts.sandbox ? { parserOptions: this.opts.sandbox } : {}),
-        ...(this.opts.parserBudgetMs !== undefined
-          ? { parserBudgetMs: this.opts.parserBudgetMs }
-          : {}),
-        ...(this.opts.parserMaxFailures !== undefined
-          ? { parserMaxFailures: this.opts.parserMaxFailures }
-          : {}),
-      },
-      job,
-    );
+    return analyzeComponentsStage(this.stageDeps(), job);
+  }
+
+  private designStage(job: IngestJob): Promise<void> {
+    return analyzeDesignStage(this.stageDeps(), job);
+  }
+
+  /** What the derived-analysis stages (COMPONENTS, DESIGN) need from the service. */
+  private stageDeps(): StageDeps {
+    return {
+      db: this.db,
+      store: this.store,
+      guarded: (j, fn) => this.guarded(j as IngestJob, fn),
+      log: (j, level, code, message, data) => this.log(j as IngestJob, level, code, message, data),
+      finish: (c, j, result) => this.finishJob(c, j as IngestJob, 'SUCCEEDED', { result }),
+      setVersion: (c, v, from, to, reason) => this.setVersion(c, v, from, to, reason),
+      writeLog: (c, jobId, versionId, level, stage, code, message, data) =>
+        this.writeLog(c, jobId, versionId, level, stage, code, message, data),
+      stop: (why) => new Stop(why),
+      ...(this.opts.parser ? { parser: this.opts.parser } : {}),
+      ...(this.opts.sandbox ? { parserOptions: this.opts.sandbox } : {}),
+      ...(this.opts.parserBudgetMs !== undefined
+        ? { parserBudgetMs: this.opts.parserBudgetMs }
+        : {}),
+      ...(this.opts.parserMaxFailures !== undefined
+        ? { parserMaxFailures: this.opts.parserMaxFailures }
+        : {}),
+      design: !!(this.opts.design && this.opts.components && this.opts.detect),
+    };
   }
 
   private summary(r: IngestResult): Record<string, unknown> {

@@ -47,7 +47,11 @@ const nextjs = (): ZipEntry[] => [
   },
   {
     path: 'modern-saas/tailwind.config.ts',
-    data: "export default { theme: { extend: { colors: { brand: '#0f766e' } } } };\n",
+    data: "export default { theme: { extend: { colors: { brand: '#0f766e', primary: 'hsl(var(--primary))' } } } };\n",
+  },
+  {
+    path: 'modern-saas/app/globals.css',
+    data: ':root {\n  --background: 0 0% 100%;\n  --foreground: 222 47% 11%;\n  --primary: 221 83% 53%;\n  --primary-foreground: 210 40% 98%;\n  --border: 214 32% 91%;\n  --radius: 0.5rem;\n  --font-sans: Cairo, sans-serif;\n}\n.dark {\n  --background: 222 47% 11%;\n  --foreground: 210 40% 98%;\n}\nbody { background: hsl(var(--background)); color: hsl(var(--foreground)); direction: rtl; border-color: hsl(var(--border)); }\n',
   },
   {
     path: 'modern-saas/app/layout.tsx',
@@ -90,6 +94,10 @@ const flutter = (): ZipEntry[] => [
   {
     path: 'gym_app/lib/features/home/home_screen.dart',
     data: "import 'package:flutter/material.dart';\n\nclass HomeScreen extends StatelessWidget {\n  const HomeScreen({super.key});\n  @override\n  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Members')));\n}\n",
+  },
+  {
+    path: 'gym_app/lib/app/theme.dart',
+    data: "import 'package:flutter/material.dart';\n\nclass AppColors {\n  static const Color primary = Color(0xFF1E88E5);\n  static const Color background = Color(0xFFFAFAFA);\n}\n\nfinal lightTheme = ThemeData(useMaterial3: true, fontFamily: 'Cairo');\n",
   },
   { path: 'gym_app/android/app/build.gradle', data: "android { namespace 'test.gym' }\n" },
   { path: 'gym_app/README.md', data: readme('Gym App (Flutter)', 'A Bloc + go_router starter.') },

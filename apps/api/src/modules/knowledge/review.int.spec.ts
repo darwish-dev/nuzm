@@ -683,7 +683,7 @@ describe('the project manifest (S-K2b)', () => {
     const t = await submit();
     await analysed(t);
     await e.sql(
-      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb),(gen_random_uuid(),$1,NULL,'2','{}'::jsonb)`,
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb),(gen_random_uuid(),$1,NULL,'2','{}'::jsonb),(gen_random_uuid(),$1,NULL,'3','{}'::jsonb)`,
       [t.versionId],
     );
     await detectionDied(t.versionId);
@@ -697,6 +697,169 @@ describe('the project manifest (S-K2b)', () => {
         )
       ).statusCode,
     ).toBe(409);
+  });
+});
+
+describe('design DNA, tokens and variants (S-K4)', () => {
+  const tokenRows: [string, string, string | null, string | null, string, string, boolean][] = [
+    ['color', '--primary', '221 83% 53%', null, 'base', 'css-var', false],
+    ['color', '--primary', '217 91% 60%', null, 'dark', 'css-var', false],
+    [
+      'color',
+      'colors.brand',
+      'hsl(var(--primary))',
+      'hsl(221 83% 53%)',
+      'base',
+      'tailwind-config',
+      false,
+    ],
+    ['color', 'colors.plugin', null, null, 'base', 'tailwind-config', true],
+    ['typography', '--font-sans', 'Cairo, sans-serif', null, 'base', 'tailwind-theme', false],
+    ['radius', '--radius', '0.5rem', null, 'base', 'css-var', false],
+  ];
+  it('serves the design document, tokens (filters, paging) and variants; read-only staff may read; customers may not', async () => {
+    const s = await submit();
+    await analysed(s);
+    const base = `${R}/resources/${s.resourceId}/versions/${s.versionId}`;
+    // not analysed yet: an explicit null, not an error
+    expect(ok<Row>(await admin('padmin', 'GET', `${base}/design`))).toMatchObject({
+      versionId: s.versionId,
+      design: null,
+      createdAt: null,
+    });
+    expect(
+      ok<{ items: Row[] }>(await admin('padmin', 'GET', `${base}/theme-tokens`)).items,
+    ).toEqual([]);
+    for (const [i, [cat, name, value, resolved, mode, origin, dynamic]] of tokenRows.entries())
+      await e.sql(
+        `INSERT INTO knowledge.theme_tokens (id, version_id, org_id, category, name, value, resolved_value, source_path, mode, line, origin, dynamic) VALUES (gen_random_uuid(),$1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          s.versionId,
+          cat,
+          name,
+          value,
+          resolved,
+          `src/f${i % 2}.css`,
+          mode,
+          i + 1,
+          origin,
+          dynamic,
+        ],
+      );
+    for (const [kind, name] of [
+      ['color-scheme', 'dark'],
+      ['layout', 'RootLayout'],
+      ['sidebar', 'Sidebar'],
+    ])
+      await e.sql(
+        `INSERT INTO knowledge.theme_variants (id, version_id, org_id, kind, name, descriptor) VALUES (gen_random_uuid(),$1,NULL,$2,$3,'{"path":"src/x.tsx"}'::jsonb)`,
+        [s.versionId, kind, name],
+      );
+    await e.sql(
+      `INSERT INTO knowledge.analysis_results (id, version_id, org_id, analyzer, analyzer_version, content_hash, result) VALUES (gen_random_uuid(),$1,NULL,'design-dna','1.0.0',$2,$3::jsonb)`,
+      [
+        s.versionId,
+        'a'.repeat(64),
+        JSON.stringify({
+          schemaVersion: '1',
+          primary: 0,
+          projects: [{ root: '.', modes: ['base', 'dark'] }],
+        }),
+      ],
+    );
+
+    const d = ok<Row>(await admin('psupport2', 'GET', `${base}/design`));
+    expect(d.design).toMatchObject({
+      schemaVersion: '1',
+      projects: [{ root: '.', modes: ['base', 'dark'] }],
+    });
+    expect(typeof d.createdAt).toBe('string');
+
+    const all = ok<{ items: Row[]; nextCursor: string | null }>(
+      await admin('psupport2', 'GET', `${base}/theme-tokens`),
+    );
+    expect(all.items).toHaveLength(6);
+    expect(all.items.find((x) => x.name === 'colors.plugin')).toMatchObject({
+      value: null,
+      resolvedValue: null,
+      dynamic: true,
+    });
+    expect(all.items.find((x) => x.name === 'colors.brand')).toMatchObject({
+      value: 'hsl(var(--primary))',
+      resolvedValue: 'hsl(221 83% 53%)',
+      origin: 'tailwind-config',
+      mode: 'base',
+    });
+    const names = async (qs: string) =>
+      ok<{ items: Row[] }>(await admin('padmin', 'GET', `${base}/theme-tokens?${qs}`))
+        .items.map((x) => `${x.mode}:${x.name}`)
+        .sort();
+    expect(await names('category=radius')).toEqual(['base:--radius']);
+    expect(await names('mode=dark')).toEqual(['dark:--primary']);
+    expect(await names('origin=tailwind-theme')).toEqual(['base:--font-sans']);
+    expect(await names('dynamic=true')).toEqual(['base:colors.plugin']);
+    expect(await names('dynamic=false&category=color')).toHaveLength(3);
+    expect(await names('q=BRAND')).toEqual(['base:colors.brand']);
+    expect(await names('q=%25')).toEqual([]); // LIKE metacharacters are literal
+    for (const bad of ['category=nope', 'origin=nope', 'dynamic=maybe'])
+      expect((await admin('padmin', 'GET', `${base}/theme-tokens?${bad}`)).statusCode).toBe(422);
+    const page = ok<{ items: Row[]; nextCursor: string | null }>(
+      await admin('padmin', 'GET', `${base}/theme-tokens?limit=4`),
+    );
+    expect(page.items).toHaveLength(4);
+    const rest = ok<{ items: Row[]; nextCursor: string | null }>(
+      await admin('padmin', 'GET', `${base}/theme-tokens?limit=4&cursor=${page.nextCursor}`),
+    );
+    expect(rest.items).toHaveLength(2);
+    expect(rest.nextCursor).toBeNull();
+
+    const v = ok<{ items: Row[] }>(await admin('psupport2', 'GET', `${base}/theme-variants`));
+    expect(v.items.map((x) => `${x.kind}:${x.name}`).sort()).toEqual([
+      'color-scheme:dark',
+      'layout:RootLayout',
+      'sidebar:Sidebar',
+    ]);
+    expect(v.items[0]).toMatchObject({ descriptor: { path: 'src/x.tsx' }, hasPreview: false });
+    expect(
+      ok<{ items: Row[] }>(await admin('padmin', 'GET', `${base}/theme-variants?kind=sidebar`))
+        .items,
+    ).toHaveLength(1);
+
+    // a version of another resource is not reachable through this one; customers never reach any of it
+    const other = await submit();
+    for (const path of ['design', 'theme-tokens', 'theme-variants'])
+      expect(
+        (
+          await admin(
+            'padmin',
+            'GET',
+            `${R}/resources/${other.resourceId}/versions/${s.versionId}/${path}`,
+          )
+        ).statusCode,
+      ).toBe(404);
+    for (const path of ['design', 'theme-tokens', 'theme-variants'])
+      expect((await e.call('alice', 'GET', `${base}/${path}`)).statusCode).not.toBe(200);
+  });
+
+  it('re-queues the design analysis for a version that has schema 2 but not 3', async () => {
+    const s = await submit();
+    await analysed(s);
+    await e.sql(
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb),(gen_random_uuid(),$1,NULL,'2','{}'::jsonb)`,
+      [s.versionId],
+    );
+    await detectionDied(s.versionId);
+    const r = ok<Row>(
+      await admin(
+        'padmin',
+        'POST',
+        `${R}/resources/${s.resourceId}/versions/${s.versionId}/reprocessing`,
+        {},
+      ),
+    );
+    expect(
+      (await e.sql(`SELECT kind FROM knowledge.processing_jobs WHERE id = $1`, [r.jobId]))[0]!.kind,
+    ).toBe('DESIGN');
   });
 });
 
@@ -819,7 +982,7 @@ describe('components and relationships (S-K2c)', () => {
     const t = await submit();
     await analysed(t);
     await e.sql(
-      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb),(gen_random_uuid(),$1,NULL,'2','{}'::jsonb)`,
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb),(gen_random_uuid(),$1,NULL,'2','{}'::jsonb),(gen_random_uuid(),$1,NULL,'3','{}'::jsonb)`,
       [t.versionId],
     );
     await detectionDied(t.versionId);

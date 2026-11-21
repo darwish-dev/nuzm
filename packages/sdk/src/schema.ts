@@ -7364,6 +7364,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Design DNA of a version
+         * @description The design analysis of a version (S-K4): palette roles per mode with the file and line that prove them, confidence and WCAG contrast of role pairs, typography, spacing, radius, shadows, breakpoints, motion and traits, per project. Computed values are listed as dynamic, never invented. `design` is null when the design analysis has not run. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeDesign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the design tokens of a version
+         * @description Design tokens read from stylesheets, token files and theme configuration: category, name, the value as written, the value after references were resolved, the mode (base, light, dark or a named scheme), the file and line. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeThemeTokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the theme variants of a version
+         * @description Colour schemes, layouts, sidebars, headers, footers, page templates, dashboard shells and screens found in the package, each with a descriptor (file, component, mode). Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeThemeVariants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -13406,6 +13466,47 @@ export interface components {
         };
         KnowledgeRelationshipPage: {
             items: components["schemas"]["KnowledgeRelationship"][];
+            nextCursor: string | null;
+        };
+        KnowledgeDesignDetail: {
+            /** Format: uuid */
+            versionId: string;
+            /** Format: date-time */
+            createdAt: string | null;
+            /** @description Design DNA (schemaVersion 1); see docs/spec-change-requests/SCR-K-06-design-dna.md for the shape. */
+            design: {
+                [key: string]: unknown;
+            } | null;
+        };
+        KnowledgeThemeToken: {
+            /** Format: uuid */
+            id?: string;
+            category?: string;
+            name?: string;
+            value?: string | null;
+            resolvedValue?: string | null;
+            sourcePath?: string | null;
+            mode?: string;
+            line?: number | null;
+            origin?: string;
+            dynamic?: boolean;
+        };
+        KnowledgeThemeTokenPage: {
+            items: components["schemas"]["KnowledgeThemeToken"][];
+            nextCursor: string | null;
+        };
+        KnowledgeThemeVariant: {
+            /** Format: uuid */
+            id?: string;
+            kind?: string;
+            name?: string;
+            descriptor?: {
+                [key: string]: unknown;
+            };
+            hasPreview?: boolean;
+        };
+        KnowledgeThemeVariantPage: {
+            items: components["schemas"]["KnowledgeThemeVariant"][];
             nextCursor: string | null;
         };
     };
@@ -28482,6 +28583,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeRelationshipPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeDesign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDesignDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeThemeTokens: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Name or path contains. */
+                q?: string;
+                category?: "color" | "typography" | "spacing" | "radius" | "shadow" | "breakpoint" | "motion" | "other";
+                /** @description base, light, dark, scoped or a named scheme. */
+                mode?: string;
+                origin?: "css-var" | "scss-var" | "less-var" | "tailwind-theme" | "tailwind-config" | "tokens-json" | "js-theme" | "flutter-theme";
+                /** @description Only computed (true) or only literal (false) tokens. */
+                dynamic?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeThemeTokenPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeThemeVariants: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeThemeVariantPage"];
                 };
             };
             401: components["responses"]["Problem"];

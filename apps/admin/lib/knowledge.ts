@@ -435,3 +435,118 @@ export const COMPONENT_KINDS = [
   'flutter-provider',
 ] as const;
 export const COMPONENT_FRAMEWORKS = ['react', 'next', 'nestjs', 'flutter'] as const;
+
+// ---- Design DNA (S-K4) -----------------------------------------------------------------------------------------------------------
+export interface DnaEvidence {
+  path: string;
+  line: number;
+}
+export interface DnaEntryView {
+  name: string;
+  value: string;
+  resolved: string | null;
+  px: number | null;
+  mode: string;
+  origin: string;
+  evidence: DnaEvidence;
+}
+export interface DnaRoleView {
+  role: string;
+  token: string;
+  value: string;
+  hex: string | null;
+  mode: string;
+  via: 'name' | 'name+usage';
+  confidence: number;
+  evidence: DnaEvidence;
+}
+export interface DnaContrastView {
+  mode: string;
+  pair: string;
+  foreground: string;
+  background: string;
+  ratio: number;
+  aa: boolean;
+  aaLarge: boolean;
+  aaa: boolean;
+}
+export interface ProjectDnaView {
+  root: string;
+  name: string | null;
+  frameworks: string[];
+  sources: { path: string; kind: string; tokens: number }[];
+  modes: string[];
+  palette: { mode: string; roles: DnaRoleView[]; colors: DnaEntryView[] }[];
+  typography: {
+    families: DnaEntryView[];
+    sizes: DnaEntryView[];
+    weights: DnaEntryView[];
+    lineHeights: DnaEntryView[];
+  };
+  spacing: { scale: DnaEntryView[]; baseUnit: number | null; baseUnitInferred: boolean };
+  radius: DnaEntryView[];
+  shadows: DnaEntryView[];
+  breakpoints: DnaEntryView[];
+  motion: DnaEntryView[];
+  contrast: DnaContrastView[];
+  traits: {
+    darkMode: boolean;
+    multiTheme: boolean;
+    schemes: string[];
+    rtl: boolean;
+    logicalProperties: boolean;
+    arabicFont: boolean;
+    tailwind: boolean;
+    cssVariables: boolean;
+    material3: boolean | null;
+  };
+  dynamic: { name: string; path: string; line: number }[];
+  stats: { files: number; tokens: number; resolved: number; unresolved: number; dynamic: number };
+}
+export interface DesignDnaView {
+  schemaVersion: string;
+  analyzerVersion: string;
+  primary: number;
+  projects: ProjectDnaView[];
+  stats: {
+    files: number;
+    tokens: number;
+    variants: number;
+    skipped: Record<string, number>;
+    truncated: string[];
+  };
+}
+export interface ThemeTokenView {
+  id: string;
+  category: string;
+  name: string;
+  value: string | null;
+  resolvedValue: string | null;
+  sourcePath: string | null;
+  mode: string;
+  line: number | null;
+  origin: string;
+  dynamic: boolean;
+}
+export interface ThemeVariantView {
+  id: string;
+  kind: string;
+  name: string;
+  descriptor: Record<string, unknown>;
+  hasPreview: boolean;
+}
+export const THEME_CATEGORIES = [
+  'color',
+  'typography',
+  'spacing',
+  'radius',
+  'shadow',
+  'breakpoint',
+  'motion',
+  'other',
+] as const;
+/** A colour that is safe to put in a style attribute: only what the analyzer itself produces (`#rrggbb` or `#rrggbbaa`). */
+export const safeHex = (h: string | null | undefined): string | null =>
+  h && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(h) ? h : null;
+/** `text/background` → a message key suffix. */
+export const pairKey = (pair: string) => pair.replace(/[^a-z]+/gi, '_');

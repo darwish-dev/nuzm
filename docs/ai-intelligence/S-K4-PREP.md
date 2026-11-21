@@ -1,6 +1,6 @@
 # S-K4 preparation — Design DNA and theme intelligence
 
-Date: 2026-11-21 · Status: **PREPARED, not started** (waits for the owner's go-ahead) · Depends on S-K2a (snapshots, file inventory), S-K2b (manifest), S-K2c (components, style imports, `hasTheme`) and the parser sandbox (SCR-K-05) · Plan: `AUDIT_AND_PLAN.md` §5 (S-K4), ADR-065 point 6.
+Date: 2026-11-21 · Status: **IMPLEMENTED 2026-11-21 (see docs/reports/K-S4-report.md and SCR-K-06)** · Depends on S-K2a (snapshots, file inventory), S-K2b (manifest), S-K2c (components, style imports, `hasTheme`) and the parser sandbox (SCR-K-05) · Plan: `AUDIT_AND_PLAN.md` §5 (S-K4), ADR-065 point 6.
 Rule unchanged: **nothing from a package is executed, installed, built or imported**. A theme's configuration files (`tailwind.config.js`, `theme.ts`, `tokens.js`) are JavaScript: they are READ as syntax trees, never `require`d or evaluated. All parsing of package content runs in the parser sandbox with its limits.
 
 ## 1. What S-K2c leaves for S-K4

@@ -21,6 +21,11 @@ import {
   type KnowledgeVersion,
   type ArchitectureView,
   type ComponentView,
+  type DesignDnaView,
+  type DnaContrastView,
+  type DnaEntryView,
+  type ThemeTokenView,
+  type ThemeVariantView,
   type ManDetection,
   type ManProject,
   type ProjectManifestView,
@@ -28,6 +33,9 @@ import {
   type ReviewState,
   COMPONENT_FRAMEWORKS,
   COMPONENT_KINDS,
+  THEME_CATEGORIES,
+  pairKey,
+  safeHex,
 } from '../lib/knowledge';
 
 /**
@@ -165,6 +173,13 @@ export function KnowledgeIngestion({
       />
       <ComponentsSection
         key={`c-${versionId}`}
+        locale={locale}
+        resourceId={resourceId}
+        versionId={versionId}
+        rev={rev}
+      />
+      <DesignSection
+        key={`d-${versionId}`}
         locale={locale}
         resourceId={resourceId}
         versionId={versionId}
@@ -1225,7 +1240,7 @@ function ComponentsSection({
       <p className="nz-muted">{t(locale, 'kc.intro')}</p>
       <Frame locale={locale} r={man} reload={reloadMan}>
         {({ manifest: m }) =>
-          !m || m.schemaVersion !== '2' || !m.architecture ? (
+          !m || !['2', '3'].includes(m.schemaVersion ?? '') || !m.architecture ? (
             <EmptyState title={t(locale, 'kc.title')} body={t(locale, 'kc.none')} />
           ) : (
             <>
@@ -1241,6 +1256,525 @@ function ComponentsSection({
         }
       </Frame>
     </Card>
+  );
+}
+
+// ---- Design DNA (S-K4) -----------------------------------------------------------------------------------------------------------
+function DesignSection({
+  locale,
+  resourceId,
+  versionId,
+  rev,
+}: {
+  locale: Locale;
+  resourceId: string;
+  versionId: string;
+  rev: number;
+}) {
+  const [r, reload] = useRemote<{ design: DesignDnaView | null }>(async () => {
+    const x = await browserApi().GET(
+      `${BASE}/versions/{versionId}/design` as never,
+      { params: { path: { id: resourceId, versionId } } } as never,
+    );
+    return { ok: x.response.ok, status: x.response.status, data: (x.data as never) ?? null };
+  }, [resourceId, versionId, rev]);
+  return (
+    <Card aria-label={t(locale, 'kd.title')}>
+      <h2 className="nz-h2">{t(locale, 'kd.title')}</h2>
+      <p className="nz-muted">{t(locale, 'kd.intro')}</p>
+      <Frame locale={locale} r={r} reload={reload}>
+        {({ design }) =>
+          !design || design.projects.length === 0 ? (
+            <EmptyState title={t(locale, 'kd.title')} body={t(locale, 'kd.none')} />
+          ) : (
+            <>
+              <DesignDnaPanel locale={locale} dna={design} />
+              <ThemeTokenList
+                locale={locale}
+                resourceId={resourceId}
+                versionId={versionId}
+                rev={rev}
+              />
+              <ThemeVariantList
+                locale={locale}
+                resourceId={resourceId}
+                versionId={versionId}
+                rev={rev}
+              />
+            </>
+          )
+        }
+      </Frame>
+    </Card>
+  );
+}
+
+const pct = (n: number) => `${Math.round(n * 100)}%`;
+
+function EntryList({
+  locale,
+  title,
+  items,
+}: {
+  locale: Locale;
+  title: MessageKey;
+  items: DnaEntryView[];
+}) {
+  return (
+    <div>
+      <h4 className="nz-h3">{t(locale, title)}</h4>
+      {items.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'kd.entries.none')}</p>
+      ) : (
+        <ul className="kni-list">
+          {items.map((x) => (
+            <li key={`${x.mode}:${x.name}:${x.evidence.path}`}>
+              <Ltr>{x.name}</Ltr>: <Ltr>{x.resolved ?? x.value}</Ltr>
+              {x.px !== null && x.value !== `${x.px}px` && (
+                <>
+                  {' '}
+                  <span className="nz-muted">
+                    (<Ltr>{`${x.px}px`}</Ltr>)
+                  </span>
+                </>
+              )}{' '}
+              <span className="nz-muted">
+                <Ltr>{evidenceText({ kind: '', ...x.evidence })}</Ltr>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DesignDnaPanel({ locale, dna }: { locale: Locale; dna: DesignDnaView }) {
+  const [pi, setPi] = useState(dna.primary);
+  const p = dna.projects[Math.min(pi, dna.projects.length - 1)]!;
+  const [mode, setMode] = useState(p.modes[0] ?? 'base');
+  const pal = p.palette.find((x) => x.mode === mode) ?? p.palette[0];
+  const skipped = Object.entries(dna.stats.skipped);
+  const traits: [boolean | null, MessageKey][] = [
+    [p.traits.darkMode, 'kd.trait.darkMode'],
+    [p.traits.multiTheme, 'kd.trait.multiTheme'],
+    [p.traits.rtl, 'kd.trait.rtl'],
+    [p.traits.logicalProperties, 'kd.trait.logicalProperties'],
+    [p.traits.arabicFont, 'kd.trait.arabicFont'],
+    [p.traits.tailwind, 'kd.trait.tailwind'],
+    [p.traits.cssVariables, 'kd.trait.cssVariables'],
+    [p.traits.material3, 'kd.trait.material3'],
+  ];
+  return (
+    <>
+      <div className="kni-toolbar">
+        {dna.projects.length > 1 && (
+          <Field id="kd-project" label={t(locale, 'kd.project')}>
+            {(a) => (
+              <Select
+                {...a}
+                value={String(pi)}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setPi(n);
+                  setMode(dna.projects[n]?.modes[0] ?? 'base');
+                }}
+              >
+                {dna.projects.map((x, i) => (
+                  <option key={x.root} value={String(i)}>
+                    {x.name ?? x.root} ({x.root})
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
+        {p.modes.length > 1 && (
+          <Field id="kd-mode" label={t(locale, 'kd.mode')}>
+            {(a) => (
+              <Select {...a} value={mode} onChange={(e) => setMode(e.target.value)}>
+                {p.modes.map((m) => (
+                  <option key={m} value={m}>
+                    {tDynamic(locale, `kd.mode.${m}`, m)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
+      </div>
+      <p>
+        <Badge>{t(locale, 'kc.reuse.no')}</Badge>{' '}
+        {traits.map(
+          ([on, key]) =>
+            on && (
+              <span key={key}>
+                <Badge tone="success">{t(locale, key)}</Badge>{' '}
+              </span>
+            ),
+        )}
+      </p>
+
+      <h3 className="nz-h3">{t(locale, 'kd.palette')}</h3>
+      {!pal || pal.roles.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'kd.roles.none')}</p>
+      ) : (
+        <ul className="kd-swatches" aria-label={t(locale, 'kd.roles')}>
+          {pal.roles.map((r) => (
+            <li key={r.role} className="kd-swatch">
+              <span
+                className="kd-chip"
+                aria-hidden="true"
+                style={safeHex(r.hex) ? { backgroundColor: safeHex(r.hex)! } : undefined}
+              />
+              <div>
+                <strong>{tDynamic(locale, `kd.role.${r.role}`, r.role)}</strong>{' '}
+                <Ltr>{safeHex(r.hex) ?? '—'}</Ltr>
+                <div>
+                  <Ltr>{r.token}</Ltr>
+                </div>
+                <div className="nz-muted">
+                  {t(locale, 'kd.confidence')} {pct(r.confidence)} ·{' '}
+                  {t(locale, r.via === 'name' ? 'kd.via.name' : 'kd.via.usage')} ·{' '}
+                  <Ltr>{evidenceText({ kind: '', ...r.evidence })}</Ltr>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {pal && pal.colors.length > 0 && (
+        <details>
+          <summary>
+            {t(locale, 'kd.colors')} ({pal.colors.length})
+          </summary>
+          <ul className="kd-swatches">
+            {pal.colors.map((c) => {
+              const hex = safeHex(c.resolved) ?? safeHex(c.value);
+              return (
+                <li key={`${c.name}:${c.evidence.path}`} className="kd-swatch">
+                  <span
+                    className="kd-chip"
+                    aria-hidden="true"
+                    style={hex ? { backgroundColor: hex } : undefined}
+                  />
+                  <div>
+                    <Ltr>{c.name}</Ltr>
+                    <div className="nz-muted">
+                      <Ltr>{c.resolved ?? c.value}</Ltr>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
+
+      <h3 className="nz-h3">{t(locale, 'kd.contrast')}</h3>
+      {p.contrast.filter((c) => c.mode === (pal?.mode ?? mode)).length === 0 ? (
+        <p className="nz-muted">{t(locale, 'kd.contrast.none')}</p>
+      ) : (
+        <Table
+          caption={t(locale, 'kd.contrast')}
+          rows={p.contrast.filter((c) => c.mode === (pal?.mode ?? mode))}
+          rowKey={(c: DnaContrastView) => `${c.mode}:${c.pair}`}
+          columns={[
+            {
+              key: 'pair',
+              header: t(locale, 'kd.col.pair'),
+              card: 'title',
+              render: (c: DnaContrastView) =>
+                tDynamic(locale, `kd.pair.${pairKey(c.pair)}`, c.pair),
+            },
+            {
+              key: 'colors',
+              header: t(locale, 'kd.col.colors'),
+              card: 'meta',
+              render: (c: DnaContrastView) => (
+                <Ltr>
+                  {c.foreground} / {c.background}
+                </Ltr>
+              ),
+            },
+            {
+              key: 'ratio',
+              header: t(locale, 'kd.col.ratio'),
+              card: 'meta',
+              render: (c: DnaContrastView) => <Ltr>{`${c.ratio}:1`}</Ltr>,
+            },
+            {
+              key: 'wcag',
+              header: t(locale, 'kd.col.wcag'),
+              card: 'badge',
+              render: (c: DnaContrastView) => (
+                <>
+                  <Badge tone={c.aa ? 'success' : 'danger'}>
+                    {t(locale, c.aa ? 'kd.aa.pass' : 'kd.aa.fail')}
+                  </Badge>{' '}
+                  <Badge tone={c.aaa ? 'success' : undefined}>
+                    {t(locale, c.aaa ? 'kd.aaa.pass' : 'kd.aaa.fail')}
+                  </Badge>
+                </>
+              ),
+            },
+          ]}
+        />
+      )}
+
+      <h3 className="nz-h3">{t(locale, 'kd.typography')}</h3>
+      <div className="kni-facts">
+        <EntryList locale={locale} title="kd.families" items={p.typography.families} />
+        <EntryList locale={locale} title="kd.sizes" items={p.typography.sizes} />
+        <EntryList locale={locale} title="kd.weights" items={p.typography.weights} />
+        <EntryList locale={locale} title="kd.lineHeights" items={p.typography.lineHeights} />
+      </div>
+      <h3 className="nz-h3">{t(locale, 'kd.spacing')}</h3>
+      <p>
+        {p.spacing.baseUnit === null ? (
+          <span className="nz-muted">{t(locale, 'kd.baseUnit.none')}</span>
+        ) : (
+          <>
+            {t(locale, 'kd.baseUnit', { n: String(p.spacing.baseUnit) })}
+            {p.spacing.baseUnitInferred && <> {t(locale, 'kd.inferred')}</>}
+          </>
+        )}
+      </p>
+      <div className="kni-facts">
+        <EntryList locale={locale} title="kd.spacing" items={p.spacing.scale} />
+        <EntryList locale={locale} title="kd.radius" items={p.radius} />
+        <EntryList locale={locale} title="kd.shadows" items={p.shadows} />
+        <EntryList locale={locale} title="kd.breakpoints" items={p.breakpoints} />
+        <EntryList locale={locale} title="kd.motion" items={p.motion} />
+      </div>
+
+      <h3 className="nz-h3">{t(locale, 'kd.dynamic')}</h3>
+      {p.dynamic.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'kd.dynamic.none')}</p>
+      ) : (
+        <>
+          <p className="nz-muted">{t(locale, 'kd.dynamic.note')}</p>
+          <ul className="kni-list">
+            {p.dynamic.map((d) => (
+              <li key={`${d.path}:${d.line}:${d.name}`}>
+                <Ltr>{d.name}</Ltr>{' '}
+                <span className="nz-muted">
+                  <Ltr>{evidenceText({ kind: '', path: d.path, line: d.line })}</Ltr>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="nz-muted">
+        {t(locale, 'kd.stats', {
+          files: String(dna.stats.files),
+          tokens: String(dna.stats.tokens),
+          variants: String(dna.stats.variants),
+        })}
+        {skipped.length > 0 && (
+          <>
+            {' · '}
+            {t(locale, 'kd.skipped')}:{' '}
+            {skipped.map(([k, n]) => `${tDynamic(locale, `kc.skip.${k}`, k)} ${n}`).join('، ')}
+          </>
+        )}
+        {dna.stats.truncated.length > 0 && (
+          <>
+            {' · '}
+            {t(locale, 'kd.truncated')}: <Ltr>{dna.stats.truncated.join(', ')}</Ltr>
+          </>
+        )}
+      </p>
+    </>
+  );
+}
+
+function ThemeTokenList({
+  locale,
+  resourceId,
+  versionId,
+  rev,
+}: {
+  locale: Locale;
+  resourceId: string;
+  versionId: string;
+  rev: number;
+}) {
+  const [q, setQ] = useState('');
+  const [category, setCategory] = useState('');
+  const [items, setItems] = useState<ThemeTokenView[]>([]);
+  const [next, setNext] = useState<string | null>(null);
+  const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
+  const load = useCallback(
+    async (cursor?: string) => {
+      setState('loading');
+      const query: Record<string, string | number> = { limit: 50 };
+      if (q) query.q = q;
+      if (category) query.category = category;
+      if (cursor) query.cursor = cursor;
+      const x = await browserApi().GET(
+        `${BASE}/versions/{versionId}/theme-tokens` as never,
+        { params: { path: { id: resourceId, versionId }, query } } as never,
+      );
+      if (!x.response.ok) return setState('error');
+      const d = x.data as unknown as { items: ThemeTokenView[]; nextCursor: string | null };
+      setItems((cur) => (cursor ? [...cur, ...d.items] : d.items));
+      setNext(d.nextCursor);
+      setState('ok');
+    },
+    [resourceId, versionId, q, category],
+  );
+  useEffect(() => {
+    setItems([]);
+    void load();
+  }, [load, rev]);
+  return (
+    <>
+      <h3 className="nz-h3">{t(locale, 'kd.tokens')}</h3>
+      <div className="kni-toolbar">
+        <Field id="kd-q" label={t(locale, 'kd.search')}>
+          {(a) => (
+            <Input
+              {...a}
+              dir="ltr"
+              value={q}
+              maxLength={100}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field id="kd-cat" label={t(locale, 'kd.category')}>
+          {(a) => (
+            <Select {...a} value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">{t(locale, 'kd.all')}</option>
+              {THEME_CATEGORIES.map((k) => (
+                <option key={k} value={k}>
+                  {t(locale, `kd.cat.${k}` as MessageKey)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      </div>
+      {state === 'error' && (
+        <p role="alert" className="nz-error-text">
+          {t(locale, 'ki.load.error')}
+        </p>
+      )}
+      {state === 'loading' && items.length === 0 && (
+        <p className="nz-muted" role="status">
+          {t(locale, 'ki.loading')}
+        </p>
+      )}
+      {state === 'ok' && items.length === 0 && (
+        <EmptyState title={t(locale, 'kd.tokens')} body={t(locale, 'kd.tokens.none')} />
+      )}
+      {items.length > 0 && (
+        <Table
+          caption={t(locale, 'kd.tokens')}
+          rows={items}
+          rowKey={(x: ThemeTokenView) => x.id}
+          columns={[
+            {
+              key: 'name',
+              header: t(locale, 'kd.col.name'),
+              card: 'title',
+              render: (x: ThemeTokenView) => <Ltr>{x.name}</Ltr>,
+            },
+            {
+              key: 'value',
+              header: t(locale, 'kd.col.value'),
+              card: 'meta',
+              render: (x: ThemeTokenView) =>
+                x.dynamic ? (
+                  <Badge tone="warn">{t(locale, 'kd.computed')}</Badge>
+                ) : (
+                  <Ltr>{x.resolvedValue ? `${x.value} → ${x.resolvedValue}` : (x.value ?? '')}</Ltr>
+                ),
+            },
+            {
+              key: 'mode',
+              header: t(locale, 'kd.col.mode'),
+              card: 'badge',
+              render: (x: ThemeTokenView) => (
+                <Badge>{tDynamic(locale, `kd.mode.${x.mode}`, x.mode)}</Badge>
+              ),
+            },
+            {
+              key: 'origin',
+              header: t(locale, 'kd.col.origin'),
+              card: 'meta',
+              render: (x: ThemeTokenView) => tDynamic(locale, `kd.origin.${x.origin}`, x.origin),
+            },
+            {
+              key: 'src',
+              header: t(locale, 'kd.col.source'),
+              card: 'meta',
+              render: (x: ThemeTokenView) => (
+                <Ltr>
+                  {evidenceText({ kind: '', path: x.sourcePath ?? '', line: x.line ?? undefined })}
+                </Ltr>
+              ),
+            },
+          ]}
+        />
+      )}
+      {next && (
+        <Button variant="secondary" disabled={state === 'loading'} onClick={() => void load(next)}>
+          {t(locale, 'kc.more')}
+        </Button>
+      )}
+    </>
+  );
+}
+
+function ThemeVariantList({
+  locale,
+  resourceId,
+  versionId,
+  rev,
+}: {
+  locale: Locale;
+  resourceId: string;
+  versionId: string;
+  rev: number;
+}) {
+  const [r, reload] = useRemote<{ items: ThemeVariantView[] }>(async () => {
+    const x = await browserApi().GET(
+      `${BASE}/versions/{versionId}/theme-variants` as never,
+      { params: { path: { id: resourceId, versionId }, query: { limit: 200 } } } as never,
+    );
+    return { ok: x.response.ok, status: x.response.status, data: (x.data as never) ?? null };
+  }, [resourceId, versionId, rev]);
+  return (
+    <>
+      <h3 className="nz-h3">{t(locale, 'kd.variants')}</h3>
+      <Frame locale={locale} r={r} reload={reload}>
+        {(d) =>
+          d.items.length === 0 ? (
+            <p className="nz-muted">{t(locale, 'kd.variants.none')}</p>
+          ) : (
+            <ul className="kni-list">
+              {d.items.map((v) => {
+                const path = typeof v.descriptor.path === 'string' ? v.descriptor.path : null;
+                return (
+                  <li key={v.id}>
+                    <Badge>{tDynamic(locale, `kd.variant.${v.kind}`, v.kind)}</Badge>{' '}
+                    <Ltr>{v.name}</Ltr>{' '}
+                    {path && (
+                      <span className="nz-muted">
+                        <Ltr>{path}</Ltr>
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        }
+      </Frame>
+    </>
   );
 }
 

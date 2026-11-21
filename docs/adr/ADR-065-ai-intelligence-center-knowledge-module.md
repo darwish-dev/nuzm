@@ -184,3 +184,11 @@ Owner / 2026-11-20 (session decision, recorded by the agent; drafted by the agen
 - **Indexing:** the INDEX stage runs last, writes bounded search documents from proved facts and already-scanned documentation in one transaction (insert-only for the worker, `ANALYZING` guard); quarantined and rejected packages never reach it.
 - **Not decided here:** customer endpoints (S-K7), embeddings (D-47), generation (S-K6), production activation (D-42).
 
+## Addendum G — S-K7 customer gallery and start from a template (2026-11-22, SCR-K-08)
+- **One narrow door:** customers read platform resources only through `v_published_templates` (D-41), which now carries a database-built, safe design summary, capability names and counts; files are readable only through `v_template_copy_files`, which is empty unless the transaction names one eligible version. No file content, path, key, evidence location or excluded resource ever reaches a customer; an ineligible resource is a 404 identical to a missing one, including as a user's choice in a recommendation.
+- **Copy, not link:** "start from a template" copies the pinned immutable version into a NEW web-app project through the existing safe-change pipeline (digest verification, path, secret and canary checks, size limits, dependency policy, one Git commit). Eligibility for the adaptation mode is re-checked at copy time; a template that changed after it was shown is refused, never copied under the old pin; nothing is created before everything is validated. The template and other copies are never modified.
+- **Records:** usage events, the version-to-project link and the audit event are the customer's own tenant rows (forced RLS, usage append-only). These are the data D-48's evaluation will read; no weight is tuned automatically.
+- **Plans, not runs:** a generation plan records the requirement and the deterministic selection and says execution is blocked until S-K6 (model and run engine). No model is called and nothing is executed in this slice.
+- **Flag:** `knowledge.customer_templates`, per organization, default off, 404 while off; copying additionally needs `app_builder.enabled`.
+- **Not decided here:** customer import and chat on the current state (S-K6, and D-42 for any upload path), the semantic layer (D-47), previews (D-21), production activation (D-42).
+

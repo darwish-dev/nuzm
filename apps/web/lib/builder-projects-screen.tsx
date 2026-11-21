@@ -11,6 +11,7 @@ import { one, unwrapCall } from './compute';
 import type { Credits, Page_, Project } from './builder';
 import { builderGuard, builderView } from './builder-view';
 import { flagEnabled } from './services';
+import { TEMPLATES_FLAG } from './templates';
 
 /**
  * UI-M09-01/02 + UI-M10-01 (merged): "Start a project". One prompt box (the project type, the first AI run and the workspace follow from it, no wizard), then the
@@ -34,6 +35,7 @@ export async function ProjectsScreen({
   if (!g.ok) return g.denied;
   const appsOn = flagEnabled(g.s.me.featureFlags, APP_BUILDER_FLAG);
   const mobileOn = flagEnabled(g.s.me.featureFlags, MOBILE_FLAG);
+  const templatesOn = flagEnabled(g.s.me.featureFlags, TEMPLATES_FLAG);
   const filter: ProjectFilter = fixed ?? filterOf(one(sp.type));
   // the Mobile apps entry (`?type=mobile`) opens the start screen with the Mobile tile selected, the web-app entry with the web-app tile
   const startType =
@@ -94,6 +96,7 @@ export async function ProjectsScreen({
           canRun={canRun}
           appsEnabled={appsOn}
           mobileEnabled={mobileOn}
+          templatesEnabled={templatesOn}
           key={startType}
           initialType={startType}
           projects={list}

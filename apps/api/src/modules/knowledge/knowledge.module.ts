@@ -7,7 +7,9 @@ import { AdminKnowledgeProcessingController } from './admin-knowledge-processing
 import { AdminKnowledgeResourcesController } from './admin-knowledge-resources.controller';
 import { AdminKnowledgeRetrievalController } from './admin-knowledge-retrieval.controller';
 import { AdminKnowledgeUploadsController } from './admin-knowledge-uploads.controller';
-import { KnowledgeLibraryGuard } from './internal/flag';
+import { CustomerTemplatesController } from './customer-templates.controller';
+import { CustomerTemplateService } from './internal/customer-templates.service';
+import { KnowledgeCustomerTemplatesGuard, KnowledgeLibraryGuard } from './internal/flag';
 import { KnowledgeObjectStore, createKnowledgeObjectStore } from './internal/object-store';
 import { ResourceService } from './internal/resource.service';
 import { RetrievalService } from './internal/retrieval.service';
@@ -26,9 +28,11 @@ import { UploadService } from './internal/upload.service';
     AdminKnowledgeResourcesController,
     AdminKnowledgeProcessingController,
     AdminKnowledgeRetrievalController,
+    CustomerTemplatesController,
   ],
   providers: [
     KnowledgeLibraryGuard,
+    KnowledgeCustomerTemplatesGuard,
     {
       provide: KnowledgeObjectStore,
       useFactory: (): KnowledgeObjectStore => createKnowledgeObjectStore(),
@@ -50,11 +54,25 @@ import { UploadService } from './internal/upload.service';
       inject: [DB, AuditSink],
     },
     {
+      provide: CustomerTemplateService,
+      useFactory: (db: Db, audit: AuditSink, r: RetrievalService, store: KnowledgeObjectStore) =>
+        new CustomerTemplateService(db, audit, r, store),
+      inject: [DB, AuditSink, RetrievalService, KnowledgeObjectStore],
+    },
+    {
       provide: ResourceService,
       useFactory: (db: Db, audit: AuditSink) => new ResourceService(db, audit),
       inject: [DB, AuditSink],
     },
   ],
-  exports: [ResourceService, ReviewService, RetrievalService, UploadService, KnowledgeObjectStore],
+  exports: [
+    ResourceService,
+    ReviewService,
+    RetrievalService,
+    CustomerTemplateService,
+    KnowledgeCustomerTemplatesGuard,
+    UploadService,
+    KnowledgeObjectStore,
+  ],
 })
 export class KnowledgeModule {}

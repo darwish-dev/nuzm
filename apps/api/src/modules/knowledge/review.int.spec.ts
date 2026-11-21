@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupAiEnv, type AiEnv, type Row } from '../ai/testing/ai-harness';
+import { FsObjectStore } from '@nuzm/adapter-knowledge-store';
+import { ProjectsPort } from '../appbuilder';
 
 /**
  * S-K2a (SCR-K-02) over HTTP on the real schema: the ingestion job queue as an operator sees it, the findings and inventory, and the review gate in front of
@@ -97,7 +99,7 @@ async function submit(
 /** What the worker leaves behind for a package that passed ingestion (written directly, the worker has its own tests). */
 async function analysed(
   s: { resourceId: string; versionId: string },
-  o: { proposal?: string; block?: number; warn?: number } = {},
+  o: { proposal?: string; block?: number; warn?: number; noFiles?: boolean } = {},
 ) {
   const v = s.versionId;
   const jid = randomUUID();
@@ -134,10 +136,11 @@ async function analysed(
       `INSERT INTO knowledge.scan_findings (id, version_id, org_id, job_id, scanner, code, severity, path, line, detail) VALUES (gen_random_uuid(),$1,NULL,$2,'dependencies','lifecycle_script','warn','package.json',NULL,'"postinstall" runs at install time; it was NOT run')`,
       [v, jid],
     );
-  await e.sql(
-    `INSERT INTO knowledge.resource_files (id, version_id, org_id, path, sha256, bytes, language, object_key) VALUES (gen_random_uuid(),$1,NULL,'src/app.ts',$2,10,'typescript','snapshots/x'),(gen_random_uuid(),$1,NULL,'.env',$2,4,NULL,NULL)`,
-    [v, 'e'.repeat(64)],
-  );
+  if (!o.noFiles)
+    await e.sql(
+      `INSERT INTO knowledge.resource_files (id, version_id, org_id, path, sha256, bytes, language, object_key) VALUES (gen_random_uuid(),$1,NULL,'src/app.ts',$2,10,'typescript','snapshots/x'),(gen_random_uuid(),$1,NULL,'.env',$2,4,NULL,NULL)`,
+      [v, 'e'.repeat(64)],
+    );
   await e.sql(
     `UPDATE knowledge.resource_versions SET analysis_job_id = $2, license_proposal = $3::jsonb, ingest_summary = '{"files":2}'::jsonb WHERE id = $1`,
     [
@@ -1191,106 +1194,152 @@ describe('the review gate', () => {
   });
 });
 
-describe('retrieval and recommendation (S-K5)', () => {
-  interface Item {
-    name: string;
-    platform?: string;
-    frameworks?: string[];
-    scope?: 'NONE' | 'ARCHITECTURE_ONLY' | 'COMPONENTS' | 'FULL_STARTER';
-    starter?: boolean;
-    components?: boolean;
-    architecture?: boolean;
-    ai?: boolean;
-    published?: boolean;
-    license?: 'ALLOWED' | 'RESTRICTED';
-    quality?: number;
-    dna?: Row;
-    docs?: [string, string, string, string][];
-    description?: string;
-  }
-  /** An ACTIVE library resource (through the real gate) with permissions, documents, a manifest, a Design DNA and quality evidence written directly. */
-  async function item(o: Item) {
-    const s = await submit(
-      'padmin',
-      {
-        provenanceClass: 'FIRST_PARTY',
-        platform: o.platform ?? 'WEB',
-        frameworks: o.frameworks ?? ['nextjs'],
-        ...(o.description ? { description: o.description } : {}),
-      },
-      o.name,
-    );
-    await analysed(s);
-    ok<Row>(await review('padmin', s, 'approve'), 201);
-    ok<Row>(await activate('padmin', s));
-    const v = s.versionId;
-    await e.sql(`UPDATE knowledge.resources SET visibility = $2 WHERE id = $1`, [
-      s.resourceId,
-      o.published === false ? 'PLATFORM_PRIVATE' : 'PLATFORM_PUBLISHED',
-    ]);
+/** Seeds for the retrieval and customer-template suites. */
+interface Item {
+  name: string;
+  platform?: string;
+  frameworks?: string[];
+  scope?: 'NONE' | 'ARCHITECTURE_ONLY' | 'COMPONENTS' | 'FULL_STARTER';
+  starter?: boolean;
+  components?: boolean;
+  architecture?: boolean;
+  ai?: boolean;
+  published?: boolean;
+  license?: 'ALLOWED' | 'RESTRICTED';
+  quality?: number;
+  dna?: Row;
+  docs?: [string, string, string, string][];
+  description?: string;
+  /** Stored text files of the version: written to the object store and inventoried, so a customer copy can read them. `bytes` overrides the recorded size (to model an oversized file). */
+  files?: {
+    path: string;
+    content: string;
+    bytes?: number;
+    binary?: boolean;
+    stored?: boolean;
+    /** the row points at an object that is not in the store */
+    missing?: boolean;
+    /** the recorded digest is not the digest of the stored bytes */
+    tampered?: boolean;
+  }[];
+  capabilities?: string[];
+}
+/** An ACTIVE library resource (through the real gate) with permissions, documents, a manifest, a Design DNA and quality evidence written directly. */
+async function item(o: Item) {
+  const s = await submit(
+    'padmin',
+    {
+      provenanceClass: 'FIRST_PARTY',
+      platform: o.platform ?? 'WEB',
+      frameworks: o.frameworks ?? ['nextjs'],
+      ...(o.description ? { description: o.description } : {}),
+    },
+    o.name,
+  );
+  await analysed(s, { noFiles: true });
+  ok<Row>(await review('padmin', s, 'approve'), 201);
+  ok<Row>(await activate('padmin', s));
+  const v = s.versionId;
+  for (const f of o.files ?? []) {
+    const buf = Buffer.from(f.content);
+    const key = `snapshots/${v}/${sha(buf).slice(0, 16)}`;
+    if (f.stored !== false && f.missing !== true)
+      await new FsObjectStore(process.env.KNOWLEDGE_STORE_DIR!).put(key, buf, { ifAbsent: true });
     await e.sql(
-      `UPDATE knowledge.resource_permissions SET reuse_scope = $2, starter_eligible = $3, component_reuse = $4, architecture_reference = $5, ai_processing = $6, license_verdict = $7 WHERE resource_id = $1`,
+      `INSERT INTO knowledge.resource_files (id, version_id, org_id, path, sha256, bytes, language, is_binary, object_key) VALUES (gen_random_uuid(),$1,NULL,$2,$3,$4,$5,$6,$7)`,
       [
-        s.resourceId,
-        o.scope ?? 'FULL_STARTER',
-        o.starter ?? (o.scope ?? 'FULL_STARTER') === 'FULL_STARTER',
-        ['COMPONENTS', 'FULL_STARTER'].includes(o.scope ?? 'FULL_STARTER'),
-        true,
-        o.ai ?? true,
-        o.license ?? 'ALLOWED',
+        v,
+        f.path,
+        f.tampered ? 'f'.repeat(64) : sha(buf),
+        f.bytes ?? buf.length,
+        f.path.endsWith('.json') ? 'json' : f.path.endsWith('.md') ? 'markdown' : 'typescript',
+        f.binary === true,
+        f.stored === false || f.binary === true ? null : key,
+      ],
+    );
+  }
+  await e.sql(`UPDATE knowledge.resources SET visibility = $2 WHERE id = $1`, [
+    s.resourceId,
+    o.published === false ? 'PLATFORM_PRIVATE' : 'PLATFORM_PUBLISHED',
+  ]);
+  await e.sql(
+    `UPDATE knowledge.resource_permissions SET reuse_scope = $2, starter_eligible = $3, component_reuse = $4, architecture_reference = $5, ai_processing = $6, license_verdict = $7 WHERE resource_id = $1`,
+    [
+      s.resourceId,
+      o.scope ?? 'FULL_STARTER',
+      o.starter ?? (o.scope ?? 'FULL_STARTER') === 'FULL_STARTER',
+      ['COMPONENTS', 'FULL_STARTER'].includes(o.scope ?? 'FULL_STARTER'),
+      true,
+      o.ai ?? true,
+      o.license ?? 'ALLOWED',
+    ],
+  );
+  await e.sql(
+    `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1',$2::jsonb)`,
+    [
+      v,
+      JSON.stringify({
+        frameworks: o.frameworks ?? ['nextjs'],
+        capabilities: (o.capabilities ?? []).map((name) => ({
+          name,
+          evidence: [{ path: 'src/secret/x.ts', line: 1 }],
+        })),
+      }),
+    ],
+  );
+  if (o.architecture !== false) {
+    await e.sql(
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'2',$2::jsonb)`,
+      [
+        v,
+        JSON.stringify({
+          frameworks: o.frameworks ?? ['nextjs'],
+          capabilities: (o.capabilities ?? []).map((name) => ({
+            name,
+            evidence: [{ path: 'src/secret/x.ts', line: 1 }],
+          })), // a later manifest is a full one
+          architecture: {
+            layers: [{}, {}],
+            cycles: [],
+            entryReachability: { roots: 1, analysedFiles: 10, unreachable: 0 },
+          },
+        }),
       ],
     );
     await e.sql(
-      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1',$2::jsonb)`,
-      [v, JSON.stringify({ frameworks: o.frameworks ?? ['nextjs'] })],
+      `INSERT INTO knowledge.resource_components (id, version_id, org_id, name, kind, path) VALUES (gen_random_uuid(),$1,NULL,'Card','react-component','src/card.tsx')`,
+      [v],
     );
-    if (o.architecture !== false) {
-      await e.sql(
-        `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'2',$2::jsonb)`,
-        [
-          v,
-          JSON.stringify({
-            frameworks: o.frameworks ?? ['nextjs'],
-            architecture: {
-              layers: [{}, {}],
-              cycles: [],
-              entryReachability: { roots: 1, analysedFiles: 10, unreachable: 0 },
-            },
-          }),
-        ],
-      );
-      await e.sql(
-        `INSERT INTO knowledge.resource_components (id, version_id, org_id, name, kind, path) VALUES (gen_random_uuid(),$1,NULL,'Card','react-component','src/card.tsx')`,
-        [v],
-      );
-    }
-    for (const [kind, ref, title, body] of o.docs ?? [])
-      await e.sql(
-        `INSERT INTO knowledge.resource_search_documents (id, version_id, org_id, doc_kind, ref, title, body, content_hash) VALUES (gen_random_uuid(),$1,NULL,$2,$3,$4,$5,$6)`,
-        [v, kind, ref, title, body, 'c'.repeat(64)],
-      );
-    if (o.dna)
-      await e.sql(
-        `INSERT INTO knowledge.analysis_results (id, version_id, org_id, analyzer, analyzer_version, content_hash, result) VALUES (gen_random_uuid(),$1,NULL,'design-dna','1.0.0',$2,$3::jsonb)`,
-        [v, 'd'.repeat(64), JSON.stringify(o.dna)],
-      );
-    if (o.quality !== undefined)
-      await e.sql(
-        `INSERT INTO knowledge.quality_scores (id, version_id, org_id, dimension, score, method, evidence_ref, measured) VALUES (gen_random_uuid(),$1,NULL,'BUILD',$2,'build-log','job:1',true)`,
-        [v, o.quality],
-      );
-    return s;
   }
-  const dna = (darkMode: boolean, rtl: boolean, primary: string): Row => ({
-    schemaVersion: '1',
-    primary: 0,
-    projects: [
-      {
-        traits: { darkMode, rtl, arabicFont: false, tailwind: true },
-        palette: [{ mode: 'base', roles: [{ role: 'primary', hex: primary }] }],
-      },
-    ],
-  });
+  for (const [kind, ref, title, body] of o.docs ?? [])
+    await e.sql(
+      `INSERT INTO knowledge.resource_search_documents (id, version_id, org_id, doc_kind, ref, title, body, content_hash) VALUES (gen_random_uuid(),$1,NULL,$2,$3,$4,$5,$6)`,
+      [v, kind, ref, title, body, 'c'.repeat(64)],
+    );
+  if (o.dna)
+    await e.sql(
+      `INSERT INTO knowledge.analysis_results (id, version_id, org_id, analyzer, analyzer_version, content_hash, result) VALUES (gen_random_uuid(),$1,NULL,'design-dna','1.0.0',$2,$3::jsonb)`,
+      [v, 'd'.repeat(64), JSON.stringify(o.dna)],
+    );
+  if (o.quality !== undefined)
+    await e.sql(
+      `INSERT INTO knowledge.quality_scores (id, version_id, org_id, dimension, score, method, evidence_ref, measured) VALUES (gen_random_uuid(),$1,NULL,'BUILD',$2,'build-log','job:1',true)`,
+      [v, o.quality],
+    );
+  return s;
+}
+const dna = (darkMode: boolean, rtl: boolean, primary: string): Row => ({
+  schemaVersion: '1',
+  primary: 0,
+  projects: [
+    {
+      traits: { darkMode, rtl, arabicFont: false, tailwind: true },
+      palette: [{ mode: 'base', roles: [{ role: 'primary', hex: primary }] }],
+    },
+  ],
+});
+
+describe('retrieval and recommendation (S-K5)', () => {
   let dash: { resourceId: string; versionId: string };
   let store: { resourceId: string; versionId: string };
   let draft: { resourceId: string; versionId: string };
@@ -1863,5 +1912,603 @@ describe('retrieval and recommendation (S-K5)', () => {
     expect(
       (await e.sql(`SELECT kind FROM knowledge.processing_jobs WHERE id = $1`, [r.jobId]))[0]!.kind,
     ).toBe('INDEX');
+  });
+});
+
+describe('customer templates (S-K7)', () => {
+  const T = '/v1/builder/templates';
+  const MIT =
+    'MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software';
+  const star = (extra: Item['files'] = []): NonNullable<Item['files']> => [
+    {
+      path: 'package.json',
+      content: JSON.stringify({
+        name: 'starter',
+        version: '1.0.0',
+        dependencies: { next: '15.0.0', react: '19.0.0' },
+      }),
+    },
+    { path: 'README.md', content: '# Starter\n\nA dashboard starter.\n' },
+    { path: 'LICENSE', content: MIT },
+    {
+      path: 'src/app/page.tsx',
+      content: 'export default function Home() { return <main>Home</main>; }\n',
+    },
+    { path: 'src/app/globals.css', content: ':root { --primary: #2563eb; }\n' },
+    { path: 'public/logo.png', content: 'PNG', binary: true },
+    { path: 'docs/big.txt', content: 'x', bytes: 2_000_000 },
+    { path: 'assets/table.txt', content: 'a\u0000b' },
+    ...extra,
+  ];
+  let t1: { resourceId: string; versionId: string };
+  let t2: { resourceId: string; versionId: string };
+  let t3: { resourceId: string; versionId: string };
+  let leaky: { resourceId: string; versionId: string };
+  let missing: { resourceId: string; versionId: string };
+  let tampered: { resourceId: string; versionId: string };
+  const A = () => e.org.A!;
+  const B = () => e.org.B!;
+  const call = (
+    who: string,
+    method: 'GET' | 'POST',
+    url: string,
+    body?: object,
+    org = A(),
+    extra: Record<string, string> = {},
+  ) => e.call(who, method, url, body, org, extra);
+  const idem = () => ({ 'idempotency-key': randomUUID() });
+  const flag = (key: string, org: string | null, on = true) =>
+    e.sql(
+      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, $2, $3::jsonb)`,
+      [key, org, JSON.stringify(on)],
+    );
+  const projectCount = async (org: string) =>
+    Number(
+      (
+        await e.sql(
+          `SELECT count(*)::int n FROM builder.projects WHERE org_id = $1 AND deleted_at IS NULL`,
+          [org],
+        )
+      )[0]!.n,
+    );
+  const events = async (org: string, kind: string) =>
+    Number(
+      (
+        await e.sql(
+          `SELECT count(*)::int n FROM knowledge.usage_events WHERE org_id = $1 AND kind = $2`,
+          [org, kind],
+        )
+      )[0]!.n,
+    );
+  const names = (xs: Row[]) => xs.map((x) => x.name as string);
+  /** the library is shared with the other suites' fixtures: this suite's own templates are picked out of every listing */
+  const MINE = [
+    'Components Library',
+    'Leaky Template',
+    'Missing Object',
+    'Mobile Kit',
+    'Starter Dashboard',
+    'Tampered Object',
+  ];
+  const mine = (xs: Row[]) => names(xs).filter((n) => MINE.includes(n));
+
+  beforeAll(async () => {
+    t1 = await item({
+      name: 'Starter Dashboard',
+      description: 'متجر ولوحة تحكم',
+      capabilities: ['Authentication', 'Dashboard'],
+      dna: {
+        schemaVersion: '1',
+        primary: 0,
+        projects: [
+          {
+            modes: ['base'],
+            traits: { darkMode: true },
+            palette: [
+              {
+                mode: 'base',
+                roles: [
+                  {
+                    role: 'primary',
+                    hex: '#2563eb',
+                    token: '--primary',
+                    evidence: { path: 'src/secret/globals.css', line: 1 },
+                  },
+                ],
+              },
+            ],
+            typography: { families: [{ value: 'Cairo' }] },
+            spacing: { baseUnit: 4 },
+          },
+        ],
+      },
+      files: star(),
+    });
+    t2 = await item({
+      name: 'Components Library',
+      scope: 'COMPONENTS',
+      starter: false,
+      files: [{ path: 'src/button.tsx', content: 'export const Button = () => null;\n' }],
+    });
+    t3 = await item({ name: 'Hidden Draft', published: false, files: star() });
+    await item({
+      name: 'Mobile Kit',
+      platform: 'MOBILE',
+      frameworks: ['flutter'],
+      files: [{ path: 'lib/main.dart', content: 'void main() {}\n' }],
+    });
+    leaky = await item({
+      name: 'Leaky Template',
+      files: [
+        { path: 'package.json', content: '{"name":"x"}' },
+        {
+          path: 'src/keys.ts',
+          content: `export const k = \`${['-----BEGIN', 'PRIVATE KEY-----'].join(' ')}\nabc\n${['-----END', 'PRIVATE KEY-----'].join(' ')}\`;\n` /* assembled at run time: the scanner must find it in the stored file, not in this source */,
+        },
+      ],
+    });
+    missing = await item({
+      name: 'Missing Object',
+      files: [{ path: 'src/a.ts', content: 'export const a = 1;\n', missing: true }],
+    });
+    tampered = await item({
+      name: 'Tampered Object',
+      files: [{ path: 'src/a.ts', content: 'export const a = 1;\n', tampered: true }],
+    });
+  }, 300_000);
+
+  it('is OFF by default and per organization: every customer route answers 404 until the flag is on for that organization', async () => {
+    for (const [m, u] of [
+      ['GET', T],
+      ['GET', `${T}/${t1.resourceId}`],
+      ['POST', '/v1/builder/template-recommendations'],
+      ['POST', '/v1/builder/projects/from-template'],
+      ['POST', '/v1/builder/generation-plans'],
+      ['GET', `/v1/builder/generation-plans/${randomUUID()}`],
+    ] as const)
+      expect(
+        (await call('alice', m, u, m === 'POST' ? {} : undefined, A(), m === 'POST' ? idem() : {}))
+          .statusCode,
+        `${m} ${u}`,
+      ).toBe(404);
+    await flag('knowledge.customer_templates', A());
+    expect((await call('alice', 'GET', T)).statusCode).toBe(200);
+    expect((await call('bob', 'GET', T, undefined, B())).statusCode).toBe(404); // another organization is still off
+    await flag('knowledge.customer_templates', B());
+    for (const org of [A(), B()]) await flag('app_builder.enabled', org);
+    expect((await call('bob', 'GET', T, undefined, B())).statusCode).toBe(200);
+  });
+
+  it('the gallery lists published templates only, with metadata and a safe design summary, and never anything that locates source', async () => {
+    const r = ok<{ items: Row[]; nextCursor: string | null }>(await call('alice', 'GET', T));
+    expect(mine(r.items)).toEqual(MINE); // every published one, never the unpublished draft
+    expect(names(r.items)).not.toContain('Hidden Draft');
+    const dash = r.items.find((x) => x.name === 'Starter Dashboard')!;
+    expect(dash).toMatchObject({
+      id: t1.resourceId,
+      versionId: t1.versionId,
+      platform: 'WEB',
+      ownership: 'PLATFORM',
+      capabilities: ['Authentication', 'Dashboard'],
+      license: { verdict: 'ALLOWED' },
+    });
+    expect(dash.design).toEqual({
+      modes: ['base'],
+      traits: { darkMode: true },
+      roles: [{ role: 'primary', hex: '#2563eb' }],
+      families: ['Cairo'],
+      baseUnit: 4,
+    });
+    expect((dash.reuse as Row).usages).toEqual(['FULL_STARTER', 'COMPONENTS', 'ARCHITECTURE_ONLY']);
+    // nothing that locates source or reveals the library's internals
+    const all = JSON.stringify(r);
+    for (const leak of [
+      'src/secret',
+      'snapshots/',
+      'object_key',
+      'objectKey',
+      'src/app/page.tsx',
+      'package.json',
+      'archive',
+      'sha256',
+      'checksum',
+      'evidence',
+      '--primary',
+    ])
+      expect(all, leak).not.toContain(leak);
+    // viewers may read; the pages and filters work
+    expect((await call('carol', 'GET', T)).statusCode).toBe(200);
+    expect(
+      mine(ok<{ items: Row[] }>(await call('alice', 'GET', `${T}?platform=MOBILE`)).items),
+    ).toEqual(['Mobile Kit']);
+    expect(
+      mine(ok<{ items: Row[] }>(await call('alice', 'GET', `${T}?framework=Flutter`)).items),
+    ).toEqual(['Mobile Kit']);
+    expect(
+      mine(
+        ok<{ items: Row[] }>(
+          await call('alice', 'GET', `${T}?q=${encodeURIComponent('لوحة تحكم')}`),
+        ).items,
+      ),
+    ).toEqual(['Starter Dashboard']);
+    expect(
+      names(
+        ok<{ items: Row[] }>(
+          await call('alice', 'GET', `${T}?q=${encodeURIComponent("'; DROP TABLE x; --")}`),
+        ).items,
+      ),
+    ).toEqual([]);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 5; i++) {
+      const pg: { items: Row[]; nextCursor: string | null } = ok(
+        await call('alice', 'GET', `${T}?limit=4${cursor ? `&cursor=${cursor}` : ''}`),
+      );
+      expect(pg.items.length).toBeLessThanOrEqual(4);
+      seen.push(...names(pg.items));
+      expect(new Set(seen).size).toBe(seen.length);
+      cursor = pg.nextCursor;
+      if (!cursor) break;
+    }
+    expect(seen).toEqual(names(r.items)); // the pages add up to the whole list, in the same order, once each
+    expect((await call('alice', 'GET', `${T}?type=NOPE`)).statusCode).toBe(422);
+    expect((await call('alice', 'GET', `${T}?cursor=garbage`)).statusCode).toBe(422);
+  });
+
+  it('one template: 200 for a published one; 404 for an unpublished one, an unknown id and a malformed id (indistinguishable)', async () => {
+    expect(ok<Row>(await call('alice', 'GET', `${T}/${t1.resourceId}`))).toMatchObject({
+      name: 'Starter Dashboard',
+    });
+    const miss = [`${T}/${t3.resourceId}`, `${T}/${randomUUID()}`, `${T}/not-an-id`];
+    const bodies = new Set<string>();
+    for (const u of miss) {
+      const r = await call('alice', 'GET', u);
+      expect(r.statusCode, u).toBe(404);
+      bodies.add(r.json().code as string);
+    }
+    expect(bodies.size).toBe(1);
+  });
+
+  it('recommendations are answered for a customer: ranked eligible templates and nothing about resources it may not see', async () => {
+    const before = await events(A(), 'RECOMMENDED');
+    const r = ok<Row>(
+      await call('alice', 'POST', '/v1/builder/template-recommendations', {
+        text: 'لوحة تحكم',
+        platform: 'WEB',
+      }),
+    );
+    expect(names(r.ranked as Row[])).toContain('Starter Dashboard');
+    expect(['Admin Dashboard Pro', 'Starter Dashboard']).toContain(names(r.ranked as Row[])[0]); // the strongest dashboards of a shared library
+    expect(r.decision).toMatchObject({ strategy: 'AUTO_SELECT' });
+    for (const hidden of ['excluded', 'adminDefault', 'settings'])
+      expect(r).not.toHaveProperty(hidden);
+    expect(r.stats).not.toHaveProperty('considered');
+    const all = JSON.stringify(r);
+    for (const leak of ['Hidden Draft', 'src/', 'snippet', 'matches', 'not_published'])
+      expect(all, leak).not.toContain(leak);
+    expect(((r.ranked as Row[])[0]!.dimensions as Row[]).map((d) => d.dimension)).toEqual([
+      'functional',
+      'framework',
+      'architecture',
+      'design',
+      'quality',
+      'reuse',
+    ]);
+    expect(await events(A(), 'RECOMMENDED')).toBeGreaterThan(before); // the customer's own usage events
+    expect(await events(B(), 'RECOMMENDED')).toBe(0);
+  });
+
+  it("a user's choice: an eligible one is honoured; one the customer may not see is 'not found'; an unusable but visible one is explained; nothing is substituted", async () => {
+    const ok1 = ok<Row>(
+      await call('alice', 'POST', '/v1/builder/template-recommendations', {
+        strategy: 'USER_SELECTED',
+        resourceId: t1.resourceId,
+      }),
+    );
+    expect(ok1.decision).toMatchObject({
+      strategy: 'USER_SELECTED',
+      selectedResourceId: t1.resourceId,
+    });
+    const hidden = ok<Row>(
+      await call('alice', 'POST', '/v1/builder/template-recommendations', {
+        strategy: 'USER_SELECTED',
+        resourceId: t3.resourceId,
+      }),
+    );
+    expect(hidden.decision).toMatchObject({ selectedResourceId: null });
+    expect(hidden.userChoice).toEqual({ resourceId: t3.resourceId, reasons: ['not_found'] }); // not "not published": that would say it exists
+    expect(hidden.alternatives).toEqual([]);
+    const strict = ok<Row>(
+      await call('alice', 'POST', '/v1/builder/template-recommendations', {
+        strategy: 'USER_SELECTED',
+        resourceId: t2.resourceId,
+        mode: 'STRICT',
+      }),
+    );
+    expect(strict.userChoice).toEqual({
+      resourceId: t2.resourceId,
+      reasons: ['mode_needs_starter'],
+    });
+    expect(strict.selected).toBeNull();
+    expect(
+      (await call('alice', 'POST', '/v1/builder/template-recommendations', { mode: 'WILD' }))
+        .statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await call('alice', 'POST', '/v1/builder/template-recommendations', {
+          design: { primaryColor: 'x' },
+        })
+      ).statusCode,
+    ).toBe(422);
+  });
+
+  it('from-template: the pinned version is copied into a NEW web-app project through the safe pipeline; the template is untouched; everything is recorded', async () => {
+    expect(
+      (
+        await call(
+          'carol',
+          'POST',
+          '/v1/builder/projects/from-template',
+          { resourceId: t1.resourceId, name: 'X' },
+          A(),
+          idem(),
+        )
+      ).statusCode,
+    ).toBe(403); // a viewer cannot write
+    expect(
+      (
+        await call(
+          'alice',
+          'POST',
+          '/v1/builder/projects/from-template',
+          { resourceId: t1.resourceId, name: 'No Key' },
+          A(),
+          { 'idempotency-key': '' },
+        )
+      ).statusCode,
+    ).toBe(400);
+    const projectsBefore = await projectCount(A());
+    const copied0 = await events(A(), 'COPIED');
+    const key = randomUUID();
+    const r1 = await call(
+      'alice',
+      'POST',
+      '/v1/builder/projects/from-template',
+      {
+        resourceId: t1.resourceId,
+        versionId: t1.versionId,
+        name: 'My Dashboard',
+        adaptationMode: 'ADAPTIVE',
+      },
+      A(),
+      { 'idempotency-key': key },
+    );
+    const res = ok<Row>(r1, 201);
+    expect(res.project).toMatchObject({ name: 'My Dashboard', type: 'webapp' });
+    expect(res.template).toMatchObject({
+      resourceId: t1.resourceId,
+      versionId: t1.versionId,
+      name: 'Starter Dashboard',
+      mode: 'ADAPTIVE',
+      usage: 'FULL_STARTER',
+    });
+    expect(res.license).toEqual({ spdx: 'MIT' });
+    expect(res.commit).toMatch(/^[0-9a-f]{40}$/);
+    const files = res.files as { copied: number; skipped: { path: string; reason: string }[] };
+    expect(files.copied).toBe(5); // package.json, README.md, LICENSE, page.tsx, globals.css
+    expect(files.skipped).toEqual(
+      expect.arrayContaining([
+        { path: 'assets/table.txt', reason: 'binary' },
+        { path: 'docs/big.txt', reason: 'too_large' },
+      ]),
+    );
+    expect(JSON.stringify(res)).not.toMatch(/snapshots\/|objectKey|object_key/);
+    // the project really holds the template's files
+    const proj = (
+      await e.sql(`SELECT id, type, head_version_id FROM builder.projects WHERE id = $1`, [
+        (res.project as Row).id,
+      ])
+    )[0]!;
+    expect(proj).toMatchObject({ type: 'webapp' });
+    const fs = (await e.app
+      .get<ProjectsPort>(ProjectsPort)
+      .readFiles(A(), proj.id as string, proj.head_version_id as string))!;
+    expect([...fs.keys()].sort()).toEqual([
+      'LICENSE',
+      'README.md',
+      'package.json',
+      'src/app/globals.css',
+      'src/app/page.tsx',
+    ]);
+    expect(fs.get('src/app/page.tsx')).toBe(
+      'export default function Home() { return <main>Home</main>; }\n',
+    );
+    expect(fs.get('LICENSE')).toContain('MIT License'); // the licence travels with the copy
+    // recorded: usage, the link from the version to the copy, audit; the customer's own rows only
+    expect(await events(A(), 'COPIED')).toBe(copied0 + 1);
+    expect(await events(A(), 'SELECTED')).toBeGreaterThan(0);
+    const link = (
+      await e.sql(
+        `SELECT resource_version_id, role, strategy FROM knowledge.generation_resource_links WHERE org_id = $1`,
+        [A()],
+      )
+    )[0]!;
+    expect(link).toMatchObject({
+      resource_version_id: t1.versionId,
+      role: 'STARTER',
+      strategy: 'COPY',
+    });
+    const audit = e.sink.events.filter((x) => x.action === 'knowledge.template.copied');
+    expect(audit.at(-1)).toMatchObject({
+      orgId: A(),
+      outcome: 'success',
+      detail: {
+        resourceId: t1.resourceId,
+        versionId: t1.versionId,
+        mode: 'ADAPTIVE',
+        copied: 5,
+        skipped: 2,
+      },
+    });
+    // the same key replays the first answer; no second project
+    const r2 = await call(
+      'alice',
+      'POST',
+      '/v1/builder/projects/from-template',
+      {
+        resourceId: t1.resourceId,
+        versionId: t1.versionId,
+        name: 'My Dashboard',
+        adaptationMode: 'ADAPTIVE',
+      },
+      A(),
+      { 'idempotency-key': key },
+    );
+    expect(r2.statusCode).toBe(201);
+    expect((r2.json() as Row).project).toEqual(res.project);
+    expect(await projectCount(A())).toBe(projectsBefore + 1);
+    // the template is immutable: its files and the recorded inventory are as they were
+    expect(
+      Number(
+        (
+          await e.sql(
+            `SELECT count(*)::int n FROM knowledge.resource_files WHERE version_id = $1`,
+            [t1.versionId],
+          )
+        )[0]!.n,
+      ),
+    ).toBe(8);
+    // a second copy is independent of the first
+    const second = ok<Row>(
+      await call(
+        'alice',
+        'POST',
+        '/v1/builder/projects/from-template',
+        { resourceId: t1.resourceId, name: 'Second Copy' },
+        A(),
+        idem(),
+      ),
+      201,
+    );
+    expect((second.project as Row).id).not.toBe((res.project as Row).id);
+    // another organization cannot see this project; its own copy is its own
+    expect(
+      (await call('bob', 'GET', `/v1/builder/projects/${(res.project as Row).id}`, undefined, B()))
+        .statusCode,
+    ).toBe(404);
+    const bobs = ok<Row>(
+      await call(
+        'bob',
+        'POST',
+        '/v1/builder/projects/from-template',
+        { resourceId: t1.resourceId, name: 'Bob Dashboard' },
+        B(),
+        idem(),
+      ),
+      201,
+    );
+    expect(await projectCount(B())).toBe(1);
+    expect(await events(B(), 'COPIED')).toBe(1);
+    expect((bobs.project as Row).id).not.toBe((res.project as Row).id);
+  });
+
+  it('refusals leave nothing behind: unpublished, wrong mode, a changed pin, a taken name, secrets in the template, a missing or tampered object', async () => {
+    const before = { projects: await projectCount(A()), copied: await events(A(), 'COPIED') };
+    const go = (body: Row) =>
+      call('alice', 'POST', '/v1/builder/projects/from-template', body, A(), idem());
+    expect((await go({ resourceId: t3.resourceId, name: 'Draft Copy' })).statusCode).toBe(404); // unpublished is not found
+    expect((await go({ resourceId: randomUUID(), name: 'Nothing' })).statusCode).toBe(404);
+    const strict = await go({
+      resourceId: t2.resourceId,
+      name: 'Strict Copy',
+      adaptationMode: 'STRICT',
+    });
+    expect(strict.statusCode).toBe(422);
+    expect(strict.json().code).toBe('knowledge_template_incompatible');
+    expect(JSON.stringify(strict.json().errors ?? strict.json())).toContain('mode_needs_starter');
+    const pin = await go({ resourceId: t1.resourceId, versionId: t2.versionId, name: 'Pinned' });
+    expect(pin.statusCode).toBe(422);
+    expect(JSON.stringify(pin.json())).toContain('pinned_version_unavailable');
+    expect(pin.json().code).toBe('knowledge_template_incompatible');
+    expect((await go({ resourceId: t1.resourceId, name: 'My Dashboard' })).statusCode).toBe(409); // name taken: the project is the customer's, nothing was recorded
+    const leak = await go({ resourceId: leaky.resourceId, name: 'Leaky Copy' });
+    expect(leak.statusCode).toBe(422);
+    expect(leak.json().code).toBe('change_rejected');
+    expect((await go({ resourceId: missing.resourceId, name: 'Missing Copy' })).statusCode).toBe(
+      422,
+    );
+    expect((await go({ resourceId: tampered.resourceId, name: 'Tampered Copy' })).statusCode).toBe(
+      422,
+    );
+    for (const bad of [
+      { name: 'x' },
+      { resourceId: t1.resourceId },
+      { resourceId: t1.resourceId, name: '' },
+      { resourceId: t1.resourceId, name: 'y'.repeat(101) },
+      { resourceId: t1.resourceId, name: 'z', adaptationMode: 'WILD' },
+      { resourceId: t1.resourceId, name: 'z', versionId: 'nope' },
+      { resourceId: t1.resourceId, name: 'z', planId: 'nope' },
+    ])
+      expect((await go(bad)).statusCode, JSON.stringify(bad)).toBe(422);
+    expect(await projectCount(A())).toBe(before.projects);
+    expect(await events(A(), 'COPIED')).toBe(before.copied);
+  });
+
+  it('generation plans record the requirement and the selection for a project; executing them is blocked; they are isolated per organization', async () => {
+    const pj = (
+      await e.sql(`SELECT id FROM builder.projects WHERE org_id = $1 AND name = 'My Dashboard'`, [
+        A(),
+      ])
+    )[0]!.id as string;
+    const bobPj = (
+      await e.sql(`SELECT id FROM builder.projects WHERE org_id = $1 LIMIT 1`, [B()])
+    )[0]!.id as string;
+    const post = (who: string, org: string, body: Row) =>
+      call(who, 'POST', '/v1/builder/generation-plans', body, org, idem());
+    expect((await post('carol', A(), { projectId: pj, text: 'x' })).statusCode).toBe(403);
+    expect((await post('alice', A(), { text: 'x' })).statusCode).toBe(422);
+    expect((await post('alice', A(), { projectId: randomUUID(), text: 'x' })).statusCode).toBe(404);
+    expect((await post('alice', A(), { projectId: bobPj, text: 'x' })).statusCode).toBe(404); // another organization's project
+    const plan = ok<Row>(
+      await post('alice', A(), {
+        projectId: pj,
+        text: 'لوحة تحكم لإدارة المبيعات',
+        platform: 'WEB',
+        mode: 'ADAPTIVE',
+      }),
+      201,
+    );
+    expect(plan).toMatchObject({
+      projectId: pj,
+      status: 'PLANNED',
+      strategy: 'AUTO_SELECT',
+      mode: 'ADAPTIVE',
+    });
+    expect(['Admin Dashboard Pro', 'Starter Dashboard']).toContain(
+      ((plan.plan as Row).selected as Row).name,
+    );
+    expect(((plan.plan as Row).selected as Row).versionId).toBeTruthy();
+    expect((plan.plan as Row).execution).toMatchObject({ status: 'BLOCKED' });
+    expect(JSON.stringify(plan)).not.toMatch(/src\/|snapshots|Hidden Draft/);
+    expect(
+      ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${plan.id}`)),
+    ).toMatchObject({ id: plan.id });
+    expect(
+      (await call('bob', 'GET', `/v1/builder/generation-plans/${plan.id}`, undefined, B()))
+        .statusCode,
+    ).toBe(404);
+    expect((await call('alice', 'GET', '/v1/builder/generation-plans/not-an-id')).statusCode).toBe(
+      404,
+    );
+    expect(
+      e.sink.events.some((x) => x.action === 'knowledge.plan.created' && x.orgId === A()),
+    ).toBe(true);
+  });
+
+  it('never executes or builds anything and calls no model: copying and planning are data operations', async () => {
+    expect(
+      (await e.sql(`SELECT count(*)::int n FROM ai.runs WHERE org_id = $1`, [A()]))[0]!.n,
+    ).toBe(0);
   });
 });

@@ -20,10 +20,13 @@ import {
   RunService,
   type AiConfig,
 } from '../ai';
-import { LivePreviewRegistry, ProjectDelegates } from '../builder';
+import { BuilderModule, LivePreviewRegistry, ProjectDelegates, ProjectService } from '../builder';
 import { ResidencyService } from '../compliance';
 import { DeployService, SitePublisherPort } from '../deploy';
 import { IdentityModule } from '../identity';
+import { CustomerTemplateService, KnowledgeModule } from '../knowledge';
+import { TemplateStartController } from './template-start.controller';
+import { TemplateStartService } from './internal/studio/template-start';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
@@ -254,7 +257,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
  * (D-21 OPEN): production answers 404 (M09 not connected) / 503 (no sandbox capacity).
  */
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, BuilderModule, KnowledgeModule],
   controllers: [
     SandboxesController,
     TestRunsController,
@@ -271,12 +274,24 @@ class LogSecurityAlerts extends SecurityAlertPort {
     StudioClaudeCodeController,
     AdminSkillsController,
     StudioSettingsController,
+    TemplateStartController,
   ],
   providers: [
     ...M09_PORT_PROVIDERS,
     AppBuilderEnabledGuard,
     M09StubGuard,
     StudioEnabledGuard,
+    {
+      provide: TemplateStartService,
+      useFactory: (
+        db: Db,
+        t: CustomerTemplateService,
+        b: ProjectService,
+        p: ProjectsPort,
+        c: ChangeService,
+      ) => new TemplateStartService(db, t, b, p, c),
+      inject: [DB, CustomerTemplateService, ProjectService, ProjectsPort, ChangeService],
+    },
     // ---- AI Studio (ADR-064) --------------------------------------------------------------------------------------------------------
     {
       provide: StudioFileWriter,

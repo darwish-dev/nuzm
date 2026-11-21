@@ -14,3 +14,6 @@ export {
   KNOWLEDGE_IMPORT_PROJECTS_FLAG,
   KNOWLEDGE_SEMANTIC_SEARCH_FLAG,
 } from './internal/flag';
+export { CustomerTemplateService } from './internal/customer-templates.service';
+export type { CopyFile, CopyPlan, TemplateDto } from './internal/customer-templates.service';
+export { KnowledgeCustomerTemplatesGuard } from './internal/flag';

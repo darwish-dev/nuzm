@@ -13936,6 +13936,200 @@ paths:
           $ref: '#/components/responses/Problem'
         '404':
           $ref: '#/components/responses/Problem'
+  /v1/builder/templates:
+    get:
+      operationId: listBuilderTemplates
+      tags: [builder]
+      summary: 'List the templates'
+      description: >-
+        The published templates of the platform library and the organization's own (S-K7): metadata, compatibility facts, the reuse the permissions allow, the licence, a safe design summary and capability names. Never file contents, paths or object keys. Text search is over the published metadata, Arabic or English. Requires `builder:read`. 404 while the flag `knowledge.customer_templates` is off.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.customer_templates
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - {
+            name: q,
+            in: query,
+            required: false,
+            description: 'Free text.',
+            schema: { type: string },
+          }
+        - {
+            name: type,
+            in: query,
+            required: false,
+            description: 'Resource type.',
+            schema: { type: string },
+          }
+        - {
+            name: platform,
+            in: query,
+            required: false,
+            description: 'Platform.',
+            schema: { type: string, enum: [WEB, MOBILE, BACKEND, FULL_STACK, CROSS_PLATFORM] },
+          }
+        - {
+            name: framework,
+            in: query,
+            required: false,
+            description: 'Framework.',
+            schema: { type: string },
+          }
+        - {
+            name: category,
+            in: query,
+            required: false,
+            description: 'Category.',
+            schema: { type: string },
+          }
+        - { name: tag, in: query, required: false, description: 'Tag.', schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderTemplatePage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/templates/{id}:
+    get:
+      operationId: getBuilderTemplate
+      tags: [builder]
+      summary: 'One template'
+      description: >-
+        A published template. A resource that is not active, published, licence-eligible and reuse-permitted is 404, indistinguishable from a missing one. Requires `builder:read`.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.customer_templates
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderTemplate' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/template-recommendations:
+    post:
+      operationId: recommendBuilderTemplates
+      tags: [builder]
+      summary: 'Recommend templates for a requirement'
+      description: >-
+        The recommendation engine (S-K5) answered for a customer: hard filters first, then the weighted model over eligible templates only, then the strategy. A user's choice is honoured or explained, never substituted; an unusable choice that the customer may not see is reported as not found. Nothing is returned about resources the customer may not see (no exclusion list, no document text, no paths). Records the customer's own usage events for the top results. Requires `builder:read`.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.customer_templates
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderTemplateRecommendationRequest' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderTemplateRecommendation' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/projects/from-template:
+    post:
+      operationId: createBuilderProjectFromTemplate
+      tags: [builder]
+      summary: 'Start a project from a template'
+      description: >-
+        Copies the pinned, immutable version of a published template into a NEW web-app project of the organization through the safe-change pipeline (path, secret and canary checks, size limits, dependency policy, one Git commit). The template is never modified. Eligibility is re-checked for the adaptation mode (default ADAPTIVE) at copy time: an unusable template answers `knowledge_template_incompatible` (409) with the reasons, a changed template 409. Binary and unstored files are not copied and are listed. Records the customer's usage events, a link from the project to the pinned version, and the audit event `knowledge.template.copied`. Requires `builder:write`; needs `app_builder.enabled` and `knowledge.customer_templates`.
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.customer_templates
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderFromTemplateRequest' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderFromTemplateResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/generation-plans:
+    post:
+      operationId: createBuilderGenerationPlan
+      tags: [builder]
+      summary: 'Record a generation plan'
+      description: >-
+        Records the requirement and the deterministic template selection for a project of the organization. Executing the plan (generation) is the run engine with a model (S-K6) and is reported as blocked in the plan. Requires `builder:write`; audited (`knowledge.plan.created`).
+      x-nuzm-permission: builder:write
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.customer_templates
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderGenerationPlanRequest' }
+      responses:
+        '201':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderGenerationPlan' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/builder/generation-plans/{id}:
+    get:
+      operationId: getBuilderGenerationPlan
+      tags: [builder]
+      summary: 'One generation plan'
+      description: >-
+        A plan of this organization (another organization's plan is a 404). Requires `builder:read`.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.customer_templates
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderGenerationPlan' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   # <<< AI Intelligence Center paths
 components:
   parameters:
@@ -22809,4 +23003,213 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
+    BuilderTemplate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        versionId: { type: string, format: uuid }
+        versionSeq: { type: integer }
+        semver: { type: string, nullable: true }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        resourceType: { type: string }
+        platform: { type: string, nullable: true }
+        frameworks: { type: array, items: { type: string } }
+        languages: { type: array, items: { type: string } }
+        category: { type: string, nullable: true }
+        tags: { type: array, items: { type: string } }
+        ownership: { type: string, enum: [PLATFORM, OWN] }
+        reuse:
+          type: object
+          properties:
+            scope: { type: string }
+            componentReuse: { type: boolean }
+            starterEligible: { type: boolean }
+            architectureReference: { type: boolean }
+            usages:
+              {
+                type: array,
+                items: { type: string, enum: [FULL_STARTER, COMPONENTS, ARCHITECTURE_ONLY] },
+              }
+        license:
+          type: object
+          properties:
+            spdx: { type: string, nullable: true }
+            verdict: { type: string }
+        design:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: 'Safe design summary: modes, traits, role colours, font families, base unit. No paths, no evidence.'
+        capabilities: { type: array, items: { type: string } }
+        componentCount: { type: integer }
+        previewCount: { type: integer }
+    BuilderTemplatePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BuilderTemplate' }
+        nextCursor: { type: string, nullable: true }
+    BuilderTemplateRecommendationRequest:
+      type: object
+      properties:
+        text: { type: string, maxLength: 2000 }
+        platform: { type: string, enum: [WEB, MOBILE, BACKEND, FULL_STACK, CROSS_PLATFORM] }
+        frameworks: { type: array, maxItems: 10, items: { type: string } }
+        frameworksRequired: { type: boolean }
+        category: { type: string }
+        plan: { type: string }
+        mode: { type: string, enum: [STRICT, ADAPTIVE, CREATIVE], default: ADAPTIVE }
+        strategy:
+          {
+            type: string,
+            enum: [AUTO_SELECT, USER_SELECTED, ADMIN_DEFAULT, GENERATE_FROM_SCRATCH],
+            default: AUTO_SELECT,
+          }
+        resourceId: { type: string, format: uuid }
+        design:
+          type: object
+          properties:
+            darkMode: { type: boolean }
+            rtl: { type: boolean }
+            arabicFont: { type: boolean }
+            tailwind: { type: boolean }
+            primaryColor: { type: string }
+        limit: { type: integer, minimum: 1, maximum: 20, default: 10 }
+    BuilderTemplateCandidate:
+      type: object
+      properties:
+        resourceId: { type: string, format: uuid }
+        versionId: { type: string, format: uuid, nullable: true }
+        versionSeq: { type: integer, nullable: true }
+        name: { type: string }
+        resourceType: { type: string }
+        platform: { type: string, nullable: true }
+        frameworks: { type: array, items: { type: string } }
+        category: { type: string, nullable: true }
+        score: { type: number }
+        confidence: { type: number }
+        gated: { type: boolean }
+        dimensions:
+          { type: array, items: { $ref: '#/components/schemas/KnowledgeRecommendationDimension' } }
+        usage:
+          type: object
+          properties:
+            recommended: { type: string, nullable: true }
+            allowed: { type: array, items: { type: string } }
+        license:
+          type: object
+          properties:
+            spdx: { type: string, nullable: true }
+            verdict: { type: string }
+        components:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+    BuilderTemplateRecommendation:
+      type: object
+      required: [decision, ranked, stats]
+      properties:
+        requirement: { type: object, additionalProperties: true }
+        decision:
+          type: object
+          properties:
+            requested: { type: string }
+            strategy: { type: string }
+            selectedResourceId: { type: string, format: uuid, nullable: true }
+            notes: { type: array, items: { type: string } }
+        selected:
+          nullable: true
+          allOf:
+            - { $ref: '#/components/schemas/BuilderTemplateCandidate' }
+        userChoice:
+          type: object
+          nullable: true
+          properties:
+            resourceId: { type: string, format: uuid }
+            reasons: { type: array, items: { type: string } }
+        ranked:
+          type: array
+          items: { $ref: '#/components/schemas/BuilderTemplateCandidate' }
+        alternatives:
+          type: array
+          items: { $ref: '#/components/schemas/BuilderTemplateCandidate' }
+        stats:
+          type: object
+          properties:
+            eligible: { type: integer }
+            ranked: { type: integer }
+    BuilderFromTemplateRequest:
+      type: object
+      required: [resourceId, name]
+      properties:
+        resourceId: { type: string, format: uuid }
+        versionId:
+          {
+            type: string,
+            format: uuid,
+            description: 'The version the customer was shown; a different active version answers 409.',
+          }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        adaptationMode: { type: string, enum: [STRICT, ADAPTIVE, CREATIVE], default: ADAPTIVE }
+        planId: { type: string, format: uuid }
+    BuilderFromTemplateResult:
+      type: object
+      properties:
+        project:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            type: { type: string }
+        versionId: { type: string, format: uuid }
+        commit: { type: string }
+        branch: { type: string }
+        template:
+          type: object
+          properties:
+            resourceId: { type: string, format: uuid }
+            versionId: { type: string, format: uuid }
+            versionSeq: { type: integer, nullable: true }
+            name: { type: string }
+            mode: { type: string }
+            usage: { type: string, nullable: true }
+        license:
+          type: object
+          properties:
+            spdx: { type: string, nullable: true }
+        files:
+          type: object
+          properties:
+            copied: { type: integer }
+            skipped:
+              type: array
+              items:
+                type: object
+                properties:
+                  path: { type: string }
+                  reason: { type: string }
+        risks: { type: array, items: { type: object, additionalProperties: true } }
+    BuilderGenerationPlanRequest:
+      allOf:
+        - { $ref: '#/components/schemas/BuilderTemplateRecommendationRequest' }
+        - type: object
+          required: [projectId]
+          properties:
+            projectId: { type: string, format: uuid }
+    BuilderGenerationPlan:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        status: { type: string, enum: [PLANNED, RUNNING, COMPLETED, FAILED, CANCELLED] }
+        strategy: { type: string }
+        mode: { type: string }
+        requirements: { type: object, additionalProperties: true }
+        plan: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time, nullable: true }
     # <<< AI Intelligence Center schemas

@@ -7552,6 +7552,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/builder/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the templates
+         * @description The published templates of the platform library and the organization's own (S-K7): metadata, compatibility facts, the reuse the permissions allow, the licence, a safe design summary and capability names. Never file contents, paths or object keys. Text search is over the published metadata, Arabic or English. Requires `builder:read`. 404 while the flag `knowledge.customer_templates` is off.
+         */
+        get: operations["listBuilderTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One template
+         * @description A published template. A resource that is not active, published, licence-eligible and reuse-permitted is 404, indistinguishable from a missing one. Requires `builder:read`.
+         */
+        get: operations["getBuilderTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/template-recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend templates for a requirement
+         * @description The recommendation engine (S-K5) answered for a customer: hard filters first, then the weighted model over eligible templates only, then the strategy. A user's choice is honoured or explained, never substituted; an unusable choice that the customer may not see is reported as not found. Nothing is returned about resources the customer may not see (no exclusion list, no document text, no paths). Records the customer's own usage events for the top results. Requires `builder:read`.
+         */
+        post: operations["recommendBuilderTemplates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/from-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a project from a template
+         * @description Copies the pinned, immutable version of a published template into a NEW web-app project of the organization through the safe-change pipeline (path, secret and canary checks, size limits, dependency policy, one Git commit). The template is never modified. Eligibility is re-checked for the adaptation mode (default ADAPTIVE) at copy time: an unusable template answers `knowledge_template_incompatible` (409) with the reasons, a changed template 409. Binary and unstored files are not copied and are listed. Records the customer's usage events, a link from the project to the pinned version, and the audit event `knowledge.template.copied`. Requires `builder:write`; needs `app_builder.enabled` and `knowledge.customer_templates`.
+         */
+        post: operations["createBuilderProjectFromTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a generation plan
+         * @description Records the requirement and the deterministic template selection for a project of the organization. Executing the plan (generation) is the run engine with a model (S-K6) and is reported as blocked in the plan. Requires `builder:write`; audited (`knowledge.plan.created`).
+         */
+        post: operations["createBuilderGenerationPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One generation plan
+         * @description A plan of this organization (another organization's plan is a 404). Requires `builder:read`.
+         */
+        get: operations["getBuilderGenerationPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -13903,6 +14023,201 @@ export interface components {
         KnowledgeDefaultRemoved: {
             /** Format: uuid */
             id?: string;
+        };
+        BuilderTemplate: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            versionId?: string;
+            versionSeq?: number;
+            semver?: string | null;
+            name?: string;
+            description?: string | null;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            languages?: string[];
+            category?: string | null;
+            tags?: string[];
+            /** @enum {string} */
+            ownership?: "PLATFORM" | "OWN";
+            reuse?: {
+                scope?: string;
+                componentReuse?: boolean;
+                starterEligible?: boolean;
+                architectureReference?: boolean;
+                usages?: ("FULL_STARTER" | "COMPONENTS" | "ARCHITECTURE_ONLY")[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            /** @description Safe design summary: modes, traits, role colours, font families, base unit. No paths, no evidence. */
+            design?: {
+                [key: string]: unknown;
+            } | null;
+            capabilities?: string[];
+            componentCount?: number;
+            previewCount?: number;
+        };
+        BuilderTemplatePage: {
+            items: components["schemas"]["BuilderTemplate"][];
+            nextCursor: string | null;
+        };
+        BuilderTemplateRecommendationRequest: {
+            text?: string;
+            /** @enum {string} */
+            platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            frameworks?: string[];
+            frameworksRequired?: boolean;
+            category?: string;
+            plan?: string;
+            /**
+             * @default ADAPTIVE
+             * @enum {string}
+             */
+            mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /**
+             * @default AUTO_SELECT
+             * @enum {string}
+             */
+            strategy?: "AUTO_SELECT" | "USER_SELECTED" | "ADMIN_DEFAULT" | "GENERATE_FROM_SCRATCH";
+            /** Format: uuid */
+            resourceId?: string;
+            design?: {
+                darkMode?: boolean;
+                rtl?: boolean;
+                arabicFont?: boolean;
+                tailwind?: boolean;
+                primaryColor?: string;
+            };
+            /** @default 10 */
+            limit?: number;
+        };
+        BuilderTemplateCandidate: {
+            /** Format: uuid */
+            resourceId?: string;
+            /** Format: uuid */
+            versionId?: string | null;
+            versionSeq?: number | null;
+            name?: string;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            category?: string | null;
+            score?: number;
+            confidence?: number;
+            gated?: boolean;
+            dimensions?: components["schemas"]["KnowledgeRecommendationDimension"][];
+            usage?: {
+                recommended?: string | null;
+                allowed?: string[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            components?: {
+                name?: string;
+            }[];
+        };
+        BuilderTemplateRecommendation: {
+            requirement?: {
+                [key: string]: unknown;
+            };
+            decision: {
+                requested?: string;
+                strategy?: string;
+                /** Format: uuid */
+                selectedResourceId?: string | null;
+                notes?: string[];
+            };
+            selected?: components["schemas"]["BuilderTemplateCandidate"] | null;
+            userChoice?: {
+                /** Format: uuid */
+                resourceId?: string;
+                reasons?: string[];
+            } | null;
+            ranked: components["schemas"]["BuilderTemplateCandidate"][];
+            alternatives?: components["schemas"]["BuilderTemplateCandidate"][];
+            stats: {
+                eligible?: number;
+                ranked?: number;
+            };
+        };
+        BuilderFromTemplateRequest: {
+            /** Format: uuid */
+            resourceId: string;
+            /**
+             * Format: uuid
+             * @description The version the customer was shown; a different active version answers 409.
+             */
+            versionId?: string;
+            name: string;
+            /**
+             * @default ADAPTIVE
+             * @enum {string}
+             */
+            adaptationMode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /** Format: uuid */
+            planId?: string;
+        };
+        BuilderFromTemplateResult: {
+            project?: {
+                /** Format: uuid */
+                id?: string;
+                name?: string;
+                type?: string;
+            };
+            /** Format: uuid */
+            versionId?: string;
+            commit?: string;
+            branch?: string;
+            template?: {
+                /** Format: uuid */
+                resourceId?: string;
+                /** Format: uuid */
+                versionId?: string;
+                versionSeq?: number | null;
+                name?: string;
+                mode?: string;
+                usage?: string | null;
+            };
+            license?: {
+                spdx?: string | null;
+            };
+            files?: {
+                copied?: number;
+                skipped?: {
+                    path?: string;
+                    reason?: string;
+                }[];
+            };
+            risks?: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderGenerationPlanRequest: components["schemas"]["BuilderTemplateRecommendationRequest"] & {
+            /** Format: uuid */
+            projectId: string;
+        };
+        BuilderGenerationPlan: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** @enum {string} */
+            status?: "PLANNED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+            strategy?: string;
+            mode?: string;
+            requirements?: {
+                [key: string]: unknown;
+            };
+            plan?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string | null;
         };
     };
     responses: {
@@ -29312,6 +29627,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeDefaultRemoved"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listBuilderTemplates: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Free text. */
+                q?: string;
+                /** @description Resource type. */
+                type?: string;
+                /** @description Platform. */
+                platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+                /** @description Framework. */
+                framework?: string;
+                /** @description Category. */
+                category?: string;
+                /** @description Tag. */
+                tag?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplatePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBuilderTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplate"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    recommendBuilderTemplates: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderTemplateRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplateRecommendation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createBuilderProjectFromTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderFromTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFromTemplateResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createBuilderGenerationPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderGenerationPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBuilderGenerationPlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationPlan"];
                 };
             };
             401: components["responses"]["Problem"];

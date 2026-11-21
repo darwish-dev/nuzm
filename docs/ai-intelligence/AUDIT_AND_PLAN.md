@@ -36,7 +36,7 @@ The prompt conflicts with higher sources in the following places. Each is record
 | C3 | "BullMQ with Redis if no suitable queue" | ADR-007: durable work is `platform.operations` + outbox, claimed by the worker; no BullMQ queues exist | Use `platform.operations` job kinds; Redis is not introduced |
 | C4 | pgvector "if available" | No `vector` anywhere in `packages/db` or `spec`; production Postgres is a provider-managed service (ADR-050) whose extensions are unknown | Treat as unsupported until a capability probe says otherwise (CLAUDE.md §4 "unknown = unsupported"). Ship lexical + metadata + symbol retrieval first |
 | C5 | Run installs/builds/tests/previews of uploaded code in a sandbox | ADR-015 / D-21 **open**; only `mock` and `local-dev` runtimes exist (`isolation: 'none'`, refuses outside dev) | No execution of uploaded code anywhere until D-21 is decided and an `isolated` runtime passes the escape suite |
-| C6 | Coding agent with file/search/edit/run tools, built on "the existing Claude integration" | `ModelAdapter` contract has `chat`, `structured-output`, `long-context`, `embeddings`, `vision` only — no tool use; live Anthropic use needs HG-09-01 / D-18; hosted Claude Code is D-38 (counsel) | Extend the adapter contract (ADR + spec) for tool use; the engine uses the metered gateway, never the Claude Code binary or a customer subscription |
+| C6 | Coding agent with file/search/edit/run tools, built on "the existing Claude integration" | `ModelAdapter` contract has `chat`, `structured-output`, `long-context`, `embeddings`, `vision` only — no tool use; live Anthropic use needs HG-09-01 / D-18; hosted Claude Code is D-38 (counsel) | Extend the adapter contract (ADR + spec) for tool use; the engine uses the metered gateway, never the Claude Code binary or a customer subscription. **Resolved 2026-11-22 (D-46 decided): ADR-066 and SCR-K-10 define a staged, provider-neutral engine; read-only tools first; execution tools stay blocked on D-21; nothing implemented yet** |
 | C7 | GitHub import of private repos via GitHub App/OAuth | D-39 decided (Nuzm-owned GitHub App, minimum permissions); HG-AS-01 (App registration, vault refs) pending | Reuse `GitHostAdapter` (`appbuilder/internal/studio/git-host.ts`); real imports BLOCKED until HG-AS-01; fake adapter for tests |
 | C8 | "Malware scanning" | Only a pattern scanner exists (`marketplace/internal/scan.ts`) — it is not an antivirus | Do not claim malware scanning. Pattern scan + secret scan + executable/binary policy now; an AV engine is an owner decision |
 | C9 | Figma references "where authorized integration is available" | No Figma product integration in the repo | Out of scope until an owner decision; screenshots/images accepted as references |
@@ -178,10 +178,22 @@ model are `BLOCKED`, not `PASS`.
 | S-K3 | Project intelligence: framework registry, manifests with evidence/confidence, architecture graph tables, component discovery (TS/JS first) | Yes |
 | S-K4 | Theme Design DNA from static analysis; Flutter analysis with a parser decision; screenshot references | Yes (previews B) |
 | S-K5 | Retrieval: metadata + lexical + symbol, permission-aware, ranked output; recommendation engine with hard filters and configurable weights | Yes |
-| S-K6 | Orchestration: plan, context assembly, workspace copy/diff, integration with run engine; coding agent only via a tool-use adapter extension | Plan/copy yes; model use B |
+| S-K6 | Orchestration: plan, context assembly, workspace copy/diff, integration with run engine; coding agent only via a tool-use adapter extension | **DONE as single-call adaptation (`81caed9`)**; the coding agent is the Agentic Coding Engine below (D-46 decided 2026-11-22) |
 | S-K7 | Customer experience (gallery, start-from-template, import, adaptation modes, chat on current state) | After S-K5/6 |
 | S-K8 | Quality evidence, analytics, cost; build/visual validation | Static yes; build/visual B (D-21) |
 | S-K9 | Hardening: security, tenant isolation, performance, recovery, runbooks | After the above |
+
+### 5b. Agentic Coding Engine slices (D-46, ADR-066, SCR-K-10) — all NOT STARTED
+| Slice | Content | Can start now? |
+|---|---|---|
+| S-AG0 | S-K6 single-call adaptation preserved as the fallback | Done (`81caed9`) |
+| S-AG1 | `ModelAdapter` v1.1 contract, negotiation, conformance kit, scripted mock | Yes (no provider) |
+| S-AG2 | Read-only tool registry and execution gateway (`read_file`, `list_files`, `search_code`, `inspect_project`), limits, audit, metering, isolation | Yes (mock) |
+| S-AG3 | Agent loop: plan, explore, propose, static validation, apply on the AI branch, checkpoints, recovery, fallback; UI timeline | After S-AG1/2 |
+| S-AG4 | OpenAI and Google adapters, Anthropic at 1.1, probes, capability matrix | **BLOCKED** (HG-09-01, D-18, credentials, provider selection) |
+| S-AG5 | Golden tasks, benchmarks, thresholds, rollout gates, security review | After S-AG4 |
+| S-AG6 | Execution Gateway and tools to run tests and builds | **BLOCKED** (D-21 and the escape suite) |
+Production for all of them stays BLOCKED on D-42. Acceptance criteria AC-AG-01..12 are in SCR-K-10.
 
 ## 6. Isolation rules that must hold in every slice
 1. Customer-imported repositories and customer-authored templates never enter the global library; no code path from `builder.*` to `knowledge.*` writes.
@@ -201,7 +213,7 @@ model are `BLOCKED`, not `PASS`.
 | D-43 | Licence policy for third-party themes/projects (most marketplace themes forbid redistribution or SaaS derivatives). *Unknown or restrictive ⇒ not activatable; counsel review before any commercial theme is used.* | Legal exposure |
 | D-44 | Malware scanning: ClamAV-class engine run where, or none and say so. *Say so; pattern scan only.* | Security posture |
 | D-45 | Dart/Flutter parsing of foreign code without running the SDK (tree-sitter vs regex heuristics). *tree-sitter, bundled, no execution.* | Analyzer accuracy |
-| D-46 | Model adapter tool-use extension and the coding-agent tool set. *Spec change first; metered gateway only.* | Customer-visible behaviour and cost |
+| D-46 | Model adapter tool-use extension and the coding-agent tool set. *Spec change first; metered gateway only.* | Customer-visible behaviour and cost. **DECIDED 2026-11-22 (owner): staged, provider-neutral engine, read-only tools first, execution blocked on D-21 (ADR-066, SCR-K-10)** |
 | D-47 | Embeddings: provider/model, residency, and whether Postgres `vector` exists on the managed service. *Defer; lexical + symbol first.* | Semantic search |
 | D-48 | Default ranking weights (25/20/20/15/10/10) accepted as initial config only. *Yes, editable, evaluated.* | Recommendation quality |
 | D-49 | Per-resource "AI processing permitted" defaults and who may change them. *Off by default; platform admins with `publish`.* | Data governance |

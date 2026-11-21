@@ -1,7 +1,7 @@
 # SCR-K-09 — Adapting a copied template (AI Intelligence Center, slice S-K6)
 
 Status: **IMPLEMENTED on branch `claude/run-it-dc3d6a`, pending owner acceptance** · Date: 2026-11-22 · Governed by ADR-065 (point 9, addendum H), SCR-K-08 (copy), AUDIT_AND_PLAN §4 and §6 (isolation rules 3 and 5), D-48.
-Customer realm, behind the organization flag `knowledge.generation` (default **off**; an organization row beats the global row; **404** while off); starting a run also needs `app_builder.enabled`, the AI permission and a configured model provider. Production stays blocked on D-42. **D-46 (tool-use adapter extension, coding agent) is NOT decided and NOT implemented here.**
+Customer realm, behind the organization flag `knowledge.generation` (default **off**; an organization row beats the global row; **404** while off); starting a run also needs `app_builder.enabled`, the AI permission and a configured model provider. Production stays blocked on D-42. **The coding agent is NOT built here** (D-46, decided later on 2026-11-22 as a staged target architecture: ADR-066, SCR-K-10; this single-call adaptation is its preserved fallback, S-AG0).
 
 ## 1. What it adds
 1. **Baseline of a copy**: at copy time the link row records the project and the baseline (path → sha256 of exactly the files written). The table is append-only, so the baseline cannot drift.

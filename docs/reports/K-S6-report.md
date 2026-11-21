@@ -58,7 +58,7 @@ Not run: `pnpm verify:full`; the full API integration suite (the knowledge, app-
 - Known gaps: the token estimate is characters / 3 (pessimistic, not a billing figure); proposals larger than 40 patches are rejected, not split; no merge UI for the AI branch; a run resumed after a crash BETWEEN applying the change and saving the checkpoint would fail with `base_mismatch` rather than re-apply (the project is then already adapted; fail-safe).
 
 ## G. Human gates and live checks still needed
-- **D-46 (OPEN):** the `ModelAdapter` tool-use extension and the coding-agent tool set (read/search/edit/run in a sandbox) need your decision and a spec change to `docs/09`. Nothing here depends on it, and nothing here claims to be it.
+- **D-46 (OPEN when this report was written; DECIDED 2026-11-22 by the owner):** staged Agentic Coding Engine as the target, see ADR-066 and SCR-K-10. Nothing here depends on it, and nothing here claims to be it; the single-call adaptation is the preserved fallback (S-AG0).
 - **Model quality NOT VERIFIED:** a real provider, real credentials and a real run (HG for production-billable calls) are needed to judge adaptation quality; tests use a scripted mock and prove plumbing and safety only.
 - **D-21** blocks building, running or previewing an adapted project. **D-42** blocks production activation. D-45, D-47 unchanged.
 

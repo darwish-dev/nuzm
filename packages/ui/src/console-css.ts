@@ -927,6 +927,8 @@ a.nzc-method:hover { border-color: var(--nzc-accent); transform: translateY(-2px
 .nzc-split-list li[data-state="done"] > i { background: #bcdccb; color: #14181b; }
 .nzc-split-main { display: flex; flex-direction: column; min-inline-size: 0; padding: 8px 24px 24px; }
 .nzc-split-top { display: flex; justify-content: flex-end; padding-block: 8px; }
+.nzc-split-back { margin-block-start: auto; align-self: center; padding: 10px 14px; color: var(--nz-text-muted, #9aa3a0); text-decoration: none; border-radius: 10px; font-size: 14px; }
+.nzc-split-back:hover, .nzc-split-back:focus-visible { color: var(--nz-text, #fff); background: color-mix(in srgb, currentColor 8%, transparent); }
 .nzc-split-card { margin: auto; inline-size: min(100%, 440px); display: grid; gap: 16px; padding-block: 24px; }
 .nzc-split-card h1 { margin: 0; text-align: center; font-size: 28px; letter-spacing: -0.02em; }
 .nzc-split-card-sub { margin: -6px 0 4px; text-align: center; color: var(--nzc-muted); }

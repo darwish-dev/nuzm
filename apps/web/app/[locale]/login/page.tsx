@@ -16,7 +16,7 @@ export default async function Login({
   const { error, returnTo: rt } = await searchParams;
   if (!isLocale(locale)) notFound();
   // only same-site relative paths are followed (the API validates returnTo again for the identity-provider flow)
-  const next = safeNext(rt, `/${locale}`);
+  const next = safeNext(rt, `/${locale}/console`);
   const returnTo = encodeURIComponent(next);
   return (
     <AuthShell

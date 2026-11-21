@@ -1,6 +1,6 @@
-import { ServiceArtwork } from '../../../components/ServiceArtwork';
-import { DashboardSlider } from '../../../components/DashboardSlider';
-import { DashboardStatus } from '../../../components/DashboardStatus';
+import { ServiceArtwork } from '../../../../components/ServiceArtwork';
+import { DashboardSlider } from '../../../../components/DashboardSlider';
+import { DashboardStatus } from '../../../../components/DashboardStatus';
 import { notFound, redirect } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, formatMinor, isLocale, t } from '@nuzm/i18n';
@@ -15,11 +15,11 @@ import {
   sortAttention,
   type AttentionItem,
   type StatusRow,
-} from '../../../lib/dashboard-status';
-import { OP_TERMINAL, unwrapCall, type Instance, type Paged } from '../../../lib/compute';
-import { serverCompute } from '../../../lib/compute-server';
-import { requireSession } from '../../../lib/server';
-import { flagEnabled, visibleServices } from '../../../lib/services';
+} from '../../../../lib/dashboard-status';
+import { OP_TERMINAL, unwrapCall, type Instance, type Paged } from '../../../../lib/compute';
+import { serverCompute } from '../../../../lib/compute-server';
+import { requireSession } from '../../../../lib/server';
+import { flagEnabled, visibleServices } from '../../../../lib/services';
 
 /** A figure this role may not see, or that fails to load, is simply left out of the dashboard: nothing here is ever invented. */
 const safe = async <T,>(p: Promise<T>): Promise<T | null> => {

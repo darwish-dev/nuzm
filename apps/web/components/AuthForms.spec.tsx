@@ -50,7 +50,7 @@ describe('login form', () => {
     type(t('ar', 'field.email'), 'a@example.test');
     type(t('ar', 'field.password'), 'a long passphrase 2026');
     fireEvent.click(screen.getByRole('button', { name: t('ar', 'action.signin') }));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith('/ar'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/ar/console'));
   });
 
   it('shows one message for a wrong email or password, and a different one when rate limited', async () => {

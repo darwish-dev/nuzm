@@ -98,6 +98,7 @@ export const messages = {
     'actor.impersonator': 'دعم (انتحال هوية)',
 
     'auth.or': 'أو',
+    'auth.backToSite': 'العودة إلى الموقع',
     'auth.password.show': 'إظهار كلمة المرور',
     'auth.password.hide': 'إخفاء كلمة المرور',
     'auth.panel.label': 'عن نظم',
@@ -7187,6 +7188,7 @@ export const messages = {
     'actor.impersonator': 'Support (impersonation)',
 
     'auth.or': 'Or',
+    'auth.backToSite': 'Back to website',
     'auth.password.show': 'Show password',
     'auth.password.hide': 'Hide password',
     'auth.panel.label': 'About Nuzm',

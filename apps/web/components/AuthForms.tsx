@@ -66,7 +66,7 @@ export function LoginForm({ locale, next }: { locale: Locale; next?: string }) {
     const r = await browserApi().POST('/v1/auth/password/login', {
       body: { email: String(f.get('email')), password: String(f.get('password')) },
     });
-    if (r.response.ok) return window.location.assign(safeNext(next, `/${locale}`));
+    if (r.response.ok) return window.location.assign(safeNext(next, `/${locale}/console`));
     setBusy(false);
     setErr(
       t(

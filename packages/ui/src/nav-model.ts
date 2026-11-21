@@ -149,7 +149,7 @@ const within = (path: string, base: string) =>
 /** `/en/billing/x` → `/billing/x`; `/en` → `/`. */
 export function stripLocale(pathname: string, locale: string): string {
   const p = pathname.replace(/[?#].*$/, '').replace(/\/+$/, '');
-  if (p === `/${locale}` || p === '') return '/';
+  if (p === `/${locale}` || p === `/${locale}/console` || p === '') return '/';
   return p.startsWith(`/${locale}/`) ? p.slice(locale.length + 1) : p;
 }
 

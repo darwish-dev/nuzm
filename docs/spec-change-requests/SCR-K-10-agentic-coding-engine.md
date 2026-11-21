@@ -58,7 +58,7 @@ No change now. Planned, additive, each needing owner approval of the exact delta
 | Milestone | Content | Can start now? | Gate to close |
 |---|---|---|---|
 | **S-AG0** | S-K6 single-call adaptation (DONE, `81caed9`) | done | AC-AG-01 |
-| **S-AG1** | Contract v1.1 types, version negotiation, gateway support, conformance kit, scripted mock | Yes (no provider) | AC-AG-02, 03 |
+| **S-AG1** | Contract v1.1 types, version negotiation, gateway support, conformance kit, scripted mock | **DONE 2026-11-22** (report `docs/reports/AG-S1-report.md`) | AC-AG-02, 03 |
 | **S-AG2** | Read-only tool registry and execution gateway, limits, audit, metering, isolation, static-separation test | Yes (mock) | AC-AG-04, 05, 06, 07 |
 | **S-AG3** | Agent loop with checkpoints, recovery, cancellation, diffs, static validation, fallback; flag `knowledge.agentic_generation`; customer UI timeline | After S-AG1/2 | AC-AG-08, 11 |
 | **S-AG4** | OpenAI and Google adapters; Anthropic extended to 1.1; probes; capability matrix; owner-supplied sandbox credentials | **BLOCKED**: HG-09-01, D-18, credentials, provider selection | AC-AG-09 |
@@ -84,3 +84,14 @@ Claude Code (AI Studio S-A8, D-38) is tracked separately and is not a milestone 
 
 ## 9. What is NOT claimed
 No coding agent, tool calling, streaming tool calls or multi-provider support exists today. The only provider adapter is Anthropic at contract 1.0 plus a mock; no real-provider call has been verified. The S-K6 adaptation is a single structured call; its quality is NOT VERIFIED.
+
+## 10. S-AG1 implementation notes (2026-11-22): decisions taken inside this specification
+- **Where it lives:** types, helpers, stream assembler, error normalisation, mock and kit in `packages/adapters/model` (no dependency on the domain package: adapters stay below it); validation of tool-call ARGUMENTS against each tool's schema and the routing extension (`alsoRequires`) in `packages/domain`; negotiation, tool and streaming support in the gateway (`apps/api/.../gateway.service.ts`).
+- **Negotiation:** `effectiveCapabilities(contractVersion, declared)`: a 1.0 adapter keeps exactly its 1.0 capabilities (a 1.0 adapter that declares `tool-use` is NOT offered for tools); `streaming-tool-calls` and `parallel-tool-calls` need `tool-use`.
+- **Gateway:** `GatewayCall` gains `tools`, `toolChoice`, `maxToolCalls`, `stream`, `onChunk` and message `blocks`; `GatewayResult` gains `toolCalls` (declared tool, arguments satisfy the schema) and `rejectedToolCalls` (with reasons: the caller tells the model, nothing is executed). Tool specs are checked before anything is reserved; the outbound secret scan covers tool results, tool-call arguments and tool specs; a flagged usage estimate counts tool calls as output. An undeclared tool or malformed arguments from a provider fail that candidate (`invalid_response`, not retried on the same candidate).
+- **Streaming:** the gateway reads a stream through the assembler and reuses the same reservation, retry, fallback and settlement as `complete`. **A stream that fails after a chunk was delivered is neither retried nor repeated on another candidate** (a caller never receives a delta twice); a failure before the first chunk is retried like any call. Cancellation aborts the stream, releases the reservation and charges nothing.
+- **Public contract unchanged:** `GET /v1/ai/models` still lists only the five contract-1.0 capabilities; the OpenAPI delta for the 1.1 ones needs your approval (§7) and is deferred. Routing already uses all of them.
+- **Conformance semantics:** the kit runs the 1.0 cases, then the 1.1 cases. A 1.0 adapter must only satisfy the capability-consistency cases and is reported `skipped` for the rest; behaviour cases need a scenario driver (the mock has one; a live provider driver is S-AG4) and are `skipped`, never "passed", without one.
+- **Mock:** implements 1.1 (version `1.1.0`) with scripted tool calls; its tool-capable models are opt-in (`MOCK_TOOL_MODELS`), so every existing consumer sees the same two models and the same answers.
+- **Not in S-AG1 (dependencies for the next slices):** the tool registry and executors, per-run limits and tool-call audit/metering (S-AG2); the loop (S-AG3); any real provider, probe or live verification (S-AG4); the OpenAPI delta.
+

@@ -54,3 +54,7 @@ model access only through ModelAdapter v1.1 (Anthropic · OpenAI · Google · mo
 
 ## Implementation milestones
 S-AG0 (done: S-K6) · S-AG1 contract v1.1 and conformance · S-AG2 read-only tool gateway · S-AG3 agent loop on the mock · S-AG4 real provider adapters and verification · S-AG5 benchmarks and rollout gates · S-AG6 execution tools (BLOCKED on D-21). Detail, acceptance criteria and gates: SCR-K-10.
+
+## Progress
+- 2026-11-22: **S-AG1 done** (contract 1.1, negotiation, helpers, mock, gateway support, conformance kit; report `docs/reports/AG-S1-report.md`). Everything else in this ADR is still NOT implemented.
+

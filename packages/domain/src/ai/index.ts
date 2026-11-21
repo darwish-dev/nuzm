@@ -5,3 +5,4 @@ export * from './untrusted';
 export * from './moderation';
 export * from './ssrf';
 export * from './prompts';
+export * from './tools';

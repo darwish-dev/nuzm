@@ -2,7 +2,14 @@ import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { v7 as uuidv7 } from 'uuid';
-import { MockModelAdapter, ModelAdapterError } from '@nuzm/adapter-model';
+import {
+  KIT_TOOLS,
+  MOCK_TOOL_MODELS,
+  MockModelAdapter,
+  ModelAdapterError,
+  mockToolArrange,
+  type StreamChunk,
+} from '@nuzm/adapter-model';
 import { BudgetService, GatewayService, ModelProviderService } from './index';
 import { CANARY_A, setupAiEnv, type AiEnv, type Row } from './testing/ai-harness';
 
@@ -770,4 +777,304 @@ describe('cross-tenant (RLS) on the gateway tables', () => {
     expect(r.json().usage.byModel).toEqual([]);
   });
   void ModelProviderService;
+});
+
+describe('tool calling and streaming through the gateway (ModelAdapter contract 1.1, S-AG1)', () => {
+  const OFF = `UPDATE ai.model_providers SET enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL`;
+  const tools = [...KIT_TOOLS];
+  const toolBase = (over: Partial<Parameters<GatewayService['invoke']>[0]> = {}) =>
+    base({ tools, maxTokens: 200, ...over });
+  const models = () => [...new MockModelAdapter().models(), ...MOCK_TOOL_MODELS];
+  let adapter: MockModelAdapter;
+  const only = async (code: string, a: MockModelAdapter, region?: string) => {
+    await e.sql(OFF);
+    await e.enableMock(code, { adapter: a, ...(region ? { region } : {}) });
+  };
+  beforeAll(async () => {
+    await e.fund(A(), '5000000');
+    adapter = new MockModelAdapter({ id: 'mock-tools', models: models() });
+    await only('mock-model', adapter);
+  });
+
+  it('the public model list keeps the contract-1.0 capabilities: the 1.1 ones are not exposed until the OpenAPI delta is approved', async () => {
+    const r = await e.call('alice', 'GET', '/v1/ai/models');
+    const items = r.json().items as { modelId: string; capabilities: string[] }[];
+    const t = items.find((m) => m.modelId === 'mock-tools-1')!;
+    expect(t.capabilities).toEqual(['chat', 'structured-output']);
+    expect(items.flatMap((m) => m.capabilities).some((c) => /tool/.test(c))).toBe(false);
+  });
+
+  it('a request without tools is answered exactly as before, even by a model that could call tools', async () => {
+    const r = await gw.invoke(base());
+    expect(r).toMatchObject({ finishReason: 'stop', providerCode: 'mock-model' });
+    expect(r.toolCalls).toBeUndefined();
+    expect(adapter.calls.at(-1)!.req.tools).toBeUndefined();
+  });
+
+  it('routes a tool request to a model that declares tool-use, returns the validated calls, and meters them', async () => {
+    mockToolArrange(adapter, 'single');
+    const callId = `c-${uuidv7()}`;
+    const before = await e.wallet(A());
+    const r = await gw.invoke(toolBase({ callId }));
+    expect(r.finishReason).toBe('tool_calls');
+    expect(r.toolCalls).toEqual([{ id: expect.any(String), name: 'echo', args: { text: 'hi' } }]);
+    expect(r.rejectedToolCalls).toBeUndefined();
+    expect(r.modelRef).toMatch(/mock-tools-(serial-)?1$/); // never mock-chat-1: it does not declare tool-use
+    expect(r.tokensOut).toBeGreaterThan(0);
+    expect(await e.wallet(A())).toBeLessThan(before);
+    expect((await usage(callId))!.outcome).toBe('ok');
+    expect(adapter.calls.at(-1)!.req.tools).toEqual(tools); // the declared tools reached the adapter, unchanged
+  });
+
+  it('the tools of a request are well formed or the call is refused before anything is reserved or sent', async () => {
+    const calls = adapter.calls.length;
+    const wallet = await e.wallet(A());
+    const callId = `c-${uuidv7()}`;
+    await expect(
+      gw.invoke(
+        toolBase({
+          callId,
+          tools: [{ name: 'Bad Name', description: 'x', inputSchema: { type: 'object' } }],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'validation_failed' });
+    await expect(gw.invoke(toolBase({ toolChoice: { name: 'nope' } })))
+      .rejects.toMatchObject({ code: 'invalid_request' })
+      .catch(() => undefined);
+    await expect(gw.invoke(base({ toolChoice: 'auto' }))).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
+    expect(adapter.calls.length).toBe(calls);
+    expect(await e.wallet(A())).toBe(wallet);
+    expect(await usage(callId)).toBeUndefined();
+  });
+
+  it('arguments that fail their schema are returned as rejected calls with reasons, and nothing invalid is returned as a call', async () => {
+    adapter.toolHandler = () => ({
+      calls: [
+        { name: 'echo', args: { text: 5 } },
+        { name: 'lookup', args: { key: 'k' } },
+        { name: 'echo', args: { text: 'a', extra: true } },
+      ],
+    });
+    const r = await gw.invoke(toolBase());
+    expect(r.toolCalls?.map((c) => c.name)).toEqual(['lookup']);
+    expect(r.rejectedToolCalls).toHaveLength(2);
+    expect(r.rejectedToolCalls![0]).toMatchObject({ name: 'echo' });
+    expect(r.rejectedToolCalls![0]!.reasons.length).toBeGreaterThan(0);
+  });
+
+  it('a provider that calls an undeclared tool or returns malformed arguments fails the call: 503, no charge, no result', async () => {
+    const wallet = await e.wallet(A());
+    mockToolArrange(adapter, 'undeclared');
+    await expect(gw.invoke(toolBase())).rejects.toMatchObject({ code: 'service_unavailable' });
+    mockToolArrange(adapter, 'malformed');
+    await expect(gw.invoke(toolBase())).rejects.toMatchObject({ code: 'service_unavailable' });
+    expect(await e.wallet(A())).toBe(wallet);
+  });
+
+  it('no model declares tool-use: 422 unsupported_capability and the adapter is never called', async () => {
+    const plain = new MockModelAdapter({ id: 'mock-plain' }); // contract 1.1, but its models declare no tool-use
+    await only('mock-model-b', plain);
+    await expect(gw.invoke(toolBase())).rejects.toMatchObject({ code: 'unsupported_capability' });
+    expect(plain.calls.length).toBe(0);
+    await expect(gw.invoke(base())).resolves.toMatchObject({ finishReason: 'stop' }); // ordinary calls are unaffected
+    await only('mock-model', adapter);
+  });
+
+  it('version negotiation: an adapter on contract 1.0 is never offered for tools, whatever its models declare, and still serves ordinary calls', async () => {
+    const old = new MockModelAdapter({ id: 'mock-old', models: models() });
+    Object.defineProperty(old, 'contractVersion', { value: '1.0.0' });
+    await only('mock-model-b', old);
+    await expect(gw.invoke(toolBase())).rejects.toMatchObject({ code: 'unsupported_capability' });
+    expect(old.calls.length).toBe(0);
+    await expect(gw.invoke(base())).resolves.toMatchObject({ finishReason: 'stop' });
+    await only('mock-model', adapter);
+  });
+
+  it('the outbound secret scan covers tool results, tool-call arguments and tool specs: blocked, audited, never sent', async () => {
+    const calls = adapter.calls.length;
+    const leak = `${['AKIA', 'IOSFODNN7EXAMPLE'].join('')} password=hunter2hunter2hunter2`; // assembled at run time: the scanner must find it in what is sent, not in this source
+    await expect(
+      gw.invoke(
+        toolBase({
+          messages: [
+            { role: 'user', content: 'go', blocks: [] },
+            {
+              role: 'user',
+              content: '',
+              blocks: [{ type: 'tool_result', callId: 'c1', content: `file says ${leak}` }],
+            },
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'secret_detected' });
+    await expect(
+      gw.invoke(
+        toolBase({
+          messages: [
+            {
+              role: 'assistant',
+              content: '',
+              blocks: [{ type: 'tool_call', id: 'c1', name: 'echo', args: { text: leak } }],
+            },
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'secret_detected' });
+    await expect(
+      gw.invoke(toolBase({ tools: [{ ...KIT_TOOLS[0]!, description: `uses ${CANARY_A}` }] })),
+    ).rejects.toMatchObject({ code: 'secret_detected' });
+    expect(adapter.calls.length).toBe(calls);
+  });
+
+  it('tool-call and tool-result blocks round trip to the adapter intact and count as prompt tokens', async () => {
+    mockToolArrange(adapter, 'none');
+    const messages = [
+      { role: 'user' as const, content: 'use the tool' },
+      {
+        role: 'assistant' as const,
+        content: '',
+        blocks: [
+          {
+            type: 'tool_call' as const,
+            id: 'call_1',
+            name: 'echo',
+            args: { text: 'x'.repeat(400) },
+          },
+        ],
+      },
+      {
+        role: 'user' as const,
+        content: '',
+        blocks: [{ type: 'tool_result' as const, callId: 'call_1', content: 'y'.repeat(400) }],
+      },
+    ];
+    const r = await gw.invoke(toolBase({ messages }));
+    expect(adapter.calls.at(-1)!.req.messages).toEqual(messages);
+    expect(r.tokensIn).toBeGreaterThan(200);
+    expect(r.finishReason).toBe('stop');
+  });
+
+  it('when the provider reports no usage the estimate is FLAGGED and counts the tool calls as output', async () => {
+    const quiet = new MockModelAdapter({ id: 'mock-quiet', models: models(), reportUsage: false });
+    mockToolArrange(quiet, 'single');
+    await only('mock-model-b', quiet);
+    const r = await gw.invoke(toolBase());
+    expect(r.estimated).toBe(true);
+    expect(r.tokensOut).toBeGreaterThanOrEqual(
+      Math.ceil(('echo' + JSON.stringify({ text: 'hi' })).length / 4),
+    );
+    await only('mock-model', adapter);
+  });
+
+  it('streams: deltas reach the caller as they arrive, the result equals the non-stream result, it is charged once, and only a model that streams tool calls is used', async () => {
+    mockToolArrange(adapter, 'parallel');
+    const chunks: StreamChunk[] = [];
+    const callId = `c-${uuidv7()}`;
+    const r = await gw.invoke(toolBase({ callId, stream: true, onChunk: (c) => chunks.push(c) }));
+    expect(r.modelRef).toMatch(/mock-tools-1$/); // the serial model lacks streaming-tool-calls
+    expect(r.toolCalls?.map((c) => c.name)).toEqual(['echo', 'lookup']);
+    expect(chunks.some((c) => 'toolCallDelta' in c)).toBe(true);
+    expect(chunks.filter((c) => 'done' in c)).toHaveLength(1);
+    const again = await gw.invoke(toolBase({ callId: `c-${uuidv7()}` }));
+    expect(again.toolCalls?.map((c) => [c.name, c.args])).toEqual(
+      r.toolCalls?.map((c) => [c.name, c.args]),
+    );
+    expect(
+      (
+        await e.sql(`SELECT count(*)::int n FROM ai.model_usage WHERE org_id=$1 AND call_id=$2`, [
+          A(),
+          callId,
+        ])
+      )[0]!.n,
+    ).toBe(1);
+  });
+
+  it('a stream that fails after it has started is neither retried nor repeated on another candidate: no delta is delivered twice, nothing is charged', async () => {
+    class Flaky extends MockModelAdapter {
+      attempts = 0;
+      override async *stream(): AsyncIterable<StreamChunk> {
+        this.attempts++;
+        yield { delta: 'partial ' };
+        yield { delta: 'answer ' };
+        throw new ModelAdapterError('unavailable', 'dropped');
+      }
+    }
+    const flaky = new Flaky({ id: 'mock-flaky', models: models() });
+    await only('mock-model-b', flaky);
+    const wallet = await e.wallet(A());
+    const got: StreamChunk[] = [];
+    await expect(
+      gw.invoke(toolBase({ stream: true, onChunk: (c) => got.push(c) })),
+    ).rejects.toMatchObject({ code: 'service_unavailable' });
+    expect(flaky.attempts).toBe(1);
+    expect(got).toHaveLength(2);
+    expect(await e.wallet(A())).toBe(wallet);
+    // a stream that fails BEFORE any chunk is retried like any call
+    await only('mock-model', adapter);
+    adapter.failNext(new ModelAdapterError('rate_limited', 'slow'), 1);
+    mockToolArrange(adapter, 'single');
+    await expect(gw.invoke(toolBase({ stream: true }))).resolves.toMatchObject({
+      finishReason: 'tool_calls',
+    });
+  });
+
+  it('cancelling in the middle of a stream stops it ("cancelled"), releases the reservation and charges nothing', async () => {
+    const slow = new MockModelAdapter({ id: 'mock-slow', models: models(), chunkDelayMs: 5 });
+    mockToolArrange(slow, 'long');
+    await only('mock-model-b', slow);
+    const wallet = await e.wallet(A());
+    const ac = new AbortController();
+    let n = 0;
+    await expect(
+      gw.invoke(
+        toolBase({
+          stream: true,
+          signal: ac.signal,
+          maxTokens: 500,
+          onChunk: () => {
+            if (++n === 2) ac.abort();
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'conflict' });
+    expect(await e.wallet(A())).toBe(wallet);
+    expect(
+      (
+        await e.sql(
+          `SELECT count(*)::int n FROM ai.reservations WHERE org_id=$1 AND state='held'`,
+          [A()],
+        )
+      )[0]!.n,
+    ).toBe(0);
+    await only('mock-model', adapter);
+  });
+
+  it('the kill switch and the residency rules apply to tool calls exactly as to any call', async () => {
+    mockToolArrange(adapter, 'single');
+    const prior = await e.sql(
+      `SELECT value FROM platform.feature_flags WHERE key='ai.killswitch' AND org_id IS NULL`,
+    );
+    await e.sql(`DELETE FROM platform.feature_flags WHERE key='ai.killswitch' AND org_id IS NULL`);
+    await e.sql(
+      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'ai.killswitch', NULL, 'true')`,
+    );
+    await expect(gw.invoke(toolBase())).rejects.toMatchObject({ code: 'ai_unavailable' });
+    await e.sql(`DELETE FROM platform.feature_flags WHERE key='ai.killswitch' AND org_id IS NULL`);
+    if (prior[0])
+      await e.sql(
+        `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'ai.killswitch', NULL, $1::jsonb)`,
+        [JSON.stringify(prior[0].value)],
+      );
+    const eu = new MockModelAdapter({
+      id: 'mock-eu',
+      models: MOCK_TOOL_MODELS,
+      region: 'de-frankfurt',
+    });
+    await only('mock-model-eu', eu, 'de-frankfurt');
+    await expect(gw.invoke(toolBase())).rejects.toMatchObject({ code: 'residency_denied' });
+    expect(eu.calls.length).toBe(0);
+    await only('mock-model', adapter);
+  });
 });

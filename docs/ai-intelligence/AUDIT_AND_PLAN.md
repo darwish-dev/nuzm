@@ -187,7 +187,7 @@ model are `BLOCKED`, not `PASS`.
 | Slice | Content | Can start now? |
 |---|---|---|
 | S-AG0 | S-K6 single-call adaptation preserved as the fallback | Done (`81caed9`) |
-| S-AG1 | `ModelAdapter` v1.1 contract, negotiation, conformance kit, scripted mock | Yes (no provider) |
+| S-AG1 | `ModelAdapter` v1.1 contract, negotiation, conformance kit, scripted mock | **DONE 2026-11-22** (`docs/reports/AG-S1-report.md`) |
 | S-AG2 | Read-only tool registry and execution gateway (`read_file`, `list_files`, `search_code`, `inspect_project`), limits, audit, metering, isolation | Yes (mock) |
 | S-AG3 | Agent loop: plan, explore, propose, static validation, apply on the AI branch, checkpoints, recovery, fallback; UI timeline | After S-AG1/2 |
 | S-AG4 | OpenAI and Google adapters, Anthropic at 1.1, probes, capability matrix | **BLOCKED** (HG-09-01, D-18, credentials, provider selection) |

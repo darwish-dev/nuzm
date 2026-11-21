@@ -9,7 +9,13 @@ export function MobileMenu({ label, children }: { label: ReactNode; children: Re
   const [open, setOpen] = useState(false);
   return (
     <div className="doc-side-wrap" data-open={open}>
-      <button type="button" className="doc-side-toggle" aria-expanded={open} aria-controls="doc-side-links" onClick={() => setOpen(!open)}>
+      <button
+        type="button"
+        className="doc-side-toggle"
+        aria-expanded={open}
+        aria-controls="doc-side-links"
+        onClick={() => setOpen(!open)}
+      >
         {label}
       </button>
       <div id="doc-side-links" className="doc-side-links">

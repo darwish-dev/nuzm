@@ -87,8 +87,10 @@ describe('documentation pages', () => {
     ).toEqual(['#a', '#b']);
   });
 
-  it('asks "Was this helpful?", remembers the choice for this page and says thanks', async () => {
+  it('asks "Was this helpful?", remembers the choice, sends it to the API (page, score, language only) and says thanks', () => {
     window.localStorage.clear();
+    const send = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', send);
     render(
       <DocsFrame locale="en" path="/docs/guides/errors" mode="dark" title="Errors">
         <p>x</p>
@@ -101,6 +103,31 @@ describe('documentation pages', () => {
     expect(
       screen.getByRole('button', { name: doc('rateGood', 'en') }).getAttribute('aria-pressed'),
     ).toBe('true');
+    expect(send).toHaveBeenCalledTimes(1);
+    const [url, init] = send.mock.calls[0]!;
+    expect(url).toBe('/v1/docs-feedback');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({
+      page: '/docs/guides/errors',
+      score: 'good',
+      locale: 'en',
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('a failed send never disturbs the reader: the choice stays and the thanks still shows', async () => {
+    window.localStorage.clear();
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    render(
+      <DocsFrame locale="ar" path="/docs" mode="dark" title="x">
+        <p>x</p>
+      </DocsFrame>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: doc('rateBad', 'ar') }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.getByRole('status').textContent).toBe(doc('rateThanks', 'ar'));
+    expect(window.localStorage.getItem('nuzm.docs.rating:/docs')).toBe('bad');
+    vi.unstubAllGlobals();
   });
 
   it('search finds a guide and an endpoint, and says so when nothing matches', () => {

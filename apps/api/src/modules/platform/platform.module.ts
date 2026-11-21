@@ -2,6 +2,9 @@ import { Global, Module, type OnModuleDestroy, Inject } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Db, IdempotencyService, OperationsService } from '@nuzm/platform';
 import { IdempotencyInterceptor } from '../../common/idempotency';
+import { AdminDocsFeedbackController } from './admin-docs-feedback.controller';
+import { DocsFeedbackController } from './docs-feedback.controller';
+import { DocsFeedbackService, docsFeedbackConfigFromEnv } from './docs-feedback.service';
 import { OperationsController } from './operations.controller';
 import { DB } from '../../common/tokens';
 
@@ -11,7 +14,7 @@ import { DB } from '../../common/tokens';
  */
 @Global()
 @Module({
-  controllers: [OperationsController],
+  controllers: [OperationsController, DocsFeedbackController, AdminDocsFeedbackController],
   providers: [
     { provide: DB, useFactory: () => new Db(process.env.DATABASE_URL ?? '') },
     {
@@ -20,6 +23,11 @@ import { DB } from '../../common/tokens';
       inject: [DB],
     },
     { provide: OperationsService, useFactory: (db: Db) => new OperationsService(db), inject: [DB] },
+    {
+      provide: DocsFeedbackService,
+      useFactory: (db: Db) => new DocsFeedbackService(db, docsFeedbackConfigFromEnv()),
+      inject: [DB],
+    },
     { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
   ],
   exports: [DB, IdempotencyService, OperationsService],

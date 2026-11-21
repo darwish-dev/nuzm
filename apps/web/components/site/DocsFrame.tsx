@@ -97,6 +97,7 @@ export function DocsFrame({
           <DocsToc items={toc} title={doc('onThisPage', locale)} />
           <HelpfulRating
             page={path}
+            locale={locale}
             labels={{
               question: doc('rateQuestion', locale),
               good: doc('rateGood', locale),

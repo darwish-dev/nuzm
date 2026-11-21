@@ -9,14 +9,17 @@ const FACES: { id: Score; path: string }[] = [
 ];
 
 /**
- * "Was this helpful?" with three faces. The choice is kept in this browser only (so the page remembers it); it is not sent anywhere yet, and the thank-you
- * line does not say otherwise. Storage can be refused (a private window): the control then simply works for this visit.
+ * "Was this helpful?" with three faces. The choice is remembered in this browser (so the page shows it) and sent to `POST /v1/docs-feedback`, which stores the
+ * page, the score and the language only (no sign-in, nothing identifying). A failed or refused send (offline, collection switched off, rate limited) never
+ * disturbs the reader: the choice simply stays local. Storage can be refused too (a private window): the control then works for this visit.
  */
 export function HelpfulRating({
   page,
+  locale,
   labels,
 }: {
   page: string;
+  locale: 'ar' | 'en';
   labels: { question: string; good: string; okay: string; bad: string; thanks: string };
 }) {
   const key = `nuzm.docs.rating:${page}`;
@@ -36,6 +39,12 @@ export function HelpfulRating({
     } catch {
       /* private window: keep the choice for this visit only */
     }
+    void fetch('/v1/docs-feedback', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ page, score: s, locale }),
+      keepalive: true,
+    }).catch(() => undefined);
   }
   const name: Record<Score, string> = { good: labels.good, okay: labels.okay, bad: labels.bad };
   return (

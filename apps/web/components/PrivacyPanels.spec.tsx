@@ -61,7 +61,7 @@ describe('new request (UI-M04-03)', () => {
     expect(path).toBe('/v1/compliance/data-subject-requests');
     expect(init.body).toEqual({ type: 'portability' });
     expect(init.params.header['Idempotency-Key']).toMatch(/^[0-9a-f-]{36}$/);
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/privacy/requests/r-1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/privacy/requests/r-1'));
   });
   it('an administrator asking about someone else must write down the identity check before anything is sent', () => {
     render(<NewRequestForm locale="en" canManage />);

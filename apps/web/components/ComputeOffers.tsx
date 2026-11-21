@@ -103,7 +103,7 @@ export function OffersPanel(p: {
         <div className="nz-row">
           <Button type="submit">{t(locale, 'action.search')}</Button>
           {filtered && (
-            <ButtonLink variant="secondary" href={`/${locale}/compute/offers`}>
+            <ButtonLink variant="secondary" href={`/compute/offers`}>
               {t(locale, 'm05.web.offers.reset')}
             </ButtonLink>
           )}
@@ -178,7 +178,7 @@ export function OffersPanel(p: {
                 p.canCreate ? (
                   <ButtonLink
                     variant="secondary"
-                    href={`/${locale}/compute/instances/new${queryString({ offerId: o.offerId })}`}
+                    href={`/compute/instances/new${queryString({ offerId: o.offerId })}`}
                   >
                     {t(locale, 'm05.web.offers.use')}
                     <span className="nz-sr">
@@ -199,7 +199,7 @@ export function OffersPanel(p: {
       )}
       {next && (
         <p>
-          <ButtonLink variant="secondary" href={`/${locale}/compute/offers${next}`}>
+          <ButtonLink variant="secondary" href={`/compute/offers${next}`}>
             {t(locale, 'm05.web.page.next')}
           </ButtonLink>
         </p>

@@ -227,7 +227,7 @@ export default async function Search({
     : null;
   return (
     <>
-      <a className="nzc-back" href={`/${locale}/domains`}>
+      <a className="nzc-back" href={`/domains`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'dom.tab.list')}
       </a>

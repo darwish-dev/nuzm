@@ -8,7 +8,7 @@ import { DeleteProject } from './DeleteProject';
 /** UI-M09-01: one card per website project; an empty list offers the first one. */
 /** Every project, a mobile app included, opens in the builder workspace (a mobile app in its mobile mode). */
 export const projectHref = (locale: Locale, p: Pick<Project, 'id' | 'type'>) =>
-  `/${locale}/builder/projects/${p.id}`;
+  `/builder/projects/${p.id}`;
 
 export function ProjectCards({
   locale,
@@ -43,7 +43,7 @@ export function ProjectCards({
         body={t(locale, canCreate ? 'bld.projects.empty.body' : 'state.empty.body')}
         action={
           canCreate ? (
-            <ButtonLink href={`/${locale}/builder/new`}>
+            <ButtonLink href={`/builder/new`}>
               {t(locale, 'bld.projects.create')}
             </ButtonLink>
           ) : undefined
@@ -131,7 +131,7 @@ export function ProjectCards({
       {nextCursor && (
         <ButtonLink
           variant="secondary"
-          href={`/${locale}/builder/projects?cursor=${encodeURIComponent(nextCursor)}`}
+          href={`/builder/projects?cursor=${encodeURIComponent(nextCursor)}`}
         >
           {t(locale, 'action.loadMore')}
         </ButtonLink>
@@ -165,7 +165,7 @@ export function ProjectFilterTabs({
         <a
           key={f}
           className="bl-chip"
-          href={`/${locale}/builder/projects${f === 'all' ? '' : `?type=${f}`}`}
+          href={`/builder/projects${f === 'all' ? '' : `?type=${f}`}`}
           aria-current={f === current ? 'page' : undefined}
           onClick={(e) => {
             if (!onSelect || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)

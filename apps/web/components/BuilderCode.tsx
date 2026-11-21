@@ -202,7 +202,7 @@ function PublishOutput({ locale, projectId }: { locale: Locale; projectId: strin
       if (timer) clearTimeout(timer);
     };
   }, [projectId]);
-  const link = `/${locale}/builder/projects/${projectId}/deployments`;
+  const link = `/builder/projects/${projectId}/deployments`;
   if (denied) return <p className="nz-muted">{t(locale, 'bld.cx.pub.noaccess')}</p>;
   if (dep === undefined)
     return (

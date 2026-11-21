@@ -91,7 +91,7 @@ describe('new database (UI-M08-02)', () => {
       network: { access: 'private' },
     });
     expect(cInit.params.header['Idempotency-Key']).toBeTruthy();
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/databases/db-1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/databases/db-1'));
   });
 
   it('never calls the API for an allow-list that opens the database to the internet', () => {

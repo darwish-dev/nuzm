@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const post = vi.fn();
 vi.mock('../lib/client', () => ({ browserApi: () => ({ POST: post }) }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/en/billing/invoices' }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/billing/invoices' }));
 import { ConsoleFrame, ProfileMenu } from './ConsoleShell';
 
 const labels = { openMenu: 'Open menu', closeMenu: 'Close menu' };
@@ -12,7 +12,7 @@ const frame = () =>
   render(
     <ConsoleFrame
       labels={labels}
-      brand={<a href="/en">Nuzm</a>}
+      brand={<a href="/console">Nuzm</a>}
       rail={
         <nav className="nzc-rail">
           <a href="/x">X</a>
@@ -117,8 +117,8 @@ describe('account menu', () => {
           darkMode: 'Dark mode',
           signOut: 'Sign out',
         }}
-        profileHref="/en/account"
-        signedOutTo="/en/login"
+        profileHref="/account"
+        signedOutTo="/login"
         {...extra}
       />,
     );
@@ -128,14 +128,14 @@ describe('account menu', () => {
     menu('dark', {
       linksTitle: 'codgoo',
       links: [
-        { href: '/en/settings/team', label: 'Team', icon: 'user', current: true },
-        { href: '/en/privacy', label: 'Privacy and data', icon: 'shield' },
+        { href: '/settings/team', label: 'Team', icon: 'user', current: true },
+        { href: '/privacy', label: 'Privacy and data', icon: 'shield' },
       ],
     });
     open();
     expect(screen.getByText('codgoo')).toBeTruthy();
     const team = screen.getByRole('menuitem', { name: 'Team' });
-    expect(team.getAttribute('href')).toBe('/en/settings/team');
+    expect(team.getAttribute('href')).toBe('/settings/team');
     expect(team.getAttribute('aria-current')).toBe('page');
     expect(
       screen.getByRole('menuitem', { name: 'Privacy and data' }).getAttribute('aria-current'),
@@ -150,7 +150,7 @@ describe('account menu', () => {
     expect(btn.getAttribute('aria-expanded')).toBe('true');
     expect(
       screen.getByRole('menuitem', { name: 'Profile and security' }).getAttribute('href'),
-    ).toBe('/en/account');
+    ).toBe('/account');
     expect(screen.getByRole('menuitemcheckbox', { name: /Dark mode/ })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -169,7 +169,7 @@ describe('account menu', () => {
     open();
     const ar = screen.getByRole('menuitemradio', { name: /العربية/ });
     const en = screen.getByRole('menuitemradio', { name: /English/ });
-    expect(ar.getAttribute('href')).toBe('/ar/billing/invoices');
+    expect(ar.getAttribute('href')).toBe('/billing/invoices');
     expect(ar.getAttribute('aria-checked')).toBe('false');
     expect(en.getAttribute('aria-checked')).toBe('true');
   });
@@ -193,6 +193,6 @@ describe('account menu', () => {
     open();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     await waitFor(() => expect(post).toHaveBeenCalledWith('/v1/auth/logout', {}));
-    await waitFor(() => expect(window.location.assign).toHaveBeenCalledWith('/en/login'));
+    await waitFor(() => expect(window.location.assign).toHaveBeenCalledWith('/login'));
   });
 });

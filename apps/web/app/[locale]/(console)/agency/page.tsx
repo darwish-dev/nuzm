@@ -85,7 +85,7 @@ export default async function AgencyDashboard({ params }: { params: Promise<{ lo
                   declined: count('declined') + count('revoked'),
                 })}
               </p>
-              <a href={`/${locale}/agency/clients`}>{t(locale, 'm11.ag.clients.title')}</a>
+              <a href={`/agency/clients`}>{t(locale, 'm11.ag.clients.title')}</a>
             </Card>
             <Card aria-label={t(locale, 'm11.ag.stat.grants')}>
               <h2 className="nz-h2">{t(locale, 'm11.ag.stat.grants')}</h2>
@@ -107,7 +107,7 @@ export default async function AgencyDashboard({ params }: { params: Promise<{ lo
                 <ul>
                   {acting.map((c) => (
                     <li key={c.clientOrgId}>
-                      <a href={`/${locale}/agency/acting/${c.clientOrgId}`}>
+                      <a href={`/agency/acting/${c.clientOrgId}`}>
                         <Ltr>{c.clientOrgId}</Ltr>
                       </a>
                     </li>

@@ -166,7 +166,7 @@ describe('mobile workspace: the same full-screen workspace as the website builde
       within(top)
         .getByRole('link', { name: t('en', 'bld.ws.back') })
         .getAttribute('href'),
-    ).toBe('/en/builder/projects?type=mobile');
+    ).toBe('/builder/projects?type=mobile');
     expect(within(top).getByRole('link', { name: t('en', 'bld.ws.exit') })).toBeTruthy();
   });
 

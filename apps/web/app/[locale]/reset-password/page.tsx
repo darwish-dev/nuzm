@@ -20,7 +20,7 @@ export default async function ResetPassword({
       ) : (
         <>
           <p className="nz-error-text">{t(locale, 'reset.invalid')}</p>
-          <a href={`/${locale}/forgot-password`}>{t(locale, 'forgot.title')}</a>
+          <a href={`/forgot-password`}>{t(locale, 'forgot.title')}</a>
         </>
       )}
     </AuthShell>

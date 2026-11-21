@@ -15,7 +15,7 @@ export default async function ForgotPassword({ params }: { params: Promise<{ loc
     >
       <ForgotForm locale={locale} />
       <p className="nzc-split-links">
-        <a href={`/${locale}/login`}>{t(locale, 'action.signin')}</a>
+        <a href={`/login`}>{t(locale, 'action.signin')}</a>
       </p>
     </AuthShell>
   );

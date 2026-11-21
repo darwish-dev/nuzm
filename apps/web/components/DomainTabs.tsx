@@ -10,9 +10,9 @@ export function DomainTabs({
   can: (p: string) => boolean;
 }) {
   const tabs = [
-    { key: 'list', href: `/${locale}/domains`, perm: 'domain:read' },
-    { key: 'search', href: `/${locale}/domains/search`, perm: 'domain:search' },
-    { key: 'transfers', href: `/${locale}/domains/transfers`, perm: 'domain:read' },
+    { key: 'list', href: `/domains`, perm: 'domain:read' },
+    { key: 'search', href: `/domains/search`, perm: 'domain:search' },
+    { key: 'transfers', href: `/domains/transfers`, perm: 'domain:read' },
   ] as const;
   return (
     <nav aria-label={t(locale, 'dom.nav')} className="nz-row nz-subnav">

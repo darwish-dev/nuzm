@@ -3,8 +3,8 @@ import { t, type Locale } from '@nuzm/i18n';
 /** Section links of the customer AI screens (UI-M09-10 usage, UI-M09-11 budgets). */
 export function AiTabs({ locale, current }: { locale: Locale; current: 'usage' | 'budgets' }) {
   const tabs = [
-    { key: 'usage', href: `/${locale}/ai/usage` },
-    { key: 'budgets', href: `/${locale}/ai/budgets` },
+    { key: 'usage', href: `/ai/usage` },
+    { key: 'budgets', href: `/ai/budgets` },
   ] as const;
   return (
     <nav aria-label={t(locale, 'aiu.nav')} className="nz-row">

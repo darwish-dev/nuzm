@@ -10,11 +10,11 @@ import { BrandMark } from './BrandLogo';
  */
 export function FloatingBuilder({ locale }: { locale: Locale }) {
   const pathname = usePathname() ?? '';
-  if (/^\/(ar|en)\/(builder|mobile)(\/|$)/.test(pathname)) return null;
+  if (/^(\/(ar|en))?\/(builder|mobile)(\/|$)/.test(pathname)) return null;
   return (
     <a
       className="bfab"
-      href={`/${locale}/builder/projects`}
+      href={`/builder/projects`}
       aria-label={`${t(locale, 'bld.fab.title')}: ${t(locale, 'bld.fab.sub')}`}
     >
       <span className="bfab-icon" aria-hidden="true">

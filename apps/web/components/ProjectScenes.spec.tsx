@@ -44,7 +44,7 @@ describe('the workspace shell shows the scene of its project type while a run wo
     <WorkspaceShell
       locale="en"
       mode={mode}
-      backHref="/en/builder/projects"
+      backHref="/builder/projects"
       name="P"
       tabsLabel="tabs"
       tabs={[{ id: 'preview', icon: 'eye', label: 'Preview' }]}

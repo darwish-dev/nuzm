@@ -227,7 +227,7 @@ export function ComputeWizard(p: {
       (r) => {
         // the basket line this order finished is done
         if (p.orgId && p.basketLineId) removeFromCart(p.orgId, p.basketLineId);
-        router.push(`/${locale}/compute/instances/${r.instance.id}`);
+        router.push(`/compute/instances/${r.instance.id}`);
       },
     );
   }
@@ -238,7 +238,7 @@ export function ComputeWizard(p: {
         title={t(locale, 'm05.web.wiz.noOffers.title')}
         body={t(locale, 'm05.web.wiz.noOffers.body')}
         action={
-          <ButtonLink variant="secondary" href={`/${locale}/compute/offers`}>
+          <ButtonLink variant="secondary" href={`/compute/offers`}>
             {t(locale, 'm05.web.tab.offers')}
           </ButtonLink>
         }
@@ -711,7 +711,7 @@ export function ComputeWizard(p: {
               <Banner tone="warn">
                 {t(locale, 'm05.web.quote.needsApproval')}{' '}
                 <a
-                  href={`/${locale}/billing/approvals${queryString({
+                  href={`/billing/approvals${queryString({
                     quoteId: quote.id,
                     amountMinor: quote.totalMinor,
                   })}`}

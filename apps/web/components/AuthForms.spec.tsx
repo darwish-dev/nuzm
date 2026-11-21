@@ -34,11 +34,11 @@ afterEach(cleanup);
 describe('login form', () => {
   it('signs in and goes to the safe next path', async () => {
     post.mockResolvedValue(res(200));
-    render(<LoginForm locale="en" next="/en/billing" />);
+    render(<LoginForm locale="en" next="/billing" />);
     type(t('en', 'field.email'), 'a@example.test');
     type(t('en', 'field.password'), 'a long passphrase 2026');
     fireEvent.click(screen.getByRole('button', { name: t('en', 'action.signin') }));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith('/en/billing'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/billing'));
     expect(post).toHaveBeenCalledWith('/v1/auth/password/login', {
       body: { email: 'a@example.test', password: 'a long passphrase 2026' },
     });
@@ -50,7 +50,7 @@ describe('login form', () => {
     type(t('ar', 'field.email'), 'a@example.test');
     type(t('ar', 'field.password'), 'a long passphrase 2026');
     fireEvent.click(screen.getByRole('button', { name: t('ar', 'action.signin') }));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith('/ar/console'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/console'));
   });
 
   it('shows one message for a wrong email or password, and a different one when rate limited', async () => {
@@ -87,7 +87,7 @@ describe('register form', () => {
     post.mockResolvedValue(res(201));
     render(<RegisterForm locale="en" />);
     fill('a@example.test', 'a long passphrase 2026');
-    await waitFor(() => expect(assign).toHaveBeenCalledWith('/en/orgs/new'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/orgs/new'));
     expect(post.mock.calls[0]![1]).toEqual({
       body: { email: 'a@example.test', password: 'a long passphrase 2026', locale: 'en' },
     });

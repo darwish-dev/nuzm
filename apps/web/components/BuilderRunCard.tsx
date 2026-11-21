@@ -198,7 +198,7 @@ export function RunCard({
           <button type="button" className="bld-link" onClick={() => setShowHistory((v) => !v)}>
             {t(locale, showHistory ? 'bld.card.hideHistory' : 'bld.card.showHistory')}
           </button>
-          <a className="bld-link" href={`/${locale}/builder/runs/${run.id}`}>
+          <a className="bld-link" href={`/builder/runs/${run.id}`}>
             {t(locale, 'bld.run.details')}
           </a>
           {active && canWrite && (

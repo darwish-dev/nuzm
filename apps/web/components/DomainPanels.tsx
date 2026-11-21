@@ -166,7 +166,7 @@ export function CheckoutForm({
       }),
     });
     if (orgId && basketLineId) removeFromCart(orgId, basketLineId);
-    router.push(d ? `/${locale}/domains/${d.id}` : `/${locale}/domains`);
+    router.push(d ? `/domains/${d.id}` : `/domains`);
   }
   return (
     <div className="nz-stack" style={{ maxInlineSize: 640 }}>
@@ -768,7 +768,7 @@ export function ContactsForm({
       {canEdit && !privacyOn && (
         <p className="nz-muted">
           {t(locale, 'dom.contacts.public')}{' '}
-          <a href={`/${locale}/privacy#consents`}>{t(locale, 'dom.contacts.consentLink')}</a>
+          <a href={`/privacy#consents`}>{t(locale, 'dom.contacts.consentLink')}</a>
         </p>
       )}
       <ContactFields locale={locale} value={c} onChange={setC} disabled={!canEdit} />

@@ -85,7 +85,7 @@ export function WorkspaceShell<T extends string>({
   return (
     <div className="bws mws" data-inspector="closed" data-mode={mode}>
       <header className="bws-top">
-        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
+        <a className="bws-logo" href={`/console`} aria-label={t(locale, 'bld.ws.home')}>
           <BrandMark />
         </a>
         <a
@@ -126,7 +126,7 @@ export function WorkspaceShell<T extends string>({
         {primary}
         <a
           className="bws-exit"
-          href={`/${locale}`}
+          href={`/console`}
           aria-label={t(locale, 'bld.ws.exit')}
           title={t(locale, 'bld.ws.exit')}
         >

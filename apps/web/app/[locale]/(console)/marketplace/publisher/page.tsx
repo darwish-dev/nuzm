@@ -80,7 +80,7 @@ export default async function Publisher({ params }: { params: Promise<{ locale: 
                 {items.map((l) => (
                   <Card key={l.id} aria-label={listingTitle(l, locale)}>
                     <h3 className="nz-h2">
-                      <a href={`/${locale}/marketplace/listings/${l.id}`}>
+                      <a href={`/marketplace/listings/${l.id}`}>
                         <bdi dir="auto">{listingTitle(l, locale)}</bdi>
                       </a>{' '}
                       <Badge tone={moderationTone(l.status)}>

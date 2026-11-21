@@ -74,6 +74,8 @@ export function LocaleSwitch({
   labels: Record<string, string>;
 }) {
   const path = usePathname() ?? `/${current}`;
+  // a console whose addresses carry the language (admin) swaps the prefix; one that does not (client) asks the proxy to switch it with `?lang=`
+  const prefixed = new RegExp(`^/${current}(?=/|$)`).test(path);
   return (
     <span>
       {locales
@@ -81,7 +83,7 @@ export function LocaleSwitch({
         .map((l) => (
           <a
             key={l}
-            href={path.replace(new RegExp(`^/${current}(?=/|$)`), `/${l}`)}
+            href={prefixed ? path.replace(new RegExp(`^/${current}(?=/|$)`), `/${l}`) : `${path}?lang=${l}`}
             lang={l}
             hrefLang={l}
           >

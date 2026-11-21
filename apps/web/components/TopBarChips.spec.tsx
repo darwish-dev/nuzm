@@ -35,7 +35,7 @@ describe('notifications pop-up', () => {
       <NotificationsMenu
         items={items}
         unreadCount={1}
-        viewAllHref="/en/notifications"
+        viewAllHref="/notifications"
         labels={labels}
       />,
     );
@@ -46,7 +46,7 @@ describe('notifications pop-up', () => {
     expect(within(panel).getByText('Domain renewed')).toBeTruthy();
     expect(
       within(panel).getByRole('link', { name: 'View all notifications' }).getAttribute('href'),
-    ).toBe('/en/notifications');
+    ).toBe('/notifications');
   });
 
   it('marks one read, lowers the count, and closes on Escape', async () => {
@@ -55,7 +55,7 @@ describe('notifications pop-up', () => {
       <NotificationsMenu
         items={items}
         unreadCount={1}
-        viewAllHref="/en/notifications"
+        viewAllHref="/notifications"
         labels={labels}
       />,
     );
@@ -92,13 +92,13 @@ describe('organization chip', () => {
       { orgId: 'o1', name: 'Acme' },
       { orgId: 'o2', name: 'Globex' },
     ],
-    workspacesHref: '/en/workspaces',
+    workspacesHref: '/workspaces',
     workspacesLabel: 'Workspaces and projects',
   };
   it('has an icon link to the workspaces next to the switcher', () => {
     render(<OrgSwitcher {...props} />);
     expect(screen.getByRole('link', { name: 'Workspaces and projects' }).getAttribute('href')).toBe(
-      '/en/workspaces',
+      '/workspaces',
     );
     expect((screen.getByLabelText('Switch organization') as HTMLSelectElement).value).toBe('o1');
   });

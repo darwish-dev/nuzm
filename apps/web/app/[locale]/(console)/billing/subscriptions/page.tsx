@@ -15,5 +15,5 @@ export default async function Moved({
   for (const [k, v] of Object.entries(await searchParams))
     for (const x of Array.isArray(v) ? v : v === undefined ? [] : [v]) q.append(k, x);
   const qs = q.toString();
-  redirect(`/${locale}/billing/plans${qs ? `?${qs}` : ''}#subscriptions`);
+  redirect(`/billing/plans${qs ? `?${qs}` : ''}#subscriptions`);
 }

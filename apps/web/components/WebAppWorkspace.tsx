@@ -167,7 +167,7 @@ export function WebAppWorkspace({
       )}
       {runId && (
         <li>
-          <a href={`/${locale}/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
+          <a href={`/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
         </li>
       )}
       {can.write && (
@@ -177,7 +177,7 @@ export function WebAppWorkspace({
             variant="menu"
             project={{ id: project.id, name: project.name }}
             mfaFactorId={mfaFactorId}
-            redirectTo={`/${locale}/builder/projects`}
+            redirectTo={`/builder/projects`}
           />
         </li>
       )}
@@ -189,7 +189,7 @@ export function WebAppWorkspace({
     <WorkspaceShell
       locale={locale}
       mode="webapp"
-      backHref={`/${locale}/builder/projects?type=webapp`}
+      backHref={`/builder/projects?type=webapp`}
       name={project.name}
       tabsLabel={t(locale, 'mws.web.tabs')}
       tabs={tabs.map((x) => ({ id: x, icon: TAB_ICON[x], label: t(locale, TAB_LABEL[x]) }))}

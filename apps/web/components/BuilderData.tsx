@@ -49,7 +49,7 @@ export function RecordsPane({
 }) {
   const [tables, setTables] = useState<Table[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const base = `/${locale}/builder/projects/${projectId}`;
+  const base = `/builder/projects/${projectId}`;
   useEffect(() => {
     let stop = false;
     void (async () => {
@@ -213,7 +213,7 @@ export function DataPane({
   const call = useBuilderCall();
   const [tab, setTab] = useState<'tables' | 'files' | 'history'>('tables');
   const [versions, setVersions] = useState<Version[] | null>(null);
-  const base = `/${locale}/builder/projects/${projectId}`;
+  const base = `/builder/projects/${projectId}`;
 
   useEffect(() => {
     if (tab !== 'history' || versions) return;

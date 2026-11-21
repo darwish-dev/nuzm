@@ -68,8 +68,8 @@ export default async function ConsoleLayout({
   const s = await requireSession(locale);
   // M11: the client organization an agency member is acting in (UI-M11-13); the banner is shown on every page while it is set
   const actingClient = await actingOrgOf(s);
-  const base = `/${locale}`;
-  const path = stripLocale((await headers()).get('x-pathname') ?? base, locale);
+  const base = ''; // routes carry no language (the proxy rewrites to /<locale>/…)
+  const path = stripLocale((await headers()).get('x-pathname') ?? '/console', locale);
   const theme = (await cookies()).get('nuzm_theme')?.value === 'light' ? 'light' : 'dark';
 
   const cats = buildNav({
@@ -105,7 +105,7 @@ export default async function ConsoleLayout({
     .filter((c) => !c.menu && !c.noRail)
     .map((c) => ({
       id: c.id,
-      href: `${base}${c.home === '/' ? '' : c.home}`,
+      href: c.home === '/' ? '/console' : c.home,
       label: t(locale, c.label),
       icon: c.icon,
       current: c.id === active,
@@ -113,7 +113,7 @@ export default async function ConsoleLayout({
   const toSide = (i: ResolvedItem, current: string | null): SideItem => ({
     id: i.id,
     label: t(locale, i.label),
-    href: i.href ? `${base}${i.href === '/' ? '' : i.href}` : undefined,
+    href: i.href ? (i.href === '/' ? '/console' : i.href) : undefined,
     current: i.id === current,
     children: i.children?.map((c) => toSide(c, current)),
   });
@@ -131,7 +131,7 @@ export default async function ConsoleLayout({
     .flatMap((g) => g.items)
     .filter((i) => i.href)
     .map((i) => ({
-      href: `${base}${i.href}`,
+      href: i.href === '/' ? '/console' : (i.href ?? ''),
       label: t(locale, i.label),
       icon: MENU_ICONS[i.id] ?? ('organization' as const),
       current: currentId === i.id && activeCat.id === 'organization',
@@ -143,12 +143,12 @@ export default async function ConsoleLayout({
     .map((c) => ({
       id: c.id,
       label: t(locale, c.label),
-      href: `${base}${c.home === '/' ? '' : c.home}`,
+      href: c.home === '/' ? '/console' : c.home,
       icon: c.icon,
     }));
   const imp = s.me.impersonation;
   const brand = (
-    <a className="nzc-brandlink" href={base} aria-label="Nuzm">
+    <a className="nzc-brandlink" href="/console" aria-label="Nuzm">
       <BrandWordmark className="nzc-logo-full" />
       <BrandMark className="nzc-logo-mark" />
     </a>

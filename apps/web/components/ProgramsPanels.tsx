@@ -312,7 +312,7 @@ export function ActingSwitcher({
         value={current ?? ''}
         onChange={(e) => {
           setActing(e.target.value || null);
-          if (e.target.value) router.push(`/${locale}/agency/acting/${e.target.value}`);
+          if (e.target.value) router.push(`/agency/acting/${e.target.value}`);
           else router.refresh();
         }}
       >
@@ -335,7 +335,7 @@ export function ActingBanner({ locale, clientOrgId }: { locale: Locale; clientOr
       <span className="nz-row">
         <strong>{t(locale, 'm11.act.banner', { client: clientOrgId })}</strong>
         <span>{t(locale, 'm11.act.bannerScope')}</span>
-        <a href={`/${locale}/agency/acting/${clientOrgId}`}>{t(locale, 'm11.act.manage')}</a>
+        <a href={`/agency/acting/${clientOrgId}`}>{t(locale, 'm11.act.manage')}</a>
         <Button
           variant="secondary"
           onClick={() => {

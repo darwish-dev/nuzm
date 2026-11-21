@@ -24,14 +24,14 @@ export default async function Databases({ params }: { params: Promise<{ locale: 
           rows={data.items}
           rowKey={(r) => r.id}
           cardIcon="data"
-          rowHref={(r) => `/${locale}/databases/${r.id}`}
+          rowHref={(r) => `/databases/${r.id}`}
           manageLabel={t(locale, 'action.manage')}
           columns={[
             {
               key: 'n',
               card: 'title',
               header: t(locale, 'field.name'),
-              render: (r) => <a href={`/${locale}/databases/${r.id}`}>{r.name}</a>,
+              render: (r) => <a href={`/databases/${r.id}`}>{r.name}</a>,
             },
             {
               key: 'e',
@@ -88,7 +88,7 @@ export default async function Databases({ params }: { params: Promise<{ locale: 
         body={t(locale, 'm8.db.help')}
       >
         {s.can('data:db:write') && (
-          <ButtonLink href={`/${locale}/databases/new`}>{t(locale, 'm8.db.new')}</ButtonLink>
+          <ButtonLink href={`/databases/new`}>{t(locale, 'm8.db.new')}</ButtonLink>
         )}
       </StartHero>
       {body}

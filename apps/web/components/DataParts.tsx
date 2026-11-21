@@ -34,7 +34,7 @@ export function OperationNote({
   const body = (
     <>
       {t(locale, 'm8.c.opInProgress')}{' '}
-      <a href={`/${locale}/operations`}>
+      <a href={`/operations`}>
         {t(locale, 'm8.c.opId')} <Ltr>{operationId}</Ltr>
       </a>
     </>
@@ -125,7 +125,7 @@ export function QuoteSummary({ locale, quote }: { locale: Locale; quote: QuoteVi
       {quote.requiresApproval && (
         <Banner tone="warn">
           {t(locale, 'm8.q.approval')}{' '}
-          <a href={`/${locale}/billing/quotes/${quote.id}`}>{t(locale, 'm8.q.approvalLink')}</a>
+          <a href={`/billing/quotes/${quote.id}`}>{t(locale, 'm8.q.approvalLink')}</a>
         </Banner>
       )}
     </Card>
@@ -177,17 +177,17 @@ export function DatabaseTabs({
       tabs={[
         {
           key: 'overview',
-          href: `/${locale}/databases/${id}`,
+          href: `/databases/${id}`,
           label: t(locale, 'm8.dbd.tab.overview'),
         },
         {
           key: 'backups',
-          href: `/${locale}/databases/${id}/backups`,
+          href: `/databases/${id}/backups`,
           label: t(locale, 'm8.dbd.tab.backups'),
         },
         {
           key: 'settings',
-          href: `/${locale}/databases/${id}/settings`,
+          href: `/databases/${id}/settings`,
           label: t(locale, 'm8.dbd.tab.settings'),
         },
       ]}

@@ -97,7 +97,7 @@ export default async function Usage({
               {(a) => <Input name="to" type="date" defaultValue={q.to} {...a} />}
             </Field>
             <Button type="submit">{t(locale, 'action.search')}</Button>
-            <ButtonLink variant="secondary" href={`/${locale}/billing/usage/export?${exportQuery}`}>
+            <ButtonLink variant="secondary" href={`/billing/usage/export?${exportQuery}`}>
               {t(locale, 'bill.usage.export')}
             </ButtonLink>
           </form>
@@ -112,7 +112,7 @@ export default async function Usage({
                   header: t(locale, 'bill.f.meter'),
                   icon: 'data',
                   render: (i) => (
-                    <a href={`/${locale}/billing/usage/${encodeURIComponent(i.meterId)}`}>
+                    <a href={`/billing/usage/${encodeURIComponent(i.meterId)}`}>
                       <Ltr>{i.meterId}</Ltr>
                     </a>
                   ),

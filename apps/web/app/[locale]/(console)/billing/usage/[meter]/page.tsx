@@ -78,7 +78,7 @@ export default async function UsageMeter({
           />
         )}
         <p>
-          <ButtonLink variant="secondary" href={`/${locale}/billing/usage`}>
+          <ButtonLink variant="secondary" href={`/billing/usage`}>
             {t(locale, 'bill.usage.back')}
           </ButtonLink>
         </p>

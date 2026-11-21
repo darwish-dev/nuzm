@@ -253,7 +253,7 @@ describe('workflow editor (UI-M11-02)', () => {
     expect(post.mock.calls[0]![1].body.triggers).toEqual([{ type: 'manual' }, { type: 'webhook' }]);
     fireEvent.click(button(t(L, 'm11.secret.stored')));
     expect(screen.queryByText(SHOWN_ONCE_A)).toBeNull();
-    expect(push).toHaveBeenCalledWith(`/en/automation/workflows/${wf.id}/edit`);
+    expect(push).toHaveBeenCalledWith(`/automation/workflows/${wf.id}/edit`);
   });
   it('is read-only without the write permission', () => {
     render(

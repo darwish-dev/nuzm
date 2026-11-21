@@ -135,9 +135,9 @@ describe('add a website: how to build it', () => {
     expect(items).toHaveLength(5);
     const hrefOf = (name: string) =>
       (screen.getByText(name).closest('a') as HTMLAnchorElement | null)?.getAttribute('href');
-    expect(hrefOf(t('en', 'host.method.ai'))).toBe('/en/builder/projects');
+    expect(hrefOf(t('en', 'host.method.ai'))).toBe('/builder/projects');
     expect(hrefOf(t('en', 'host.method.php'))).toBe(
-      '/en/hosting/sites/new?plan=p1&domain=example.com&method=php',
+      '/hosting/sites/new?plan=p1&domain=example.com&method=php',
     );
     expect(hrefOf(t('en', 'host.method.nodejs'))).toContain('method=nodejs');
     expect(hrefOf(t('en', 'host.method.static'))).toContain('method=static');

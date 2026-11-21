@@ -127,7 +127,7 @@ export function NewBucketForm({
         }),
       (b) => {
         setCreateKey(newKey());
-        router.push(`/${locale}/storage/buckets/${b.id}`);
+        router.push(`/storage/buckets/${b.id}`);
         router.refresh();
       },
     );
@@ -825,7 +825,7 @@ export function DeleteBucket({
           },
         }),
       () => {
-        router.push(`/${locale}/storage/buckets`);
+        router.push(`/storage/buckets`);
         router.refresh();
       },
       (p) => {

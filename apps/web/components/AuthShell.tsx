@@ -32,7 +32,7 @@ export function AuthShell({
       <aside className="nzc-split-panel" aria-label={t(locale, 'auth.panel.label')}>
         <span className="nzc-split-glow" aria-hidden="true" />
         <div className="nzc-split-content">
-          <a className="nzc-split-logo" href={`/${locale}`} aria-label="Nuzm">
+          <a className="nzc-split-logo" href={`/console`} aria-label="Nuzm">
             <BrandWordmark />
           </a>
           <p className="nzc-split-headline">

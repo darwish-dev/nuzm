@@ -34,7 +34,7 @@ export function FilterableProjects({
   const select = (f: ProjectFilter) => {
     setFilter(f);
     try {
-      const url = `/${locale}/builder/projects${f === 'all' ? '' : `?type=${f}`}`;
+      const url = `/builder/projects${f === 'all' ? '' : `?type=${f}`}`;
       window.history.replaceState(window.history.state, '', url + window.location.hash);
     } catch {
       /* the address is a convenience: the list has already switched */

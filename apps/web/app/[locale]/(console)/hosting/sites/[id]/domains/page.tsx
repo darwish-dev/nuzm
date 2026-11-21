@@ -68,7 +68,7 @@ export default async function Domains({
   return (
     <>
       <PageTitle>{t(locale, 'host.tab.domains')}</PageTitle>
-      <a className="nzc-back" href={`/${locale}/hosting/sites/${id}`}>
+      <a className="nzc-back" href={`/hosting/sites/${id}`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'host.tab.overview')}
       </a>

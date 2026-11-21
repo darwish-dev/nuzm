@@ -36,7 +36,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   const s = await requireSession(locale);
   const name = s.me.displayName ?? s.me.email;
   // finishing sign-up comes first: no organization yet means step 2, not an empty dashboard
-  if (!s.org) redirect(`/${locale}/orgs/new`);
+  if (!s.org) redirect(`/orgs/new`);
 
   const [balance, summary, limits, ops, notes, audit] = await Promise.all([
     s.can('billing:read') ? safe(unwrap(s.api.GET('/v1/billing/balance', {}))) : null,
@@ -51,7 +51,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
       : null,
   ]);
 
-  const base = `/${locale}`;
+  const base = '';
   const wallet = balance?.balances[0] ?? null;
   const activeOps = ops ? ops.items.filter((o) => !OP_TERMINAL.has(o.state)).length : null;
   const cap = limits?.items.find((l) => l.scope === 'org') ?? null;

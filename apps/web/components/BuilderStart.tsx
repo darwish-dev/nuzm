@@ -232,7 +232,7 @@ export function BuilderStart({
           idempotencyKey: keys.current.run,
         }),
       // every project type opens in the same workspace (a mobile app in its mobile mode)
-      () => router.push(`/${locale}/builder/projects/${c.projectId}`),
+      () => router.push(`/builder/projects/${c.projectId}`),
       (p) => {
         // a definitive refusal frees the key (the next attempt is a new request); an uncertain network failure keeps it so a retry cannot start a second run
         if (p.status !== 599) keys.current.run = newKey();
@@ -421,7 +421,7 @@ export function BuilderStart({
         {partial && (
           <p role="status" className="bl-note">
             {t(locale, 'bld.wiz.partial')}{' '}
-            <a href={`/${locale}/builder/projects/${partial}`}>
+            <a href={`/builder/projects/${partial}`}>
               {t(locale, 'bld.wiz.openProject')}
             </a>
           </p>

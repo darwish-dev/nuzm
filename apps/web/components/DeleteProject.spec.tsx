@@ -63,13 +63,13 @@ describe('delete a project', () => {
         locale="en"
         project={project}
         variant="menu"
-        redirectTo="/en/builder/projects"
+        redirectTo="/builder/projects"
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: t('en', 'pdel.menu') }));
     typeName(project.name);
     fireEvent.click(confirmBtn());
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects'));
   });
 
   it('says plainly when a deployment is in progress (409) and when the project is already gone (404), and stays open', async () => {

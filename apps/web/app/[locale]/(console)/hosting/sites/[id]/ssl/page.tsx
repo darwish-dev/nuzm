@@ -75,7 +75,7 @@ export default async function Ssl({ params }: { params: Promise<{ locale: string
   return (
     <>
       <PageTitle>{t(locale, 'host.tab.ssl')}</PageTitle>
-      <a className="nzc-back" href={`/${locale}/hosting/sites/${id}`}>
+      <a className="nzc-back" href={`/hosting/sites/${id}`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'host.tab.overview')}
       </a>

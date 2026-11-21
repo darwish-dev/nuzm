@@ -25,7 +25,7 @@ export function GithubCallback({
     );
   }, [callback, call]);
   const back = (
-    <a className="nz-btn" data-variant="primary" href={`/${locale}/builder/projects?type=webapp`}>
+    <a className="nz-btn" data-variant="primary" href={`/builder/projects?type=webapp`}>
       {t(locale, 'ais.gh.callback.back')}
     </a>
   );

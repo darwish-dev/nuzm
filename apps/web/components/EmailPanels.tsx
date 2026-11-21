@@ -70,7 +70,7 @@ export function AddDomainForm({
         }),
       (r) => {
         setIdem(newKey());
-        router.push(`/${locale}/email/domains/${r.id}`);
+        router.push(`/email/domains/${r.id}`);
         router.refresh();
       },
       () => setIdem(newKey()),
@@ -410,7 +410,7 @@ export function NewMailboxForm({
           </span>
           <h2 className="ld-title">{t(locale, 'ld.mail.needDomain')}</h2>
           <p className="ld-sub">{t(locale, 'm8.mb.noDomains')}</p>
-          <a className="ld-go" href={`/${locale}/email/domains`}>
+          <a className="ld-go" href={`/email/domains`}>
             <span>{t(locale, 'm8.em.tab.domains')}</span>
             <Icon name="arrow" size={18} />
           </a>
@@ -757,7 +757,7 @@ export function NewSenderForm({
     return (
       <Banner tone="warn">
         {t(locale, 'm8.sn.noDomains')}{' '}
-        <a href={`/${locale}/email/domains`}>{t(locale, 'm8.em.tab.domains')}</a>
+        <a href={`/email/domains`}>{t(locale, 'm8.em.tab.domains')}</a>
       </Banner>
     );
   function submit(ev: FormEvent) {
@@ -1093,7 +1093,7 @@ export function SendTestForm({
     return (
       <Banner tone="warn">
         {t(locale, 'm8.ms.noSender')}{' '}
-        <a href={`/${locale}/email/senders`}>{t(locale, 'm8.em.tab.senders')}</a>
+        <a href={`/email/senders`}>{t(locale, 'm8.em.tab.senders')}</a>
       </Banner>
     );
   function submit(ev: FormEvent) {

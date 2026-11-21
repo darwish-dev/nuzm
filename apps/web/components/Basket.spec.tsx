@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@nuzm/i18n';
 
 const post = vi.fn();
-let path = '/en/hosting/plans';
+let path = '/hosting/plans';
 vi.mock('next/navigation', () => ({
   usePathname: () => path,
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -52,7 +52,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   post.mockReset();
-  path = '/en/hosting/plans';
+  path = '/hosting/plans';
 });
 afterEach(cleanup);
 
@@ -79,7 +79,7 @@ describe('floating basket', () => {
       within(panel)
         .getByRole('link', { name: t('en', 'cart.checkout') })
         .getAttribute('href'),
-    ).toBe('/en/checkout');
+    ).toBe('/checkout');
     fireEvent.click(
       within(panel).getByRole('button', {
         name: t('en', 'cart.remove', { plan: 'shop.example.com' }),
@@ -91,7 +91,7 @@ describe('floating basket', () => {
   });
   it('is hidden on the checkout page, which shows the same lines in full', async () => {
     seed([host]);
-    path = '/en/checkout';
+    path = '/checkout';
     const { container } = render(<FloatingCart locale="en" orgId="org-1" />);
     await waitFor(() => expect(container.querySelector('.nzc-cart')).toBeNull());
   });
@@ -138,17 +138,17 @@ describe('checkout', () => {
       (await screen.findByRole('link', { name: t('en', 'checkout.empty.action') })).getAttribute(
         'href',
       ),
-    ).toBe('/en/hosting/plans');
+    ).toBe('/hosting/plans');
   });
   it('a domain and a server each continue in their own order step, with the basket line to finish', async () => {
     seed([dom, srv]);
     render(<Checkout {...base} />);
     const d = await screen.findByRole('link', { name: t('en', 'checkout.domains.continue') });
     expect(d.getAttribute('href')).toBe(
-      '/en/domains/checkout?name=shop.example.com&years=1&cart=d1',
+      '/domains/checkout?name=shop.example.com&years=1&cart=d1',
     );
     const s = screen.getByRole('link', { name: t('en', 'checkout.servers.continue') });
-    expect(s.getAttribute('href')).toBe('/en/compute/instances/new?offerId=o1&image=img1&cart=s1');
+    expect(s.getAttribute('href')).toBe('/compute/instances/new?offerId=o1&image=img1&cart=s1');
   });
   it('hosting: details → card → real quote → create; the created website leaves the basket', async () => {
     seed([host]);
@@ -210,7 +210,7 @@ describe('checkout', () => {
       screen
         .getByRole('link', { name: new RegExp(t('en', 'checkout.payment.add')) })
         .getAttribute('href'),
-    ).toBe(`/en/billing/payment-methods/add?next=${encodeURIComponent('/en/checkout')}`);
+    ).toBe(`/billing/payment-methods/add?next=${encodeURIComponent('/checkout')}`);
   });
   it('keeps what was typed while the customer goes to add a card and comes back (also under React strict mode)', async () => {
     seed([host]);

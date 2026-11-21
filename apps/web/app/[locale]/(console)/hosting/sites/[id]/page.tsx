@@ -52,7 +52,7 @@ export default async function Site({
   if (!isLocale(locale)) notFound();
   const s = await requireSession(locale);
   const back = (
-    <a className="nzc-back" href={`/${locale}/hosting/sites`}>
+    <a className="nzc-back" href={`/hosting/sites`}>
       <Icon name="chevron" size={16} />
       {t(locale, 'host.title.sites')}
     </a>
@@ -68,7 +68,7 @@ export default async function Site({
         />
       </>
     );
-  const base = `/${locale}/hosting/sites/${id}`;
+  const base = `/hosting/sites/${id}`;
   const body = await view(
     locale,
     async () => ({

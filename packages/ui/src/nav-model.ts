@@ -149,7 +149,8 @@ const within = (path: string, base: string) =>
 /** `/en/billing/x` → `/billing/x`; `/en` → `/`. */
 export function stripLocale(pathname: string, locale: string): string {
   const p = pathname.replace(/[?#].*$/, '').replace(/\/+$/, '');
-  if (p === `/${locale}` || p === `/${locale}/console` || p === '') return '/';
+  // the client console has no language in its address: `/console` is its home (the admin console still prefixes `/<locale>`)
+  if (p === `/${locale}` || p === `/${locale}/console` || p === '/console' || p === '') return '/';
   return p.startsWith(`/${locale}/`) ? p.slice(locale.length + 1) : p;
 }
 

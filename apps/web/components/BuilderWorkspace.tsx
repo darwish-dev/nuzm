@@ -243,12 +243,12 @@ export function Workspace({
   return (
     <div className="bws" data-inspector={inspectorOpen && !panel ? 'open' : 'closed'}>
       <header className="bws-top">
-        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
+        <a className="bws-logo" href={`/console`} aria-label={t(locale, 'bld.ws.home')}>
           <BrandMark />
         </a>
         <a
           className="bws-back"
-          href={`/${locale}/builder/projects`}
+          href={`/builder/projects`}
           aria-label={t(locale, 'bld.ws.back')}
           title={t(locale, 'bld.ws.back')}
         >
@@ -375,7 +375,7 @@ export function Workspace({
                   locale={locale}
                   variant="menu"
                   project={{ id: detail.id, name: detail.name }}
-                  redirectTo={`/${locale}/builder/projects`}
+                  redirectTo={`/builder/projects`}
                 />
               </li>
             )}
@@ -388,7 +388,7 @@ export function Workspace({
         )}
         <a
           className="bws-exit"
-          href={`/${locale}`}
+          href={`/console`}
           aria-label={t(locale, 'bld.ws.exit')}
           title={t(locale, 'bld.ws.exit')}
         >

@@ -178,7 +178,7 @@ async function clientWorkflows(s: Session, locale: Locale, client: string) {
                 key: 'n',
                 header: t(locale, 'field.name'),
                 render: (w) => (
-                  <a href={`/${locale}/automation/workflows/${w.id}/edit`}>
+                  <a href={`/automation/workflows/${w.id}/edit`}>
                     <bdi dir="auto">{w.name}</bdi>
                   </a>
                 ),
@@ -199,7 +199,7 @@ async function clientWorkflows(s: Session, locale: Locale, client: string) {
           />
         )}
         <p>
-          <a href={`/${locale}/automation/workflows`}>{t(locale, 'm11.act.openWorkflows')}</a>
+          <a href={`/automation/workflows`}>{t(locale, 'm11.act.openWorkflows')}</a>
         </p>
       </>
     ),

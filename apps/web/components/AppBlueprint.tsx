@@ -27,7 +27,7 @@ export const NotAnApp = ({ locale, projectId }: { locale: Locale; projectId: str
     title={t(locale, 'm10a.notApp.title')}
     body={t(locale, 'm10a.notApp.body')}
     action={
-      <a className="nz-btn" href={`/${locale}/builder/projects/${projectId}`}>
+      <a className="nz-btn" href={`/builder/projects/${projectId}`}>
         {t(locale, 'm10a.notApp.back')}
       </a>
     }
@@ -552,7 +552,7 @@ export function AppVersions({
           header: t(locale, 'm10a.ver.run'),
           render: (v) =>
             v.runId ? (
-              <a href={`/${locale}/builder/runs/${v.runId}`}>
+              <a href={`/builder/runs/${v.runId}`}>
                 <Ltr>{v.runId.slice(0, 8)}</Ltr>
               </a>
             ) : (
@@ -563,7 +563,7 @@ export function AppVersions({
           key: 'f',
           header: t(locale, 'm10a.ver.files'),
           render: () => (
-            <a href={`/${locale}/builder/projects/${projectId}/ide`}>
+            <a href={`/builder/projects/${projectId}/ide`}>
               {t(locale, 'm10a.ver.browse')}
             </a>
           ),

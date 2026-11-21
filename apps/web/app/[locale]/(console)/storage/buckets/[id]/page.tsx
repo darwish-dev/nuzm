@@ -57,7 +57,7 @@ export default async function BucketDetail({
       const na = t(locale, 'm8.c.unavailable');
       return (
         <>
-          <a className="nzc-back" href={`/${locale}/storage/buckets`}>
+          <a className="nzc-back" href={`/storage/buckets`}>
             <Icon name="chevron" size={16} />
             {t(locale, 'm8.st.title')}
           </a>

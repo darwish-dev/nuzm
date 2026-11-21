@@ -76,7 +76,7 @@ export default async function ExecutionPage({
                 <Ltr>{e.id}</Ltr>
               </Fact>
               <Fact label={t(locale, 'm11.exec.workflow')}>
-                <a href={`/${locale}/automation/workflows/${e.workflowId}/edit`}>
+                <a href={`/automation/workflows/${e.workflowId}/edit`}>
                   <Ltr>{e.workflowId}</Ltr>
                 </a>
               </Fact>
@@ -98,7 +98,7 @@ export default async function ExecutionPage({
               </Fact>
               {e.operationId && (
                 <Fact label={t(locale, 'm11.exec.operation')}>
-                  <a href={`/${locale}/operations`}>
+                  <a href={`/operations`}>
                     <Ltr>{e.operationId}</Ltr>
                   </a>
                 </Fact>

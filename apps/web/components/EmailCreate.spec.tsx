@@ -45,7 +45,7 @@ describe('mailbox creation (landing-style)', () => {
           name: new RegExp(t('en', 'm8.em.tab.domains')),
         }) as HTMLAnchorElement
       ).getAttribute('href'),
-    ).toBe('/en/email/domains');
+    ).toBe('/email/domains');
   });
 });
 

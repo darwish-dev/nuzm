@@ -87,7 +87,7 @@ export default async function Purchases({ params }: { params: Promise<{ locale: 
                 key: 'l',
                 header: t(locale, 'm11.pur.listing'),
                 render: (e) => (
-                  <a href={`/${locale}/marketplace/listings/${e.listingId}`}>
+                  <a href={`/marketplace/listings/${e.listingId}`}>
                     <bdi dir="auto">{entitlementTitle(e, locale)}</bdi>
                   </a>
                 ),
@@ -132,12 +132,12 @@ export default async function Purchases({ params }: { params: Promise<{ locale: 
                   const p = purchases.get(e.entitlementId);
                   return p?.invoiceId ? (
                     <>
-                      <a href={`/${locale}/billing/invoices/${p.invoiceId}`}>
+                      <a href={`/billing/invoices/${p.invoiceId}`}>
                         <Ltr>{p.invoiceId.slice(0, 8)}</Ltr>
                       </a>
                       {p.status === 'pending_payment' && (
                         <p>
-                          <a href={`/${locale}/billing/invoices/${p.invoiceId}`}>
+                          <a href={`/billing/invoices/${p.invoiceId}`}>
                             {t(locale, 'm11.buy.payInvoice')}
                           </a>
                         </p>
@@ -191,7 +191,7 @@ export default async function Purchases({ params }: { params: Promise<{ locale: 
                   key: 'l',
                   header: t(locale, 'm11.pur.listing'),
                   render: (i) => (
-                    <a href={`/${locale}/marketplace/listings/${i.listingId}`}>
+                    <a href={`/marketplace/listings/${i.listingId}`}>
                       <Ltr>{i.listingId.slice(0, 8)}</Ltr>
                     </a>
                   ),
@@ -228,7 +228,7 @@ export default async function Purchases({ params }: { params: Promise<{ locale: 
                   header: t(locale, 'm11.inst.result'),
                   render: (i) =>
                     i.targetType === 'workflow' && i.targetId ? (
-                      <a href={`/${locale}/automation/workflows/${i.targetId}/edit`}>
+                      <a href={`/automation/workflows/${i.targetId}/edit`}>
                         {t(locale, 'm11.inst.openWorkflow')}
                       </a>
                     ) : i.targetId ? (

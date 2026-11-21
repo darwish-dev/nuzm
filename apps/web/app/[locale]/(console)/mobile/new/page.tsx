@@ -8,5 +8,5 @@ import { mobileGuard } from '../../../../../lib/mobile-view';
 export default async function NewMobileApp({ params }: { params: Promise<{ locale: string }> }) {
   const m = await mobileGuard(params, 'builder:read', 'mobile.title.new');
   if (!m.ok) return m.node;
-  redirect(`/${m.locale}/builder/projects?type=mobile`);
+  redirect(`/builder/projects?type=mobile`);
 }

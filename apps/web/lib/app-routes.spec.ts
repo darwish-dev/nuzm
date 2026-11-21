@@ -47,8 +47,8 @@ describe('the former pages of a web-app project redirect into the builder worksp
     ['exports', 'exports'],
     ['versions', 'versions'],
   ] as const)('/builder/projects/{id}/%s -> ?tab=%s', async (segment, tab) => {
-    expect(await go(segment)).toBe(`/en/builder/projects/${ID}?tab=${tab}`);
-    expect(await go(segment, params(ID, 'ar'))).toBe(`/ar/builder/projects/${ID}?tab=${tab}`);
+    expect(await go(segment)).toBe(`/builder/projects/${ID}?tab=${tab}`);
+    expect(await go(segment, params(ID, 'ar'))).toBe(`/builder/projects/${ID}?tab=${tab}`);
   });
   it('a website keeps its own versions and deployments pages (nothing is redirected)', async () => {
     project = { ok: true, type: 'website' };

@@ -42,7 +42,7 @@ export default async function CreditNotes({
                 key: 'n',
                 header: t(locale, 'cn.col.number'),
                 render: (c) => (
-                  <a href={`/${locale}/billing/credit-notes/${c.id}`}>
+                  <a href={`/billing/credit-notes/${c.id}`}>
                     <Ltr>{c.number}</Ltr>
                   </a>
                 ),
@@ -52,7 +52,7 @@ export default async function CreditNotes({
                 header: t(locale, 'cn.col.invoice'),
                 icon: 'tag',
                 render: (c) => (
-                  <a href={`/${locale}/billing/invoices/${c.invoiceId}`}>
+                  <a href={`/billing/invoices/${c.invoiceId}`}>
                     <Ltr>{c.invoiceNumber}</Ltr>
                   </a>
                 ),

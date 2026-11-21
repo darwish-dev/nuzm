@@ -40,7 +40,7 @@ export default async function DatabaseOverview({
       const windowEnds = d.rotation?.windowEndsAt ?? null;
       return (
         <>
-          <a className="nzc-back" href={`/${locale}/databases`}>
+          <a className="nzc-back" href={`/databases`}>
             <Icon name="chevron" size={16} />
             {t(locale, 'm8.db.title')}
           </a>
@@ -76,7 +76,7 @@ export default async function DatabaseOverview({
                     desc={t(locale, 'm8.dbd.ov.backups')}
                     action={
                       <ActionLink
-                        href={`/${locale}/databases/${d.id}/backups`}
+                        href={`/databases/${d.id}/backups`}
                         label={t(locale, 'm8.dbd.ov.open')}
                         primary
                       />
@@ -88,7 +88,7 @@ export default async function DatabaseOverview({
                     desc={t(locale, 'm8.dbd.ov.settings')}
                     action={
                       <ActionLink
-                        href={`/${locale}/databases/${d.id}/settings`}
+                        href={`/databases/${d.id}/settings`}
                         label={t(locale, 'm8.dbd.ov.open')}
                       />
                     }

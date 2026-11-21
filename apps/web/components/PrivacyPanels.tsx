@@ -98,7 +98,7 @@ export function NewRequestForm({ locale, canManage }: { locale: Locale; canManag
     setIdem(key());
     setN({ tone: 'ok', text: t(locale, 'pv.req.sent') });
     const id = (r.data as { id?: string } | undefined)?.id;
-    router.push(id ? `/${locale}/privacy/requests/${id}` : `/${locale}/privacy#requests`);
+    router.push(id ? `/privacy/requests/${id}` : `/privacy#requests`);
     router.refresh();
   }
   return (

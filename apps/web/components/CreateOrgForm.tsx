@@ -29,7 +29,7 @@ export function CreateOrgForm({ locale }: { locale: Locale }) {
     }
     const org = r.data as unknown as { id: string };
     document.cookie = `nuzm_org=${org.id}; path=/; samesite=lax`;
-    router.push(`/${locale}/console`);
+    router.push(`/console`);
     router.refresh();
   }
   return (

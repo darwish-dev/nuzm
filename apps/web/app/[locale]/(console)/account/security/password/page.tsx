@@ -5,5 +5,5 @@ import { isLocale } from '@nuzm/i18n';
 export default async function Password({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  redirect(`/${locale}/account#password`);
+  redirect(`/account#password`);
 }

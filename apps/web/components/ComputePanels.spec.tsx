@@ -128,7 +128,7 @@ describe('offers (UI-M05-01)', () => {
       screen
         .getByRole('link', { name: new RegExp(`^${t('en', 'm05.web.offers.use')}`) })
         .getAttribute('href'),
-    ).toContain('/en/compute/instances/new?offerId=');
+    ).toContain('/compute/instances/new?offerId=');
     expect(
       screen.getByRole('link', { name: t('en', 'm05.web.page.next') }).getAttribute('href'),
     ).toContain('cursor=c2');
@@ -548,7 +548,7 @@ describe('create wizard (UI-M05-02)', () => {
       ok({ instance: { id: 'new-id', status: 'provisioning' }, operationId: 'op' }, 202),
     );
     fireEvent.click(screen.getByRole('button', { name: t('en', 'm05.web.wiz.confirm') }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/compute/instances/new-id'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/compute/instances/new-id'));
     const [cPath, cOpts] = post.mock.calls[1] as [
       string,
       { body: Record<string, unknown>; idempotencyKey: string },
@@ -607,7 +607,7 @@ describe('create wizard (UI-M05-02)', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain(t('en', 'm05.web.err.spend_approval_required'));
     expect(alert.textContent).toContain('0198a1b2');
-    expect(within(alert).getByRole('link').getAttribute('href')).toBe('/en/billing/approvals');
+    expect(within(alert).getByRole('link').getAttribute('href')).toBe('/billing/approvals');
   });
   it('no_eligible_offer at the quote step lets the user pick another offer', async () => {
     post.mockResolvedValueOnce(fail(422, { code: 'no_eligible_offer' }));
@@ -627,7 +627,7 @@ describe('shared pieces', () => {
   it('lists only the tabs the member may open', () => {
     render(<ComputeTabs locale="en" current="offers" can={(p) => p === 'offers:read'} />);
     expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual([
-      '/en/compute/offers',
+      '/compute/offers',
     ]);
   });
   it('maps every known problem code to a localised message in both languages', () => {

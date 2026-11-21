@@ -56,7 +56,7 @@ export default async function Contacts({
   );
   return (
     <>
-      <a className="nzc-back" href={`/${locale}/domains/${id}`}>
+      <a className="nzc-back" href={`/domains/${id}`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'dom.detail.title')}
       </a>

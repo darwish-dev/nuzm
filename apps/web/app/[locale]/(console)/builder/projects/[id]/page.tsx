@@ -152,7 +152,7 @@ export default async function ProjectWorkspace({
               .filter((x) => g.s.can(x.perm))
               .map((x) => ({
                 key: x.key,
-                href: `/${locale}/builder/projects/${id}?panel=${x.key}`,
+                href: `/builder/projects/${id}?panel=${x.key}`,
                 label: t(locale, `bld.tab.${x.key}` as 'bld.tab.versions'),
               }))}
           />

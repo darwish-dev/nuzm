@@ -108,7 +108,7 @@ export async function ProjectsScreen({
   return (
     <>
       {/* full screen: the console's sidebar and top bar step aside (see `.bfs-float`); the only chrome is a floating way out at the bottom */}
-      <a className="bfs-float" href={`/${locale}`}>
+      <a className="bfs-float" href={`/console`}>
         <Icon name="close" size={16} />
         {t(locale, 'bld.ws.exit')}
       </a>

@@ -64,7 +64,7 @@ describe('start a project (one prompt, no steps)', () => {
     screenUnderTest();
     typeIn('A website for my restaurant with a menu and table booking');
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p1'));
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
       'POST /v1/builder/projects',
       'POST /v1/ai/sessions',
@@ -100,7 +100,7 @@ describe('start a project (one prompt, no steps)', () => {
     fireEvent.click(screen.getByLabelText(new RegExp(t('en', 'bld.start.type.mobile'))));
     typeIn('A mobile app for booking padel courts');
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/m1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/m1'));
     expect(calls[0]!.body).toMatchObject({ type: 'mobile' });
     expect(calls[2]!.url).toBe('/v1/ai/sessions/s1/messages');
     expect(calls[2]!.body).toMatchObject({ content: 'A mobile app for booking padel courts' });
@@ -134,7 +134,7 @@ describe('start a project (one prompt, no steps)', () => {
     screenUnderTest();
     typeIn('Coffee shop site');
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p2'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p2'));
     const created = calls.filter((c) => c.url === '/v1/builder/projects');
     expect(created.map((c) => (c.body as { name: string }).name)).toEqual([
       'Coffee shop site',
@@ -160,7 +160,7 @@ describe('start a project (one prompt, no steps)', () => {
     go();
     await screen.findByText(t('en', 'bld.wiz.partial'), { exact: false });
     go();
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p3'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p3'));
     expect(calls.filter((c) => c.url === '/v1/builder/projects')).toHaveLength(1);
     expect(calls.filter((c) => c.url === '/v1/ai/sessions')).toHaveLength(1);
     expect(calls.filter((c) => c.url === '/v1/ai/runs')).toHaveLength(2);

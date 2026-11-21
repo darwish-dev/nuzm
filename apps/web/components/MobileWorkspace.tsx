@@ -213,7 +213,7 @@ export function MobileWorkspace({
         )}
         {runId && (
           <li>
-            <a href={`/${locale}/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
+            <a href={`/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
           </li>
         )}
         {can.write && (
@@ -222,7 +222,7 @@ export function MobileWorkspace({
               locale={locale}
               variant="menu"
               project={{ id: project.id, name: project.name }}
-              redirectTo={`/${locale}/builder/projects`}
+              redirectTo={`/builder/projects`}
             />
           </li>
         )}
@@ -233,7 +233,7 @@ export function MobileWorkspace({
     <WorkspaceShell
       locale={locale}
       mode="mobile"
-      backHref={`/${locale}/builder/projects?type=mobile`}
+      backHref={`/builder/projects?type=mobile`}
       name={project.name}
       tabsLabel={t(locale, 'mobile.tab.label')}
       tabs={tabs.map((x) => ({ id: x, icon: TAB_ICON[x], label: t(locale, TAB_LABEL[x]) }))}

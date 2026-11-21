@@ -186,7 +186,7 @@ export function TestRuns({
         }),
       (r) => {
         setFixKey(newKey());
-        router.push(`/${locale}/builder/projects/${projectId}/runs/${r.id}`);
+        router.push(`/builder/projects/${projectId}/runs/${r.id}`);
       },
     );
   }

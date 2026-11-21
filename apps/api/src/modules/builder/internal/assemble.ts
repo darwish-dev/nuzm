@@ -122,7 +122,7 @@ export function assembleGenerated(
             kind: 'image',
             source: 'placeholder',
             alt: keepLocales(page.title, locales) as Localized,
-            label: page.slug.slice(0, 40),
+            // no label: the page slug ("home") is an internal id, not text a visitor should read on an image
           });
       if (
         s.type === 'contact_form' &&

@@ -1,0 +1,355 @@
+{
+  "schemaVersion": "1",
+  "analyzer": {
+    "id": "project-detect",
+    "version": "1.0.0"
+  },
+  "frameworks": [
+    "flutter"
+  ],
+  "languages": [
+    "dart",
+    "html"
+  ],
+  "languageStats": [
+    {
+      "name": "dart",
+      "files": 5,
+      "bytes": 446
+    },
+    {
+      "name": "html",
+      "files": 1,
+      "bytes": 13
+    }
+  ],
+  "packageManagers": [
+    "pub"
+  ],
+  "modules": [],
+  "components": [],
+  "capabilities": [
+    {
+      "name": "automated-testing",
+      "confidence": 0.8,
+      "evidence": [
+        {
+          "kind": "dependency",
+          "path": "pubspec.yaml",
+          "line": 15,
+          "detail": "flutter_test@sdk:flutter"
+        }
+      ]
+    },
+    {
+      "name": "internationalization",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "kind": "dependency",
+          "path": "pubspec.yaml",
+          "line": 13,
+          "detail": "intl@^0.19.0"
+        }
+      ]
+    },
+    {
+      "name": "state-management",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "kind": "dependency",
+          "path": "pubspec.yaml",
+          "line": 11,
+          "detail": "flutter_bloc@^8.1.5"
+        },
+        {
+          "kind": "dependency",
+          "path": "pubspec.yaml",
+          "line": 12,
+          "detail": "provider@^6.1.2"
+        }
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "root": ".",
+      "name": "gym_app",
+      "kind": "application",
+      "roles": [
+        {
+          "role": "mobile",
+          "evidence": [
+            {
+              "kind": "directory",
+              "path": "android",
+              "detail": "android, ios, web"
+            },
+            {
+              "kind": "file",
+              "path": "lib/main.dart",
+              "detail": "lib/main.dart"
+            }
+          ]
+        }
+      ],
+      "ecosystems": [
+        "pub"
+      ],
+      "detections": [
+        {
+          "id": "dart",
+          "name": "Dart",
+          "category": "language",
+          "version": "3.3.0",
+          "versionSource": "declared",
+          "confidence": 0.99,
+          "level": "high",
+          "evidence": [
+            {
+              "kind": "config",
+              "path": "analysis_options.yaml"
+            },
+            {
+              "kind": "directory",
+              "path": "lib",
+              "detail": "5 .dart files"
+            },
+            {
+              "kind": "manifest",
+              "path": "pubspec.yaml",
+              "detail": "pubspec.yaml"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "flutter",
+          "name": "Flutter",
+          "category": "framework",
+          "version": null,
+          "versionSource": null,
+          "confidence": 0.99,
+          "level": "high",
+          "evidence": [
+            {
+              "kind": "directory",
+              "path": "android",
+              "detail": "android, ios, web"
+            },
+            {
+              "kind": "file",
+              "path": "lib/main.dart",
+              "detail": "lib/main.dart"
+            },
+            {
+              "kind": "manifest",
+              "path": "pubspec.yaml",
+              "detail": "flutter: section"
+            },
+            {
+              "kind": "dependency",
+              "path": "pubspec.yaml",
+              "line": 8,
+              "detail": "flutter@sdk:flutter"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "flutter-bloc",
+          "name": "flutter_bloc",
+          "category": "library",
+          "version": "8.1.6",
+          "versionSource": "lockfile",
+          "confidence": 0.6,
+          "level": "medium",
+          "evidence": [
+            {
+              "kind": "dependency",
+              "path": "pubspec.yaml",
+              "line": 11,
+              "detail": "flutter_bloc@^8.1.5"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "go-router",
+          "name": "go_router",
+          "category": "library",
+          "version": "13.2.4",
+          "versionSource": "lockfile",
+          "confidence": 0.6,
+          "level": "medium",
+          "evidence": [
+            {
+              "kind": "dependency",
+              "path": "pubspec.yaml",
+              "line": 10,
+              "detail": "go_router@^13.2.0"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "provider",
+          "name": "Provider",
+          "category": "library",
+          "version": "6.1.2",
+          "versionSource": "declared",
+          "confidence": 0.6,
+          "level": "medium",
+          "evidence": [
+            {
+              "kind": "dependency",
+              "path": "pubspec.yaml",
+              "line": 12,
+              "detail": "provider@^6.1.2"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "packageManager": {
+        "name": "pub",
+        "version": null,
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "manifest",
+            "path": "pubspec.yaml"
+          }
+        ]
+      },
+      "entryPoints": [
+        {
+          "kind": "file",
+          "path": "lib/main.dart",
+          "detail": "lib/main.dart"
+        }
+      ],
+      "build": {
+        "scripts": [],
+        "configFiles": [
+          "analysis_options.yaml"
+        ],
+        "typescript": null,
+        "docker": [],
+        "ci": [],
+        "flutter": {
+          "sdkConstraint": ">=3.3.0 <4.0.0",
+          "platforms": [
+            "android",
+            "ios",
+            "web"
+          ],
+          "usesMaterialDesign": true,
+          "assets": 2
+        }
+      },
+      "dependencyCount": 6,
+      "dependencies": [
+        {
+          "name": "flutter",
+          "range": "sdk:flutter",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "pub",
+          "line": 8
+        },
+        {
+          "name": "flutter_bloc",
+          "range": "^8.1.5",
+          "resolved": "8.1.6",
+          "kind": "runtime",
+          "ecosystem": "pub",
+          "line": 11
+        },
+        {
+          "name": "flutter_test",
+          "range": "sdk:flutter",
+          "resolved": null,
+          "kind": "dev",
+          "ecosystem": "pub",
+          "line": 15
+        },
+        {
+          "name": "go_router",
+          "range": "^13.2.0",
+          "resolved": "13.2.4",
+          "kind": "runtime",
+          "ecosystem": "pub",
+          "line": 10
+        },
+        {
+          "name": "intl",
+          "range": "^0.19.0",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "pub",
+          "line": 13
+        },
+        {
+          "name": "provider",
+          "range": "^6.1.2",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "pub",
+          "line": 12
+        }
+      ]
+    }
+  ],
+  "workspaces": [],
+  "routes": [
+    {
+      "kind": "flutter-route",
+      "path": "/",
+      "methods": [],
+      "dynamic": false,
+      "file": "lib/router.dart",
+      "line": 3,
+      "project": ".",
+      "confidence": 0.85
+    },
+    {
+      "kind": "flutter-route",
+      "path": "/workouts/:id",
+      "methods": [],
+      "dynamic": true,
+      "file": "lib/router.dart",
+      "line": 8,
+      "project": ".",
+      "confidence": 0.85
+    }
+  ],
+  "screens": [
+    {
+      "kind": "flutter-screen",
+      "name": "HomeScreen",
+      "file": "lib/screens/home_screen.dart",
+      "line": 1,
+      "project": ".",
+      "confidence": 0.7
+    },
+    {
+      "kind": "flutter-screen",
+      "name": "WorkoutPage",
+      "file": "lib/screens/workout_page.dart",
+      "line": 1,
+      "project": ".",
+      "confidence": 0.7
+    }
+  ],
+  "moduleFacts": [],
+  "ambiguities": [],
+  "stats": {
+    "filesConsidered": 11,
+    "filesRead": 7,
+    "bytesRead": 984,
+    "truncated": [],
+    "skippedLarge": 0
+  }
+}

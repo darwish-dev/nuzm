@@ -7255,7 +7255,7 @@ export interface paths {
         put?: never;
         /**
          * Retry an interrupted version
-         * @description Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation). A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
+         * @description Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation); for an analysed version without a manifest it queues project detection again. A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
          */
         post: operations["reprocessKnowledgeVersion"];
         delete?: never;
@@ -7298,6 +7298,26 @@ export interface paths {
          * @description Body {versionId, note?}. Needs a completed analysis without blocking findings, a licence proposal and verdict of ALLOWED, and the approvals above; the database checks every condition again. The previous active version is retired to DISABLED (restorable through the same gate), never overwritten. Publishing the resource to customers is a separate, explicit visibility change. Audited. Permission `admin:ai_knowledge:publish`.
          */
         post: operations["activateKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the project manifest of a version
+         * @description The evidence-backed project manifest produced by static detection (S-K2b): frameworks with versions and confidence, languages, package managers, projects and workspaces, build configuration, dependencies, routes, screens, modules and capabilities, each with evidence paths. `manifest` is null while detection has not run. Nothing is executed to produce it. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeManifest"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13297,6 +13317,17 @@ export interface components {
             /** Format: uuid */
             versionId: string;
             note?: string;
+        };
+        KnowledgeManifestDetail: {
+            /** Format: uuid */
+            versionId: string;
+            schemaVersion: string | null;
+            /** Format: date-time */
+            createdAt: string | null;
+            /** @description ProjectManifest (schemaVersion 1); see docs/spec-change-requests/SCR-K-03-project-detection.md for the shape. */
+            manifest: {
+                [key: string]: unknown;
+            } | null;
         };
     };
     responses: {
@@ -28276,6 +28307,33 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeManifestDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

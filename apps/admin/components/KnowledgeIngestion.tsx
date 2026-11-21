@@ -7,8 +7,10 @@ import {
   formatBytes,
   isCancellable,
   isKnownReason,
+  evidenceText,
   isRetryable,
   jobTone,
+  levelTone,
   licenseTone,
   severityTone,
   statusTone,
@@ -17,6 +19,9 @@ import {
   type IngestJob,
   type IngestLog,
   type KnowledgeVersion,
+  type ManDetection,
+  type ManProject,
+  type ProjectManifestView,
   type ReviewState,
 } from '../lib/knowledge';
 
@@ -145,6 +150,13 @@ export function KnowledgeIngestion({
         canManage={canManage}
         rev={rev}
         onChange={bump}
+      />
+      <ManifestSection
+        key={`m-${versionId}`}
+        locale={locale}
+        resourceId={resourceId}
+        versionId={versionId}
+        rev={rev}
       />
       <FindingsSection
         key={`f-${versionId}`}
@@ -875,6 +887,302 @@ function FilesSection({
             />
           )
         }
+      </Frame>
+    </Card>
+  );
+}
+
+// ---- the detected project (S-K2b) ---------------------------------------------------------------------------------------------------
+type ManRoute2 = ProjectManifestView['routes'][number];
+const evLine = (e: { path: string; line?: number }) => evidenceText({ kind: '', ...e });
+function DetectionRow({ locale, d }: { locale: Locale; d: ManDetection }) {
+  return (
+    <li>
+      <strong>{d.name}</strong>{' '}
+      {d.version && (
+        <>
+          <Ltr>{d.version}</Ltr>{' '}
+          <span className="nz-muted">
+            ({t(locale, d.versionSource === 'lockfile' ? 'km.src.lockfile' : 'km.src.declared')})
+          </span>{' '}
+        </>
+      )}
+      <Badge tone={levelTone(d.level)}>
+        {t(locale, `km.level.${d.level}` as MessageKey)} ·{' '}
+        <Ltr>{String(Math.round(d.confidence * 100))}%</Ltr>
+      </Badge>
+      <div className="nz-muted">
+        {t(locale, 'km.evidence')}:{' '}
+        {d.evidence.slice(0, 3).map((e, i) => (
+          <span key={`${e.path}${e.line ?? ''}${i}`}>
+            {i > 0 && ', '}
+            <Ltr>{evLine(e)}</Ltr>
+          </span>
+        ))}
+      </div>
+    </li>
+  );
+}
+
+function ManifestSection({
+  locale,
+  resourceId,
+  versionId,
+  rev,
+}: {
+  locale: Locale;
+  resourceId: string;
+  versionId: string;
+  rev: number;
+}) {
+  const [r, reload] = useRemote<{ manifest: ProjectManifestView | null }>(async () => {
+    const x = await browserApi().GET(
+      `${BASE}/versions/{versionId}/manifest` as never,
+      { params: { path: { id: resourceId, versionId } } } as never,
+    );
+    return { ok: x.response.ok, status: x.response.status, data: (x.data as never) ?? null };
+  }, [resourceId, versionId, rev]);
+  const [routeLimit, setRouteLimit] = useState(50);
+  return (
+    <Card aria-label={t(locale, 'km.title')}>
+      <h2 className="nz-h2">{t(locale, 'km.title')}</h2>
+      <p className="nz-muted">{t(locale, 'km.intro')}</p>
+      <Frame locale={locale} r={r} reload={reload}>
+        {({ manifest: m }) => {
+          if (!m) return <EmptyState title={t(locale, 'km.title')} body={t(locale, 'km.none')} />;
+          const pool = m.projects.filter((p) => p.kind !== 'example');
+          const shown = new Map<string, ManDetection>();
+          for (const p of pool.length ? pool : m.projects)
+            for (const d of p.detections)
+              if (
+                (d.category === 'framework' ||
+                  d.category === 'runtime' ||
+                  d.category === 'language') &&
+                (shown.get(d.id)?.confidence ?? -1) < d.confidence
+              )
+                shown.set(d.id, d);
+          const list = [...shown.values()].sort(
+            (a, b) => b.confidence - a.confidence || (a.id < b.id ? -1 : 1),
+          );
+          const screens = [
+            ...m.screens.map((x) => ({ ...x, label: 'km.screen' as MessageKey })),
+            ...m.moduleFacts.map((x) => ({
+              ...x,
+              label: (x.kind === 'nest-controller' ? 'km.controller' : 'km.module') as MessageKey,
+            })),
+          ];
+          return (
+            <>
+              <h3 className="nz-h3">{t(locale, 'km.frameworks')}</h3>
+              {list.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'km.frameworks.none')}</p>
+              ) : (
+                <ul className="kni-list">
+                  {list.map((d) => (
+                    <DetectionRow key={d.id} locale={locale} d={d} />
+                  ))}
+                </ul>
+              )}
+              <dl className="kni-facts">
+                <div>
+                  <dt>{t(locale, 'km.languages')}</dt>
+                  <dd>{m.languages.length ? <Ltr>{m.languages.join(', ')}</Ltr> : '—'}</dd>
+                </div>
+                <div>
+                  <dt>{t(locale, 'km.pm')}</dt>
+                  <dd>
+                    {m.packageManagers.length ? (
+                      <Ltr>{m.packageManagers.join(', ')}</Ltr>
+                    ) : (
+                      t(locale, 'km.pm.none')
+                    )}
+                  </dd>
+                </div>
+              </dl>
+
+              <h3 className="nz-h3">{t(locale, 'km.projects')}</h3>
+              <Table
+                caption={t(locale, 'km.projects')}
+                rows={m.projects}
+                rowKey={(p: ManProject) => p.root}
+                columns={[
+                  {
+                    key: 'root',
+                    header: t(locale, 'km.col.root'),
+                    card: 'title',
+                    render: (p: ManProject) => <Ltr>{p.root}</Ltr>,
+                  },
+                  {
+                    key: 'kind',
+                    header: t(locale, 'km.col.kind'),
+                    card: 'badge',
+                    render: (p: ManProject) => (
+                      <Badge>{t(locale, `km.kind.${p.kind}` as MessageKey)}</Badge>
+                    ),
+                  },
+                  {
+                    key: 'roles',
+                    header: t(locale, 'km.col.roles'),
+                    card: 'meta',
+                    render: (p: ManProject) =>
+                      p.roles.length
+                        ? p.roles
+                            .map((x) => t(locale, `km.role.${x.role}` as MessageKey))
+                            .join('، ')
+                        : '—',
+                  },
+                  {
+                    key: 'det',
+                    header: t(locale, 'km.col.detected'),
+                    card: 'meta',
+                    render: (p: ManProject) => (
+                      <Ltr>
+                        {p.detections
+                          .filter((d) => d.confidence >= 0.5 && d.category !== 'language')
+                          .map((d) => d.name)
+                          .join(', ') || '—'}
+                      </Ltr>
+                    ),
+                  },
+                  {
+                    key: 'pm',
+                    header: t(locale, 'km.col.pm'),
+                    card: 'meta',
+                    render: (p: ManProject) =>
+                      p.packageManager ? <Ltr>{p.packageManager.name}</Ltr> : '—',
+                  },
+                ]}
+              />
+
+              <h3 className="nz-h3">{t(locale, 'km.workspaces')}</h3>
+              {m.workspaces.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'km.workspaces.none')}</p>
+              ) : (
+                <ul className="kni-list">
+                  {m.workspaces.map((w) => (
+                    <li key={`${w.root}${w.tool}`}>
+                      <Ltr>{w.tool}</Ltr> · <Ltr>{w.root}</Ltr> ·{' '}
+                      {t(locale, 'km.workspaces.members', { n: w.members.length })}:{' '}
+                      <Ltr>{w.members.slice(0, 8).join(', ')}</Ltr>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h3 className="nz-h3">{t(locale, 'km.capabilities')}</h3>
+              {m.capabilities.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'km.capabilities.none')}</p>
+              ) : (
+                <ul className="kni-list">
+                  {m.capabilities.map((c) => (
+                    <li key={c.name}>
+                      <Ltr>{c.name}</Ltr>{' '}
+                      <Badge
+                        tone={levelTone(
+                          c.confidence >= 0.8 ? 'high' : c.confidence >= 0.5 ? 'medium' : 'low',
+                        )}
+                      >
+                        <Ltr>{String(Math.round(c.confidence * 100))}%</Ltr>
+                      </Badge>{' '}
+                      <span className="nz-muted">
+                        <Ltr>{c.evidence.slice(0, 2).map(evLine).join(', ')}</Ltr>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h3 className="nz-h3">{t(locale, 'km.routes')}</h3>
+              <p className="nz-muted">{t(locale, 'km.routes.note')}</p>
+              {m.routes.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'km.routes.none')}</p>
+              ) : (
+                <>
+                  <Table
+                    caption={t(locale, 'km.routes')}
+                    rows={m.routes.slice(0, routeLimit)}
+                    rowKey={(x: ManRoute2) =>
+                      `${x.kind}${x.project}${x.path}${x.file}${x.line ?? ''}${x.methods.join()}`
+                    }
+                    columns={[
+                      {
+                        key: 'path',
+                        header: t(locale, 'km.col.route'),
+                        card: 'title',
+                        render: (x: ManRoute2) => <Ltr>{x.path}</Ltr>,
+                      },
+                      {
+                        key: 'type',
+                        header: t(locale, 'km.col.type'),
+                        card: 'badge',
+                        render: (x: ManRoute2) => tDynamic(locale, `km.route.${x.kind}`, x.kind),
+                      },
+                      {
+                        key: 'methods',
+                        header: t(locale, 'km.col.methods'),
+                        card: 'meta',
+                        render: (x: ManRoute2) =>
+                          x.methods.length ? <Ltr>{x.methods.join(', ')}</Ltr> : '—',
+                      },
+                      {
+                        key: 'file',
+                        header: t(locale, 'km.col.file'),
+                        card: 'meta',
+                        render: (x: ManRoute2) => (
+                          <Ltr>{evLine({ path: x.file, line: x.line })}</Ltr>
+                        ),
+                      },
+                    ]}
+                  />
+                  {m.routes.length > routeLimit && (
+                    <Button variant="secondary" onClick={() => setRouteLimit(routeLimit + 100)}>
+                      {t(locale, 'km.more')}
+                    </Button>
+                  )}
+                </>
+              )}
+
+              <h3 className="nz-h3">{t(locale, 'km.screens')}</h3>
+              {screens.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'km.screens.none')}</p>
+              ) : (
+                <ul className="kni-list">
+                  {screens.slice(0, 60).map((x) => (
+                    <li key={`${x.kind}${x.file}${x.line ?? ''}${x.name}`}>
+                      <Badge>{t(locale, x.label)}</Badge> <Ltr>{x.name}</Ltr>{' '}
+                      <span className="nz-muted">
+                        <Ltr>{evLine({ path: x.file, line: x.line })}</Ltr>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h3 className="nz-h3">{t(locale, 'km.ambiguities')}</h3>
+              {m.ambiguities.length === 0 ? (
+                <p className="nz-muted">{t(locale, 'km.ambiguities.none')}</p>
+              ) : (
+                <ul className="kni-list">
+                  {m.ambiguities.map((a) => (
+                    <li key={`${a.code}${a.paths.join()}`}>
+                      {tDynamic(locale, `km.amb.${a.code}`, a.detail)}{' '}
+                      {a.paths.length > 0 && (
+                        <span className="nz-muted">
+                          <Ltr>{a.paths.slice(0, 3).join(', ')}</Ltr>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {m.stats.truncated.length > 0 && (
+                <p className="nz-muted">
+                  {t(locale, 'km.truncated')} <Ltr>{m.stats.truncated.join(', ')}</Ltr>
+                </p>
+              )}
+            </>
+          );
+        }}
       </Frame>
     </Card>
   );

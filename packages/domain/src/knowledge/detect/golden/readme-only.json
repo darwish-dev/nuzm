@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1",
+  "analyzer": {
+    "id": "project-detect",
+    "version": "1.0.0"
+  },
+  "frameworks": [],
+  "languages": [],
+  "languageStats": [],
+  "packageManagers": [],
+  "modules": [],
+  "components": [],
+  "capabilities": [],
+  "projects": [
+    {
+      "root": ".",
+      "name": "docs-site",
+      "kind": "library",
+      "roles": [],
+      "ecosystems": [
+        "npm"
+      ],
+      "detections": [
+        {
+          "id": "nodejs",
+          "name": "Node.js",
+          "category": "runtime",
+          "version": null,
+          "versionSource": null,
+          "confidence": 0.15,
+          "level": "low",
+          "evidence": [
+            {
+              "kind": "manifest",
+              "path": "package.json"
+            }
+          ],
+          "notes": [
+            "a package.json only: Node.js as tooling, not shown to be the runtime"
+          ]
+        }
+      ],
+      "packageManager": null,
+      "entryPoints": [],
+      "build": {
+        "scripts": [],
+        "configFiles": [],
+        "typescript": null,
+        "docker": [],
+        "ci": []
+      },
+      "dependencyCount": 0,
+      "dependencies": []
+    }
+  ],
+  "workspaces": [],
+  "routes": [],
+  "screens": [],
+  "moduleFacts": [],
+  "ambiguities": [],
+  "stats": {
+    "filesConsidered": 3,
+    "filesRead": 1,
+    "bytesRead": 47,
+    "truncated": [],
+    "skippedLarge": 0
+  }
+}

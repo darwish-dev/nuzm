@@ -4,7 +4,10 @@ import {
   ArchiveRejected,
   DEFAULT_LIMITS,
   detectFormat,
+  analyzeProject,
+  DETECT_ANALYZER_VERSION,
   ingestArchive,
+  type ProjectManifest,
   parseZipDirectory,
   type ArchiveSource,
   type ExtractLimits,
@@ -26,7 +29,7 @@ type Tx = Parameters<Parameters<Db['withKnowledgeWorker']>[0]>[0];
 export interface IngestJob {
   id: string;
   versionId: string;
-  kind: 'VALIDATE' | 'EXTRACT';
+  kind: 'VALIDATE' | 'EXTRACT' | 'DETECT';
   attempt: number;
   maxAttempts: number;
 }
@@ -40,8 +43,10 @@ export interface IngestServiceOptions {
   log?: (message: string, extra?: Record<string, unknown>) => void;
   /** How often a running job renews its lease and looks for a cancellation request. */
   heartbeatMs?: number;
+  /** The DETECT stage (S-K2b): off by default. When on, a clean EXTRACT queues DETECT and the version waits in ANALYZING until the manifest is written. */
+  detect?: boolean;
 }
-const KINDS = ['VALIDATE', 'EXTRACT'];
+
 const TRANSIENT_DELAY = (attempt: number) => Math.min(30 * 2 ** Math.max(0, attempt - 1), 600);
 const MAX_LOGS_PER_JOB = 200;
 
@@ -55,6 +60,7 @@ export class KnowledgeIngestService {
   private readonly workerId: string;
   private readonly lease: number;
   private readonly limits: Partial<ExtractLimits>;
+  private readonly kinds: string[];
   private readonly say: (message: string, extra?: Record<string, unknown>) => void;
   private logCount = new Map<string, number>();
   constructor(
@@ -65,6 +71,7 @@ export class KnowledgeIngestService {
     this.workerId = opts.workerId ?? `kw-${process.pid}-${uuidv7().slice(-6)}`;
     this.lease = opts.leaseSeconds ?? 120;
     this.limits = opts.limits ?? {};
+    this.kinds = opts.detect ? ['VALIDATE', 'EXTRACT', 'DETECT'] : ['VALIDATE', 'EXTRACT'];
     this.say = opts.log ?? (() => undefined);
   }
 
@@ -77,6 +84,7 @@ export class KnowledgeIngestService {
     const t0 = Date.now();
     try {
       if (job.kind === 'VALIDATE') await this.validate(job);
+      else if (job.kind === 'DETECT') await this.detectProject(job);
       else await this.extract(job);
       this.say('knowledge_job_done', { job: job.id, kind: job.kind, ms: Date.now() - t0 });
     } catch (e) {
@@ -99,14 +107,14 @@ export class KnowledgeIngestService {
       await c.query(
         `UPDATE knowledge.processing_jobs SET state = 'QUEUED', lease_owner = NULL, lease_expires_at = NULL, run_after = now(), error_code = 'lease_expired'
           WHERE state = 'RUNNING' AND org_id IS NULL AND lease_expires_at < now() AND attempt < max_attempts AND kind = ANY($1)`,
-        [KINDS],
+        [this.kinds],
       );
       const dead = await c.query(
         `UPDATE knowledge.processing_jobs SET state = 'DEAD_LETTER', error_code = 'lease_expired', finished_at = now(),
                 error_detail = 'the job exhausted its attempts without finishing'
           WHERE state = 'RUNNING' AND org_id IS NULL AND lease_expires_at < now() AND attempt >= max_attempts AND kind = ANY($1)
           RETURNING id, version_id`,
-        [KINDS],
+        [this.kinds],
       );
       for (const r of dead.rows) {
         await this.setVersion(
@@ -142,7 +150,7 @@ export class KnowledgeIngestService {
                 heartbeat_at = now(), started_at = coalesce(j.started_at, now()), error_code = NULL, error_detail = NULL
            FROM next WHERE j.id = next.id
          RETURNING j.id, j.version_id, j.kind, j.attempt, j.max_attempts, j.cancel_requested`,
-        [this.workerId, this.lease, KINDS],
+        [this.workerId, this.lease, this.kinds],
       );
       const row = r.rows[0];
       if (!row) return null;
@@ -197,7 +205,11 @@ export class KnowledgeIngestService {
       // the version moves in the same transaction as the claim, so a dead worker can never leave a job running against a QUARANTINED version
       if (row.kind === 'VALIDATE')
         await this.setVersion(c, row.version_id, ['QUARANTINED'], 'VALIDATING', null);
-      else await this.setVersion(c, row.version_id, ['VALIDATING'], 'ANALYZING', null);
+      else if (row.kind === 'DETECT') {
+        // normally the version is already ANALYZING; after an operator retry it is QUARANTINED and walks the same two edges the state machine allows
+        await this.setVersion(c, row.version_id, ['QUARANTINED'], 'VALIDATING', null);
+        await this.setVersion(c, row.version_id, ['VALIDATING'], 'ANALYZING', null);
+      } else await this.setVersion(c, row.version_id, ['VALIDATING'], 'ANALYZING', null);
       await this.writeLog(
         c,
         row.id,
@@ -445,6 +457,7 @@ export class KnowledgeIngestService {
       );
       return run(false);
     });
+    const toDetect = !result.blocked && !!this.opts.detect;
     const next = result.blocked ? 'QUARANTINED' : 'AWAITING_REVIEW';
     const reason = result.blocked ? blockReason(result) : null;
     await this.db.withKnowledgeWorker(async (c) => {
@@ -458,7 +471,13 @@ export class KnowledgeIngestService {
       );
       if (upd.rowCount !== 1) throw new Stop('lease_lost');
       await this.finishJob(c, job, 'SUCCEEDED', { result: summary });
-      await this.setVersion(c, job.versionId, ['ANALYZING'], next, reason);
+      if (toDetect) {
+        // the next stage is queued in the same transaction that finishes this one; the version stays ANALYZING until the manifest exists
+        await c.query(
+          `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind) VALUES ($1,$2,NULL,'DETECT') ON CONFLICT DO NOTHING`,
+          [uuidv7(), job.versionId],
+        );
+      } else await this.setVersion(c, job.versionId, ['ANALYZING'], next, reason);
       await this.writeLog(
         c,
         job.id,
@@ -468,12 +487,154 @@ export class KnowledgeIngestService {
         result.blocked ? 'extract.quarantined' : 'extract.done',
         result.blocked
           ? `analysis finished; the package stays quarantined (${reason})`
-          : 'analysis finished; the package awaits review',
+          : toDetect
+            ? 'extraction finished; project detection is queued'
+            : 'analysis finished; the package awaits review',
         {
           files: result.stats.files,
           stored: result.stats.stored,
           findings: result.findings.length,
           license: result.license.verdict,
+        },
+      );
+    });
+  }
+
+  // ---- DETECT -----------------------------------------------------------------------------------------------------------------
+  /**
+   * Project detection (S-K2b): reads the stored snapshot of a clean package as TEXT and writes the evidence-backed manifest. Static and deterministic; nothing is executed.
+   * Cancellation and lease loss are detected through the analyzer's clock, which throws `Stop` (the analyzer reads the clock between files and before every read).
+   */
+  private async detectProject(job: IngestJob): Promise<void> {
+    const rows = await this.db.withKnowledgeWorker(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT path, sha256, bytes::text AS bytes, language, object_key FROM knowledge.resource_files WHERE version_id = $1 ORDER BY path`,
+            [job.versionId],
+          )
+        ).rows as {
+          path: string;
+          sha256: string;
+          bytes: string;
+          language: string | null;
+          object_key: string | null;
+        }[],
+    );
+    const keyOf = new Map(rows.map((r) => [r.path, r.object_key] as const));
+    const files = rows.map((r) => ({
+      path: r.path,
+      sha256: r.sha256,
+      bytes: Number(r.bytes),
+      language: r.language,
+      stored: r.object_key !== null,
+    }));
+    await this.log(
+      job,
+      'info',
+      'detect.begin',
+      `static project detection started over ${files.length} files; nothing from the package is executed`,
+      { files: files.length },
+    );
+    let manifest: ProjectManifest;
+    let degraded = false;
+    await this.guarded(job, async (stopped) => {
+      const now = () => {
+        const s = stopped();
+        if (s) throw new Stop(s);
+        return Date.now();
+      };
+      try {
+        manifest = await analyzeProject(
+          {
+            files,
+            read: async (path, max) => {
+              const key = keyOf.get(path);
+              const f = files.find((x) => x.path === path);
+              if (!key || !f || f.bytes > max) return null;
+              return (await this.store.read(key)).toString('utf8');
+            },
+          },
+          { now },
+        );
+      } catch (e) {
+        if (e instanceof Stop) throw e;
+        // an analyzer fault must not hold a package hostage: record that detection failed (no capability without evidence) and let the reviewers decide
+        degraded = true;
+        manifest = emptyManifest(files.length);
+      }
+    });
+    const m = manifest!;
+    const text = JSON.stringify(m);
+    const contentHash = createHash('sha256')
+      .update(JSON.stringify([DETECT_ANALYZER_VERSION, rows.map((r) => `${r.path}:${r.sha256}`)]))
+      .digest('hex');
+    const result = {
+      frameworks: m.frameworks,
+      languages: m.languages,
+      packageManagers: m.packageManagers,
+      projects: m.projects.length,
+      routes: m.routes.length,
+      screens: m.screens.length,
+      modules: m.modules.length,
+      capabilities: m.capabilities.map((c) => c.name),
+      ambiguities: m.ambiguities.map((a) => a.code),
+      truncated: m.stats.truncated,
+      degraded,
+    };
+    const top = m.projects
+      .flatMap((p) => p.detections)
+      .sort((a, b) => b.confidence - a.confidence)[0];
+    await this.db.withKnowledgeWorker(async (c) => {
+      await c.query(
+        `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES ($1,$2,NULL,'1',$3::jsonb) ON CONFLICT (version_id, schema_version) DO NOTHING`,
+        [uuidv7(), job.versionId, text],
+      );
+      await c.query(
+        `INSERT INTO knowledge.analysis_results (id, version_id, org_id, analyzer, analyzer_version, content_hash, result, confidence, evidence)
+         VALUES ($1,$2,NULL,'project-detect',$3,$4,$5::jsonb,$6,$7::jsonb) ON CONFLICT (version_id, analyzer, analyzer_version, content_hash) DO NOTHING`,
+        [
+          uuidv7(),
+          job.versionId,
+          DETECT_ANALYZER_VERSION,
+          contentHash,
+          JSON.stringify(result),
+          top ? top.confidence : null,
+          JSON.stringify(top ? top.evidence.slice(0, 5) : []),
+        ],
+      );
+      const upd = await c.query(
+        `UPDATE knowledge.resource_versions SET ingest_summary = coalesce(ingest_summary, '{}'::jsonb) || $2::jsonb WHERE id = $1 AND state = 'ANALYZING'`,
+        [
+          job.versionId,
+          JSON.stringify({
+            detect: {
+              frameworks: m.frameworks,
+              projects: m.projects.length,
+              routes: m.routes.length,
+              degraded,
+            },
+          }),
+        ],
+      );
+      if (upd.rowCount !== 1) throw new Stop('lease_lost');
+      await this.finishJob(c, job, 'SUCCEEDED', { result });
+      await this.setVersion(c, job.versionId, ['ANALYZING'], 'AWAITING_REVIEW', null);
+      await this.writeLog(
+        c,
+        job.id,
+        job.versionId,
+        degraded ? 'warn' : 'info',
+        'DETECT',
+        degraded ? 'detect.degraded' : 'detect.done',
+        degraded
+          ? 'detection could not complete; the package awaits review without a manifest of capabilities'
+          : 'detection finished; the package awaits review',
+        {
+          frameworks: m.frameworks.length,
+          projects: m.projects.length,
+          routes: m.routes.length,
+          ambiguities: m.ambiguities.length,
         },
       );
     });
@@ -697,4 +858,32 @@ function quarantineKeys(r: IngestResult): IngestResult {
     f.objectKey ? { ...f, objectKey: null, notStoredReason: 'package_quarantined' } : f,
   );
   return { ...r, files, stats: { ...r.stats, stored: 0, storedBytes: 0 } };
+}
+
+/** What is stored when the analyzer itself failed: nothing is claimed. */
+function emptyManifest(filesConsidered: number): ProjectManifest {
+  return {
+    schemaVersion: '1',
+    analyzer: { id: 'project-detect', version: DETECT_ANALYZER_VERSION },
+    frameworks: [],
+    languages: [],
+    languageStats: [],
+    packageManagers: [],
+    modules: [],
+    components: [],
+    capabilities: [],
+    projects: [],
+    workspaces: [],
+    routes: [],
+    screens: [],
+    moduleFacts: [],
+    ambiguities: [
+      {
+        code: 'detection_failed',
+        detail: 'the analyzer failed on this package; no framework or capability is claimed',
+        paths: [],
+      },
+    ],
+    stats: { filesConsidered, filesRead: 0, bytesRead: 0, truncated: [], skippedLarge: 0 },
+  };
 }

@@ -583,6 +583,123 @@ describe('findings and inventory', () => {
   });
 });
 
+/** The state a version is left in when its detection job dies after a completed extraction: FAILED, with an analysis and no manifest. */
+async function detectionDied(versionId: string) {
+  for (const st of ['QUARANTINED', 'VALIDATING', 'ANALYZING'])
+    await e.sql(`UPDATE knowledge.resource_versions SET state = '${st}' WHERE id = $1`, [
+      versionId,
+    ]);
+  await e.sql(
+    `UPDATE knowledge.resource_versions SET state = 'FAILED', state_reason = 'processing_failed' WHERE id = $1`,
+    [versionId],
+  );
+}
+
+describe('the project manifest (S-K2b)', () => {
+  it('is null until detection has run, then returns the stored manifest to read-only staff; other resources and the flag are respected', async () => {
+    const s = await submit();
+    const none = ok<Row>(
+      await admin(
+        'psupport2',
+        'GET',
+        `${R}/resources/${s.resourceId}/versions/${s.versionId}/manifest`,
+      ),
+    );
+    expect(none).toMatchObject({ versionId: s.versionId, manifest: null, schemaVersion: null });
+    await analysed(s);
+    const m = {
+      schemaVersion: '1',
+      analyzer: { id: 'project-detect', version: '1.0.0' },
+      frameworks: ['nextjs'],
+      capabilities: [
+        {
+          name: 'styling-system',
+          confidence: 0.85,
+          evidence: [{ kind: 'dependency', path: 'package.json' }],
+        },
+      ],
+    };
+    await e.sql(
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1',$2::jsonb)`,
+      [s.versionId, JSON.stringify(m)],
+    );
+    const got = ok<Row>(
+      await admin(
+        'psupport2',
+        'GET',
+        `${R}/resources/${s.resourceId}/versions/${s.versionId}/manifest`,
+      ),
+    );
+    expect(got).toMatchObject({ schemaVersion: '1', manifest: m });
+    // the resource summary reads the same manifest (frameworks, capabilities with evidence)
+    const detail = ok<Row>(await admin('psupport2', 'GET', `${R}/resources/${s.resourceId}`));
+    expect(detail.manifest).toMatchObject({
+      frameworks: ['nextjs'],
+      capabilities: [{ name: 'styling-system', evidence: [{ path: 'package.json' }] }],
+    });
+    const other = await submit();
+    expect(
+      (
+        await admin(
+          'padmin',
+          'GET',
+          `${R}/resources/${other.resourceId}/versions/${s.versionId}/manifest`,
+        )
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await e.call(
+          'alice',
+          'GET',
+          `${R}/resources/${s.resourceId}/versions/${s.versionId}/manifest`,
+        )
+      ).statusCode,
+    ).not.toBe(200);
+  });
+  it('re-queues detection (not validation) for an analysed version whose detection failed, and refuses once a manifest exists', async () => {
+    const s = await submit();
+    await analysed(s);
+    // detection died: the version is FAILED after its analysis, with no manifest
+    await detectionDied(s.versionId);
+    const r = ok<Row>(
+      await admin(
+        'padmin',
+        'POST',
+        `${R}/resources/${s.resourceId}/versions/${s.versionId}/reprocessing`,
+        {},
+      ),
+    );
+    expect(
+      (
+        await e.sql(`SELECT kind, state FROM knowledge.processing_jobs WHERE id = $1`, [r.jobId])
+      )[0],
+    ).toMatchObject({ kind: 'DETECT', state: 'QUEUED' });
+    expect(
+      (
+        await e.sql(`SELECT state FROM knowledge.resource_versions WHERE id = $1`, [s.versionId])
+      )[0]!.state,
+    ).toBe('QUARANTINED');
+    const t = await submit();
+    await analysed(t);
+    await e.sql(
+      `INSERT INTO knowledge.resource_manifests (id, version_id, org_id, schema_version, manifest) VALUES (gen_random_uuid(),$1,NULL,'1','{}'::jsonb)`,
+      [t.versionId],
+    );
+    await detectionDied(t.versionId);
+    expect(
+      (
+        await admin(
+          'padmin',
+          'POST',
+          `${R}/resources/${t.resourceId}/versions/${t.versionId}/reprocessing`,
+          {},
+        )
+      ).statusCode,
+    ).toBe(409);
+  });
+});
+
 describe('the review gate', () => {
   it('third-party: two different approvers, the uploader excluded; the database agrees', async () => {
     const s = await submit('padmin');

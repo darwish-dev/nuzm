@@ -76,7 +76,11 @@ const knowledgeStore =
       )
     : null;
 const knowledge = knowledgeStore?.store
-  ? new KnowledgeIngestService(db, knowledgeStore.store, { log, canaries: canariesFromEnv() })
+  ? new KnowledgeIngestService(db, knowledgeStore.store, {
+      log,
+      canaries: canariesFromEnv(),
+      detect: process.env.KNOWLEDGE_DETECT_ENABLED === 'true', // S-K2b project detection stage: off until accepted
+    })
   : null;
 log(
   knowledge ? 'knowledge_ingest_enabled' : 'knowledge_ingest_disabled',

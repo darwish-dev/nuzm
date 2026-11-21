@@ -308,3 +308,63 @@ export const isRetryable = (v: { state: string }, reason: string | null) =>
   (v.state === 'FAILED' || v.state === 'QUARANTINED') &&
   !!reason &&
   ['processing_failed', 'archive_missing', 'cancelled'].includes(reason);
+
+// ---- S-K2b: the project manifest (SCR-K-03) -------------------------------------------------------------------------------------------
+export interface ManEvidence {
+  kind: string;
+  path: string;
+  line?: number;
+  detail?: string;
+}
+export interface ManDetection {
+  id: string;
+  name: string;
+  category: 'framework' | 'runtime' | 'language' | 'library' | 'tool';
+  version: string | null;
+  versionSource: 'lockfile' | 'declared' | null;
+  confidence: number;
+  level: 'high' | 'medium' | 'low';
+  evidence: ManEvidence[];
+  notes: string[];
+}
+export interface ManProject {
+  root: string;
+  name: string | null;
+  kind: 'application' | 'library' | 'example' | 'tooling-root';
+  roles: { role: string; evidence: ManEvidence[] }[];
+  detections: ManDetection[];
+  packageManager: { name: string; version: string | null } | null;
+  build: { scripts: { name: string; command: string }[] };
+}
+export interface ManRoute {
+  kind: string;
+  path: string;
+  methods: string[];
+  file: string;
+  line?: number;
+  project: string;
+}
+export interface ManFact {
+  kind: string;
+  name: string;
+  file: string;
+  line?: number;
+  project: string;
+}
+export interface ProjectManifestView {
+  schemaVersion: string;
+  frameworks: string[];
+  languages: string[];
+  packageManagers: string[];
+  capabilities: { name: string; confidence: number; evidence: ManEvidence[] }[];
+  projects: ManProject[];
+  workspaces: { tool: string; root: string; members: string[]; evidence: ManEvidence[] }[];
+  routes: ManRoute[];
+  screens: ManFact[];
+  moduleFacts: ManFact[];
+  ambiguities: { code: string; detail: string; paths: string[] }[];
+  stats: { truncated: string[] };
+}
+export const levelTone = (l: string): 'success' | 'danger' | 'warn' | undefined =>
+  l === 'high' ? 'success' : l === 'low' ? 'warn' : undefined;
+export const evidenceText = (e: ManEvidence) => (e.line ? `${e.path}:${e.line}` : e.path);

@@ -143,5 +143,13 @@ Decided while implementing S-K2a; none of it changes an accepted decision, it fi
   reads, private-bucket self-test). Production uploads stay OFF until a complete configuration, vault-resolved credentials and a human attestation exist; D-42 stays the production blocker.
 - **Malware (D-44):** unchanged — a pattern scan, never called a malware scan. **Licence (D-43):** the scanner only PROPOSES; a version can be activated only when the proposal is ALLOWED and people approve.
 
+## Addendum B — S-K2b project detection (2026-11-21, SCR-K-03)
+- **Static and evidence-first:** detection reads the stored snapshot as text and emits only what a concrete file proves (dependency line, config file, entry point, directory convention); prose is never evidence, confidence is derived from
+  evidence weights, ambiguity is reported instead of resolved, and examples/tests are not counted as the package.
+- **Stage placement:** DETECT runs after EXTRACT inside the existing worker architecture (same queue, lease, cancel, retry, dead letter, same least-privilege role and scope). A version reaches review only after the manifest exists; blocked
+  and rejected packages never reach it. The stage is behind `KNOWLEDGE_DETECT_ENABLED` (default off).
+- **Evidence tables stay append-only;** the worker may write a manifest only for a version in `ANALYZING` (database trigger), bounded in size, platform rows only.
+- **AST and component analysis are S-K2c** (parse-only, thread-isolated); S-K2b's route and screen facts are labelled heuristic with their confidence.
+
 ## Owner / date
 Owner / 2026-11-20 (session decision, recorded by the agent; drafted by the agent the same day)

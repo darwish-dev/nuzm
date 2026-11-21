@@ -86,6 +86,12 @@ export class AdminKnowledgeProcessingController {
     return this.reviews.state(who.userId, id, versionId);
   }
 
+  @RequirePlatformPermission(READ)
+  @Get(':id/versions/:versionId/manifest')
+  manifest(@Param('id') id: string, @Param('versionId') versionId: string) {
+    return this.reviews.manifest(id, versionId);
+  }
+
   @RequirePlatformPermission(MANAGE)
   @Post(':id/versions/:versionId/reprocessing')
   @HttpCode(200)

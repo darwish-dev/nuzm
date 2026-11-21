@@ -67,6 +67,7 @@ async function startWorker() {
       ...process.env,
       WORKER_DATABASE_URL: `postgres://nuzm_worker:nuzm_dev_only@127.0.0.1:${PG_PORT}/${E2E_DB}`,
       KNOWLEDGE_INGEST_ENABLED: 'true',
+      KNOWLEDGE_DETECT_ENABLED: 'true',
       KNOWLEDGE_STORE_DRIVER: 'fs',
       KNOWLEDGE_STORE_DIR: STORE_DIR,
       OTEL_SDK_DISABLED: 'true',
@@ -220,21 +221,33 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
   // jobs: both stages succeeded; the log of the extraction says what happened and nothing about content
   await expect(kni.getByText(T(info, 'ki.kind.VALIDATE'))).toBeVisible();
   await expect(kni.getByText(T(info, 'ki.kind.EXTRACT'))).toBeVisible();
-  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(2);
+  await expect(kni.getByText(T(info, 'ki.kind.DETECT'))).toBeVisible();
+  await expect(kni.getByText(T(info, 'ki.job.SUCCEEDED'))).toHaveCount(3);
   await kni
     .getByRole('button', { name: T(info, 'ki.logs'), exact: true })
     .first()
     .click();
   await expect(
-    kni.getByText('extraction and scans started; nothing from the package is executed'),
+    kni.getByText(
+      /static project detection started over \d+ files; nothing from the package is executed/,
+    ),
   ).toBeVisible();
   // findings: the planted lifecycle script is reported, never run
   await expect(
     kni.getByText('dependencies/lifecycle_script').or(kni.getByText(T(info, 'ki.findings.none'))),
   ).toBeVisible();
   // inventory: files are listed, stored or not, never shown
-  await expect(kni.getByText('modern-saas/package.json')).toBeVisible();
-  await expect(kni.getByText('modern-saas/LICENSE')).toBeVisible();
+  const inventory = kni.getByLabel(T(info, 'ki.files'));
+  await expect(inventory.getByText('modern-saas/package.json', { exact: true })).toBeVisible();
+  await expect(inventory.getByText('modern-saas/LICENSE', { exact: true })).toBeVisible();
+  // the detected project: Next.js proven by the dependency, the config and the app folder; routes from the folder convention
+  const proj = staff.page.getByLabel(T(info, 'km.title'));
+  await expect(proj.locator('strong', { hasText: 'Next.js' })).toBeVisible();
+  await expect(proj.getByText('modern-saas/package.json', { exact: false }).first()).toBeVisible();
+  await expect(proj.getByText('/dashboard', { exact: true })).toBeVisible();
+  await expect(
+    proj.locator('.nz-badge', { hasText: T(info, 'km.kind.application') }),
+  ).toBeVisible();
   await audit(staff.page, info, 'ai-ingestion-review-uploader');
   expect(
     (
@@ -314,6 +327,82 @@ test('1. a clean Next.js sample is validated, extracted and scanned, then activa
   await staff.ctx.close();
   await a1.ctx.close();
   await a2.ctx.close();
+});
+
+test('1b. the Flutter and full-stack samples are detected from their files, with evidence (ar/en, axe)', async ({
+  browser,
+}, info) => {
+  const L = loc(info);
+  const staff = await person(browser, info, 'staff');
+  const pick = (k: string) => SAMPLES.find((x) => x.key === k)!;
+  const flutter = pick('flutter');
+  const fullstack = pick('fullstack');
+  const f = await upload(
+    staff.page,
+    info,
+    flutter.filename,
+    flutter.build(),
+    flutter,
+    `${flutter.name} ${L} detect`,
+  );
+  const s = await upload(
+    staff.page,
+    info,
+    fullstack.filename,
+    fullstack.build(),
+    fullstack,
+    `${fullstack.name} ${L} detect`,
+  );
+  await settled(f.vid, ['AWAITING_REVIEW']);
+  await settled(s.vid, ['AWAITING_REVIEW']);
+
+  await staff.page.goto(resourcePage(info, f.id));
+  const fk = staff.page.getByLabel(T(info, 'km.title'));
+  await expect(fk.locator('strong', { hasText: 'Flutter' })).toBeVisible();
+  await expect(fk.locator('strong', { hasText: 'Dart' })).toBeVisible();
+  await expect(fk.getByText('gym_app/pubspec.yaml', { exact: false }).first()).toBeVisible();
+  await expect(fk.getByText('HomeScreen')).toBeVisible();
+  await expect(fk.getByText(T(info, 'km.role.mobile'))).toBeVisible();
+  await audit(staff.page, info, 'ai-ingestion-manifest-flutter');
+
+  await staff.page.goto(resourcePage(info, s.id));
+  const sk = staff.page.getByLabel(T(info, 'km.title'));
+  await expect(sk.locator('strong', { hasText: 'Next.js' })).toBeVisible();
+  await expect(sk.locator('strong', { hasText: 'NestJS' })).toBeVisible();
+  await audit(staff.page, info, 'ai-ingestion-manifest-fullstack');
+
+  // the stored manifests: evidence for everything, nothing executed, nothing invented
+  const mf = (
+    await sql<{ manifest: Record<string, unknown> }>(
+      `SELECT manifest FROM knowledge.resource_manifests WHERE version_id = $1`,
+      [f.vid],
+    )
+  )[0]!.manifest as {
+    frameworks: string[];
+    routes: { path: string }[];
+    capabilities: { evidence: unknown[] }[];
+    analyzer: { id: string };
+  };
+  expect(mf.analyzer.id).toBe('project-detect');
+  expect(mf.frameworks).toEqual(['flutter']);
+  expect(mf.routes.length).toBeGreaterThan(0);
+  expect(mf.capabilities.every((c) => c.evidence.length > 0)).toBe(true);
+  const ms = (
+    await sql<{ manifest: { frameworks: string[] } }>(
+      `SELECT manifest FROM knowledge.resource_manifests WHERE version_id = $1`,
+      [s.vid],
+    )
+  )[0]!.manifest;
+  expect(ms.frameworks).toEqual(expect.arrayContaining(['nextjs', 'nestjs']));
+  expect(
+    (
+      await sql(
+        `SELECT 1 FROM knowledge.analysis_results WHERE version_id IN ($1,$2) AND analyzer = 'project-detect'`,
+        [f.vid, s.vid],
+      )
+    ).length,
+  ).toBe(2);
+  await staff.ctx.close();
 });
 
 test('2. a path-traversal archive is rejected and a package with a secret is quarantined; neither leaves anything in the object store (ar/en, axe)', async ({
@@ -443,7 +532,7 @@ test('3. the worker role is confined: platform rows only, no licence verdict, no
       await attempt(
         `UPDATE knowledge.resource_versions SET state = 'ACTIVE' WHERE state = 'AWAITING_REVIEW'`,
       ),
-    ).toMatchObject({ ok: true, rows: 0 }); // nothing awaits review here; and the gate would refuse it anyway
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/activation needs/) }); // versions DO await review here (1b): the database gate refuses the worker
     expect(await attempt(`DELETE FROM knowledge.resource_versions`)).toMatchObject({
       ok: false,
       error: expect.stringMatching(/permission denied/),

@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ObjectStoreError } from './port';
 import { S3ObjectStore, type Encryption } from './s3';
 import { FakeS3 } from './testing/fake-s3';
+
+// the multipart cases move tens of MiB through a signature-verifying fake: the default 5 s is too tight on a loaded machine
+vi.setConfig({ testTimeout: 60_000 });
 
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 const BUCKET = 'knowledge-test';

@@ -221,6 +221,30 @@ export class ReviewService {
     };
   }
 
+  /** The evidence-backed project manifest of a version (S-K2b), or `manifest: null` when detection has not run. Full detail; platform scope only. */
+  async manifest(resourceId: string, versionId: string) {
+    this.id(resourceId);
+    this.id(versionId);
+    const row = await this.db.withPlatformScope(async (c) => {
+      await this.resource(c, resourceId);
+      await this.version(c, resourceId, versionId);
+      return (
+        await c.query(
+          `SELECT schema_version, manifest, created_at FROM knowledge.resource_manifests WHERE version_id = $1 ORDER BY created_at DESC LIMIT 1`,
+          [versionId],
+        )
+      ).rows[0] as Row | undefined;
+    });
+    return row
+      ? {
+          versionId,
+          schemaVersion: row.schema_version as string,
+          createdAt: iso(row.created_at),
+          manifest: row.manifest as Row,
+        }
+      : { versionId, schemaVersion: null, createdAt: null, manifest: null };
+  }
+
   // ---- review ----------------------------------------------------------------------------------------------------------------------
   /** Everything a reviewer needs, and exactly why a version can or cannot be activated now. */
   async state(actor: string, resourceId: string, versionId: string) {
@@ -530,11 +554,20 @@ export class ReviewService {
     const jobId = await this.db.withPlatformScope(async (c) => {
       await this.resource(c, resourceId, true);
       const v = await this.version(c, resourceId, versionId, true);
-      if (v.analysis_job_id)
-        throw new ProblemException(
-          'conflict',
-          'this version was already analysed; upload a new version to analyse again',
+      // an analysed version keeps its files; only the detection stage (S-K2b) can be re-run, and only while no manifest exists
+      let kind: 'VALIDATE' | 'DETECT' = 'VALIDATE';
+      if (v.analysis_job_id) {
+        const has = await c.query(
+          `SELECT 1 FROM knowledge.resource_manifests WHERE version_id = $1`,
+          [versionId],
         );
+        if (has.rowCount)
+          throw new ProblemException(
+            'conflict',
+            'this version was already analysed; upload a new version to analyse again',
+          );
+        kind = 'DETECT';
+      }
       if (
         !['FAILED', 'QUARANTINED'].includes(v.state as string) ||
         !RETRYABLE_REASONS.includes(String(v.state_reason ?? ''))
@@ -559,8 +592,8 @@ export class ReviewService {
       const id = newId();
       try {
         await c.query(
-          `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind, created_by) VALUES ($1,$2,NULL,'VALIDATE',$3)`,
-          [id, versionId, actor],
+          `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind, created_by) VALUES ($1,$2,NULL,$4,$3)`,
+          [id, versionId, actor, kind],
         );
       } catch (e) {
         if ((e as { code?: string }).code === '23505')

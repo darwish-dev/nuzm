@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@nuzm/i18n';
 import type {
+  ProjectManifestView,
   IngestFile,
   IngestFinding,
   IngestJob,
@@ -178,6 +179,7 @@ interface World {
   findings?: IngestFinding[] | Response;
   files?: IngestFile[] | Response;
   logs?: IngestLog[];
+  manifest?: ProjectManifestView | null | Response;
 }
 const world =
   (w: World = {}): Handler =>
@@ -187,6 +189,10 @@ const world =
     if (s.url.endsWith('/review') && s.method === 'GET')
       return w.review instanceof Response ? w.review : json(200, w.review ?? review());
     if (s.url.endsWith('/processing-jobs') && s.method === 'GET') return wrap(w.jobs ?? [job()]);
+    if (s.url.endsWith('/manifest'))
+      return w.manifest instanceof Response
+        ? w.manifest
+        : json(200, { manifest: w.manifest === undefined ? null : w.manifest });
     if (s.url.endsWith('/logs')) return json(200, { items: w.logs ?? [log()], nextCursor: null });
     if (s.url.endsWith('/findings'))
       return wrap(w.findings ?? [finding()], { summary: { info: 0, warn: 1, block: 0 } });
@@ -505,5 +511,212 @@ describe('KnowledgeIngestion: jobs and logs', () => {
     ui();
     await screen.findByText('ratio_exceeded');
     expect(screen.queryByRole('button', { name: en('ki.retry') })).toBeNull();
+  });
+});
+
+const manifest = (over: Partial<ProjectManifestView> = {}): ProjectManifestView => ({
+  schemaVersion: '1',
+  frameworks: ['nextjs', 'nestjs'],
+  languages: ['typescript'],
+  packageManagers: ['pnpm'],
+  capabilities: [
+    {
+      name: 'internationalization',
+      confidence: 0.85,
+      evidence: [{ kind: 'file', path: 'apps/web/app/[locale]/page.tsx' }],
+    },
+  ],
+  projects: [
+    {
+      root: 'apps/web',
+      name: 'web',
+      kind: 'application',
+      roles: [{ role: 'frontend', evidence: [] }],
+      packageManager: { name: 'pnpm', version: null },
+      build: { scripts: [] },
+      detections: [
+        {
+          id: 'nextjs',
+          name: 'Next.js',
+          category: 'framework',
+          version: '15.0.2',
+          versionSource: 'lockfile',
+          confidence: 0.99,
+          level: 'high',
+          evidence: [
+            { kind: 'dependency', path: 'apps/web/package.json', line: 7, detail: 'next@^15' },
+          ],
+          notes: [],
+        },
+      ],
+    },
+    {
+      root: 'examples/demo',
+      name: null,
+      kind: 'example',
+      roles: [],
+      packageManager: null,
+      build: { scripts: [] },
+      detections: [
+        {
+          id: 'vue',
+          name: 'Vue',
+          category: 'framework',
+          version: null,
+          versionSource: null,
+          confidence: 0.6,
+          level: 'medium',
+          evidence: [{ kind: 'dependency', path: 'examples/demo/package.json' }],
+          notes: [],
+        },
+      ],
+    },
+  ],
+  workspaces: [{ tool: 'pnpm', root: '.', members: ['apps/api', 'apps/web'], evidence: [] }],
+  routes: [
+    {
+      kind: 'next-app-page',
+      path: '/[locale]/dashboard',
+      methods: ['GET'],
+      file: 'apps/web/app/[locale]/dashboard/page.tsx',
+      project: 'apps/web',
+    },
+    {
+      kind: 'nest-controller-route',
+      path: '/api/users/:id',
+      methods: ['GET'],
+      file: 'apps/api/src/users.controller.ts',
+      line: 9,
+      project: 'apps/api',
+    },
+  ],
+  screens: [
+    {
+      kind: 'flutter-screen',
+      name: 'HomeScreen',
+      file: 'lib/screens/home_screen.dart',
+      line: 3,
+      project: '.',
+    },
+  ],
+  moduleFacts: [
+    {
+      kind: 'nest-module',
+      name: 'UsersModule',
+      file: 'apps/api/src/users.module.ts',
+      line: 2,
+      project: 'apps/api',
+    },
+  ],
+  ambiguities: [
+    { code: 'examples_excluded', detail: 'x', paths: ['examples/demo'] },
+    { code: 'brand_new_code', detail: 'A new ambiguity the UI has no translation for.', paths: [] },
+  ],
+  stats: { truncated: ['routes'] },
+  ...over,
+});
+
+describe('KnowledgeIngestion: the detected project (S-K2b)', () => {
+  it('shows frameworks with version, source, confidence and evidence; examples are not counted', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    expect(await within(card).findByText('Next.js', { selector: 'strong' })).toBeTruthy();
+    expect(within(card).getByText('15.0.2')).toBeTruthy();
+    expect(within(card).getByText(`(${en('km.src.lockfile')})`)).toBeTruthy();
+    expect(within(card).getByText(/High/)).toBeTruthy();
+    expect(within(card).getByText('apps/web/package.json:7')).toBeTruthy(); // evidence is a path and a line
+    expect(within(card).queryByText('Vue', { selector: 'strong' })).toBeNull(); // the example project's framework is not a package framework
+    expect(within(card).getByText('pnpm', { selector: 'dd *' })).toBeTruthy();
+  });
+  it('lists projects, workspaces, capabilities, routes, screens and modules; known ambiguities are translated and unknown ones fall back to the analyzer text', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    await within(card)
+      .findByText('apps/web', { selector: 'td *, td' })
+      .catch(() => undefined);
+    expect(within(card).getAllByText('apps/web').length).toBeGreaterThan(0);
+    expect(within(card).getByText(en('km.kind.example'))).toBeTruthy();
+    expect(within(card).getByText(/members/)).toBeTruthy();
+    expect(within(card).getByText('internationalization')).toBeTruthy();
+    expect(within(card).getByText('/[locale]/dashboard')).toBeTruthy();
+    expect(within(card).getByText('/api/users/:id')).toBeTruthy();
+    expect(within(card).getByText('apps/api/src/users.controller.ts:9')).toBeTruthy();
+    expect(within(card).getByText(en('km.route.nest-controller-route'))).toBeTruthy();
+    expect(within(card).getByText('HomeScreen')).toBeTruthy();
+    expect(within(card).getByText('UsersModule')).toBeTruthy();
+    expect(within(card).getByText(en('km.amb.examples_excluded'))).toBeTruthy();
+    expect(within(card).getByText('A new ambiguity the UI has no translation for.')).toBeTruthy();
+    expect(within(card).getByText('routes')).toBeTruthy(); // the truncation note
+  });
+  it('renders in Arabic with translated labels', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui({ locale: 'ar' });
+    const card = await screen.findByLabelText(t('ar', 'km.title'));
+    expect(await within(card).findByText(t('ar', 'km.frameworks'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'km.amb.examples_excluded'))).toBeTruthy();
+    expect(
+      within(card).getByText(t('ar', 'km.route.next-app-page'), { exact: false }),
+    ).toBeTruthy();
+  });
+  it('says when detection has not run, when nothing is proven, and handles a forbidden or failed read', async () => {
+    mockFetch(world({ manifest: null }));
+    ui();
+    expect(await screen.findByText(en('km.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(
+      world({
+        manifest: manifest({
+          projects: [],
+          routes: [],
+          screens: [],
+          moduleFacts: [],
+          capabilities: [],
+          workspaces: [],
+          ambiguities: [],
+          languages: [],
+          packageManagers: [],
+          stats: { truncated: [] },
+        }),
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    expect(await within(card).findByText(en('km.frameworks.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.routes.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.capabilities.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.ambiguities.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.pm.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: json(403, {}) }));
+    ui();
+    const c2 = await screen.findByLabelText(en('km.title'));
+    expect(await within(c2).findByText(en('ki.forbidden'))).toBeTruthy();
+  });
+  it('shows routes in pages of 50 with a "show more" button', async () => {
+    const routes = Array.from({ length: 120 }, (_, i) => ({
+      kind: 'next-app-page',
+      path: `/p${String(i).padStart(3, '0')}`,
+      methods: ['GET'],
+      file: `app/p${i}/page.tsx`,
+      project: '.',
+    }));
+    mockFetch(world({ manifest: manifest({ routes }) }));
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    expect(await within(card).findByText('/p049')).toBeTruthy();
+    expect(within(card).queryByText('/p050')).toBeNull();
+    fireEvent.click(within(card).getByRole('button', { name: en('km.more') }));
+    expect(await within(card).findByText('/p149'.replace('149', '099'))).toBeTruthy();
+  });
+  it('loads the manifest of the version that is selected', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui();
+    await screen.findByLabelText(en('km.title'));
+    fireEvent.change(screen.getByLabelText(en('ki.version')), { target: { value: V2 } });
+    await waitFor(() =>
+      expect(seen.some((x) => x.url.includes(`/versions/${V2}/manifest`))).toBe(true),
+    );
   });
 });

@@ -48,7 +48,7 @@ describe('documentation pages', () => {
       within(top)
         .getByRole('link', { name: doc('backToSite', 'ar') })
         .getAttribute('href'),
-    ).toBe('/ar');
+    ).toBe('/');
     expect(within(top).getByRole('searchbox')).toBeTruthy();
     expect(
       within(top)

@@ -650,6 +650,21 @@ export const SERVICES: ServiceContent[] = [
   },
 ];
 
+/** VPS uses the same verified virtual-server catalog as cloud compute. */
+SERVICES.splice(2, 0, {
+  ...SERVICES.find((service) => service.slug === 'cloud')!,
+  slug: 'vps',
+  name: { en: 'VPS hosting', ar: 'الخوادم الافتراضية VPS' },
+  tagline: {
+    en: 'Your own virtual server, managed in one place',
+    ar: 'خادمك الافتراضي، تحت إدارتك من مكان واحد',
+  },
+  headline: {
+    en: 'A virtual server for what you build next.',
+    ar: 'خادم افتراضي لما تبنيه لاحقًا.',
+  },
+});
+
 export const serviceBySlug = (slug: string): ServiceContent | undefined =>
   SERVICES.find((s) => s.slug === slug);
 

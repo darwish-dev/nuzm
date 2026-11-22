@@ -12,7 +12,11 @@ const LOGOS: { name: string; src?: string; badge?: { bg: string; fg: string; tex
  * The technologies Nuzm builds and hosts, as a slow sliding strip under the hero. The list is shown twice in a row and the track moves by exactly one list, so the
  * loop has no seam; hovering pauses it and reduced motion stops it. The second copy is hidden from assistive technology.
  */
-export function TechStrip() {
+export function TechStrip({
+  label = 'Technologies you can build and run on Nuzm',
+}: {
+  label?: string;
+}) {
   const group = (hidden: boolean) => (
     <ul className="tech-group" aria-hidden={hidden || undefined}>
       {[...LOGOS, ...LOGOS].map((l, i) => (
@@ -43,11 +47,7 @@ export function TechStrip() {
     </ul>
   );
   return (
-    <div
-      className="tech-strip"
-      role="group"
-      aria-label="Technologies you can build and run on Nuzm"
-    >
+    <div className="tech-strip" role="group" aria-label={label}>
       <div className="tech-track">
         {group(false)}
         {group(true)}

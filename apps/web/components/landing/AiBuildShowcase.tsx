@@ -1,11 +1,13 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
+import type { Locale } from '@nuzm/i18n';
+import { landingText } from '../../lib/landing-text';
 
 const options: { label: string; icon: IconName; href: string }[] = [
-  { label: 'Mobile app', icon: 'phone', href: '/en/mobile/new' },
-  { label: 'Website', icon: 'globe', href: '/en/builder/projects' },
-  { label: 'Dashboard', icon: 'dashboard', href: '/en/builder/apps' },
+  { label: 'Mobile app', icon: 'phone', href: '/mobile/new' },
+  { label: 'Website', icon: 'globe', href: '/builder/projects' },
+  { label: 'Dashboard', icon: 'dashboard', href: '/builder/apps' },
 ];
 
 /** Only the selected, visible preview runs; manual interactions restart its timer. */
@@ -28,31 +30,6 @@ function usePreview(on: boolean, initial = 0) {
     return () => window.clearInterval(timer);
   }, [on, view]);
   return [view, setView] as const;
-}
-
-/** A row of small tabs inside a mock; the buttons only switch the mock's own view. */
-function Tabs({
-  names,
-  value,
-  onChange,
-  label,
-  className,
-}: {
-  names: string[];
-  value: number;
-  onChange: (n: number) => void;
-  label: string;
-  className: string;
-}) {
-  return (
-    <span className={className} role="group" aria-label={label}>
-      {names.map((n, i) => (
-        <button key={n} type="button" aria-pressed={value === i} onClick={() => onChange(i)}>
-          {n}
-        </button>
-      ))}
-    </span>
-  );
 }
 
 function Spark({ d }: { d: string }) {
@@ -553,7 +530,8 @@ function App({ on }: { on: boolean }) {
   );
 }
 
-export function AiBuildShowcase() {
+export function AiBuildShowcase({ locale = 'en' }: { locale?: Locale }) {
+  const d = landingText(locale);
   const [active, setActive] = useState(1);
   const devices: ReactNode[] = [
     <Phone key="p" on={active === 0} />,
@@ -563,19 +541,19 @@ export function AiBuildShowcase() {
   return (
     <section id="agents" className="section wrap cx-section" aria-labelledby="cx-title">
       <div className="cx-heading">
-        <span className="eyebrow">IMAGINE IT. BUILD IT.</span>
+        <span className="eyebrow">{d.showEyebrow}</span>
         <h2 id="cx-title">
-          One idea.
+          {d.showTitle1}
           <br />
-          <em>Any possibility.</em>
+          <em>{d.showTitle2}</em>
         </h2>
-        <p>Apps, websites, and web apps. Created with AI.</p>
+        <p>{d.showText}</p>
         <a className="button button-blue cx-create" href={options[active]!.href}>
-          Create {active === 0 ? 'a mobile app' : active === 1 ? 'a website' : 'a web app'}
+          {d.showCreate[active]}
           <Icon name="sparkle" size={16} />
         </a>
       </div>
-      <div className="cx-stage" role="group" aria-label="Choose what to create">
+      <div className="cx-stage" role="group" aria-label={d.showStage}>
         <div className="cx-glow" aria-hidden="true" />
         {options.map((o, i) => (
           <div
@@ -590,17 +568,17 @@ export function AiBuildShowcase() {
               onClick={() => setActive(i)}
             >
               <Icon name={o.icon} size={16} />
-              {o.label}
+              {d.showOptions[i]}
             </button>
             <span className={`cx-frame cx-frame-${i}`}>{devices[i]}</span>
           </div>
         ))}
         <span className="cx-badge">
-          <Icon name="sparkle" size={16} /> Powered by Nuzm AI
+          <Icon name="sparkle" size={16} /> {d.showBadge}
         </span>
       </div>
       <div className="cx-bottom">
-        <div className="cx-picker" role="group" aria-label="Build type">
+        <div className="cx-picker" role="group" aria-label={d.showPicker}>
           {options.map((o, i) => (
             <button
               key={o.label}
@@ -608,7 +586,7 @@ export function AiBuildShowcase() {
               onClick={() => setActive(i)}
               aria-pressed={active === i}
             >
-              {o.label}
+              {d.showOptions[i]}
             </button>
           ))}
         </div>

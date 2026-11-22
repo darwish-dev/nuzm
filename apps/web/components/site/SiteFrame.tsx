@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
-import { Icon } from '@nuzm/ui';
 import { locales, type Locale } from '@nuzm/i18n';
 import { doc } from '../../lib/docs-content';
 import { SERVICES, pick, site } from '../../lib/site-content';
-import { BrandWordmark } from '../BrandLogo';
+import { FrameFooter } from './FrameFooter';
 import { SiteHeader } from './SiteHeader';
 
 /**
@@ -24,7 +23,6 @@ export function SiteFrame({
   children: ReactNode;
 }) {
   const other = locales.find((l) => l !== locale) ?? 'en';
-  const year = new Date().getFullYear();
   return (
     <div className="landing svc-site" data-mode={mode}>
       <a className="skip-link" href="#main">
@@ -67,49 +65,7 @@ export function SiteFrame({
         </section>
         {children}
       </main>
-      <footer className="site-footer">
-        <div className="footer-horizon" aria-hidden="true" />
-        <div className="wrap footer-inner">
-          <div className="footer-invitation">
-            <span className="eyebrow">{site('ctaEyebrow', locale)}</span>
-            <h2>{site('ctaTitle', locale)}</h2>
-            <p className="svc-cta-text">{site('ctaText', locale)}</p>
-            <a className="button button-blue" href={`/${locale}/register`}>
-              {site('start', locale)} <Icon name="sparkle" size={16} />
-            </a>
-          </div>
-          <div className="footer-links svc-footer-links">
-            <div className="footer-brand">
-              <a href={`/${locale}`} className="brand" aria-label={site('home', locale)}>
-                <BrandWordmark />
-              </a>
-              <p>{site('footerTagline', locale)}</p>
-            </div>
-            <div>
-              <h3>{site('footerServices', locale)}</h3>
-              {SERVICES.map((s) => (
-                <a key={s.slug} href={`/${locale}/services/${s.slug}`}>
-                  {pick(s.name, locale)}
-                </a>
-              ))}
-            </div>
-            <div>
-              <h3>{site('footerAccount', locale)}</h3>
-              <a href={`/${locale}/login`}>{site('login', locale)}</a>
-              <a href={`/${locale}/register`}>{site('start', locale)}</a>
-              <a href={`/${locale}/docs`}>{doc('developers', locale)}</a>
-              <a href={`/${other}${path}`} lang={other} hrefLang={other}>
-                {site('language', locale)}
-              </a>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <span>
-              © {year} Nuzm. {site('rights', locale)}
-            </span>
-          </div>
-        </div>
-      </footer>
+      <FrameFooter locale={locale} initial={mode} langHref={`/${other}${path}`} />
     </div>
   );
 }

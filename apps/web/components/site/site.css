@@ -1664,3 +1664,284 @@ html[lang='ar'] .doc-toc-title {
 .doc-app .doc-content pre {
   border-inline-start: 3px solid #e9a16d88;
 }
+
+/* Service detail stories: real photography, concise features, and a setup timeline. */
+.svc-benefits-layout,
+.svc-process-layout {
+  display: grid;
+  grid-template-columns: 0.9fr 1.25fr;
+  gap: 32px;
+  align-items: stretch;
+}
+.svc-photo {
+  position: relative;
+  isolation: isolate;
+  margin: 0;
+  min-height: 440px;
+  border-radius: 30px;
+  overflow: hidden;
+  background: #273332;
+}
+.svc-photo > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.7);
+}
+.svc-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #10232300 35%, #101b1bea);
+  z-index: 1;
+}
+.svc-photo figcaption {
+  position: absolute;
+  z-index: 2;
+  bottom: 45px;
+  inset-inline: 26px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #faf4e8;
+}
+.svc-photo figcaption > span:last-child {
+  display: grid;
+  gap: 7px;
+}
+.svc-photo figcaption small {
+  font-size: 11px;
+  color: #e5e6ddaa;
+}
+.svc-photo figcaption strong {
+  font-size: 24px;
+  font-weight: 550;
+  line-height: 1.25;
+}
+.svc-photo-symbol {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  color: #5d4635;
+  background: #edc19b;
+  box-shadow: inset 1px 1px 2px #ffffff88;
+}
+.svc-photo-label {
+  position: absolute;
+  z-index: 2;
+  bottom: 17px;
+  inset-inline-start: 27px;
+  font-size: 9px;
+  color: #e5e6dd80;
+  letter-spacing: 0.03em;
+}
+.svc-benefits-layout .svc-points {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 26px;
+}
+.svc-benefits-layout .svc-card {
+  border-radius: 0;
+  background: transparent;
+  padding: 24px 0;
+  border-bottom: 1px solid #93b6b31f;
+  gap: 0;
+}
+.svc-benefits-layout .svc-card:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.svc-benefits-layout .svc-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  margin-bottom: 18px;
+}
+.svc-benefits-layout .svc-card h3 {
+  font-size: 20px;
+  margin: 0 0 10px;
+  line-height: 1.35;
+}
+.svc-benefits-layout .svc-card p {
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0;
+}
+.svc-process-layout {
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 70px;
+  align-items: center;
+}
+.svc-process-layout .svc-photo {
+  min-height: 430px;
+}
+.svc-process-layout .svc-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.svc-process-layout .svc-steps > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  column-gap: 22px;
+  background: transparent;
+  border-radius: 0;
+  padding: 22px 0;
+}
+.svc-process-layout .svc-step-no {
+  grid-column: 1;
+  grid-row: 1/3;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 15px;
+  margin: 0;
+  background: #e8ddc9;
+  color: #5d4635;
+}
+.svc-process-layout .svc-steps > li:nth-child(2) .svc-step-no {
+  background: #e9a16d;
+}
+.svc-process-layout .svc-steps > li::after {
+  content: '';
+  position: absolute;
+  width: 1px;
+  background: #93b6b338;
+  top: 74px;
+  bottom: -12px;
+  inset-inline-start: 22px;
+}
+.svc-process-layout .svc-steps > li:last-child::after {
+  display: none;
+}
+.svc-process-layout .svc-steps h3 {
+  grid-column: 2;
+  font-size: 22px;
+  margin: 0 0 9px;
+}
+.svc-process-layout .svc-steps p {
+  grid-column: 2;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  max-width: 450px;
+}
+.svc-process-layout .svc-price-note {
+  font-size: 12px;
+  margin-top: 28px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-radius: 14px;
+}
+.svc-benefits-section .svc-head,
+.svc-process-section .svc-head {
+  margin-bottom: 38px;
+}
+.svc-benefits-section .svc-head h2,
+.svc-process-section .svc-head h2 {
+  font-size: clamp(30px, 3.3vw, 48px);
+  line-height: 1.2;
+}
+@media (max-width: 900px) {
+  .svc-benefits-layout,
+  .svc-process-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .svc-photo,
+  .svc-process-layout .svc-photo {
+    min-height: 320px;
+  }
+  .svc-process-layout .svc-photo {
+    order: -1;
+  }
+  .svc-benefits-layout .svc-points {
+    gap: 0 20px;
+  }
+}
+@media (max-width: 540px) {
+  .svc-benefits-layout .svc-points {
+    grid-template-columns: 1fr;
+  }
+  .svc-benefits-layout .svc-card {
+    padding: 22px 0;
+  }
+  .svc-benefits-layout .svc-card:nth-last-child(2) {
+    border-bottom: 1px solid #93b6b31f;
+  }
+  .svc-photo {
+    min-height: 290px;
+    border-radius: 22px;
+  }
+  .svc-process-layout .svc-steps > li {
+    column-gap: 14px;
+  }
+  .svc-process-layout .svc-steps h3 {
+    font-size: 20px;
+  }
+}
+.svc-public-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 22px;
+}
+.svc-public-plan {
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  border-radius: 24px;
+  background: var(--surface);
+}
+.svc-public-plan:nth-child(2) {
+  background: color-mix(in srgb, var(--surface) 90%, #e9a16d);
+}
+.svc-public-plan h3 {
+  font-size: 24px;
+  margin: 0 0 12px;
+}
+.svc-public-plan p {
+  font-size: 14px;
+  color: var(--muted);
+  min-height: 45px;
+  line-height: 1.7;
+}
+.svc-public-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.svc-public-price strong {
+  font-size: 34px;
+  font-weight: 550;
+}
+.svc-public-price > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.svc-public-plan ul {
+  padding: 0;
+  margin: 0 0 28px;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+.svc-public-plan li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+}
+.svc-public-plan li svg {
+  flex-shrink: 0;
+  color: #e9a16d;
+}
+.svc-public-plan > a {
+  margin-top: auto;
+  justify-content: center;
+}

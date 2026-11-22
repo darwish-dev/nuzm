@@ -1,3 +1,4 @@
+import { ServicePhotography } from './ServicePhotography';
 import { ServiceVisual } from './ServiceVisual';
 import { Icon } from '@nuzm/ui';
 import type { Locale } from '@nuzm/i18n';
@@ -39,21 +40,24 @@ export function ServiceHero({ locale, s }: { locale: Locale; s: ServiceContent }
 
 export function PointsSection({ locale, s }: { locale: Locale; s: ServiceContent }) {
   return (
-    <section className="section wrap svc-section" aria-labelledby="svc-points">
+    <section className="section wrap svc-section svc-benefits-section" aria-labelledby="svc-points">
       <div className="svc-head">
         <span className="eyebrow">{site('whatYouGet', locale)}</span>
         <h2 id="svc-points">{pick(s.tagline, locale)}</h2>
       </div>
-      <div className="svc-points">
-        {s.points.map((p, i) => (
-          <article key={i} className="svc-card">
-            <span className="svc-card-icon">
-              <Icon name={p.icon} size={20} />
-            </span>
-            <h3>{pick(p.title, locale)}</h3>
-            <p>{pick(p.text, locale)}</p>
-          </article>
-        ))}
+      <div className="svc-benefits-layout">
+        <ServicePhotography locale={locale} s={s} />
+        <div className="svc-points">
+          {s.points.map((p, i) => (
+            <article key={i} className="svc-card">
+              <span className="svc-card-icon">
+                <Icon name={p.icon} size={20} />
+              </span>
+              <h3>{pick(p.title, locale)}</h3>
+              <p>{pick(p.text, locale)}</p>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -61,23 +65,28 @@ export function PointsSection({ locale, s }: { locale: Locale; s: ServiceContent
 
 export function StepsSection({ locale, s }: { locale: Locale; s: ServiceContent }) {
   return (
-    <section className="section wrap svc-section" aria-labelledby="svc-steps">
+    <section className="section wrap svc-section svc-process-section" aria-labelledby="svc-steps">
       <div className="svc-head">
         <span className="eyebrow">{site('howItWorks', locale)}</span>
         <h2 id="svc-steps">{site('howItWorks', locale)}</h2>
       </div>
-      <ol className="svc-steps">
-        {s.steps.map((st, i) => (
-          <li key={i} className="svc-card">
-            <span className="svc-step-no">{i + 1}</span>
-            <h3>{pick(st.title, locale)}</h3>
-            <p>{pick(st.text, locale)}</p>
-          </li>
-        ))}
-      </ol>
-      <p className="svc-price-note">
-        <Icon name="tag" size={15} /> {site('priceNote', locale)}
-      </p>
+      <div className="svc-process-layout">
+        <div>
+          <ol className="svc-steps">
+            {s.steps.map((st, i) => (
+              <li key={i} className="svc-card">
+                <span className="svc-step-no">{i + 1}</span>
+                <h3>{pick(st.title, locale)}</h3>
+                <p>{pick(st.text, locale)}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="svc-price-note">
+            <Icon name="tag" size={15} /> {site('priceNote', locale)}
+          </p>
+        </div>
+        <ServicePhotography locale={locale} s={s} steps />
+      </div>
     </section>
   );
 }

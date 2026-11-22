@@ -531,3 +531,21 @@
     clip-path: inset(-140px 0 -140px -600px);
   }
 }
+
+/* No scrollbars anywhere on the public website (home page sections, services, documentation, their inner panels): everything still scrolls with the wheel, the trackpad,
+   touch and the keyboard, the bar is just not drawn. */
+html:has(.landing),
+body:has(.landing),
+.landing,
+.landing * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+html:has(.landing)::-webkit-scrollbar,
+body:has(.landing)::-webkit-scrollbar,
+.landing::-webkit-scrollbar,
+.landing *::-webkit-scrollbar {
+  display: none !important;
+  inline-size: 0;
+  block-size: 0;
+}

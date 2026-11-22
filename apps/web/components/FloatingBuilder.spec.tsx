@@ -20,8 +20,8 @@ describe('floating AI builder', () => {
   it('carries the Nuzm logo mark as its icon', () => {
     path = '/domains';
     const { container } = render(<FloatingBuilder locale="en" />);
-    expect(container.querySelector('.bfab-icon img.nzc-logo')?.getAttribute('src')).toBe(
-      '/brand/nuzm-mark.png',
+    expect(container.querySelector('.bfab-icon img.nzc-logo')?.getAttribute('src')).toMatch(
+      /^\/brand\/nuzm-mark\.png(\?v=[a-z0-9]+)?$/,
     );
   });
   it('speaks the page language and keeps the locale in the link', () => {

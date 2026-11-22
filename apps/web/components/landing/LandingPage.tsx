@@ -3,48 +3,13 @@
 import { useRef, useState } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
-import { ServiceArtwork } from '../ServiceArtwork';
-import { Mosaic } from '../site/Mosaic';
+import { PlatformBento } from '../site/PlatformBento';
+import { AiChatSection } from './AiChatSection';
 import { useSectionScroll } from './useSectionScroll';
 
 // Native CSS with the owner’s attached Nuzm bento identity and logo.
 // DESIGN_VARIANCE 7 / MOTION_INTENSITY 4 / VISUAL_DENSITY 4.
 // Identity radii: 999px controls, 28px cards, 16px inset panels.
-const services: { name: string; description: string; icon: IconName; href: string; tag: string }[] =
-  [
-    {
-      name: 'Cloud servers',
-      description:
-        'A strong foundation for your next big thing. Provision and manage your compute in one place.',
-      icon: 'cloud',
-      href: '/en/services/cloud',
-      tag: 'BUILT TO SCALE',
-    },
-    {
-      name: 'Domains',
-      description:
-        'Every great idea starts with a name. Find yours, connect it, and make it unmistakably you.',
-      icon: 'globe',
-      href: '/en/services/domains',
-      tag: 'MAKE IT YOURS',
-    },
-    {
-      name: 'Website cloud',
-      description:
-        'From your first launch to your next milestone. Give your websites a place to grow.',
-      icon: 'hosting',
-      href: '/en/services/hosting',
-      tag: 'READY FOR LAUNCH',
-    },
-    {
-      name: 'AI development',
-      description:
-        'Vibe code websites and connect multiple systems, from the first prompt to deployment.',
-      icon: 'code',
-      href: '/en/services/ai-builder',
-      tag: 'FROM IDEA TO LAUNCH',
-    },
-  ];
 const prompts = ['Automate my operations', 'Build my next website', 'Connect my business tools'];
 const workflows = [
   {
@@ -110,8 +75,8 @@ export function LandingPage() {
             {[
               ['Services', '/en/services'],
               ['AI agents', '#agents'],
-              ['Workspace', '#cloud'],
-              ['Cloud & domains', '#cloud'],
+              ['AI chat', '#chat'],
+              ['Platform', '#platform'],
               ['Integrations', '#integrations'],
             ].map(([label, href]) => (
               <a key={label} href={href} onClick={() => setMenuOpen(false)}>
@@ -222,7 +187,7 @@ export function LandingPage() {
             <a href="/en/automation/workflows">
               <Icon name="workflow" /> Automation
             </a>
-            <a href="#cloud">
+            <a href="#platform">
               <Icon name="cloud" /> Cloud
             </a>
             <a href="/en/domains/search">
@@ -287,88 +252,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="cloud" className="section cloud-section wrap">
-        <div className="section-heading">
-          <h2>
-            Grounded in the cloud.
-            <br />
-            <em>Ready for anything.</em>
-          </h2>
-          <p>Your infrastructure, your address, your next launch. All under one roof.</p>
-        </div>
-        <div className="workspace-toolbar">
-          <span>
-            <Icon name="dashboard" size={18} /> Your workspace
-          </span>
-          <a href="/en" className="button button-outline">
-            Open dashboard
-          </a>
-        </div>
-        <div className="cloud-grid">
-          {services.map((service, index) => (
-            <article className={`cloud-card cloud-card-${index}`} key={service.name}>
-              <div className="service-card-top">
-                <h3>{service.name}</h3>
-                <span className="service-icon">
-                  <Icon name={service.icon} size={22} />
-                </span>
-              </div>
-              <div className="service-art">
-                <ServiceArtwork
-                  service={['compute', 'domains', 'hosting', 'builder'][index] ?? 'compute'}
-                  ar={false}
-                />
-              </div>
-              <div className="cloud-card-content">
-                <p>{service.description}</p>
-                <a href={service.href} className="button button-outline service-button">
-                  Explore {service.name.toLowerCase()}
-                  <Icon name="chevron" size={16} />
-                </a>
-              </div>
-            </article>
-          ))}
-          <aside className="workspace-summary">
-            <div className="summary-heading">
-              <Icon name="projects" size={24} />
-              <span>One connected workspace</span>
-            </div>
-            <div className="service-ring">
-              <div>
-                <strong>04</strong>
-                <span>Core services</span>
-              </div>
-            </div>
-            <h3>Build. Launch. Manage.</h3>
-            <p>Cloud, domains, websites, and AI development. Your next idea has a home.</p>
-            <a href="/en/register" className="button button-blue">
-              Get started
-              <Icon name="sparkle" size={17} />
-            </a>
-            <span className="summary-footnote">Your infrastructure, together.</span>
-          </aside>
-        </div>
-        <form className="domain-search" action="/en/domains/search">
-          <div>
-            <Icon name="globe" size={23} />
-            <label htmlFor="domain-name">Give your idea a name.</label>
-          </div>
-          <div className="domain-field">
-            <input
-              id="domain-name"
-              name="q"
-              placeholder="Find your perfect domain"
-              required
-              maxLength={253}
-              aria-label="Domain name"
-              pattern="[^\s/]+"
-            />
-            <button className="button button-blue" type="submit">
-              Search domains
-            </button>
-          </div>
-        </form>
-      </section>
+      <AiChatSection />
 
       <section
         id="platform"
@@ -383,7 +267,7 @@ export function LandingPage() {
           </h2>
           <p>Hosting, domains, servers, AI and the tools around them, designed to work together.</p>
         </div>
-        <Mosaic locale="en" prefix="/en" title="The Nuzm platform" homeHref="#agents" />
+        <PlatformBento locale="en" prefix="" title="The Nuzm platform" />
       </section>
 
       <section className="section integrations-section wrap" id="integrations">

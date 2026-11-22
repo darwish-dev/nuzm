@@ -670,6 +670,16 @@ export const SITE: Record<string, L> = {
     ar: 'كل شيء في منصة واحدة',
     en: 'Everything in one platform',
   },
+  bnApiTitle: { ar: 'واجهة برمجية للمطوّرين', en: 'API for developers' },
+  bnApiText: {
+    ar: 'اربط نظم بأدواتك عبر واجهة REST موثّقة.',
+    en: 'Connect Nuzm to your own tools with a documented REST API.',
+  },
+  bnBanner: { ar: 'حساب واحد لكل ما تبنيه', en: 'One account for everything you build' },
+  bnBannerText: {
+    ar: 'استضافة ونطاقات وبريد وبيانات وذكاء اصطناعي، تُدار من لوحة تحكم واحدة.',
+    en: 'Hosting, domains, email, data and AI, managed from one dashboard.',
+  },
   idxEyebrow: { ar: 'خدمات نظم', en: 'NUZM SERVICES' },
   idxTitle: {
     ar: 'كل ما يحتاجه عملك على الإنترنت، في حساب واحد.',
@@ -727,53 +737,3 @@ export const site = (key: string, locale: Locale): string => {
   if (!v) throw new Error(`unknown site text ${key}`);
   return v[locale];
 };
-
-/** The illustration mosaic (services index and landing page): the owner's illustration sheet, each tile leading to the page it is about. */
-export interface MosaicTile {
-  image: string;
-  label: L;
-  /** address without the locale; '' = the home page */
-  href: string;
-}
-export const MOSAIC: MosaicTile[] = [
-  {
-    image: 'dashboard.webp',
-    label: { ar: 'استضافة المواقع', en: 'Website hosting' },
-    href: '/services/hosting',
-  },
-  {
-    image: 'cloud.webp',
-    label: { ar: 'الخوادم السحابية', en: 'Cloud servers' },
-    href: '/services/cloud',
-  },
-  {
-    image: 'domain.webp',
-    label: { ar: 'النطاقات وDNS', en: 'Domains & DNS' },
-    href: '/services/domains',
-  },
-  {
-    image: 'builder.webp',
-    label: { ar: 'منشئ المواقع', en: 'Website builder' },
-    href: '/services/ai-builder',
-  },
-  { image: 'shop.webp', label: { ar: 'فاتورة واحدة', en: 'One bill' }, href: '/services' },
-  { image: 'ai.webp', label: { ar: 'الذكاء الاصطناعي', en: 'AI' }, href: '/services/ai-builder' },
-  {
-    image: 'mobile.webp',
-    label: { ar: 'تطبيقات الجوال', en: 'Mobile apps' },
-    href: '/services/ai-builder',
-  },
-  { image: 'robot.webp', label: { ar: 'مساعد نظم', en: 'Nuzm AI' }, href: '' },
-  {
-    image: 'integrations.webp',
-    label: { ar: 'الأتمتة والتكامل', en: 'Automation' },
-    href: '/services/automation',
-  },
-  {
-    image: 'security.webp',
-    label: { ar: 'أمان وتحكم', en: 'Security & control' },
-    href: '/services',
-  },
-  { image: 'support.webp', label: { ar: 'التوثيق والدعم', en: 'Docs & support' }, href: '/docs' },
-];
-export const illustration = (file: string): string => `/images/illustrations/${file}`;

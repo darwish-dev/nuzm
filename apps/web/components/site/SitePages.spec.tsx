@@ -10,8 +10,8 @@ import {
   StepsSection,
   relatedOf,
 } from './SiteSections';
-import { Mosaic } from './Mosaic';
-import { MOSAIC, SERVICES, pick, site } from '../../lib/site-content';
+import { PlatformBento } from './PlatformBento';
+import { SERVICES, pick, site } from '../../lib/site-content';
 
 afterEach(cleanup);
 
@@ -100,14 +100,27 @@ describe('service page', () => {
   });
 });
 
-describe('illustration mosaic', () => {
-  it('has a labelled link per tile, in the page language, with its own page for the home tile', () => {
-    render(<Mosaic locale="ar" title="x" homeHref="#agents" />);
-    const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(MOSAIC.length);
-    for (const t of MOSAIC) {
-      const a = screen.getByRole('link', { name: pick(t.label, 'ar') });
-      expect(a.getAttribute('href')).toBe(t.href === '' ? '#agents' : `/ar${t.href}`);
+describe('platform bento', () => {
+  it('has a link to every service page and to the docs, in the page language', () => {
+    render(<PlatformBento locale="ar" title="x" />);
+    for (const sv of SERVICES) {
+      const cards = screen
+        .getAllByRole('link')
+        .filter((a) => a.getAttribute('href') === `/ar/services/${sv.slug}`);
+      // the card and the chip in the banner
+      expect(cards.length, sv.slug).toBeGreaterThanOrEqual(2);
+      expect(cards.some((a) => a.textContent?.includes(pick(sv.name, 'ar')))).toBe(true);
     }
+    expect(screen.getAllByRole('link').some((a) => a.getAttribute('href') === '/ar/docs')).toBe(
+      true,
+    );
+    expect(screen.getByText(site('bnBanner', 'ar'))).toBeTruthy();
+  });
+
+  it('keeps the landing page on its own addresses with an empty prefix', () => {
+    render(<PlatformBento locale="en" prefix="" title="x" />);
+    expect(
+      screen.getAllByRole('link').some((a) => a.getAttribute('href') === '/services/hosting'),
+    ).toBe(true);
   });
 });

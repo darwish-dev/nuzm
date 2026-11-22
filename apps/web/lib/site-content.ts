@@ -17,8 +17,8 @@ export interface ServicePoint {
 export interface ServiceContent {
   slug: string;
   icon: IconName;
-  /** which bento artwork of the console fits this service (the others use an icon panel) */
-  art: 'compute' | 'hosting' | 'builder' | null;
+  /** the illustration of this service (`/images/illustrations/...`) */
+  image: string;
   /** the console page this service opens (without the locale) */
   href: string;
   name: L;
@@ -38,7 +38,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'hosting',
     icon: 'hosting',
-    art: 'hosting',
+    image: '/images/illustrations/dashboard.webp',
     href: '/hosting/sites',
     name: { ar: 'استضافة المواقع', en: 'Website hosting' },
     tagline: {
@@ -140,7 +140,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'cloud',
     icon: 'cloud',
-    art: 'compute',
+    image: '/images/illustrations/cloud.webp',
     href: '/compute/offers',
     name: { ar: 'الخوادم السحابية', en: 'Cloud servers' },
     tagline: { ar: 'قوة حوسبة بحجم مشروعك', en: 'Compute sized for your project' },
@@ -229,7 +229,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'domains',
     icon: 'domains',
-    art: null,
+    image: '/images/illustrations/domain.webp',
     href: '/domains/search',
     name: { ar: 'النطاقات و DNS', en: 'Domains & DNS' },
     tagline: { ar: 'اسم موقعك، وربطه بخدماتك', en: 'Your name, connected to your services' },
@@ -319,7 +319,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'ai-builder',
     icon: 'sparkle',
-    art: 'builder',
+    image: '/images/illustrations/builder.webp',
     href: '/builder/projects',
     name: { ar: 'منشئ الذكاء الاصطناعي', en: 'AI builder' },
     tagline: { ar: 'من الفكرة إلى موقع أو تطبيق', en: 'From idea to a website or app' },
@@ -408,7 +408,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'email',
     icon: 'email',
-    art: null,
+    image: '/images/illustrations/email.svg',
     href: '/email/mailboxes',
     name: { ar: 'البريد الإلكتروني للأعمال', en: 'Business email' },
     tagline: { ar: 'بريد باسم نطاقك', en: 'Email on your own domain' },
@@ -493,7 +493,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'data',
     icon: 'data',
-    art: null,
+    image: '/images/illustrations/data.svg',
     href: '/databases',
     name: { ar: 'قواعد البيانات والتخزين', en: 'Databases & storage' },
     tagline: { ar: 'بيانات مُدارة بنسخ احتياطية', en: 'Managed data, with backups' },
@@ -572,7 +572,7 @@ export const SERVICES: ServiceContent[] = [
   {
     slug: 'automation',
     icon: 'workflow',
-    art: null,
+    image: '/images/illustrations/integrations.webp',
     href: '/automation/workflows',
     name: { ar: 'الأتمتة والسوق', en: 'Automation & marketplace' },
     tagline: { ar: 'اربط أدواتك ودع العمل يمضي', en: 'Connect your tools and let work flow' },
@@ -650,6 +650,21 @@ export const SERVICES: ServiceContent[] = [
   },
 ];
 
+/** VPS uses the same verified virtual-server catalog as cloud compute. */
+SERVICES.splice(2, 0, {
+  ...SERVICES.find((service) => service.slug === 'cloud')!,
+  slug: 'vps',
+  name: { en: 'VPS hosting', ar: 'الخوادم الافتراضية VPS' },
+  tagline: {
+    en: 'Your own virtual server, managed in one place',
+    ar: 'خادمك الافتراضي، تحت إدارتك من مكان واحد',
+  },
+  headline: {
+    en: 'A virtual server for what you build next.',
+    ar: 'خادم افتراضي لما تبنيه لاحقًا.',
+  },
+});
+
 export const serviceBySlug = (slug: string): ServiceContent | undefined =>
   SERVICES.find((s) => s.slug === slug);
 
@@ -666,6 +681,20 @@ export const SITE: Record<string, L> = {
   menu: { ar: 'القائمة', en: 'Menu' },
   closeMenu: { ar: 'إغلاق القائمة', en: 'Close menu' },
   home: { ar: 'نظم، الصفحة الرئيسية', en: 'Nuzm home' },
+  mosaicTitle: {
+    ar: 'كل شيء في منصة واحدة',
+    en: 'Everything in one platform',
+  },
+  bnApiTitle: { ar: 'واجهة برمجية للمطوّرين', en: 'API for developers' },
+  bnApiText: {
+    ar: 'اربط نظم بأدواتك عبر واجهة REST موثّقة.',
+    en: 'Connect Nuzm to your own tools with a documented REST API.',
+  },
+  bnBanner: { ar: 'حساب واحد لكل ما تبنيه', en: 'One account for everything you build' },
+  bnBannerText: {
+    ar: 'استضافة ونطاقات وبريد وبيانات وذكاء اصطناعي، تُدار من لوحة تحكم واحدة.',
+    en: 'Hosting, domains, email, data and AI, managed from one dashboard.',
+  },
   idxEyebrow: { ar: 'خدمات نظم', en: 'NUZM SERVICES' },
   idxTitle: {
     ar: 'كل ما يحتاجه عملك على الإنترنت، في حساب واحد.',

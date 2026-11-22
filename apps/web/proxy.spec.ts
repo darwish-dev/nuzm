@@ -33,6 +33,16 @@ describe('proxy: routes carry no language', () => {
     expect(u.pathname + u.search).toBe('/billing?a=1');
     expect(r.headers.get('set-cookie')).toContain('nuzm_locale=en');
   });
+  it('?lang= on the home page sets the cookie and comes back to / (the page reads the cookie itself)', () => {
+    const r = go('/?lang=ar');
+    expect(r.status).toBe(307);
+    expect(
+      new URL(r.headers.get('location')!).pathname + new URL(r.headers.get('location')!).search,
+    ).toBe('/');
+    expect(r.headers.get('set-cookie')).toContain('nuzm_locale=ar');
+    // an unsupported language is ignored
+    expect(go('/?lang=fr').headers.get('location')).toBeNull();
+  });
   it('leaves the marketing site and static files alone', () => {
     for (const p of ['/', '/designs', '/designs/ai.html', '/fonts/identity/fonts.css', '/x.png']) {
       const r = go(p);

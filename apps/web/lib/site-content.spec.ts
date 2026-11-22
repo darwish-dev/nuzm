@@ -78,4 +78,9 @@ describe('public site content', () => {
     expect(site('start', 'ar')).toBe('ابدأ الآن');
     expect(() => site('missing', 'en')).toThrow();
   });
+
+  it('every service has an illustration that exists', () => {
+    const exists = (url: string) => existsSync(join(__dirname, '..', 'public', url));
+    for (const sv of SERVICES) expect(exists(sv.image), sv.slug).toBe(true);
+  });
 });

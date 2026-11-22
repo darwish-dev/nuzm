@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<title>Nuzm AI chat — animation</title>
+<style>
+@font-face{font-family:Manrope;font-weight:200 800;src:url(../hosting-ads/fonts/manrope-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F}
+@font-face{font-family:Cairo;font-weight:200 1000;src:url(../hosting-ads/fonts/cairo-arabic-wght-normal.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+FB50-FDFF,U+FE70-FEFF}
+@font-face{font-family:Cairo;font-weight:200 1000;src:url(../hosting-ads/fonts/cairo-latin-wght-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F}
+:root{--bg:#0b0b0c;--rail:#0e0e10;--card:#161618;--card2:#1b1b1e;--line:#27272c;--field:#0f0f11;--fg:#f4f0e8;--muted:#a0a6a5;--acc:#bcdccb;--acc2:#93b6b3;--grad:linear-gradient(165deg,#cfe8da 0%,#93b6b3 100%);--on:#14181b}
+*{box-sizing:border-box;margin:0}
+html,body{width:1120px;height:700px;overflow:hidden;background:var(--bg);color:var(--fg);font-family:Manrope,Cairo,sans-serif;-webkit-font-smoothing:antialiased}
+#stage{position:relative;width:1120px;height:700px;overflow:hidden;background:radial-gradient(60rem 26rem at 70% -8rem,#34434d55,transparent 70%),var(--bg)}
+.top{position:absolute;inset:0 0 auto 0;height:52px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--line);background:#0e0e10cc;z-index:5}
+.top img{height:20px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;color:var(--muted);background:#ffffff08}
+.grow{flex:1}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--grad);color:var(--on);display:grid;place-items:center;font-size:12px;font-weight:800}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 20px;border-radius:12px;background:var(--grad);color:var(--on);font-weight:700;font-size:14px;border:0;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.sm{padding:7px 14px;font-size:12.5px;border-radius:10px}
+/* phase A */
+#A{position:absolute;inset:52px 0 0 0;display:flex;flex-direction:column;align-items:center;padding-top:36px}
+#A h1{margin-top:16px;font-family:Cairo,Manrope,sans-serif;font-size:50px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:-.01em}
+#A p.sub{margin-top:12px;font-size:14.5px;color:var(--muted);text-align:center;max-width:470px;line-height:1.6}
+.composer{margin-top:24px;width:760px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,#121214,#0f0f11);box-shadow:0 30px 70px #00000066}
+.composer .box{padding:20px 24px;min-height:100px;font-size:16px;line-height:1.55}
+.composer .row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 14px 24px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.caret{display:inline-block;width:2px;height:1.1em;background:var(--acc);vertical-align:-3px;margin-left:1px}
+.types{margin-top:22px;width:760px}
+.types small{display:block;text-align:center;letter-spacing:.12em;font-size:11px;color:var(--muted);margin-bottom:10px}
+.types div{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.type{display:flex;align-items:center;gap:12px;padding:13px 16px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+.type>span:last-child{min-width:0}.type b{display:block;font-size:14px}.type i{display:block;font-style:normal;font-size:11.5px;color:var(--muted);line-height:1.4}
+.type.on{background:#2c3335;border-color:#3a4448}
+.ico{flex:none;width:34px;height:34px;border-radius:10px;background:#ffffff0d;display:grid;place-items:center;color:var(--acc)}
+/* phase B */
+#B{position:absolute;inset:52px 0 0 0;display:grid;grid-template-columns:372px 1fr;opacity:0}
+#chat{display:flex;flex-direction:column;border-inline-end:1px solid var(--line);background:var(--rail);min-height:0}
+#msgs{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:20px 18px 14px;overflow:hidden}
+.msg{display:none}
+.user{align-self:flex-end;max-width:86%;padding:11px 15px;border-radius:18px 18px 4px 18px;background:#262b2e;font-size:13.5px;line-height:1.55}
+.ai{display:none;gap:10px;align-items:flex-start}
+.ai .av{flex:none;width:28px;height:28px;border-radius:9px;background:var(--grad);display:grid;place-items:center}
+.ai .av img{height:13px;filter:brightness(.15)}
+.ai .body{flex:1;min-width:0;font-size:13.5px;line-height:1.6}
+.ai .name{font-weight:700;color:var(--acc);font-size:12px;margin-bottom:3px}
+.dots{display:inline-flex;gap:5px;padding:6px 0}.dots i{width:6px;height:6px;border-radius:50%;background:var(--acc2)}
+.plan{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden}
+.plan h4{padding:10px 14px;font-size:11px;letter-spacing:.12em;color:var(--muted);border-bottom:1px solid var(--line)}
+.plan .r{display:flex;justify-content:space-between;gap:12px;padding:9px 14px;font-size:12.5px;border-bottom:1px solid #1f1f23}
+.plan .r span:first-child{color:var(--muted)}.plan .r span:last-child{font-weight:600;text-align:end}
+.plan .acts{display:flex;gap:8px;padding:12px 14px}
+.steps{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:12px 14px}
+.step{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:5px 0;color:var(--muted)}
+.step .tick{width:18px;height:18px;border-radius:50%;border:1.5px solid #3a4146;display:grid;place-items:center;font-size:10px;color:var(--on)}
+.step.done{color:var(--fg)}.step.done .tick{background:var(--acc);border-color:var(--acc)}
+.bar{height:5px;border-radius:3px;background:#26292c;margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--grad);width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.chip{padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:11.5px;color:var(--acc);background:#ffffff08}
+#compose{margin:0 14px 14px;border:1px solid var(--line);border-radius:16px;background:var(--field);padding:10px 12px 10px 16px;display:flex;align-items:center;gap:10px;font-size:13px;min-height:46px}
+#compose .t{flex:1;color:var(--fg)}#compose .ph{color:#6d7473}
+.send{width:30px;height:30px;border-radius:50%;background:var(--grad);display:grid;place-items:center}
+/* canvas */
+#canvas{position:relative;display:flex;flex-direction:column;min-width:0;background:#0b0b0c}
+.ctop{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.tab{padding:6px 14px;border-radius:999px;font-size:12.5px;color:var(--muted)}.tab.on{background:#ffffff10;color:var(--fg)}
+.cbody{position:relative;flex:1;padding:22px 26px 0;overflow:hidden}
+.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:13.5px;background-image:radial-gradient(#ffffff12 1px,transparent 1px);background-size:22px 22px}
+.frame{position:absolute;inset:22px 26px 0 26px;border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;background:#f6f5f1;overflow:hidden;color:#22262d}
+.fbar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:#ebe8e1;border-bottom:1px solid #d9d4c9}
+.fbar i{width:8px;height:8px;border-radius:50%;background:#d98a7a}.fbar i:nth-child(2){background:#e8c97a}.fbar i:nth-child(3){background:#8fd0a6}
+.fbar b{margin-left:10px;padding:2px 12px;border-radius:999px;background:#fff;font-size:10.5px;font-weight:600;color:#5d6870}
+.site{padding:0 0 30px}
+.snav{display:flex;align-items:center;justify-content:space-between;padding:14px 26px;font-size:12px}.snav b{font-family:Cairo;font-size:16px}
+.snav span{display:flex;gap:16px;color:#5d6870}.snav i{font-style:normal}
+.hero{margin:6px 26px 0;border-radius:18px;padding:30px 30px 28px;background:linear-gradient(135deg,#4e7880,#2f4a50);color:#f6f5f1}
+.hero h2{font-family:Cairo,Manrope;font-weight:800;line-height:1.15;font-size:34px}
+.hero p{margin-top:8px;font-size:12.5px;opacity:.85}
+.hero .b{display:inline-block;margin-top:14px;padding:8px 18px;border-radius:999px;background:#f6f5f1;color:#22262d;font-size:12px;font-weight:700}
+.menu{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 26px 0}
+.mi{border-radius:14px;background:#fff;border:1px solid #e1ddd3;padding:12px}
+.mi .im{height:62px;border-radius:10px;margin-bottom:9px}
+.mi b{font-size:12.5px}.mi span{display:block;font-size:11px;color:#7a828a;margin-top:2px}
+.book{margin:16px 26px 0;border-radius:16px;background:#fff;border:1px solid #e1ddd3;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;font-size:11px;color:#7a828a}
+.book div{border-bottom:1px solid #d3dcd9;padding:6px 0 5px;color:#22262d;font-size:12px}.book .go{border:0;padding:9px 16px;border-radius:10px;background:#4e7880;color:#fff;font-weight:700}
+.map{margin:16px 26px 0;height:96px;border-radius:16px;background:linear-gradient(135deg,#dfe9e4,#c5d8d0);position:relative;overflow:hidden}
+.map:before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(35deg,transparent 0 22px,#ffffff80 22px 25px),repeating-linear-gradient(-55deg,transparent 0 30px,#ffffff66 30px 33px)}
+.map i{position:absolute;left:52%;top:30%;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#4e7880;box-shadow:0 6px 12px #0003}
+.skel{position:absolute;inset:22px 26px 0 26px;border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;background:#161618;padding:60px 30px}
+.skel div{border-radius:12px;background:linear-gradient(90deg,#222427,#2c2f33,#222427);margin-bottom:16px}
+.pub{position:absolute;inset-inline-end:18px;top:9px}
+#modal{position:absolute;inset:0;display:none;place-items:center;background:#000a;z-index:8}
+#modal .m{width:380px;padding:24px;border-radius:20px;background:var(--card2);border:1px solid #34393d;box-shadow:0 30px 70px #000a}
+#modal h3{font-size:17px;margin:10px 0 6px}#modal p{font-size:13px;color:var(--muted);line-height:1.6}
+#modal .a{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+#toast{position:absolute;inset-inline-end:26px;bottom:26px;display:none;align-items:center;gap:10px;padding:12px 18px;border-radius:14px;background:#1f2a26;border:1px solid #3d5a4f;color:#bfe9d3;font-size:13px;z-index:9}
+#cursor{position:absolute;left:0;top:0;width:22px;height:22px;z-index:20;opacity:0;filter:drop-shadow(0 2px 3px #0008)}
+#end{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:radial-gradient(40rem 20rem at 50% 40%,#34434d88,#0b0b0c 70%);opacity:0;z-index:30}
+#end img{height:44px;margin-bottom:22px}#end h2{font-family:Cairo,Manrope;font-size:44px;font-weight:800}#end p{margin-top:10px;color:var(--muted);font-size:15px}
+svg{display:block}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="top">
+    <img src="../hosting-ads/nuzm-logo.png" alt="" />
+    <span class="pill" id="pillName">&lt;&gt; Nuzm Builder</span>
+    <span class="grow"></span>
+    <span class="pill">AI credits</span>
+    <span class="avatar">LO</span>
+  </div>
+
+  <div id="A">
+    <span class="pill">&lt;&gt;&nbsp; Nuzm Builder</span>
+    <h1>Create a<br />project with AI</h1>
+    <p class="sub">Describe what you want to build. The AI drafts it for you in minutes — no setup steps.</p>
+    <div class="composer">
+      <div class="box"><span id="typed1"></span><span class="caret" id="caret1"></span></div>
+      <div class="row"><span id="count1">0/600</span><span class="btn" id="start">Start →</span></div>
+    </div>
+    <div class="types"><small>WHAT ARE YOU CREATING?</small>
+      <div>
+        <div class="type on"><span class="ico">◐</span><span><b>Website</b><i>Bilingual, edited visually</i></span></div>
+        <div class="type"><span class="ico">&lt;&gt;</span><span><b>Web app</b><i>Pages, data and sign-in</i></span></div>
+        <div class="type"><span class="ico">▯</span><span><b>Mobile app</b><i>Flutter for iOS and Android</i></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="B">
+    <div id="chat">
+      <div id="msgs">
+        <div class="msg user" id="u1"></div>
+        <div class="ai" id="a1"><span class="av"><img src="../hosting-ads/nuzm-mark.png" alt="" /></span><div class="body"><div class="name">Nuzm AI</div>
+          <div class="dots" id="dots1"><i></i><i></i><i></i></div>
+          <div id="a1t"></div>
+          <div class="plan" id="plan"><h4>PLAN</h4>
+            <div class="r"><span>Pages</span><span>Home · Menu · Booking</span></div>
+            <div class="r"><span>Languages</span><span>Arabic + English</span></div>
+            <div class="r"><span>Look</span><span>Warm and simple</span></div>
+            <div class="acts"><span class="btn sm" id="approve">Approve plan</span><span class="btn sm ghost">Change</span></div>
+          </div>
+          <div class="steps" id="steps">
+            <div class="step" id="s1"><span class="tick">✓</span>Writing the home page</div>
+            <div class="step" id="s2"><span class="tick">✓</span>Adding the menu</div>
+            <div class="step" id="s3"><span class="tick">✓</span>Building the booking form</div>
+            <div class="bar"><i id="bar"></i></div>
+          </div>
+        </div></div>
+        <div class="msg user" id="u2"></div>
+        <div class="ai" id="a2"><span class="av"><img src="../hosting-ads/nuzm-mark.png" alt="" /></span><div class="body"><div class="name">Nuzm AI</div>
+          <div class="dots" id="dots2"><i></i><i></i><i></i></div>
+          <div id="a2t"></div>
+          <div class="chips" id="diff"><span class="chip">Heading: larger</span><span class="chip">Map: added</span></div>
+          <div class="acts" id="undo" style="display:flex;gap:8px;margin-top:10px"><span class="btn sm ghost">↶ Undo</span><span class="btn sm ghost">↷ Redo</span></div>
+        </div></div>
+      </div>
+      <div id="compose"><span class="t"><span id="typed2"></span><span class="ph" id="ph2">Ask for a change…</span></span><span class="send">↑</span></div>
+    </div>
+    <div id="canvas">
+      <div class="ctop"><span class="tab on">Preview</span><span class="tab">Pages</span><span class="tab">SEO</span><span class="tab">Versions</span><span class="grow"></span><span class="btn sm" id="publish">Publish</span></div>
+      <div class="cbody">
+        <div class="empty" id="empty">Your website will appear here</div>
+        <div class="skel" id="skel"><div style="height:34px;width:40%"></div><div style="height:120px"></div><div style="height:90px;width:80%"></div></div>
+        <div class="frame" id="frame">
+          <div class="fbar"><i></i><i></i><i></i><b>your-site.com</b></div>
+          <div class="site">
+            <div class="snav"><b>Qahwa House</b><span><i>Menu</i><i>Booking</i><i>EN | عربي</i></span></div>
+            <div class="hero"><h2 id="h2">Coffee, made<br />slowly.</h2><p>Single-origin beans, roasted in Riyadh.</p><span class="b">Book a table</span></div>
+            <div class="menu">
+              <div class="mi"><div class="im" style="background:linear-gradient(135deg,#d9b48a,#a8754c)"></div><b>Flat white</b><span>Smooth and rich</span></div>
+              <div class="mi"><div class="im" style="background:linear-gradient(135deg,#b7d3c6,#7eaea3)"></div><b>Iced cardamom</b><span>Cold and fragrant</span></div>
+              <div class="mi"><div class="im" style="background:linear-gradient(135deg,#e9d3b6,#caa47a)"></div><b>Date cake</b><span>Baked every morning</span></div>
+            </div>
+            <div class="book"><span>Name<div>Layla</div></span><span>Date<div>Friday, 7 PM</div></span><span class="go">Book</span></div>
+            <div class="map" id="map"><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div id="toast">✓ &nbsp;Your site is live</div>
+    </div>
+  </div>
+
+  <div id="modal"><div class="m"><span class="ico">✓</span><h3>Publish your site?</h3><p>Publishing needs your approval. Nothing goes live until you say yes.</p><div class="a"><span class="btn sm ghost">Cancel</span><span class="btn sm" id="okpub">Approve and publish</span></div></div></div>
+
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2l15 9-6.5 1.6L9.4 19z" fill="#fff" stroke="#14181b" stroke-width="1.4" stroke-linejoin="round"/></svg>
+
+  <div id="end"><div><img src="../hosting-ads/nuzm-logo.png" alt="" /><h2>Chat. Review. Publish.</h2><p>Nuzm AI — from idea to a live website.</p></div></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const ramp = (t, a, b) => clamp((t - a) / (b - a));
+const ease = (x) => (x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+const P1 = 'A website for my coffee shop in Riyadh with a menu and a booking form';
+const P2 = 'Make the heading bigger and add a map';
+const A1 = "I'll plan a bilingual website for your coffee shop. Here is what I suggest:";
+const A2 = 'Done. I made the heading larger and added a map. You can review and undo it.';
+const typeText = (el, s, t, a, b) => (el.textContent = s.slice(0, Math.round(s.length * ramp(t, a, b))));
+const showIn = (el, t, a, d = .35, display = 'block') => {
+  el.style.display = t >= a ? display : 'none';
+  const k = ramp(t, a, a + d);
+  el.style.opacity = k;
+  el.style.transform = `translateY(${(1 - k) * 10}px)`;
+};
+const press = (el, t, a) => { const k = Math.sin(Math.PI * ramp(t, a, a + .25)); el.style.transform = `scale(${1 - .06 * k})`; el.style.filter = `brightness(${1 + .25 * k})`; };
+
+// cursor waypoints: [time, element id or [x, y]]
+const WP = [
+  [3.2, [980, 560]], [5.0, 'start'],
+  [9.6, [740, 360]], [10.7, 'approve'],
+  [11.4, [520, 300]],
+  [19.0, 'compose'], [19.3, [300, 560]],
+  [22.0, [820, 130]], [23.1, 'publish'],
+  [24.2, 'okpub'], [25.2, [700, 420]],
+];
+let pts = [];
+function setT(t) {
+  // phase switch
+  const toB = ramp(t, 5.3, 5.8);
+  $('A').style.opacity = 1 - toB; $('A').style.display = toB >= 1 ? 'none' : 'flex';
+  $('B').style.opacity = toB;
+  // phase A
+  typeText($('typed1'), P1, t, .8, 3.6);
+  $('count1').textContent = `${Math.round(P1.length * ramp(t, .8, 3.6))}/600`;
+  $('caret1').style.opacity = Math.floor(t * 2.2) % 2 ? 0 : 1;
+  press($('start'), t, 5.0);
+  // chat
+  $('u1').textContent = P1; showIn($('u1'), t, 5.8);
+  const a1 = $('a1'); a1.style.display = t >= 6.5 ? 'flex' : 'none'; a1.style.opacity = ramp(t, 6.5, 6.9);
+  $('dots1').style.display = t >= 6.5 && t < 7.6 ? 'inline-flex' : 'none';
+  [...$('dots1').children].forEach((d, i) => (d.style.opacity = .35 + .65 * Math.abs(Math.sin(t * 6 - i * .7))));
+  typeText($('a1t'), A1, t, 7.6, 9.2);
+  showIn($('plan'), t, 8.6);
+  const ap = $('approve'); press(ap, t, 10.7);
+  ap.textContent = t >= 10.95 ? 'Approved ✓' : 'Approve plan';
+  showIn($('steps'), t, 11.4);
+  ['s1', 's2', 's3'].forEach((id, i) => $(id).classList.toggle('done', t >= 12.4 + i * 1.3));
+  $('bar').style.width = `${100 * ease(ramp(t, 11.6, 15.1))}%`;
+  // canvas
+  $('empty').style.opacity = 1 - ramp(t, 11.2, 11.7); $('empty').style.display = t >= 11.7 ? 'none' : 'grid';
+  const sk = ramp(t, 11.6, 12.2) * (1 - ramp(t, 15.0, 15.5));
+  $('skel').style.opacity = sk; $('skel').style.display = sk > 0 ? 'block' : 'none';
+  $('frame').style.opacity = ramp(t, 15.0, 15.6); $('frame').style.transform = `translateY(${(1 - ramp(t, 15.0, 15.8)) * 18}px)`;
+  // edit by chat
+  typeText($('typed2'), P2, t, 16.2, 18.7);
+  $('ph2').style.display = t >= 16.2 ? 'none' : 'inline';
+  $('typed2').style.display = t >= 19.3 ? 'none' : 'inline';
+  if (t >= 19.3) { $('typed2').textContent = ''; $('ph2').style.display = 'inline'; }
+  $('u2').textContent = P2; showIn($('u2'), t, 19.4);
+  const a2 = $('a2'); a2.style.display = t >= 20.0 ? 'flex' : 'none'; a2.style.opacity = ramp(t, 20.0, 20.4);
+  $('dots2').style.display = t >= 20.0 && t < 20.9 ? 'inline-flex' : 'none';
+  [...$('dots2').children].forEach((d, i) => (d.style.opacity = .35 + .65 * Math.abs(Math.sin(t * 6 - i * .7))));
+  typeText($('a2t'), A2, t, 20.9, 22.6);
+  showIn($('diff'), t, 21.4, .3, 'flex'); showIn($('undo'), t, 22.0, .3, 'flex');
+  const big = ease(ramp(t, 21.0, 21.8));
+  $('h2').style.fontSize = `${34 + 14 * big}px`;
+  $('map').style.display = t >= 21.2 ? 'block' : 'none'; $('map').style.opacity = ramp(t, 21.2, 21.8);
+  // publish
+  press($('publish'), t, 23.1);
+  const m = $('modal'); m.style.display = t >= 23.4 && t < 24.9 ? 'grid' : 'none'; m.style.opacity = ramp(t, 23.4, 23.7);
+  press($('okpub'), t, 24.2);
+  const to = $('toast'); to.style.display = t >= 24.9 ? 'flex' : 'none'; to.style.opacity = ramp(t, 24.9, 25.3) * (1 - ramp(t, 27.6, 28.0));
+  $('end').style.opacity = ramp(t, 27.4, 28.2);
+  // cursor
+  const c = $('cursor');
+  if (!pts.length) return;
+  let i = pts.findIndex((p) => p.t > t);
+  if (i === 0) { c.style.opacity = 0; return; }
+  if (i === -1) i = pts.length;
+  const a = pts[i - 1], b = pts[i] ?? a;
+  const k = b === a ? 1 : ease(ramp(t, a.t + (b.t - a.t) * .15, b.t));
+  c.style.opacity = t < 28 ? 1 : 0;
+  c.style.transform = `translate(${a.x + (b.x - a.x) * k}px, ${a.y + (b.y - a.y) * k}px)`;
+}
+window.setT = setT;
+window.DURATION = 28.8;
+window.measure = () => {
+  pts = [];
+  for (const [t, tgt] of WP) {
+    if (typeof tgt === 'string') {
+      setT(t - .01);
+      const r = $(tgt).getBoundingClientRect();
+      pts.push({ t, x: r.left + r.width / 2 - 4, y: r.top + r.height / 2 - 3 });
+    } else pts.push({ t, x: tgt[0], y: tgt[1] });
+  }
+  setT(0);
+};
+document.fonts.ready.then(() => { window.measure(); window.READY = true; });
+</script>
+</body>
+</html>

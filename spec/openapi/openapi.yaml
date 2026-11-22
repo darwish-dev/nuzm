@@ -109,6 +109,48 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /v1/docs-feedback:
+    post:
+      operationId: rateDocumentation
+      tags: [platform]
+      summary: Rate a documentation page (Was this helpful?)
+      description: 'Public: no sign-in, no cookie. Body {page, score, locale}: page is a documentation address (`/docs`, `/docs/guides/<slug>` or `/docs/reference/<area>`), score is good, okay or bad, locale is ar or en. Nothing identifying is stored: the vote is kept with a salted SHA-256 of the client address, agent and UTC day, so it cannot be traced back or followed across days. One vote per page, client and day: a second vote the same day replaces the first, so it takes no Idempotency-Key and a retry never double counts. Rate limited per client and overall (429). 404 while collection is switched off (it is off in production until DOCS_FEEDBACK_ENABLED=true and a DOCS_FEEDBACK_SALT are set).'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DocsFeedbackVote' }
+      responses:
+        '204': { description: Recorded }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/admin/docs-feedback:
+    get:
+      operationId: getDocsFeedback
+      tags: [platform]
+      summary: Documentation ratings per page
+      description: 'Counts of good, okay and bad votes per documentation page over the last `days` days (1..365, default 30), most voted first. Counts only. Requires admin:reports:read.'
+      x-nuzm-platform-permission: admin:reports:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: days,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 365, default: 30 },
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocsFeedbackSummary' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/auth/oidc/login:
     get:
       operationId: oidcLogin
@@ -18363,6 +18405,36 @@ components:
           properties:
             apiKey: { type: string }
             apiSecret: { type: string }
+    DocsFeedbackVote:
+      type: object
+      required: [page, score, locale]
+      properties:
+        page: { type: string, pattern: '^/docs(/(guides|reference)/[a-z0-9-]{1,60})?$' }
+        score: { type: string, enum: [good, okay, bad] }
+        locale: { type: string, enum: [ar, en] }
+    DocsFeedbackCounts:
+      type: object
+      required: [good, okay, bad, total]
+      properties:
+        good: { type: integer }
+        okay: { type: integer }
+        bad: { type: integer }
+        total: { type: integer }
+    DocsFeedbackSummary:
+      type: object
+      required: [days, totals, items]
+      properties:
+        days: { type: integer }
+        totals: { $ref: '#/components/schemas/DocsFeedbackCounts' }
+        items:
+          type: array
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/DocsFeedbackCounts' }
+              - type: object
+                required: [page]
+                properties:
+                  page: { type: string }
     RegistrarVerificationRequest:
       type: object
       properties: { enable: { type: boolean } }

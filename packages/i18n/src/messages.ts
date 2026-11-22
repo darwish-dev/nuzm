@@ -23,6 +23,20 @@ export const messages = {
     'nav.admin.users': 'المستخدمون',
     'nav.admin.audit': 'سجل التدقيق (كل المؤسسات)',
     'nav.admin.flags': 'مفاتيح الميزات',
+    'nav.admin.docsFeedback': 'تقييمات التوثيق',
+    'admin.docsFeedback.title': 'تقييمات التوثيق',
+    'admin.docsFeedback.intro':
+      'أصوات «هل كان هذا مفيدًا؟» لكل صفحة من التوثيق العام. أعداد فقط: لا يُخزَّن أي معرّف للزائر.',
+    'admin.docsFeedback.range': 'آخر {days} يومًا',
+    'admin.docsFeedback.col.page': 'الصفحة',
+    'admin.docsFeedback.col.good': 'مفيد',
+    'admin.docsFeedback.col.okay': 'إلى حد ما',
+    'admin.docsFeedback.col.bad': 'غير مفيد',
+    'admin.docsFeedback.col.total': 'الإجمالي',
+    'admin.docsFeedback.col.share': 'نسبة المفيد',
+    'admin.docsFeedback.empty':
+      'لا تقييمات في هذه الفترة. قد يكون الجمع متوقفًا (في الإنتاج يبدأ بعد ضبط DOCS_FEEDBACK_ENABLED وDOCS_FEEDBACK_SALT).',
+    'admin.docsFeedback.totals': 'الإجمالي: {total} صوتًا، منها {good} مفيد.',
     'nav.primary': 'التنقل الرئيسي',
 
     'state.loading': 'جارٍ التحميل…',
@@ -7110,6 +7124,20 @@ export const messages = {
     'nav.admin.users': 'Users',
     'nav.admin.audit': 'Audit log (all organizations)',
     'nav.admin.flags': 'Feature flags',
+    'nav.admin.docsFeedback': 'Documentation ratings',
+    'admin.docsFeedback.title': 'Documentation ratings',
+    'admin.docsFeedback.intro':
+      '"Was this helpful?" votes per page of the public documentation. Counts only: nothing identifying about a visitor is stored.',
+    'admin.docsFeedback.range': 'Last {days} days',
+    'admin.docsFeedback.col.page': 'Page',
+    'admin.docsFeedback.col.good': 'Helpful',
+    'admin.docsFeedback.col.okay': 'Somewhat',
+    'admin.docsFeedback.col.bad': 'Not helpful',
+    'admin.docsFeedback.col.total': 'Total',
+    'admin.docsFeedback.col.share': 'Helpful share',
+    'admin.docsFeedback.empty':
+      'No ratings in this period. Collection may be off (in production it starts once DOCS_FEEDBACK_ENABLED and DOCS_FEEDBACK_SALT are set).',
+    'admin.docsFeedback.totals': 'Total: {total} votes, {good} helpful.',
     'nav.primary': 'Primary navigation',
 
     'state.loading': 'Loading…',

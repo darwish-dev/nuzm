@@ -1,3 +1,4 @@
+import { ServicePlans } from '../../../../../components/site/ServicePlans';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
@@ -45,6 +46,7 @@ export default async function ServicePage({
     >
       <PointsSection locale={locale} s={s} />
       <StepsSection locale={locale} s={s} />
+      <ServicePlans locale={locale} slug={s.slug} />
       <FaqSection locale={locale} s={s} />
       <RelatedSection locale={locale} current={s.slug} />
     </SiteFrame>

@@ -20,6 +20,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/docs-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate a documentation page (Was this helpful?)
+         * @description Public: no sign-in, no cookie. Body {page, score, locale}: page is a documentation address (`/docs`, `/docs/guides/<slug>` or `/docs/reference/<area>`), score is good, okay or bad, locale is ar or en. Nothing identifying is stored: the vote is kept with a salted SHA-256 of the client address, agent and UTC day, so it cannot be traced back or followed across days. One vote per page, client and day: a second vote the same day replaces the first, so it takes no Idempotency-Key and a retry never double counts. Rate limited per client and overall (429). 404 while collection is switched off (it is off in production until DOCS_FEEDBACK_ENABLED=true and a DOCS_FEEDBACK_SALT are set).
+         */
+        post: operations["rateDocumentation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/docs-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Documentation ratings per page
+         * @description Counts of good, okay and bad votes per documentation page over the last `days` days (1..365, default 30), most voted first. Counts only. Requires admin:reports:read.
+         */
+        get: operations["getDocsFeedback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/oidc/login": {
         parameters: {
             query?: never;
@@ -11257,6 +11297,26 @@ export interface components {
                 apiSecret?: string;
             };
         };
+        DocsFeedbackVote: {
+            page: string;
+            /** @enum {string} */
+            score: "good" | "okay" | "bad";
+            /** @enum {string} */
+            locale: "ar" | "en";
+        };
+        DocsFeedbackCounts: {
+            good: number;
+            okay: number;
+            bad: number;
+            total: number;
+        };
+        DocsFeedbackSummary: {
+            days: number;
+            totals: components["schemas"]["DocsFeedbackCounts"];
+            items: (components["schemas"]["DocsFeedbackCounts"] & {
+                page: string;
+            })[];
+        };
         RegistrarVerificationRequest: {
             enable?: boolean;
         };
@@ -13019,6 +13079,56 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    rateDocumentation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocsFeedbackVote"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getDocsFeedback: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocsFeedbackSummary"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     oidcLogin: {

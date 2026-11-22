@@ -1,0 +1,7 @@
+/* One header and one footer for the whole public website. The header is the home page's (SiteHeader); on the services pages it sits in .svc-topbar instead of
+   inside the home hero, so it is given the home hero's height here and the two bars line up pixel for pixel. */
+.landing .svc-topbar .site-header {
+  height: 72px;
+  min-height: 72px;
+  flex-shrink: 0;
+}

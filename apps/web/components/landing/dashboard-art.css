@@ -395,3 +395,149 @@
     transform: scale(0.72);
   }
 }
+
+/* Material-rich product renders: brushed metal, frosted glass and studio shadows. */
+.cloud-section .cloud-card .service-art {
+  position: relative;
+  background: radial-gradient(ellipse at 50% 70%, #93b6b329, transparent 65%);
+  isolation: isolate;
+}
+.cloud-section .cloud-card .service-art:after {
+  content: '';
+  position: absolute;
+  bottom: 8%;
+  left: 20%;
+  right: 20%;
+  height: 12%;
+  border-radius: 50%;
+  background: #0005;
+  filter: blur(12px);
+  z-index: -1;
+}
+.cloud-section .nb-art {
+  perspective: 700px;
+  filter: drop-shadow(0 12px 10px #0005);
+}
+.cloud-section .nb-cluster-stack {
+  transform: rotateX(20deg) rotateY(-19deg) rotateZ(-9deg);
+  transform-style: preserve-3d;
+}
+.cloud-section .nb-cluster-sheet {
+  background: linear-gradient(135deg, #fff 0%, #e4efeb 35%, #b4ceca 100%);
+  border: 1px solid #effffbd9;
+  box-shadow:
+    inset 2px 2px 3px #fff,
+    inset -3px -3px 8px #58707955,
+    7px 9px 0 #6d8c89,
+    11px 16px 0 #354e52,
+    16px 25px 30px #0005;
+  border-radius: 19px;
+}
+.cloud-section .nb-resource-grid > span {
+  background: linear-gradient(145deg, #f6fffc, #c8ded8);
+  border: 1px solid #bdd5cd;
+  box-shadow:
+    inset 1px 1px 1px #fff,
+    2px 4px 6px #58707926;
+  border-radius: 12px;
+}
+.cloud-section .nb-sheet-back {
+  background: linear-gradient(135deg, #a9c9c0, #34434d);
+  opacity: 0.9;
+  transform: translate(22px, 22px) rotate(5deg);
+  box-shadow: 4px 6px 0 #26383d;
+}
+.cloud-section .nb-sheet-middle {
+  background: linear-gradient(145deg, #d9e8df, #6e9690);
+  opacity: 1;
+  transform: translate(12px, 12px) rotate(2deg);
+}
+.cloud-section .nb-domain-sheet {
+  background: linear-gradient(120deg, #fff 0%, #f0f7f3 25%, #bfd6ce 100%);
+  border: 1px solid #f0fff9;
+  box-shadow:
+    inset 2px 2px 4px #fff,
+    5px 6px 0 #93b6b3,
+    8px 10px 0 #587079,
+    15px 24px 22px #0005;
+  transform: perspective(650px) rotateY(-15deg) rotateX(12deg) rotateZ(-7deg);
+}
+.cloud-section .nb-globe {
+  opacity: 0.8;
+  color: #a4c6bc;
+  filter: drop-shadow(2px 3px 0 #34434d) drop-shadow(0 0 8px #bcdccb55);
+  transform: rotate(-18deg);
+}
+.cloud-section .nb-globe svg {
+  stroke-width: 1;
+}
+.cloud-section .nb-domain-tags span {
+  border: 1px solid #eafff5;
+  background: linear-gradient(145deg, #edf9f3, #abc9bf);
+  box-shadow: 1px 2px 3px #34434d33;
+}
+.cloud-section .nb-dns-tag {
+  background: linear-gradient(145deg, #dff9ed, #93b6b3);
+  border: 1px solid #d6efe2;
+  box-shadow:
+    inset 1px 1px 1px #fff,
+    3px 5px 0 #587079,
+    8px 12px 18px #0004;
+  transform: rotate(6deg);
+}
+.cloud-section .nb-host-browser {
+  background: linear-gradient(130deg, #fff, #e6f0eb 45%, #bfd3cb);
+  border: 2px solid #f3fff8;
+  box-shadow:
+    inset 0 0 0 3px #dce9e2,
+    5px 7px 0 #93b6b3,
+    8px 11px 0 #475b66,
+    14px 23px 25px #0006;
+  transform: perspective(700px) rotateY(-13deg) rotateX(13deg) rotateZ(-6deg);
+  border-radius: 16px;
+}
+.cloud-section .nb-host-preview > span {
+  background: linear-gradient(145deg, #d9f2e6, #8aafa8);
+  border: 1px solid #e8fff2;
+  box-shadow:
+    inset 1px 2px 3px #fff8,
+    2px 4px 5px #34434d26;
+}
+.cloud-section .nb-host-server {
+  background: linear-gradient(130deg, #6c8d8d, #344e55 48%, #182b31);
+  border: 1px solid #9dbeb5;
+  box-shadow:
+    inset 2px 2px 2px #cfe8da66,
+    4px 5px 0 #142429,
+    10px 15px 20px #0005;
+  transform: perspective(500px) rotateY(-16deg) rotateZ(8deg);
+}
+.cloud-section .nb-editor {
+  background: linear-gradient(135deg, #475f67, #20353b 45%, #132329);
+  border: 1px solid #91b5ad;
+  border-radius: 15px;
+  box-shadow:
+    inset 1px 1px 2px #cfe8da66,
+    inset -1px -1px 1px #000,
+    5px 6px 0 #789a92,
+    8px 10px 0 #34434d,
+    15px 23px 25px #0006;
+  transform: perspective(700px) rotateY(-14deg) rotateX(12deg) rotateZ(-5deg);
+}
+.cloud-section .nb-editor pre {
+  text-shadow: 0 0 8px #bcdccb33;
+}
+.cloud-section .nb-editor-top {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #93b6b333;
+}
+.cloud-section .nb-editor-top i {
+  box-shadow:
+    0 0 7px #bcdccb77,
+    inset 1px 1px 1px #fff9;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloud-section .nb-art * {
+    animation: none !important;
+  }
+}

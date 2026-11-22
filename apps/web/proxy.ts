@@ -38,9 +38,11 @@ export function proxy(req: NextRequest) {
   if (req.headers.get('x-nuzm-rewritten')) return NextResponse.next();
   const headers = new Headers(req.headers);
   headers.set('x-pathname', pathname);
+  const lang = searchParams.get('lang');
+  // the marketing home page has no `/<locale>` tree: `?lang=` sets the cookie and the page reads it itself
+  if (pathname === '/' && lang && isLocale(lang)) return go('/', lang, true);
   if (OWN(pathname)) return NextResponse.next({ request: { headers } });
 
-  const lang = searchParams.get('lang');
   if (lang && isLocale(lang)) return go(pathname, lang, true);
   // the old, prefixed address: keep its language, show the clean one
   if (seg[0] && isLocale(seg[0])) {

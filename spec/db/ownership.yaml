@@ -3,8 +3,8 @@ schemas:
   platform:
     owner_module: platform
     created_by: M01
-    extended_by: []
-    tables: [ feature_flags, idempotency_keys, notification_preferences, notifications, operation_steps, operations, outbox, webhook_events_inbound ]
+    extended_by: [ PLT-INT ]
+    tables: [ docs_feedback, feature_flags, idempotency_keys, notification_preferences, notifications, operation_steps, operations, outbox, webhook_events_inbound ]
   identity:
     owner_module: identity
     created_by: M01
@@ -245,6 +245,7 @@ tenant_less:
   - identity.mfa_factors
   - identity.recovery_codes
   - platform.webhook_events_inbound
+  - platform.docs_feedback
   - tenancy.roles
   - tenancy.permissions
   - tenancy.role_permissions
@@ -355,6 +356,8 @@ migration_ranges:
   AS: "1840-1859"
   # AI Intelligence Center (ADR-065)
   K: "1860-1899"
+  # Platform additions made after later milestones were applied (documentation feedback): above every applied ordinal, because the runner is forward-only
+  PLT-INT: "1920-1939"
   # M07 domains additions made after later milestones were applied (DNet registrar settings): above every applied ordinal, because the runner is forward-only
   M07-INT: "1900-1919"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
@@ -1337,6 +1340,17 @@ classification:
       attempts: internal
       lock_until: internal
       published_at: internal
+    # Documentation "Was this helpful?" ratings. No person is stored: client_hash is a SHA-256 over a salt, the client address and agent, and the UTC day, so it cannot be
+    # reversed and cannot be linked from one day to the next; it only lets one client change its own vote on a page and be rate limited.
+    platform.docs_feedback:
+      id: internal
+      page: public
+      locale: public
+      score: internal
+      client_hash: internal
+      day: internal
+      created_at: internal
+      updated_at: internal
     platform.webhook_events_inbound:
       id: internal
       provider: internal

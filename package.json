@@ -28,7 +28,7 @@
     "db:test-rls": "pnpm --filter @nuzm/db run check",
     "scan:secrets": "tsx scripts/scan-secrets.ts",
     "zatca:guard": "tsx scripts/zatca-spec-guard.ts",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm spec:lint && pnpm spec:drift && pnpm sdk:check && pnpm scan:secrets && pnpm zatca:guard && pnpm compliance:claims-guard",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm spec:lint && pnpm spec:drift && pnpm sdk:check && pnpm docs:check && pnpm scan:secrets && pnpm zatca:guard && pnpm compliance:claims-guard",
     "services:start": "scripts/dev-services.sh start",
     "services:stop": "scripts/dev-services.sh stop",
     "services:status": "scripts/dev-services.sh status",
@@ -41,6 +41,8 @@
     "db:dev-seed": "pnpm --filter @nuzm/db exec tsx src/cli.ts dev-seed",
     "sdk:generate": "pnpm --filter @nuzm/sdk run generate",
     "sdk:check": "pnpm --filter @nuzm/sdk run check",
+    "docs:generate": "tsx scripts/generate-api-docs.ts",
+    "docs:check": "tsx scripts/generate-api-docs.ts --check",
     "test:e2e": "pnpm --filter @nuzm/web build && pnpm --filter @nuzm/admin build && pnpm --filter @nuzm/e2e test"
   },
   "devDependencies": {

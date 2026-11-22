@@ -54,7 +54,7 @@ const linked = (o: Partial<Workspace> = {}): Workspace =>
     },
     ...o,
   }) as Workspace;
-const ui = (w: Workspace, o: { canWrite?: boolean; canRun?: boolean } = {}) =>
+const ui = (w: Workspace, o: { canWrite?: boolean; canRun?: boolean; agentic?: boolean } = {}) =>
   render(
     <TemplateWorkspace
       locale="en"
@@ -62,6 +62,7 @@ const ui = (w: Workspace, o: { canWrite?: boolean; canRun?: boolean } = {}) =>
       workspace={w}
       canWrite={o.canWrite ?? true}
       canRun={o.canRun ?? true}
+      agentic={o.agentic ?? false}
     />,
   );
 
@@ -172,9 +173,10 @@ describe('plan, preview and run', () => {
         '/en/builder/runs/run1',
       ),
     );
-    expect(calls.at(-1)).toMatchObject({
+    expect(calls.filter((c) => c.method === 'POST').at(-1)).toMatchObject({
       url: '/v1/builder/generation-plans/pl1/runs',
       method: 'POST',
+      body: {}, // the single call unless the agent was asked for
     });
     expect(screen.getByText(t('en', 'gen.plan.status.RUNNING'))).toBeTruthy();
     expect(screen.queryByRole('button', { name: t('en', 'gen.run.start') })).toBeNull(); // a plan starts once
@@ -225,5 +227,72 @@ describe('plan, preview and run', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(screen.getByRole('alert').textContent).not.toContain('hunter2');
     expect(screen.getByRole('alert').textContent).toContain('trace-9');
+  });
+});
+
+describe('the read-only agent option (knowledge.agentic_generation, default off)', () => {
+  const plan = (status: string, execution: object) => ({
+    id: 'pl1',
+    projectId: 'p1',
+    status,
+    plan: { execution },
+  });
+  const ready = (url: string, method = 'GET') =>
+    url.endsWith('/generation-plans')
+      ? json(201, plan('PLANNED', { status: 'READY' }))
+      : url.endsWith('/runs')
+        ? json(201, plan('RUNNING', { status: 'RUNNING', runId: 'run1' }))
+        : url.endsWith('/timeline')
+          ? json(200, {
+              planId: 'pl1',
+              runId: 'run1',
+              mode: 'AGENTIC',
+              runState: 'running',
+              fellBack: null,
+              plan: null,
+              limits: {
+                turns: { used: 0, max: 8 },
+                toolCalls: { used: 0, max: 60 },
+                resultBytes: { used: 0, max: 400000 },
+                tokens: { used: 0, max: 60000 },
+                seconds: { used: 0, max: 300 },
+              },
+              steps: [],
+              outcome: null,
+            })
+          : json(404, { method });
+  const toReady = async () => {
+    fireEvent.change(screen.getByLabelText(t('en', 'gen.plan.text')), { target: { value: 'x' } });
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'gen.plan.create') }));
+    await waitFor(() => screen.getByRole('button', { name: t('en', 'gen.run.start') }));
+  };
+
+  it('is not offered while the flag is off', async () => {
+    mockFetch(ready);
+    ui(linked(), { agentic: false });
+    await toReady();
+    expect(screen.queryByLabelText(t('en', 'agt.opt.label'))).toBeNull();
+  });
+
+  it('is not offered without permission to run AI', async () => {
+    mockFetch(ready);
+    ui(linked(), { agentic: true, canRun: false });
+    await toReady().catch(() => undefined);
+    expect(screen.queryByLabelText(t('en', 'agt.opt.label'))).toBeNull();
+  });
+
+  it('when chosen, the run is requested with agentic: true and the timeline follows it', async () => {
+    mockFetch(ready);
+    ui(linked(), { agentic: true });
+    await toReady();
+    const box = screen.getByLabelText(t('en', 'agt.opt.label')) as HTMLInputElement;
+    expect(box.checked).toBe(false); // off unless the person chooses it
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'gen.run.start') }));
+    await screen.findByTestId('agt');
+    expect(calls.find((c) => c.url.endsWith('/runs'))!.body).toEqual({ agentic: true });
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/v1/builder/generation-plans/pl1/timeline')).toBe(true),
+    );
   });
 });

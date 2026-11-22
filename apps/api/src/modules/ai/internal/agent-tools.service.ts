@@ -156,139 +156,167 @@ export class AgentToolGateway {
     const ws = provider ? await provider.open(orgId, run.project_id) : null;
     if (!ws) throw new ProblemException('not_found', 'project not found');
 
-    const used = await this.db.withOrg(
-      orgId,
-      async (c) =>
+    // The whole batch runs in ONE transaction under a per-run advisory lock: the counters are read, every call decided, executed (pure and bounded) and recorded while no other batch of
+    // the same run can read or write them. That makes the per-run limits ATOMIC: concurrent batches are serialised and can never overshoot (the S-AG2 read-then-write race).
+    const audits: Parameters<AuditSink['record']>[0][] = [];
+    const out = await this.db.withOrg(orgId, async (q) => {
+      await q.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+        `ai.agent_tools:${runId}`,
+      ]);
+      const used = (
+        await q.query(
+          `SELECT count(*)::int AS calls, coalesce(sum(result_bytes), 0)::bigint AS bytes FROM ai.tool_calls WHERE run_id = $1 AND call_id IS NOT NULL`,
+          [runId],
+        )
+      ).rows[0] as { calls: number; bytes: string };
+      // a call id that is already recorded is a replay (a resumed run): it is executed again (read-only, deterministic) but neither recorded nor counted a second time
+      const known = new Set<string>(
         (
-          await c.query(
-            `SELECT count(*)::int AS calls, coalesce(sum(result_bytes), 0)::bigint AS bytes FROM ai.tool_calls WHERE run_id = $1 AND call_id IS NOT NULL`,
-            [runId],
+          await q.query(
+            `SELECT call_id FROM ai.tool_calls WHERE run_id = $1 AND call_id = ANY($2::text[])`,
+            [runId, calls.map((x) => String(x.id).slice(0, 128))],
           )
-        ).rows[0] as { calls: number; bytes: string },
-    );
-    let calls0 = used.calls;
-    let bytes0 = Number(used.bytes);
-    const blocks: ContentBlock[] = [];
-    const outcomes: ToolOutcome[] = [];
-    let limitReached: ToolBatch['limitReached'] = null;
-
-    for (const call of calls) {
-      const started = Date.now();
-      const finish = async (o: { status: ToolOutcome['status']; text: string; code?: string }) => {
-        const resultBytes = Buffer.byteLength(o.text, 'utf8');
-        blocks.push({
-          type: 'tool_result',
-          callId: call.id,
-          content: o.text,
-          ...(o.status === 'succeeded' ? {} : { isError: true }),
-        });
-        outcomes.push({
-          callId: call.id,
-          tool: String(call.name).slice(0, 60),
-          status: o.status,
-          ...(o.code ? { errorCode: o.code } : {}),
-          resultBytes,
-        });
-        await this.record(
-          orgId,
-          runId,
-          ctx.stepId,
-          run.data_region,
-          call,
-          o.status,
-          o.code,
-          resultBytes,
-          Date.now() - started,
-        );
-        calls0 += 1;
-        bytes0 += resultBytes;
-      };
-      const refuse = (code: string, message: string) => JSON.stringify({ error: code, message });
-
-      if (calls0 >= LIM.maxCallsPerRun) {
-        limitReached = 'calls';
-        await finish({
-          status: 'denied',
-          code: 'limit_exceeded',
-          text: refuse('limit_exceeded', 'the tool-call limit of this run was reached'),
-        });
-        continue;
-      }
-      // too little of the per-run size budget is left for any useful result: the run has used it up (the loop should wrap up, not keep asking)
-      if (LIM.maxResultBytesPerRun - bytes0 < MIN_RESULT_BUDGET) {
-        limitReached = limitReached ?? 'bytes';
-        await finish({
-          status: 'denied',
-          code: 'budget_exhausted',
-          text: refuse('budget_exhausted', 'the tool-result size limit of this run was reached'),
-        });
-        continue;
-      }
-      if (
-        typeof call.id !== 'string' ||
-        call.id.length < 1 ||
-        call.id.length > 128 ||
-        typeof call.name !== 'string' ||
-        !allowed.includes(call.name)
-      ) {
-        await this.audit.record({
-          action: 'ai.tool_call.denied',
-          orgId,
-          actorType: 'system',
-          resource: { type: 'ai_run', id: runId },
-          outcome: 'failure',
-          detail: { tool: String(call.name).slice(0, 60), kind: run.kind },
-        });
-        await finish({
-          status: 'denied',
-          code: 'unknown_tool',
-          text: refuse('unknown_tool', 'this tool is not available'),
-        });
-        continue;
-      }
-
-      const result = executeReadTool(call.name, call.args, ws);
-      const cap = Math.min(
-        LIM.maxResultBytesPerCall,
-        Math.max(0, LIM.maxResultBytesPerRun - bytes0),
+        ).rows.map((r) => String(r.call_id)),
       );
-      const rendered = renderToolResult(result, cap);
-      if (rendered.isError && rendered.code === 'too_large' && cap < LIM.maxResultBytesPerCall) {
-        // it did not fit in what is left of the run's size budget (not just the per-call limit): that is the run's limit
-        limitReached = limitReached ?? 'bytes';
-        await finish({
-          status: 'denied',
-          code: 'budget_exhausted',
-          text: refuse('budget_exhausted', 'the tool-result size limit of this run was reached'),
-        });
-        continue;
+      let calls0 = used.calls;
+      let bytes0 = Number(used.bytes);
+      const blocks: ContentBlock[] = [];
+      const outcomes: ToolOutcome[] = [];
+      let limitReached: ToolBatch['limitReached'] = null;
+
+      for (const call of calls) {
+        const started = Date.now();
+        const finish = async (o: {
+          status: ToolOutcome['status'];
+          text: string;
+          code?: string;
+        }) => {
+          const resultBytes = Buffer.byteLength(o.text, 'utf8');
+          blocks.push({
+            type: 'tool_result',
+            callId: call.id,
+            content: o.text,
+            ...(o.status === 'succeeded' ? {} : { isError: true }),
+          });
+          outcomes.push({
+            callId: call.id,
+            tool: String(call.name).slice(0, 60),
+            status: o.status,
+            ...(o.code ? { errorCode: o.code } : {}),
+            resultBytes,
+          });
+          if (known.has(String(call.id).slice(0, 128))) return;
+          await this.record(
+            q,
+            orgId,
+            runId,
+            ctx.stepId,
+            run.data_region,
+            call,
+            o.status,
+            o.code,
+            resultBytes,
+            Date.now() - started,
+          );
+          calls0 += 1;
+          bytes0 += resultBytes;
+        };
+        const refuse = (code: string, message: string) => JSON.stringify({ error: code, message });
+
+        if (calls0 >= LIM.maxCallsPerRun) {
+          limitReached = 'calls';
+          await finish({
+            status: 'denied',
+            code: 'limit_exceeded',
+            text: refuse('limit_exceeded', 'the tool-call limit of this run was reached'),
+          });
+          continue;
+        }
+        // too little of the per-run size budget is left for any useful result: the run has used it up (the loop should wrap up, not keep asking)
+        if (LIM.maxResultBytesPerRun - bytes0 < MIN_RESULT_BUDGET) {
+          limitReached = limitReached ?? 'bytes';
+          await finish({
+            status: 'denied',
+            code: 'budget_exhausted',
+            text: refuse('budget_exhausted', 'the tool-result size limit of this run was reached'),
+          });
+          continue;
+        }
+        if (
+          typeof call.id !== 'string' ||
+          call.id.length < 1 ||
+          call.id.length > 128 ||
+          typeof call.name !== 'string' ||
+          !allowed.includes(call.name)
+        ) {
+          audits.push({
+            action: 'ai.tool_call.denied',
+            orgId,
+            actorType: 'system',
+            resource: { type: 'ai_run', id: runId },
+            outcome: 'failure',
+            detail: { tool: String(call.name).slice(0, 60), kind: run.kind },
+          });
+          await finish({
+            status: 'denied',
+            code: 'unknown_tool',
+            text: refuse('unknown_tool', 'this tool is not available'),
+          });
+          continue;
+        }
+
+        const result = executeReadTool(call.name, call.args, ws);
+        const cap = Math.min(
+          LIM.maxResultBytesPerCall,
+          Math.max(0, LIM.maxResultBytesPerRun - bytes0),
+        );
+        const rendered = renderToolResult(result, cap);
+        if (rendered.isError && rendered.code === 'too_large' && cap < LIM.maxResultBytesPerCall) {
+          // it did not fit in what is left of the run's size budget (not just the per-call limit): that is the run's limit
+          limitReached = limitReached ?? 'bytes';
+          await finish({
+            status: 'denied',
+            code: 'budget_exhausted',
+            text: refuse('budget_exhausted', 'the tool-result size limit of this run was reached'),
+          });
+          continue;
+        }
+        let text = rendered.text;
+        let code: string | undefined = rendered.isError
+          ? (rendered.code as ToolErrorCode | undefined)
+          : undefined;
+        // the result is scanned like any outbound text: a secret that is somehow in a readable file is withheld, never sent
+        const leaks = scanForSecrets(text, this.cfg.canaries);
+        if (leaks.length) {
+          audits.push({
+            action: 'ai.secret_scan.blocked',
+            orgId,
+            actorType: 'system',
+            resource: { type: 'ai_run', id: runId },
+            outcome: 'failure',
+            detail: {
+              kinds: [...new Set(leaks.map((l) => l.kind))],
+              where: 'tool_result',
+              tool: call.name,
+            },
+          });
+          text = refuse(
+            'secret_detected',
+            'the result contained a secret pattern and was withheld',
+          );
+          code = 'secret_detected';
+        }
+        await finish({ status: code ? 'failed' : 'succeeded', text, ...(code ? { code } : {}) });
       }
-      let text = rendered.text;
-      let code: string | undefined = rendered.isError
-        ? (rendered.code as ToolErrorCode | undefined)
-        : undefined;
-      // the result is scanned like any outbound text: a secret that is somehow in a readable file is withheld, never sent
-      const leaks = scanForSecrets(text, this.cfg.canaries);
-      if (leaks.length) {
-        const kinds = [...new Set(leaks.map((l) => l.kind))];
-        await this.audit.record({
-          action: 'ai.secret_scan.blocked',
-          orgId,
-          actorType: 'system',
-          resource: { type: 'ai_run', id: runId },
-          outcome: 'failure',
-          detail: { kinds, where: 'tool_result', tool: call.name },
-        });
-        text = refuse('secret_detected', 'the result contained a secret pattern and was withheld');
-        code = 'secret_detected';
-      }
-      await finish({ status: code ? 'failed' : 'succeeded', text, ...(code ? { code } : {}) });
-    }
-    return { blocks, outcomes, limitReached };
+      return { blocks, outcomes, limitReached };
+    });
+    for (const a of audits) await this.audit.record(a);
+    return out;
   }
 
-  /** The append-only record of one call. Arguments are reduced to what is safe to keep: a validated path, numbers, a glob, and for a search only the length and a short hash of the query. */
+  /** The append-only record of one call, inside the batch's transaction. Arguments are reduced to what is safe to keep: a validated path, numbers, a glob, and for a search only the length and a short hash of the query. */
   private async record(
+    q: { query: (sql: string, args: unknown[]) => Promise<unknown> },
     orgId: string,
     runId: string,
     stepId: string,
@@ -299,26 +327,24 @@ export class AgentToolGateway {
     resultBytes: number,
     ms: number,
   ) {
-    await this.db.withOrg(orgId, async (c) => {
-      await c.query(
-        `INSERT INTO ai.tool_calls (id, org_id, run_id, step_id, tool, args_redacted, status, duration_ms, data_region, call_id, result_bytes, error_code)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
-         ON CONFLICT (org_id, run_id, call_id) WHERE call_id IS NOT NULL DO NOTHING`,
-        [
-          orgId,
-          runId,
-          stepId,
-          /^[a-z][a-z0-9_.-]{0,60}$/.test(String(call.name)) ? String(call.name) : 'invalid',
-          JSON.stringify(redactArgs(String(call.name), call.args)),
-          status,
-          Math.max(0, Math.min(ms, 2_000_000_000)),
-          region,
-          String(call.id).slice(0, 128) || 'invalid',
-          resultBytes,
-          errorCode ?? null,
-        ],
-      );
-    });
+    await q.query(
+      `INSERT INTO ai.tool_calls (id, org_id, run_id, step_id, tool, args_redacted, status, duration_ms, data_region, call_id, result_bytes, error_code, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, clock_timestamp())
+       ON CONFLICT (org_id, run_id, call_id) WHERE call_id IS NOT NULL DO NOTHING`,
+      [
+        orgId,
+        runId,
+        stepId,
+        /^[a-z][a-z0-9_.-]{0,60}$/.test(String(call.name)) ? String(call.name) : 'invalid',
+        JSON.stringify(redactArgs(String(call.name), call.args)),
+        status,
+        Math.max(0, Math.min(ms, 2_000_000_000)),
+        region,
+        String(call.id).slice(0, 128) || 'invalid',
+        resultBytes,
+        errorCode ?? null,
+      ],
+    );
   }
 }
 

@@ -8,6 +8,7 @@ import { DB } from '../../../common/tokens';
 export const KNOWLEDGE_LIBRARY_FLAG = 'knowledge.library';
 export const KNOWLEDGE_CUSTOMER_TEMPLATES_FLAG = 'knowledge.customer_templates';
 export const KNOWLEDGE_GENERATION_FLAG = 'knowledge.generation';
+export const KNOWLEDGE_AGENTIC_GENERATION_FLAG = 'knowledge.agentic_generation';
 export const KNOWLEDGE_IMPORT_PROJECTS_FLAG = 'knowledge.import_projects';
 export const KNOWLEDGE_SEMANTIC_SEARCH_FLAG = 'knowledge.semantic_search';
 
@@ -82,6 +83,25 @@ export async function knowledgeGenerationEnabled(db: Db, orgId: string): Promise
         await c.query(
           `SELECT value FROM platform.feature_flags WHERE key = $1 AND (org_id = $2 OR org_id IS NULL) ORDER BY org_id NULLS LAST LIMIT 1`,
           [KNOWLEDGE_GENERATION_FLAG, orgId],
+        )
+      ).rows[0] as { value: unknown } | undefined,
+  );
+  const v = row?.value as boolean | { enabled?: boolean } | undefined;
+  return v === true || (typeof v === 'object' && v?.enabled === true);
+}
+
+/**
+ * `knowledge.agentic_generation` (S-AG3, SCR-K-10 §6): the agent loop instead of the single-call adaptation. Per organization (an organization row beats the global row), default OFF.
+ * It needs `knowledge.generation`; the loop also needs `ai.agent.read_tools`. While it is off a run that asks for the agent falls back to the single call.
+ */
+export async function knowledgeAgenticEnabled(db: Db, orgId: string): Promise<boolean> {
+  const row = await db.withOrg(
+    orgId,
+    async (c) =>
+      (
+        await c.query(
+          `SELECT value FROM platform.feature_flags WHERE key = $1 AND (org_id = $2 OR org_id IS NULL) ORDER BY org_id NULLS LAST LIMIT 1`,
+          [KNOWLEDGE_AGENTIC_GENERATION_FLAG, orgId],
         )
       ).rows[0] as { value: unknown } | undefined,
   );

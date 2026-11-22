@@ -6,6 +6,7 @@ import type { GraphRunner } from './graph/runner';
 import { PgRunStore } from './ports/m09-real';
 import type { ProjectsPort } from './ports/m09';
 import type { TestFixService } from './tests/test-fix.service';
+import type { AgentLoopRunner } from './studio/agent-loop';
 import type { TemplateAdaptRunner } from './studio/template-adapt';
 
 /**
@@ -56,6 +57,8 @@ export class WebappRunHandler extends AppRunHandler {
     private readonly graph: GraphRunner,
     /** S-K6: the adaptation of a copied template (`input.templatePlanId`); absent where the knowledge module is not wired */
     private readonly adapt?: TemplateAdaptRunner,
+    /** S-AG3: the agent loop (`input.agentic`); absent where the knowledge module is not wired */
+    private readonly agentLoop?: AgentLoopRunner,
   ) {
     super(store, projects);
   }
@@ -69,6 +72,8 @@ export class WebappRunHandler extends AppRunHandler {
           'validation_failed',
           'a template adaptation takes no brief: its requirement is in the plan',
         );
+      if (input.agentic !== undefined && typeof input.agentic !== 'boolean')
+        throw new ProblemException('validation_failed', 'input.agentic must be a boolean');
       return;
     }
     const b = input.brief;
@@ -90,6 +95,8 @@ export class WebappRunHandler extends AppRunHandler {
           'unsupported_capability',
           'template adaptation is not available',
         );
+      // the agent loop only when asked for AND wired; it falls back to the single call by itself while its flag is off
+      if (ctx.run.input.agentic === true && this.agentLoop) return this.agentLoop.run(ctx);
       return this.adapt.run(ctx);
     }
     const out = await this.graph.run(

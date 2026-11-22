@@ -37,6 +37,12 @@ export class GenerationController {
     return this.gen.context(orgId, id, n !== undefined && Number.isInteger(n) ? n : undefined);
   }
 
+  @RequirePermission('builder:read')
+  @Get('generation-plans/:id/timeline')
+  timeline(@Org() orgId: string, @Param('id') id: string) {
+    return this.gen.timeline(orgId, id);
+  }
+
   @UseGuards(AppBuilderEnabledGuard)
   @RequirePermission('ai:write')
   @Idempotent()
@@ -51,7 +57,7 @@ export class GenerationController {
   ) {
     const b =
       body && typeof body === 'object' && !Array.isArray(body)
-        ? (body as { budget?: unknown })
+        ? (body as { budget?: unknown; agentic?: unknown })
         : {};
     return this.gen.start(orgId, a.actor.userId, id, key, b);
   }

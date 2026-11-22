@@ -16,6 +16,7 @@ import {
   GatewayService,
   ModelAdapterRegistry,
   ModelProviderService,
+  AgentToolGateway,
   AgentWorkspaceRegistry,
   RunKindRegistry,
   RunService,
@@ -32,6 +33,7 @@ import { TemplateStartService } from './internal/studio/template-start';
 import { GenerationController } from './generation.controller';
 import { GenerationService } from './internal/studio/generation';
 import { TemplateAdaptRunner } from './internal/studio/template-adapt';
+import { AgentLoopRunner } from './internal/studio/agent-loop';
 import { AgentProjectWorkspace } from './internal/studio/agent-workspace';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
@@ -311,6 +313,25 @@ class LogSecurityAlerts extends SecurityAlertPort {
         s: SessionService,
       ) => new GenerationService(db, a, t, p, r, s),
       inject: [DB, AuditSink, CustomerTemplateService, ProjectsPort, RunService, SessionService],
+    },
+    {
+      provide: AgentLoopRunner,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        g: GenerationService,
+        t: TemplateAdaptRunner,
+        tg: AgentToolGateway,
+        gw: GatewayService,
+      ) => new AgentLoopRunner(db, a, g, t, tg, gw),
+      inject: [
+        DB,
+        AuditSink,
+        GenerationService,
+        TemplateAdaptRunner,
+        AgentToolGateway,
+        GatewayService,
+      ],
     },
     {
       provide: TemplateAdaptRunner,
@@ -642,12 +663,15 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(DB) private readonly db: Db,
     @Inject(SkillsService) private readonly skills: SkillsService,
     @Inject(TemplateAdaptRunner) private readonly adapt: TemplateAdaptRunner,
+    @Inject(AgentLoopRunner) private readonly agentLoop: AgentLoopRunner,
     @Inject(AgentWorkspaceRegistry) private readonly agentWorkspaces: AgentWorkspaceRegistry,
     @Inject(GenerationService) private readonly generation: GenerationService,
   ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
-    this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph, this.adapt));
+    this.registry.register(
+      new WebappRunHandler(this.store, this.projects, this.graph, this.adapt, this.agentLoop),
+    );
     // S-AG2: the read-only agent tools read a web-app project through this provider (and nothing else)
     this.agentWorkspaces.register('webapp', new AgentProjectWorkspace(this.generation));
     this.registry.register(new TestFixRunHandler(this.store, this.projects, this.testFix));

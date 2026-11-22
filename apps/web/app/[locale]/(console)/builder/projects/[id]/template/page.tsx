@@ -3,6 +3,7 @@ import { isLocale } from '@nuzm/i18n';
 import { TemplateWorkspace } from '../../../../../../../components/TemplateWorkspace';
 import { builderGuard, builderView, NotAvailable } from '../../../../../../../lib/builder-view';
 import { isUuid, unwrapCall } from '../../../../../../../lib/compute';
+import { AGENTIC_FLAG } from '../../../../../../../lib/agent-timeline';
 import { GENERATION_FLAG, type Workspace } from '../../../../../../../lib/generation';
 import { flagEnabled } from '../../../../../../../lib/services';
 
@@ -30,6 +31,7 @@ export default async function TemplateWorkspacePage({
         workspace={w}
         canWrite={g.s.can('builder:write')}
         canRun={g.s.can('ai:write')}
+        agentic={flagEnabled(g.s.me.featureFlags, AGENTIC_FLAG)}
       />
     ),
   );

@@ -27,6 +27,7 @@ import {
   type Workspace,
 } from '../lib/generation';
 import { MODES, type AdaptationMode } from '../lib/templates';
+import { AgentTimeline } from './AgentTimeline';
 
 /**
  * The template workspace (S-K6): the project compared with the template copy it started from, the plan, the EXACT context a model would receive (nothing is sent before the person
@@ -38,6 +39,7 @@ export function TemplateWorkspace({
   workspace,
   canWrite,
   canRun,
+  agentic = false,
 }: {
   locale: Locale;
   projectId: string;
@@ -46,6 +48,8 @@ export function TemplateWorkspace({
   canWrite: boolean;
   /** `ai:write` */
   canRun: boolean;
+  /** `knowledge.agentic_generation` is on for the organization (default off) */
+  agentic?: boolean;
 }) {
   return (
     <div className="knd">
@@ -67,7 +71,13 @@ export function TemplateWorkspace({
         <>
           <Facts locale={locale} w={workspace} />
           <DiffCard locale={locale} w={workspace} />
-          <PlanCard locale={locale} projectId={projectId} canWrite={canWrite} canRun={canRun} />
+          <PlanCard
+            locale={locale}
+            projectId={projectId}
+            canWrite={canWrite}
+            canRun={canRun}
+            agentic={agentic}
+          />
         </>
       )}
     </div>
@@ -170,14 +180,17 @@ function PlanCard({
   projectId,
   canWrite,
   canRun,
+  agentic,
 }: {
   locale: Locale;
   projectId: string;
   canWrite: boolean;
   canRun: boolean;
+  agentic: boolean;
 }) {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<AdaptationMode>('ADAPTIVE');
+  const [useAgent, setUseAgent] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [ctx, setCtx] = useState<ContextPreview | null>(null);
   const [busy, setBusy] = useState<'plan' | 'ctx' | 'run' | 'refresh' | null>(null);
@@ -220,7 +233,7 @@ function PlanCard({
     setBusy('run');
     setError(null);
     const r = await bapi.post<Plan>(`/v1/builder/generation-plans/${plan.id}/runs`, {
-      body: {},
+      body: agentic && useAgent ? { agentic: true } : {},
       idempotencyKey: runKey.current,
     });
     setBusy(null);
@@ -240,116 +253,137 @@ function PlanCard({
 
   const ex = executionOf(plan);
   return (
-    <Card aria-labelledby="gen-plan-h">
-      <h2 className="nz-h2" id="gen-plan-h">
-        {t(locale, 'gen.plan.title')}
-      </h2>
-      <p className="nz-muted">{t(locale, 'gen.plan.help')}</p>
-      {!canWrite ? (
-        <p className="nz-muted" role="status">
-          {t(locale, 'gen.readonly')}
-        </p>
-      ) : (
-        !plan && (
-          <form onSubmit={create} className="knd" aria-busy={busy === 'plan'}>
-            <Field
-              id="gen-text"
-              label={t(locale, 'gen.plan.text')}
-              help={t(locale, 'tpl.rec.text.help')}
-            >
-              {(a) => (
-                <Input
-                  {...a}
-                  value={text}
-                  maxLength={2000}
-                  onChange={(e) => {
-                    setText(e.target.value);
-                    planKey.current = newKey();
-                  }}
-                />
-              )}
-            </Field>
-            <Field
-              id="gen-mode"
-              label={t(locale, 'tpl.start.mode')}
-              help={t(locale, `tpl.start.mode.help.${mode}` as MessageKey)}
-            >
-              {(a) => (
-                <Select
-                  {...a}
-                  value={mode}
-                  onChange={(e) => {
-                    setMode(e.target.value as AdaptationMode);
-                    planKey.current = newKey();
-                  }}
-                >
-                  {MODES.map((m) => (
-                    <option key={m} value={m}>
-                      {t(locale, `kr.mode.${m}` as MessageKey)}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <div>
-              <Button type="submit" disabled={busy !== null || text.trim().length === 0}>
-                {busy === 'plan' ? t(locale, 'gen.plan.busy') : t(locale, 'gen.plan.create')}
-              </Button>
-            </div>
-          </form>
-        )
-      )}
-      {error && (
-        <Banner tone="danger">
-          <span role="alert">
-            {t(locale, error.key)}
-            {error.trace && (
-              <>
-                {' '}
-                <Ltr>{error.trace}</Ltr>
-              </>
-            )}
-          </span>
-        </Banner>
-      )}
-      {plan && (
-        <div data-testid="gen-plan" className="knd">
-          <p>
-            {t(locale, 'gen.plan.created')} <Badge>{t(locale, statusKey(plan.status))}</Badge>
+    <>
+      <Card aria-labelledby="gen-plan-h">
+        <h2 className="nz-h2" id="gen-plan-h">
+          {t(locale, 'gen.plan.title')}
+        </h2>
+        <p className="nz-muted">{t(locale, 'gen.plan.help')}</p>
+        {!canWrite ? (
+          <p className="nz-muted" role="status">
+            {t(locale, 'gen.readonly')}
           </p>
-          <div className="kni-toolbar">
-            <Button variant="secondary" onClick={preview} disabled={busy !== null}>
-              {busy === 'ctx' ? t(locale, 'gen.ctx.busy') : t(locale, 'gen.ctx.preview')}
-            </Button>
-            {ex.status === 'READY' && canRun && (
-              <Button onClick={start} disabled={busy !== null}>
-                {busy === 'run' ? t(locale, 'gen.run.busy') : t(locale, 'gen.run.start')}
-              </Button>
-            )}
-            {ex.runId && (
-              <>
-                <ButtonLink variant="secondary" href={`/${locale}/builder/runs/${ex.runId}`}>
-                  {t(locale, 'gen.run.open')}
-                </ButtonLink>
-                <Button variant="secondary" onClick={refresh} disabled={busy !== null}>
-                  {t(locale, 'gen.run.refresh')}
+        ) : (
+          !plan && (
+            <form onSubmit={create} className="knd" aria-busy={busy === 'plan'}>
+              <Field
+                id="gen-text"
+                label={t(locale, 'gen.plan.text')}
+                help={t(locale, 'tpl.rec.text.help')}
+              >
+                {(a) => (
+                  <Input
+                    {...a}
+                    value={text}
+                    maxLength={2000}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      planKey.current = newKey();
+                    }}
+                  />
+                )}
+              </Field>
+              <Field
+                id="gen-mode"
+                label={t(locale, 'tpl.start.mode')}
+                help={t(locale, `tpl.start.mode.help.${mode}` as MessageKey)}
+              >
+                {(a) => (
+                  <Select
+                    {...a}
+                    value={mode}
+                    onChange={(e) => {
+                      setMode(e.target.value as AdaptationMode);
+                      planKey.current = newKey();
+                    }}
+                  >
+                    {MODES.map((m) => (
+                      <option key={m} value={m}>
+                        {t(locale, `kr.mode.${m}` as MessageKey)}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <div>
+                <Button type="submit" disabled={busy !== null || text.trim().length === 0}>
+                  {busy === 'plan' ? t(locale, 'gen.plan.busy') : t(locale, 'gen.plan.create')}
                 </Button>
-              </>
-            )}
-          </div>
-          {ex.status === 'READY' && !canRun && (
-            <p className="nz-muted">{t(locale, 'gen.run.needsAi')}</p>
-          )}
-          {ex.status === 'BLOCKED' && (
-            <p className="nz-muted" role="status">
-              {t(locale, 'gen.run.blocked')}
+              </div>
+            </form>
+          )
+        )}
+        {error && (
+          <Banner tone="danger">
+            <span role="alert">
+              {t(locale, error.key)}
+              {error.trace && (
+                <>
+                  {' '}
+                  <Ltr>{error.trace}</Ltr>
+                </>
+              )}
+            </span>
+          </Banner>
+        )}
+        {plan && (
+          <div data-testid="gen-plan" className="knd">
+            <p>
+              {t(locale, 'gen.plan.created')} <Badge>{t(locale, statusKey(plan.status))}</Badge>
             </p>
-          )}
-          {ex.status === 'READY' && <p className="nz-muted">{t(locale, 'gen.run.disclaimer')}</p>}
-        </div>
-      )}
-      {ctx && <ContextCard locale={locale} c={ctx} />}
-    </Card>
+            {agentic && ex.status === 'READY' && canRun && !ex.runId && (
+              <p>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={useAgent}
+                    onChange={(e) => setUseAgent(e.target.checked)}
+                    disabled={busy !== null}
+                    aria-describedby="gen-agent-help"
+                  />{' '}
+                  {t(locale, 'agt.opt.label')}
+                </label>
+                <span className="nz-muted" id="gen-agent-help">
+                  {' '}
+                  {t(locale, 'agt.opt.help')}
+                </span>
+              </p>
+            )}
+            <div className="kni-toolbar">
+              <Button variant="secondary" onClick={preview} disabled={busy !== null}>
+                {busy === 'ctx' ? t(locale, 'gen.ctx.busy') : t(locale, 'gen.ctx.preview')}
+              </Button>
+              {ex.status === 'READY' && canRun && (
+                <Button onClick={start} disabled={busy !== null}>
+                  {busy === 'run' ? t(locale, 'gen.run.busy') : t(locale, 'gen.run.start')}
+                </Button>
+              )}
+              {ex.runId && (
+                <>
+                  <ButtonLink variant="secondary" href={`/${locale}/builder/runs/${ex.runId}`}>
+                    {t(locale, 'gen.run.open')}
+                  </ButtonLink>
+                  <Button variant="secondary" onClick={refresh} disabled={busy !== null}>
+                    {t(locale, 'gen.run.refresh')}
+                  </Button>
+                </>
+              )}
+            </div>
+            {ex.status === 'READY' && !canRun && (
+              <p className="nz-muted">{t(locale, 'gen.run.needsAi')}</p>
+            )}
+            {ex.status === 'BLOCKED' && (
+              <p className="nz-muted" role="status">
+                {t(locale, 'gen.run.blocked')}
+              </p>
+            )}
+            {ex.status === 'READY' && <p className="nz-muted">{t(locale, 'gen.run.disclaimer')}</p>}
+          </div>
+        )}
+        {ctx && <ContextCard locale={locale} c={ctx} />}
+      </Card>
+      {plan?.id && ex.runId && <AgentTimeline locale={locale} planId={plan.id} />}
+    </>
   );
 }
 

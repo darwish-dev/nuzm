@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import {
   ReadOnlyWorkspace,
+  AGENT_LOOP_LIMITS,
+  AGENT_TOOL_LIMITS,
   assembleContext,
   diffWorkspace,
   type FileOrigin,
@@ -11,7 +13,11 @@ import {
 import type { AuditSink } from '../../../../common/audit';
 import { ProblemException } from '../../../../common/errors';
 import type { RunService, SessionService } from '../../../ai';
-import { knowledgeGenerationEnabled, type CustomerTemplateService } from '../../../knowledge';
+import {
+  knowledgeAgenticEnabled,
+  knowledgeGenerationEnabled,
+  type CustomerTemplateService,
+} from '../../../knowledge';
 import type { Db } from '@nuzm/platform';
 import type { ProjectRecord, ProjectsPort } from '../ports/m09';
 import { isUuid } from '../core';
@@ -202,7 +208,7 @@ export class GenerationService {
     userId: string,
     planId: string,
     idempotencyKey: string | undefined,
-    body: { budget?: unknown },
+    body: { budget?: unknown; agentic?: unknown },
   ) {
     const plan = await this.templates.planRow(orgId, planId);
     if (plan.status !== 'PLANNED' || plan.run_id)
@@ -212,6 +218,14 @@ export class GenerationService {
       throw new ProblemException('validation_failed', 'a plan adapts a web-app project');
     if (!project.headVersionId)
       throw new ProblemException('validation_failed', 'the project has no files to adapt');
+    // the agent loop is a separate, per-organization flag (default off): asking for it while it is off is refused, never silently downgraded
+    if (body.agentic !== undefined && typeof body.agentic !== 'boolean')
+      throw new ProblemException('validation_failed', 'agentic must be a boolean');
+    if (body.agentic === true && !(await knowledgeAgenticEnabled(this.db, orgId)))
+      throw new ProblemException(
+        'unsupported_capability',
+        'the agent mode is not enabled for this organization',
+      );
     const session = await this.sessions.create(orgId, userId, {
       title: 'Template adaptation',
       projectId: project.id,
@@ -220,7 +234,7 @@ export class GenerationService {
       kind: 'webapp',
       sessionId: session.id,
       projectId: project.id,
-      input: { templatePlanId: plan.id },
+      input: { templatePlanId: plan.id, ...(body.agentic === true ? { agentic: true } : {}) },
       ...(body.budget !== undefined ? { budget: body.budget } : {}),
     });
     if (!(await this.templates.attachRun(orgId, plan.id as string, run.id)))
@@ -271,5 +285,133 @@ export class GenerationService {
           }
         : { status: 'BLOCKED', reason: 'template generation is not enabled for this organization' };
     return { ...base, status: String(row.status), plan: { ...base.plan, execution } };
+  }
+
+  /**
+   * The read-only execution timeline of a plan's run (S-AG3): what the run did, step by step: the model turns (phase, tokens), the read-only tool calls of each (tool, redacted arguments,
+   * outcome, size), the validation and apply steps, a fallback to the single call and why, the limits used, and the outcome. Everything is the customer's own run data; nothing is
+   * written and no model is called. A plan without a run, or a run of the single-call adaptation, says so.
+   */
+  async timeline(orgId: string, planId: string) {
+    const plan = await this.templates.planRow(orgId, planId);
+    const runId = (plan.run_id as string | null) ?? null;
+    const empty = {
+      planId: plan.id as string,
+      runId: null as string | null,
+      mode: 'NONE' as 'NONE' | 'SINGLE_CALL' | 'AGENTIC' | 'AGENTIC_FELL_BACK',
+      runState: null as string | null,
+      fellBack: null as string | null,
+      plan: null as string | null,
+      limits: this.limitsView(0, 0, 0, 0),
+      steps: [] as unknown[],
+      outcome: null as Record<string, unknown> | null,
+    };
+    if (!runId) return empty;
+    const data = await this.db.withOrg(orgId, async (c) => {
+      const run = (
+        await c.query(
+          `SELECT state, result, error, checkpoint #>> '{agent,plan}' AS plan, created_at, started_at, finished_at FROM ai.runs WHERE id = $1`,
+          [runId],
+        )
+      ).rows[0] as Record<string, unknown> | undefined;
+      const steps = (
+        await c.query(
+          `SELECT id, seq, node, status, input_ref, output_ref, error_code, tokens_in, tokens_out, started_at, finished_at
+             FROM ai.run_steps WHERE run_id = $1 AND agent = 'agent' ORDER BY seq`,
+          [runId],
+        )
+      ).rows as Record<string, unknown>[];
+      const calls = (
+        await c.query(
+          `SELECT step_id, tool, args_redacted, status, error_code, result_bytes, duration_ms, call_id
+             FROM ai.tool_calls WHERE run_id = $1 AND call_id IS NOT NULL ORDER BY created_at, id`,
+          [runId],
+        )
+      ).rows as Record<string, unknown>[];
+      return { run, steps, calls };
+    });
+    if (!data.run) return empty;
+    const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : null);
+    const stepViews = data.steps.map((st) => ({
+      seq: Number(st.seq),
+      node: String(st.node),
+      phase: typeof st.input_ref === 'string' ? st.input_ref : null,
+      status: String(st.status),
+      errorCode: (st.error_code as string | null) ?? null,
+      reason: st.node === 'fallback' ? ((st.output_ref as string | null) ?? null) : null,
+      tokensIn: Number(st.tokens_in),
+      tokensOut: Number(st.tokens_out),
+      startedAt: iso(st.started_at),
+      finishedAt: iso(st.finished_at),
+      toolCalls: data.calls
+        .filter((k) => k.step_id === st.id)
+        .map((k) => ({
+          callId: String(k.call_id),
+          tool: String(k.tool),
+          args: k.args_redacted as Record<string, unknown>,
+          status: String(k.status),
+          errorCode: (k.error_code as string | null) ?? null,
+          resultBytes: Number(k.result_bytes ?? 0),
+          durationMs: k.duration_ms === null ? null : Number(k.duration_ms),
+        })),
+    }));
+    const fb = stepViews.find((x) => x.node === 'fallback');
+    const turns = stepViews.filter((x) => /^turn-\d+$/.test(x.node)).length;
+    const result = (data.run.result ?? null) as Record<string, unknown> | null;
+    const errCode = (data.run.error as { code?: unknown } | null)?.code;
+    const state = String(data.run.state);
+    const outcome =
+      state === 'succeeded' && result
+        ? {
+            outcome: typeof result.outcome === 'string' ? result.outcome : null,
+            summary: typeof result.summary === 'string' ? result.summary.slice(0, 500) : null,
+            patches: typeof result.patches === 'number' ? result.patches : null,
+            versionId: typeof result.versionId === 'string' ? result.versionId : null,
+            branch: typeof result.branch === 'string' ? result.branch : null,
+          }
+        : ['failed', 'cancelled', 'budget_exceeded'].includes(state)
+          ? { outcome: state, errorCode: typeof errCode === 'string' ? errCode.slice(0, 60) : null }
+          : null;
+    const started = data.run.started_at instanceof Date ? data.run.started_at.getTime() : null;
+    const finished =
+      data.run.finished_at instanceof Date ? data.run.finished_at.getTime() : Date.now();
+    return {
+      planId: plan.id as string,
+      runId,
+      mode:
+        stepViews.length === 0
+          ? ('SINGLE_CALL' as const)
+          : fb
+            ? ('AGENTIC_FELL_BACK' as const)
+            : ('AGENTIC' as const),
+      runState: state,
+      fellBack: fb?.reason ?? null,
+      plan: (data.run.plan as string | null) ?? null,
+      limits: this.limitsView(
+        turns,
+        data.calls.length,
+        data.calls.reduce((n, k) => n + Number(k.result_bytes ?? 0), 0),
+        stepViews.reduce((n, x) => n + x.tokensIn + x.tokensOut, 0),
+        started === null ? 0 : Math.max(0, Math.round((finished - started) / 1000)),
+      ),
+      steps: stepViews,
+      outcome,
+    };
+  }
+
+  private limitsView(
+    turns: number,
+    toolCalls: number,
+    resultBytes: number,
+    tokens: number,
+    seconds = 0,
+  ) {
+    return {
+      turns: { used: turns, max: AGENT_LOOP_LIMITS.maxTurns },
+      toolCalls: { used: toolCalls, max: AGENT_TOOL_LIMITS.maxCallsPerRun },
+      resultBytes: { used: resultBytes, max: AGENT_TOOL_LIMITS.maxResultBytesPerRun },
+      tokens: { used: tokens, max: AGENT_LOOP_LIMITS.maxTokens },
+      seconds: { used: seconds, max: AGENT_LOOP_LIMITS.maxMinutes * 60 },
+    };
   }
 }

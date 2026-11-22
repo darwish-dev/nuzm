@@ -14006,6 +14006,7 @@ paths:
         A published template. A resource that is not active, published, licence-eligible and reuse-permitted is 404, indistinguishable from a missing one. Requires `builder:read`.
       x-nuzm-permission: builder:read
       x-nuzm-org-scoped: true
+      x-nuzm-global-reference: true
       x-nuzm-feature-flag: knowledge.customer_templates
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
       parameters:
@@ -14183,13 +14184,36 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/builder/generation-plans/{id}/timeline:
+    get:
+      operationId: getBuilderGenerationTimeline
+      tags: [builder]
+      summary: 'Read-only execution timeline of a plan run'
+      description: >-
+        What the run of a plan did, step by step (S-AG3): the model turns (phase, tokens), the read-only tool calls of each (tool, redacted arguments, outcome, result size), the validation and apply steps, a fallback to the single-call adaptation and why, the limits used against their ceilings, and the outcome. Only the customer's own run data; nothing is written, no model is called, no file content is returned. A plan without a run answers mode NONE; a single-call run answers SINGLE_CALL. Requires `builder:read`; 404 while `knowledge.generation` is off.
+      x-nuzm-permission: builder:read
+      x-nuzm-org-scoped: true
+      x-nuzm-feature-flag: knowledge.generation
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuilderAgentTimeline' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /v1/builder/generation-plans/{id}/runs:
     post:
       operationId: startBuilderGenerationPlanRun
       tags: [builder]
       summary: 'Adapt the template copy'
       description: >-
-        Starts a run of the existing `webapp` kind with `input.templatePlanId`: ONE structured model call over the assembled context (metered, residency-checked, budget-capped, output secret-scanned, repair loop), then the proposed change set passes the same safety checks as every change and is committed on the AI branch `work/ai`, never on the main branch. Not the coding agent: no tool use, no on-demand file fetch, nothing is executed (D-46 open, D-21 blocks any run of the result). A plan starts once (409 otherwise). Requires `ai:write`, `app_builder.enabled` and `knowledge.generation`; audited. Model quality is NOT VERIFIED.
+        Starts a run of the existing `webapp` kind with `input.templatePlanId`. With `agentic: true` (and `knowledge.agentic_generation` on, else 422) the run uses the read-only agent loop (S-AG3: plan, explore through the read-only tool gateway, propose, validate, apply; strict turn, token, time, cost and tool-call ceilings; checkpoints; falls back to the single call before anything is applied). Without it: ONE structured model call over the assembled context (metered, residency-checked, budget-capped, output secret-scanned, repair loop), then the proposed change set passes the same safety checks as every change and is committed on the AI branch `work/ai`, never on the main branch. Not the coding agent: no tool use, no on-demand file fetch, nothing is executed (D-46 open, D-21 blocks any run of the result). A plan starts once (409 otherwise). Requires `ai:write`, `app_builder.enabled` and `knowledge.generation`; audited. Model quality is NOT VERIFIED.
       x-nuzm-permission: ai:write
       x-nuzm-org-scoped: true
       x-nuzm-feature-flag: knowledge.generation
@@ -23399,4 +23423,102 @@ components:
           properties:
             maxTokens: { type: integer, minimum: 1 }
             maxCredits: { type: integer, minimum: 1 }
+        agentic:
+          type: boolean
+          description: 'Use the read-only agent loop (needs knowledge.agentic_generation; 422 otherwise). Default false.'
+    BuilderAgentLimit:
+      type: object
+      required: [used, max]
+      properties:
+        used: { type: integer, minimum: 0 }
+        max: { type: integer, minimum: 0 }
+    BuilderAgentToolCall:
+      type: object
+      required: [callId, tool, args, status, errorCode, resultBytes, durationMs]
+      properties:
+        callId: { type: string }
+        tool: { type: string }
+        args:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'Redacted arguments (secrets and file contents never shown).',
+          }
+        status: { type: string }
+        errorCode: { type: string, nullable: true }
+        resultBytes: { type: integer, minimum: 0 }
+        durationMs: { type: integer, nullable: true }
+    BuilderAgentStep:
+      type: object
+      required:
+        [
+          seq,
+          node,
+          phase,
+          status,
+          errorCode,
+          reason,
+          tokensIn,
+          tokensOut,
+          startedAt,
+          finishedAt,
+          toolCalls,
+        ]
+      properties:
+        seq: { type: integer }
+        node: { type: string, description: 'turn-N, validate[-N], apply or fallback.' }
+        phase:
+          type: string
+          nullable: true
+          enum: [plan, explore, propose, validate, apply, fallback]
+        status:
+          {
+            type: string,
+            enum: [pending, running, succeeded, failed, waiting_approval, skipped, cancelled],
+          }
+        errorCode: { type: string, nullable: true }
+        reason:
+          {
+            type: string,
+            nullable: true,
+            description: 'Why the loop fell back (fallback step only).',
+          }
+        tokensIn: { type: integer, minimum: 0 }
+        tokensOut: { type: integer, minimum: 0 }
+        startedAt: { type: string, format: date-time, nullable: true }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        toolCalls:
+          type: array
+          items: { $ref: '#/components/schemas/BuilderAgentToolCall' }
+    BuilderAgentTimeline:
+      type: object
+      required: [planId, runId, mode, runState, fellBack, plan, limits, steps, outcome]
+      properties:
+        planId: { type: string, format: uuid }
+        runId: { type: string, format: uuid, nullable: true }
+        mode: { type: string, enum: [NONE, SINGLE_CALL, AGENTIC, AGENTIC_FELL_BACK] }
+        runState: { type: string, nullable: true }
+        fellBack: { type: string, nullable: true }
+        plan:
+          {
+            type: string,
+            nullable: true,
+            description: 'The agent plan text of the first turn, bounded.',
+          }
+        limits:
+          type: object
+          required: [turns, toolCalls, resultBytes, tokens, seconds]
+          properties:
+            turns: { $ref: '#/components/schemas/BuilderAgentLimit' }
+            toolCalls: { $ref: '#/components/schemas/BuilderAgentLimit' }
+            resultBytes: { $ref: '#/components/schemas/BuilderAgentLimit' }
+            tokens: { $ref: '#/components/schemas/BuilderAgentLimit' }
+            seconds: { $ref: '#/components/schemas/BuilderAgentLimit' }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/BuilderAgentStep' }
+        outcome:
+          type: object
+          nullable: true
+          additionalProperties: true
     # <<< AI Intelligence Center schemas

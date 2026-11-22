@@ -32,13 +32,41 @@ export class TemplateAdaptRunner {
   ) {}
 
   /** Static problems of a proposal: the mode, what exists, and the shared safety checks. Messages go back to the model through the repair loop. */
-  private problems(prep: Prepared, result: unknown): string[] {
+  proposalProblems(prep: Prepared, result: unknown): string[] {
     const r = result as Partial<Proposal> | null;
     const patches = (r?.patches ?? []) as ProposedPatch[];
     const out = checkProposal(prep.mode, patches, prep.files, prep.baseline);
     const v = this.changes.validate(patches, ADAPT_MAX_PATCHES);
     for (const p of v.problems.slice(0, 8)) out.push(`${p.path}: ${p.message}`);
     return out.slice(0, 12);
+  }
+
+  /**
+   * Applies a VALIDATED proposal through the safe-change pipeline on the AI branch, once: a resumed run finds `applied` in its checkpoint and does not apply again. Shared by the
+   * single-call adaptation and the agent loop (S-AG3): both end here, so both apply exactly the same checks.
+   */
+  async applyProposal(
+    ctx: RunContext,
+    prep: Prepared,
+    proposal: Proposal,
+  ): Promise<{ versionId: string; commit: string; branch: string }> {
+    let applied = ctx.checkpoint.applied as
+      { versionId: string; commit: string; branch: string } | undefined;
+    if (!applied) {
+      const r = await this.changes.apply(ctx.orgId, ctx.userId ?? '', prep.project, {
+        baseVersion: prep.project.headVersionId,
+        patches: proposal.patches,
+        source: 'ai',
+        message: `Adapt template (${prep.mode}): ${proposal.summary.replace(/\s+/g, ' ').slice(0, 100)}`,
+      });
+      applied = { versionId: r.versionId, commit: r.commit, branch: r.branch };
+      await ctx.save({ applied }, 'applied');
+      await ctx.emit('template_applied', {
+        versionId: applied.versionId,
+        patches: proposal.patches.length,
+      });
+    }
+    return applied;
   }
 
   async run(ctx: RunContext): Promise<void> {
@@ -64,10 +92,10 @@ export class TemplateAdaptRunner {
         data: prep.context.blocks.map((b) => ({ label: b.label, text: b.text })),
         schema: ADAPT_SCHEMA,
         maxTokens: 16_000,
-        check: (r) => this.problems(prep, r),
+        check: (r) => this.proposalProblems(prep, r),
       });
       // the same checks again, deterministically, before anything is stored or applied
-      const left = this.problems(prep, proposal);
+      const left = this.proposalProblems(prep, proposal);
       if (left.length)
         throw new ProblemException(
           'change_rejected',
@@ -79,22 +107,7 @@ export class TemplateAdaptRunner {
     }
     if (await ctx.cancelled()) throw new ProblemException('conflict', 'cancelled');
 
-    let applied = ctx.checkpoint.applied as
-      { versionId: string; commit: string; branch: string } | undefined;
-    if (!applied) {
-      const r = await this.changes.apply(ctx.orgId, ctx.userId ?? '', prep.project, {
-        baseVersion: prep.project.headVersionId,
-        patches: proposal.patches,
-        source: 'ai',
-        message: `Adapt template (${prep.mode}): ${proposal.summary.replace(/\s+/g, ' ').slice(0, 100)}`,
-      });
-      applied = { versionId: r.versionId, commit: r.commit, branch: r.branch };
-      await ctx.save({ applied }, 'applied');
-      await ctx.emit('template_applied', {
-        versionId: applied.versionId,
-        patches: proposal.patches.length,
-      });
-    }
+    const applied = await this.applyProposal(ctx, prep, proposal);
     return ctx.succeed({
       outcome: 'adapted',
       mode: prep.mode,

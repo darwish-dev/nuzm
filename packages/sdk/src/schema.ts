@@ -7712,6 +7712,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/builder/generation-plans/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read-only execution timeline of a plan run
+         * @description What the run of a plan did, step by step (S-AG3): the model turns (phase, tokens), the read-only tool calls of each (tool, redacted arguments, outcome, result size), the validation and apply steps, a fallback to the single-call adaptation and why, the limits used against their ceilings, and the outcome. Only the customer's own run data; nothing is written, no model is called, no file content is returned. A plan without a run answers mode NONE; a single-call run answers SINGLE_CALL. Requires `builder:read`; 404 while `knowledge.generation` is off.
+         */
+        get: operations["getBuilderGenerationTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/builder/generation-plans/{id}/runs": {
         parameters: {
             query?: never;
@@ -7723,7 +7743,7 @@ export interface paths {
         put?: never;
         /**
          * Adapt the template copy
-         * @description Starts a run of the existing `webapp` kind with `input.templatePlanId`: ONE structured model call over the assembled context (metered, residency-checked, budget-capped, output secret-scanned, repair loop), then the proposed change set passes the same safety checks as every change and is committed on the AI branch `work/ai`, never on the main branch. Not the coding agent: no tool use, no on-demand file fetch, nothing is executed (D-46 open, D-21 blocks any run of the result). A plan starts once (409 otherwise). Requires `ai:write`, `app_builder.enabled` and `knowledge.generation`; audited. Model quality is NOT VERIFIED.
+         * @description Starts a run of the existing `webapp` kind with `input.templatePlanId`. With `agentic: true` (and `knowledge.agentic_generation` on, else 422) the run uses the read-only agent loop (S-AG3: plan, explore through the read-only tool gateway, propose, validate, apply; strict turn, token, time, cost and tool-call ceilings; checkpoints; falls back to the single call before anything is applied). Without it: ONE structured model call over the assembled context (metered, residency-checked, budget-capped, output secret-scanned, repair loop), then the proposed change set passes the same safety checks as every change and is committed on the AI branch `work/ai`, never on the main branch. Not the coding agent: no tool use, no on-demand file fetch, nothing is executed (D-46 open, D-21 blocks any run of the result). A plan starts once (409 otherwise). Requires `ai:write`, `app_builder.enabled` and `knowledge.generation`; audited. Model quality is NOT VERIFIED.
          */
         post: operations["startBuilderGenerationPlanRun"];
         delete?: never;
@@ -14359,6 +14379,66 @@ export interface components {
                 maxTokens?: number;
                 maxCredits?: number;
             };
+            /** @description Use the read-only agent loop (needs knowledge.agentic_generation; 422 otherwise). Default false. */
+            agentic?: boolean;
+        };
+        BuilderAgentLimit: {
+            used: number;
+            max: number;
+        };
+        BuilderAgentToolCall: {
+            callId: string;
+            tool: string;
+            /** @description Redacted arguments (secrets and file contents never shown). */
+            args: {
+                [key: string]: unknown;
+            };
+            status: string;
+            errorCode: string | null;
+            resultBytes: number;
+            durationMs: number | null;
+        };
+        BuilderAgentStep: {
+            seq: number;
+            /** @description turn-N, validate[-N], apply or fallback. */
+            node: string;
+            /** @enum {string|null} */
+            phase: "plan" | "explore" | "propose" | "validate" | "apply" | "fallback" | null;
+            /** @enum {string} */
+            status: "pending" | "running" | "succeeded" | "failed" | "waiting_approval" | "skipped" | "cancelled";
+            errorCode: string | null;
+            /** @description Why the loop fell back (fallback step only). */
+            reason: string | null;
+            tokensIn: number;
+            tokensOut: number;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            finishedAt: string | null;
+            toolCalls: components["schemas"]["BuilderAgentToolCall"][];
+        };
+        BuilderAgentTimeline: {
+            /** Format: uuid */
+            planId: string;
+            /** Format: uuid */
+            runId: string | null;
+            /** @enum {string} */
+            mode: "NONE" | "SINGLE_CALL" | "AGENTIC" | "AGENTIC_FELL_BACK";
+            runState: string | null;
+            fellBack: string | null;
+            /** @description The agent plan text of the first turn, bounded. */
+            plan: string | null;
+            limits: {
+                turns: components["schemas"]["BuilderAgentLimit"];
+                toolCalls: components["schemas"]["BuilderAgentLimit"];
+                resultBytes: components["schemas"]["BuilderAgentLimit"];
+                tokens: components["schemas"]["BuilderAgentLimit"];
+                seconds: components["schemas"]["BuilderAgentLimit"];
+            };
+            steps: components["schemas"]["BuilderAgentStep"][];
+            outcome: {
+                [key: string]: unknown;
+            } | null;
         };
     };
     responses: {
@@ -30025,6 +30105,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuilderGenerationContext"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderGenerationTimeline: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderAgentTimeline"];
                 };
             };
             401: components["responses"]["Problem"];

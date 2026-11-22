@@ -521,6 +521,78 @@ describe('limits: per run, per call, per result', () => {
   });
 });
 
+describe('concurrency: the per-run limits hold when batches run at the same time (S-AG3 regression of the S-AG2 race)', () => {
+  it('many concurrent batches on one run never exceed the call limit: exactly the limit succeeds, every other call is denied, each call id is recorded once', async () => {
+    const f = await fixture('alice', A(), 'Agent Tools Race Calls', FILES);
+    const batches = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        exec(
+          f,
+          Array.from({ length: 16 }, () => ({ name: 'list_files' })),
+        ),
+      ),
+    );
+    const r = await rows(f.run);
+    expect(r).toHaveLength(8 * 16);
+    expect(r.filter((x) => x.status === 'succeeded')).toHaveLength(
+      AGENT_TOOL_LIMITS.maxCallsPerRun,
+    );
+    expect(r.filter((x) => x.error_code === 'limit_exceeded')).toHaveLength(
+      8 * 16 - AGENT_TOOL_LIMITS.maxCallsPerRun,
+    );
+    expect(new Set(r.map((x) => x.call_id)).size).toBe(8 * 16);
+    expect(batches.filter((b) => b.limitReached === 'calls').length).toBeGreaterThan(0);
+  });
+  it('many concurrent batches never exceed the size limit: the bytes handed back never pass the per-run budget', async () => {
+    const f = await fixture('alice', A(), 'Agent Tools Race Bytes', {
+      'a.ts': 'export const one = 1;\n',
+    });
+    const big = 'x'.repeat(AGENT_TOOL_LIMITS.maxReadChars - 200);
+    const real = registry.get('webapp')!;
+    registry.register('webapp', {
+      open: async () =>
+        new ReadOnlyWorkspace(new Map([['big.txt', `${big}\n${big}`]]), { aiProcessing: true }),
+    });
+    try {
+      await Promise.all(
+        Array.from({ length: 6 }, () =>
+          exec(
+            f,
+            Array.from({ length: 8 }, () => ({ name: 'read_file', args: { path: 'big.txt' } })),
+          ),
+        ),
+      );
+      const total = Number(
+        (
+          await e.sql(
+            `SELECT coalesce(sum(result_bytes),0)::bigint t FROM ai.tool_calls WHERE run_id = $1 AND status = 'succeeded'`,
+            [f.run],
+          )
+        )[0]!.t,
+      );
+      expect(total).toBeLessThanOrEqual(AGENT_TOOL_LIMITS.maxResultBytesPerRun);
+      expect(total).toBeGreaterThan(
+        AGENT_TOOL_LIMITS.maxResultBytesPerRun - AGENT_TOOL_LIMITS.maxResultBytesPerCall - 5_000,
+      );
+    } finally {
+      registry.register('webapp', real);
+    }
+  });
+  it('the same call ids arriving concurrently are recorded once', async () => {
+    const f = await fixture('alice', A(), 'Agent Tools Race Ids', FILES);
+    await Promise.all(
+      Array.from({ length: 6 }, () =>
+        exec(f, [
+          { id: 'dup-1', name: 'list_files' },
+          { id: 'dup-2', name: 'inspect_project' },
+        ]),
+      ),
+    );
+    const r = await rows(f.run);
+    expect(r.map((x) => x.call_id).sort()).toEqual(['dup-1', 'dup-2']);
+  });
+});
+
 describe('who and what: run state, creator permissions, step, organization', () => {
   it('a finished run, an unknown run and a step of another run are refused', async () => {
     const f = await fixture('alice', A(), 'Agent Tools State', FILES);

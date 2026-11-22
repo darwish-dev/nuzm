@@ -11,7 +11,9 @@ export {
 export {
   KNOWLEDGE_LIBRARY_FLAG,
   KNOWLEDGE_CUSTOMER_TEMPLATES_FLAG,
+  KNOWLEDGE_AGENTIC_GENERATION_FLAG,
   KNOWLEDGE_GENERATION_FLAG,
+  knowledgeAgenticEnabled,
   KNOWLEDGE_IMPORT_PROJECTS_FLAG,
   knowledgeGenerationEnabled,
   KnowledgeGenerationGuard,

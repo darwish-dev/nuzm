@@ -7,6 +7,7 @@ import '../components/site/mosaic.css';
 import '../components/site/bento.css';
 import '../components/landing/ai-chat.css';
 import '../components/landing/tech-strip.css';
+import '../components/site/flat.css';
 
 export const metadata: Metadata = {
   title: 'Nuzm | Intelligence meets possibility',

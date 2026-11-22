@@ -36,6 +36,13 @@ export const consoleCss = `
   --nzc-warn-soft: rgba(240, 179, 74, 0.14);
   --nzc-danger: #f2766f;
   --nzc-danger-soft: rgba(242, 118, 111, 0.14);
+  /* the second brand colour (the website's orange): used in small touches, one per card or less. Teal stays the main colour. */
+  --nzc-orange: #e9a16d;
+  --nzc-orange-strong: #c9784a;
+  --nzc-orange-soft: color-mix(in srgb, #e9a16d 16%, transparent);
+  --nzc-orange-ink: #2a1a0e;
+  --nzc-orange-text: #e9a16d;
+  --nzc-orange-grad: linear-gradient(165deg, #f2b98c 0%, #e9a16d 100%);
   --nzc-glow: radial-gradient(54rem 26rem at 88% -10%, rgba(147, 182, 179, 0.05), transparent 70%);
   --nzc-card-bg: var(--nzc-card);
   --nzc-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
@@ -70,6 +77,13 @@ export const consoleCss = `
   --nzc-warn-soft: rgba(148, 96, 0, 0.1);
   --nzc-danger: #b42d26;
   --nzc-danger-soft: rgba(180, 45, 38, 0.09);
+  /* on white the fill orange is for shapes only (it is 2:1); orange text and thin icons use the deeper --nzc-orange-text (5.6:1 on white) */
+  --nzc-orange: #e9a16d;
+  --nzc-orange-strong: #c9784a;
+  --nzc-orange-soft: color-mix(in srgb, #e9a16d 20%, transparent);
+  --nzc-orange-ink: #2a1a0e;
+  --nzc-orange-text: #a1521f;
+  --nzc-orange-grad: linear-gradient(165deg, #f2b98c 0%, #e9a16d 100%);
   --nzc-glow: radial-gradient(54rem 26rem at 88% -10%, rgba(44, 106, 95, 0.06), transparent 70%);
   --nzc-card-bg: linear-gradient(180deg, color-mix(in srgb, var(--nzc-accent) 4%, var(--nzc-card)), var(--nzc-card) 70%);
   --nzc-shadow: 0 14px 40px rgba(20, 20, 40, 0.12);
@@ -123,8 +137,10 @@ export const consoleCss = `
 .nzc-rail-link { position: relative; display: grid; place-items: center; inline-size: 44px; block-size: 44px; border-radius: 12px; color: var(--nzc-muted); background: transparent; border: 0; cursor: pointer; text-decoration: none !important; }
 .nzc-rail-link:hover { background: var(--nzc-elev); color: var(--nzc-fg); }
 .nzc-rail-link[aria-current="true"], .nzc-rail-link[aria-current="page"] { background: var(--nzc-elev); color: var(--nzc-accent); box-shadow: inset 0 0 0 1px var(--nzc-border); }
+/* a small orange marker at the rail's edge for the current page (the tooltip owns ::after) */
+.nzc-rail-link[aria-current="true"]::before, .nzc-rail-link[aria-current="page"]::before { content: ""; position: absolute; inset-inline-start: -11px; inset-block: 12px; inline-size: 3px; border-start-end-radius: 3px; border-end-end-radius: 3px; background: var(--nzc-orange); }
 .nzc-icon-btn { position: relative; }
-.nzc-dot { position: absolute; inset-block-start: 7px; inset-inline-end: 7px; min-inline-size: 16px; block-size: 16px; padding-inline: 4px; border-radius: 999px; background: var(--nzc-grad); color: var(--nzc-on-accent); font-size: 10.5px; line-height: 16px; text-align: center; font-weight: 600; }
+.nzc-dot { position: absolute; inset-block-start: 7px; inset-inline-end: 7px; min-inline-size: 16px; block-size: 16px; padding-inline: 4px; border-radius: 999px; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); font-size: 10.5px; line-height: 16px; text-align: center; font-weight: 700; }
 /* tooltip: shown on hover and keyboard focus, never the only label (the link has aria-label). Fixed, because the rail scrolls and would clip an absolutely placed one; RailTips sets --nzc-tip-y. */
 .nzc-rail-link[data-tip]::after { content: attr(data-tip); position: fixed; inset-inline-start: calc(var(--rail-w) + 14px); inset-block-start: var(--nzc-tip-y, 50%); transform: translateY(-50%); white-space: nowrap; background: var(--nzc-elev); color: var(--nzc-fg); border: 1px solid var(--nzc-border); border-radius: 8px; padding: 4px 10px; font-size: 12.5px; box-shadow: var(--nzc-shadow); opacity: 0; pointer-events: none; transition: opacity 120ms ease; z-index: 40; }
 .nzc-rail-link[data-tip]:hover::after, .nzc-rail-link[data-tip]:focus-visible::after { opacity: 1; }
@@ -219,8 +235,8 @@ export const consoleCss = `
 .nzc .nz-card { background: var(--nzc-card-bg); border: 1px solid var(--nzc-border); border-radius: 18px; padding: 22px; box-shadow: none; }
 .nzc .nz-card h2 { margin-block-start: 0; }
 .nzc .nz-grid { gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.nzc .nz-btn { min-block-size: 38px; border-radius: 10px; font-weight: 580; border: 1px solid transparent; background: var(--nzc-grad); color: var(--nzc-on-accent); transition: background 120ms ease, border-color 120ms ease; }
-.nzc .nz-btn:hover { filter: brightness(1.07); text-decoration: none; }
+.nzc .nz-btn { min-block-size: 38px; border-radius: 10px; font-weight: 650; border: 1px solid transparent; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); transition: background 120ms ease, border-color 120ms ease; }
+.nzc .nz-btn:hover { filter: brightness(0.94); text-decoration: none; }
 .nzc .nz-btn[data-variant="secondary"]:hover { filter: none; }
 .nzc .nz-btn[data-variant="secondary"] { background: var(--nzc-elev); background-image: none; color: var(--nzc-fg); border-color: var(--nzc-border); }
 .nzc .nz-btn[data-variant="secondary"]:hover { background: color-mix(in srgb, var(--nzc-elev) 82%, var(--nzc-fg)); }
@@ -544,7 +560,7 @@ a.nzc-navcard:hover { border-color: color-mix(in srgb, var(--nzc-accent) 45%, va
 .nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td[data-card="footer"] { order: 9; flex: 1 1 0; min-inline-size: 0; }
 .nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td[data-card="footer"] .nz-cell-value { display: block; font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
 .nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td.nz-manage-col { order: 10; flex: 0 0 auto; margin: 0 0 0 auto; padding: 0; inline-size: auto; }
-.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td.nz-manage-col .nz-btn { inline-size: auto; min-block-size: 40px; padding-inline: 18px; background: var(--nzc-grad); color: var(--nzc-on-accent); border-color: transparent; }
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td.nz-manage-col .nz-btn { inline-size: auto; min-block-size: 40px; padding-inline: 18px; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); border-color: transparent; }
 
 /* ---- on/off as a switch: read-only display (.nzc-onoff) and checkboxes drawn as switches (.nzc-switch-input) ---- */
 .nzc-onoff { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--nzc-muted); }
@@ -639,7 +655,7 @@ a.nzc-stat:hover { border-color: color-mix(in srgb, var(--nzc-accent) 45%, var(-
 .nzc .nzc-subtabs { gap: 6px; margin-block-end: 22px; padding: 5px; border: 1px solid var(--nzc-border); border-radius: 999px; background: var(--nzc-card); inline-size: fit-content; max-inline-size: 100%; overflow-x: auto; }
 .nzc .nzc-subtabs a.nz-btn { background: transparent; color: var(--nzc-muted); border: 0; border-radius: 999px; min-block-size: 34px; padding-inline: 16px; font-weight: 560; }
 .nzc .nzc-subtabs a.nz-btn:hover { color: var(--nzc-fg); background: transparent; text-decoration: none; }
-.nzc .nzc-subtabs a.nz-btn[aria-current="page"] { background: var(--nzc-grad); color: var(--nzc-on-accent); }
+.nzc .nzc-subtabs a.nz-btn[aria-current="page"] { background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); }
 .nzc-steps { margin-block-end: 22px; }
 .nzc-steps ol { list-style: none; display: flex; align-items: center; gap: 0; margin: 0 0 8px; padding: 0; }
 .nzc-steps li { display: flex; align-items: center; gap: 10px; color: var(--nzc-muted); font-weight: 560; }
@@ -647,7 +663,7 @@ a.nzc-stat:hover { border-color: color-mix(in srgb, var(--nzc-accent) 45%, var(-
 .nzc-steps li[data-state="done"] + li::before, .nzc-steps li[data-state="current"]::before { background: var(--nzc-accent); }
 .nzc-step-dot { display: grid; place-items: center; inline-size: 28px; block-size: 28px; border-radius: 50%; border: 1.5px solid var(--nzc-border); font-size: 13px; font-weight: 650; background: var(--nzc-card); }
 .nzc-steps li[data-state="current"] { color: var(--nzc-fg); }
-.nzc-steps li[data-state="current"] .nzc-step-dot { background: var(--nzc-grad); color: var(--nzc-on-accent); border-color: transparent; }
+.nzc-steps li[data-state="current"] .nzc-step-dot { background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); border-color: transparent; }
 .nzc-steps li[data-state="done"] .nzc-step-dot { border-color: var(--nzc-accent); color: var(--nzc-accent); }
 .nzc-steps p { margin: 0; font-size: 13px; color: var(--nzc-fg); opacity: 0.78; }
 .nzc > .nz-main > p.nz-muted { color: var(--nzc-fg); opacity: 0.78; }
@@ -872,7 +888,7 @@ a.nzc-method:hover { border-color: var(--nzc-accent); transform: translateY(-2px
 .nzc-cart-panel .nz-btn { inline-size: 100%; min-block-size: 46px; }
 .nzc-cart-clear { border: 0; background: transparent; color: var(--nzc-muted); font: inherit; font-size: 13px; cursor: pointer; padding: 4px; justify-self: center; text-decoration: underline; text-underline-offset: 3px; }
 .nzc-cart-clear:hover { color: var(--nzc-fg); }
-.nzc-cart-fab { position: relative; display: grid; place-items: center; inline-size: 60px; block-size: 60px; border-radius: 50%; border: 0; background: var(--nzc-grad); color: var(--nzc-on-accent); cursor: pointer; box-shadow: var(--nzc-shadow); transition: transform 140ms ease; }
+.nzc-cart-fab { position: relative; display: grid; place-items: center; inline-size: 60px; block-size: 60px; border-radius: 50%; border: 0; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); cursor: pointer; box-shadow: var(--nzc-shadow); transition: transform 140ms ease; }
 .nzc-cart-fab:hover { transform: translateY(-2px); }
 .nzc-cart-fab:focus-visible { outline: 3px solid var(--nzc-fg); outline-offset: 3px; }
 .nzc-cart-badge { position: absolute; inset-block-start: -4px; inset-inline-end: -4px; min-inline-size: 22px; block-size: 22px; padding-inline: 5px; display: grid; place-items: center; border-radius: 999px; background: var(--nzc-fg); color: var(--nzc-bg); font-size: 12px; font-weight: 700; }
@@ -1061,7 +1077,7 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 .nzc-start-full .nzc-prompt-bar { border-radius:20px; border-color:color-mix(in srgb,var(--nzc-accent) 30%,var(--nzc-border)); box-shadow:0 6px 20px color-mix(in srgb,var(--nzc-accent) 6%,transparent); }
 .nzc-start-full .nzc-prompt-bar textarea.nzc-prompt-input { min-block-size:145px; padding:22px 24px 10px !important; font-size:16px; }
 .nzc-start-full .nzc-prompt-foot { padding:12px 14px 14px 24px; }
-.nzc-start-full .nzc-prompt-foot .nz-btn { background:var(--nzc-accent); color:var(--nzc-card); min-inline-size:112px; }
+.nzc-start-full .nzc-prompt-foot .nz-btn { background:var(--nzc-orange-grad); color:var(--nzc-orange-ink); min-inline-size:112px; }
 .nzc-start-full .nzc-tlds-grid { gap:12px; }
 .nzc .nzc-start-full label.nzc-ptype { padding:16px; }
 .nzc .nzc-start-full label.nzc-ptype:has(input:checked) { box-shadow:inset 0 0 0 1px var(--nzc-accent); }
@@ -1203,7 +1219,7 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 .nzc-service-copy { position:relative; z-index:1; max-inline-size:560px; }
 .nzc-service-copy h2 { font-size:clamp(25px,3vw,36px); line-height:1.2; letter-spacing:-.025em; margin:0 0 16px; }
 .nzc-service-copy p { color:#d0e9e0; line-height:1.75; margin:0 0 24px; }
-.nzc-service-banner .nz-btn { background:#c5ebd6; color:#123e35; border-color:#c5ebd6; box-shadow:0 6px 20px #082e3433; }
+.nzc-service-banner .nz-btn { background:var(--nzc-orange-grad); color:var(--nzc-orange-ink); border-color:transparent; box-shadow:0 6px 20px #082e3433; }
 .nzc-service-art { position:relative; block-size:240px; inline-size:100%; max-inline-size:360px; justify-self:center; perspective:700px; }
 .nzc-service-orbit { position:absolute; inset:0; border:1px solid #b5efd84d; border-radius:50%; transform:rotate(-25deg) scaleY(.8); }
 .nzc-service-tile { position:absolute; inset:30px 65px; display:grid; place-items:center; border-radius:32px; color:#164f43; background:linear-gradient(140deg,#e2ffec,#83c9b4); border:1px solid #edfff0; transform:rotate(-9deg) rotateY(-16deg); box-shadow:14px 20px 0 #062e3440,0 26px 45px #062e3455,inset 0 2px 2px #ffffff; }
@@ -1273,7 +1289,7 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 .bld-composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bld-composer-help { margin: 8px 6px 0; font-size: 11.5px; line-height: 1.5; color: var(--nzc-muted); }
 .bld-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--nzc-border); border-radius: 999px; background: transparent; color: var(--nzc-muted); font-size: 12.5px; font-weight: 600; }
-.bld-send { display: grid; place-items: center; inline-size: 38px; block-size: 38px; border: 0; border-radius: 50%; background: var(--nzc-accent); color: var(--nzc-on-accent); cursor: pointer; flex-shrink: 0; }
+.bld-send { display: grid; place-items: center; inline-size: 38px; block-size: 38px; border: 0; border-radius: 50%; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); cursor: pointer; flex-shrink: 0; }
 .bld-send:disabled { opacity: 0.4; cursor: default; }
 .bws-canvas { display: flex; flex-direction: column; overflow: hidden; }
 .bws-canvas .bld-preview-bare { flex: 1; min-block-size: 0; display: flex; flex-direction: column; }
@@ -1458,8 +1474,8 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 
 /* The floating AI builder card, and the slim bar of the full-screen start page */
 /* The AI builder button: a compact accent pill at the start edge of the page (left in English, right in Arabic), just beside the sidebar. Light on purpose: it is always there, so it stays small and quiet. */
-.nzc a.bfab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--rail-w, 68px) + 22px); z-index: 54; display: inline-flex; align-items: center; gap: 10px; padding-block: 6px; padding-inline: 6px 10px; border: 1px solid transparent; border-radius: 10px; background: var(--nzc-grad); color: var(--nzc-on-accent); text-decoration: none; box-shadow: 0 4px 14px rgba(20, 24, 27, 0.2); animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s, filter 0.15s; }
-.nzc a.bfab:hover { transform: translateY(-2px); color: var(--nzc-on-accent); filter: brightness(1.07); box-shadow: 0 8px 20px rgba(20, 24, 27, 0.26); }
+.nzc a.bfab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--rail-w, 68px) + 22px); z-index: 54; display: inline-flex; align-items: center; gap: 10px; padding-block: 6px; padding-inline: 6px 10px; border: 1px solid transparent; border-radius: 10px; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); text-decoration: none; box-shadow: 0 4px 14px rgba(20, 24, 27, 0.2); animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s, filter 0.15s; }
+.nzc a.bfab:hover { transform: translateY(-2px); color: var(--nzc-orange-ink); filter: brightness(0.94); box-shadow: 0 8px 20px rgba(20, 24, 27, 0.26); }
 .nzc a.bfab:focus-visible { outline: 3px solid var(--nzc-fg); outline-offset: 3px; }
 .bfab-icon { display: grid; place-items: center; inline-size: 32px; block-size: 32px; border-radius: 8px; background: rgba(20, 24, 27, 0.1); flex: none; }
 .nzc a.bfab .bfab-icon .nzc-logo { block-size: 18px; inline-size: auto; filter: brightness(0); opacity: 0.88; }
@@ -1534,7 +1550,7 @@ html[lang='ar'] .bl-title { letter-spacing: 0; line-height: 1.25; max-inline-siz
 .bl-input::placeholder { color: var(--nzc-muted); }
 .bl-prompt-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-block: 10px 14px; padding-inline: 26px 14px; }
 .bl-count { color: var(--nzc-muted); font-size: 12.5px; }
-.bl-go { display: inline-flex; align-items: center; gap: 8px; min-inline-size: 120px; justify-content: center; padding: 12px 22px; border: 0; border-radius: 14px; background: var(--nzc-accent); color: var(--nzc-on-accent); font: inherit; font-weight: 700; cursor: pointer; transition: transform 0.15s ease, opacity 0.15s ease; }
+.bl-go { display: inline-flex; align-items: center; gap: 8px; min-inline-size: 120px; justify-content: center; padding: 12px 22px; border: 0; border-radius: 14px; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); font: inherit; font-weight: 700; cursor: pointer; transition: transform 0.15s ease, opacity 0.15s ease; }
 .bl-go:hover:not(:disabled) { transform: translateY(-1px); }
 .bl-go:disabled { opacity: 0.55; cursor: not-allowed; }
 .bl-err { margin: 0; text-align: center; }
@@ -1892,7 +1908,7 @@ html[lang='ar'] .hs-hero h2 { letter-spacing: 0; line-height: 1.3; }
 /* "Being built" scenes of the other project types (the website's is the page wireframe above): a web app's three layers with data packets between them, and a Flutter phone assembled beside its widget tree. */
 .ascene { background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--nzc-accent) 14%, transparent), transparent 62%), radial-gradient(circle, color-mix(in srgb, var(--nzc-accent) 22%, transparent) 1px, transparent 1.6px) 0 0 / 22px 22px, var(--nzc-field); }
 .ascene-board { inline-size: min(640px, 100%); display: grid; }
-.ascene-layer { padding: 14px 16px 16px; border: 1px solid var(--nzc-border); border-inline-start: 4px solid var(--nzc-accent); border-radius: 16px; background: var(--nzc-card); box-shadow: 0 14px 40px #00000030; }
+.ascene-layer { padding: 14px 16px 16px; border: 1px solid var(--nzc-border); border-radius: 16px; background: var(--nzc-card); box-shadow: 0 14px 40px #00000030; }
 .ascene-layer h4 { margin: 0 0 10px; color: var(--nzc-accent); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; }
 html[lang='ar'] .ascene-layer h4 { letter-spacing: 0; text-transform: none; font-size: 13px; }
 .ascene-ui-body { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 12px; }
@@ -1955,7 +1971,7 @@ html[lang='ar'] .ascene-layer h4 { letter-spacing: 0; text-transform: none; font
 .ld-purposes { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .ld-purposes .ld-tld-name { font-size: 17px; }
 .ld-go { text-decoration: none; }
-.nzc a.ld-go, .nzc a.ld-go:hover { color: var(--nzc-on-accent); }
+.nzc a.ld-go, .nzc a.ld-go:hover { color: var(--nzc-orange-ink); }
 .ld-glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 60% 50% at 12% 0%, color-mix(in srgb, var(--nzc-accent) 22%, transparent), transparent 70%), radial-gradient(ellipse 50% 45% at 92% 30%, color-mix(in srgb, var(--nzc-accent) 13%, transparent), transparent 70%), radial-gradient(ellipse 70% 50% at 50% 115%, color-mix(in srgb, var(--nzc-accent) 11%, transparent), transparent 70%); }
 .ld-art { position: absolute; inset-inline-end: 4%; inset-block-end: 6%; inline-size: 190px; opacity: 0.9; pointer-events: none; filter: drop-shadow(0 22px 36px #00000040); }
 .ld-hero[data-compact='true'] .ld-art { display: none; }
@@ -1974,7 +1990,7 @@ html[lang='ar'] .ld-title { letter-spacing: 0; line-height: 1.3; max-inline-size
 .nzc .ld-search-input, .nzc .ld-search-input:focus, .nzc .ld-search-input:hover { border: 0 !important; background: transparent !important; box-shadow: none !important; min-block-size: 0 !important; font-size: clamp(17px, 2vw, 22px) !important; padding-inline: 0 !important; }
 .nzc .ld-local, .nzc .ld-domain { font-size: 18px !important; min-block-size: 56px !important; border-radius: 16px !important; background-color: var(--nzc-card) !important; }
 .nzc .ld-custom input { min-block-size: 0 !important; font-size: 14px !important; padding-inline: 12px !important; border-radius: 12px !important; }
-.ld-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-inline-size: 124px; padding: 14px 24px; border: 0; border-radius: 18px; background: var(--nzc-accent); color: var(--nzc-on-accent); font: inherit; font-weight: 700; cursor: pointer; transition: transform 0.15s ease, opacity 0.15s ease; }
+.ld-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-inline-size: 124px; padding: 14px 24px; border: 0; border-radius: 18px; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); font: inherit; font-weight: 700; cursor: pointer; transition: transform 0.15s ease, opacity 0.15s ease; }
 .ld-go:hover:not(:disabled) { transform: translateY(-1px); }
 .ld-go:disabled { opacity: 0.55; cursor: not-allowed; }
 .ld-label { margin: 0 0 10px; color: var(--nzc-muted); font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -2050,7 +2066,7 @@ html[dir='rtl'] .sup-topics a > .nzc-icon:last-child { transform: scaleX(-1); }
 .sup-composer-box { display: flex; align-items: flex-end; gap: 8px; padding: 8px; border: 1px solid var(--nzc-border); border-radius: 14px; background: var(--nzc-field); }
 .sup-composer-box:focus-within { border-color: var(--nzc-accent); }
 .nzc .sup-composer textarea { flex: 1; min-inline-size: 0; min-block-size: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; resize: none; padding: 6px 8px !important; font-size: 14px !important; color: var(--nzc-fg); }
-.sup-composer button { display: grid; place-items: center; flex: none; inline-size: 36px; block-size: 36px; border: 0; border-radius: 10px; background: var(--nzc-grad); color: var(--nzc-on-accent); cursor: pointer; }
+.sup-composer button { display: grid; place-items: center; flex: none; inline-size: 36px; block-size: 36px; border: 0; border-radius: 10px; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); cursor: pointer; }
 .sup-composer button:disabled { opacity: 0.45; cursor: not-allowed; }
 .sup-mine { justify-self: end; display: grid; gap: 4px; max-inline-size: 88%; }
 .sup-mine p { margin: 0; padding: 10px 14px; border-radius: 16px 4px 16px 16px; background: color-mix(in srgb, var(--nzc-accent) 18%, var(--nzc-card)); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -2587,4 +2603,36 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 .knd-check { display: flex; align-items: center; gap: 8px; }
 .knd .nz-card { display: grid; gap: 12px; align-content: start; }
 .knd .nz-h2, .knd .nz-h3 { margin: 0; }
+
+/* Orange touches (the website's second brand colour): small and few, one per card or less. Teal stays the main colour, focus rings stay teal, cards stay flat. */
+/* the slider's main button is the website's orange pill; its active dot is orange */
+.nzc-home-slider .nzc-slide-link { background: var(--nzc-orange-grad); color: var(--nzc-orange-ink) !important; font-weight: 700; }
+.nzc-home-slider .nzc-slide-link:hover { background: linear-gradient(165deg, #f5c39b 0%, #eda977 100%); }
+.nzc-home-slider .nzc-slide-tabs button[aria-pressed='true']::after { background: var(--nzc-orange); }
+/* the arrow button of the dark service card is orange; the others turn orange on hover or focus */
+.nzc .nzc-home-service[data-service='compute'] .nzc-home-service-open, .nzc .nzc-home-service:is(:hover, :focus-visible) .nzc-home-service-open { background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); }
+/* one peach card: the "what will you build" card, with the website's orange on the string values of its code artwork */
+.nzc-home-build .nb-editor pre b { color: #f2b98c; }
+.nzc .nzc-home-build { background-color: color-mix(in srgb, var(--nzc-card) 86%, #e9a16d); }
+.nzc[data-theme="light"] .nzc-home-build > div > span { color: var(--nzc-orange-text); }
+/* the overview card: the dot in its footer and a short bar under the number */
+.nzc-home-overview-foot i { background: var(--nzc-orange); }
+.nzc-home-orbit strong::after { content: ""; display: block; inline-size: 26px; block-size: 3px; margin: 6px auto 0; border-radius: 3px; background: var(--nzc-orange); }
+/* key figures: the icon sits in a soft orange chip (the first figure of every row, and any figure marked accent="orange"); no edge lines on cards */
+.nzc-stat[data-accent="orange"] .nzc-stat-label .nzc-icon, .nzc-stats > .nzc-stat:first-child .nzc-stat-label .nzc-icon { box-sizing: content-box; padding: 5px; border-radius: 50%; background: var(--nzc-orange-soft); color: var(--nzc-orange-text); }
+/* needs attention: the count is the orange pill, warning dots are orange */
+.nzc-status-attention .nzc-status-count[data-alert='true'] { background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); }
+.nzc-status-dot[data-tone='warn'] { background: var(--nzc-orange-strong); }
+.nzc-status-attention .nzc-status-dot[data-tone='warn'], .nzc[data-theme="dark"] .nzc-status-dot[data-tone='warn'] { background: var(--nzc-orange); }
+
+/* Orange across every console page, through the shared classes: one accent per section, teal stays the main colour. Primary buttons are orange above (.nz-btn). */
+/* the active tab's underline and the page title's short underline */
+.nzc-tab[aria-current="page"]::after, .nzc-tab[data-current]::after { background: var(--nzc-orange); }
+.nzc .nz-h1::after, .nzc-hero h1:not(.nz-h1)::after { content: ""; display: block; inline-size: 32px; block-size: 3px; margin-block-start: 8px; border-radius: 3px; background: var(--nzc-orange); }
+/* attention chips and strips: the warn tone is the website's orange */
+.nzc .nz-badge[data-tone="warn"], .nzc .nz-banner[data-tone="warn"], .nzc-method-soon { background: var(--nzc-orange-soft); color: var(--nzc-orange-text); border-color: transparent; }
+/* progress: meters are orange, and the largest row of a bar list */
+.nzc .nz-meter { accent-color: var(--nzc-orange-strong); }
+.nzc .nz-bars li:first-child .nz-bar > span { background: var(--nzc-orange-grad); }
+
 `;

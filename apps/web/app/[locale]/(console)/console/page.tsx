@@ -259,6 +259,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             <StatTile
               icon="wallet"
               featured
+              accent="orange"
               label={t(locale, 'dash.stat.wallet')}
               href={`${base}/billing/payments#wallet`}
               value={
@@ -300,6 +301,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           {activeOps !== null && ops && (
             <StatTile
               icon="cloud"
+              accent="orange"
               label={t(locale, 'dash.stat.ops')}
               href={`${base}/operations`}
               value={

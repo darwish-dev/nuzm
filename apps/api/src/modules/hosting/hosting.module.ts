@@ -17,6 +17,7 @@ import { AdminAgentsController } from './admin-agents.controller';
 import { AdminNodesController } from './admin-nodes.controller';
 import { AdminSitesController } from './admin-sites.controller';
 import { HostingPlansController } from './hosting-plans.controller';
+import { PublicPlansController } from './public-plans.controller';
 import { AdminAbuseController } from './admin-abuse.controller';
 import { SiteAbuseController } from './site-abuse.controller';
 import { BackupDownloadsController } from './backup-downloads.controller';
@@ -117,6 +118,7 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
     AdminAgentsController,
     AdminSitesController,
     HostingPlansController,
+    PublicPlansController,
     SitesController,
     SiteDomainsController,
     SiteSslController,

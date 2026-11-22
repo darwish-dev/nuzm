@@ -783,9 +783,15 @@ export function ContactsForm({
 }
 
 /** UI-M07-07: transfer in. The authorization code is write-only: it is cleared from the form as soon as it is sent. */
-export function TransferForm({ locale }: { locale: Locale }) {
+export function TransferForm({
+  locale,
+  initialName = '',
+}: {
+  locale: Locale;
+  initialName?: string;
+}) {
   const router = useRouter();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [auth, setAuth] = useState('');
   const [contact, setContact] = useState<ContactForm>(emptyContact());
   const [consent, setConsent] = useState(false);

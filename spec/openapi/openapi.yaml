@@ -6388,6 +6388,19 @@ paths:
               schema: { $ref: '#/components/schemas/HostingPlanList' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+  /v1/public/hosting-plans:
+    get:
+      operationId: listPublicHostingPlans
+      tags: [hosting]
+      summary: List the published hosting plans (public)
+      description: "The plans the owner has published: active, with a price that is not a placeholder, cheapest first. No sign-in and no organization, so there is no capacity or residency check here: whether a plan can be bought for an account and region is only ever confirmed by `/v1/offers`. Used by the public website's plan sections. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default)."
+      security: []
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHostingPlanList' }
   /v1/hosting/sites:
     post:
       operationId: createHostingSite
@@ -17800,6 +17813,37 @@ components:
         runtimes: { type: array, items: { type: string } }
         regions: { type: array, items: { type: string } }
         country: { type: [string, 'null'] }
+    PublicHostingPlan:
+      type: object
+      required: [key, name, quotas, runtimes, price]
+      properties:
+        key: { type: string }
+        name:
+          {
+            type: object,
+            required: [ar, en],
+            properties: { ar: { type: string }, en: { type: string } },
+          }
+        quotas:
+          type: object
+          required: [diskMb, bandwidthGb, dbCount, sitesCount]
+          properties:
+            diskMb: { type: integer }
+            bandwidthGb: { type: integer }
+            dbCount: { type: integer }
+            sitesCount: { type: integer }
+        runtimes: { type: array, items: { type: string } }
+        price:
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor: { type: string, description: 'Integer minor units, as a string.' }
+            currency: { type: string }
+    PublicHostingPlanList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PublicHostingPlan' } }
     HostingPlanList:
       type: object
       required: [items]

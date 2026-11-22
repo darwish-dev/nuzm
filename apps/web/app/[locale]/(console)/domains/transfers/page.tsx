@@ -8,8 +8,15 @@ import { requireSession } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
 
 /** UI-M07-07: transfers list and the start-transfer form (authorization code is write-only); locked and unsupported states have their own messages. */
-export default async function Transfers({ params }: { params: Promise<{ locale: string }> }) {
+export default async function Transfers({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ domain?: string }>;
+}) {
   const { locale } = await params;
+  const { domain } = await searchParams;
   if (!isLocale(locale)) notFound();
   const s = await requireSession(locale);
   if (!s.org || !s.can('domain:read'))
@@ -81,7 +88,10 @@ export default async function Transfers({ params }: { params: Promise<{ locale: 
               <li>{t(locale, 'dom.tr.step2')}</li>
               <li>{t(locale, 'dom.tr.step3')}</li>
             </ol>
-            <TransferForm locale={locale} />
+            <TransferForm
+              locale={locale}
+              initialName={(domain ?? '').trim().toLowerCase().slice(0, 253)}
+            />
           </div>
         </section>
       )}

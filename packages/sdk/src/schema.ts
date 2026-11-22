@@ -3696,6 +3696,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/hosting-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the published hosting plans (public)
+         * @description The plans the owner has published: active, with a price that is not a placeholder, cheapest first. No sign-in and no organization, so there is no capacity or residency check here: whether a plan can be bought for an account and region is only ever confirmed by `/v1/offers`. Used by the public website's plan sections. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).
+         */
+        get: operations["listPublicHostingPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/hosting/sites": {
         parameters: {
             query?: never;
@@ -10749,6 +10769,28 @@ export interface components {
             runtimes: string[];
             regions: string[];
             country?: string | null;
+        };
+        PublicHostingPlan: {
+            key: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            quotas: {
+                diskMb: number;
+                bandwidthGb: number;
+                dbCount: number;
+                sitesCount: number;
+            };
+            runtimes: string[];
+            price: {
+                /** @description Integer minor units, as a string. */
+                amountMinor: string;
+                currency: string;
+            };
+        };
+        PublicHostingPlanList: {
+            items: components["schemas"]["PublicHostingPlan"][];
         };
         HostingPlanList: {
             items: components["schemas"]["HostingPlan"][];
@@ -20437,6 +20479,26 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+        };
+    };
+    listPublicHostingPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHostingPlanList"];
+                };
+            };
         };
     };
     listHostingSites: {

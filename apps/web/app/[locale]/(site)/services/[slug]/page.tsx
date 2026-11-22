@@ -1,3 +1,4 @@
+import { DomainTools } from '../../../../../components/site/DomainTools';
 import { ServicePlans } from '../../../../../components/site/ServicePlans';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -44,6 +45,7 @@ export default async function ServicePage({
       mode={mode}
       hero={<ServiceHero locale={locale} s={s} />}
     >
+      {s.slug === 'domains' && <DomainTools locale={locale} />}
       <PointsSection locale={locale} s={s} />
       <StepsSection locale={locale} s={s} />
       <ServicePlans locale={locale} slug={s.slug} />

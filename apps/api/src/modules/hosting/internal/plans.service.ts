@@ -51,6 +51,29 @@ export const planRow = (r: Row): PlanRow => ({
   nameAr: r.name_ar as string,
   nameEn: r.name_en as string,
 });
+/** A published plan as the public website shows it: limits and price only, no ids, regions or capacity. */
+export interface PublicPlanDto {
+  key: string;
+  name: { ar: string; en: string };
+  quotas: { diskMb: number; bandwidthGb: number; dbCount: number; sitesCount: number };
+  runtimes: string[];
+  price: { amountMinor: string; currency: string };
+}
+export const publicPlan = (p: PlanRow): PublicPlanDto | null =>
+  p.status === 'active' && !p.placeholder && p.priceMinor !== null
+    ? {
+        key: p.key,
+        name: { ar: p.nameAr, en: p.nameEn },
+        quotas: {
+          diskMb: Number(p.quotas.diskMb),
+          bandwidthGb: Number(p.quotas.bandwidthGb),
+          dbCount: Number(p.quotas.dbCount),
+          sitesCount: Number(p.quotas.sitesCount),
+        },
+        runtimes: p.runtimes,
+        price: { amountMinor: p.priceMinor, currency: p.currency },
+      }
+    : null;
 export const planNeed = (p: PlanRow): Need => ({
   cpu_millicores: Number(p.reservation.cpu_millicores),
   memory_mb: Number(p.reservation.memory_mb),
@@ -119,6 +142,21 @@ export class PlansService {
       candidateRegions: [...candidate].sort(),
       residencyDenied: candidate.size > 0 && allowed.length === 0,
     };
+  }
+
+  /**
+   * `GET /v1/public/hosting-plans`: the plans the owner has published (active, price not a placeholder), cheapest first. No capacity or residency check
+   * (there is no organization): availability for an account and region is only ever confirmed by `/v1/offers` when it orders.
+   */
+  async listPublished(): Promise<PublicPlanDto[]> {
+    return this.db.withPlatformScope(async (c) => {
+      const rows = (
+        await c.query(
+          `SELECT * FROM hosting.plan_definitions WHERE status = 'active' AND placeholder = false AND price_minor IS NOT NULL ORDER BY price_minor, key`,
+        )
+      ).rows.map(planRow);
+      return rows.flatMap((r) => publicPlan(r) ?? []);
+    });
   }
 
   /** `GET /v1/hosting/plans`: ONLY plans that have at least one eligible node with room for the plan (capacity-less plans are hidden). */

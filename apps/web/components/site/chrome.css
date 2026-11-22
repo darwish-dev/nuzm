@@ -5,3 +5,326 @@
   min-height: 72px;
   flex-shrink: 0;
 }
+
+/* plan cards on the services pages: a pricing table, the middle card of a trio highlighted */
+.landing .pl-group + .pl-group {
+  margin-block-start: 44px;
+}
+.landing .pl-group-title {
+  margin: 0 0 18px;
+  font-size: 20px;
+  font-weight: 650;
+}
+.landing .pl-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  align-items: stretch;
+}
+.landing .pl-grid[data-count='1'],
+.landing .pl-grid[data-count='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-inline-size: 820px;
+}
+.landing .pl-grid[data-count='1'] {
+  grid-template-columns: minmax(0, 420px);
+}
+.landing .pl-card {
+  display: flex;
+  flex-direction: column;
+  padding: 34px 32px 30px;
+  border-radius: 28px;
+  background: var(--surface);
+}
+.landing .pl-card.is-featured {
+  background: color-mix(in srgb, var(--surface) 82%, #8fb8b0);
+  box-shadow: 0 30px 70px #00000055;
+}
+.landing .pl-name {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 650;
+}
+.landing .pl-sub {
+  min-block-size: 3.2em;
+  margin: 0 0 22px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.landing .pl-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-block-end: 22px;
+}
+.landing .pl-price strong {
+  font-size: 44px;
+  line-height: 1;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.landing .pl-price span {
+  font-size: 18px;
+  color: var(--muted);
+}
+.landing .pl-button {
+  inline-size: 100%;
+  min-block-size: 54px;
+  box-sizing: border-box;
+  padding-block: 15px;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.landing .pl-fine {
+  min-block-size: 4.6em;
+  margin: 14px 0 22px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.landing .pl-block {
+  margin-block-start: 8px;
+  padding-block-start: 22px;
+}
+.landing .pl-block h4 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.landing .pl-block ul {
+  display: grid;
+  gap: 13px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.landing .pl-block li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+}
+.landing .pl-block li svg {
+  flex: none;
+  color: #6fcf9f;
+}
+.landing .pl-block li.is-off {
+  color: var(--muted);
+  opacity: 0.6;
+}
+.landing .pl-block li i {
+  display: inline-block;
+  inline-size: 15px;
+  text-align: center;
+  font-style: normal;
+}
+.landing .pl-all {
+  margin: 28px 0 0;
+  text-align: center;
+}
+.landing .pl-all a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  color: var(--blue);
+}
+[dir='rtl'] .landing .pl-all svg {
+  transform: scaleX(-1);
+}
+@media (max-width: 980px) {
+  .landing .pl-grid,
+  .landing .pl-grid[data-count='2'] {
+    grid-template-columns: 1fr;
+    max-inline-size: 520px;
+    margin-inline: auto;
+  }
+  .landing .pl-fine,
+  .landing .pl-sub {
+    min-block-size: 0;
+  }
+}
+
+/* the public domains tool (register / transfer) */
+.landing .dt-card {
+  display: grid;
+  gap: 22px;
+  padding: 36px;
+  border-radius: 28px;
+  background:
+    radial-gradient(
+      ellipse at 90% -10%,
+      color-mix(in srgb, var(--blue) 18%, transparent),
+      transparent 60%
+    ),
+    var(--surface);
+}
+.landing .dt-head h2 {
+  margin: 8px 0 8px;
+}
+.landing .dt-head p {
+  margin: 0;
+  max-inline-size: 60ch;
+  color: var(--muted);
+}
+.landing .dt-tabs {
+  display: inline-flex;
+  justify-self: start;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 14px;
+  background: #ffffff0f;
+}
+.landing[data-mode='light'] .dt-tabs {
+  background: #22262d0d;
+}
+.landing .dt-tabs button {
+  padding: 10px 22px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.landing .dt-tabs button[aria-selected='true'] {
+  background: #f6f5f1;
+  color: #22262d;
+}
+.landing .dt-tabs button:focus-visible,
+.landing .dt-field input:focus-visible {
+  outline: 3px solid #7eaea3;
+  outline-offset: 2px;
+}
+.landing .dt-panel {
+  display: grid;
+  gap: 18px;
+}
+.landing .dt-panel[hidden] {
+  display: none;
+}
+.landing .dt-field {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 10px 10px 22px;
+  border-radius: 999px;
+  background: #ffffff0f;
+  color: var(--muted);
+}
+[dir='rtl'] .landing .dt-field {
+  padding: 10px 22px 10px 10px;
+}
+.landing[data-mode='light'] .dt-field {
+  background: #22262d0d;
+}
+.landing .dt-field input {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+}
+.landing .dt-field input::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+.landing .dt-field .button {
+  flex: none;
+}
+.landing .dt-tlds p,
+.landing .dt-note {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.landing .dt-tlds > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.landing .dt-tlds label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: #ffffff0f;
+  cursor: pointer;
+}
+.landing[data-mode='light'] .dt-tlds label {
+  background: #22262d0d;
+}
+.landing .dt-tlds label:has(input:checked) {
+  background: color-mix(in srgb, var(--blue) 26%, transparent);
+}
+.landing .dt-tlds label span {
+  font-size: 17px;
+  font-weight: 700;
+}
+.landing .dt-tlds label small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.landing .dt-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.landing .dt-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.landing .dt-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #ffffff0a;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.landing[data-mode='light'] .dt-steps li {
+  background: #22262d08;
+}
+.landing .dt-steps b {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #cfe8da, #93b6b3);
+  color: #14181b;
+  font-size: 13px;
+}
+@media (max-width: 700px) {
+  .landing .dt-card {
+    padding: 24px 18px;
+  }
+  .landing .dt-field {
+    flex-wrap: wrap;
+    border-radius: 24px;
+  }
+  .landing .dt-field .button {
+    inline-size: 100%;
+  }
+}
+.landing .dt-field input {
+  background: transparent !important;
+  box-shadow: none !important;
+}

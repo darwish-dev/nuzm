@@ -34,6 +34,10 @@ export const USERS = [
   { sub: 'e2e-approver2-en', email: 'approver2-en@example.test', name: 'Faisal Admin' },
 ];
 
+/** How long a server may take to come up. Defaults are for an idle machine; `E2E_SERVER_TIMEOUT_MS` raises them when other work shares the machine (it never lowers them). */
+const SERVER_START_MS = (dflt: number) =>
+  Math.max(dflt, Number(process.env.E2E_SERVER_TIMEOUT_MS) || 0);
+
 export default defineConfig({
   testDir: './tests',
   timeout: 120_000,
@@ -57,7 +61,7 @@ export default defineConfig({
     {
       command: 'pnpm --filter @nuzm/api run dev:stack',
       url: `${API}/healthz`,
-      timeout: 180_000,
+      timeout: SERVER_START_MS(180_000),
       reuseExistingServer: false,
       env: {
         PORT: String(API_PORT),
@@ -85,14 +89,14 @@ export default defineConfig({
     {
       command: `pnpm --filter @nuzm/web exec next start -p ${WEB_PORT} -H 127.0.0.1`,
       url: `${WEB}/ar/login`,
-      timeout: 120_000,
+      timeout: SERVER_START_MS(120_000),
       reuseExistingServer: false,
       env: { PSP_SANDBOX_UI: 'true', API_ORIGIN: API, WEB_ORIGIN: WEB, ADMIN_ORIGIN: ADMIN }, // the e2e API runs the sandbox PSP, so the sandbox card picker is shown
     },
     {
       command: `pnpm --filter @nuzm/admin exec next start -p ${ADMIN_PORT} -H 127.0.0.1`,
       url: `http://127.0.0.1:${ADMIN_PORT}/ar/login`,
-      timeout: 120_000,
+      timeout: SERVER_START_MS(120_000),
       reuseExistingServer: false,
       // the consoles read these at run time (sign-in return address, API for server-side rendering)
       env: { API_ORIGIN: API, WEB_ORIGIN: WEB, ADMIN_ORIGIN: ADMIN },

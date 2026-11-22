@@ -1,15 +1,15 @@
 # Remediation plan — pre-existing test and check failures
 
-Date: 2026-11-22 · Status: **R1, R2 and R4 FIXED (2026-11-22, owner's go-ahead; see "Done" under each). R3 and R5 remain a PLAN and need the owner's decision.** None of these failures was caused by the S-AG3/S-AG4 work: each was reproduced or traced to a commit that predates it (evidence per item). Each item says whether it needs the owner's decision.
+Date: 2026-11-22 · Status: **R1–R5 all DONE (2026-11-22; R1/R2/R4 on the owner's go-ahead, R3 option A and R5 approved the same day; see "Done" under each).** None of these failures was caused by the S-AG3/S-AG4 work: each was reproduced or traced to a commit that predates it (evidence per item). Each item says whether it needs the owner's decision.
 
 Summary
 | # | Failure | Root cause (verified) | Fix size | Owner decision? |
 |---|---|---|---|---|
 | R1 ✅ | `domains-search.int.spec.ts` registrar matrix | the `dnet` registrar row added by migration `0930` (2026-11-21) is listed but the test still expects two | XS (one test) | No |
 | R2 ✅ | `pnpm scan:secrets`: 1 finding | a test constant named `SECRET` with a long literal matches the scanner's rule | XS (one test) | No |
-| R3 | `pnpm zatca:guard` | one ZATCA generator file changed in `8e314fd` (UUID regex now imported) without a re-pin | XS + a process rule | **Yes** (ZATCA artefacts) |
+| R3 ✅ | `pnpm zatca:guard` | one ZATCA generator file changed in `8e314fd` (UUID regex now imported) without a re-pin | XS + a process rule | **Yes** (ZATCA artefacts) |
 | R4 ✅ | admin tests time out under the parallel run | pure-JS SHA-256 over 16 MiB fixtures; CPU contention when many workers run | S | No |
-| R5 | `pnpm test` cannot start Playwright | fixed default ports; the owner's own dev stack holds 4000 | S | Yes (changes the documented command set) |
+| R5 ✅ | `pnpm test` cannot start Playwright | fixed default ports; the owner's own dev stack holds 4000 | S | Yes (changes the documented command set) |
 
 Recommended order: R2, R1, R4 (quick, independent) → R3 (after the owner's approval) → R5.
 
@@ -35,7 +35,12 @@ Recommended order: R2, R1, R4 (quick, independent) → R3 (after the owner's app
 - **B. Revert the import in `validator.ts`** to the local regex (hash returns to the pinned value; no re-pin). Zero risk to the pin, but undoes the repository-wide de-duplication for one file and still leaves the guard blind to imports.
 **Verify.** `pnpm zatca:guard` prints `zatca guard OK`; the invoicing ZATCA unit specs pass; `git diff` shows only `validator.ts`/VERSION/CHANGELOG/guard list.
 **Process rule.** Run `pnpm verify` before committing changes under `spec/` or any file the guards watch (or add a pre-push hook once a remote exists, D-01).
-**Decision: the owner.** ZATCA artefacts are on the "never without explicit human action" list; this is not production onboarding or submission, but the pin is the owner's record, so the agent will not re-pin on its own.
+**Done (option A, approved by the owner).**
+- Baseline before: the invoicing/ZATCA unit specs passed (117); the guard failed.
+- Pin 1 (`72feedaa54e981ce`): recorded for the validator change of `8e314fd`, with the note and the changelog entry. A new test in `packages/domain/src/ids.spec.ts` pins the exact pattern and flags of the shared `UUID` (`^[0-9a-f]{8}-…-[0-9a-f]{12}$`, `i`), the same source the validator declared locally.
+- Pin 2 (`c79aab4d57ab7ecc`): the guard now also hashes `packages/domain/src/ids.ts` (ten files; the only value the generator files import from outside their directory that affects output: `common/errors` supplies an error class only). Proven: an edit to `ids.ts` makes the guard fail, restoring it passes.
+- `pnpm zatca:guard`: OK; only `scripts/zatca-spec-guard.ts`, `spec/zatca/VERSION`, `spec/zatca/CHANGELOG.md` and the domain test changed; no generator file was edited, so no e-invoice behaviour changed. The spec stays `UNPINNED` and every output stays NOT VERIFIED vs ZATCA (no official documents were supplied).
+**Decision: the owner (given).**
 
 ## R4 — `apps/admin` tests time out in the parallel unit run
 **Evidence.** Failures seen: `lib/knowledge-upload.spec.ts` (3–4 tests, "Test timed out in 30000ms") and once `components/KnowledgeIngestion.spec.tsx`. Alone, the admin suite passes 348/348 and `knowledge-upload.spec.ts` alone passes 22/22 in about 20 s. The slow tests are the ones that hash `randomBytes(2 * PART_HINT + 1234)` (about 16 MiB) with the pure-JavaScript `Sha256` class (`lib/knowledge-upload.ts`): 2–4 s each when the machine is idle. `turbo run test` starts about 50 tasks on 4 CPUs; vitest isolates each file in its own worker ("23 workers spawned"), so the hashing competes for CPU and exceeds the 30 s `testTimeout`. The jsdom render tests suffer the same way.
@@ -58,8 +63,24 @@ Recommended order: R2, R1, R4 (quick, independent) → R3 (after the owner's app
 2. **Preflight with a useful message.** In `e2e/playwright.config.ts` (or a global pre-check) test the four ports before starting and, if one is busy, print which process holds it and the isolated command below instead of Playwright's generic error.
 3. **A packaged isolated run** (`scripts/e2e-isolated.sh`, same steps used successfully during S-K6/S-AG3): pick free ports; create and migrate a throw-away database on the project cluster; rebuild both consoles with `API_ORIGIN` pointing at the chosen API port (it is baked in at build time); export `E2E_WEB_PORT`, `E2E_ADMIN_PORT`, `E2E_API_PORT`, `E2E_IDP_PORT`, `E2E_DB`, `E2E_PG_PORT`; run `playwright test`; drop the database. The `E2E_*` variables already exist in `e2e/tests/env.ts`.
 **Verify.** With the owner's dev stack running: `pnpm test:unit` passes; `pnpm test:e2e:isolated` passes on alternate ports; with ports free, `pnpm test:e2e` behaves as today.
-**Risk.** The isolated script must never touch ports or databases it did not create. **Decision: the owner** (command set in `CLAUDE.md`).
+**Done (approved by the owner).**
+- `pnpm test` is now `pnpm test:unit`: DB-free unit tests only, `turbo run test --concurrency=${TEST_CONCURRENCY:-2}` (the Playwright package's script was renamed `e2e`, so turbo no longer runs it). `pnpm test:integration` is unchanged.
+- `pnpm test:e2e` builds both consoles and runs `pnpm --filter @nuzm/e2e run e2e`, which first runs `e2e/preflight.mjs`: it names any process holding the four ports and exits 1 without stopping anything (shown against the owner's dev stack: 3000, 3001, 4000, 4010).
+- `pnpm test:e2e:isolated` (`scripts/e2e-isolated.sh`): four free ports, a throw-away database, rebuild for those ports, Playwright (extra arguments pass through), drop the database and the object store on exit. Verified: two specs passed in `ar` and `en` beside the owner's dev stack, and no database or store directory was left behind.
+- Combined workflows preserved: `pnpm verify` (what CI runs: static checks, unit tests, build, spec, SDK, secrets, ZATCA, claims; no services or browsers), `pnpm verify:full` (adds migrations, RLS, compliance coverage, integration **and** the E2E) and `pnpm verify:full:isolated` (the same with the isolated E2E). `.github/workflows/ci.yml` keeps `verify` and gains a `full` job (not run anywhere: no remote, D-01). `CLAUDE.md` §1 and `scripts/README.md` describe the commands.
+**Decision: the owner (given).**
 
 ---
 ## Verification of the whole plan
 After R1–R5: `pnpm lint && pnpm typecheck && pnpm test:unit && pnpm spec:lint && pnpm spec:drift && pnpm sdk:check && pnpm scan:secrets && pnpm zatca:guard && pnpm compliance:claims-guard`, then `pnpm test:integration` (expect 0 failures), then the isolated E2E. Record the exact results in the next report; never mark a row PASS without the command output.
+
+---
+## New findings while carrying out R3 and R5 (2026-11-22)
+**R6 — the browser E2E suite is stale for most older specs (pre-existing; NOT fixed here).** Running the whole suite for the first time on isolated ports showed:
+- `01-customer` expects the pre-redesign home ("أنشئ أول مؤسسة لك"); sign-in now lands on `/orgs/new` ("إنشاء مؤسسة"); `03-billing` waits for "المؤسسة الحالية: …", text that the console redesign (`60f8458`) replaced by the new dashboard. Most of specs 01–13 were written against the earlier console and fail at their first assertions; several admin specs then wait out their 2-minute timeouts. `CLAUDE.md`'s "verify:full exit 0 at M02 close" predates the redesign.
+- `14-ai-knowledge` test 1 fails with a strict-mode locator clash (`getByLabel('File')` also matches the section "File inventory", added with S-K2a, `a37c2a0`, after the spec was last edited); its tests 2 and 3 assert global zero counts and so fail in the `en` project once the `ar` project's specs 15 and 16 have activated templates in the same database (run alone they were verified in `ar` and `en` by S-K1).
+- Specs 15, 16, 17 and 18 pass in `ar` and `en` with axe (22 of 26 results in the run of specs 14–18; the 4 failures are the two items above).
+- **Fix plan (a separate task, needs time, no owner decision):** update the older specs to the redesigned console, scope the zero-count assertions of spec 14 to its own rows, then run the whole suite isolated and record the result. Until then `pnpm test:e2e` / `verify:full` will fail at those specs; that is the stale specs, not the commands.
+
+**R7 — E2E specs ignored the configured database (fixed here).** Nineteen specs opened their own connection to `postgres://nuzm_admin@127.0.0.1:54329/nuzm_e2e` instead of the `DB_URL` of `e2e/tests/env.ts`, so `E2E_DB` and `E2E_PG_PORT` did not isolate them: on a machine whose default cluster holds a `nuzm_e2e` database they would have written into it. They now import `DB_URL` (this is what made `test:e2e:isolated` safe). The Playwright server start timeouts can be raised with `E2E_SERVER_TIMEOUT_MS` (they were exceeded when other sessions loaded the machine to a load average above 100).
+

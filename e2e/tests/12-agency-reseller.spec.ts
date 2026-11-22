@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
+import { DB_URL as DB } from './env';
 
 /**
  * Agency and reseller screens of M11 (UI-M11-10..19), customer console, Arabic and English projects.
@@ -15,7 +16,6 @@ import { T, audit, loc, signIn } from './helpers';
  * the consolidated billing screen is asserted BLOCKED.
  */
 
-const DB = 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_e2e';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();

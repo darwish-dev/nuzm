@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc } from './helpers';
+import { DB_URL as DB } from './env';
 
 /**
  * M07 domain screens (UI-M07-01..08 customer, UI-M07-09..12 admin) in ar and en. NOT RUN in the session that wrote it (the e2e ports belong to other sessions):
@@ -8,7 +9,6 @@ import { T, audit, loc } from './helpers';
  * DOMAINS_DEV_MOCKS: the registrars are local MOCKS, so what is shown is NOT VERIFIED vendor behaviour.
  */
 const ADMIN = 'http://127.0.0.1:3001';
-const DB = 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_e2e';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();

@@ -19,6 +19,8 @@ const GENERATOR_FILES = [
   `${DIR}/csr.ts`,
   `${DIR}/validator.ts`,
   'spec/zatca/synthetic-profile.yaml',
+  // a value the generator IMPORTS: the guard hashes file text, not imports, so a change to the shared UUID pattern would otherwise change e-invoice validation with no re-pin
+  'packages/domain/src/ids.ts',
 ];
 
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');

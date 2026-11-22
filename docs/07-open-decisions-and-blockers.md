@@ -22,7 +22,7 @@ Rules: agents may **not** assume an answer to any item marked `OPEN`. A "propose
 | D-15 | Control-plane hosting location; in-Kingdom backup target | S13 | Verified Saudi ECS region(s) from M05 (circular: bootstrap runs on bootstrap infra; production hosting decided before staging) | OPEN |
 | D-16 | PDPL role per data category (controller vs processor), DPO appointment, lawful bases | S13 | Counsel decision | OPEN (legal) |
 | D-17 | NCA/CST applicability scope (ECC, CCC, data cybersecurity controls, CST cloud framework registration/classification) | S13 | Counsel + security officer determination | OPEN (legal) |
-| D-18 | AI model providers and inference residency | S37 | Gateway supports multiple; in-Kingdom/hosted models vs external APIs governed by D-14/D-16 | OPEN |
+| D-18 | AI model providers and inference residency | S37 | Gateway supports multiple; in-Kingdom/hosted models vs external APIs governed by D-14/D-16 | OPEN. 2026-11-22: owner's technical direction PROPOSED (Claude first, provider-neutral, live calls off until residency approved); legal option NOT decided and no international transfer approved: [S-AG4-DECISIONS](ai-intelligence/S-AG4-DECISIONS.md) D1, D5 |
 | D-19 | Domain TLD portfolio; `.sa` eligibility/registration route (SaudiNIC accreditation/partner) | S28 | Counsel/commercial | OPEN |
 | D-20 | CloudPanel automation path | S24 | Validate documented API/CLI first; else authenticated node agent; **never UI scraping** | OPEN (decided by M06 PoC evidence) |
 | D-21 | Sandbox isolation technology | S45 | gVisor / Firecracker / Kata on dedicated nodes; decided with security review | OPEN |
@@ -85,7 +85,7 @@ Status vocabulary: `PENDING` (not started), `REQUESTED`, `GRANTED (evidence)`, `
 | HG-08-02 | Object-storage provider (D-07) contracted or verified; credentials | Owner | S34 | Same |
 | HG-08-03 | Business-email provider/program (D-09) contracted; reseller access | Owner | S35 | Contract, API access |
 | HG-08-04 | Transactional email provider (D-08) contracted; sending domain, IP/domain warm-up plan, abuse policy | Owner | S36 | Contract, keys |
-| HG-09-01 | Model provider API contracts and enterprise data terms | Owner | S37 | Contract refs |
+| HG-09-01 | Model provider API contracts and enterprise data terms | Owner | S37 | Contract refs. Status 2026-11-22: **OPEN**; Anthropic terms NOT accepted, no attestation exists ([S-AG4-DECISIONS](ai-intelligence/S-AG4-DECISIONS.md) D2) |
 | HG-10-01 | Apple Developer / Google Play accounts and authorized signing material; macOS capacity | Owner | S49 | Account ids; keystore refs |
 | HG-10-02 | Sandbox isolation security review | Security | S45 | Report |
 | HG-10-03 | Independent authorship/ownership of the Reference CRM E2E suite (someone other than the generator's author/agent run) | Owner | S47 | Named author, repo ref, sign-off |

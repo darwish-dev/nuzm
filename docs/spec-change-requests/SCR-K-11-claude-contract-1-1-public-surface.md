@@ -23,3 +23,9 @@ Related: ADR-066, SCR-K-10 §2 and §7, `docs/ai-intelligence/S-AG4-PREP.md`, `d
 
 ## 3. Out of scope
 OpenAI and Gemini adapters (they implement the same contract; their public surface is identical), embeddings, any execution tool, any production rollout.
+
+## 4. Validation of the proposal (2026-11-22; details in `docs/ai-intelligence/S-AG4-DECISIONS.md` §2)
+- `scripts/scr-k-11-draft.ts <dir>` builds the proposal from the current spec into draft documents (never into `spec/`); `scripts/openapi-compat.ts <base> <head>` compares them (rules and tests: `packages/sdk/src/compat.ts`).
+- Item 1 as three capability strings (`draft-enum`): 0 breaking, **1 warning** (a value added to a response enum). Item 1 as a boolean `supportsTools` (`draft-flag`): **0 breaking, 0 warnings**. Items 2–4 (provider fields, two new request-enum values and their optional fields): 0 breaking.
+- Both drafts pass Spectral; the SDK generates from both; `apps/web`, `apps/admin` and `apps/api` typecheck against the generated types. Recommendation unchanged: item 1 as the boolean.
+- Not applied to `spec/openapi/openapi.yaml`. Applying needs the owner's acceptance (D7).

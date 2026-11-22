@@ -1,7 +1,7 @@
 # S-AG4 preparation — Anthropic Claude as the proposed first provider
 
 Date: 2026-11-22 · Status: **PREPARED, NOT ENABLED.** Claude is the *proposed* first provider; D-18 (provider and residency) and HG-09-01 (contract and data terms) are still **OPEN**. Nothing here is a statement about Anthropic's contract terms, regions or retention: those facts come only from the signed agreement and are recorded by a human. No live provider request has been made or is possible in this build (§5, gate G9).
-Governing documents: ADR-066, SCR-K-10, SCR-K-11, `docs/09 §7`, `docs/adapters/anthropic.md`, `docs/runbooks/anthropic-live-enablement.md`.
+Later documents: the final approval checklist `S-AG4-DECISIONS.md` (supersedes §8 as the checklist), `S-AG4-PROBE-PLAN.md`, `S-AG4-PRICING.md`. Governing documents: ADR-066, SCR-K-10, SCR-K-11, `docs/09 §7`, `docs/adapters/anthropic.md`, `docs/runbooks/anthropic-live-enablement.md`.
 
 ## 1. HG-09-01 — model provider API contract and enterprise data terms (owner)
 **What it must produce.** A signed agreement (or accepted online terms plus a written confirmation) and a reference the platform stores on the provider row: `attestationRef` (3–200 characters) and the flags `retainsPrompts` and `trainsOnData` (`true`, `false` or `unknown`). `attest` is a human platform-admin action; the code refuses an empty reference and never fills the flags itself (`provider.service.ts: attest`).

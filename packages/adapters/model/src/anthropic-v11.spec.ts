@@ -5,6 +5,7 @@ import {
   KIT_TOOLS,
   ModelAdapterError,
   assembleStream,
+  estimateTokens,
   runModelConformance,
   type ClaudeClient,
   type ClaudeContentBlock,
@@ -543,5 +544,15 @@ describe('cancellation and live-call gate', () => {
     expect(e).toBeInstanceOf(ModelAdapterError);
     expect(e.message).not.toContain(KEY);
     expect(e.message).not.toContain('secret');
+  });
+});
+
+describe('pre-flight token estimate', () => {
+  it('carries the documented tokenizer margin so reservations are not too low, and never goes below the plain estimate', () => {
+    const a = make();
+    const messages = [{ role: 'user' as const, content: 'x'.repeat(4000) }];
+    const plain = estimateTokens(messages);
+    expect(a.tokenCount(CLAUDE_MODEL_ID, messages)).toBe(Math.ceil(plain * 1.3));
+    expect(a.tokenCount(CLAUDE_MODEL_ID, messages)).toBeGreaterThan(plain);
   });
 });

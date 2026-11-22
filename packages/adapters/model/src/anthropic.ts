@@ -57,6 +57,9 @@ const PRICING: ProviderPricing = {
   outputPerMillion: '20.00',
 };
 
+/** Pre-flight margin for the tokenizer of this model family (provider documentation, read 2026-11-22: about 30% more tokens for the same text). */
+const TOKENIZER_MARGIN = 1.3;
+
 const safeJson = (v: unknown): string => {
   try {
     return JSON.stringify(v) ?? '';
@@ -166,7 +169,9 @@ export class AnthropicModelAdapter implements ModelAdapter {
   }
 
   tokenCount(_model: string, messages: ModelMessage[]): number {
-    return estimateTokens(messages); // a local estimate; the provider's own count is used whenever it reports one
+    // a local estimate; the provider's own count is used whenever it reports one. The documentation says this model family produces about 30% more tokens for the same text than
+    // the characters/4 rule assumes, so the PRE-FLIGHT estimate (reservations, caps) carries that margin: an estimate that is too low would let a call reserve less than it can use.
+    return Math.ceil(estimateTokens(messages) * TOKENIZER_MARGIN);
   }
 
   async complete(ctx: CallContext, req: CompleteRequest): Promise<CompleteResponse> {

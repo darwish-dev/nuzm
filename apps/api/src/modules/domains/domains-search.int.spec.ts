@@ -16,7 +16,12 @@ describe('registrar registry (S28 task 6)', () => {
     const r = await k.admin('root', 'GET', '/v1/admin/registrars');
     expect(r.statusCode).toBe(200);
     const b = r.json();
-    expect(b.registrars.map((x: any) => x.providerCode)).toEqual(['openprovider', 'resellerclub']);
+    // `dnet` is the seeded, disabled Saudi registrar (migration 1900): it is listed but has no account until the owner supplies its credentials
+    expect(b.registrars.map((x: any) => x.providerCode).sort()).toEqual([
+      'dnet',
+      'openprovider',
+      'resellerclub',
+    ]);
     expect(b.accounts).toHaveLength(2);
     for (const a of b.accounts) {
       expect(a.verification).toBe('NOT VERIFIED');
@@ -203,5 +208,26 @@ describe('GET /v1/domains/search (S28 task 4)', () => {
     const i = r.json().items[0];
     expect(i.available).not.toBe(true);
     expect(i.purchasable).toBe(false);
+  });
+  it('the public checker answers like the dashboard search with no organization, and is rate limited per caller address', async () => {
+    const svc = k.app.get(SearchService) as any;
+    svc.limiter.hits.clear();
+    const pub = await svc.searchPublic('203.0.113.9', { q: 'pub-check-1', tlds: 'com' }, 't1');
+    const dash = await svc.search(k.orgA, 'u', { q: 'pub-check-1', tlds: 'com' }, 't2');
+    // the same names, rules and price policy (availability itself comes from the registry and may differ between two asks)
+    expect(pub.items.map((x: any) => [x.name, x.eligibility, x.premium])).toEqual(
+      dash.items.map((x: any) => [x.name, x.eligibility, x.premium]),
+    );
+    expect(pub.items[0].available).not.toBeUndefined();
+    let denied = 0;
+    for (let i = 0; i < 15; i++)
+      await svc
+        .searchPublic('203.0.113.77', { q: `pub-rl-${i}`, tlds: 'com' }, 't3')
+        .catch(() => denied++);
+    expect(denied).toBeGreaterThanOrEqual(3);
+    // another address is not affected by it
+    await expect(
+      svc.searchPublic('203.0.113.78', { q: 'pub-rl-x', tlds: 'com' }, 't4'),
+    ).resolves.toBeTruthy();
   });
 });

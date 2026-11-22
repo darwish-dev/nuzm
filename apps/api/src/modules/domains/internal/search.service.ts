@@ -97,6 +97,35 @@ export class SearchService {
       });
       throw new ProblemException('rate_limited', 'too many domain searches; try again in a minute');
     }
+    return this.run(q, traceId);
+  }
+
+  /**
+   * The public website's domain checker: the same answer as `search`, with no organization. Rate limited per caller address (stricter than an organization's
+   * limit, and shared by all of that address's searches), nothing is recorded about the caller, and the same eligibility rules and verified registrar accounts decide
+   * what is asked and what is shown as available or purchasable (an unknown answer is never "available").
+   */
+  async searchPublic(
+    caller: string,
+    q: { q?: unknown; tlds?: unknown; country?: unknown },
+    traceId: string,
+  ): Promise<{ items: SearchItem[]; ruleSetVersion: string }> {
+    if (
+      !this.limiter.allow(
+        `public:${caller}`,
+        Math.min(this.cfg.searchRatePerMinute, 12),
+        60_000,
+        this.clock(),
+      )
+    )
+      throw new ProblemException('rate_limited', 'too many domain searches; try again in a minute');
+    return this.run(q, traceId);
+  }
+
+  private async run(
+    q: { q?: unknown; tlds?: unknown; country?: unknown },
+    traceId: string,
+  ): Promise<{ items: SearchItem[]; ruleSetVersion: string }> {
     if (typeof q.q !== 'string' || q.q.trim() === '') throw badRequest('q is required');
     if (
       q.country !== undefined &&

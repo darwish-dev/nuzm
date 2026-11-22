@@ -3716,6 +3716,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/compute-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the server sizes the website shows (public)
+         * @description The eligible compute offers without any organization, grouped by size (vCPU, memory, disk) with the cheapest monthly price per size and the data-region groups it is offered in. A size appears only when a healthy provider account, a verified region (with acceptable evidence for the environment), an available plan and a Nuzm price all exist; priced from the same price book as `/v1/offers` (the placeholder book is refused in production). Residency, entitlement and quota are decided when an organization orders. No provider identity or provider cost. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).
+         */
+        get: operations["listPublicComputePlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/usage-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the published usage prices (public)
+         * @description The pay-as-you-use rates of the price book version in force for a short fixed list of meters (transactional email, object storage, network egress, AI credits). Same book and same production refusal as rating: the DRAFT-NOT-APPROVED placeholder book is never published in production (the list is then empty). Nothing organization specific. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).
+         */
+        get: operations["listPublicUsagePrices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/domains/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check domain availability and price (public)
+         * @description The website's domain checker: the same answer and rules as `/v1/domains/search` (verified registrar accounts only, unknown is never available, price from the same sales policy) with no organization. No sign-in; rate limited per caller address (429); nothing is recorded about the caller. Buying always happens in the dashboard. 404 while off (`PUBLIC_DOMAIN_SEARCH_ENABLED` in production, or the domains feature off).
+         */
+        get: operations["searchDomainsPublic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/hosting/sites": {
         parameters: {
             query?: never;
@@ -10769,6 +10829,36 @@ export interface components {
             runtimes: string[];
             regions: string[];
             country?: string | null;
+        };
+        PublicComputePlan: {
+            vcpu: number;
+            memoryMb: number;
+            diskGb: number;
+            bandwidth?: string;
+            price: {
+                /** @description Integer minor units per month, as a string. */
+                amountMinor: string;
+                currency: string;
+            };
+            regions: string[];
+        };
+        PublicComputePlanList: {
+            items: components["schemas"]["PublicComputePlan"][];
+        };
+        PublicUsagePrice: {
+            meterId: string;
+            /** @enum {string} */
+            model: "flat" | "graduated" | "volume";
+            unitPriceMinor: string | null;
+            tiers: {
+                upTo: string | null;
+                unitPriceMinor: string;
+            }[] | null;
+            includedAllowance: string;
+        };
+        PublicUsagePriceList: {
+            currency: string;
+            items: components["schemas"]["PublicUsagePrice"][];
         };
         PublicHostingPlan: {
             key: string;
@@ -20499,6 +20589,73 @@ export interface operations {
                     "application/json": components["schemas"]["PublicHostingPlanList"];
                 };
             };
+        };
+    };
+    listPublicComputePlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicComputePlanList"];
+                };
+            };
+        };
+    };
+    listPublicUsagePrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicUsagePriceList"];
+                };
+            };
+        };
+    };
+    searchDomainsPublic: {
+        parameters: {
+            query: {
+                q: string;
+                tlds?: string;
+                country?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainSearchResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
         };
     };
     listHostingSites: {

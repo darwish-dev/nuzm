@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatMinorRate,
+  hostingGroups,
+  serverGroups,
+  usageGroups,
   formatPlanPrice,
   groupOf,
   planFeatures,
@@ -58,5 +62,68 @@ describe('public service plans', () => {
       'Node.js',
       'Static',
     ]);
+  });
+
+  it('turns the published data into plan tabs: hosting families, server sizes and usage rates', () => {
+    const g = hostingGroups(
+      'hosting',
+      [plan('web-start', '2900'), plan('webapp-start', '4900'), plan('cloud-startup', '12900')],
+      'en',
+    );
+    expect(g.map((x) => x.id)).toEqual(['web', 'webapp']);
+    expect(g[0]!.cards[0]!.runs!.map((r) => r.on)).toEqual([true, false, false, true]);
+
+    const servers = serverGroups(
+      [
+        {
+          vcpu: 2,
+          memoryMb: 4096,
+          diskGb: 80,
+          bandwidth: '3 TB',
+          price: { amountMinor: '14220', currency: 'SAR' },
+          regions: ['gcc', 'in_kingdom'],
+        },
+      ],
+      'en',
+    );
+    expect(servers[0]!.cards[0]).toMatchObject({ name: '2 vCPU', sub: '4 GB memory · 80 GB disk' });
+    expect(servers[0]!.cards[0]!.price).toMatch(/142\.2/);
+    expect(servers[0]!.cards[0]!.features.at(-1)).toContain('Inside the Kingdom');
+    expect(serverGroups([], 'en')).toEqual([]);
+
+    const usage = {
+      currency: 'SAR',
+      items: [
+        {
+          meterId: 'email.transactional_messages',
+          model: 'flat' as const,
+          unitPriceMinor: '0.1',
+          tiers: null,
+          includedAllowance: '1000',
+        },
+        {
+          meterId: 'ai.credits_consumed',
+          model: 'flat' as const,
+          unitPriceMinor: '1',
+          tiers: null,
+          includedAllowance: '0',
+        },
+        {
+          meterId: 'network.egress_gb',
+          model: 'graduated' as const,
+          unitPriceMinor: null,
+          tiers: [
+            { upTo: '100', unitPriceMinor: '0' },
+            { upTo: null, unitPriceMinor: '2' },
+          ],
+          includedAllowance: '0',
+        },
+      ],
+    };
+    expect(usageGroups('email', usage, 'en')[0]!.cards[0]!.price).toMatch(/1\.00/); // SAR 1 per 1,000 messages
+    expect(usageGroups('ai-builder', usage, 'ar')[0]!.cards[0]!.name).toMatch(/\p{Script=Arabic}/u);
+    expect(usageGroups('data', usage, 'en')[0]!.cards.map((c) => c.key)).toEqual(['egress']);
+    expect(usageGroups('automation', usage, 'en')).toEqual([]);
+    expect(formatMinorRate('0.1', 'SAR', 'en')).toMatch(/0\.001/);
   });
 });

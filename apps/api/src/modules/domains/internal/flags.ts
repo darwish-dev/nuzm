@@ -27,6 +27,25 @@ export class DomainsFlags {
       (typeof v === 'object' && v !== null && (v as { enabled?: unknown }).enabled === true)
     );
   }
+  /** The GLOBAL flag only (no organization): what the public website's domain checker depends on. */
+  async enabledGlobally(): Promise<boolean> {
+    if (process.env.DOMAINS_ENABLED === 'true' && process.env.NODE_ENV !== 'production')
+      return true;
+    const rows = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT value FROM platform.feature_flags WHERE key = $1 AND org_id IS NULL`,
+            [DOMAINS_FLAG],
+          )
+        ).rows,
+    );
+    const v = rows[0]?.value as unknown;
+    return (
+      v === true ||
+      (typeof v === 'object' && v !== null && (v as { enabled?: unknown }).enabled === true)
+    );
+  }
   /** The feature does not exist for an organization that does not have it (404, never 403). */
   async assert(orgId: string): Promise<void> {
     if (!(await this.enabled(orgId))) throw new ProblemException('not_found');

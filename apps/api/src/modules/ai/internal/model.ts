@@ -41,8 +41,6 @@ export interface AiConfig {
    * call before its key is read, whatever its row says: storing a key, attesting terms and enabling a provider do NOT by themselves allow a live request (S-AG4).
    */
   liveProviders: string[];
-  /** The model contract the Claude adapter implements (`AI_CLAUDE_CONTRACT`, '1.0' default). '1.1' declares tool calling for it: only after a live probe is recorded (S-AG4). */
-  claudeContract: '1.0' | '1.1';
 }
 export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   const n = (k: string, d: number, min = 0) => {
@@ -72,7 +70,6 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
             .split(',')
             .map((x) => x.trim())
             .filter((x) => /^[a-z][a-z0-9-]{0,62}$/.test(x)),
-    claudeContract: env.AI_CLAUDE_CONTRACT === '1.1' ? '1.1' : '1.0',
   };
 }
 

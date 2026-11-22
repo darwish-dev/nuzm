@@ -411,8 +411,8 @@ describe('live egress is closed by default (S-AG4 gate)', () => {
   it('the registered Claude adapter refuses every call before its key is read: no request leaves the process even for a fully set-up provider', async () => {
     const real = e.registry.get('claude');
     expect(real).toBeDefined(); // registered outside production
-    expect(real!.contractVersion).toBe('1.0.0'); // tool calling is not even declared until a live probe is recorded
-    expect(real!.models()[0]!.capabilities).not.toContain('tool-use');
+    // the adapter implements 1.1 as a CANDIDATE; the gateway counts a tool capability only from recorded, verified evidence (D8: capability-evidence.int.spec.ts)
+    expect(real!.contractVersion).toBe('1.1.0');
     const f = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', f);
     await expect(

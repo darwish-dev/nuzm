@@ -49,7 +49,7 @@ Each gate is independent; all must be open. New gates of this preparation are **
 | G7 | ROPA processor entry for `claude` covering the data classes | residency evaluator | `ropa-coverage`, evaluator specs |
 | G8 | Credit balance, budgets and per-run caps | `BudgetService.reserve` | `anthropic-adapter.int.spec.ts` (cost limits) |
 | **G9** | **The owner lists `claude` in `AI_LIVE_PROVIDERS`** (default empty; ignored in production). Closed: the adapter refuses before reading the key and the admin connection test is refused. | `AnthropicModelAdapter.liveEnabled`, `ai.module.ts`, `ModelProviderService.testConnection` | `anthropic-v11.spec.ts`, `anthropic-adapter.int.spec.ts`, `ai-config.spec.ts`, `provider-credential.spec.ts` |
-| **G10** | Tool calling is declared only when `AI_CLAUDE_CONTRACT=1.1` (default `1.0`); to be replaced by recorded probe evidence (SCR-K-11 item 3) | adapter `contract` option | `anthropic.spec.ts`, `anthropic-v11.spec.ts` |
+| **G10** | **Tool calling counts for a real provider only while the latest recorded evidence row for (provider, model, capability) is VERIFIED for the adapter's current contract** (S-AG4b, D8 approved 2026-11-22; the interim `AI_CLAUDE_CONTRACT` switch was removed; the Claude adapter is built as a 1.1 candidate and declares nothing until evidence exists; dev-reference `mock-*`/`local-*` providers are exempt) | `GatewayService.offers`, `ModelProviderService.recordCapabilityEvidence`, migration 1870 | `capability-evidence.int.spec.ts` |
 | G11 | `knowledge.generation`, `knowledge.agentic_generation`, `ai.agent.read_tools` (all default off) | S-K6/S-AG2/S-AG3 | S-AG3 tests |
 | G12 | Production: no key can be stored (D-12) and the adapter is not registered | `ai.module.ts`, `provider.service.ts` | `provider-credential.spec.ts` |
 
@@ -86,7 +86,7 @@ One bounded request per capability on the proposed model with a throw-away promp
 
 ## 7. Findings made while preparing
 - **Fixed (cancellation):** a call whose caller signal was **already aborted** never fired its `abort` event in the gateway, so the call still went out. Now the attempt is aborted immediately (adapter refuses, reservation released). A regression test covers it.
-- **Interim switches:** `AI_LIVE_PROVIDERS` and `AI_CLAUDE_CONTRACT` are environment settings, not audited records. SCR-K-11 proposes the audited alternative.
+- **Interim switch:** `AI_LIVE_PROVIDERS` is an environment setting, not an audited record (the `AI_CLAUDE_CONTRACT` switch was replaced by the audited evidence table on 2026-11-22).
 - **Behaviour change to be aware of:** the admin "connection test" for Claude used to call the vendor whenever a key was stored; it is now refused until `AI_LIVE_PROVIDERS` lists `claude` (decision D3).
 
 ## 8. Decisions that need your approval before any live integration
@@ -99,7 +99,7 @@ One bounded request per capability on the proposed model with a throw-away promp
 | D5 | Region statement for the provider row (question 4) and the ROPA processor entry for `claude` (data classes, region, purpose) | state it from the contract only | residency allow |
 | D6 | Rate card for `claude-opus-5-5`: credits per million input and output tokens (your price, above the vendor list price 4.00 / 20.00 USD) | set with margin; version it | enabling |
 | D7 | Accept the OpenAPI delta of SCR-K-11 (items 1–4), including the choice between the three capability strings and a single `supportsTools` boolean | boolean + provider fields + evidence table | admin visibility, evidence |
-| D8 | Declare tool calling for Claude only from recorded probe evidence (replace `AI_CLAUDE_CONTRACT`) | yes | agent on Claude |
+| D8 | Declare tool calling for Claude only from recorded probe evidence (replace `AI_CLAUDE_CONTRACT`) | yes. **APPROVED 2026-11-22 and implemented (S-AG4b)** | agent on Claude |
 | D9 | Approve the live probe (§6): scope, cost cap and who runs it | run once in the non-production environment | LIVE-VERIFIED |
 | D10 | Keep `AI_ALLOW_UNATTESTED_SENSITIVE=false` and production closed: confirm | confirm | — |
 | D11 | OpenAI and Gemini: when to prepare their adapters (same contract; each needs its own HG-09-01 and D-18 answer, price row and probe) | after Claude is verified | S-AG4 for them |

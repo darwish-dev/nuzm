@@ -1,4 +1,5 @@
 import { v7 as uuidv7 } from 'uuid';
+import { contractAtLeast, probeWorstCase } from '@nuzm/adapter-model';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import type { SecretStore } from '../../../common/secrets';
@@ -10,6 +11,24 @@ import type { ConnectionProbe, ProbeResult } from './claude-probe';
 const SLUG = /^[a-z][a-z0-9-]{1,40}$/;
 const INT = /^\d{1,15}$/;
 const dev = (code: string) => /^(mock|local)-/.test(code);
+/** The capabilities of contract 1.1 that need recorded evidence for a real provider (S-AG4b, D8). */
+export const EVIDENCE_CAPABILITIES = [
+  'tool-use',
+  'streaming-tool-calls',
+  'parallel-tool-calls',
+] as const;
+export type EvidenceCapability = (typeof EVIDENCE_CAPABILITIES)[number];
+const isEvidenceCapability = (v: unknown): v is EvidenceCapability =>
+  (EVIDENCE_CAPABILITIES as readonly unknown[]).includes(v);
+export interface EvidenceDto {
+  model: string;
+  capability: EvidenceCapability;
+  state: 'VERIFIED' | 'NOT VERIFIED';
+  evidenceRef: string;
+  contractVersion: string;
+  recordedBy: string;
+  recordedAt: string;
+}
 
 export interface RateCardModels {
   models: Record<string, { creditsPerMillionInput: string; creditsPerMillionOutput: string }>;
@@ -34,6 +53,12 @@ export interface ProviderDto {
   enableRequestedBy: string | null;
   enabledBy: string | null;
   adapterRegistered: boolean;
+  /** the contract the registered adapter implements; null without an adapter */
+  contractVersion: string | null;
+  /** this environment lists the provider as approved for live calls (AI_LIVE_PROVIDERS) */
+  liveCallsApproved: boolean;
+  /** the LATEST recorded state per model and tool-calling capability (history stays in the table) */
+  capabilityEvidence: EvidenceDto[];
   version: number;
 }
 
@@ -74,14 +99,94 @@ export class ModelProviderService {
       enableRequestedBy: (r.enable_requested_by as string | null) ?? null,
       enabledBy: (r.enabled_by as string | null) ?? null,
       adapterRegistered: this.registry.get(r.code as string) !== undefined,
+      contractVersion: this.registry.get(r.code as string)?.contractVersion ?? null,
+      liveCallsApproved: this.cfg.liveProviders?.includes(r.code as string) ?? false,
+      capabilityEvidence: [],
       version: r.version as number,
     };
+  }
+
+  /** The latest evidence row per (provider, model, capability), for the given providers. Tolerant of anything that is not an evidence row. */
+  private async latestEvidence(ids: string[]): Promise<Map<string, EvidenceDto[]>> {
+    const out = new Map<string, EvidenceDto[]>();
+    if (ids.length === 0) return out;
+    const rows = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT DISTINCT ON (provider_id, model_id, capability) *
+               FROM ai.model_capability_evidence WHERE provider_id = ANY($1::uuid[])
+              ORDER BY provider_id, model_id, capability, recorded_at DESC, id DESC`,
+            [ids],
+          )
+        ).rows as Row[],
+    );
+    for (const e of rows) {
+      if (
+        !isEvidenceCapability(e.capability) ||
+        (e.state !== 'VERIFIED' && e.state !== 'NOT VERIFIED')
+      )
+        continue;
+      const list = out.get(e.provider_id as string) ?? [];
+      list.push({
+        model: e.model_id as string,
+        capability: e.capability,
+        state: e.state,
+        evidenceRef: e.evidence_ref as string,
+        contractVersion: e.contract_version as string,
+        recordedBy: e.recorded_by as string,
+        recordedAt:
+          e.recorded_at instanceof Date ? e.recorded_at.toISOString() : String(e.recorded_at),
+      });
+      out.set(e.provider_id as string, list);
+    }
+    return out;
+  }
+
+  /** A provider as the admin API shows it: its facts plus the latest capability evidence. */
+  private async view(r: Row): Promise<ProviderDto> {
+    const ev = await this.latestEvidence([r.id as string]);
+    return { ...this.dto(r), capabilityEvidence: ev.get(r.id as string) ?? [] };
+  }
+
+  /**
+   * What the gateway may rely on (D8): `provider|model|capability` -> the contract version the evidence was recorded for, for every capability whose LATEST row is VERIFIED.
+   * A dependent capability (streaming, parallel) only counts while tool-use is verified for the same contract. No row = no declaration.
+   */
+  async verifiedCapabilities(): Promise<Map<string, string>> {
+    const rows = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT DISTINCT ON (provider_id, model_id, capability) provider_id, model_id, capability, state, contract_version
+               FROM ai.model_capability_evidence
+              ORDER BY provider_id, model_id, capability, recorded_at DESC, id DESC`,
+          )
+        ).rows as Row[],
+    );
+    const ok = new Map<string, string>();
+    for (const e of rows)
+      if (e.state === 'VERIFIED' && isEvidenceCapability(e.capability))
+        ok.set(
+          `${e.provider_id as string}|${e.model_id as string}|${e.capability}`,
+          e.contract_version as string,
+        );
+    for (const [k, v] of [...ok])
+      if (!k.endsWith('|tool-use') && ok.get(`${k.slice(0, k.lastIndexOf('|'))}|tool-use`) !== v)
+        ok.delete(k);
+    return ok;
   }
   async list(): Promise<{ items: ProviderDto[] }> {
     const rows = await this.db.withPlatformScope(
       async (c) => (await c.query(`SELECT * FROM ai.model_providers ORDER BY code`)).rows as Row[],
     );
-    return { items: rows.map((r) => this.dto(r)) };
+    const ev = await this.latestEvidence(rows.map((r) => r.id as string));
+    return {
+      items: rows.map((r) => ({
+        ...this.dto(r),
+        capabilityEvidence: ev.get(r.id as string) ?? [],
+      })),
+    };
   }
   private async load(id: string): Promise<Row> {
     if (!isUuid(id)) throw new ProblemException('validation_failed', 'id must be a uuid');
@@ -235,7 +340,7 @@ export class ModelProviderService {
       outcome: 'success',
       detail: { code, region },
     });
-    return this.dto(row);
+    return this.view(row);
   }
 
   /** Record the human attestation of the contractual data terms (HG-09-01). The reference points at the signed attestation in docs/07. */
@@ -279,7 +384,7 @@ export class ModelProviderService {
       outcome: 'success',
       detail: { code: row.code, retainsPrompts: retains, trainsOnData: trains },
     });
-    return this.dto(row);
+    return this.view(row);
   }
 
   async requestEnable(actor: string, id: string): Promise<ProviderDto> {
@@ -302,7 +407,7 @@ export class ModelProviderService {
       outcome: 'success',
       detail: { code: r.code },
     });
-    return this.dto(row);
+    return this.view(row);
   }
   private assertEnableable(r: Row) {
     const code = r.code as string;
@@ -354,7 +459,7 @@ export class ModelProviderService {
       outcome: 'success',
       detail: { code: r.code, region: r.region },
     });
-    return this.dto(row);
+    return this.view(row);
   }
   async disable(actor: string, id: string): Promise<ProviderDto> {
     const r = await this.load(id);
@@ -375,7 +480,7 @@ export class ModelProviderService {
       outcome: 'success',
       detail: { code: r.code },
     });
-    return this.dto(row);
+    return this.view(row);
   }
 
   /**
@@ -414,7 +519,7 @@ export class ModelProviderService {
       outcome: 'success',
       detail: { code: r.code, vaultRef: ref },
     });
-    return this.dto(row);
+    return this.view(row);
   }
 
   /**
@@ -449,6 +554,118 @@ export class ModelProviderService {
         })
       ).id;
     return this.setCredential(actor, id, apiKey);
+  }
+
+  /**
+   * Records what a probe showed (D8, SCR-K-11 item 3): one append-only row per (model, capability). `VERIFIED` is accepted only for a capability the registered adapter declares
+   * as a candidate under contract >= 1.1, and a dependent capability (streaming, parallel) only while tool-use is verified for the same contract. The row carries the contract
+   * version of the adapter that was probed: a different adapter build no longer counts. Needs `admin:ai:approve` (checked by the controller); audited; changes nothing else.
+   */
+  async recordCapabilityEvidence(
+    actor: string,
+    id: string,
+    b: Record<string, unknown>,
+  ): Promise<ProviderDto> {
+    const r = await this.load(id);
+    const adapter = this.registry.get(r.code as string);
+    if (!adapter)
+      throw new ProblemException(
+        'unsupported_capability',
+        'no adapter is registered for this provider',
+      );
+    const model = typeof b.model === 'string' ? b.model : '';
+    const info = adapter.models().find((m) => m.modelId === model);
+    if (!info)
+      throw new ProblemException('validation_failed', "model must be one of the adapter's models");
+    if (!isEvidenceCapability(b.capability))
+      throw new ProblemException(
+        'validation_failed',
+        'capability must be tool-use, streaming-tool-calls or parallel-tool-calls',
+      );
+    const capability = b.capability;
+    if (b.state !== 'VERIFIED' && b.state !== 'NOT VERIFIED')
+      throw new ProblemException('validation_failed', 'state must be VERIFIED or NOT VERIFIED');
+    const state = b.state;
+    const ref = b.evidenceRef;
+    if (typeof ref !== 'string' || ref.trim().length < 3 || ref.length > 200)
+      throw new ProblemException(
+        'validation_failed',
+        'evidenceRef (a reference to the stored probe report) is required, 3 to 200 characters',
+      );
+    if (state === 'VERIFIED') {
+      if (!contractAtLeast(adapter.contractVersion, '1.1.0'))
+        throw new ProblemException(
+          'unsupported_capability',
+          'the adapter implements contract 1.0: nothing can be verified for it',
+        );
+      if (!info.capabilities.includes(capability))
+        throw new ProblemException(
+          'unsupported_capability',
+          'the adapter does not declare this capability for this model (nothing to verify)',
+        );
+      if (capability !== 'tool-use') {
+        const ok = (await this.verifiedCapabilities()).get(`${id}|${model}|tool-use`);
+        if (ok !== adapter.contractVersion)
+          throw new ProblemException(
+            'invalid_state',
+            'tool-use must be verified first for the contract version of the adapter',
+          );
+      }
+    }
+    await this.db.withPlatformScope(async (c) => {
+      await c.query(
+        `INSERT INTO ai.model_capability_evidence (id, provider_id, model_id, capability, state, evidence_ref, contract_version, recorded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [uuidv7(), id, model, capability, state, ref.trim(), adapter.contractVersion, actor],
+      );
+    });
+    await this.audit.record({
+      action: 'ai.provider.capability_evidence_recorded',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'success',
+      detail: {
+        code: r.code,
+        model,
+        capability,
+        state,
+        evidenceRef: ref.trim(),
+        contractVersion: adapter.contractVersion,
+      },
+    });
+    return this.view(r);
+  }
+
+  /**
+   * The live capability probe (S-AG4, SCR-K-11 item 4). The action is part of the contract but is NOT available yet: running it is a live provider call that needs the owner's
+   * approval of the probe (D9), the agreement (D2), a credential (D4) and the live gate (D3). The request is validated and the refusal is audited; nothing is sent anywhere.
+   */
+  async probeToolUse(actor: string, id: string, b: Record<string, unknown>): Promise<never> {
+    const r = await this.load(id);
+    const worst = probeWorstCase();
+    if (typeof b.approvalRef !== 'string' || b.approvalRef.length < 3 || b.approvalRef.length > 200)
+      throw new ProblemException(
+        'validation_failed',
+        'approvalRef (the recorded approval of the probe) is required',
+      );
+    if (!Number.isInteger(b.maxTotalTokens) || (b.maxTotalTokens as number) < worst.totalTokens)
+      throw new ProblemException(
+        'validation_failed',
+        `maxTotalTokens must be an integer of at least the worst case (${worst.totalTokens})`,
+      );
+    await this.audit.record({
+      action: 'ai.provider.probe_refused',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'failure',
+      detail: { code: r.code, reason: 'not_available_until_d9' },
+    });
+    throw new ProblemException(
+      'unsupported_capability',
+      'the live probe is not available yet: it needs the approval of the probe (D9), the agreement (D2), a credential (D4) and the live gate (D3); nothing was sent',
+    );
   }
 
   /**
@@ -521,7 +738,7 @@ export class ModelProviderService {
       outcome: 'success',
       detail: { code: r.code },
     });
-    return this.dto(row);
+    return this.view(row);
   }
 
   /** Global (orgId omitted) or per-organization kill switch. Effective on the very next call (the gateway reads it uncached). */

@@ -71,6 +71,12 @@ export class AdminAiProvidersController {
       case 'disable':
         need('admin:ai:manage');
         return this.providers.disable(who.userId, id);
+      case 'record_capability_evidence':
+        need('admin:ai:approve');
+        return this.providers.recordCapabilityEvidence(who.userId, id, b);
+      case 'probe_tool_use':
+        need('admin:ai:approve');
+        return this.providers.probeToolUse(who.userId, id, b);
       case 'kill_switch':
         need('admin:ai:manage');
         if (typeof b.on !== 'boolean')
@@ -83,7 +89,7 @@ export class AdminAiProvidersController {
       default:
         throw new ProblemException(
           'validation_failed',
-          'action must be configure, save_claude_key, set_credential, clear_credential, attest, request_enable, enable, disable or kill_switch',
+          'action must be configure, save_claude_key, set_credential, clear_credential, attest, request_enable, enable, disable, record_capability_evidence, probe_tool_use or kill_switch',
         );
     }
   }

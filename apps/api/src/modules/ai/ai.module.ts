@@ -75,7 +75,8 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
             new AnthropicModelAdapter({
               // closed unless the owner listed `claude` in AI_LIVE_PROVIDERS: nothing leaves the process before that, whatever the provider row says
               liveEnabled: () => cfg.liveProviders.includes(CLAUDE_PROVIDER_ID),
-              contract: cfg.claudeContract,
+              // implements contract 1.1 as a CANDIDATE: the gateway counts a tool-calling capability only from recorded, verified evidence (D8), so nothing is declared yet
+              contract: '1.1',
               getApiKey: async () => {
                 const row = await db.withPlatformScope(
                   async (c) =>

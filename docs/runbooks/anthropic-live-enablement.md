@@ -16,7 +16,7 @@
 5. **Connection test** (model listing: no prompt, no customer data, nothing billed). Expect `ok`. Anything else: stop and read the audit event `ai.provider.connection_tested`.
 6. Admin A: **request enable**; admin B (a different person): **enable** (two-person rule).
 7. Residency: confirm an organization's policy and assessment allow the region for the data class you will use; test with a **test organization and test content only**. Fund its credits with a small wallet.
-8. Only after the live probe is approved and recorded: set `AI_CLAUDE_CONTRACT=1.1` (until the evidence table exists, SCR-K-11) and the flags `knowledge.agentic_generation` and `ai.agent.read_tools` for the test organization.
+8. Only after the live probe is approved and run (D9): record its result per capability with the admin action `record_capability_evidence` (`admin:ai:approve`, reference to the stored probe report). Tool calling then counts for that model only while the latest row is VERIFIED for the adapter's current contract. Then set the flags `knowledge.agentic_generation` and `ai.agent.read_tools` for the test organization. (The `probe_tool_use` action exists but answers 422 until D9 is approved and its wrapper is built.)
 
 ## Verification after enabling
 - A chat call from the test organization returns text; `ai.model_usage` has one row with the provider-reported tokens and the region; the wallet fell by the rate-card amount; no `held` reservation remains.

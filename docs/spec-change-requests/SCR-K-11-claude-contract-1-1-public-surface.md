@@ -1,6 +1,6 @@
 # SCR-K-11 — Public surface of the Claude adapter at contract 1.1 (S-AG4 preparation)
 
-Status: **PROPOSED. Nothing in this request is applied to `spec/openapi/openapi.yaml` except one description sentence (§1, item 0). Each change below needs the owner's acceptance (SCR-K-10 §7).**
+Status: **ACCEPTED 2026-11-22 (owner, D7) in the form of variant B and APPLIED** to `spec/openapi/openapi.yaml` and the SDK: item 1 as the boolean `supportsTools` (the three capability strings were NOT added), items 2–4 as written (plus `AiCapabilityEvidence`). Item 4 (`probe_tool_use`) is in the contract but answers 422 until the live probe is approved (D9). Compatibility vs the previous spec: 0 breaking, 0 warnings.
 Related: ADR-066, SCR-K-10 §2 and §7, `docs/ai-intelligence/S-AG4-PREP.md`, `docs/adapters/anthropic.md`.
 
 ## 1. What changes and why
@@ -29,3 +29,9 @@ OpenAI and Gemini adapters (they implement the same contract; their public surfa
 - Item 1 as three capability strings (`draft-enum`): 0 breaking, **1 warning** (a value added to a response enum). Item 1 as a boolean `supportsTools` (`draft-flag`): **0 breaking, 0 warnings**. Items 2–4 (provider fields, two new request-enum values and their optional fields): 0 breaking.
 - Both drafts pass Spectral; the SDK generates from both; `apps/web`, `apps/admin` and `apps/api` typecheck against the generated types. Recommendation unchanged: item 1 as the boolean.
 - Not applied to `spec/openapi/openapi.yaml`. Applying needs the owner's acceptance (D7).
+
+## 5. As implemented (S-AG4b, 2026-11-22)
+- Table `ai.model_capability_evidence (id, provider_id, model_id, capability, state, evidence_ref, contract_version, recorded_by, recorded_at)`: append-only (insert and select only), platform-scoped RLS, migration `1870` with a verified reversal (drop, dev/staging only).
+- A real provider's capability counts only while the LATEST row for (provider, model, capability) is `VERIFIED` and its `contract_version` equals the adapter's current contract; a dependent capability (streaming, parallel) also needs a verified `tool-use` for the same contract. Dev-reference providers (`mock-*`, `local-*`) keep what their adapter declares. A request for more than one call per response is now routed only to a model with `parallel-tool-calls`.
+- `record_capability_evidence` needs `admin:ai:approve` (not only `manage`), is audited (`ai.provider.capability_evidence_recorded`) and refuses `VERIFIED` for an adapter on contract 1.0, for a capability the adapter does not declare, or for a dependent capability without verified `tool-use`.
+- `probe_tool_use` validates its input, audits the refusal (`ai.provider.probe_refused`) and answers 422; it sends nothing.

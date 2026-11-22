@@ -4487,7 +4487,7 @@ export interface paths {
         put?: never;
         /**
          * Configure, attest, enable or disable a model provider; kill switch
-         * @description Body {action: configure|save_claude_key|set_credential|clear_credential|attest|request_enable|enable|disable|kill_switch, ...}. save_claude_key (admin:ai:manage) takes only `apiKey`: it creates the `claude` provider if missing (unattested, disabled, region `unspecified`) and then behaves like set_credential. set_credential (admin:ai:manage) takes `apiKey` (20-400 printable characters, write-only), seals it in the secret store and points the provider at its `vault://` reference; the provider is disabled and must be attested/enabled again; 422 `unsupported_capability` in a production profile (the production vault is not decided, D-12). clear_credential (admin:ai:manage) removes the key and the reference and disables the provider. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).
+         * @description Body {action: configure|save_claude_key|set_credential|clear_credential|attest|request_enable|enable|disable|record_capability_evidence|probe_tool_use|kill_switch, ...}. save_claude_key (admin:ai:manage) takes only `apiKey`: it creates the `claude` provider if missing (unattested, disabled, region `unspecified`) and then behaves like set_credential. set_credential (admin:ai:manage) takes `apiKey` (20-400 printable characters, write-only), seals it in the secret store and points the provider at its `vault://` reference; the provider is disabled and must be attested/enabled again; 422 `unsupported_capability` in a production profile (the production vault is not decided, D-12). clear_credential (admin:ai:manage) removes the key and the reference and disables the provider. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`). record_capability_evidence (admin:ai:approve; body model, capability, state VERIFIED|NOT VERIFIED, evidenceRef) appends the recorded result of a capability probe: a real provider's tool-calling capability counts only while the latest row is VERIFIED for the adapter's current contract (S-AG4b, D8). probe_tool_use (admin:ai:approve; body approvalRef, maxTotalTokens) is part of the contract but answers 422 unsupported_capability until the live probe is approved (D9); nothing is sent.
          */
         post: operations["actOnAiModelProvider"];
         delete?: never;
@@ -12019,6 +12019,8 @@ export interface components {
             creditsPerMillionInput: string;
             /** @description integer string */
             creditsPerMillionOutput: string;
+            /** @description True when the model may be offered tools: its provider has a recorded, verified tool-use capability for the current adapter contract (or is a development-reference provider). False otherwise; never a promise about quality. */
+            supportsTools?: boolean;
         };
         AiModelList: {
             items: components["schemas"]["AiModel"][];
@@ -12087,7 +12089,31 @@ export interface components {
             enableRequestedBy?: string | null;
             enabledBy?: string | null;
             adapterRegistered: boolean;
+            /**
+             * @description The ModelAdapter contract the registered adapter implements; null without an adapter.
+             * @enum {string|null}
+             */
+            contractVersion?: "1.0.0" | "1.1.0" | null;
+            /** @description True when this environment lists the provider as approved for live calls (AI_LIVE_PROVIDERS). Closed by default. */
+            liveCallsApproved?: boolean;
+            /** @description The latest recorded state per model and tool-calling capability (the history stays in the database). */
+            capabilityEvidence?: components["schemas"]["AiCapabilityEvidence"][];
             version: number;
+        };
+        AiCapabilityEvidence: {
+            model: string;
+            /** @enum {string} */
+            capability: "tool-use" | "streaming-tool-calls" | "parallel-tool-calls";
+            /** @enum {string} */
+            state: "VERIFIED" | "NOT VERIFIED";
+            /** @description Reference to the stored probe report. */
+            evidenceRef: string;
+            /** @description The adapter contract the evidence was recorded for; a different build no longer counts. */
+            contractVersion: string;
+            /** Format: uuid */
+            recordedBy: string;
+            /** Format: date-time */
+            recordedAt: string;
         };
         AiModelProviderList: {
             items: components["schemas"]["AiModelProvider"][];
@@ -12108,7 +12134,7 @@ export interface components {
         };
         AiModelProviderAction: {
             /** @enum {string} */
-            action: "configure" | "save_claude_key" | "set_credential" | "clear_credential" | "attest" | "request_enable" | "enable" | "disable" | "kill_switch";
+            action: "configure" | "save_claude_key" | "set_credential" | "clear_credential" | "attest" | "request_enable" | "enable" | "disable" | "record_capability_evidence" | "probe_tool_use" | "kill_switch";
             /** Format: uuid */
             id?: string;
             code?: string;
@@ -12130,6 +12156,24 @@ export interface components {
             on?: boolean;
             /** Format: uuid */
             orgId?: string;
+            /** @description record_capability_evidence: the model id. */
+            model?: string;
+            /**
+             * @description record_capability_evidence: the capability.
+             * @enum {string}
+             */
+            capability?: "tool-use" | "streaming-tool-calls" | "parallel-tool-calls";
+            /**
+             * @description record_capability_evidence: the recorded state.
+             * @enum {string}
+             */
+            state?: "VERIFIED" | "NOT VERIFIED";
+            /** @description record_capability_evidence: reference to the stored probe report. */
+            evidenceRef?: string;
+            /** @description probe_tool_use: the recorded approval of the live probe (D9). */
+            approvalRef?: string;
+            /** @description probe_tool_use: the approved token ceiling for the whole probe (at least its worst case). */
+            maxTotalTokens?: number;
         };
         AiSessionInput: {
             title: string;

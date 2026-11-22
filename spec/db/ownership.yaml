@@ -129,6 +129,7 @@ schemas:
       - credit_balances
       - evaluations
       - messages
+      - model_capability_evidence
       - model_providers
       - model_usage
       - reservations
@@ -306,6 +307,7 @@ tenant_less:
   - hosting.site_allocations
   - hosting.site_migrations
   - ai.model_providers
+  - ai.model_capability_evidence
   - compliance.policy_versions
   - ops.incidents
   - ops.incident_updates
@@ -2548,6 +2550,16 @@ classification:
       created_at: internal
       updated_at: internal
       version: internal
+    ai.model_capability_evidence:
+      id: internal
+      provider_id: internal
+      model_id: internal
+      capability: internal
+      state: internal
+      evidence_ref: internal
+      contract_version: internal
+      recorded_by: internal
+      recorded_at: internal
     ai.model_usage:
       id: internal
       org_id: internal

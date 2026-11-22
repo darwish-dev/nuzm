@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import {
   ModelAdapterError,
+  V1_1_CAPABILITIES,
   assembleStream,
   allowedToolCalls,
   effectiveCapabilities,
@@ -95,8 +96,10 @@ export class GatewayService {
 
   private async offers(): Promise<Offer[]> {
     const out: Offer[] = [];
+    const evidence = await this.providers.verifiedCapabilities();
     for (const { row } of await this.providers.enabledWithAdapters()) {
       const adapter = this.registry.get(row.code)!;
+      const devReference = /^(mock|local)-/.test(row.code);
       for (const m of adapter.models()) {
         const rate = row.rateCard.models[m.modelId];
         if (!rate) continue; // no price = not offered (CLAUDE.md §4: never invent prices)
@@ -108,9 +111,16 @@ export class GatewayService {
             modelId: m.modelId,
             region: row.region,
             // version negotiation: the 1.1 capabilities count only from an adapter that implements contract 1.1 (a 1.0 adapter keeps exactly its 1.0 capabilities)
+            // D8: for a real provider a tool-calling capability counts only while the latest recorded evidence for this model and contract version is VERIFIED (unknown = unsupported);
+            // the dev-reference providers (mock-*, local-*) keep what their adapter declares
             capabilities: effectiveCapabilities(
               adapter.contractVersion,
               m.capabilities as ModelCapability[],
+            ).filter(
+              (c) =>
+                devReference ||
+                !(V1_1_CAPABILITIES as readonly string[]).includes(c) ||
+                evidence.get(`${row.id}|${m.modelId}|${c}`) === adapter.contractVersion,
             ) as Capability[],
             contextTokens: m.contextTokens,
             maxOutputTokens: m.maxOutputTokens,
@@ -170,6 +180,8 @@ export class GatewayService {
           region: o.provider.region,
           // the public contract lists the five capabilities of contract 1.0 until the owner approves the OpenAPI delta for the 1.1 ones (SCR-K-10 §7); the gateway itself already routes on all of them
           capabilities: o.candidate.capabilities.filter((c) => PUBLIC_CAPABILITIES.includes(c)),
+          // D7 (variant B): one boolean instead of three new capability strings, so a client with closed enums is not affected
+          supportsTools: o.candidate.capabilities.includes('tool-use'),
           contextTokens: o.candidate.contextTokens,
           maxOutputTokens: o.candidate.maxOutputTokens,
           latencyClass: o.candidate.latencyClass,
@@ -281,6 +293,8 @@ export class GatewayService {
               alsoRequires: [
                 'tool-use',
                 ...(call.stream ? ['streaming-tool-calls'] : []),
+                // more than one call per response is routed only to a model that declares (and, for a real provider, has verified) parallel calls
+                ...((call.maxToolCalls ?? 1) > 1 ? ['parallel-tool-calls'] : []),
               ] as Capability[],
             }
           : {}),

@@ -33,6 +33,7 @@ import { DomainReconcilerService } from './internal/reconciler.service';
 import { TransferService } from './internal/transfer.service';
 import { RegistrarWebhookService } from './internal/webhook.service';
 import { DomainsSearchController } from './domains-search.controller';
+import { DomainsPublicSearchController } from './domains-public-search.controller';
 import { DomainPricer } from './internal/domain-pricer';
 import { EligibilityService } from './internal/eligibility.service';
 import { productionFactories, UnavailableVault } from './internal/factories';
@@ -62,6 +63,7 @@ import { loadTldPolicy } from './internal/tld-policy';
   imports: [IdentityModule],
   controllers: [
     DomainsSearchController,
+    DomainsPublicSearchController,
     DomainsController,
     DnsController,
     AdminRegistrarsController,

@@ -21,6 +21,7 @@ import { AdminRoutingRulesController } from './admin-routing-rules.controller';
 import { CloudWebhooksController } from './cloud-webhooks.controller';
 import { ComputeInstancesController } from './compute-instances.controller';
 import { OffersController } from './offers.controller';
+import { PublicComputePlansController } from './public-compute-plans.controller';
 import { AdapterRegistry, defaultAdapterRegistry, vaultFromEnv } from './internal/adapter-registry';
 import { ProviderAccountService } from './internal/account.service';
 import { AdminResourceService } from './internal/admin-resource.service';
@@ -100,6 +101,7 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     AdminResourcesController,
     AdminOffersController,
     OffersController,
+    PublicComputePlansController,
     ComputeInstancesController,
     CloudWebhooksController,
   ],

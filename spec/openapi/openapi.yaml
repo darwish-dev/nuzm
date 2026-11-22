@@ -6401,6 +6401,52 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PublicHostingPlanList' }
+  /v1/public/compute-plans:
+    get:
+      operationId: listPublicComputePlans
+      tags: [cloud]
+      summary: List the server sizes the website shows (public)
+      description: 'The eligible compute offers without any organization, grouped by size (vCPU, memory, disk) with the cheapest monthly price per size and the data-region groups it is offered in. A size appears only when a healthy provider account, a verified region (with acceptable evidence for the environment), an available plan and a Nuzm price all exist; priced from the same price book as `/v1/offers` (the placeholder book is refused in production). Residency, entitlement and quota are decided when an organization orders. No provider identity or provider cost. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).'
+      security: []
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicComputePlanList' }
+  /v1/public/usage-prices:
+    get:
+      operationId: listPublicUsagePrices
+      tags: [billing]
+      summary: List the published usage prices (public)
+      description: 'The pay-as-you-use rates of the price book version in force for a short fixed list of meters (transactional email, object storage, network egress, AI credits). Same book and same production refusal as rating: the DRAFT-NOT-APPROVED placeholder book is never published in production (the list is then empty). Nothing organization specific. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).'
+      security: []
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicUsagePriceList' }
+  /v1/public/domains/search:
+    get:
+      operationId: searchDomainsPublic
+      tags: [domains]
+      summary: Check domain availability and price (public)
+      description: "The website's domain checker: the same answer and rules as `/v1/domains/search` (verified registrar accounts only, unknown is never available, price from the same sales policy) with no organization. No sign-in; rate limited per caller address (429); nothing is recorded about the caller. Buying always happens in the dashboard. 404 while off (`PUBLIC_DOMAIN_SEARCH_ENABLED` in production, or the domains feature off)."
+      security: []
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 253 } }
+        - { name: tlds, in: query, schema: { type: string } }
+        - { name: country, in: query, schema: { type: string, minLength: 2, maxLength: 2 } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainSearchResult' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
   /v1/hosting/sites:
     post:
       operationId: createHostingSite
@@ -17813,6 +17859,49 @@ components:
         runtimes: { type: array, items: { type: string } }
         regions: { type: array, items: { type: string } }
         country: { type: [string, 'null'] }
+    PublicComputePlan:
+      type: object
+      required: [vcpu, memoryMb, diskGb, price, regions]
+      properties:
+        vcpu: { type: integer }
+        memoryMb: { type: integer }
+        diskGb: { type: integer }
+        bandwidth: { type: string }
+        price:
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor:
+              { type: string, description: 'Integer minor units per month, as a string.' }
+            currency: { type: string }
+        regions: { type: array, items: { type: string } }
+    PublicComputePlanList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PublicComputePlan' } }
+    PublicUsagePrice:
+      type: object
+      required: [meterId, model, unitPriceMinor, tiers, includedAllowance]
+      properties:
+        meterId: { type: string }
+        model: { type: string, enum: [flat, graduated, volume] }
+        unitPriceMinor: { type: [string, 'null'] }
+        tiers:
+          type: [array, 'null']
+          items:
+            type: object
+            required: [upTo, unitPriceMinor]
+            properties:
+              upTo: { type: [string, 'null'] }
+              unitPriceMinor: { type: string }
+        includedAllowance: { type: string }
+    PublicUsagePriceList:
+      type: object
+      required: [currency, items]
+      properties:
+        currency: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/PublicUsagePrice' } }
     PublicHostingPlan:
       type: object
       required: [key, name, quotas, runtimes, price]

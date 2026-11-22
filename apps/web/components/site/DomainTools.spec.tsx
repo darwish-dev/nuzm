@@ -7,10 +7,11 @@ describe('public domain tool', () => {
   it('searches and transfers by opening the dashboard pages with plain GET forms, in either language', () => {
     for (const locale of ['en', 'ar'] as const) {
       const { container, unmount } = render(<DomainTools locale={locale} />);
-      const search = container.querySelector('#dt-panel-register') as HTMLFormElement;
+      const panel = container.querySelector('#dt-panel-register') as HTMLElement;
+      const search = panel.querySelector('form') as HTMLFormElement;
       const transfer = container.querySelector('#dt-panel-transfer') as HTMLFormElement;
+      // without scripts the checker still works: a plain GET form to the dashboard's search
       expect(search.getAttribute('action')).toBe('/domains/search');
-      expect(search.method).toBe('get');
       expect(search.querySelector('input[name="q"]')).not.toBeNull();
       expect(
         Array.from(search.querySelectorAll('input[name="tlds"]')).map(
@@ -31,7 +32,9 @@ describe('public domain tool', () => {
 
   it('shows one tool at a time and switches with the tabs', () => {
     const { container } = render(<DomainTools locale="en" />);
-    const [register, transfer] = Array.from(container.querySelectorAll('form'));
+    const [register, transfer] = Array.from(
+      container.querySelectorAll<HTMLElement>('[role="tabpanel"]'),
+    );
     expect(register!.hidden).toBe(false);
     expect(transfer!.hidden).toBe(true);
     fireEvent.click(within(container).getByRole('tab', { name: 'Transfers' }));

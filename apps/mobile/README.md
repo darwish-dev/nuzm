@@ -24,6 +24,18 @@ cd apps/mobile && flutter run                                                   
 - The web build (`flutter build web`) runs on **sample data only**. Browsers keep the API's cookies away from the page,
   so live mode needs a native build.
 
+## Try it on a phone (local demo account)
+
+```bash
+pnpm exec tsx scripts/seed-mobile-demo.ts        # demo account + data; credentials → .local/mobile-demo-account.txt
+cd apps/mobile && flutter build apk --debug --target-platform android-arm,android-arm64 \
+  --dart-define=NUZM_API_URL=http://<this-mac-lan-ip>:4100
+```
+
+The API listens on 127.0.0.1 only, so a phone on the same Wi-Fi needs a relay from `<lan-ip>:4100` to
+`127.0.0.1:4000` while testing (stop it afterwards: it exposes the dev API to the local network). Debug builds only:
+release builds do not allow plain http.
+
 ## How it talks to the API
 
 - `lib/api/api_client.dart` sends what the web SDK sends: the `nuzm_session` cookie of the `web` realm, `x-csrf-token`

@@ -53,6 +53,26 @@ class ChatLine {
   final bool fromUser;
 }
 
+/// What a chat message can carry (`AiMessageInput.attachments`): a text file's contents, or a link the run fetches
+/// through the platform's SSRF-safe fetcher. The API takes nothing else (no images, no audio).
+@immutable
+class ChatAttachment {
+  const ChatAttachment.text(this.name, String this.text) : url = null;
+  const ChatAttachment.link(String this.url)
+      : name = url,
+        text = null;
+  final String name;
+  final String? text;
+  final String? url;
+  bool get isLink => url != null;
+
+  /// At most 10 per message; each text at most this many characters (MAX_MESSAGE_CHARS in the API).
+  static const maxCount = 10;
+  static const maxChars = 20000;
+
+  Map<String, Object> toJson() => isLink ? {'kind': 'url', 'url': url!} : {'kind': 'text', 'name': name, 'text': text!};
+}
+
 @immutable
 class ChatTurn {
   const ChatTurn({required this.sessionId, required this.reply});
@@ -99,7 +119,7 @@ abstract class DataSource {
   Future<void> markNotificationsRead(List<String> ids);
   Future<List<ChatSummary>> recentChats();
   Future<List<ChatLine>> chatLines(String sessionId);
-  Future<ChatTurn> sendChat({String? sessionId, required String text, required String locale});
+  Future<ChatTurn> sendChat({String? sessionId, required String text, required String locale, List<ChatAttachment> attachments = const []});
 }
 
 class DemoDataSource implements DataSource {
@@ -170,7 +190,7 @@ class DemoDataSource implements DataSource {
   Future<List<ChatLine>> chatLines(String sessionId) async => const [];
 
   @override
-  Future<ChatTurn> sendChat({String? sessionId, required String text, required String locale}) async {
+  Future<ChatTurn> sendChat({String? sessionId, required String text, required String locale, List<ChatAttachment> attachments = const []}) async {
     await Future<void>.delayed(const Duration(milliseconds: 900));
     return ChatTurn(sessionId: null, reply: locale == 'ar' ? S.aiPreviewReply.ar : S.aiPreviewReply.en);
   }

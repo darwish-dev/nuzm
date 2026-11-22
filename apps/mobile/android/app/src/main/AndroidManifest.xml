@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The app calls the Nuzm API. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Voice input in the NUZM AI composer (asked for the first time the mic is tapped). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="NUZM AI"
         android:name="${applicationName}"
@@ -42,6 +44,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- The phone's speech recognizer (voice input). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

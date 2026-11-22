@@ -89,15 +89,61 @@ void main() {
     final scroll = find.descendant(of: menu, matching: find.byType(Scrollable)).first;
     await tester.scrollUntilVisible(find.text('المحادثات الأخيرة'), 300, scrollable: scroll);
     expect(find.text('المحادثات الأخيرة'), findsOneWidget);
-    await tester.drag(scroll, const Offset(0, 3000));
-    await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('English'));
+    // Appearance and language live in the settings footer, next to sign-out.
+    await tester.scrollUntilVisible(find.text('تسجيل الخروج'), 300, scrollable: scroll);
+    await tester.pumpAndSettle();
+    expect(find.text('الإعدادات'), findsOneWidget);
+    expect(find.text('تسجيل الخروج'), findsOneWidget);
+    await tester.tap(find.descendant(of: menu, matching: find.text('English')));
     await tester.pumpAndSettle();
     expect(c.locale.languageCode, 'en');
-    await tester.tap(find.byTooltip('Dark mode'));
+    await tester.tap(find.descendant(of: menu, matching: find.text('Dark')));
     await tester.pumpAndSettle();
     expect(c.themeMode, ThemeMode.dark);
+
+    // Close shrinks the menu back into the button.
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.byType(MenuScreen), findsOneWidget, reason: 'still closing');
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuScreen), findsNothing);
+  });
+
+  testWidgets('chat: no refresh button, three start cards fill the message, a link attaches and is sent', (tester) async {
+    await setPhone(tester);
+    final c = AppController(themeMode: ThemeMode.dark);
+    await tester.pumpWidget(NuzmApp(controller: c, useGoogleFonts: false));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('تحديث'), findsNothing);
+    for (final label in ['تطبيق جوال', 'تطبيق ويب', 'موقع ويب']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    await tester.tap(find.text('تطبيق ويب'));
+    await tester.pumpAndSettle();
+    expect(find.text('أريد إنشاء تطبيق ويب: '), findsOneWidget);
+    expect(find.byTooltip('إرسال'), findsOneWidget, reason: 'mic turns into send');
+
+    await tester.tap(find.byTooltip('إرفاق'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('رابط'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'not a link');
+    await tester.tap(find.text('إضافة'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('http://'), findsOneWidget, reason: 'the API rule is checked first');
+    await tester.enterText(find.byType(TextField).last, 'https://example.com/brief');
+    await tester.tap(find.text('إضافة'));
+    await tester.pumpAndSettle();
+    expect(find.text('https://example.com/brief'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('إرسال'));
+    await tester.pump();
+    expect(find.text('تطبيق جوال'), findsNothing, reason: 'the cards leave once the chat starts');
+    expect(find.text('https://example.com/brief'), findsOneWidget, reason: 'the sent message shows its attachment');
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   // Every page of every section, in both languages and both themes, renders with no layout error.

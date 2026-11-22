@@ -62,6 +62,18 @@ NUZM_LIVE_API=http://127.0.0.1:4000 flutter test test/live_api_test.dart   # aga
 The live check registers a throwaway `mobile-it-<time>@example.test` account. Its password is random and never
 printed. The check refuses any host that is not local or `.test`.
 
+## Composer: attachments and voice
+
+- **Attach (+)**: a text file (any UTF-8 text: notes, briefs, code; up to 20,000 characters) or a link. They go with
+  the message as `AiMessageInput.attachments` (`{kind: text, name, text}` / `{kind: url, url}`), at most 10. The API
+  takes nothing else, so images and binary files are refused in the app with a message.
+- **Mic**: dictation into the message with the phone's own speech recognizer (`speech_to_text`), in the app's
+  language. It asks for the microphone the first time. The recognizer is the operating system's (the same one the
+  keyboard's mic uses), which may process audio on the device vendor's servers; nothing is sent to Nuzm until the
+  person presses send.
+- **Start cards** (mobile app, web app, website) put the start of a request in the message box for the person to
+  finish.
+
 ## Writes (create, edit, delete)
 
 `lib/actions/registry.dart` holds every write, per page, against the same endpoints the web console calls. The screens

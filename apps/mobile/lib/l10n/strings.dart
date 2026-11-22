@@ -190,4 +190,36 @@ class S {
   static const project = T('المشروع', 'Project');
   static const allProjects = T('كل المشاريع', 'All projects');
   static const ideas = T('أفكار للبدء', 'Ideas to start with');
+  static const settings = T('الإعدادات', 'Settings');
+  static const dark = T('داكن', 'Dark');
+  static const light = T('فاتح', 'Light');
+  static const languageLabel = T('اللغة', 'Language');
+  static const arabicName = T('العربية', 'العربية');
+  static const englishName = T('English', 'English');
+  static const topUp = T('التفاصيل', 'Details');
+  static const lowCredit = T('رصيد منخفض', 'Low');
+  // The three starters above the composer.
+  static const startMobile = T('تطبيق جوال', 'Mobile app');
+  static const startWebApp = T('تطبيق ويب', 'Web app');
+  static const startWebsite = T('موقع ويب', 'Website');
+  static const promptMobile = T('أريد إنشاء تطبيق جوال: ', 'Create a mobile app: ');
+  static const promptWebApp = T('أريد إنشاء تطبيق ويب: ', 'Create a web app: ');
+  static const promptWebsite = T('أريد إنشاء موقع ويب: ', 'Create a website: ');
+  // Attachments and voice.
+  static const attachFile = T('ملف نصي', 'Text file');
+  static const attachFileHint = T('txt و md و csv و json وملفات الشيفرة، حتى 20٬000 حرف', 'txt, md, csv, json and code files, up to 20,000 characters');
+  static const attachLink = T('رابط', 'Link');
+  static const attachLinkHint = T('صفحة يقرؤها NUZM AI أثناء العمل', 'A page NUZM AI reads while it works');
+  static const linkLabel = T('الرابط', 'Link');
+  static const add = T('إضافة', 'Add');
+  static const removeAttachment = T('إزالة المرفق', 'Remove attachment');
+  static const badLink = T('أدخل رابطًا يبدأ بـ http:// أو https://', 'Enter a link that starts with http:// or https://');
+  static const notText = T('هذا الملف ليس نصًا. يمكن إرفاق الملفات النصية والروابط فقط.', 'This file is not text. Only text files and links can be attached.');
+  static const fileTooLong = T('الملف أطول من 20٬000 حرف.', 'The file is longer than 20,000 characters.');
+  static const tooManyAttachments = T('يمكن إرفاق 10 عناصر كحد أقصى.', 'You can attach up to 10 items.');
+  static const seeAttachments = T('اطّلع على المرفقات.', 'See the attachments.');
+  static const listening = T('أستمع إليك…', 'Listening…');
+  static const stopListening = T('إيقاف التسجيل', 'Stop recording');
+  static const micDenied = T('اسمح للتطبيق باستخدام الميكروفون من إعدادات الهاتف.', 'Allow the microphone for this app in the phone settings.');
+  static const micUnavailable = T('التعرّف على الكلام غير متاح على هذا الجهاز.', 'Speech recognition is not available on this device.');
 }

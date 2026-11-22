@@ -6,6 +6,7 @@ import '../app_scope.dart';
 import '../data/data_source.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
+import '../widgets/circular_reveal.dart';
 import '../widgets/common.dart';
 import '../widgets/composer.dart';
 import 'menu_screen.dart';
@@ -13,8 +14,9 @@ import 'section_screen.dart';
 import 'sign_in_screen.dart';
 
 class ChatMessage {
-  ChatMessage(this.text, {required this.fromUser, this.error = false});
+  ChatMessage(this.text, {required this.fromUser, this.error = false, this.attachments = const []});
   final String text;
+  final List<ChatAttachment> attachments;
   final bool fromUser;
   final bool error;
 }
@@ -34,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _sessionId;
   int _turn = 0;
   AppController? _app;
+  final _menuKey = GlobalKey();
+  final _composerKey = GlobalKey<ComposerState>();
 
   @override
   void didChangeDependencies() {
@@ -62,18 +66,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Sends through the data source: live mode creates the AI session on the first message, adds the message,
   /// starts a `chat` run and shows the assistant's reply; sample mode answers with a preview note.
-  Future<void> _send(String text) async {
-    final t = text.trim();
-    if (t.isEmpty || _typing) return;
+  Future<void> _send(String text, [List<ChatAttachment> attachments = const []]) async {
+    final shown = text.trim();
+    if ((shown.isEmpty && attachments.isEmpty) || _typing) return;
+    // The API needs some content; a message that is only attachments says so.
+    final t = shown.isEmpty ? S.seeAttachments.of(context) : shown;
     final app = AppScope.read(context);
     final turn = ++_turn;
     setState(() {
-      _messages.add(ChatMessage(t, fromUser: true));
+      _messages.add(ChatMessage(shown, fromUser: true, attachments: attachments));
       _typing = true;
     });
     _toBottom();
     try {
-      final r = await app.data.sendChat(sessionId: _sessionId, text: t, locale: app.locale.languageCode);
+      final r = await app.data.sendChat(sessionId: _sessionId, text: t, locale: app.locale.languageCode, attachments: attachments);
       if (!mounted || turn != _turn) return;
       setState(() {
         _sessionId = r.sessionId ?? _sessionId;
@@ -132,13 +138,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openMenu() async {
-    final picked = await Navigator.of(context).push<ChatSummary>(PageRouteBuilder(
-      pageBuilder: (_, __, ___) => const MenuScreen(),
-      transitionsBuilder: (_, a, __, child) => FadeTransition(
-        opacity: a,
-        child: SlideTransition(position: Tween(begin: const Offset(0, -0.03), end: Offset.zero).animate(a), child: child),
-      ),
-    ));
+    // The menu grows out of the menu button as a circle and shrinks back into it on close.
+    final picked = await Navigator.of(context).push<ChatSummary>(
+      CircularRevealRoute(builder: (_) => const MenuScreen(), origin: CircularRevealRoute.centerOf(_menuKey)),
+    );
     if (picked != null && mounted) _openChat(picked);
   }
 
@@ -148,9 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final nz = context.nz;
     return NzScaffold(
       header: Row(children: [
-        CircleIconButton(icon: LucideIcons.menu, tooltip: S.menu.of(context), dot: true, onTap: _openMenu),
-        const SizedBox(width: 6),
-        CircleIconButton(icon: LucideIcons.rotateCw, tooltip: S.refresh.of(context), onTap: _newChat),
+        KeyedSubtree(key: _menuKey, child: CircleIconButton(icon: LucideIcons.menu, tooltip: S.menu.of(context), dot: true, onTap: _openMenu)),
         Expanded(
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             brandMark(context, size: 20),
@@ -173,9 +174,19 @@ class _HomeScreenState extends State<HomeScreen> {
             child: empty ? const _Hero(key: ValueKey('hero')) : _chat(),
           ),
         ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          child: empty
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+                  child: _StartCards(onPick: (prompt) => _composerKey.currentState?.prefill(prompt)),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-          child: Composer(onSend: _send),
+          child: Composer(key: _composerKey, onSend: _send),
         ),
       ]),
     );
@@ -190,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
       itemBuilder: (context, i) {
         if (i == _messages.length) return _Bubble(text: S.thinking.of(context), fromUser: false, faint: true);
         final m = _messages[i];
-        return _Bubble(text: m.text, fromUser: m.fromUser, error: m.error);
+        return _Bubble(text: m.text, fromUser: m.fromUser, error: m.error, attachments: m.attachments);
       },
     );
   }
@@ -226,8 +237,9 @@ class _Hero extends StatelessWidget {
 
 /// Claude-style messages: yours in a soft bubble at the end, the assistant's as plain text across the width.
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.text, required this.fromUser, this.faint = false, this.error = false});
+  const _Bubble({required this.text, required this.fromUser, this.faint = false, this.error = false, this.attachments = const []});
   final String text;
+  final List<ChatAttachment> attachments;
   final bool fromUser;
   final bool faint;
   final bool error;
@@ -236,17 +248,26 @@ class _Bubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final nz = context.nz;
     if (fromUser) {
+      final maxW = MediaQuery.sizeOf(context).width * 0.8;
       return Padding(
         padding: const EdgeInsets.only(bottom: 18),
-        child: Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: Container(
-            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(color: nz.elev, borderRadius: BorderRadius.circular(18)),
-            child: Text(text, style: TextStyle(color: nz.fg, fontSize: 15.5, height: 1.5)),
-          ),
-        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          if (attachments.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(bottom: text.isEmpty ? 0 : 6),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxW),
+                child: Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.end, children: [for (final a in attachments) AttachmentChip(a)]),
+              ),
+            ),
+          if (text.isNotEmpty)
+            Container(
+              constraints: BoxConstraints(maxWidth: maxW),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(color: nz.elev, borderRadius: BorderRadius.circular(18)),
+              child: Text(text, style: TextStyle(color: nz.fg, fontSize: 15.5, height: 1.5)),
+            ),
+        ]),
       );
     }
     return Padding(
@@ -267,5 +288,48 @@ class _Bubble extends StatelessWidget {
         ),
       ]),
     );
+  }
+}
+
+/// The three starters above the composer: a mobile app, a web app, a website. Picking one starts the sentence in the
+/// message box; the person describes the idea and sends it.
+class _StartCards extends StatelessWidget {
+  const _StartCards({required this.onPick});
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final nz = context.nz;
+    Widget card(IconData icon, T label, T prompt) => Expanded(
+          child: Material(
+            color: nz.card,
+            borderRadius: BorderRadius.circular(18),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => onPick(prompt.of(context)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(color: nz.accentSoft, borderRadius: BorderRadius.circular(11)),
+                    child: Icon(icon, size: 17, color: nz.accent),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(label.of(context),
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: nz.fg, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
+        );
+    return Row(children: [
+      card(LucideIcons.smartphone, S.startMobile, S.promptMobile),
+      const SizedBox(width: 8),
+      card(LucideIcons.appWindow, S.startWebApp, S.promptWebApp),
+      const SizedBox(width: 8),
+      card(LucideIcons.globe, S.startWebsite, S.promptWebsite),
+    ]);
   }
 }

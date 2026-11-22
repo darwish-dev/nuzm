@@ -83,6 +83,23 @@ Bugs the live run found and fixed:
 | Integrated with API and database | PASS for reads, sign-in, org, notifications, domain search; NOT VERIFIED for AI replies (residency) |
 | Writes (create/edit/delete) | PASS for the non-paid writes (live); paid creates NOT VERIFIED live: quotes price correctly, but nothing was created without a person confirming a charge, and no provider is enabled on the dev stack for email, storage or databases |
 
+## Update 2026-11-23: menu, transition, chat starters, attachments, voice
+- **Menu:** borderless items; the wallet and AI credits on the console's hero surface; the organization as a card that
+  opens a switch list; appearance and language moved into a settings section next to sign-out.
+- **Transition:** the menu opens as a circle growing from the menu button while fading in, and closes back into it
+  (`lib/widgets/circular_reveal.dart`; a plain fade when the system asks for reduced motion).
+- **Chat:** the refresh button is gone. Three start cards (mobile app, web app, website) sit above the composer.
+- **Attachments:** text files and links, sent as `attachments` on `POST /v1/ai/sessions/{id}/messages`.
+  PASS live: the local API stored `[text, url]`.
+- **Voice:** dictation with the phone's speech recognizer. NOT VERIFIED on a device: the recognizer and the
+  microphone permission need a real phone.
+  - Assumption: dictation runs through the operating system's recognizer, like the keyboard mic, before anything
+    reaches Nuzm. Whether that is acceptable under the residency policy is an owner decision. It can be limited to
+    on-device recognition (`onDevice: true`), at the cost of not working on phones without an offline language pack.
+- **Tests:** `flutter analyze` → no issues; `flutter test` → 38 passed, 1 skipped (the live check);
+  `NUZM_LIVE_API=… flutter test test/live_api_test.dart` → PASS.
+- **Screenshots:** `docs/reports/mobile-app/{home-ar-dark,menu-ar-dark,menu-settings-ar-dark,menu-ar-light}.jpg`.
+
 ## I. Next
 Next steps:
 - **In-app flows:** paying invoices through the payment provider's redirect, setting up and answering two-step verification (that unlocks step-up actions), registration and password reset.

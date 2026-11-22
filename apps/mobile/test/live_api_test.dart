@@ -14,6 +14,7 @@ import 'package:nuzm_app/actions/registry.dart';
 import 'package:nuzm_app/api/api_client.dart';
 import 'package:nuzm_app/api/session_store.dart';
 import 'package:nuzm_app/app_scope.dart';
+import 'package:nuzm_app/data/data_source.dart';
 import 'package:nuzm_app/data/nav.dart';
 
 final base = Platform.environment['NUZM_LIVE_API'];
@@ -95,6 +96,25 @@ void main() {
       final t = await app.data.sendChat(text: 'مرحبا، ما الخدمات المتاحة؟', locale: 'ar');
       final lines = await app.data.chatLines(t.sessionId!);
       return 'session=${t.sessionId != null} reply=${t.reply == null ? 'pending' : '${t.reply!.length} chars'} lines=${lines.length}';
+    });
+    // Attachments go with the message (text file + link), stored before the run starts.
+    await extra('aiChatAttachments', () async {
+      String? sid;
+      try {
+        final t = await app.data.sendChat(text: 'Use the brief', locale: 'en', attachments: const [
+          ChatAttachment.text('brief.md', '# Brief\nA cafe booking app.'),
+          ChatAttachment.link('https://example.com/brief'),
+        ]);
+        sid = t.sessionId;
+      } on ApiException catch (e) {
+        if (e.code == 'validation_failed') rethrow;
+      }
+      sid ??= (await app.data.recentChats()).first.id;
+      final msgs = await api.get('/v1/ai/sessions/$sid/messages', query: {'limit': '100'});
+      final mine = [for (final m in (msgs as Map)['items'] as List) if (m['role'] == 'user' && m['content'] == 'Use the brief') m];
+      final kinds = [for (final a in (mine.last['attachments'] as List)) a['kind']];
+      expect(kinds, ['text', 'url']);
+      return 'stored attachments=$kinds';
     });
     // ---- writes, through the same action definitions the screens use
     final orgId = app.organization!.orgId;

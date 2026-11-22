@@ -442,7 +442,7 @@ class ApiDataSource implements DataSource {
 
   /// Session (created on the first message) → user message → `chat` run → poll the run → the newest assistant message.
   @override
-  Future<ChatTurn> sendChat({String? sessionId, required String text, required String locale}) async {
+  Future<ChatTurn> sendChat({String? sessionId, required String text, required String locale, List<ChatAttachment> attachments = const []}) async {
     var sid = sessionId;
     if (sid == null) {
       final title = text.length > 60 ? '${text.substring(0, 60)}…' : text;
@@ -450,7 +450,10 @@ class ApiDataSource implements DataSource {
       sid = s((created as Map)['id']);
     }
     final before = (await _items('/v1/ai/sessions/$sid/messages', query: {'limit': '100'})).length;
-    await api.post('/v1/ai/sessions/$sid/messages', {'content': text});
+    await api.post('/v1/ai/sessions/$sid/messages', {
+      'content': text,
+      if (attachments.isNotEmpty) 'attachments': [for (final a in attachments) a.toJson()],
+    });
     final run = await api.post('/v1/ai/runs', {
       'sessionId': sid,
       'kind': 'chat',

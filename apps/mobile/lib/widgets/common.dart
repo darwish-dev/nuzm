@@ -152,8 +152,10 @@ class CountBadge extends StatelessWidget {
 
 /// `.nz-card`: card background (light: the 4 % accent wash), 1 px border, 18 px radius.
 class NzCard extends StatelessWidget {
-  const NzCard({super.key, required this.child, this.onTap, this.padding = const EdgeInsets.all(16), this.radius = 18, this.color, this.gradient});
+  const NzCard(
+      {super.key, required this.child, this.onTap, this.padding = const EdgeInsets.all(16), this.radius = 18, this.color, this.gradient, this.bordered = true});
   final Widget child;
+  final bool bordered;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
   final double radius;
@@ -163,7 +165,7 @@ class NzCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: nz.border));
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: bordered ? BorderSide(color: nz.border) : BorderSide.none);
     return Material(
       shape: shape,
       color: Colors.transparent,
@@ -352,12 +354,13 @@ class LtrText extends StatelessWidget {
 
 /// Chevron pointing "forward" in the reading direction.
 class ForwardChevron extends StatelessWidget {
-  const ForwardChevron({super.key, this.size = 20});
+  const ForwardChevron({super.key, this.size = 20, this.color});
   final double size;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) =>
-      Icon(isAr(context) ? LucideIcons.chevronLeft : LucideIcons.chevronRight, size: size, color: context.nz.muted);
+      Icon(isAr(context) ? LucideIcons.chevronLeft : LucideIcons.chevronRight, size: size, color: color ?? context.nz.muted);
 }
 
 IconData backIcon(BuildContext context) => isAr(context) ? LucideIcons.chevronRight : LucideIcons.chevronLeft;

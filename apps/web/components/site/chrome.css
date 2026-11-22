@@ -480,3 +480,34 @@
 .doc-app[data-mode='light'] .doc-brand img {
   filter: brightness(0.62) saturate(1.5);
 }
+
+/* the device previews are sample product screens in English: they keep their own left-to-right layout inside the Arabic page (only the section around them mirrors) */
+.landing .cx-frame {
+  direction: ltr;
+  text-align: left;
+}
+.landing .cx-badge {
+  inset-inline: auto;
+  inline-size: max-content;
+  max-inline-size: 90%;
+}
+@media (min-width: 901px) {
+  .landing .cx-badge {
+    right: 2em;
+    left: auto;
+  }
+  [dir='rtl'] .landing .cx-badge {
+    right: auto;
+    left: 2em;
+  }
+}
+
+/* Arabic: the stage is mirrored (heading on the right), so the neighbouring devices swap sides too: the one that runs past the edge does so away from the heading */
+@media (min-width: 901px) {
+  [dir='rtl'] .landing .cx-device.cx-position-1 {
+    left: 13%;
+  }
+  [dir='rtl'] .landing .cx-device.cx-position-2 {
+    left: 87%;
+  }
+}

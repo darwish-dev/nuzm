@@ -468,21 +468,15 @@
   }
 }
 
-/* the logo carries the Claude mark in its top slot (in colour), so it is never turned white or dark by a filter: the cream artwork is shown as is on dark
-   surfaces, and on light surfaces only the cream becomes ink (inverting then rotating the hue back keeps the orange mark orange). */
+/* the logo is mint blue with an orange circle and the Claude shape on top: a colour filter must never whiten or darken it. On light surfaces it is only
+   deepened (the mint becomes a teal, the orange a deeper orange) so it still reads against cream. */
 .landing .site-header .brand img,
 .landing[data-mode='dark'] .footer-brand .brand img,
-.doc-app[data-mode='dark'] .doc-brand img {
-  filter: none;
-}
-.landing .footer-brand .brand img,
-.doc-app .doc-brand img {
-  filter: invert(1) hue-rotate(180deg);
-}
-.landing[data-mode='dark'] .footer-brand .brand img,
-.doc-app[data-mode='dark'] .doc-brand img {
-  filter: none;
-}
+.doc-app[data-mode='dark'] .doc-brand img,
 .landing img[src*='/brand/nuzm-'] {
   filter: none;
+}
+.landing[data-mode='light'] .footer-brand .brand img,
+.doc-app[data-mode='light'] .doc-brand img {
+  filter: brightness(0.62) saturate(1.5);
 }

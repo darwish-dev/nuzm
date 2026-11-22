@@ -1,3 +1,4 @@
+import { ServiceVisual } from './ServiceVisual';
 import { Icon } from '@nuzm/ui';
 import type { Locale } from '@nuzm/i18n';
 import { SERVICES, pick, site, type ServiceContent } from '../../lib/site-content';
@@ -30,7 +31,7 @@ export function ServiceHero({ locale, s }: { locale: Locale; s: ServiceContent }
         )}
       </div>
       <div className="svc-visual">
-        <img src={s.image} alt="" width={380} height={290} />
+        <ServiceVisual slug={s.slug} />
       </div>
     </div>
   );
@@ -107,7 +108,9 @@ export function FaqSection({ locale, s }: { locale: Locale; s: ServiceContent })
 export function ServiceCard({ locale, s }: { locale: Locale; s: ServiceContent }) {
   return (
     <a className="svc-card svc-link-card" href={`/${locale}/services/${s.slug}`}>
-      <img className="svc-card-art" src={s.image} alt="" width={380} height={290} loading="lazy" />
+      <div className="svc-card-art">
+        <ServiceVisual slug={s.slug} />
+      </div>
       <h3>{pick(s.name, locale)}</h3>
       <p>{pick(s.tagline, locale)}</p>
       <span className="svc-more">

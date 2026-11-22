@@ -1,3 +1,4 @@
+import { ServiceVisual } from './ServiceVisual';
 import type { ReactNode } from 'react';
 import { Icon } from '@nuzm/ui';
 import { locales, type Locale } from '@nuzm/i18n';
@@ -62,7 +63,7 @@ export function DocsFrame({
       <header className="doc-top">
         <a
           className="doc-back"
-          href={`/${locale}`}
+          href="/"
           aria-label={doc('backToSite', locale)}
           title={doc('backToSite', locale)}
         >
@@ -97,7 +98,11 @@ export function DocsFrame({
               <h1>{title}</h1>
               {lead && <p className="doc-lead">{lead}</p>}
             </div>
-            {art && <img className="doc-art" src={art} alt="" width={380} height={290} />}
+            {art && (
+              <div className="doc-art doc-product-art">
+                <ServiceVisual slug="ai-builder" />
+              </div>
+            )}
           </div>
           <div className="doc-content">{children}</div>
         </main>

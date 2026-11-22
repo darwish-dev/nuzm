@@ -82,7 +82,7 @@ export function SiteHeader({
           </a>
         ))}
         <a className="svc-nav-link svc-nav-dev" href={`/${locale}/docs`}>
-          {labels.developers}
+          {locale === 'ar' ? 'التوثيق' : 'Documentation'}
         </a>
       </nav>
       <div className="header-actions">

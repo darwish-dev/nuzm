@@ -5,8 +5,10 @@ import '../components/landing/landing.css';
 import '../components/landing/dashboard-art.css';
 import '../components/site/mosaic.css';
 import '../components/site/bento.css';
+import '../components/site/site.css';
 import '../components/landing/ai-chat.css';
 import '../components/landing/tech-strip.css';
+import '../components/landing/showcase.css';
 import '../components/site/flat.css';
 
 export const metadata: Metadata = {

@@ -1404,3 +1404,207 @@
   stroke-width: 2;
   filter: drop-shadow(0 1px 0 #ffffff55);
 }
+
+/* Service-specific motion, shared by homepage and service-page illustrations. */
+.bn-icon svg {
+  animation: service-icon-breathe 4.8s ease-in-out infinite;
+  transform-origin: center;
+}
+.bn-art .bn-browser {
+  animation: service-object-float 6s ease-in-out infinite;
+}
+.bn-art .bn-rack > span {
+  animation: service-rack-lift 4s ease-in-out infinite;
+}
+.bn-art .bn-rack > span:nth-child(2) {
+  animation-delay: 0.5s;
+}
+.bn-art .bn-rack > span:nth-child(3) {
+  animation-delay: 1s;
+}
+.bn-art .bn-rack i {
+  animation: service-led 3.2s ease-in-out infinite;
+}
+.bn-art .bn-cluster-tiles > span {
+  animation: service-rack-lift 4.5s ease-in-out infinite;
+}
+.bn-art .bn-cluster-tiles > span:nth-child(2) {
+  animation-delay: 0.6s;
+}
+.bn-art .bn-cluster-tiles > span:nth-child(3) {
+  animation-delay: 1.2s;
+}
+.bn-art .bn-line {
+  stroke-dasharray: 720;
+  animation: service-traffic 6s ease-in-out infinite;
+}
+.bn-art .bn-search {
+  animation: service-object-float 6s ease-in-out infinite;
+}
+.bn-art .bn-search > u {
+  animation: service-confirm 4s ease-in-out infinite;
+  transform-origin: center;
+}
+.bn-art .bn-chip {
+  animation: service-chip-bob 5s ease-in-out infinite;
+}
+.bn-art .bn-prompt > i {
+  transform-origin: left;
+  animation: service-build-progress 5s ease-in-out infinite;
+}
+.bn-art .bn-code {
+  animation: service-object-float 7s ease-in-out infinite;
+}
+.bn-art .bn-inbox > span {
+  animation: service-mail-arrive 5.4s ease-in-out infinite;
+}
+.bn-art .bn-inbox > span:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.bn-art .bn-inbox > span:nth-child(3) {
+  animation-delay: 0.6s;
+}
+.bn-art .bn-storage-tower > span {
+  animation: service-rack-lift 4.8s ease-in-out infinite;
+}
+.bn-art .bn-storage-tower > span:nth-child(2) {
+  animation-delay: 0.5s;
+}
+.bn-art .bn-storage-tower > span:nth-child(3) {
+  animation-delay: 1s;
+}
+.bn-art .bn-storage-tower b {
+  animation: service-led 3s ease-in-out infinite;
+}
+.bn-art .bn-restore svg {
+  animation: service-sync-turn 8s ease-in-out infinite;
+  transform-origin: center;
+}
+.bn-art .bn-nodes > span.is-core svg {
+  animation: service-sync-turn 7s ease-in-out infinite;
+  transform-origin: center;
+}
+.bn-art .bn-nodes > i {
+  background-size: 18px 100%;
+  animation: service-connect-flow 2s linear infinite;
+}
+.bn-art .bn-nodes > span:last-child svg {
+  animation: service-confirm 4.8s ease-in-out infinite;
+}
+@keyframes service-icon-breathe {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.08;
+  }
+}
+@keyframes service-object-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -5px;
+  }
+}
+@keyframes service-rack-lift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  45% {
+    translate: 0 -4px;
+  }
+}
+@keyframes service-led {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+@keyframes service-traffic {
+  0%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  50% {
+    stroke-dashoffset: 55;
+    opacity: 0.65;
+  }
+}
+@keyframes service-confirm {
+  0%,
+  65%,
+  100% {
+    scale: 1;
+  }
+  75% {
+    scale: 1.14;
+  }
+  88% {
+    scale: 1;
+  }
+}
+@keyframes service-chip-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -3px;
+  }
+}
+@keyframes service-build-progress {
+  0%,
+  100% {
+    scale: 0.65 1;
+  }
+  65% {
+    scale: 1 1;
+  }
+}
+@keyframes service-mail-arrive {
+  0%,
+  15%,
+  100% {
+    translate: 0 0;
+  }
+  45% {
+    translate: 4px -3px;
+  }
+  70% {
+    translate: 0 0;
+  }
+}
+@keyframes service-sync-turn {
+  0%,
+  20% {
+    rotate: 0deg;
+  }
+  60%,
+  100% {
+    rotate: 360deg;
+  }
+}
+@keyframes service-connect-flow {
+  to {
+    background-position: 18px 0;
+  }
+}
+/* Off-screen homepage panels do not spend time animating their decorative artwork. */
+.section-panel[data-visible='false'] .bn-art *,
+.section-panel[data-visible='false'] .bn-icon svg {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bn-art *,
+  .bn-icon svg {
+    animation: none !important;
+  }
+}

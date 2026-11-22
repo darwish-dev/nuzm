@@ -1297,3 +1297,370 @@ html[lang='ar'] .doc-toc-title {
     max-inline-size: 240px;
   }
 }
+
+/* Warm secondary accents on service and documentation pages. */
+.svc-site {
+  --warm-orange: #e9a16d;
+  --warm-beige: #e8ddc9;
+}
+.svc-site .eyebrow {
+  color: var(--warm-beige);
+}
+.svc-site[data-mode='light'] .eyebrow {
+  color: #815736;
+}
+.svc-site .site-footer h3 {
+  color: var(--warm-beige);
+}
+.svc-site a:hover {
+  text-decoration-color: var(--warm-orange);
+}
+
+/* Service-page identity: warm highlights, dimensional artwork, consistent icon materials. */
+.svc-site {
+  --warm-orange: #e9a16d;
+  --warm-beige: #e8ddc9;
+}
+.svc-site .svc-actions > .button:first-child,
+.svc-site .svc-cta .button {
+  background: linear-gradient(135deg, #f7d4b7, #e9a16d);
+  color: #3d2c22;
+  border-color: #f5c29b;
+}
+.svc-site .svc-crumbs svg,
+.svc-site .svc-note svg,
+.svc-site .svc-price-note svg {
+  color: var(--warm-orange);
+}
+.svc-site .svc-card {
+  border-radius: 24px;
+  background: radial-gradient(ellipse at 100% 0%, #93b6b314, transparent 60%), var(--surface);
+  transition:
+    border-color 0.25s,
+    transform 0.25s;
+}
+.svc-site .svc-card:hover {
+  border-color: #e9a16d66;
+}
+.svc-site .svc-card-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e4f2e8, #93b6b3);
+  color: #263f43;
+  border: 1px solid #d7f0e366;
+  box-shadow:
+    inset 1px 2px 2px #fff7,
+    0 4px 0 #58707966,
+    0 9px 18px #0002;
+}
+.svc-site .svc-card:nth-child(2n) .svc-card-icon {
+  background: linear-gradient(135deg, #fbf0dc, #d7c4a4);
+  color: #6a5135;
+}
+.svc-site .svc-card:nth-child(3n) .svc-card-icon {
+  background: linear-gradient(135deg, #f8d5b8, #e9a16d);
+  color: #61412c;
+}
+.svc-site .svc-card-icon svg {
+  stroke-width: 1.8;
+}
+.svc-site .svc-step-no {
+  background: linear-gradient(135deg, #f7ead4, #dfc8a5);
+  color: #6a5034;
+  border: 1px solid #f7e6c9;
+  box-shadow: inset 1px 1px 2px #fff8;
+}
+.svc-site .svc-steps > li:nth-child(2n) .svc-step-no {
+  background: linear-gradient(135deg, #f8d5b9, #e9a16d);
+  color: #573c2b;
+}
+.svc-site .svc-faq details[open] {
+  border-color: #e9a16d66;
+  background: linear-gradient(120deg, #e9a16d08, transparent);
+}
+.svc-site .svc-faq summary svg {
+  color: var(--warm-orange);
+}
+.svc-site .svc-more {
+  color: var(--warm-orange);
+}
+.svc-site .svc-product-scene {
+  position: relative;
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  perspective: 900px;
+  isolation: isolate;
+  background: radial-gradient(ellipse at center, #93b6b320, transparent 68%);
+}
+.svc-product-scene .nb-art {
+  position: relative;
+  inline-size: 100%;
+  block-size: 230px;
+  max-inline-size: 380px;
+}
+.svc-product-scene .nb-cluster-sheet,
+.svc-product-scene .nb-host-browser,
+.svc-product-scene .nb-domain-sheet {
+  background: linear-gradient(135deg, #f8f6ed, #d5e8de 60%, #a8c6bb);
+  border: 1px solid #f2fff6;
+  box-shadow:
+    inset 1px 2px 2px #fff9,
+    5px 7px 0 #789d94,
+    9px 12px 0 #34434d,
+    14px 20px 22px #0003;
+}
+.svc-product-scene .nb-resource-grid > span:nth-child(2),
+.svc-product-scene .nb-dns-tag {
+  background: linear-gradient(135deg, #f8d8bc, #e9a16d);
+  color: #63432c;
+}
+.svc-product-scene .nb-editor {
+  border: 1px solid #93b6b388;
+  box-shadow:
+    inset 1px 1px 2px #cfe8da44,
+    5px 7px 0 #587079,
+    9px 12px 0 #14262c;
+}
+.svc-product-scene .nb-editor pre b {
+  color: #efbb91;
+}
+.svc-site .svc-card-art {
+  overflow: hidden;
+  height: 200px;
+}
+.svc-site .svc-card-art .svc-product-scene {
+  min-height: 200px;
+  scale: 0.78;
+  transform-origin: center;
+}
+.svc-object-stack {
+  width: min(310px, 80%);
+  display: grid;
+  gap: 14px;
+  transform: perspective(700px) rotateY(-14deg) rotateZ(-5deg);
+}
+.svc-object-layer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #dff1e6, #93b6b3);
+  color: #345b54;
+  border: 1px solid #e9fff3;
+  box-shadow:
+    inset 1px 2px 2px #fff8,
+    4px 6px 0 #587079,
+    8px 14px 20px #0003;
+}
+.svc-layer-1 {
+  background: linear-gradient(135deg, #fbefda, #dbc8a6);
+  color: #72583b;
+}
+.svc-layer-2 {
+  background: linear-gradient(135deg, #f9d8bb, #e9a16d);
+  color: #68472e;
+}
+.svc-object-lines {
+  flex: 1;
+  display: grid;
+  gap: 7px;
+}
+.svc-object-lines i {
+  display: block;
+  height: 4px;
+  width: 85%;
+  border-radius: 3px;
+  background: currentColor;
+  opacity: 0.25;
+}
+.svc-object-lines i:last-child {
+  width: 55%;
+}
+.svc-object-layer > b {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #345b54;
+}
+.svc-object-seal {
+  position: absolute;
+  right: 8%;
+  bottom: 9%;
+  padding: 12px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f7ecda, #d8c5a4);
+  color: #645039;
+  border: 1px solid #fff0d4;
+  box-shadow:
+    3px 5px 0 #8f826d,
+    8px 12px 20px #0003;
+  transform: rotate(8deg);
+}
+@media (max-width: 767px) {
+  .svc-site .svc-product-scene {
+    min-height: 230px;
+  }
+  .svc-object-stack {
+    width: min(280px, 82%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .svc-site .svc-card {
+    transition: none;
+  }
+}
+
+/* Reuse homepage illustrations without applying card chrome to the artwork frame. */
+.svc-site .svc-shared-art.bn {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.svc-site .svc-shared-art > .bn-card {
+  display: block;
+  min-height: 0;
+  height: 290px;
+  padding: 18px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+  transform: none;
+}
+.svc-site .svc-shared-art .bn-art {
+  display: block;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  scale: 0.82;
+  transform-origin: center;
+}
+.svc-site .svc-card-art {
+  height: 220px;
+  overflow: hidden;
+}
+.svc-site .svc-card-art .svc-shared-art > .bn-card {
+  height: 220px;
+  padding: 14px;
+}
+.svc-site .svc-card-art .svc-shared-art .bn-art {
+  scale: 0.8;
+}
+@media (max-width: 640px) {
+  .svc-site .svc-visual .svc-shared-art > .bn-card {
+    height: 260px;
+  }
+}
+
+/* Homepage art already uses brand materials; never apply the legacy photo inversion. */
+.landing.svc-site .svc-card-art {
+  filter: none;
+  background: transparent;
+  aspect-ratio: auto;
+}
+.svc-site .svc-link-card {
+  display: flex;
+  flex-direction: column;
+}
+.svc-site .svc-link-card .svc-more {
+  margin-top: auto;
+  padding-top: 20px;
+}
+.svc-site .svc-shared-art .bn-search b {
+  color: #263f43 !important;
+}
+.svc-site .svc-shared-art .bn-inbox > span.is-on {
+  color: #34434d;
+}
+
+/* Documentation follows the same product illustration and warm-accent system. */
+.doc-app {
+  --warm-orange: #e9a16d;
+  --warm-beige: #e8ddc9;
+}
+.landing.doc-app .doc-product-art {
+  filter: none;
+  background: radial-gradient(ellipse, #93b6b315, transparent 70%);
+  box-shadow: none;
+  border-radius: 24px;
+  overflow: hidden;
+}
+.doc-app .svc-shared-art.bn {
+  display: block;
+}
+.doc-app .svc-shared-art > .bn-card {
+  height: 240px;
+  min-height: 0;
+  padding: 18px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+.doc-app .svc-shared-art .bn-art {
+  display: block;
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  scale: 0.84;
+}
+.doc-app .doc-actions .button-white {
+  background: linear-gradient(135deg, #f8d5b8, #e9a16d);
+  color: #493326;
+  border-color: #f5c8a3;
+}
+.doc-app .doc-guide-icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  margin-bottom: 18px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #e1f0e5, #93b6b3);
+  color: #2f4b45;
+  box-shadow:
+    inset 1px 1px 2px #fff7,
+    0 4px 0 #58707955;
+}
+.doc-app .doc-cards > a:nth-child(2n) .doc-guide-icon {
+  background: linear-gradient(135deg, #f9ecd8, #dac7a7);
+  color: #6b5236;
+}
+.doc-app .doc-cards > a:nth-child(3n) .doc-guide-icon {
+  background: linear-gradient(135deg, #f7d3b5, #e9a16d);
+  color: #65432c;
+}
+.doc-app .doc-cards .svc-card {
+  background: radial-gradient(ellipse at 100% 0%, #e9a16d0b, transparent 60%), var(--surface);
+  border-radius: 22px;
+}
+.doc-app .doc-cards .svc-card:hover {
+  border-color: #e9a16d88;
+}
+.doc-app .svc-more {
+  color: var(--warm-orange);
+}
+.doc-app .doc-toc-nav a[aria-current='location'] {
+  color: var(--warm-orange);
+  border-color: var(--warm-orange);
+}
+.doc-app .doc-search:focus-within {
+  border-color: var(--warm-orange);
+  box-shadow: 0 0 0 3px #e9a16d18;
+}
+.doc-app .doc-search kbd {
+  color: var(--warm-beige);
+  border-color: #e8ddc944;
+}
+.doc-app .doc-crumb {
+  color: var(--warm-beige);
+}
+.doc-app .doc-content pre {
+  border-inline-start: 3px solid #e9a16d88;
+}

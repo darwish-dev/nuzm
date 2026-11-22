@@ -3,7 +3,10 @@
 import { useRef, useState } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
+import { SiteHeader } from '../site/SiteHeader';
+import { SERVICES, pick } from '../../lib/site-content';
 import { PlatformBento } from '../site/PlatformBento';
+import { AiBuildShowcase } from './AiBuildShowcase';
 import { AiChatSection } from './AiChatSection';
 import { TechStrip } from './TechStrip';
 import { useSectionScroll } from './useSectionScroll';
@@ -36,7 +39,6 @@ const workflows = [
 export function LandingPage() {
   const scrollRoot = useRef<HTMLDivElement>(null);
   useSectionScroll(scrollRoot);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [recommendation, setRecommendation] = useState<number | null>(null);
   const [dark, setDark] = useState(true);
@@ -67,40 +69,27 @@ export function LandingPage() {
         <div className="sky" aria-hidden="true">
           <div className="horizon" />
         </div>
-        <header className="site-header wrap">
-          <a href="/" aria-label="Nuzm home" className="brand">
-            <BrandWordmark />
-          </a>
-          <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Main navigation">
-            {[
-              ['Services', '/en/services'],
-              ['AI agents', '#agents'],
-              ['AI chat', '#chat'],
-              ['Platform', '#platform'],
-              ['Integrations', '#integrations'],
-            ].map(([label, href]) => (
-              <a key={label} href={href} onClick={() => setMenuOpen(false)}>
-                {label}
-              </a>
-            ))}
-          </nav>
-          <div className="header-actions">
-            <a href="/en/login" className="login-link">
-              Log in
-            </a>
-            <a href="/en/register" className="button button-white">
-              Get started <Icon name="sparkle" size={15} />
-            </a>
-            <button
-              className="menu-toggle"
-              aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              <Icon name={menuOpen ? 'close' : 'menu'} size={22} />
-            </button>
-          </div>
-        </header>
+        <SiteHeader
+          locale="en"
+          otherLocale={{ code: 'ar', label: 'العربية', href: '/ar/services' }}
+          services={SERVICES.map((s) => ({
+            slug: s.slug,
+            icon: s.icon,
+            name: pick(s.name, 'en'),
+            tagline: pick(s.tagline, 'en'),
+          }))}
+          labels={{
+            home: 'Nuzm home',
+            nav: 'Main navigation',
+            services: 'Services',
+            allServices: 'All services',
+            login: 'Log in',
+            start: 'Get started',
+            menu: 'Open navigation',
+            closeMenu: 'Close navigation',
+            developers: 'Documentation',
+          }}
+        />
         <main id="main" className="hero-content wrap">
           <a href="#agents" className="announcement">
             <span>MEET NUZM AI</span> A little intelligence. Endless possibility.{' '}
@@ -173,54 +162,7 @@ export function LandingPage() {
         <TechStrip />
       </section>
 
-      <section id="agents" className="section wrap agent-section">
-        <div className="agent-intro">
-          <span className="eyebrow">A NEW WAY TO WORK</span>
-          <h2>
-            Big ideas deserve
-            <br />
-            <em>an intelligent partner.</em>
-          </h2>
-          <p>
-            Meet the extra pair of hands your business has been waiting for. Turn everyday tasks
-            into connected workflows, with you in control.
-          </p>
-          <button className="text-button" onClick={() => demo.current?.showModal()}>
-            Explore the experience <Icon name="plus" size={16} />
-          </button>
-          <div className="agent-principles">
-            <span>
-              <Icon name="check" size={16} /> Made for your workflow
-            </span>
-            <span>
-              <Icon name="check" size={16} /> Human at the heart
-            </span>
-          </div>
-        </div>
-        <div className="agent-canvas">
-          <div className="canvas-grid" />
-          <span className="canvas-label">YOUR WORK, CONNECTED</span>
-          <div className="flow-node node-a">
-            <Icon name="mail" size={19} />
-            <span>A new request arrives</span>
-          </div>
-          <div className="agent-orb">
-            <img src="/brand/nuzm-mark.png" alt="" width="54" height="43" />
-          </div>
-          <div className="orb-caption">
-            Nuzm AI<span>Understands. Connects. Assists.</span>
-          </div>
-          <div className="flow-node node-b">
-            <Icon name="check" size={18} />
-            <span>Ready for your review</span>
-          </div>
-          <div className="flow-node node-c">
-            <Icon name="organization" size={18} />
-            <span>Your team, in the loop</span>
-          </div>
-          <span className="canvas-footnote">An illustration of your future workflow</span>
-        </div>
-      </section>
+      <AiBuildShowcase />
 
       <AiChatSection />
 
@@ -240,32 +182,62 @@ export function LandingPage() {
         <PlatformBento locale="en" prefix="" title="The Nuzm platform" />
       </section>
 
-      <section className="section integrations-section wrap" id="integrations">
-        <span className="eyebrow">BETTER, TOGETHER</span>
+      <section className="section integrations-section wrap bridge-section" id="integrations">
+        <span className="eyebrow">INTELLIGENCE MEETS EVERYDAY WORK</span>
         <h2>
-          Your favorite tools.
+          Your AI.
           <br />
-          <em>A more connected world.</em>
+          <em>Your business. Connected.</em>
         </h2>
-        <p>
-          Explore AI integrations with Claude and a connected cloud ecosystem with MacCloud. Shape a
-          setup around the way you work.
-        </p>
-        <div className="integration-orbit">
-          <span className="integration-chip claude">
-            <span aria-hidden="true">✳</span> Claude
+        <p>AI assistance, connected to the tools your business runs on.</p>
+        <div
+          className="bridge-map"
+          aria-label="Claude connects through Nuzm to domains, hosting, email, ERP, CRM, and business apps"
+        >
+          <div className="bridge-source bridge-claude">
+            <img src="/brand/claude.svg" alt="Claude" width={220} height={48} />
+            <span>Intelligence for your everyday work</span>
+          </div>
+          <span className="bridge-link" aria-hidden="true">
+            <i />
           </span>
-          <span className="connector-line" />
-          <span className="integration-center">
-            <img src="/brand/nuzm-mark.png" alt="Nuzm" width="40" height="32" />
+          <div className="bridge-hub">
+            <span>
+              <img src="/brand/nuzm-mark.png" alt="Nuzm" width={54} height={43} />
+            </span>
+            <strong>Nuzm</strong>
+            <small>One connected platform</small>
+          </div>
+          <span className="bridge-link" aria-hidden="true">
+            <i />
           </span>
-          <span className="connector-line" />
-          <span className="integration-chip">
-            <Icon name="cloud" size={27} /> MacCloud
-          </span>
+          <div className="bridge-destinations">
+            {(
+              [
+                { name: 'Domains', icon: 'globe', href: '/en/services/domains' },
+                { name: 'Web hosting', icon: 'hosting', href: '/en/services/hosting' },
+                { name: 'Business email', icon: 'mail', href: '/en/services/email' },
+                { name: 'ERP', icon: 'organization', href: '/en/services/automation' },
+                { name: 'CRM', icon: 'user', href: '/en/services/automation' },
+                { name: 'Business apps', icon: 'grid', href: '/en/services/ai-builder' },
+              ] as { name: string; icon: IconName; href: string }[]
+            ).map((item, i) => (
+              <a
+                href={item.href}
+                key={item.name}
+                className={`bridge-destination bridge-tone-${i % 3} bridge-service-${item.icon}`}
+              >
+                <span>
+                  <Icon name={item.icon} size={28} />
+                  <i aria-hidden="true" />
+                </span>
+                <strong>{item.name}</strong>
+              </a>
+            ))}
+          </div>
         </div>
-        <a href="/en/automation/connectors" className="text-button">
-          Explore integrations <Icon name="plus" size={16} />
+        <a href="/en/services" className="text-button">
+          Explore the platform <Icon name="plus" size={16} />
         </a>
       </section>
 
@@ -279,9 +251,6 @@ export function LandingPage() {
               <br />
               <em>what’s possible.</em>
             </h2>
-            <a className="button button-blue" href="/en/register">
-              Get started <Icon name="sparkle" size={16} />
-            </a>
           </div>
           <div className="footer-links">
             <div className="footer-brand">

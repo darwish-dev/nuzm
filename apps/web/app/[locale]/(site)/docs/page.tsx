@@ -50,7 +50,7 @@ export default async function DocsHome({ params }: { params: Promise<{ locale: s
       <div className="doc-cards">
         {GUIDES.map((g) => (
           <a key={g.slug} className="svc-card svc-link-card" href={`/${locale}/docs/guides/${g.slug}`}>
-            <h3>{pick(g.title, locale)}</h3>
+            <span className="doc-guide-icon" aria-hidden="true"><Icon name={g.slug.includes('auth') ? 'key' : g.slug.includes('quick') ? 'sparkle' : 'code'} size={23} /></span><h3>{pick(g.title, locale)}</h3>
             <p>{pick(g.summary, locale)}</p>
             <span className="svc-more">
               {doc('next', locale)} <Icon name="arrow" size={14} />

@@ -199,7 +199,7 @@ const PATHS: Record<string, ReactNode> = {
   globe: (
     <>
       <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17" />
+      <path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5S14.4 18.1 12 20.5C9.6 18.1 8.4 15.3 8.4 12S9.6 5.9 12 3.5z" />
     </>
   ),
   logout: (

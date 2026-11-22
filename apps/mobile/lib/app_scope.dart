@@ -42,6 +42,17 @@ class AppController extends ChangeNotifier {
   List<Membership> _orgs = const [];
   Membership? _org;
 
+  Future<Balances>? _balances;
+
+  /// The wallet and AI credits, fetched once and shared by the menu and the chat screen; [refresh] after a spend.
+  Future<Balances> balances({bool refresh = false}) {
+    if (refresh || _balances == null) {
+      _balances = _data.balances();
+      if (refresh) notifyListeners();
+    }
+    return _balances!;
+  }
+
   /// A prompt another screen hands to Nuzm AI (the home screen picks it up and starts the chat).
   final ValueNotifier<String?> pendingPrompt = ValueNotifier<String?>(null);
 
@@ -81,6 +92,7 @@ class AppController extends ChangeNotifier {
 
   void _set(AppPhase p) {
     _phase = p;
+    _balances = null;
     notifyListeners();
   }
 

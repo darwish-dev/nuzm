@@ -2,7 +2,7 @@
     <!-- The app calls the Nuzm API. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Nuzm"
+        android:label="NUZM AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

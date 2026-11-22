@@ -31,7 +31,7 @@ class NuzmApp extends StatelessWidget {
       child: ListenableBuilder(
         listenable: controller,
         builder: (context, _) => MaterialApp(
-          title: 'Nuzm',
+          title: 'NUZM AI',
           debugShowCheckedModeBanner: false,
           locale: controller.locale,
           supportedLocales: const [Locale('ar'), Locale('en')],

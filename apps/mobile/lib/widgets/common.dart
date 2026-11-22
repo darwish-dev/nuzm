@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_scope.dart';
+import '../data/data_source.dart';
 import '../data/demo.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
@@ -41,7 +42,8 @@ class NzScaffold extends StatelessWidget {
         child: SafeArea(
           bottom: false,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Padding(padding: const EdgeInsets.fromLTRB(14, 8, 14, 12), child: header),
+            // Compact top bar (about 54 px with the 38 px buttons), like the console's 64 px bar on a phone.
+            Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 8), child: header),
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -72,7 +74,7 @@ class CircleIconButton extends StatelessWidget {
     required this.tooltip,
     this.onTap,
     this.dot = false,
-    this.size = 46,
+    this.size = 38,
     this.onChrome = true,
   });
   final IconData icon;
@@ -100,14 +102,14 @@ class CircleIconButton extends StatelessWidget {
               width: size,
               height: size,
               child: Stack(alignment: Alignment.center, children: [
-                Icon(icon, size: 21, color: onChrome ? nz.chromeFg : nz.fg),
+                Icon(icon, size: size * 0.47, color: onChrome ? nz.chromeFg : nz.fg),
                 if (dot)
                   PositionedDirectional(
-                    top: size * 0.16,
-                    end: size * 0.18,
+                    top: size * 0.14,
+                    end: size * 0.16,
                     child: Container(
-                      width: 9,
-                      height: 9,
+                      width: 7,
+                      height: 7,
                       decoration: BoxDecoration(gradient: NuzmColors.orangeGradient, shape: BoxShape.circle),
                     ),
                   ),
@@ -440,3 +442,57 @@ String displayValue(String raw, BuildContext context) {
   }
   return raw;
 }
+
+
+/// AI credits as the console's top-bar balance chip (`.nzc-chip`, 10 px radius): on the chrome, compact.
+class CreditChip extends StatelessWidget {
+  const CreditChip({super.key, this.onTap});
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final nz = context.nz;
+    final app = AppScope.of(context);
+    return FutureBuilder<Balances>(
+      future: app.balances(),
+      builder: (context, snap) {
+        final credits = snap.data?.credits;
+        if (snap.hasData && credits == null) return const SizedBox.shrink();
+        final low = snap.data?.lowCredit == true;
+        final label = S.aiCredits.of(context);
+        return Semantics(
+          button: onTap != null,
+          label: credits == null ? label : '$label: $credits',
+          excludeSemantics: true,
+          child: Material(
+            color: nz.chromeButton,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: low ? nz.orange : nz.chromeFg.withValues(alpha: 0.12)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              child: SizedBox(
+                height: 38,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(LucideIcons.sparkles, size: 15, color: low ? nz.orangeText : nz.chromeFg),
+                    const SizedBox(width: 6),
+                    credits == null
+                        ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6, color: nz.chromeFg))
+                        : LtrText(groupDigits(credits), style: TextStyle(color: nz.chromeFg, fontWeight: FontWeight.w700, fontSize: 13.5)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 7420 → "7,420".
+String groupDigits(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');

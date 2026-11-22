@@ -62,6 +62,20 @@ class ChatTurn {
   final String? reply;
 }
 
+/// The two balances of the console's top bar: the prepaid wallet and the AI credits.
+@immutable
+class Balances {
+  const Balances({this.walletMinor, this.currency = 'SAR', this.credits, this.lowCredit = false});
+
+  /// Integer minor units; null when the member may not read billing.
+  final int? walletMinor;
+  final String currency;
+
+  /// Available AI credits; null when AI is off or not readable.
+  final int? credits;
+  final bool lowCredit;
+}
+
 @immutable
 class DomainResult {
   const DomainResult(this.name, this.available, {this.price});
@@ -79,6 +93,7 @@ abstract class DataSource {
   String get userName;
   Future<PageData> load(String pageId);
   Future<DashboardData> dashboard();
+  Future<Balances> balances();
   Future<List<DomainResult>> searchDomains(String query);
   Future<List<Notice>> notifications();
   Future<void> markNotificationsRead(List<String> ids);
@@ -122,6 +137,9 @@ class DemoDataSource implements DataSource {
     await _wait();
     return DashboardData(stats: kDashboardStats, attention: kAttention);
   }
+
+  @override
+  Future<Balances> balances() async => const Balances(walletMinor: 125000, credits: 7420);
 
   @override
   Future<List<DomainResult>> searchDomains(String query) async {

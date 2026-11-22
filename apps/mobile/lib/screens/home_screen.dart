@@ -4,7 +4,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/api_client.dart';
 import '../app_scope.dart';
 import '../data/data_source.dart';
-import '../data/demo.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
@@ -89,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _messages.add(ChatMessage('${S.errorPrefix.of(context)}: ${problemText(context, e)}', fromUser: false, error: true)));
     } finally {
       if (mounted && turn == _turn) setState(() => _typing = false);
+      if (app.data.isLive) app.balances(refresh: true);
       _toBottom();
     }
   }
@@ -149,16 +149,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return NzScaffold(
       header: Row(children: [
         CircleIconButton(icon: LucideIcons.menu, tooltip: S.menu.of(context), dot: true, onTap: _openMenu),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         CircleIconButton(icon: LucideIcons.rotateCw, tooltip: S.refresh.of(context), onTap: _newChat),
         Expanded(
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            brandMark(context, size: 26),
-            const SizedBox(width: 8),
-            Text(S.nuzmAi.of(context), style: TextStyle(color: nz.chromeFg, fontSize: 16, fontWeight: FontWeight.w700)),
+            brandMark(context, size: 20),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(S.nuzmAi.of(context),
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: nz.chromeFg, fontSize: 14, fontWeight: FontWeight.w700)),
+            ),
           ]),
         ),
-        const SizedBox(width: 54),
+        // The AI credits the chat spends (the console's top-bar balance chip).
+        CreditChip(onTap: () => openPage(context, 'aiUsage')),
+        const SizedBox(width: 6),
         CircleIconButton(icon: LucideIcons.squarePen, tooltip: S.newChat.of(context), onTap: _newChat),
       ]),
       body: Column(children: [
@@ -168,7 +173,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: empty ? const _Hero(key: ValueKey('hero')) : _chat(),
           ),
         ),
-        if (empty) _Suggestions(onPick: _send),
         Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
           child: Composer(onSend: _send),
@@ -181,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView.builder(
       key: const ValueKey('chat'),
       controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
       itemCount: _messages.length + (_typing ? 1 : 0),
       itemBuilder: (context, i) {
         if (i == _messages.length) return _Bubble(text: S.thinking.of(context), fromUser: false, faint: true);
@@ -192,132 +196,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// The empty chat, Claude-style: the mark and one greeting line, nothing else.
 class _Hero extends StatelessWidget {
   const _Hero({super.key});
 
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    final hour = DateTime.now().hour;
-    final greet = (hour < 12 ? S.morning : S.evening).of(context);
-    final t = Theme.of(context).textTheme;
+    final greet = (DateTime.now().hour < 12 ? S.morning : S.evening).of(context);
     final user = AppScope.of(context).data.userName;
-    final chips = <(IconData, String)>[
-      (LucideIcons.sparkles, 'builder'),
-      (LucideIcons.appWindow, 'appbuilder'),
-      (LucideIcons.smartphone, 'mobile'),
-      (LucideIcons.server, 'instances'),
-      (LucideIcons.search, 'domainSearch'),
-    ];
-    return LayoutBuilder(
-      builder: (context, c) => SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: c.maxHeight),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const SizedBox(height: 12),
-            const NuzmMark(size: 112),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(children: [
-                Text.rich(
-                  TextSpan(children: [
-                    TextSpan(text: isAr(context) ? '$greet يا $user، ' : '$greet, $user. '),
-                    TextSpan(text: '${S.iAm.of(context)} '),
-                    TextSpan(text: S.nuzmAi.of(context), style: TextStyle(color: nz.accentStrong)),
-                  ]),
-                  textAlign: TextAlign.center,
-                  style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800, height: 1.35),
-                ),
-                const SizedBox(height: 2),
-                ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (r) => LinearGradient(colors: [nz.accentStrong, nz.orange]).createShader(r),
-                  child: Text(S.heroLine.of(context),
-                      textAlign: TextAlign.center, style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800, height: 1.35)),
-                ),
-                const SizedBox(height: 10),
-                Text(S.heroSub.of(context), textAlign: TextAlign.center, style: t.bodyLarge?.copyWith(color: nz.muted)),
-              ]),
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              height: 60,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: chips.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, i) {
-                  final (icon, pageId) = chips[i];
-                  final label = pageLabel(pageId).of(context);
-                  // `.nzc-chip`: card surface, 1 px border, accent icon.
-                  return Material(
-                    color: nz.card,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: nz.border)),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => openPage(context, pageId),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        child: Row(children: [
-                          Icon(icon, size: 20, color: nz.accentStrong),
-                          const SizedBox(width: 10),
-                          Text(label, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
-                        ]),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-          ]),
-        ),
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          brandMark(context, size: 44),
+          const SizedBox(height: 14),
+          Text(
+            isAr(context) ? '$greet، $user' : '$greet, $user',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: nz.fg, fontSize: 24, fontWeight: FontWeight.w600, height: 1.3),
+          ),
+          const SizedBox(height: 4),
+          Text(S.heroLine.of(context), textAlign: TextAlign.center, style: TextStyle(color: nz.muted, fontSize: 15)),
+        ]),
       ),
     );
   }
 }
 
-class _Suggestions extends StatelessWidget {
-  const _Suggestions({required this.onPick});
-  final ValueChanged<String> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final nz = context.nz;
-    return SizedBox(
-      height: 50,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: kSuggestions.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) {
-          final s = kSuggestions[i].of(context);
-          return Material(
-            color: nz.accentSoft,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12), side: BorderSide(color: nz.accent.withValues(alpha: 0.22))),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => onPick(s),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Row(children: [
-                  Icon(LucideIcons.sparkles, size: 17, color: nz.accent),
-                  const SizedBox(width: 8),
-                  Text(s, style: TextStyle(color: nz.accent, fontWeight: FontWeight.w600)),
-                ]),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
+/// Claude-style messages: yours in a soft bubble at the end, the assistant's as plain text across the width.
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.text, required this.fromUser, this.faint = false, this.error = false});
   final String text;
@@ -328,48 +235,37 @@ class _Bubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    final bubble = Container(
-      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: fromUser ? nz.primaryFill : (error ? nz.danger.withValues(alpha: 0.12) : nz.card),
-        border: fromUser ? null : Border.all(color: error ? nz.danger.withValues(alpha: 0.4) : nz.border),
-        borderRadius: BorderRadiusDirectional.only(
-          topStart: const Radius.circular(18),
-          topEnd: const Radius.circular(18),
-          bottomStart: Radius.circular(fromUser ? 18 : 6),
-          bottomEnd: Radius.circular(fromUser ? 6 : 18),
+    if (fromUser) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: Container(
+            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(color: nz.elev, borderRadius: BorderRadius.circular(18)),
+            child: Text(text, style: TextStyle(color: nz.fg, fontSize: 15.5, height: 1.5)),
+          ),
         ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: fromUser ? nz.onPrimaryFill : (error ? nz.danger : (faint ? nz.muted : nz.fg)),
-          fontSize: 15.5,
-          height: 1.5,
-          fontStyle: faint ? FontStyle.italic : FontStyle.normal,
-        ),
-      ),
-    );
+      );
+    }
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: fromUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!fromUser) ...[
-            Container(
-              width: 34,
-              height: 34,
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: nz.card, shape: BoxShape.circle, border: Border.all(color: nz.border)),
-              child: brandMark(context),
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(padding: const EdgeInsets.only(top: 3), child: brandMark(context, size: 18)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: error ? nz.danger : (faint ? nz.muted : nz.fg),
+              fontSize: 15.5,
+              height: 1.65,
+              fontStyle: faint ? FontStyle.italic : FontStyle.normal,
             ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(child: bubble),
-        ],
-      ),
+          ),
+        ),
+      ]),
     );
   }
 }

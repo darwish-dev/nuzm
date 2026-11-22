@@ -84,6 +84,10 @@ void main() {
       }
     }
 
+    await extra('balances', () async {
+      final b = await app.data.balances();
+      return 'wallet=${b.walletMinor} ${b.currency} credits=${b.credits} low=${b.lowCredit}';
+    });
     await extra('notifications', () async => 'n=${(await app.data.notifications()).length}');
     await extra('recentChats', () async => 'n=${(await app.data.recentChats()).length}');
     await extra('domainSearch', () async => 'results=${(await app.data.searchDomains('nuzmmobiletest')).length}');

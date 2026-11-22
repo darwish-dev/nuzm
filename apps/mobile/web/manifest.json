@@ -1,11 +1,11 @@
 {
-    "name": "nuzm_app",
-    "short_name": "nuzm_app",
+    "name": "NUZM AI",
+    "short_name": "NUZM AI",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B0B0C",
+    "theme_color": "#0B0B0C",
+    "description": "NUZM AI: build and run your cloud with AI.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

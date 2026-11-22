@@ -65,8 +65,6 @@ class _ComposerState extends State<Composer> {
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         round(LucideIcons.plus, S.attach.of(context), nz.elev, nz.fg, () => showSoon(context)),
         const SizedBox(width: 6),
-        round(LucideIcons.palette, S.styles.of(context), nz.accentSoft, nz.accent, () => showSoon(context)),
-        const SizedBox(width: 6),
         Expanded(
           child: TextField(
             controller: _ctrl,

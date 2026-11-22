@@ -53,7 +53,8 @@ void main() {
       final c = AppController(themeMode: b == Brightness.dark ? ThemeMode.dark : ThemeMode.light);
       await tester.pumpWidget(NuzmApp(controller: c, useGoogleFonts: false));
       await tester.pumpAndSettle();
-      expect(find.textContaining('نظم AI'), findsWidgets);
+      expect(find.textContaining('NUZM AI'), findsWidgets);
+      expect(find.text('كيف أساعدك اليوم؟'), findsOneWidget, reason: 'one simple greeting, Claude-style');
       expect(Directionality.of(tester.element(find.byType(Scaffold).first)), TextDirection.rtl);
 
       await tester.enterText(find.byType(TextField), 'ابنِ لي متجرًا');
@@ -67,24 +68,28 @@ void main() {
     });
   }
 
-  testWidgets('menu lists every section, searches, and switches language and theme', (tester) async {
+  testWidgets('menu: wallet and credits, organization picker, every section, no search or shortcut circles', (tester) async {
     await setPhone(tester);
     final c = AppController(themeMode: ThemeMode.light);
     await tester.pumpWidget(NuzmApp(controller: c, useGoogleFonts: false));
     await tester.pumpAndSettle();
+    expect(find.textContaining('7,420'), findsOneWidget, reason: 'the chat bar shows the AI credits');
+
     await tester.tap(find.byTooltip('القائمة'));
     await tester.pumpAndSettle();
-    final menuScroll = find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first;
-    await tester.scrollUntilVisible(find.text('المحادثات الأخيرة'), 300, scrollable: menuScroll);
+    final menu = find.byType(MenuScreen);
+    expect(find.descendant(of: menu, matching: find.byType(TextField)), findsNothing, reason: 'no search bar');
+    expect(find.text('المحفظة'), findsOneWidget);
+    expect(find.textContaining('1,250.00'), findsOneWidget);
+    expect(find.descendant(of: menu, matching: find.textContaining('7,420')), findsOneWidget);
+    expect(find.text('المؤسسة'), findsWidgets, reason: 'organization picker');
+    for (final cat in kCategories) {
+      expect(find.descendant(of: menu, matching: find.text(cat.label.ar)), findsWidgets, reason: cat.id);
+    }
+    final scroll = find.descendant(of: menu, matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.text('المحادثات الأخيرة'), 300, scrollable: scroll);
     expect(find.text('المحادثات الأخيرة'), findsOneWidget);
-    await tester.drag(menuScroll, const Offset(0, 3000));
-    await tester.pumpAndSettle();
-
-    final search = find.descendant(of: find.byType(MenuScreen), matching: find.byType(TextField));
-    await tester.enterText(search, 'فوات');
-    await tester.pumpAndSettle();
-    expect(find.text('الفواتير'), findsOneWidget);
-    await tester.enterText(search, '');
+    await tester.drag(scroll, const Offset(0, 3000));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('English'));

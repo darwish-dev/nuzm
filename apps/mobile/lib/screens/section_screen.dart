@@ -41,13 +41,13 @@ class _SectionScreenState extends State<SectionScreen> {
     return NzScaffold(
       header: Row(children: [
         CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text(cat.heading.of(context),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: nz.chromeFg, fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.1)),
+                style: TextStyle(color: nz.chromeFg, fontSize: 16, fontWeight: FontWeight.w700)),
             const SampleChip(),
           ]),
         ),

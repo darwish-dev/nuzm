@@ -38,7 +38,7 @@ class DetailScreen extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(page.label.of(context),
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: nz.chromeFg, fontSize: 19, fontWeight: FontWeight.w700)),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: nz.chromeFg, fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         const SampleChip(),
       ]),

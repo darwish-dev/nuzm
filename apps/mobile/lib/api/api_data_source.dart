@@ -381,6 +381,25 @@ class ApiDataSource implements DataSource {
     return DashboardData(stats: stats, attention: attention);
   }
 
+  /// Same sources as the console's top bar; each one is optional (permission, AI flag).
+  @override
+  Future<Balances> balances() async {
+    final r = await Future.wait([
+      api.get('/v1/billing/balance').then<Object?>((v) => v).catchError((Object _) => null),
+      api.get('/v1/ai/credits').then<Object?>((v) => v).catchError((Object _) => null),
+    ]);
+    final bal = r[0] is Map ? (r[0] as Map)['balances'] : null;
+    final first = bal is List && bal.isNotEmpty && bal.first is Map ? bal.first as Map : null;
+    final cr = r[1] is Map ? r[1] as Map : null;
+    return Balances(
+      // an organization with no wallet movement yet has a zero balance (as the console shows it)
+      walletMinor: r[0] == null ? null : _int(first?['balanceMinor'] ?? 0),
+      currency: s(first?['currency'] ?? 'SAR'),
+      credits: cr == null ? null : _int(cr['availableCredits']),
+      lowCredit: cr?['lowCredit'] == true,
+    );
+  }
+
   @override
   Future<List<DomainResult>> searchDomains(String query) async {
     final items = await _items('/v1/domains/search', query: {'q': query.trim()});

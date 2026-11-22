@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nuzm</string>
+	<string>NUZM AI</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- Only local addresses (the dev API on 127.0.0.1) may use http; everything else stays https. -->
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>nuzm_app</string>
+	<string>NUZM AI</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

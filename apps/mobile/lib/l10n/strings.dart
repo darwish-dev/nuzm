@@ -14,17 +14,17 @@ bool isAr(BuildContext context) => Localizations.localeOf(context).languageCode 
 
 /// Interface strings.
 class S {
-  static const appName = T('نظم', 'Nuzm');
-  static const nuzmAi = T('نظم AI', 'Nuzm AI');
+  static const appName = T('NUZM AI', 'NUZM AI');
+  static const nuzmAi = T('NUZM AI', 'NUZM AI');
   static const morning = T('صباح الخير', 'Good morning');
   static const evening = T('مساء الخير', 'Good evening');
   static const iAm = T('أنا', "I'm");
-  static const heroLine = T('ماذا نبني اليوم؟', 'What shall we build today?');
+  static const heroLine = T('كيف أساعدك اليوم؟', 'How can I help you today?');
   static const heroSub = T(
     'صف فكرتك وأحوّلها إلى موقع أو تطبيق أو خادم جاهز — وأتابع معك النطاق والبريد والفوترة.',
     'Describe your idea and I will turn it into a site, an app or a server — then help with the domain, email and billing.',
   );
-  static const composerHint = T('صف ما تريد أن تبنيه…', 'Describe what you want to build…');
+  static const composerHint = T('اكتب رسالتك إلى NUZM AI…', 'Message NUZM AI…');
   static const menu = T('القائمة', 'Menu');
   static const newChat = T('محادثة جديدة', 'New chat');
   static const refresh = T('تحديث', 'Refresh');
@@ -184,5 +184,10 @@ class S {
   static const noOptions = T('لا توجد خيارات متاحة', 'No options available');
   static const choose = T('اختر', 'Choose');
   static const loadingOptions = T('جارٍ تحميل الخيارات…', 'Loading options…');
+  static const aiCredits = T('رصيد نظم AI', 'Nuzm AI credits');
+  static const wallet = T('المحفظة', 'Wallet');
+  static const credits = T('رصيد الذكاء', 'AI credits');
+  static const project = T('المشروع', 'Project');
+  static const allProjects = T('كل المشاريع', 'All projects');
   static const ideas = T('أفكار للبدء', 'Ideas to start with');
 }

@@ -38,7 +38,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(S.notifications.of(context), style: TextStyle(color: nz.chromeFg, fontSize: 19, fontWeight: FontWeight.w700)),
+          child: Text(S.notifications.of(context), style: TextStyle(color: nz.chromeFg, fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         FutureBuilder<List<Notice>>(
           future: _future,

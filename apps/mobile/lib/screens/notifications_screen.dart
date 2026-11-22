@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../app_scope.dart';
+import '../data/data_source.dart';
 import '../data/demo.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
@@ -15,56 +17,87 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final _read = <int>{};
+  final _read = <String>{};
+  late Future<List<Notice>> _future = AppScope.read(context).data.notifications();
+
+  Future<void> _markRead(List<Notice> list, Iterable<String> ids) async {
+    final todo = ids.where((id) => !_read.contains(id) && !list.firstWhere((n) => n.id == id).read).toList();
+    setState(() => _read.addAll(ids));
+    try {
+      await AppScope.read(context).data.markNotificationsRead(todo);
+    } catch (_) {
+      // Shown as read locally; the server keeps it unread and it comes back on the next refresh.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    return Scaffold(
-      body: NzBackground(
-        child: SafeArea(
-          child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-            Row(children: [
-              CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(S.notifications.of(context),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-              ),
-              TextButton(
-                onPressed: () => setState(() => _read.addAll(List.generate(kNotifications.length, (i) => i))),
-                child: Text(S.markAllRead.of(context)),
-              ),
-            ]),
-            const SizedBox(height: 18),
-            for (final (i, (title, time, pageId, tone)) in kNotifications.indexed)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: NzCard(
-                  onTap: () {
-                    setState(() => _read.add(i));
-                    openPage(context, pageId);
-                  },
-                  padding: const EdgeInsets.all(14),
-                  child: Row(children: [
-                    IconTile(_iconFor(tone), size: 48, tone: tone),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(title.of(context),
-                            style: TextStyle(fontWeight: _read.contains(i) ? FontWeight.w500 : FontWeight.w800, fontSize: 15.5)),
-                        const SizedBox(height: 3),
-                        Text(time.of(context), style: TextStyle(color: nz.muted, fontSize: 13)),
-                      ]),
-                    ),
-                    if (!_read.contains(i))
-                      Container(width: 10, height: 10, decoration: BoxDecoration(color: nz.orange, shape: BoxShape.circle)),
-                  ]),
-                ),
-              ),
-          ]),
+    return NzScaffold(
+      header: Row(children: [
+        CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(S.notifications.of(context), style: TextStyle(color: nz.chromeFg, fontSize: 19, fontWeight: FontWeight.w700)),
         ),
-      ),
+        FutureBuilder<List<Notice>>(
+          future: _future,
+          builder: (context, snap) => TextButton(
+            style: TextButton.styleFrom(foregroundColor: nz.chromeFg),
+            onPressed: snap.hasData ? () => _markRead(snap.data!, snap.data!.map((n) => n.id)) : null,
+            child: Text(S.markAllRead.of(context)),
+          ),
+        ),
+      ]),
+      body: ListView(padding: const EdgeInsets.fromLTRB(14, 16, 14, 32), children: [
+            FutureBuilder<List<Notice>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) return const SkeletonList(rows: 3);
+                if (snap.hasError) {
+                  return StateView(
+                    icon: LucideIcons.cloudOff,
+                    tone: Tone.danger,
+                    title: S.errorTitle.of(context),
+                    hint: S.errorHint.of(context),
+                    action: S.retry.of(context),
+                    onAction: () => setState(() => _future = AppScope.read(context).data.notifications()),
+                  );
+                }
+                final list = snap.data!;
+                if (list.isEmpty) {
+                  return StateView(icon: LucideIcons.bell, title: S.noNotifications.of(context), hint: S.emptyHint.of(context));
+                }
+                return Column(children: [
+                  for (final n in list)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: NzCard(
+                        onTap: () {
+                          _markRead(list, [n.id]);
+                          openPage(context, n.pageId);
+                        },
+                        padding: const EdgeInsets.all(14),
+                        child: Row(children: [
+                          IconTile(_iconFor(n.tone), size: 48, tone: n.tone),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(n.title.of(context),
+                                  style: TextStyle(fontWeight: (n.read || _read.contains(n.id)) ? FontWeight.w500 : FontWeight.w800, fontSize: 15.5)),
+                              const SizedBox(height: 3),
+                              Text(n.time.of(context), style: TextStyle(color: nz.muted, fontSize: 13)),
+                            ]),
+                          ),
+                          if (!n.read && !_read.contains(n.id))
+                            Container(width: 10, height: 10, decoration: BoxDecoration(color: nz.orange, shape: BoxShape.circle)),
+                        ]),
+                      ),
+                    ),
+                ]);
+              },
+            ),
+      ]),
     );
   }
 

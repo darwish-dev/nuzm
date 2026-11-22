@@ -42,22 +42,25 @@ class _ComposerState extends State<Composer> {
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    Widget round(IconData icon, String tip, Color bg, Color fg, VoidCallback onTap, {double size = 48}) => Tooltip(
+    Widget round(IconData icon, String tip, Color? bg, Color fg, VoidCallback onTap, {double size = 46, Gradient? gradient}) => Tooltip(
           message: tip,
           child: Material(
-            color: bg,
+            color: Colors.transparent,
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
-            child: InkWell(onTap: onTap, child: SizedBox(width: size, height: size, child: Icon(icon, size: 22, color: fg))),
+            child: Ink(
+              decoration: BoxDecoration(color: bg, gradient: gradient, shape: BoxShape.circle),
+              child: InkWell(onTap: onTap, child: SizedBox(width: size, height: size, child: Icon(icon, size: 21, color: fg))),
+            ),
           ),
         );
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: nz.card,
-        borderRadius: BorderRadius.circular(40),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(color: nz.border),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: nz.shadow.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 8))],
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         round(LucideIcons.plus, S.attach.of(context), nz.elev, nz.fg, () => showSoon(context)),
@@ -75,7 +78,10 @@ class _ComposerState extends State<Composer> {
             decoration: InputDecoration(
               hintText: S.composerHint.of(context),
               hintStyle: TextStyle(color: nz.muted),
+              filled: false,
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 13),
             ),
           ),
@@ -87,10 +93,10 @@ class _ComposerState extends State<Composer> {
           child: _hasText
               ? KeyedSubtree(
                   key: const ValueKey('send'),
-                  child: round(LucideIcons.arrowUp, S.send.of(context), nz.primaryFill, nz.onPrimaryFill, _submit, size: 56))
+                  child: round(LucideIcons.arrowUp, S.send.of(context), null, nz.orangeInk, _submit, size: 52, gradient: NuzmColors.orangeGradient))
               : KeyedSubtree(
                   key: const ValueKey('mic'),
-                  child: round(LucideIcons.mic, S.voice.of(context), nz.primaryFill, nz.onPrimaryFill, () => showSoon(context), size: 56)),
+                  child: round(LucideIcons.mic, S.voice.of(context), null, nz.orangeInk, () => showSoon(context), size: 52, gradient: NuzmColors.orangeGradient)),
         ),
       ]),
     );

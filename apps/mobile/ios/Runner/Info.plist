@@ -5,7 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nuzm App</string>
+	<string>Nuzm</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Only local addresses (the dev API on 127.0.0.1) may use http; everything else stays https. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

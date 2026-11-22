@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../app_scope.dart';
 import '../data/demo.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 
-/// Page background: the theme colour with a soft mint glow at the top and a faint orange one at the bottom.
+/// The console's window: the chrome gradient (`--nzc-chrome`, dark 180deg / light 98deg) with its glows.
 class NzBackground extends StatelessWidget {
   const NzBackground({super.key, required this.child});
   final Widget child;
@@ -14,44 +15,72 @@ class NzBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final nz = context.nz;
     return DecoratedBox(
-      decoration: BoxDecoration(color: nz.bg),
+      decoration: BoxDecoration(gradient: nz.chrome),
       child: Stack(children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0.9, -1.1),
-                radius: 1.25,
-                colors: [nz.glowTop, nz.glowTop.withValues(alpha: 0)],
-              ),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(-1, 1.2),
-                radius: 1.1,
-                colors: [nz.glowBottom, nz.glowBottom.withValues(alpha: 0)],
-              ),
-            ),
-          ),
-        ),
+        for (final g in nz.chromeGlows) Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: g))),
         child,
       ]),
     );
   }
 }
 
-/// Round icon button (56 px) used in every top bar.
+/// The console's layout on a phone: the header sits on the chrome, the content in the frame (`.nzc-frame`:
+/// `--nzc-bg` with its glow, 6 px from the window's edges, 22 px top corners, 1 px border, no bottom border).
+class NzScaffold extends StatelessWidget {
+  const NzScaffold({super.key, required this.header, required this.body});
+  final Widget header;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    final nz = context.nz;
+    const top = Radius.circular(22);
+    return Scaffold(
+      backgroundColor: nz.bg,
+      body: NzBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(padding: const EdgeInsets.fromLTRB(14, 8, 14, 12), child: header),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: nz.bg,
+                  borderRadius: const BorderRadius.only(topLeft: top, topRight: top),
+                  border: Border(top: BorderSide(color: nz.border), left: BorderSide(color: nz.border), right: BorderSide(color: nz.border)),
+                ),
+                child: Stack(children: [
+                  Positioned.fill(child: IgnorePointer(child: DecoratedBox(decoration: BoxDecoration(gradient: nz.frameGlow)))),
+                  SafeArea(top: false, child: body),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Round icon button. On the chrome (headers) it is a translucent disc; inside the frame a bordered card disc.
 class CircleIconButton extends StatelessWidget {
-  const CircleIconButton({super.key, required this.icon, required this.tooltip, this.onTap, this.dot = false, this.size = 56});
+  const CircleIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    this.onTap,
+    this.dot = false,
+    this.size = 46,
+    this.onChrome = true,
+  });
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
   final bool dot;
   final double size;
+  final bool onChrome;
 
   @override
   Widget build(BuildContext context) {
@@ -62,8 +91,8 @@ class CircleIconButton extends StatelessWidget {
         button: true,
         label: tooltip,
         child: Material(
-          color: nz.card,
-          shape: const CircleBorder(),
+          color: onChrome ? nz.chromeButton : nz.card,
+          shape: CircleBorder(side: BorderSide(color: onChrome ? nz.chromeFg.withValues(alpha: 0.12) : nz.border)),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
@@ -71,12 +100,16 @@ class CircleIconButton extends StatelessWidget {
               width: size,
               height: size,
               child: Stack(alignment: Alignment.center, children: [
-                Icon(icon, size: 24, color: nz.fg),
+                Icon(icon, size: 21, color: onChrome ? nz.chromeFg : nz.fg),
                 if (dot)
                   PositionedDirectional(
-                    top: size * 0.14,
+                    top: size * 0.16,
                     end: size * 0.18,
-                    child: Container(width: 9, height: 9, decoration: BoxDecoration(color: nz.orange, shape: BoxShape.circle)),
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(gradient: NuzmColors.orangeGradient, shape: BoxShape.circle),
+                    ),
                   ),
               ]),
             ),
@@ -87,7 +120,7 @@ class CircleIconButton extends StatelessWidget {
   }
 }
 
-/// Count badge (orange: the identity's second colour).
+/// Count badge (`.nzc-dot`: the orange gradient with dark ink), or the accent fill on tiles.
 class CountBadge extends StatelessWidget {
   const CountBadge(this.count, {super.key, this.solidAccent = false});
   final int count;
@@ -96,35 +129,85 @@ class CountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    final bg = solidAccent ? nz.primaryFill : nz.orange;
     final fg = solidAccent ? nz.onPrimaryFill : nz.orangeInk;
+    // No `alignment` on the Container: that would make it fill the height of the row it sits in.
     return Container(
-      constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+      constraints: const BoxConstraints(minWidth: 24, minHeight: 24, maxHeight: 24),
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(13), border: Border.all(color: nz.bg, width: 2)),
-      child: Text('$count', style: TextStyle(color: fg, fontSize: 12.5, fontWeight: FontWeight.w800)),
+      decoration: BoxDecoration(
+        color: solidAccent ? nz.primaryFill : null,
+        gradient: solidAccent ? null : NuzmColors.orangeGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: nz.bg, width: 2),
+      ),
+      child: Center(
+        widthFactor: 1,
+        child: Text('$count', style: TextStyle(color: fg, fontSize: 11.5, fontWeight: FontWeight.w800, height: 1.1)),
+      ),
     );
   }
 }
 
-/// White / dark card with large radius and no outline.
+/// `.nz-card`: card background (light: the 4 % accent wash), 1 px border, 18 px radius.
 class NzCard extends StatelessWidget {
-  const NzCard({super.key, required this.child, this.onTap, this.padding = const EdgeInsets.all(16), this.radius = 26, this.color});
+  const NzCard({super.key, required this.child, this.onTap, this.padding = const EdgeInsets.all(16), this.radius = 18, this.color, this.gradient});
   final Widget child;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
   final double radius;
   final Color? color;
+  final Gradient? gradient;
 
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: nz.border));
     return Material(
-      color: color ?? nz.card,
-      borderRadius: BorderRadius.circular(radius),
+      shape: shape,
+      color: Colors.transparent,
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      child: Ink(
+        decoration: ShapeDecoration(
+          shape: shape,
+          color: color ?? (gradient == null && nz.cardWash == null ? nz.card : null),
+          gradient: color != null ? null : (gradient ?? nz.cardWash),
+        ),
+        child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      ),
+    );
+  }
+}
+
+/// Meter (`.nz-bars .nz-bar`): accent-strong → accent, fully rounded.
+class NzMeter extends StatelessWidget {
+  const NzMeter(this.value, {super.key, this.label, this.height = 8, this.warnAbove = 0.8});
+  final double value;
+  final String? label;
+  final double height;
+  final double warnAbove;
+
+  @override
+  Widget build(BuildContext context) {
+    final nz = context.nz;
+    final v = value.clamp(0.0, 1.0);
+    return Semantics(
+      label: label,
+      value: '${(v * 100).round()}%',
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(color: nz.elev, borderRadius: BorderRadius.circular(999)),
+        alignment: AlignmentDirectional.centerStart,
+        child: FractionallySizedBox(
+          widthFactor: v,
+          heightFactor: 1,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: v >= warnAbove ? NuzmColors.orangeGradient : nz.meterGradient,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -144,7 +227,7 @@ class IconTile extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(color: tone == null ? nz.elev : bg, borderRadius: BorderRadius.circular(size * 0.3)),
-      child: Icon(icon, size: size * 0.44, color: tone == null ? nz.fg : fg),
+      child: Icon(icon, size: size * 0.44, color: tone == null ? nz.accent : fg),
     );
   }
 }
@@ -195,6 +278,7 @@ class SampleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AppScope.of(context).data.isLive) return const SizedBox.shrink();
     final nz = context.nz;
     return Tooltip(
       message: S.sampleNote.of(context),
@@ -232,11 +316,21 @@ class NuzmMark extends StatelessWidget {
             gradient: RadialGradient(colors: [nz.accentStrong.withValues(alpha: 0.35), nz.accentStrong.withValues(alpha: 0)]),
           ),
         ),
-        Image.asset('assets/brand/nuzm-mark.png', width: size, semanticLabel: S.appName.of(context)),
+        _logo(context, Image.asset('assets/brand/nuzm-mark.png', width: size, semanticLabel: S.appName.of(context))),
       ]),
     );
   }
 }
+
+/// The mark as the console draws it: darkened on light surfaces (`brightness(0.62) saturate(1.5)`).
+Widget _logo(BuildContext context, Widget image) {
+  final f = context.nz.logoFilter;
+  return f == null ? image : ColorFiltered(colorFilter: f, child: image);
+}
+
+/// Public for screens that draw the mark themselves.
+Widget brandMark(BuildContext context, {double size = 28}) =>
+    _logo(context, Image.asset('assets/brand/nuzm-mark.png', width: size, excludeFromSemantics: true));
 
 /// Text that stays left-to-right inside Arabic (hosts, emails, amounts).
 class LtrText extends StatelessWidget {
@@ -278,8 +372,11 @@ class StateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
+    // `.nz-state`: a card (18 px, 1 px border) with the message centred.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      padding: const EdgeInsets.only(top: 8),
+      child: NzCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         IconTile(icon, size: 64, tone: tone ?? Tone.accent),
         const SizedBox(height: 16),
@@ -290,12 +387,12 @@ class StateView extends StatelessWidget {
           const SizedBox(height: 18),
           FilledButton(
             onPressed: onAction,
-            style: FilledButton.styleFrom(minimumSize: const Size(140, 48), shape: const StadiumBorder()),
+            style: FilledButton.styleFrom(minimumSize: const Size(140, 48)),
             child: Text(action!),
           ),
         ],
       ]),
-    );
+    ));
   }
 }
 
@@ -334,5 +431,12 @@ void showSoon(BuildContext context) {
 }
 
 /// Resolves the 'amount:NNN' convention of the sample data into a formatted amount.
-String displayValue(String raw, BuildContext context) =>
-    raw.startsWith('amount:') ? money(int.parse(raw.substring(7)), context) : raw;
+/// and the live API's `money:minor:currency` (integer minor units, never floats).
+String displayValue(String raw, BuildContext context) {
+  if (raw.startsWith('amount:')) return money(int.parse(raw.substring(7)), context);
+  if (raw.startsWith('money:')) {
+    final parts = raw.split(':');
+    return money(int.tryParse(parts[1]) ?? 0, context, currency: parts.length > 2 ? parts[2] : 'SAR');
+  }
+  return raw;
+}

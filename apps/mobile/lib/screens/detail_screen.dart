@@ -24,16 +24,17 @@ class DetailScreen extends StatelessWidget {
       if (item.meta != null) (T('القيمة', 'Value'), displayValue(item.meta!, context)),
       (T('مسار لوحة الويب', 'Web console path'), page.path),
     ];
-    return Scaffold(
-      body: NzBackground(
-        child: SafeArea(
-          child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-            Row(children: [
-              CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
-              const Spacer(),
-              const SampleChip(),
-            ]),
-            const SizedBox(height: 20),
+    return NzScaffold(
+      header: Row(children: [
+        CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(page.label.of(context),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: nz.chromeFg, fontSize: 19, fontWeight: FontWeight.w700)),
+        ),
+        const SampleChip(),
+      ]),
+      body: ListView(padding: const EdgeInsets.fromLTRB(14, 16, 14, 32), children: [
             NzCard(
               padding: const EdgeInsets.all(22),
               child: Column(children: [
@@ -73,25 +74,18 @@ class DetailScreen extends StatelessWidget {
             ),
             FilledButton.icon(
               onPressed: () => askAi(context, '${S.askAi.of(context)}: $title'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), shape: const StadiumBorder()),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
               icon: const Icon(LucideIcons.sparkles, size: 18),
               label: Text(S.askAi.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: () => showSoon(context),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-                shape: const StadiumBorder(),
-                side: BorderSide(color: nz.border),
-                foregroundColor: nz.fg,
-              ),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
               icon: const Icon(LucideIcons.settings, size: 18),
               label: Text(S.actions.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
-          ]),
-        ),
-      ),
+      ]),
     );
   }
 }

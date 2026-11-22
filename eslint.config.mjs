@@ -16,6 +16,7 @@ export default tseslint.config(
       'packages/sdk/src/schema.ts',
       '.claude/worktrees/**',
       'apps/api/templates/webapp-runtime/public/**', // M10A: browser code shipped inside generated apps
+      'apps/mobile/**', // Flutter app: Dart, checked by `flutter analyze`; its build output is generated JS
     ],
   },
   js.configs.recommended,

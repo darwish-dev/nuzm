@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app calls the Nuzm API. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="nuzm_app"
+        android:label="Nuzm"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

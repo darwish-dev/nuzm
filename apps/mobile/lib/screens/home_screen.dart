@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/api_client.dart';
 import '../app_scope.dart';
+import '../data/data_source.dart';
 import '../data/demo.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
@@ -11,11 +11,13 @@ import '../widgets/common.dart';
 import '../widgets/composer.dart';
 import 'menu_screen.dart';
 import 'section_screen.dart';
+import 'sign_in_screen.dart';
 
 class ChatMessage {
-  ChatMessage(this.text, {required this.fromUser});
+  ChatMessage(this.text, {required this.fromUser, this.error = false});
   final String text;
   final bool fromUser;
+  final bool error;
 }
 
 /// Home: Nuzm AI, the builder assistant. Empty state is the greeting hero; once you send something it becomes the chat.
@@ -30,7 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _messages = <ChatMessage>[];
   final _scroll = ScrollController();
   bool _typing = false;
-  Timer? _replyTimer;
+  String? _sessionId;
+  int _turn = 0;
   AppController? _app;
 
   @override
@@ -46,7 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _app?.pendingPrompt.removeListener(_takePending);
-    _replyTimer?.cancel();
     _scroll.dispose();
     super.dispose();
   }
@@ -59,23 +61,57 @@ class _HomeScreenState extends State<HomeScreen> {
     _send(p);
   }
 
-  void _send(String text) {
+  /// Sends through the data source: live mode creates the AI session on the first message, adds the message,
+  /// starts a `chat` run and shows the assistant's reply; sample mode answers with a preview note.
+  Future<void> _send(String text) async {
     final t = text.trim();
-    if (t.isEmpty) return;
+    if (t.isEmpty || _typing) return;
+    final app = AppScope.read(context);
+    final turn = ++_turn;
     setState(() {
       _messages.add(ChatMessage(t, fromUser: true));
       _typing = true;
     });
     _toBottom();
-    _replyTimer?.cancel();
-    _replyTimer = Timer(const Duration(milliseconds: 900), () {
+    try {
+      final r = await app.data.sendChat(sessionId: _sessionId, text: t, locale: app.locale.languageCode);
+      if (!mounted || turn != _turn) return;
+      setState(() {
+        _sessionId = r.sessionId ?? _sessionId;
+        _messages.add(ChatMessage(r.reply ?? S.runStillGoing.of(context), fromUser: false));
+      });
+    } on ApiException catch (e) {
+      if (!mounted || turn != _turn) return;
+      if (e.unauthenticated) return app.sessionExpired();
+      setState(() => _messages.add(ChatMessage('${S.errorPrefix.of(context)}: ${problemText(context, e)}', fromUser: false, error: true)));
+    } catch (e) {
+      if (!mounted || turn != _turn) return;
+      setState(() => _messages.add(ChatMessage('${S.errorPrefix.of(context)}: ${problemText(context, e)}', fromUser: false, error: true)));
+    } finally {
+      if (mounted && turn == _turn) setState(() => _typing = false);
+      _toBottom();
+    }
+  }
+
+  Future<void> _openChat(ChatSummary c) async {
+    final app = AppScope.read(context);
+    _newChat();
+    if (c.id == null) return _send(c.title.of(context));
+    setState(() => _typing = true);
+    try {
+      final lines = await app.data.chatLines(c.id!);
       if (!mounted) return;
       setState(() {
-        _typing = false;
-        _messages.add(ChatMessage(S.aiPreviewReply.of(context), fromUser: false));
+        _sessionId = c.id;
+        _messages.addAll([for (final l in lines) ChatMessage(l.text, fromUser: l.fromUser)]);
       });
+    } on ApiException catch (e) {
+      if (e.unauthenticated) return app.sessionExpired();
+      if (mounted) setState(() => _messages.add(ChatMessage(problemText(context, e), fromUser: false, error: true)));
+    } finally {
+      if (mounted) setState(() => _typing = false);
       _toBottom();
-    });
+    }
   }
 
   void _toBottom() {
@@ -87,58 +123,57 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _newChat() {
-    _replyTimer?.cancel();
+    _turn++;
     setState(() {
       _messages.clear();
       _typing = false;
+      _sessionId = null;
     });
   }
 
   Future<void> _openMenu() async {
-    final prompt = await Navigator.of(context).push<String>(PageRouteBuilder(
+    final picked = await Navigator.of(context).push<ChatSummary>(PageRouteBuilder(
       pageBuilder: (_, __, ___) => const MenuScreen(),
       transitionsBuilder: (_, a, __, child) => FadeTransition(
         opacity: a,
         child: SlideTransition(position: Tween(begin: const Offset(0, -0.03), end: Offset.zero).animate(a), child: child),
       ),
     ));
-    if (prompt != null && mounted) {
-      _newChat();
-      _send(prompt);
-    }
+    if (picked != null && mounted) _openChat(picked);
   }
 
   @override
   Widget build(BuildContext context) {
     final empty = _messages.isEmpty;
-    return Scaffold(
-      body: NzBackground(
-        child: SafeArea(
-          child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(children: [
-                CircleIconButton(icon: LucideIcons.menu, tooltip: S.menu.of(context), dot: true, onTap: _openMenu),
-                const SizedBox(width: 10),
-                CircleIconButton(icon: LucideIcons.rotateCw, tooltip: S.refresh.of(context), onTap: _newChat),
-                const Spacer(),
-                CircleIconButton(icon: LucideIcons.squarePen, tooltip: S.newChat.of(context), onTap: _newChat),
-              ]),
-            ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: empty ? const _Hero(key: ValueKey('hero')) : _chat(),
-              ),
-            ),
-            if (empty) _Suggestions(onPick: _send),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Composer(onSend: _send),
-            ),
+    final nz = context.nz;
+    return NzScaffold(
+      header: Row(children: [
+        CircleIconButton(icon: LucideIcons.menu, tooltip: S.menu.of(context), dot: true, onTap: _openMenu),
+        const SizedBox(width: 8),
+        CircleIconButton(icon: LucideIcons.rotateCw, tooltip: S.refresh.of(context), onTap: _newChat),
+        Expanded(
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            brandMark(context, size: 26),
+            const SizedBox(width: 8),
+            Text(S.nuzmAi.of(context), style: TextStyle(color: nz.chromeFg, fontSize: 16, fontWeight: FontWeight.w700)),
           ]),
         ),
-      ),
+        const SizedBox(width: 54),
+        CircleIconButton(icon: LucideIcons.squarePen, tooltip: S.newChat.of(context), onTap: _newChat),
+      ]),
+      body: Column(children: [
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: empty ? const _Hero(key: ValueKey('hero')) : _chat(),
+          ),
+        ),
+        if (empty) _Suggestions(onPick: _send),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          child: Composer(onSend: _send),
+        ),
+      ]),
     );
   }
 
@@ -151,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
       itemBuilder: (context, i) {
         if (i == _messages.length) return _Bubble(text: S.thinking.of(context), fromUser: false, faint: true);
         final m = _messages[i];
-        return _Bubble(text: m.text, fromUser: m.fromUser);
+        return _Bubble(text: m.text, fromUser: m.fromUser, error: m.error);
       },
     );
   }
@@ -166,6 +201,7 @@ class _Hero extends StatelessWidget {
     final hour = DateTime.now().hour;
     final greet = (hour < 12 ? S.morning : S.evening).of(context);
     final t = Theme.of(context).textTheme;
+    final user = AppScope.of(context).data.userName;
     final chips = <(IconData, String)>[
       (LucideIcons.sparkles, 'builder'),
       (LucideIcons.appWindow, 'appbuilder'),
@@ -186,7 +222,7 @@ class _Hero extends StatelessWidget {
               child: Column(children: [
                 Text.rich(
                   TextSpan(children: [
-                    TextSpan(text: isAr(context) ? '$greet يا $kUserName، ' : '$greet, $kUserName. '),
+                    TextSpan(text: isAr(context) ? '$greet يا $user، ' : '$greet, $user. '),
                     TextSpan(text: '${S.iAm.of(context)} '),
                     TextSpan(text: S.nuzmAi.of(context), style: TextStyle(color: nz.accentStrong)),
                   ]),
@@ -215,9 +251,10 @@ class _Hero extends StatelessWidget {
                 itemBuilder: (context, i) {
                   final (icon, pageId) = chips[i];
                   final label = pageLabel(pageId).of(context);
+                  // `.nzc-chip`: card surface, 1 px border, accent icon.
                   return Material(
                     color: nz.card,
-                    shape: const StadiumBorder(),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: nz.border)),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
                       onTap: () => openPage(context, pageId),
@@ -260,7 +297,8 @@ class _Suggestions extends StatelessWidget {
           final s = kSuggestions[i].of(context);
           return Material(
             color: nz.accentSoft,
-            shape: const StadiumBorder(),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12), side: BorderSide(color: nz.accent.withValues(alpha: 0.22))),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => onPick(s),
@@ -281,10 +319,11 @@ class _Suggestions extends StatelessWidget {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.text, required this.fromUser, this.faint = false});
+  const _Bubble({required this.text, required this.fromUser, this.faint = false, this.error = false});
   final String text;
   final bool fromUser;
   final bool faint;
+  final bool error;
 
   @override
   Widget build(BuildContext context) {
@@ -293,18 +332,19 @@ class _Bubble extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: fromUser ? nz.primaryFill : nz.card,
+        color: fromUser ? nz.primaryFill : (error ? nz.danger.withValues(alpha: 0.12) : nz.card),
+        border: fromUser ? null : Border.all(color: error ? nz.danger.withValues(alpha: 0.4) : nz.border),
         borderRadius: BorderRadiusDirectional.only(
-          topStart: const Radius.circular(22),
-          topEnd: const Radius.circular(22),
-          bottomStart: Radius.circular(fromUser ? 22 : 6),
-          bottomEnd: Radius.circular(fromUser ? 6 : 22),
+          topStart: const Radius.circular(18),
+          topEnd: const Radius.circular(18),
+          bottomStart: Radius.circular(fromUser ? 18 : 6),
+          bottomEnd: Radius.circular(fromUser ? 6 : 18),
         ),
       ),
       child: Text(
         text,
         style: TextStyle(
-          color: fromUser ? nz.onPrimaryFill : (faint ? nz.muted : nz.fg),
+          color: fromUser ? nz.onPrimaryFill : (error ? nz.danger : (faint ? nz.muted : nz.fg)),
           fontSize: 15.5,
           height: 1.5,
           fontStyle: faint ? FontStyle.italic : FontStyle.normal,
@@ -322,8 +362,8 @@ class _Bubble extends StatelessWidget {
               width: 34,
               height: 34,
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: nz.card, shape: BoxShape.circle),
-              child: Image.asset('assets/brand/nuzm-mark.png', excludeFromSemantics: true),
+              decoration: BoxDecoration(color: nz.card, shape: BoxShape.circle, border: Border.all(color: nz.border)),
+              child: brandMark(context),
             ),
             const SizedBox(width: 8),
           ],

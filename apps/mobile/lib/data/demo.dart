@@ -86,13 +86,14 @@ class FieldSpec {
   final bool? toggle;
 }
 
-/// Integer minor units → "1,234.50 SAR" / "1,234.50 ر.س".
-String money(int minor, BuildContext context) {
+/// Integer minor units → "1,234.50 SAR" / "1,234.50 ر.س". Two decimals (SAR and the other currencies the platform bills).
+String money(int minor, BuildContext context, {String currency = 'SAR'}) {
   final sign = minor < 0 ? '-' : '';
   final abs = minor.abs();
   final whole = (abs ~/ 100).toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
   final frac = (abs % 100).toString().padLeft(2, '0');
-  return '$sign$whole.$frac ${isAr(context) ? 'ر.س' : 'SAR'}';
+  final unit = currency == 'SAR' && isAr(context) ? 'ر.س' : currency;
+  return '$sign$whole.$frac $unit';
 }
 
 const _riyadh = T('الرياض', 'Riyadh');

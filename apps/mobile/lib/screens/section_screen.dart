@@ -38,82 +38,60 @@ class _SectionScreenState extends State<SectionScreen> {
     final cat = widget.category;
     final page = cat.pages.firstWhere((p) => p.id == _page);
     final multi = cat.pages.length > 1;
-    return Scaffold(
-      body: NzBackground(
-        child: SafeArea(
-          bottom: false,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(children: [
-                CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(cat.heading.of(context),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 2),
-                    const SampleChip(),
-                  ]),
-                ),
-                CircleIconButton(
-                  icon: LucideIcons.sparkles,
-                  tooltip: S.askAi.of(context),
-                  onTap: () => askAi(context, '${S.askAi.of(context)}: ${page.label.of(context)}'),
-                ),
-              ]),
-            ),
-            if (multi)
-              SizedBox(
-                height: 64,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                  children: [
-                    for (final g in cat.groups) ...[
-                      if (g.title != null && cat.groups.length > 1)
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 8, start: 4),
-                          child: Center(
-                            child: Text(g.title!.of(context),
-                                style: TextStyle(color: nz.muted, fontSize: 12.5, fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                      for (final p in g.pages)
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 8),
-                          child: _Pill(
-                            label: p.label.of(context),
-                            icon: p.icon,
-                            selected: p.id == _page,
-                            onTap: () => setState(() => _page = p.id),
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
-              )
-            else
-              const SizedBox(height: 12),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: PageBody(key: ValueKey(page.id), page: page),
-              ),
-            ),
+    return NzScaffold(
+      header: Row(children: [
+        CircleIconButton(icon: backIcon(context), tooltip: S.back.of(context), onTap: () => Navigator.of(context).pop()),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(cat.heading.of(context),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: nz.chromeFg, fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.1)),
+            const SampleChip(),
           ]),
         ),
-      ),
+        CircleIconButton(
+          icon: LucideIcons.sparkles,
+          tooltip: S.askAi.of(context),
+          onTap: () => askAi(context, '${S.askAi.of(context)}: ${page.label.of(context)}'),
+        ),
+      ]),
+      body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (multi)
+          // `.nzc-tabs`: muted labels, the current one in the foreground with a 2 px accent underline,
+          // a divider before each titled group, 1 px rule under the row.
+          Container(
+            height: 52,
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: nz.border))),
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              children: [
+                for (final (gi, g) in cat.groups.indexed) ...[
+                  if (gi > 0)
+                    Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 14), color: nz.border),
+                  for (final p in g.pages)
+                    _Tab(label: p.label.of(context), selected: p.id == _page, onTap: () => setState(() => _page = p.id)),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 6),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: PageBody(key: ValueKey(page.id), page: page),
+          ),
+        ),
+      ]),
     );
   }
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.icon, required this.selected, required this.onTap});
+class _Tab extends StatelessWidget {
+  const _Tab({required this.label, required this.selected, required this.onTap});
   final String label;
-  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -123,22 +101,29 @@ class _Pill extends StatelessWidget {
     return Semantics(
       selected: selected,
       button: true,
-      child: Material(
-        color: selected ? nz.primaryFill : nz.card,
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(children: [
-              Icon(icon, size: 17, color: selected ? nz.onPrimaryFill : nz.muted),
-              const SizedBox(width: 8),
-              Text(label,
-                  style: TextStyle(color: selected ? nz.onPrimaryFill : nz.fg, fontWeight: FontWeight.w700, fontSize: 14.5)),
-            ]),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Text(label,
+                  style: TextStyle(
+                    color: selected ? nz.fg : nz.muted,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 14.5,
+                  )),
+            ),
           ),
-        ),
+          if (selected)
+            PositionedDirectional(
+              start: 10,
+              end: 10,
+              bottom: 0,
+              child: Container(height: 2, decoration: BoxDecoration(color: nz.accent, borderRadius: BorderRadius.circular(2))),
+            ),
+        ]),
       ),
     );
   }

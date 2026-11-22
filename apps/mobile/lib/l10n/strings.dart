@@ -83,5 +83,54 @@ class S {
   static const signOut = T('تسجيل الخروج', 'Sign out');
   static const appearance = T('المظهر', 'Appearance');
   static const system = T('حسب النظام', 'System');
+
+  static const signIn = T('تسجيل الدخول', 'Sign in');
+  static const signInTitle = T('مرحبًا بك في نظم', 'Welcome to Nuzm');
+  static const signInSub = T('سجّل الدخول بحسابك في نظم لإدارة خدماتك والبناء مع نظم AI.',
+      'Sign in with your Nuzm account to manage your services and build with Nuzm AI.');
+  static const email = T('البريد الإلكتروني', 'Email');
+  static const password = T('كلمة المرور', 'Password');
+  static const showPassword = T('إظهار كلمة المرور', 'Show password');
+  static const hidePassword = T('إخفاء كلمة المرور', 'Hide password');
+  static const exploreSample = T('تصفّح ببيانات تجريبية', 'Explore with sample data');
+  static const noAccount = T('ليس لديك حساب؟ أنشئه من موقع نظم ثم عد هنا.', "No account? Create one on the Nuzm website, then come back.");
+  static const invalidCredentials = T('البريد أو كلمة المرور غير صحيحة.', 'The email or password is not correct.');
+  static const tooMany = T('محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.', 'Too many attempts. Wait a little and try again.');
+  static const offline = T('تعذّر الوصول إلى الخادم. تحقق من الاتصال.', 'Could not reach the server. Check your connection.');
+  static const genericError = T('حدث خطأ غير متوقع.', 'Something went wrong.');
+  static const webSampleOnly = T('نسخة الويب تعمل ببيانات تجريبية؛ استخدم تطبيق الجوال للربط بحسابك.',
+      'The web build runs on sample data; use the mobile app to connect your account.');
+  static const createOrgTitle = T('أنشئ مؤسستك', 'Create your organization');
+  static const createOrgSub = T('كل الخدمات والفواتير تتبع مؤسسة. أنشئ واحدة للبدء.',
+      'Every service and invoice belongs to an organization. Create one to start.');
+  static const orgName = T('اسم المؤسسة', 'Organization name');
+  static const forbiddenTitle = T('لا تملك صلاحية هذه الصفحة', "You don't have access to this page");
+  static const forbiddenHint = T('اطلب من مالك المؤسسة منحك الصلاحية.', 'Ask an owner of the organization for access.');
+  static const notEnabledTitle = T('غير مفعّلة لمؤسستك', 'Not switched on for your organization');
+  static const notEnabledHint = T('هذه الخدمة غير متاحة لمؤسستك حاليًا.', 'This service is not available to your organization yet.');
+  static const organization = T('المؤسسة', 'Organization');
+  static const switchOrg = T('تبديل المؤسسة', 'Switch organization');
+  static const signedInAs = T('مسجّل باسم', 'Signed in as');
+  static const runStillGoing = T('ما زال نظم AI يعمل على طلبك؛ ستجد الرد في المحادثة عند اكتماله.',
+      'Nuzm AI is still working on it; the answer will appear in this chat when it is done.');
+  static const errorPrefix = T('تعذّر الإرسال', 'Could not send');
+  static const noChats = T('لا توجد محادثات بعد.', 'No chats yet.');
+  static const noNotifications = T('لا توجد إشعارات.', 'No notifications.');
+  static const allClear = T('لا شيء يحتاج انتباهك الآن.', 'Nothing needs your attention right now.');
+  /// Problem codes (spec/openapi/errors.yaml) the app explains in the reader's language.
+  static const problems = <String, T>{
+    'residency_denied': T('سياسة إقامة البيانات لمؤسستك لا تسمح بهذه الخدمة في المنطقة المتاحة حاليًا.',
+        "Your organization's data residency policy does not allow this service in the region available now."),
+    'insufficient_credits': T('رصيد نظم AI غير كافٍ. أضف رصيدًا ثم أعد المحاولة.', 'Not enough Nuzm AI credits. Add credits and try again.'),
+    'ai_unavailable': T('نظم AI متوقف مؤقتًا. حاول لاحقًا.', 'Nuzm AI is paused for now. Try again later.'),
+    'unsupported_capability': T('لا يوجد مزوّد ذكاء اصطناعي مفعّل لمؤسستك بعد.', 'No AI provider is switched on for your organization yet.'),
+    'run_active': T('هناك طلب قيد التنفيذ في هذه المحادثة. انتظر حتى يكتمل.', 'A request is already running in this chat. Wait for it to finish.'),
+    'content_blocked': T('لا يمكن إرسال هذا المحتوى.', 'This content cannot be sent.'),
+    'secret_detected': T('يبدو أن رسالتك تحتوي على سر (مفتاح أو كلمة مرور). احذفه ثم أعد الإرسال.',
+        'Your message seems to contain a secret (a key or password). Remove it and send again.'),
+    'email_not_verified': T('أكّد بريدك الإلكتروني أولًا.', 'Verify your email address first.'),
+    'service_unavailable': T('الخدمة غير متاحة مؤقتًا من المزوّد. حاول بعد قليل.', 'The service is temporarily unavailable from the provider. Try again shortly.'),
+    'mfa_required': T('هذا الإجراء يحتاج التحقق بخطوتين.', 'This action needs two-step verification.'),
+  };
   static const ideas = T('أفكار للبدء', 'Ideas to start with');
 }

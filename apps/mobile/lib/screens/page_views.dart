@@ -1,8 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/api_client.dart';
+import '../app_scope.dart';
+import '../data/data_source.dart';
 import '../data/demo.dart';
 import '../data/nav.dart';
 import '../l10n/strings.dart';
@@ -10,16 +11,17 @@ import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
 import 'detail_screen.dart';
 import 'section_screen.dart';
+import 'sign_in_screen.dart';
 
-enum LoadState { loading, ready, error }
+enum LoadState { loading, ready, error, forbidden, notEnabled }
 
-/// One console page. Shows loading → content (or the empty / error state), and pull-to-refresh reloads it.
+/// One console page: loads its data from the app's [DataSource] (the live API or the sample data), shows
+/// loading → content, or the empty / error / forbidden / not-enabled state. Pull-to-refresh reloads it.
 class PageBody extends StatefulWidget {
-  const PageBody({super.key, required this.page, this.loadDelay = const Duration(milliseconds: 450), this.forceError = false});
+  const PageBody({super.key, required this.page, this.forceError = false});
   final NavPage page;
-  final Duration loadDelay;
 
-  /// Shows the error state (used by tests; the sample data never fails).
+  /// Shows the error state without loading (tests).
   final bool forceError;
 
   @override
@@ -28,29 +30,44 @@ class PageBody extends StatefulWidget {
 
 class _PageBodyState extends State<PageBody> {
   LoadState _state = LoadState.loading;
-  Timer? _t;
+  PageData? _data;
+  DashboardData? _dash;
+  int _gen = 0;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  @override
-  void dispose() {
-    _t?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _load() {
-    final done = Completer<void>();
+  Future<void> _load() async {
+    if (!mounted) return;
+    final gen = ++_gen;
     setState(() => _state = LoadState.loading);
-    _t?.cancel();
-    _t = Timer(widget.loadDelay, () {
-      if (mounted) setState(() => _state = widget.forceError ? LoadState.error : LoadState.ready);
-      done.complete();
-    });
-    return done.future;
+    if (widget.forceError) {
+      setState(() => _state = LoadState.error);
+      return;
+    }
+    final app = AppScope.read(context);
+    try {
+      final p = widget.page;
+      if (p.kind == PageKind.dashboard) {
+        final d = await app.data.dashboard();
+        if (!mounted || gen != _gen) return;
+        _dash = d;
+      } else if (p.kind != PageKind.builder && p.kind != PageKind.domainSearch) {
+        final d = await app.data.load(p.id);
+        if (!mounted || gen != _gen) return;
+        _data = d;
+      }
+      setState(() => _state = LoadState.ready);
+    } on ApiException catch (e) {
+      if (!mounted || gen != _gen) return;
+      if (e.unauthenticated) return app.sessionExpired();
+      setState(() => _state = e.forbidden ? LoadState.forbidden : (e.notFound ? LoadState.notEnabled : LoadState.error));
+    } catch (_) {
+      if (mounted && gen == _gen) setState(() => _state = LoadState.error);
+    }
   }
 
   @override
@@ -65,6 +82,10 @@ class _PageBodyState extends State<PageBody> {
           action: S.retry.of(context),
           onAction: _load,
         ),
+      LoadState.forbidden => StateView(
+          icon: LucideIcons.lock, tone: Tone.warn, title: S.forbiddenTitle.of(context), hint: S.forbiddenHint.of(context)),
+      LoadState.notEnabled => StateView(
+          icon: LucideIcons.power, tone: Tone.neutral, title: S.notEnabledTitle.of(context), hint: S.notEnabledHint.of(context)),
       LoadState.ready => _content(context),
     };
     return RefreshIndicator(
@@ -80,15 +101,55 @@ class _PageBodyState extends State<PageBody> {
 
   Widget _content(BuildContext context) {
     final p = widget.page;
-    return switch (p.kind) {
-      PageKind.dashboard => const DashboardView(),
-      PageKind.list => ResourceListView(page: p, items: kLists[p.id] ?? const []),
-      PageKind.stats => StatsView(page: p),
-      PageKind.catalog => CatalogView(items: kCatalogs[p.id] ?? const []),
-      PageKind.form => FormView(fields: kForms[p.id] ?? const []),
-      PageKind.domainSearch => const DomainSearchView(),
-      PageKind.builder => const BuilderStartView(),
-    };
+    switch (p.kind) {
+      case PageKind.dashboard:
+        return DashboardView(data: _dash!);
+      case PageKind.domainSearch:
+        return const DomainSearchView();
+      case PageKind.builder:
+        return const BuilderStartView();
+      default:
+        return PageDataView(page: p, data: _data ?? const PageData());
+    }
+  }
+}
+
+/// Draws whatever a page returned: stats, catalog cards, form fields, list rows, then a related list.
+class PageDataView extends StatelessWidget {
+  const PageDataView({super.key, required this.page, required this.data});
+  final NavPage page;
+  final PageData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data;
+    final nothing = (d.stats?.isEmpty ?? true) &&
+        (d.catalog?.isEmpty ?? true) &&
+        (d.fields?.isEmpty ?? true) &&
+        (d.items?.isEmpty ?? true) &&
+        (d.related?.isEmpty ?? true);
+    if (nothing) {
+      return StateView(
+        icon: page.icon,
+        title: S.emptyTitle.of(context),
+        hint: S.emptyHint.of(context),
+        action: page.kind == PageKind.list ? S.create.of(context) : null,
+        onAction: () => showSoon(context),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (d.stats != null)
+        for (final s in d.stats!) Padding(padding: const EdgeInsets.only(bottom: 12), child: _StatCard(s)),
+      if (d.catalog != null && d.catalog!.isNotEmpty) CatalogView(items: d.catalog!),
+      if (d.fields != null && d.fields!.isNotEmpty) FormView(fields: d.fields!),
+      if (d.items != null && d.items!.isNotEmpty) ResourceListView(page: page, items: d.items!),
+      if (d.related != null && d.related!.isNotEmpty) ...[
+        _SectionTitle(pageLabel(d.relatedPage!).of(context),
+            trailing: TextButton(onPressed: () => openPage(context, d.relatedPage!), child: Text(S.viewAll.of(context)))),
+        for (final it in d.related!)
+          Padding(padding: const EdgeInsets.only(bottom: 12), child: ItemCard(item: it, page: findPage(d.relatedPage!).$2)),
+      ],
+    ]);
   }
 }
 
@@ -112,39 +173,44 @@ class _SectionTitle extends StatelessWidget {
 // ---------------------------------------------------------------- dashboard
 
 class DashboardView extends StatelessWidget {
-  const DashboardView({super.key});
+  const DashboardView({super.key, required this.data});
+  final DashboardData data;
 
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // Highlight card in the brand gradient.
+      // `.nzc-hero`: 18 px card, 1 px border, an accent glow at the top end over a 135deg accent wash.
       Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(gradient: NuzmColors.brandGradient, borderRadius: BorderRadius.circular(28)),
-        child: Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(kOrgName.of(context), style: const TextStyle(color: Color(0xFF14181B), fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text('${S.services.of(context)}: 13 · ${kRegion.of(context)}',
-                  style: const TextStyle(color: Color(0xFF34434D), fontWeight: FontWeight.w600)),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () => askAi(context, S.heroLine.of(context)),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF14181B),
-                  foregroundColor: const Color(0xFFF4F0E8),
-                  minimumSize: const Size(0, 46),
-                  shape: const StadiumBorder(),
-                ),
-                icon: const Icon(LucideIcons.sparkles, size: 18),
-                label: Text(S.askAi.of(context)),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: nz.border),
+          gradient: nz.heroLayers[1],
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: nz.heroLayers[0]),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(AppScope.of(context).data.orgName.of(context),
+                      style: TextStyle(color: nz.fg, fontSize: 20, fontWeight: FontWeight.w700, height: 1.3)),
+                  const SizedBox(height: 4),
+                  Text('${S.services.of(context)}: ${kCategories.length - 1}', style: TextStyle(color: nz.muted)),
+                  const SizedBox(height: 14),
+                  FilledButton.icon(
+                    onPressed: () => askAi(context, S.heroLine.of(context)),
+                    icon: const Icon(LucideIcons.sparkles, size: 18),
+                    label: Text(S.askAi.of(context)),
+                  ),
+                ]),
               ),
+              brandMark(context, size: 84),
             ]),
           ),
-          Image.asset('assets/brand/nuzm-mark.png', width: 92, excludeFromSemantics: true),
-        ]),
+        ),
       ),
       const SizedBox(height: 14),
       GridView.count(
@@ -153,14 +219,20 @@ class DashboardView extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 1.35,
-        children: [for (final s in kDashboardStats) _StatCard(s, compact: true)],
+        childAspectRatio: 1.18,
+        children: [for (final s in data.stats) _StatCard(s, compact: true)],
       ),
       _SectionTitle(S.needsAttention.of(context)),
       NzCard(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(children: [
-          for (final (text, pageId, tone) in kAttention)
+          if (data.attention.isEmpty)
+            ListTile(
+              minTileHeight: 60,
+              leading: Icon(LucideIcons.circleCheck, color: toneColors(context, Tone.success).$2),
+              title: Text(S.allClear.of(context)),
+            ),
+          for (final (text, pageId, tone) in data.attention)
             ListTile(
               minTileHeight: 60,
               leading: Container(width: 10, height: 10, decoration: BoxDecoration(color: toneColors(context, tone).$2, shape: BoxShape.circle)),
@@ -174,11 +246,11 @@ class DashboardView extends StatelessWidget {
       Wrap(spacing: 10, runSpacing: 10, children: [
         for (final c in kCategories.where((c) => c.id != 'dashboard'))
           ActionChip(
-            avatar: Icon(c.icon, size: 17, color: nz.accentStrong),
+            avatar: Icon(c.icon, size: 17, color: nz.accent),
             label: Text(c.label.of(context)),
             backgroundColor: nz.card,
-            side: BorderSide.none,
-            shape: const StadiumBorder(),
+            side: BorderSide(color: nz.border),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             labelStyle: TextStyle(color: nz.fg, fontWeight: FontWeight.w600),
             onPressed: () => openPage(context, c.pages.first.id),
           ),
@@ -215,7 +287,7 @@ class ResourceListView extends StatelessWidget {
           ),
           FilledButton.icon(
             onPressed: () => showSoon(context),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 44), shape: const StadiumBorder()),
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
             icon: const Icon(LucideIcons.plus, size: 18),
             label: Text(S.create.of(context)),
           ),
@@ -274,25 +346,6 @@ class ItemCard extends StatelessWidget {
 
 // ---------------------------------------------------------------- stats
 
-class StatsView extends StatelessWidget {
-  const StatsView({super.key, required this.page});
-  final NavPage page;
-
-  @override
-  Widget build(BuildContext context) {
-    final stats = kStats[page.id] ?? const [];
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      for (final s in stats) Padding(padding: const EdgeInsets.only(bottom: 12), child: _StatCard(s)),
-      if (page.id == 'billingOverview') ...[
-        _SectionTitle(pageLabel('invoices').of(context),
-            trailing: TextButton(onPressed: () => openPage(context, 'invoices'), child: Text(S.viewAll.of(context)))),
-        for (final it in kLists['invoices']!.take(2))
-          Padding(padding: const EdgeInsets.only(bottom: 12), child: ItemCard(item: it, page: findPage('invoices').$2)),
-      ],
-    ]);
-  }
-}
-
 class _StatCard extends StatelessWidget {
   const _StatCard(this.stat, {this.compact = false});
   final Stat stat;
@@ -321,16 +374,7 @@ class _StatCard extends StatelessWidget {
         ),
         if (stat.progress != null) ...[
           const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: stat.progress,
-              minHeight: 8,
-              backgroundColor: nz.elev,
-              color: stat.progress! >= 0.8 ? nz.orange : nz.accentStrong,
-              semanticsLabel: stat.label.of(context),
-            ),
-          ),
+          NzMeter(stat.progress!, label: stat.label.of(context)),
         ],
         if (stat.hint != null && !compact) ...[
           const SizedBox(height: 8),
@@ -411,7 +455,7 @@ class _FormViewState extends State<FormView> {
       const SizedBox(height: 18),
       FilledButton(
         onPressed: () => showSoon(context),
-        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), shape: const StadiumBorder()),
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
         child: Text(S.save.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       ),
     ]);
@@ -441,9 +485,6 @@ class _FormViewState extends State<FormView> {
           helperText: f.hint?.of(context),
           helperMaxLines: 2,
           filled: true,
-          fillColor: nz.elev.withValues(alpha: 0.6),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: nz.accentStrong, width: 1.5)),
         ),
       ),
     );
@@ -461,7 +502,7 @@ class DomainSearchView extends StatefulWidget {
 
 class _DomainSearchViewState extends State<DomainSearchView> {
   final _ctrl = TextEditingController();
-  List<(String, bool)> _results = const [];
+  List<DomainResult> _results = const [];
 
   @override
   void dispose() {
@@ -469,22 +510,47 @@ class _DomainSearchViewState extends State<DomainSearchView> {
     super.dispose();
   }
 
-  void _check() {
-    final base = _ctrl.text.trim().toLowerCase().split('.').first.replaceAll(RegExp(r'[^a-z0-9-]'), '');
-    if (base.isEmpty) return;
-    // Sample result: deterministic, not a live availability check.
-    setState(() => _results = [
-          for (final (i, tld) in ['.sa', '.com', '.com.sa', '.net', '.store'].indexed) ('$base$tld', (base.length + i).isEven),
-        ]);
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _check() async {
+    final q = _ctrl.text.trim();
+    if (q.isEmpty || _busy) return;
+    final app = AppScope.read(context);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final r = await app.data.searchDomains(q);
+      if (mounted) setState(() => _results = r);
+    } on ApiException catch (e) {
+      if (e.unauthenticated) return app.sessionExpired();
+      if (mounted) {
+        setState(() => _error = e.notFound ? S.notEnabledTitle.of(context) : problemText(context, e));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      NzCard(
-        padding: const EdgeInsets.all(8),
-        radius: 40,
+      Container(
+        padding: const EdgeInsets.all(1.5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: cssLinear(100, [nz.accentStrong, nz.accent, nz.accentStrong], const [0, 0.5, 1]),
+          boxShadow: [
+            BoxShadow(color: nz.accent.withValues(alpha: 0.10), spreadRadius: 5),
+            BoxShadow(color: nz.accent.withValues(alpha: 0.18), blurRadius: 40, offset: const Offset(0, 10), spreadRadius: -8),
+          ],
+        ),
+        child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(color: nz.card, borderRadius: BorderRadius.circular(14.5)),
         child: Row(children: [
           const SizedBox(width: 12),
           Icon(LucideIcons.globe, color: nz.muted),
@@ -495,27 +561,45 @@ class _DomainSearchViewState extends State<DomainSearchView> {
               onSubmitted: (_) => _check(),
               decoration: InputDecoration(
                 hintText: S.searchDomain.of(context),
+                filled: false,
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
           ),
           FilledButton(
-            onPressed: _check,
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 48), shape: const StadiumBorder()),
-            child: Text(S.check.of(context)),
+            onPressed: _busy ? null : _check,
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+            child: _busy
+                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: nz.orangeInk))
+                : Text(S.check.of(context)),
           ),
         ]),
-      ),
+      )),
       const SizedBox(height: 14),
-      for (final (name, ok) in _results)
+      if (_error != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: nz.danger, fontWeight: FontWeight.w700)),
+        ),
+      for (final r in _results)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: NzCard(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Row(children: [
-              Expanded(child: LtrText(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-              StatusChip(ok ? Status(S.available, Tone.success) : Status(S.taken, Tone.neutral)),
+              Expanded(child: LtrText(r.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+              if (r.price != null && r.available == true) ...[
+                LtrText(displayValue(r.price!, context), style: TextStyle(color: nz.muted, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 10),
+              ],
+              StatusChip(r.available == true
+                  ? Status(S.available, Tone.success)
+                  : r.available == false
+                      ? Status(S.taken, Tone.neutral)
+                      : const Status(T('غير متاح للبيع', 'Not sold'), Tone.neutral)),
             ]),
           ),
         ),
@@ -560,10 +644,6 @@ class _BuilderStartViewState extends State<BuilderStartView> {
             maxLines: 8,
             decoration: InputDecoration(
               hintText: S.builderHint.of(context),
-              hintStyle: TextStyle(color: nz.muted),
-              filled: true,
-              fillColor: nz.elev.withValues(alpha: 0.6),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
             ),
           ),
           const SizedBox(height: 16),
@@ -572,7 +652,7 @@ class _BuilderStartViewState extends State<BuilderStartView> {
               final t = _ctrl.text.trim();
               if (t.isNotEmpty) askAi(context, t);
             },
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), shape: const StadiumBorder()),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
             icon: const Icon(LucideIcons.sparkles, size: 18),
             label: Text(S.startBuilding.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),

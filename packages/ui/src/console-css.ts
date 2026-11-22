@@ -129,7 +129,7 @@ export const consoleCss = `
 .nzc-brand { display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 12px; background: var(--nzc-grad); color: #14181b; box-shadow: var(--nzc-glow-accent); font-weight: 700; font-size: 17px; text-decoration: none !important; }
 .nzc-logo { display: block; block-size: 26px; inline-size: auto; }
 .nzc-logo-mark { display: none; }
-.nzc[data-theme="light"] .nzc-logo { filter: invert(1) brightness(0.2); }
+.nzc[data-theme="light"] .nzc-logo { filter: invert(1) hue-rotate(180deg); }
 .nzc-auth-logo { display: inline-block; margin-block-end: 22px; }
 .nzc-auth-logo .nzc-logo { block-size: 32px; }
 .nzc-brandlink { display: inline-flex; align-items: center; gap: 10px; color: var(--nzc-fg) !important; font-weight: 650; font-size: 16px; letter-spacing: .01em; text-decoration: none !important; margin-inline-end: 6px; }

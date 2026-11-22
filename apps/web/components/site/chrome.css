@@ -467,3 +467,22 @@
     grid-column: 1 / -1;
   }
 }
+
+/* the logo carries the Claude mark in its top slot (in colour), so it is never turned white or dark by a filter: the cream artwork is shown as is on dark
+   surfaces, and on light surfaces only the cream becomes ink (inverting then rotating the hue back keeps the orange mark orange). */
+.landing .site-header .brand img,
+.landing[data-mode='dark'] .footer-brand .brand img,
+.doc-app[data-mode='dark'] .doc-brand img {
+  filter: none;
+}
+.landing .footer-brand .brand img,
+.doc-app .doc-brand img {
+  filter: invert(1) hue-rotate(180deg);
+}
+.landing[data-mode='dark'] .footer-brand .brand img,
+.doc-app[data-mode='dark'] .doc-brand img {
+  filter: none;
+}
+.landing img[src*='/brand/nuzm-'] {
+  filter: none;
+}

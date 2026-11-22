@@ -6,7 +6,7 @@ export function BrandMark({ className = '' }: { className?: string }) {
   return (
     <img
       className={`nzc-logo ${className}`}
-      src="/brand/nuzm-mark.png?v=claude"
+      src="/brand/nuzm-mark.png?v=claude4"
       width={33}
       height={26}
       alt=""
@@ -17,7 +17,7 @@ export function BrandWordmark({ className = '' }: { className?: string }) {
   return (
     <img
       className={`nzc-logo ${className}`}
-      src="/brand/nuzm-logo.png?v=claude"
+      src="/brand/nuzm-logo.png?v=claude4"
       width={115}
       height={26}
       alt=""

@@ -32,21 +32,34 @@
 .tech-logo {
   display: grid;
   place-items: center;
-  inline-size: 40px;
-  block-size: 40px;
-  border-radius: 12px;
-  background: #f6f5f1;
+  inline-size: 38px;
+  block-size: 38px;
+  color: #8a9391;
 }
 .tech-logo img,
 .tech-logo svg {
   display: block;
-  inline-size: 26px;
-  block-size: 26px;
+  inline-size: 30px;
+  block-size: 30px;
+}
+/* every logo in one flat gray: the coloured artwork is desaturated, and Next.js (a black disc) is inverted first so it reads on the dark page */
+.tech-logo img {
+  filter: grayscale(1) brightness(1.15) contrast(0.85);
+  opacity: 0.8;
+}
+.tech-logo img[src$='nextjs.svg'] {
+  filter: grayscale(1) invert(1) contrast(0.8);
+}
+.tech-logo svg rect {
+  fill: currentColor;
+}
+.tech-logo svg text {
+  fill: #101312;
 }
 .tech-name {
   font-size: 16px;
   font-weight: 600;
-  color: var(--muted);
+  color: #8a9391;
   white-space: nowrap;
 }
 @keyframes tech-slide {

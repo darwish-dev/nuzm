@@ -1,11 +1,12 @@
-import '../widgets/nz_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
 import '../data/data_source.dart';
 import '../data/demo.dart';
+import '../data/plans.dart';
 import '../l10n/strings.dart';
+import '../widgets/nz_icons.dart';
 import 'api_client.dart';
 import 'notification_kinds.dart';
 
@@ -401,13 +402,32 @@ class ApiDataSource implements DataSource {
   }
 
   @override
-  Future<List<DomainResult>> searchDomains(String query) async {
-    final items = await _items('/v1/domains/search', query: {'q': query.trim()});
+  Future<List<DomainResult>> searchDomains(String query, {List<String> tlds = const []}) async {
+    final r = await api.get('/v1/domains/search', query: {'q': query.trim(), if (tlds.isNotEmpty) 'tlds': tlds.join(',')});
+    final items = r is Map && r['items'] is List ? r['items'] as List : const [];
     return [
-      for (final d in items)
-        DomainResult(s(d['name']), d['available'] is bool ? d['available'] as bool : null,
-            price: d['price'] is Map ? _money((d['price'] as Map)['amountMinor'], (d['price'] as Map)['currency']) : null),
+      for (final d in items.whereType<Map>())
+        DomainResult(
+          s(d['name']),
+          d['available'] is bool ? d['available'] as bool : null,
+          price: d['price'] is Map ? _money((d['price'] as Map)['amountMinor'], (d['price'] as Map)['currency']) : null,
+          premium: d['premium'] == true,
+          purchasable: d['purchasable'] is bool ? d['purchasable'] as bool : null,
+          blockedRule: d['eligibility'] is Map && (d['eligibility'] as Map)['state'] == 'blocked' ? s((d['eligibility'] as Map)['rule']) : null,
+        ),
     ];
+  }
+
+  /// The public price lists (the website's source): no organization needed, nothing invented.
+  @override
+  Future<List<PlanGroup>> plans(String service) async {
+    List<Map<String, dynamic>> items(Object? r) =>
+        [for (final e in (r is Map && r['items'] is List ? r['items'] as List : const [])) if (e is Map) e.cast<String, dynamic>()];
+    final r = await Future.wait([
+      api.get('/v1/public/hosting-plans'),
+      service == 'cloud' ? api.get('/v1/public/compute-plans') : Future<Object?>.value(null),
+    ]);
+    return buildPlanGroups(service, items(r[0]), items(r[1]));
   }
 
   @override

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../actions/action_model.dart';
+import '../actions/action_sheet.dart';
+import '../actions/registry.dart';
 import '../api/api_client.dart';
 import '../app_scope.dart';
 import '../data/data_source.dart';
@@ -8,11 +11,9 @@ import '../data/nav.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
-import '../actions/action_model.dart';
-import '../actions/action_sheet.dart';
-import '../actions/registry.dart';
 import '../widgets/nz_icons.dart';
 import 'detail_screen.dart';
+import 'plans_screen.dart';
 import 'section_screen.dart';
 import 'sign_in_screen.dart';
 
@@ -21,8 +22,11 @@ enum LoadState { loading, ready, error, forbidden, notEnabled }
 /// One console page: loads its data from the app's [DataSource] (the live API or the sample data), shows
 /// loading → content, or the empty / error / forbidden / not-enabled state. Pull-to-refresh reloads it.
 class PageBody extends StatefulWidget {
-  const PageBody({super.key, required this.page, this.forceError = false});
+  const PageBody({super.key, required this.page, this.forceError = false, this.onOpenTab});
   final NavPage page;
+
+  /// Switches the section to another of its pages (the domains button opens the search tab).
+  final ValueChanged<String>? onOpenTab;
 
   /// Shows the error state without loading (tests).
   final bool forceError;
@@ -91,15 +95,31 @@ class _PageBodyState extends State<PageBody> {
           icon: NzIcons.power, tone: Tone.neutral, title: S.notEnabledTitle.of(context), hint: S.notEnabledHint.of(context)),
       LoadState.ready => PageRefresh(reload: _load, child: _content(context)),
     };
-    return RefreshIndicator(
+    final fab = pageFab(widget.page.id);
+    final list = RefreshIndicator(
       onRefresh: _load,
       color: context.nz.accentStrong,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        // Room under the last item for the floating button.
+        padding: EdgeInsets.fromLTRB(16, 8, 16, fab == null ? 32 : 100),
         children: [body],
       ),
     );
+    if (fab == null || _state != LoadState.ready) return list;
+    return Stack(children: [
+      Positioned.fill(child: list),
+      PositionedDirectional(
+        end: 18,
+        bottom: 18,
+        child: FloatingAdd(
+          tooltip: fab.label.of(context),
+          onTap: () async {
+            if (await fab.run(context, widget.onOpenTab)) await _load();
+          },
+        ),
+      ),
+    ]);
   }
 
   Widget _content(BuildContext context) {
@@ -131,17 +151,26 @@ class PageDataView extends StatelessWidget {
         (d.fields?.isEmpty ?? true) &&
         (d.items?.isEmpty ?? true) &&
         (d.related?.isEmpty ?? true);
-    final actions = kPageActions[page.id] ?? const <ActionDef>[];
+    final fab = pageFab(page.id);
+    // Pages with the floating button create from it, not from the bar.
+    final actions = [for (final a in kPageActions[page.id] ?? const <ActionDef>[]) if (fab == null || a.id != 'create') a];
     if (nothing) {
-      final create = actions.where((a) => a.id == 'create').firstOrNull;
+      final create = (kPageActions[page.id] ?? const <ActionDef>[]).where((a) => a.id == 'create').firstOrNull;
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (create == null && actions.isNotEmpty) PageActionsBar(actions: actions, raw: d.raw),
         StateView(
           icon: page.icon,
           title: S.emptyTitle.of(context),
-          hint: create == null && kWebOnlyWrites.contains(page.id) ? S.webOnlyWrites.of(context) : S.emptyHint.of(context),
-          action: create?.label.of(context),
-          onAction: create == null ? null : () => _runAndRefresh(context, create, d.raw),
+          hint: create == null && fab == null && kWebOnlyWrites.contains(page.id) ? S.webOnlyWrites.of(context) : S.emptyHint.of(context),
+          action: fab != null ? fab.label.of(context) : create?.label.of(context),
+          onAction: fab != null
+              ? () async {
+                  final refresh = PageRefresh.of(context);
+                  if (await fab.run(context, null)) await refresh?.call();
+                }
+              : create == null
+                  ? null
+                  : () => _runAndRefresh(context, create, d.raw),
         ),
       ]);
     }
@@ -489,9 +518,19 @@ class DomainSearchView extends StatefulWidget {
   State<DomainSearchView> createState() => _DomainSearchViewState();
 }
 
+/// The extensions the platform sells (the website's `SOLD_TLDS`).
+const kSoldTlds = ['com', 'net', 'org'];
+
+/// The website's domain tool on a phone: a hero card with the search field and the extension chips, then the
+/// answer: the top match highlighted with its yearly price and Register, the other extensions below. Unknown is
+/// never shown as available; blocked extensions say why.
 class _DomainSearchViewState extends State<DomainSearchView> {
   final _ctrl = TextEditingController();
-  List<DomainResult> _results = const [];
+  final _picked = <String>{};
+  List<DomainResult>? _results;
+  String _asked = '';
+  bool _busy = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -499,107 +538,292 @@ class _DomainSearchViewState extends State<DomainSearchView> {
     super.dispose();
   }
 
-  bool _busy = false;
-  String? _error;
-
   Future<void> _check() async {
-    final q = _ctrl.text.trim();
+    final q = _ctrl.text.trim().toLowerCase();
     if (q.isEmpty || _busy) return;
+    FocusScope.of(context).unfocus();
     final app = AppScope.read(context);
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final r = await app.data.searchDomains(q);
-      if (mounted) setState(() => _results = r);
+      final r = await app.data.searchDomains(q, tlds: [for (final t in kSoldTlds) if (_picked.contains(t)) t]);
+      if (mounted) {
+        setState(() {
+          _results = r;
+          _asked = q;
+        });
+      }
     } on ApiException catch (e) {
       if (e.unauthenticated) return app.sessionExpired();
-      if (mounted) {
-        setState(() => _error = e.notFound ? S.notEnabledTitle.of(context) : problemText(context, e));
-      }
+      if (mounted) setState(() => _error = e.notFound ? S.notEnabledTitle.of(context) : problemText(context, e));
+    } catch (e) {
+      if (mounted) setState(() => _error = problemText(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  Future<void> _register(DomainResult r) async {
+    final a = kItemActions['domainSearch']?.firstOrNull;
+    if (a != null) await runAction(context, a, item: {'name': r.name});
+  }
+
+  String _status(DomainResult r) {
+    if (r.blocked) return '${S.domBlocked.of(context)}: ${(S.domReasons[r.blockedRule] ?? S.domReasonOther).of(context)}';
+    if (r.available == true) return S.domAvailable.of(context) + (r.premium ? ' — ${S.domPremium.of(context)}' : '');
+    if (r.available == false) return S.domTaken.of(context);
+    return S.domUnknown.of(context);
+  }
+
+  Color _statusColor(DomainResult r) {
+    final nz = context.nz;
+    if (r.blocked) return nz.muted;
+    if (r.available == true) return toneColors(context, Tone.success).$2;
+    if (r.available == false) return nz.danger;
+    return toneColors(context, Tone.warn).$2;
+  }
+
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Container(
-        padding: const EdgeInsets.all(1.5),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: cssLinear(100, [nz.accentStrong, nz.accent, nz.accentStrong], const [0, 0.5, 1]),
-          boxShadow: [
-            BoxShadow(color: nz.accent.withValues(alpha: 0.10), spreadRadius: 5),
-            BoxShadow(color: nz.accent.withValues(alpha: 0.18), blurRadius: 40, offset: const Offset(0, 10), spreadRadius: -8),
-          ],
-        ),
-        child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(color: nz.card, borderRadius: BorderRadius.circular(14.5)),
-        child: Row(children: [
-          const SizedBox(width: 12),
-          Icon(NzIcons.globe, color: nz.muted),
-          Expanded(
-            child: TextField(
-              controller: _ctrl,
-              textDirection: TextDirection.ltr,
-              onSubmitted: (_) => _check(),
-              decoration: InputDecoration(
-                hintText: S.searchDomain.of(context),
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
+    final results = _results;
+    DomainResult? best;
+    if (results != null) {
+      best = results.where((r) => r.name == _asked && r.available == true && !r.blocked).firstOrNull ??
+          results.where((r) => r.canBuy).firstOrNull ??
+          results.where((r) => r.available == true && !r.blocked).firstOrNull;
+    }
+    final rest = [for (final r in results ?? const <DomainResult>[]) if (!identical(r, best)) r];
+
+    Widget hero = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(S.domEyebrow.of(context), style: TextStyle(color: nz.accent, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
+        const SizedBox(height: 4),
+        Text(S.domHero.of(context), style: TextStyle(color: nz.fg, fontSize: 21, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text(S.domBody.of(context), style: TextStyle(color: nz.muted, fontSize: 13.5, height: 1.5)),
+        const SizedBox(height: 16),
+        // The field with the accent ring and glow (`.dt-field`).
+        Container(
+          padding: const EdgeInsets.all(1.5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: cssLinear(100, [nz.accentStrong, nz.accent, nz.accentStrong], const [0, 0.5, 1]),
+            boxShadow: [BoxShadow(color: nz.accent.withValues(alpha: 0.16), blurRadius: 28, offset: const Offset(0, 8), spreadRadius: -8)],
           ),
-          FilledButton(
-            onPressed: _busy ? null : _check,
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-            child: _busy
-                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: nz.orangeInk))
-                : Text(S.check.of(context)),
-          ),
-        ]),
-      )),
-      const SizedBox(height: 14),
-      if (_error != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: nz.danger, fontWeight: FontWeight.w700)),
-        ),
-      for (final r in _results)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: NzCard(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Container(
+            padding: const EdgeInsetsDirectional.fromSTEB(12, 5, 5, 5),
+            decoration: BoxDecoration(color: nz.card, borderRadius: BorderRadius.circular(16.5)),
             child: Row(children: [
-              Expanded(child: LtrText(r.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-              if (r.price != null && r.available == true) ...[
-                LtrText(displayValue(r.price!, context), style: TextStyle(color: nz.muted, fontWeight: FontWeight.w700)),
-                const SizedBox(width: 10),
-              ],
-              if (r.available == true && kItemActions['domainSearch'] != null) ...[
-                TextButton(
-                  onPressed: () => runAction(context, kItemActions['domainSearch']!.first, item: {'name': r.name}),
-                  child: Text(kItemActions['domainSearch']!.first.label.of(context)),
+              Icon(NzIcons.search, color: nz.muted, size: 21),
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  textDirection: TextDirection.ltr,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _check(),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  decoration: InputDecoration(
+                    hintText: S.domPlaceholder.of(context),
+                    hintStyle: TextStyle(color: nz.muted, fontSize: 14, fontWeight: FontWeight.w400),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                 ),
-                const SizedBox(width: 6),
-              ],
-              StatusChip(r.available == true
-                  ? Status(S.available, Tone.success)
-                  : r.available == false
-                      ? Status(S.taken, Tone.neutral)
-                      : const Status(T('غير متاح للبيع', 'Not sold'), Tone.neutral)),
+              ),
+              FilledButton(
+                onPressed: _busy ? null : _check,
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 46), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                child: _busy
+                    ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: nz.orangeInk))
+                    : Text(S.domSearchGo.of(context)),
+              ),
             ]),
           ),
         ),
+        const SizedBox(height: 14),
+        Text(S.domExtensions.of(context), style: TextStyle(color: nz.muted, fontSize: 12.5, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final t in kSoldTlds)
+            _TldChip(
+              tld: t,
+              selected: _picked.contains(t),
+              onTap: () {
+                setState(() => _picked.contains(t) ? _picked.remove(t) : _picked.add(t));
+                if (_results != null) _check();
+              },
+            ),
+        ]),
+        const SizedBox(height: 12),
+        Text(S.domHelp.of(context), style: TextStyle(color: nz.muted, fontSize: 11.5, height: 1.5)),
+      ]),
+    );
+    for (final g in nz.heroLayers.reversed) {
+      hero = DecoratedBox(decoration: BoxDecoration(gradient: g), child: hero);
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      ClipRRect(borderRadius: BorderRadius.circular(22), child: Material(color: nz.card, child: hero)),
+      if (_error != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: nz.danger, fontWeight: FontWeight.w700)),
+        ),
+      if (results != null) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 20, 6, 10),
+          child: Text(S.domResults.of(context), style: TextStyle(color: nz.muted, fontSize: 13, fontWeight: FontWeight.w700)),
+        ),
+        if (results.isEmpty) StateView(icon: NzIcons.globe, title: S.noResults.of(context), hint: S.noResultsHint.of(context)),
+        if (best != null) _bestCard(best),
+        if (rest.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: best == null ? 0 : 12),
+            child: NzCard(
+              bordered: false,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(children: [
+                for (final (i, r) in rest.indexed) ...[
+                  if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: nz.fg.withValues(alpha: 0.06)),
+                  _row(r),
+                ],
+              ]),
+            ),
+          ),
+      ],
     ]);
+  }
+
+  Widget _price(DomainResult r, {double size = 15}) {
+    final nz = context.nz;
+    if (r.price != null) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+        LtrText(displayValue(r.price!, context), style: TextStyle(color: nz.fg, fontSize: size, fontWeight: FontWeight.w800)),
+        Text(S.domPerYear.of(context), style: TextStyle(color: nz.muted, fontSize: 11)),
+      ]);
+    }
+    if (r.available == true && !r.blocked) return Text(S.domNoPrice.of(context), style: TextStyle(color: nz.muted, fontSize: 11.5));
+    return const SizedBox.shrink();
+  }
+
+  Widget _bestCard(DomainResult r) {
+    final nz = context.nz;
+    return Container(
+      padding: const EdgeInsets.all(1.5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: NuzmColors.brandGradient,
+        boxShadow: [BoxShadow(color: nz.accent.withValues(alpha: 0.16), blurRadius: 26, offset: const Offset(0, 10), spreadRadius: -10)],
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        decoration: BoxDecoration(color: nz.card, borderRadius: BorderRadius.circular(20.5)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Icon(NzIcons.circleCheck, size: 16, color: nz.accent),
+            const SizedBox(width: 6),
+            Text(S.domBest.of(context), style: TextStyle(color: nz.accent, fontSize: 12.5, fontWeight: FontWeight.w800)),
+          ]),
+          const SizedBox(height: 10),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: LtrText(r.name, style: TextStyle(color: nz.fg, fontSize: 22, fontWeight: FontWeight.w800)),
+                ),
+                const SizedBox(height: 4),
+                Text(_status(r), style: TextStyle(color: _statusColor(r), fontSize: 13, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            _price(r, size: 18),
+          ]),
+          const SizedBox(height: 14),
+          if (r.canBuy)
+            FilledButton.icon(onPressed: () => _register(r), icon: Icon(NzIcons.globe, size: 18), label: Text(S.domRegister.of(context)))
+          else
+            Text(S.domNotForSale.of(context), style: TextStyle(color: nz.muted, fontSize: 12.5)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _row(DomainResult r) {
+    final nz = context.nz;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            LtrText(r.name, style: TextStyle(color: nz.fg, fontSize: 15, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(_status(r), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: _statusColor(r), fontSize: 12)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        _price(r),
+        if (r.canBuy) ...[
+          const SizedBox(width: 8),
+          Tooltip(
+            message: S.domRegister.of(context),
+            child: Material(
+              color: nz.accentSoft,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _register(r),
+                child: SizedBox(width: 38, height: 38, child: Icon(NzIcons.plus, size: 18, color: nz.accent)),
+              ),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _TldChip extends StatelessWidget {
+  const _TldChip({required this.tld, required this.selected, required this.onTap});
+  final String tld;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final nz = context.nz;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? nz.accent : nz.elev,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (selected) ...[Icon(NzIcons.check, size: 14, color: nz.onAccent), const SizedBox(width: 4)],
+              Text('.$tld',
+                  textDirection: TextDirection.ltr,
+                  style: TextStyle(color: selected ? nz.onAccent : nz.fg, fontSize: 14, fontWeight: FontWeight.w800)),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -713,4 +937,73 @@ class PageActionsBar extends StatelessWidget {
                   ),
         ]),
       );
+}
+
+// ---------------------------------------------------------------- floating add button
+
+/// What the floating "+" does on a page: hosting and cloud open their plans, domains open the search, email pages
+/// run their create form. Only the sections the app treats as "my items" lists get one.
+class PageFab {
+  const PageFab(this.label, this.run);
+  final T label;
+
+  /// True when something was created (the page reloads).
+  final Future<bool> Function(BuildContext context, ValueChanged<String>? openTab) run;
+}
+
+const _fabCategories = {'cloud', 'hosting', 'domains', 'email'};
+
+PageFab? pageFab(String pageId) {
+  switch (pageId) {
+    case 'sites':
+      return PageFab(S.hostingPlans, (c, _) => openPlans(c, 'hosting'));
+    case 'instances':
+      return PageFab(S.cloudPlans, (c, _) => openPlans(c, 'cloud'));
+    case 'domainList':
+      return PageFab(S.domEyebrow, (c, openTab) async {
+        openTab != null ? openTab('domainSearch') : openPage(c, 'domainSearch');
+        return false;
+      });
+  }
+  final cat = findPage(pageId).$1;
+  final create = (kPageActions[pageId] ?? const <ActionDef>[]).where((a) => a.id == 'create').firstOrNull;
+  if (!_fabCategories.contains(cat.id) || create == null) return null;
+  return PageFab(create.label, (c, _) => runAction(c, create));
+}
+
+/// The floating "+": the orange gradient disc of the console's primary action.
+class FloatingAdd extends StatelessWidget {
+  const FloatingAdd({super.key, required this.tooltip, required this.onTap});
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final nz = context.nz;
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: nz.orange.withValues(alpha: 0.35), blurRadius: 22, offset: const Offset(0, 8), spreadRadius: -4)],
+          ),
+          child: Material(
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            color: Colors.transparent,
+            child: Ink(
+              decoration: BoxDecoration(shape: BoxShape.circle, gradient: NuzmColors.orangeGradient),
+              child: InkWell(
+                onTap: onTap,
+                child: SizedBox(width: 58, height: 58, child: Icon(NzIcons.plus, size: 26, color: nz.orangeInk)),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

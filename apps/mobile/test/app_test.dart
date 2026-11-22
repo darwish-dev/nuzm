@@ -6,6 +6,7 @@ import 'package:nuzm_app/data/nav.dart';
 import 'package:nuzm_app/main.dart';
 import 'package:nuzm_app/screens/menu_screen.dart';
 import 'package:nuzm_app/screens/page_views.dart';
+import 'package:nuzm_app/screens/plans_screen.dart';
 import 'package:nuzm_app/screens/section_screen.dart';
 import 'package:nuzm_app/theme/nuzm_colors.dart';
 import 'package:nuzm_app/theme/nuzm_theme.dart';
@@ -180,6 +181,75 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('التفاصيل'), findsOneWidget);
     expect(find.textContaining('/compute/instances'), findsOneWidget);
+  });
+
+  testWidgets('hosting: my sites with a floating + that opens the plans; the plans slide like the website', (tester) async {
+    await setPhone(tester);
+    await tester.pumpWidget(host(SectionScreen(category: categoryById('hosting'), initialPage: 'sites'), b: Brightness.dark));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('موقع استضافة جديد'), findsNothing, reason: 'create moved to the floating button');
+    await tester.tap(find.byTooltip('باقات الاستضافة'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('اختر ما يناسب مشروعك.'), findsOneWidget);
+    for (final tab in ['استضافة المواقع', 'تطبيقات الويب']) {
+      expect(find.text(tab), findsOneWidget);
+    }
+    // Website hosting has three plans: the cheapest is shown first, sliding reveals the next.
+    expect(find.text('البداية'), findsOneWidget);
+    expect(find.textContaining('29'), findsWidgets);
+    await tester.drag(find.byType(PageView), const Offset(300, 0)); // RTL: the next card comes from the left
+    await tester.pumpAndSettle();
+    expect(find.text('الأعمال'), findsOneWidget);
+    expect(find.text('ما تتضمنه:'), findsWidgets);
+    expect(find.text('يعمل مع:'), findsWidgets);
+    await tester.tap(find.text('تطبيقات الويب'));
+    await tester.pumpAndSettle();
+    expect(find.text('تطبيقات الويب - البداية'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('cloud plans include the virtual servers', (tester) async {
+    await setPhone(tester);
+    await tester.pumpWidget(host(const PlansScreen(service: 'cloud')));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('الاستضافة السحابية'), findsOneWidget);
+    await tester.tap(find.text('الخوادم الافتراضية'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 vCPU'), findsWidgets, reason: 'three plans: it opens on the highlighted middle one');
+    expect(find.text('اختر الخادم'), findsWidgets);
+  });
+
+  testWidgets('domains: the + opens the search; the search shows a top match with its yearly price', (tester) async {
+    await setPhone(tester);
+    await tester.pumpWidget(host(SectionScreen(category: categoryById('domains'), initialPage: 'domainList')));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('البحث عن نطاق'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('ابحث عن اسم نطاق'), findsOneWidget);
+    for (final t in ['.com', '.net', '.org']) {
+      expect(find.text(t), findsOneWidget);
+    }
+    await tester.enterText(find.byType(TextField), 'nuzmcafe');
+    await tester.tap(find.text('بحث').last);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('أفضل نتيجة'), findsOneWidget);
+    expect(find.text('سجّل النطاق'), findsOneWidget);
+    expect(find.textContaining('نطاقات السعودية غير متاحة'), findsOneWidget, reason: 'blocked extensions say why');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('email pages create from the floating +', (tester) async {
+    await setPhone(tester);
+    await tester.pumpWidget(host(SectionScreen(category: categoryById('email'), initialPage: 'mailboxes')));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingAdd), findsOneWidget);
   });
 
   testWidgets('empty and error states', (tester) async {

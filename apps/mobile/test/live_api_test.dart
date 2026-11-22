@@ -92,6 +92,22 @@ void main() {
     await extra('notifications', () async => 'n=${(await app.data.notifications()).length}');
     await extra('recentChats', () async => 'n=${(await app.data.recentChats()).length}');
     await extra('domainSearch', () async => 'results=${(await app.data.searchDomains('nuzmmobiletest')).length}');
+    await extra('domainSearchTlds', () async {
+      final r = await app.data.searchDomains('nuzmmobiletest', tlds: const ['com', 'net']);
+      return [for (final d in r) '${d.name}:${d.available}${d.blocked ? ' blocked' : ''}${d.price == null ? '' : ' priced'}'].join(' ');
+    });
+    await extra('orgHostingPlanKeys', () async {
+      final r = await api.get('/v1/hosting/plans');
+      final items = r is Map ? r['items'] as List : r as List;
+      return [for (final p in items) p['key']].join(',');
+    });
+    for (final service in const ['hosting', 'cloud']) {
+      await extra('plans:$service', () async {
+        final g = await app.data.plans(service);
+        expect(g, isNotEmpty);
+        return [for (final x in g) '${x.id}=${x.cards.length}'].join(' ');
+      });
+    }
     await extra('aiChat', () async {
       final t = await app.data.sendChat(text: 'مرحبا، ما الخدمات المتاحة؟', locale: 'ar');
       final lines = await app.data.chatLines(t.sessionId!);

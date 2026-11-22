@@ -81,7 +81,7 @@ class _SectionScreenState extends State<SectionScreen> {
         Expanded(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
-            child: PageBody(key: ValueKey(page.id), page: page),
+            child: PageBody(key: ValueKey(page.id), page: page, onOpenTab: (id) => setState(() => _page = id)),
           ),
         ),
       ]),

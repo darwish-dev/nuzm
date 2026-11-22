@@ -1,4 +1,3 @@
-import '../widgets/nz_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,6 +9,7 @@ import '../l10n/strings.dart';
 import '../screens/sign_in_screen.dart' show problemText;
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
+import '../widgets/nz_icons.dart';
 import 'action_model.dart';
 
 /// Starts [action] on [item] (or on the page when [item] is empty). Returns true when the write succeeded.

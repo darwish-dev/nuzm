@@ -1,4 +1,3 @@
-
 import '../api/api_client.dart';
 import '../api/api_data_source.dart' show localized;
 import '../l10n/strings.dart';
@@ -193,6 +192,8 @@ final Map<String, List<ActionDef>> kPageActions = {
       icon: NzIcons.plus,
       fields: [
         FieldDef('planId', const T('الخطة', 'Plan'),
+            // Picked already when the form opens from a plan card.
+            initial: (raw) => raw['planId'],
             kind: FieldKind.select, optionsFrom: (c) async => [for (final p in await c.list('/v1/hosting/plans')) ('${p['id']}', localized(p['name']))]),
         FieldDef('runtime', const T('بيئة التشغيل', 'Runtime'),
             kind: FieldKind.select,

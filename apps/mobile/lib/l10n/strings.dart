@@ -222,4 +222,48 @@ class S {
   static const stopListening = T('إيقاف التسجيل', 'Stop recording');
   static const micDenied = T('اسمح للتطبيق باستخدام الميكروفون من إعدادات الهاتف.', 'Allow the microphone for this app in the phone settings.');
   static const micUnavailable = T('التعرّف على الكلام غير متاح على هذا الجهاز.', 'Speech recognition is not available on this device.');
+  // Plans (the website's plan section).
+  static const plansEyebrow = T('الباقات والأسعار', 'Plans & pricing');
+  static const plansHeadline = T('اختر ما يناسب مشروعك.', 'Pick what fits your project.');
+  static const hostingPlans = T('باقات الاستضافة', 'Hosting plans');
+  static const cloudPlans = T('باقات السحابة', 'Cloud plans');
+  static const perMonth = T('/شهر', '/mo');
+  static const included = T('ما تتضمنه:', 'Included:');
+  static const runsOn = T('يعمل مع:', 'Runs:');
+  static const choosePlan = T('اختر الباقة', 'Choose plan');
+  static const chooseServer = T('اختر الخادم', 'Choose server');
+  static const fineHosting = T('تُحاسَب شهريًا لكل موقع. يُؤكَّد توفّر الباقة لحسابك ومنطقتك قبل الشراء.',
+      'Billed monthly, per site. Availability for your account and region is confirmed before you buy.');
+  static const fineServer = T('تُحاسَب شهريًا. تُفحص إقامة البيانات والحصة والتوفّر لحسابك عند الطلب.',
+      'Billed monthly. Data residency, quota and availability are checked for your account when you order.');
+  static const noPlans = T('لا توجد باقات منشورة الآن.', 'No plans are published right now.');
+  static const planNotOffered = T('هذه الباقة غير متاحة لمؤسستك الآن؛ اختر باقة من النموذج.',
+      'This plan is not offered to your organization right now; pick one in the form.');
+  static const addNew = T('إضافة', 'Add');
+  // Domain search (the website's domain tool, `dom.search.*`).
+  static const domEyebrow = T('البحث عن نطاق', 'Domain search');
+  static const domHero = T('ابحث عن اسم نطاق', 'Search for a domain name');
+  static const domBody = T('ابحث عن اسم، وقارن الامتدادات، وسجّله خلال دقائق.', 'Search a name, compare extensions and register it in minutes.');
+  static const domPlaceholder = T('اكتب اسمًا، مثل mybrand', 'Type a name, e.g. mybrand');
+  static const domExtensions = T('الامتدادات التي نبيعها', 'Extensions we sell');
+  static const domHelp = T('تُعرض الأسعار بالريال وتشمل هامش المنصة؛ الضريبة تُحتسب عند عرض السعر.',
+      'Prices are in SAR and include the platform margin; tax is estimated when you get a quote.');
+  static const domResults = T('نتائج البحث', 'Search results');
+  static const domBest = T('أفضل نتيجة', 'Top match');
+  static const domPerYear = T('سنويًا', 'per year');
+  static const domAvailable = T('متاح', 'Available');
+  static const domTaken = T('غير متاح', 'Taken');
+  static const domUnknown = T('غير معروف الآن', 'Unknown right now');
+  static const domBlocked = T('غير مدعوم', 'Not supported');
+  static const domPremium = T('نطاق مميز (غير مباع بعد)', 'Premium (not sold yet)');
+  static const domNoPrice = T('السعر غير متوفر بعد', 'Price not available yet');
+  static const domNotForSale = T('غير معروض للبيع بعد', 'Not on sale yet');
+  static const domRegister = T('سجّل النطاق', 'Register');
+  static const domSearchGo = T('بحث', 'Search');
+  static const domReasons = {
+    'policy.saudi_absent': T('نطاقات السعودية غير متاحة حاليًا (بانتظار مسار الأهلية).', 'Saudi domains are not available yet (eligibility route pending).'),
+    'policy.not_in_portfolio': T('هذا الامتداد غير ضمن الامتدادات المعروضة.', 'This extension is not in the sales portfolio.'),
+    'registrar.not_listed': T('لا يوجد مسجّل معتمد يدعم هذا الامتداد.', 'No verified registrar supports this extension.'),
+  };
+  static const domReasonOther = T('هذا الامتداد غير مدعوم حاليًا.', 'This extension is not supported at the moment.');
 }

@@ -109,6 +109,23 @@ Bugs the live run found and fixed:
 - Tests: `flutter analyze` no issues; `flutter test` all passed (39, 1 skipped). Screenshots updated, including
   `menu-reveal-ar-dark.jpg` (mid-animation). No APK built this round (owner asked).
 
+## Update 2026-11-23 (3): lists with a floating +, plans, domain search
+- Hosting, cloud, domains and email pages list the organization's items with a floating "+" (the create button
+  moved off the page). Hosting and cloud open their plans; domains open the search; email pages open their create form.
+- Plans (`lib/screens/plans_screen.dart`, `lib/data/plans.dart`): the website's plan section from the same public
+  endpoints (`/v1/public/hosting-plans`, `/v1/public/compute-plans`), mapped like `apps/web/lib/public-service-plans.ts`.
+  Families as a segmented control, plans as sliding cards (middle of three highlighted), price per month, included,
+  runtimes, fine print. "Choose plan" opens the create form with the plan picked (public key → the org's plan id);
+  the price is still quoted and confirmed before anything is bought.
+- Domain search like the website's tool: hero card, search field, sold extensions (.com/.net/.org) as chips, top match
+  with yearly price and Register, other extensions with status (blocked ones say why).
+- Icons no longer mirror in Arabic (phosphor_flutter marks every icon `matchTextDirection`; `NzIcons` now uses the
+  glyphs without it).
+- Live: plans:hosting web=3 webapp=2 agency=2; plans:cloud cloud=3 servers=12; the org's hosting plan keys match the
+  public keys. Domain search with `tlds` answered 503 `service_unavailable` (registrar sandbox, HG-07-01 NOT VERIFIED).
+- Tests: `flutter analyze` no issues; `flutter test` all passed (43, 1 skipped); live check PASS.
+- Screenshots: `docs/reports/mobile-app/{hosting-list-fab,hosting-plans,domain-search}-ar-dark.jpg`.
+
 ## I. Next
 Next steps:
 - **In-app flows:** paying invoices through the payment provider's redirect, setting up and answering two-step verification (that unlocks step-up actions), registration and password reset.

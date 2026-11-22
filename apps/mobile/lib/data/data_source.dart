@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../l10n/strings.dart';
 import 'demo.dart';
 import 'nav.dart';
+import 'plans.dart';
 
 /// What a page shows. Whichever lists are present are drawn, in this order: stats, catalog, fields, items.
 @immutable
@@ -98,12 +99,24 @@ class Balances {
 
 @immutable
 class DomainResult {
-  const DomainResult(this.name, this.available, {this.price});
+  const DomainResult(this.name, this.available, {this.price, this.premium = false, this.purchasable, this.blockedRule});
   final String name;
 
   /// null: unknown / not sold.
   final bool? available;
+
+  /// `money:<minor>:<currency>`, per year.
   final String? price;
+  final bool premium;
+
+  /// Whether it can be bought here now (null: the source does not say; then "available" decides).
+  final bool? purchasable;
+
+  /// The eligibility rule when the extension is blocked (`policy.saudi_absent`, ...), else null.
+  final String? blockedRule;
+
+  bool get blocked => blockedRule != null;
+  bool get canBuy => !blocked && available == true && (purchasable ?? true);
 }
 
 /// Everything the screens read. [DemoDataSource] serves the sample data; `ApiDataSource` the live API.
@@ -114,7 +127,10 @@ abstract class DataSource {
   Future<PageData> load(String pageId);
   Future<DashboardData> dashboard();
   Future<Balances> balances();
-  Future<List<DomainResult>> searchDomains(String query);
+  Future<List<DomainResult>> searchDomains(String query, {List<String> tlds = const []});
+
+  /// The service's plans, as the website shows them ([buildPlanGroups]).
+  Future<List<PlanGroup>> plans(String service);
   Future<List<Notice>> notifications();
   Future<void> markNotificationsRead(List<String> ids);
   Future<List<ChatSummary>> recentChats();
@@ -162,13 +178,22 @@ class DemoDataSource implements DataSource {
   Future<Balances> balances() async => const Balances(walletMinor: 125000, credits: 7420);
 
   @override
-  Future<List<DomainResult>> searchDomains(String query) async {
+  Future<List<DomainResult>> searchDomains(String query, {List<String> tlds = const []}) async {
     await _wait();
     final base = query.trim().toLowerCase().split('.').first.replaceAll(RegExp(r'[^a-z0-9-]'), '');
     if (base.isEmpty) return const [];
+    const prices = {'com': 4900, 'net': 5900, 'org': 5500};
     return [
-      for (final (i, tld) in ['.sa', '.com', '.com.sa', '.net', '.store'].indexed) DomainResult('$base$tld', (base.length + i).isEven),
+      for (final (i, tld) in (tlds.isEmpty ? const ['com', 'net', 'org'] : tlds).indexed)
+        DomainResult('$base.$tld', (base.length + i).isEven, price: 'money:${prices[tld] ?? 4900}:SAR'),
+      if (tlds.isEmpty) DomainResult('$base.sa', null, blockedRule: 'policy.saudi_absent'),
     ];
+  }
+
+  @override
+  Future<List<PlanGroup>> plans(String service) async {
+    await _wait();
+    return buildPlanGroups(service, kSampleHostingPlans, kSampleComputePlans);
   }
 
   @override

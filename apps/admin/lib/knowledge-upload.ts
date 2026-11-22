@@ -90,13 +90,18 @@ const bytesOf = async (b: Blob) => new Uint8Array(await b.arrayBuffer());
 const fingerprint = (f: File, sha: string) => `${f.name}:${f.size}:${f.lastModified}:${sha}`;
 const STORE_KEY = 'nuzm.knowledge.upload';
 
-/** Whole-file checksum and the checksum of every part of size `PART_HINT`, in one pass over the file. */
-export async function hashFile(file: Blob, onPercent: (p: number) => void, signal?: AbortSignal) {
+/** Whole-file checksum and the checksum of every part of size `hint` (default `PART_HINT`), in one pass over the file. */
+export async function hashFile(
+  file: Blob,
+  onPercent: (p: number) => void,
+  signal?: AbortSignal,
+  hint: number = PART_HINT,
+) {
   const whole = new Sha256();
   const parts: string[] = [];
-  for (let off = 0; off < file.size; off += PART_HINT) {
+  for (let off = 0; off < file.size; off += hint) {
     if (signal?.aborted) throw new UploadError('aborted');
-    const chunk = await bytesOf(file.slice(off, off + PART_HINT));
+    const chunk = await bytesOf(file.slice(off, off + hint));
     whole.update(chunk);
     parts.push(new Sha256().update(chunk).digestHex());
     onPercent(Math.min(100, Math.round(((off + chunk.length) / file.size) * 100)));
@@ -113,8 +118,11 @@ export async function runUpload(opts: {
   signal?: AbortSignal;
   /** called as soon as a session exists, so a Cancel button can discard it */
   onSession?: (id: string) => void;
+  /** The part size the file is pre-hashed in (default `PART_HINT`, what the server asks for). Only tests pass another, so they need not hash megabytes with the pure-JS SHA-256. */
+  hintPartSize?: number;
 }): Promise<{ resourceId: string }> {
   const { file, metadata, deps, onProgress, signal } = opts;
+  const hint = opts.hintPartSize ?? PART_HINT;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   checkFile(file);
   const base = '/v1/admin/knowledge/uploads';
@@ -141,6 +149,7 @@ export async function runUpload(opts: {
     file,
     (percent) => onProgress({ phase: 'hashing', percent }),
     signal,
+    hint,
   );
 
   // resume the session remembered for this exact file, if the server still has it open
@@ -197,7 +206,7 @@ export async function runUpload(opts: {
     const chunk = file.slice((n - 1) * size, n * size);
     const have = session.partsReceived.includes(n);
     const partSha =
-      size === PART_HINT ? hintShas[n - 1]! : new Sha256().update(await bytesOf(chunk)).digestHex();
+      size === hint ? hintShas[n - 1]! : new Sha256().update(await bytesOf(chunk)).digestHex();
     partShas.push(partSha);
     onProgress({ phase: 'sending', done: n - 1, total, resumed });
     if (have) continue;

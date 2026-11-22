@@ -1,14 +1,14 @@
 # Remediation plan — pre-existing test and check failures
 
-Date: 2026-11-22 · Status: **PLAN ONLY. Nothing below was changed by this review.** None of these failures was caused by the S-AG3/S-AG4 work: each was reproduced or traced to a commit that predates it (evidence per item). Each item says whether it needs the owner's decision.
+Date: 2026-11-22 · Status: **R1, R2 and R4 FIXED (2026-11-22, owner's go-ahead; see "Done" under each). R3 and R5 remain a PLAN and need the owner's decision.** None of these failures was caused by the S-AG3/S-AG4 work: each was reproduced or traced to a commit that predates it (evidence per item). Each item says whether it needs the owner's decision.
 
 Summary
 | # | Failure | Root cause (verified) | Fix size | Owner decision? |
 |---|---|---|---|---|
-| R1 | `domains-search.int.spec.ts` registrar matrix | the `dnet` registrar row added by migration `0930` (2026-11-21) is listed but the test still expects two | XS (one test) | No |
-| R2 | `pnpm scan:secrets`: 1 finding | a test constant named `SECRET` with a long literal matches the scanner's rule | XS (one test) | No |
+| R1 ✅ | `domains-search.int.spec.ts` registrar matrix | the `dnet` registrar row added by migration `0930` (2026-11-21) is listed but the test still expects two | XS (one test) | No |
+| R2 ✅ | `pnpm scan:secrets`: 1 finding | a test constant named `SECRET` with a long literal matches the scanner's rule | XS (one test) | No |
 | R3 | `pnpm zatca:guard` | one ZATCA generator file changed in `8e314fd` (UUID regex now imported) without a re-pin | XS + a process rule | **Yes** (ZATCA artefacts) |
-| R4 | admin tests time out under the parallel run | pure-JS SHA-256 over 16 MiB fixtures; CPU contention when many workers run | S | No |
+| R4 ✅ | admin tests time out under the parallel run | pure-JS SHA-256 over 16 MiB fixtures; CPU contention when many workers run | S | No |
 | R5 | `pnpm test` cannot start Playwright | fixed default ports; the owner's own dev stack holds 4000 | S | Yes (changes the documented command set) |
 
 Recommended order: R2, R1, R4 (quick, independent) → R3 (after the owner's approval) → R5.
@@ -18,12 +18,14 @@ Recommended order: R2, R1, R4 (quick, independent) → R3 (after the owner's app
 **Evidence.** The test expects `providerCode` list `['openprovider','resellerclub']`; the endpoint returns `['dnet','openprovider','resellerclub']`. Migration `packages/db/migrations/domains/0930__domains__dnet_registrar.sql` (commit `a12f746`, "owner request 2026-11-21; D-50, HG-07-03") inserts `dnet` **disabled**, with no adapter and no account; the test was written for S28 before that row existed. Reproduced in three consecutive full runs.
 **Fix.** Update the expectation to the three registrars and assert what the migration promises: `dnet` is present, `enabled: false`, has no account, and `accounts` stays 2 (the other two). Do not hide disabled registrars in the endpoint: the admin console lists it on purpose (DNet settings screen).
 **Verify.** `cd apps/api && NUZM_TEST_ADMIN_URL=… npx vitest run --config vitest.integration.config.mts src/modules/domains/domains-search.int.spec.ts` (all 12 pass), then the full integration run.
+**Done.** The expectation now lists `dnet`, `openprovider`, `resellerclub`, asserts `dnet` is disabled and that the two accounts belong to the other two. `domains-search.int.spec.ts`: 12 passed.
 **Risk.** None. **Decision.** None.
 
 ## R2 — `pnpm scan:secrets`: `registrar-dnet-settings.spec.ts:9`
-**Evidence.** Line 9 is `const SECRET = 'dnet-test-secret-abcdefgh';`. The scanner rule `hardcoded password assignment` (`scripts/scan-secrets.ts:29`) matches `secret = '…'` with 8 or more characters, case-insensitively. The value is a fake test value, but the scanner cannot know that.
+**Evidence.** Line 9 declared a constant named `SECRET` holding a fake 25-character literal. The scanner rule `hardcoded password assignment` (`scripts/scan-secrets.ts:29`) matches `secret = '…'` with 8 or more characters, case-insensitively. The value is a fake test value, but the scanner cannot know that.
 **Fix.** Follow the repository's own convention (stated for card numbers and used for keys elsewhere): build the value at run time from parts, e.g. `['dnet','test','secret','abcdefgh'].join('-')`, in that one file. **Do not** add an allow-list or weaken the rule.
 **Verify.** `pnpm scan:secrets` exits 0; `npx vitest run src/modules/domains/internal/registrar-dnet-settings.spec.ts` still passes (the test asserts the value is not echoed, so it must still be the same string at run time).
+**Done.** The fake secret is built at run time (`['dnet','test','secret','abcdefgh'].join('-')`, same value); this plan document no longer quotes the literal either (the scanner reads docs too). `pnpm scan:secrets`: 0 hits; `registrar-dnet-settings.spec.ts`: 14 passed.
 **Risk.** None. **Decision.** None.
 
 ## R3 — `pnpm zatca:guard`: "the generator sources changed (now 72feedaa…, pinned 1b8d7337…)"
@@ -42,7 +44,12 @@ Recommended order: R2, R1, R4 (quick, independent) → R3 (after the owner's app
 2. Stopgap while that is done: `{ timeout: 120_000 }` on the heavy tests only (not a global increase).
 3. Limit contention for the unit run: `turbo run test --concurrency=2` in the documented command, or vitest `maxWorkers` for `apps/admin`.
 **Verify.** `npx turbo run test --filter='!@nuzm/e2e'` three times in a row with no failure; `lib/knowledge-upload.spec.ts` wall time under 5 s alone.
-**Risk.** Low; the production default is untouched. **Decision.** None (a small API option in an upload helper; mention in the commit).
+**Done (steps 1 and a targeted form of 3).**
+- `runUpload` and `hashFile` take an optional part size for the pre-hash (`hintPartSize`, default `PART_HINT`, so production is unchanged). The upload tests use 64 KiB parts and one test keeps the real 8 MiB hint path. `knowledge-upload.spec.ts`: 20 s → 2 s, 23 tests (one new).
+- The admin suite alone: 349 passed in 45 s (it was 160 s under load before).
+- While confirming, the full parallel run with the cache disabled showed the same class of flake elsewhere: the two registrar conformance specs (`openprovider`, `resellerclub`) use the 5 s default timeout and take about 5 s only under load (under 1 s alone). They now set a 30 s timeout for their file.
+- **Results:** `turbo run test --filter='!@nuzm/e2e' --force` three times at default concurrency (one run hit the registrar timeout above, before that fix) and twice with `--concurrency=2` (52/52 both times, 330–340 s versus about 3 minutes by default). `--concurrency=2` is a reliable fallback on a 4-CPU machine but was not made the default: that changes the documented command (owner decision, like R5).
+**Risk.** Low; the production default is untouched. **Decision.** None.
 
 ## R5 — `pnpm test` fails because Playwright cannot start (port 4000 in use)
 **Evidence.** The root `test` script is `turbo run test`, which includes `@nuzm/e2e#test` (`playwright test`). The Playwright config starts the API (`dev:stack`, default port 4000), the identity provider (4010) and both consoles (3000, 3001) with `reuseExistingServer: false`, so it aborts with "http://127.0.0.1:4000/healthz is already used". The process on 4000 is **the owner's own dev stack** (`node dist/dev/dev-stack.js`, working directory `/Users/elaf/Projects/nuzm/apps/api`), not leftover test debris: **do not stop it**. `CLAUDE.md` and `docs/reports` already note that the E2E needs these ports free, and `pnpm test` is also described there as "DB-free unit tests", which is inconsistent with it launching browsers.

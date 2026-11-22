@@ -16,7 +16,17 @@ describe('registrar registry (S28 task 6)', () => {
     const r = await k.admin('root', 'GET', '/v1/admin/registrars');
     expect(r.statusCode).toBe(200);
     const b = r.json();
-    expect(b.registrars.map((x: any) => x.providerCode)).toEqual(['openprovider', 'resellerclub']);
+    // `dnet` is listed on purpose (migration 0930, owner request 2026-11-21): DISABLED, with no adapter and no account, so nothing is sold through it
+    expect(b.registrars.map((x: any) => x.providerCode)).toEqual([
+      'dnet',
+      'openprovider',
+      'resellerclub',
+    ]);
+    expect(b.registrars.find((x: any) => x.providerCode === 'dnet').enabled).toBe(false);
+    expect(b.accounts.map((a: any) => a.providerCode).sort()).toEqual([
+      'openprovider',
+      'resellerclub',
+    ]);
     expect(b.accounts).toHaveLength(2);
     for (const a of b.accounts) {
       expect(a.verification).toBe('NOT VERIFIED');

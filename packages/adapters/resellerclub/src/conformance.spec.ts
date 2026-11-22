@@ -1,4 +1,7 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// the kit runs every case against a mock with real client deadlines (about 5 s alone): the 5 s default flakes when the whole workspace runs its tests in parallel
+vi.setConfig({ testTimeout: 30_000 });
 import { FetchHttpClient, type ContactSet } from '@nuzm/registrar-contracts';
 import {
   MemoryVault,

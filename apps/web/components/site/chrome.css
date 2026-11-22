@@ -511,3 +511,23 @@
     left: 87%;
   }
 }
+
+/* Arabic heading block of the "One idea" section: its lines run right to left and sit on the right edge of their column */
+[dir='rtl'] .landing .cx-heading,
+[dir='rtl'] .landing .cx-heading .eyebrow,
+[dir='rtl'] .landing .cx-heading h2,
+[dir='rtl'] .landing .cx-heading p {
+  text-align: right;
+}
+[dir='rtl'] .landing .cx-heading h2 em {
+  margin-inline: 0;
+}
+[dir='rtl'] .landing .cx-heading p {
+  margin-inline: 0 auto;
+}
+/* the stage is mirrored, so the preview that runs past its edge must not run into the heading column: it is cut at the stage's own edge on that side (the other side is free) */
+@media (min-width: 901px) {
+  [dir='rtl'] .landing .cx-stage {
+    clip-path: inset(-140px 0 -140px -600px);
+  }
+}

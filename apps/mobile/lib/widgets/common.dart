@@ -66,7 +66,7 @@ class NzScaffold extends StatelessWidget {
   }
 }
 
-/// Round icon button. On the chrome (headers) it is a dark borderless disc; inside the frame a bordered card disc.
+/// Round icon button. On the chrome (headers) a dark disc; inside the frame a card disc. Neither has a stroke.
 class CircleIconButton extends StatelessWidget {
   const CircleIconButton({
     super.key,
@@ -94,7 +94,7 @@ class CircleIconButton extends StatelessWidget {
         label: tooltip,
         child: Material(
           color: onChrome ? nz.chromeButton : nz.card,
-          shape: CircleBorder(side: onChrome ? BorderSide.none : BorderSide(color: nz.border)),
+          shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
@@ -150,10 +150,10 @@ class CountBadge extends StatelessWidget {
   }
 }
 
-/// `.nz-card`: card background (light: the 4 % accent wash), 1 px border, 18 px radius.
+/// `.nz-card`: card background (light: the 4 % accent wash), 18 px radius, no stroke ([bordered] adds one).
 class NzCard extends StatelessWidget {
   const NzCard(
-      {super.key, required this.child, this.onTap, this.padding = const EdgeInsets.all(16), this.radius = 18, this.color, this.gradient, this.bordered = true});
+      {super.key, required this.child, this.onTap, this.padding = const EdgeInsets.all(16), this.radius = 18, this.color, this.gradient, this.bordered = false});
   final Widget child;
   final bool bordered;
   final VoidCallback? onTap;
@@ -377,7 +377,7 @@ class StateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    // `.nz-state`: a card (18 px, 1 px border) with the message centred.
+    // `.nz-state`: a card (18 px, no stroke) with the message centred.
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: NzCard(

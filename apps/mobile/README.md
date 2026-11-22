@@ -95,11 +95,11 @@ show them as an orange button at the top of the page (create or edit) and as but
 - In **sample mode** the forms open but never write.
 
 Covered: workspaces, projects, build projects, mobile builds, AI approvals, AI budgets, servers (create, start, stop,
-reboot, delete), hosting sites (create, rename, back up, delete), domains (register from search, renew, lock,
-auto-renew), databases, buckets, email domains, mailboxes, senders, templates, messages, suppressions, spending cap,
+reboot, delete), hosting sites (create, rename, back up, delete), domains (register from search, transfer in, renew,
+lock, auto-renew), databases, buckets, email domains, mailboxes, senders, templates, messages, suppressions, spending cap,
 spend approvals, subscriptions (cancel), tax profile, team (invite, role, remove), organization, and password change.
 
-Still in the web console (`kWebOnlyWrites`): workflows, connectors, webhooks, marketplace and transfers (open-ended
+Still in the web console (`kWebOnlyWrites`): workflows, connectors, webhooks and the marketplace (open-ended
 bodies), paying invoices and payment methods (the payment provider's redirect), SSO, agency and reseller,
 registration, password reset and setting up two-step verification.
 

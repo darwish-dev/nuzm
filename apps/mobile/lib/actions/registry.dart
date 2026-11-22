@@ -77,6 +77,36 @@ Map<String, Object?> _contact(ActionContext c) => {
       'address': {'street': c.v('street'), 'city': c.v('city'), 'postalCode': c.v('postalCode'), 'country': c.v('country').toUpperCase()},
     };
 
+/// Transfer a domain in (`POST /v1/domains/transfers`, as the web console does it): quote `transfer_in` → the price →
+/// confirm → transfer. The authorization code is write-only: sent once, kept in the vault by the API, never shown again.
+final kDomainTransfer = ActionDef(
+  id: 'transfer',
+  label: const T('نقل النطاق', 'Transfer domain'),
+  icon: NzIcons.arrowLeftRight,
+  fields: [
+    FieldDef('name', const T('النطاق', 'Domain'),
+        ltr: true,
+        initial: (raw) => raw['name'],
+        pattern: RegExp(r'^(?!-)[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$', caseSensitive: false),
+        hint: const T('مثل mybrand.com', 'e.g. mybrand.com')),
+    const FieldDef('authCode', T('رمز التفويض (EPP)', 'Authorization (EPP) code'), kind: FieldKind.password, ltr: true),
+    ..._contactFields,
+  ],
+  quote: (c) => {
+    'kind': 'domain',
+    'items': [
+      {'name': c.v('name').toLowerCase(), 'years': 1, 'action': 'transfer_in'},
+    ],
+  },
+  done: const T('بدأ نقل النطاق', 'The transfer has started'),
+  run: (c) async => c.post('/v1/domains/transfers', {
+    'quoteId': c.quote!.id,
+    'name': c.v('name').toLowerCase(),
+    'authCode': c.v('authCode'),
+    'contacts': {'registrant': _contact(c)},
+  }),
+);
+
 /// Page-level actions (create, or edit for settings pages), shown at the top of the page.
 final Map<String, List<ActionDef>> kPageActions = {
   'workspaces': [
@@ -727,6 +757,6 @@ final Map<String, List<ActionDef>> kItemActions = {
 
 /// Pages whose writes stay in the web console for now (open-ended bodies, PSP redirects or a delegated flow).
 const Set<String> kWebOnlyWrites = {
-  'workflows', 'connectors', 'webhooks', 'marketplace', 'transfers', 'invoices', 'payments', 'sso', 'agency', 'reseller', 'partners',
+  'workflows', 'connectors', 'webhooks', 'marketplace', 'invoices', 'payments', 'sso', 'agency', 'reseller', 'partners',
   'hostingPlans', 'ledger', 'privacy', 'usageQuotas', 'aiUsage', 'billingOverview',
 };

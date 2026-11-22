@@ -96,6 +96,7 @@ void main() {
       final r = await app.data.searchDomains('nuzmmobiletest', tlds: const ['com', 'net']);
       return [for (final d in r) '${d.name}:${d.available}${d.blocked ? ' blocked' : ''}${d.price == null ? '' : ' priced'}'].join(' ');
     });
+    await extra('transfers', () async => 'n=${(await app.data.load('transfers')).items?.length}');
     await extra('orgHostingPlanKeys', () async {
       final r = await api.get('/v1/hosting/plans');
       final items = r is Map ? r['items'] as List : r as List;
@@ -140,6 +141,11 @@ void main() {
         (await ctx({}).list(path)).where(where).firstOrNull;
     ActionDef pa(String page, String id) => kPageActions[page]!.firstWhere((a) => a.id == id);
     ActionDef ia(String page, String id) => kItemActions[page]!.firstWhere((a) => a.id == id);
+    await extra('transferQuote', () async {
+      // Only the quote (no transfer is started): the request the transfer form sends first.
+      final q = await ctx({'name': 'nuzmmobiletest.com'}).post('/v1/quotes', kDomainTransfer.quote!(ctx({'name': 'nuzmmobiletest.com'})));
+      return 'quote ${(q as Map)['id'] == null ? 'missing' : 'ok'}';
+    });
     // A 4xx that means our request was wrong fails the check; refusals by policy, plan or vendor are recorded.
     bool wrongRequest(Object e) =>
         e is ApiException && const {'validation_failed', 'precondition_required', 'precondition_failed', 'etag_mismatch', 'idempotency_key_required', 'csrf_failed'}.contains(e.code);

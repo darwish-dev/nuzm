@@ -48,7 +48,8 @@ ActionContext ctx(FakeApi f, {Map<String, Object?> values = const {}, Map<String
 
 void main() {
   test('every action belongs to a page of the app', () {
-    final ids = {for (final c in kCategories) ...c.pages.map((p) => p.id)};
+    // 'domainSearch' is the register tab of the add-domain screen (the domains list's +).
+    final ids = {for (final c in kCategories) ...c.pages.map((p) => p.id), 'domainSearch'};
     expect(ids.containsAll(kPageActions.keys), isTrue);
     expect(ids.containsAll(kItemActions.keys), isTrue);
     expect(kPageActions.values.expand((a) => a).length + kItemActions.values.expand((a) => a).length, greaterThanOrEqualTo(45));

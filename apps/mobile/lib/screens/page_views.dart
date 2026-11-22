@@ -13,6 +13,7 @@ import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
 import '../widgets/nz_icons.dart';
 import 'detail_screen.dart';
+import 'domain_add_screen.dart';
 import 'plans_screen.dart';
 import 'section_screen.dart';
 import 'sign_in_screen.dart';
@@ -218,12 +219,11 @@ class DashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final nz = context.nz;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // `.nzc-hero`: 18 px card, 1 px border, an accent glow at the top end over a 135deg accent wash.
+      // `.nzc-hero`: 18 px card (no stroke), an accent glow at the top end over a 135deg accent wash.
       Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: nz.border),
           gradient: nz.heroLayers[1],
         ),
         child: DecoratedBox(
@@ -287,7 +287,7 @@ class DashboardView extends StatelessWidget {
             avatar: Icon(c.icon, size: 17, color: nz.accent),
             label: Text(c.label.of(context)),
             backgroundColor: nz.card,
-            side: BorderSide(color: nz.border),
+            side: BorderSide.none,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             labelStyle: TextStyle(color: nz.fg, fontWeight: FontWeight.w600),
             onPressed: () => openPage(context, c.pages.first.id),
@@ -512,7 +512,13 @@ class _FormViewState extends State<FormView> {
 // ---------------------------------------------------------------- domain search
 
 class DomainSearchView extends StatefulWidget {
-  const DomainSearchView({super.key});
+  const DomainSearchView({super.key, this.plain = false, this.onRegistered});
+
+  /// Drawn straight on a hero background (the add-domain page), without its own card.
+  final bool plain;
+
+  /// Called after a registration was requested.
+  final VoidCallback? onRegistered;
 
   @override
   State<DomainSearchView> createState() => _DomainSearchViewState();
@@ -567,7 +573,7 @@ class _DomainSearchViewState extends State<DomainSearchView> {
 
   Future<void> _register(DomainResult r) async {
     final a = kItemActions['domainSearch']?.firstOrNull;
-    if (a != null) await runAction(context, a, item: {'name': r.name});
+    if (a != null && await runAction(context, a, item: {'name': r.name})) widget.onRegistered?.call();
   }
 
   String _status(DomainResult r) {
@@ -598,7 +604,7 @@ class _DomainSearchViewState extends State<DomainSearchView> {
     final rest = [for (final r in results ?? const <DomainResult>[]) if (!identical(r, best)) r];
 
     Widget hero = Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      padding: widget.plain ? const EdgeInsets.fromLTRB(4, 10, 4, 4) : const EdgeInsets.fromLTRB(16, 18, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(S.domEyebrow.of(context), style: TextStyle(color: nz.accent, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
         const SizedBox(height: 4),
@@ -668,12 +674,16 @@ class _DomainSearchViewState extends State<DomainSearchView> {
         Text(S.domHelp.of(context), style: TextStyle(color: nz.muted, fontSize: 11.5, height: 1.5)),
       ]),
     );
-    for (final g in nz.heroLayers.reversed) {
-      hero = DecoratedBox(decoration: BoxDecoration(gradient: g), child: hero);
+    if (!widget.plain) {
+      // Wrapping in list order puts the last layer (the opaque wash) at the bottom and the glows above it.
+    for (final g in nz.heroLayers) {
+        hero = DecoratedBox(decoration: BoxDecoration(gradient: g), child: hero);
+      }
+      hero = ClipRRect(borderRadius: BorderRadius.circular(22), child: Material(color: nz.card, child: hero));
     }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      ClipRRect(borderRadius: BorderRadius.circular(22), child: Material(color: nz.card, child: hero)),
+      hero,
       if (_error != null)
         Padding(
           padding: const EdgeInsets.only(top: 14),
@@ -690,7 +700,6 @@ class _DomainSearchViewState extends State<DomainSearchView> {
           Padding(
             padding: EdgeInsets.only(top: best == null ? 0 : 12),
             child: NzCard(
-              bordered: false,
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(children: [
                 for (final (i, r) in rest.indexed) ...[
@@ -960,10 +969,7 @@ PageFab? pageFab(String pageId) {
     case 'instances':
       return PageFab(S.cloudPlans, (c, _) => openPlans(c, 'cloud'));
     case 'domainList':
-      return PageFab(S.domEyebrow, (c, openTab) async {
-        openTab != null ? openTab('domainSearch') : openPage(c, 'domainSearch');
-        return false;
-      });
+      return PageFab(S.addDomain, (c, _) => openDomainAdd(c));
   }
   final cat = findPage(pageId).$1;
   final create = (kPageActions[pageId] ?? const <ActionDef>[]).where((a) => a.id == 'create').firstOrNull;

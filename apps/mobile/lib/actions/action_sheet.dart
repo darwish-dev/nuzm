@@ -44,7 +44,7 @@ Future<bool> confirmAction(BuildContext context, ActionDef action) async {
     context: context,
     builder: (d) => AlertDialog(
       backgroundColor: nz.elev,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: nz.border)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       title: Text(action.label.of(context), style: const TextStyle(fontWeight: FontWeight.w700)),
       content: Text((action.confirm ?? S.confirmTitle).of(context)),
       actions: [

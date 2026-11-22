@@ -126,8 +126,22 @@ Bugs the live run found and fixed:
 - Tests: `flutter analyze` no issues; `flutter test` all passed (43, 1 skipped); live check PASS.
 - Screenshots: `docs/reports/mobile-app/{hosting-list-fab,hosting-plans,domain-search}-ar-dark.jpg`.
 
+## Update 2026-11-23 (4): no card strokes, domains = list + add (register / transfer)
+- Cards have no stroke anywhere (`NzCard` default; dashboard hero, chips, detail buttons, dialogs, in-page discs).
+- Domains section is only "My domains". Its "+" opens "Add a domain" with two tabs:
+  - **Register new:** the domain search drawn on the dashboard hero's gradient (mint glow, orange glow, 135deg wash).
+  - **Transfer:** the three steps, the domain field, and the organization's transfers. The form posts
+    `POST /v1/domains/transfers` the way the web console does (quote `transfer_in` → price → confirm; the EPP code is
+    write-only). Transfers are no longer a web-only write.
+- Fix: the hero gradient layers were stacked in reverse (the opaque wash covered the glows) in the menu balances,
+  the domain search card and the new page.
+- Live: transfers n=0; the transfer quote answered 403 `residency_denied` on the dev stack (policy, not bypassed;
+  the transfer itself is NOT VERIFIED live).
+- Tests: `flutter analyze` no issues; `flutter test` all passed (43, 1 skipped); live check PASS.
+- Screenshots: `docs/reports/mobile-app/{domain-list,domain-search,domain-transfer}-ar-dark.jpg`.
+
 ## I. Next
 Next steps:
 - **In-app flows:** paying invoices through the payment provider's redirect, setting up and answering two-step verification (that unlocks step-up actions), registration and password reset.
-- **Remaining writes:** workflows, connectors and webhooks.
+- **Remaining writes:** workflows, connectors and webhooks (domain transfers are now in the app).
 - **Infrastructure:** push notifications, a feature flag for the mobile client, and a simulator/device end-to-end run.

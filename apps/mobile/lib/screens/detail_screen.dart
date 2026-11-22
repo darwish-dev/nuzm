@@ -91,7 +91,7 @@ class DetailScreen extends StatelessWidget {
                     minimumSize: const Size.fromHeight(50),
                     alignment: AlignmentDirectional.centerStart,
                     foregroundColor: a.destructive ? nz.danger : nz.fg,
-                    side: BorderSide(color: a.destructive ? nz.danger.withValues(alpha: 0.4) : nz.border),
+                    side: BorderSide.none,
                     backgroundColor: a.destructive ? nz.danger.withValues(alpha: 0.08) : nz.elev,
                   ),
                   icon: Icon(a.icon, size: 18),

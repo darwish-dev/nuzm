@@ -45,7 +45,7 @@ void main() {
     expect(kCategories.length, 13);
     final ids = [for (final c in kCategories) ...c.pages.map((p) => p.id)];
     expect(ids.toSet().length, ids.length);
-    expect(ids.length, 44);
+    expect(ids.length, 42, reason: 'domain search and transfers moved behind the domains list\'s +');
   });
 
   for (final b in Brightness.values) {
@@ -222,14 +222,17 @@ void main() {
     expect(find.text('اختر الخادم'), findsWidgets);
   });
 
-  testWidgets('domains: the + opens the search; the search shows a top match with its yearly price', (tester) async {
+  testWidgets('domains: only my domains, and the + opens register (search) and transfer tabs', (tester) async {
     await setPhone(tester);
     await tester.pumpWidget(host(SectionScreen(category: categoryById('domains'), initialPage: 'domainList')));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('البحث عن نطاق'));
-    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('بحث'), findsNothing, reason: 'no search tab on the list page');
+    expect(find.text('النقل'), findsNothing, reason: 'no transfers tab on the list page');
+    await tester.tap(find.byTooltip('إضافة نطاق'));
     await tester.pumpAndSettle();
+    expect(find.text('تسجيل نطاق جديد'), findsOneWidget);
+    expect(find.text('نقل نطاق'), findsOneWidget);
     expect(find.text('ابحث عن اسم نطاق'), findsOneWidget);
     for (final t in ['.com', '.net', '.org']) {
       expect(find.text(t), findsOneWidget);
@@ -241,6 +244,17 @@ void main() {
     expect(find.text('أفضل نتيجة'), findsOneWidget);
     expect(find.text('سجّل النطاق'), findsOneWidget);
     expect(find.textContaining('نطاقات السعودية غير متاحة'), findsOneWidget, reason: 'blocked extensions say why');
+
+    await tester.tap(find.text('نقل نطاق'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('انقل نطاقًا تملكه'), findsOneWidget);
+    expect(find.text('ابدأ النقل'), findsOneWidget);
+    expect(find.text('لا توجد عمليات نقل بعد.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'mybrand.com');
+    await tester.tap(find.text('ابدأ النقل'));
+    await tester.pumpAndSettle();
+    expect(find.text('رمز التفويض (EPP)'), findsOneWidget, reason: 'the transfer form asks for the code');
     expect(tester.takeException(), isNull);
   });
 

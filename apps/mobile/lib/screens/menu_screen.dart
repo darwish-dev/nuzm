@@ -58,7 +58,6 @@ class _MenuScreenState extends State<MenuScreen> {
         ),
         _SectionLabel(S.recentChats),
         NzCard(
-          bordered: false,
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: FutureBuilder<List<ChatSummary>>(
             future: _chats,
@@ -180,7 +179,8 @@ class _WalletCard extends StatelessWidget {
             half(NzIcons.sparkles, S.credits, b?.credits == null ? null : groupDigits(b!.credits!), 'aiUsage', low: b?.lowCredit == true),
           ]),
         );
-        for (final g in nz.heroLayers.reversed) {
+        // Wrapping in list order puts the last layer (the opaque wash) at the bottom and the glows above it.
+    for (final g in nz.heroLayers) {
           layered = DecoratedBox(decoration: BoxDecoration(gradient: g), child: layered);
         }
         return ClipRRect(
@@ -206,7 +206,6 @@ class _OrgPicker extends StatelessWidget {
     final role = live ? (app.organization?.role ?? '') : S.sampleData.of(context);
     final canSwitch = live && app.organizations.length > 1;
     return NzCard(
-      bordered: false,
       radius: 16,
       padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
       onTap: canSwitch ? () => _pick(context) : null,
@@ -249,7 +248,6 @@ class _OrgPicker extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: NzCard(
-                bordered: false,
                 radius: 14,
                 color: o.orgId == app.organization?.orgId ? nz.accentSoft : nz.elev,
                 padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
@@ -316,7 +314,6 @@ class _SettingsCard extends StatelessWidget {
         );
     final divider = Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: nz.fg.withValues(alpha: 0.06));
     return NzCard(
-      bordered: false,
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(children: [
         InkWell(
@@ -415,7 +412,6 @@ class _CategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return NzCard(
-      bordered: false,
       onTap: () => openPage(context, category.pages.first.id),
       radius: 14,
       padding: const EdgeInsets.symmetric(horizontal: 10),

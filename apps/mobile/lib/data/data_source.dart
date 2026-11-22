@@ -154,6 +154,8 @@ class DemoDataSource implements DataSource {
   @override
   Future<PageData> load(String pageId) async {
     await _wait();
+    // Transfers live on the add-domain screen, not in the navigation.
+    if (pageId == 'transfers') return PageData(items: kLists['transfers'] ?? const []);
     final kind = findPage(pageId).$2.kind;
     return switch (kind) {
       PageKind.list => PageData(items: kLists[pageId] ?? const []),

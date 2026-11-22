@@ -86,8 +86,6 @@ const List<NavCategory> kCategories = [
   NavCategory('domains', T('النطاقات', 'Domains'), NzIcons.globe, [
     NavGroup([
       NavPage('domainList', T('نطاقاتي', 'My domains'), NzIcons.globe, PageKind.list, '/domains'),
-      NavPage('domainSearch', T('بحث', 'Search'), NzIcons.search, PageKind.domainSearch, '/domains/search'),
-      NavPage('transfers', T('النقل', 'Transfers'), NzIcons.arrowLeftRight, PageKind.list, '/domains/transfers'),
     ]),
   ], badge: 1),
   NavCategory('data', T('البيانات', 'Data'), NzIcons.database, [

@@ -149,6 +149,7 @@ class S {
     'no_capacity': T('لا توجد سعة متاحة حاليًا. جرّب خيارًا آخر.', 'No capacity right now. Try another option.'),
     'no_eligible_offer': T('لا يوجد عرض مؤهل لهذا الاختيار.', 'No eligible offer for this choice.'),
     'domain_unavailable': T('النطاق غير متاح للتسجيل.', 'The domain is not available to register.'),
+    'transfer_locked': T('النطاق مقفل لدى المسجّل الحالي؛ افتح القفل ثم أعد المحاولة.', 'The domain is locked at its current registrar; unlock it and try again.'),
     'eligibility_blocked': T('النطاق غير مؤهل للتسجيل وفق السياسة.', 'The domain is not eligible under the policy.'),
     'invalid_state': T('لا يمكن تنفيذ ذلك في الحالة الحالية.', 'This cannot be done in the current state.'),
     'deletion_protected': T('العنصر محمي من الحذف.', 'It is protected from deletion.'),
@@ -266,4 +267,19 @@ class S {
     'registrar.not_listed': T('لا يوجد مسجّل معتمد يدعم هذا الامتداد.', 'No verified registrar supports this extension.'),
   };
   static const domReasonOther = T('هذا الامتداد غير مدعوم حاليًا.', 'This extension is not supported at the moment.');
+  // Add a domain: register or transfer.
+  static const addDomain = T('إضافة نطاق', 'Add a domain');
+  static const registerTab = T('تسجيل نطاق جديد', 'Register new');
+  static const transferTab = T('نقل نطاق', 'Transfer');
+  static const trTitle = T('انقل نطاقًا تملكه', 'Bring a domain you own');
+  static const trBody = T('انقل نطاقك إلى نظم وأدِره مع الاستضافة والبريد في مكان واحد.',
+      'Move your domain to Nuzm and manage it with your hosting and email in one place.');
+  static const trSteps = [
+    T('ألغِ قفل النطاق لدى المسجّل الحالي.', 'Unlock the domain at its current registrar.'),
+    T('اطلب رمز التفويض (EPP) من المسجّل الحالي.', 'Ask the current registrar for the authorization (EPP) code.'),
+    T('أدخل النطاق والرمز وبيانات المالك، ثم ابدأ النقل.', 'Enter the domain, the code and the owner details, then start the transfer.'),
+  ];
+  static const trStart = T('ابدأ النقل', 'Start transfer');
+  static const trInProgress = T('عمليات النقل', 'Your transfers');
+  static const trNone = T('لا توجد عمليات نقل بعد.', 'No transfers yet.');
 }

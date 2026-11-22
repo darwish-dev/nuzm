@@ -1,8 +1,8 @@
 /* The landing page's AI chat section: copy on one side, a recording of the product on the other. */
 .landing .chat-section {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 48px;
+  grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr);
+  gap: 40px;
   align-content: center;
   align-items: center;
 }
@@ -22,23 +22,13 @@
 .chat-video {
   margin: 0;
 }
-.chat-frame {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: #101312;
-  box-shadow:
-    0 30px 70px #00000066,
-    0 0 0 1px #ffffff0d inset;
-  aspect-ratio: 16 / 10;
-}
-.chat-frame video {
+.chat-video video {
   display: block;
   inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-  background: #101312;
+  block-size: auto;
+  aspect-ratio: 16 / 10;
+  background: #0b0b0c;
+  pointer-events: none;
 }
 .chat-video figcaption {
   margin-block-start: 12px;

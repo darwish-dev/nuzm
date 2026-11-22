@@ -28,17 +28,17 @@ export function AiChatSection() {
         </div>
       </div>
       <figure className="chat-video">
-        <div className="chat-frame">
-          <video
-            controls
-            playsInline
-            preload="metadata"
-            poster="/videos/nuzm-ai-chat.jpg"
-            aria-label="An animation of chatting with Nuzm AI: describe a website, approve the plan, edit by chat, publish"
-          >
-            <source src="/videos/nuzm-ai-chat.mp4" type="video/mp4" />
-          </video>
-        </div>
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          poster="/videos/nuzm-ai-chat.jpg"
+          aria-label="An animation of chatting with Nuzm AI: describe a website, approve the plan, edit by chat, publish"
+        >
+          <source src="/videos/nuzm-ai-chat.mp4" type="video/mp4" />
+        </video>
         <figcaption>An illustrative animation of the Nuzm AI builder flow.</figcaption>
       </figure>
     </section>

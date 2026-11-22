@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
+import { ServiceArtwork } from '../ServiceArtwork';
 import { Mosaic } from '../site/Mosaic';
 import { useSectionScroll } from './useSectionScroll';
 
@@ -313,12 +314,9 @@ export function LandingPage() {
                 </span>
               </div>
               <div className="service-art">
-                <img
-                  src={`/images/illustrations/${['cloud.webp', 'domain.webp', 'dashboard.webp', 'builder.webp'][index] ?? 'cloud.webp'}`}
-                  alt=""
-                  width={380}
-                  height={290}
-                  loading="lazy"
+                <ServiceArtwork
+                  service={['compute', 'domains', 'hosting', 'builder'][index] ?? 'compute'}
+                  ar={false}
                 />
               </div>
               <div className="cloud-card-content">

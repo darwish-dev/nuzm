@@ -99,25 +99,30 @@
   }
 }
 
-/* the landing page's service cards: the illustration fills the picture area */
-/* the card's picture area is squeezed by the landing page's fixed-height sections, so the image fills it from the corners instead of sizing it */
-.landing .cloud-card .service-art:has(> img) {
-  position: relative;
-  flex: none;
-  block-size: 170px;
-  margin-inline: 14px;
-  padding: 0;
-  overflow: hidden;
-  border-radius: 16px;
+/*
+ * The illustrations are drawn on a light studio background. In the dark appearance they are not recoloured or cut out: the picture is inverted (the
+ * light studio turns into near-black, the hardware into brushed silver, the glows keep their hue through the hue-rotate), and where it sits on a frame it
+ * is blended with `screen` so the black disappears into a dark teal glass panel instead of showing as a box. Light appearance is untouched.
+ */
+.landing[data-mode='dark'] .mz-tile {
+  background: radial-gradient(ellipse at 50% 88%, #2d4e47 0%, #1d2b2a 55%, #141c1c 100%);
+  box-shadow:
+    0 0 0 1px #ffffff14 inset,
+    0 18px 40px #0000005c;
 }
-.landing .service-art > img {
-  position: absolute;
-  inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-  object-position: center 45%;
+.landing[data-mode='dark'] .mz-tile img {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.05);
+  mix-blend-mode: screen;
 }
+/* pictures that are not on a frame: the inverted studio is the near-black card */
+.landing[data-mode='dark'] .svc-visual img,
+.landing[data-mode='dark'] .svc-card-art,
+.landing[data-mode='dark'] .doc-art,
+.landing[data-mode='dark'] .doc-help img {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.05);
+  background: transparent;
+}
+
 .landing .platform-section .section-heading {
   margin-block-end: 36px;
 }

@@ -1,5 +1,7 @@
 /* The landing page's AI chat section: copy on one side, a recording of the product on the other. */
 .landing .chat-section {
+  padding-block: 40px;
+  scrollbar-width: none;
   display: grid;
   grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr);
   gap: 40px;
@@ -27,6 +29,8 @@
   inline-size: 100%;
   block-size: auto;
   aspect-ratio: 16 / 10;
+  max-block-size: calc(100dvh - 140px);
+  object-fit: contain;
   background: #0b0b0c;
   pointer-events: none;
 }
@@ -41,4 +45,8 @@
     grid-template-columns: 1fr;
     gap: 30px;
   }
+}
+
+.landing .chat-section::-webkit-scrollbar {
+  display: none;
 }

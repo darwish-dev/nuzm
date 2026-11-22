@@ -193,7 +193,7 @@ export function LandingPage({ locale = 'en' }: { locale?: Locale }) {
           </span>
           <div className="bridge-hub">
             <span>
-              <img src="/brand/nuzm-mark.png?v=mint2" alt="Nuzm" width={54} height={43} />
+              <img src="/brand/nuzm-mark.png?v=mint3" alt="Nuzm" width={54} height={43} />
             </span>
             <strong>Nuzm</strong>
             <small>{d.hubSub}</small>

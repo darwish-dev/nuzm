@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
 import { ServiceArtwork } from '../ServiceArtwork';
+import { DownloadSection } from './DownloadSection';
 import { useSectionScroll } from './useSectionScroll';
 
 // Native CSS with the owner’s attached Nuzm bento identity and logo.
@@ -113,7 +114,7 @@ export function LandingPage() {
               ['Cloud & domains', '#cloud'],
               ['Integrations', '#integrations'],
             ].map(([label, href]) => (
-              <a key={href} href={href} onClick={() => setMenuOpen(false)}>
+              <a key={label} href={href} onClick={() => setMenuOpen(false)}>
                 {label}
               </a>
             ))}
@@ -397,6 +398,8 @@ export function LandingPage() {
           Explore integrations <Icon name="plus" size={16} />
         </a>
       </section>
+
+      <DownloadSection />
 
       <footer className="site-footer">
         <div className="footer-horizon" aria-hidden="true" />

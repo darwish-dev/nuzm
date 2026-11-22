@@ -3,6 +3,7 @@ import '@fontsource-variable/cairo';
 import { LandingPage } from '../components/landing/LandingPage';
 import '../components/landing/landing.css';
 import '../components/landing/dashboard-art.css';
+import '../components/landing/downloads.css';
 
 export const metadata: Metadata = {
   title: 'Nuzm | Intelligence meets possibility',

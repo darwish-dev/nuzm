@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import {
+  ReadOnlyWorkspace,
   assembleContext,
   diffWorkspace,
+  type FileOrigin,
   type AdaptationMode,
   type AssembledContext,
   type WorkspaceFile,
@@ -81,6 +83,27 @@ export class GenerationService {
       templateAvailable: facts !== null,
       diff,
     };
+  }
+
+  /**
+   * The project as a READ-ONLY snapshot for the agent tools (S-AG2): its current files, who wrote each (a file still byte-identical to the template copy is the template's), and the
+   * template's AI-processing permission (unknown, or a template that is gone, means not allowed). `null` when the project is not visible to this organization.
+   */
+  async workspaceView(orgId: string, projectId: string): Promise<ReadOnlyWorkspace | null> {
+    if (!isUuid(projectId)) return null;
+    const project = await this.projects.get(orgId, projectId.toLowerCase());
+    if (!project) return null;
+    const link = await this.templates.linkForProject(orgId, project.id);
+    const baseline = link?.baseline ?? {};
+    const files = await this.head(orgId, project);
+    const facts = link ? await this.templates.templateFacts(orgId, link.versionId) : null;
+    const origins = new Map<string, FileOrigin>();
+    for (const [path, content] of files)
+      origins.set(
+        path,
+        Object.hasOwn(baseline, path) && baseline[path] === sha(content) ? 'template' : 'customer',
+      );
+    return new ReadOnlyWorkspace(files, { origins, aiProcessing: facts?.aiProcessing === true });
   }
 
   /** Everything a run needs, computed from the current state (never cached: the project may have changed since the preview). */

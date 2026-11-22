@@ -16,6 +16,7 @@ import {
   GatewayService,
   ModelAdapterRegistry,
   ModelProviderService,
+  AgentWorkspaceRegistry,
   RunKindRegistry,
   RunService,
   SessionService,
@@ -31,6 +32,7 @@ import { TemplateStartService } from './internal/studio/template-start';
 import { GenerationController } from './generation.controller';
 import { GenerationService } from './internal/studio/generation';
 import { TemplateAdaptRunner } from './internal/studio/template-adapt';
+import { AgentProjectWorkspace } from './internal/studio/agent-workspace';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
@@ -640,10 +642,14 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(DB) private readonly db: Db,
     @Inject(SkillsService) private readonly skills: SkillsService,
     @Inject(TemplateAdaptRunner) private readonly adapt: TemplateAdaptRunner,
+    @Inject(AgentWorkspaceRegistry) private readonly agentWorkspaces: AgentWorkspaceRegistry,
+    @Inject(GenerationService) private readonly generation: GenerationService,
   ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
     this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph, this.adapt));
+    // S-AG2: the read-only agent tools read a web-app project through this provider (and nothing else)
+    this.agentWorkspaces.register('webapp', new AgentProjectWorkspace(this.generation));
     this.registry.register(new TestFixRunHandler(this.store, this.projects, this.testFix));
     this.projectDelegates.register(
       'webapp',

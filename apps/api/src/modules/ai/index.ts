@@ -29,3 +29,13 @@ export type {
 export { UrlFetchPort, SafeUrlFetcher } from './internal/url-fetcher';
 export type { AgentTask } from './internal/run-kinds';
 export { EvaluationService } from './internal/evaluation.service';
+export { AgentToolGateway, redactArgs } from './internal/agent-tools.service';
+export type {
+  RequestedToolCall,
+  ToolBatch,
+  ToolCallContext,
+  ToolOutcome,
+} from './internal/agent-tools.service';
+export { AgentWorkspaceRegistry, StaticAgentWorkspaceRegistry } from './internal/agent-workspace';
+export type { AgentWorkspaceProvider } from './internal/agent-workspace';
+export { AI_AGENT_EXEC_TOOLS_FLAG, AI_AGENT_READ_TOOLS_FLAG } from './internal/flags';

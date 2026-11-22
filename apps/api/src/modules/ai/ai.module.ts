@@ -14,6 +14,7 @@ import { DB } from '../../common/tokens';
 import { LedgerPostingService } from '../billing';
 import { ResidencyService } from '../compliance';
 import { SecretStore } from '../../common/secrets';
+import { AccessModule, PolicyService } from '../access';
 import { IdentityModule } from '../identity';
 import { AdminAiProvidersController } from './admin-ai-providers.controller';
 import { AdminAiRunsController } from './admin-ai-runs.controller';
@@ -32,6 +33,8 @@ import { AiEnabledGuard } from './internal/ai-enabled.guard';
 import { BudgetService } from './internal/budget.service';
 import { AiFlags } from './internal/flags';
 import { GatewayService } from './internal/gateway.service';
+import { AgentToolGateway } from './internal/agent-tools.service';
+import { AgentWorkspaceRegistry, StaticAgentWorkspaceRegistry } from './internal/agent-workspace';
 import { AI_CONFIG, loadAiConfig, type AiConfig } from './internal/model';
 import { probeAnthropic } from './internal/claude-probe';
 import { ModelProviderService } from './internal/provider.service';
@@ -44,7 +47,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
  */
 @Global()
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, AccessModule],
   controllers: [
     AiModelsController,
     AdminAiProvidersController,
@@ -134,6 +137,20 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
       ],
     },
     { provide: UrlFetchPort, useFactory: () => new SafeUrlFetcher() },
+    // D-46 / S-AG2: the read-only agent tool gateway and the registry the app builder fills with its project workspaces
+    { provide: AgentWorkspaceRegistry, useFactory: () => new StaticAgentWorkspaceRegistry() },
+    {
+      provide: AgentToolGateway,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        f: AiFlags,
+        p: PolicyService,
+        w: AgentWorkspaceRegistry,
+        cfg: AiConfig,
+      ) => new AgentToolGateway(db, a, f, p, w, cfg),
+      inject: [DB, AuditSink, AiFlags, PolicyService, AgentWorkspaceRegistry, AI_CONFIG],
+    },
     {
       provide: RunKindRegistry,
       useFactory: () => {
@@ -196,6 +213,8 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     EvaluationService,
     AiJobs,
     UrlFetchPort,
+    AgentToolGateway,
+    AgentWorkspaceRegistry,
   ],
 })
 export class AiModule implements OnApplicationBootstrap, OnApplicationShutdown {

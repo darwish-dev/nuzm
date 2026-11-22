@@ -57,4 +57,4 @@ S-AG0 (done: S-K6) · S-AG1 contract v1.1 and conformance · S-AG2 read-only too
 
 ## Progress
 - 2026-11-22: **S-AG1 done** (contract 1.1, negotiation, helpers, mock, gateway support, conformance kit; report `docs/reports/AG-S1-report.md`). Everything else in this ADR is still NOT implemented.
-
+- 2026-11-22: **S-AG2 done** (read-only tool gateway: four tools, limits, audit, isolation, template AI-processing gate, flag `ai.agent.read_tools` default off; report `docs/reports/AG-S2-report.md`). The loop, real providers and execution tools are still NOT implemented.

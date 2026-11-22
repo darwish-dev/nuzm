@@ -120,6 +120,7 @@ schemas:
     extended_by:
       - M10
       - M10-INT
+      - K # S-AG2: the agent tool gateway records its calls in ai.tool_calls (three additive columns, migration 1868)
     tables:
       - approval_requests
       - approvals
@@ -3428,6 +3429,9 @@ classification:
       action_hash: internal
       data_region: internal
       created_at: internal
+      call_id: internal
+      result_bytes: internal
+      error_code: internal
     ai.approval_requests:
       id: internal
       org_id: internal

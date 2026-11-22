@@ -5,6 +5,7 @@ import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
 import { PlatformBento } from '../site/PlatformBento';
 import { AiChatSection } from './AiChatSection';
+import { TechStrip } from './TechStrip';
 import { useSectionScroll } from './useSectionScroll';
 
 // Native CSS with the owner’s attached Nuzm bento identity and logo.
@@ -65,7 +66,6 @@ export function LandingPage() {
       <section className="hero" aria-labelledby="hero-title">
         <div className="sky" aria-hidden="true">
           <div className="horizon" />
-          <div className="star-field" />
         </div>
         <header className="site-header wrap">
           <a href="/" aria-label="Nuzm home" className="brand">
@@ -169,38 +169,8 @@ export function LandingPage() {
               </a>
             </div>
           )}
-          <span className="orbit-note note-one" aria-hidden="true">
-            <Icon name="workflow" size={19} />
-            <span>Less busywork.</span>
-          </span>
-          <span className="orbit-note note-two" aria-hidden="true">
-            <Icon name="sparkle" size={19} />
-            <span>More possibility.</span>
-          </span>
         </main>
-        <div className="ecosystem wrap">
-          <p>ONE CONNECTED ECOSYSTEM. YOUR KIND OF POSSIBLE.</p>
-          <div>
-            <a href="#agents">
-              <Icon name="sparkle" /> AI agents
-            </a>
-            <a href="/en/automation/workflows">
-              <Icon name="workflow" /> Automation
-            </a>
-            <a href="#platform">
-              <Icon name="cloud" /> Cloud
-            </a>
-            <a href="/en/domains/search">
-              <Icon name="globe" /> Domains
-            </a>
-            <a href="/en/builder/projects">
-              <Icon name="code" /> Vibe coding
-            </a>
-            <a href="#integrations">
-              <Icon name="workflow" /> Integrations
-            </a>
-          </div>
-        </div>
+        <TechStrip />
       </section>
 
       <section id="agents" className="section wrap agent-section">

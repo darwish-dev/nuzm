@@ -88,7 +88,7 @@ class ApiDataSource implements DataSource {
       case 'aiBudgets':
         final b = await _obj('/v1/ai/budgets');
         final org = (b['org'] is Map ? b['org'] as Map : const {});
-        return PageData(stats: [
+        return PageData(raw: b, stats: [
           Stat(const T('الحد اليومي', 'Daily credits'), _num(org['dailyCredits']), icon: LucideIcons.piggyBank),
           Stat(const T('حد التشغيل الواحد', 'Per-run credits'), _num(org['runMaxCredits']), icon: LucideIcons.gauge),
           Stat(const T('الحد الكلي', 'Total credits'), _num(org['totalCredits']), icon: LucideIcons.wallet),
@@ -136,7 +136,7 @@ class ApiDataSource implements DataSource {
       case 'hostingPlans':
         return PageData(catalog: [
           for (final p in await _items('/v1/hosting/plans'))
-            CatalogItem(T(s(p['name']), s(p['name'])), T(_join(p['runtimes']), _join(p['runtimes'])), LucideIcons.layers, tag: _priceTag(p['price'])),
+            CatalogItem(localized(p['name']), T(_runtimes(p['runtimes']), _runtimes(p['runtimes'])), LucideIcons.layers, tag: _priceTag(p['price'])),
         ]);
       case 'domainList':
         return PageData(items: [
@@ -239,8 +239,9 @@ class ApiDataSource implements DataSource {
                 status: _status(x['status']), meta: _money(x['amountMinor'], x['currency'])),
         ]);
       case 'limits':
-        return PageData(stats: [
-          for (final l in await _items('/v1/billing/spending-limits'))
+        final limits = await _items('/v1/billing/spending-limits');
+        return PageData(raw: limits.where((l) => l['scope'] == 'org').firstOrNull ?? const {}, stats: [
+          for (final l in limits)
             Stat(
               l['scope'] == 'project' ? const T('حد المشروع الشهري', 'Project monthly cap') : const T('الحد الشهري للمؤسسة', 'Organization monthly cap'),
               _money(l['monthlyCapMinor'], l['currency']),
@@ -268,7 +269,7 @@ class ApiDataSource implements DataSource {
         // 404 not_found = no tax profile saved yet: show the empty form to fill.
         final t = await _obj('/v1/billing/tax-profile').catchError(
             (Object e) => e is ApiException && e.notFound ? <String, dynamic>{} : throw e);
-        return PageData(fields: [
+        return PageData(raw: t, fields: [
           FieldSpec(const T('نوع المشتري', 'Buyer type'), s(t['buyerType']).toUpperCase()),
           FieldSpec(const T('الاسم القانوني', 'Legal name'), s(t['legalName'])),
           FieldSpec(const T('الرقم الضريبي', 'VAT number'), s(t['vatNumber']), ltr: true),
@@ -283,7 +284,7 @@ class ApiDataSource implements DataSource {
         ]);
       case 'orgSettings':
         final o = await _obj('/v1/organizations/$orgId');
-        return PageData(fields: [
+        return PageData(raw: o, fields: [
           FieldSpec(const T('اسم المؤسسة', 'Organization name'), s(o['name'])),
           FieldSpec(const T('المعرّف المختصر', 'Slug'), s(o['slug']), ltr: true),
           FieldSpec(const T('الدولة', 'Country'), s(o['country']), ltr: true),
@@ -464,6 +465,7 @@ class ApiDataSource implements DataSource {
       meta: meta,
       icon: icon,
       ltrTitle: ltr,
+      raw: raw,
       facts: [
         ...facts.where((f) => f.$2.isNotEmpty && f.$2 != 'null'),
         if (raw['id'] != null) (const T('المعرّف', 'ID'), s(raw['id'])),
@@ -527,7 +529,19 @@ String _humanize(Object? v) {
   return x.isEmpty ? '' : x[0].toUpperCase() + x.substring(1);
 }
 
-String _planName(Object? p) => p is Map ? s(p['name'] ?? p['key'] ?? p['id']) : s(p);
+String _planName(Object? p) => p is Map ? (p['name'] is Map ? localized(p['name']).en : s(p['name'] ?? p['key'] ?? p['id'])) : s(p);
+
+/// API texts that come in both languages (`{ar, en}`), e.g. plan names.
+T localized(Object? v) {
+  if (v is Map) {
+    final ar = s(v['ar'] ?? v['en']);
+    return T(ar, s(v['en'] ?? v['ar']));
+  }
+  return T(s(v), s(v));
+}
+
+String _runtimes(Object? v) =>
+    v is List ? v.map((r) => r is Map ? s(r['name'] ?? r['id'] ?? r['key']) : s(r)).join(', ') : s(v);
 String _runtime(Object? r) => r is Map ? [s(r['kind'] ?? r['type']), s(r['version'])].where((e) => e.isNotEmpty).join(' ') : s(r);
 
 String _address(Object? a) {

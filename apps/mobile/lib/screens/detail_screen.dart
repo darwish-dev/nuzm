@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../actions/action_model.dart';
+import '../actions/action_sheet.dart';
+import '../actions/registry.dart';
 import '../data/demo.dart';
 import '../data/nav.dart';
 import '../l10n/strings.dart';
@@ -18,6 +21,11 @@ class DetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final nz = context.nz;
     final title = item.title.of(context);
+    // Actions that apply to this row in its current state (sample rows have no state: only state-free ones show).
+    final actions = [
+      for (final a in kItemActions[page.id] ?? const <ActionDef>[])
+        if (a.visible == null || (item.raw.isNotEmpty && a.visible!(item.raw))) a,
+    ];
     final facts = <(T, String)>[
       (T('النوع', 'Type'), page.label.of(context)),
       ...item.facts,
@@ -72,18 +80,34 @@ class DetailScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(8, 22, 8, 10),
               child: Text(S.actions.of(context), style: TextStyle(color: nz.muted, fontSize: 15, fontWeight: FontWeight.w800)),
             ),
+            for (final a in actions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    if (await runAction(context, a, item: item.raw) && context.mounted) Navigator.of(context).pop(true);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    alignment: AlignmentDirectional.centerStart,
+                    foregroundColor: a.destructive ? nz.danger : nz.fg,
+                    side: BorderSide(color: a.destructive ? nz.danger.withValues(alpha: 0.4) : nz.border),
+                    backgroundColor: a.destructive ? nz.danger.withValues(alpha: 0.08) : nz.elev,
+                  ),
+                  icon: Icon(a.icon, size: 18),
+                  label: Text(a.label.of(context), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            if (actions.isEmpty && kWebOnlyWrites.contains(page.id))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(S.webOnlyWrites.of(context), style: TextStyle(color: nz.muted)),
+              ),
             FilledButton.icon(
               onPressed: () => askAi(context, '${S.askAi.of(context)}: $title'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
               icon: const Icon(LucideIcons.sparkles, size: 18),
               label: Text(S.askAi.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () => showSoon(context),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-              icon: const Icon(LucideIcons.settings, size: 18),
-              label: Text(S.actions.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
       ]),
     );

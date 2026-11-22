@@ -9,6 +9,9 @@ import '../data/nav.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
+import '../actions/action_model.dart';
+import '../actions/action_sheet.dart';
+import '../actions/registry.dart';
 import 'detail_screen.dart';
 import 'section_screen.dart';
 import 'sign_in_screen.dart';
@@ -86,7 +89,7 @@ class _PageBodyState extends State<PageBody> {
           icon: LucideIcons.lock, tone: Tone.warn, title: S.forbiddenTitle.of(context), hint: S.forbiddenHint.of(context)),
       LoadState.notEnabled => StateView(
           icon: LucideIcons.power, tone: Tone.neutral, title: S.notEnabledTitle.of(context), hint: S.notEnabledHint.of(context)),
-      LoadState.ready => _content(context),
+      LoadState.ready => PageRefresh(reload: _load, child: _content(context)),
     };
     return RefreshIndicator(
       onRefresh: _load,
@@ -128,16 +131,22 @@ class PageDataView extends StatelessWidget {
         (d.fields?.isEmpty ?? true) &&
         (d.items?.isEmpty ?? true) &&
         (d.related?.isEmpty ?? true);
+    final actions = kPageActions[page.id] ?? const <ActionDef>[];
     if (nothing) {
-      return StateView(
-        icon: page.icon,
-        title: S.emptyTitle.of(context),
-        hint: S.emptyHint.of(context),
-        action: page.kind == PageKind.list ? S.create.of(context) : null,
-        onAction: () => showSoon(context),
-      );
+      final create = actions.where((a) => a.id == 'create').firstOrNull;
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (create == null && actions.isNotEmpty) PageActionsBar(actions: actions, raw: d.raw),
+        StateView(
+          icon: page.icon,
+          title: S.emptyTitle.of(context),
+          hint: create == null && kWebOnlyWrites.contains(page.id) ? S.webOnlyWrites.of(context) : S.emptyHint.of(context),
+          action: create?.label.of(context),
+          onAction: create == null ? null : () => _runAndRefresh(context, create, d.raw),
+        ),
+      ]);
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (actions.isNotEmpty) PageActionsBar(actions: actions, raw: d.raw),
       if (d.stats != null)
         for (final s in d.stats!) Padding(padding: const EdgeInsets.only(bottom: 12), child: _StatCard(s)),
       if (d.catalog != null && d.catalog!.isNotEmpty) CatalogView(items: d.catalog!),
@@ -269,13 +278,7 @@ class ResourceListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return StateView(
-        icon: page.icon,
-        title: S.emptyTitle.of(context),
-        hint: S.emptyHint.of(context),
-        action: S.create.of(context),
-        onAction: () => showSoon(context),
-      );
+      return StateView(icon: page.icon, title: S.emptyTitle.of(context), hint: S.emptyHint.of(context));
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Padding(
@@ -284,12 +287,6 @@ class ResourceListView extends StatelessWidget {
           Expanded(
             child: Text('${page.label.of(context)} · ${items.length}',
                 style: TextStyle(color: context.nz.muted, fontWeight: FontWeight.w700)),
-          ),
-          FilledButton.icon(
-            onPressed: () => showSoon(context),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-            icon: const Icon(LucideIcons.plus, size: 18),
-            label: Text(S.create.of(context)),
           ),
         ]),
       ),
@@ -312,7 +309,11 @@ class ItemCard extends StatelessWidget {
     final nz = context.nz;
     final titleStyle = const TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
     return NzCard(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailScreen(item: item, page: page))),
+      onTap: () async {
+        final refresh = PageRefresh.of(context);
+        final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => DetailScreen(item: item, page: page)));
+        if (changed == true) refresh?.call();
+      },
       padding: const EdgeInsets.all(14),
       child: Row(children: [
         IconTile(item.icon ?? page.icon, size: 50),
@@ -437,56 +438,44 @@ class FormView extends StatefulWidget {
 }
 
 class _FormViewState extends State<FormView> {
-  late final List<bool> _toggles = [for (final f in widget.fields) f.toggle ?? false];
-
+  /// Read-only label/value rows; changes go through the page's Edit action (one validated, versioned write).
   @override
   Widget build(BuildContext context) {
     final nz = context.nz;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      NzCard(
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
-        child: Column(children: [
-          for (var i = 0; i < widget.fields.length; i++) ...[
-            if (i > 0) Divider(color: nz.border, height: 1),
-            _field(context, i),
-          ],
-        ]),
-      ),
-      const SizedBox(height: 18),
-      FilledButton(
-        onPressed: () => showSoon(context),
-        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-        child: Text(S.save.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      ),
-    ]);
+    return NzCard(
+      padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
+      child: Column(children: [
+        for (var i = 0; i < widget.fields.length; i++) ...[
+          if (i > 0) Divider(color: nz.border, height: 1),
+          _row(context, widget.fields[i]),
+        ],
+      ]),
+    );
   }
 
-  Widget _field(BuildContext context, int i) {
+  Widget _row(BuildContext context, FieldSpec f) {
     final nz = context.nz;
-    final f = widget.fields[i];
-    if (f.toggle != null) {
-      return SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        value: _toggles[i],
-        activeThumbColor: nz.onPrimaryFill,
-        activeTrackColor: nz.primaryFill,
-        onChanged: (v) => setState(() => _toggles[i] = v),
-        title: Text(f.label.of(context), style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: f.hint == null ? null : Text(f.hint!.of(context), style: TextStyle(color: nz.muted)),
-      );
-    }
+    final value = f.toggle != null
+        ? (f.toggle! ? const T('مفعّل', 'On') : const T('غير مفعّل', 'Off')).of(context)
+        : (f.value.isEmpty || f.value == 'null' ? '—' : f.value);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        initialValue: f.value,
-        textDirection: f.ltr ? TextDirection.ltr : null,
-        decoration: InputDecoration(
-          labelText: f.label.of(context),
-          helperText: f.hint?.of(context),
-          helperMaxLines: 2,
-          filled: true,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          flex: 5,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(f.label.of(context), style: TextStyle(color: nz.muted, fontWeight: FontWeight.w600)),
+            if (f.hint != null) Text(f.hint!.of(context), style: TextStyle(color: nz.muted, fontSize: 12.5)),
+          ]),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 6,
+          child: f.ltr
+              ? Align(alignment: AlignmentDirectional.centerEnd, child: LtrText(value, style: const TextStyle(fontWeight: FontWeight.w700)))
+              : Text(value, textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
+      ]),
     );
   }
 }
@@ -595,6 +584,13 @@ class _DomainSearchViewState extends State<DomainSearchView> {
                 LtrText(displayValue(r.price!, context), style: TextStyle(color: nz.muted, fontWeight: FontWeight.w700)),
                 const SizedBox(width: 10),
               ],
+              if (r.available == true && kItemActions['domainSearch'] != null) ...[
+                TextButton(
+                  onPressed: () => runAction(context, kItemActions['domainSearch']!.first, item: {'name': r.name}),
+                  child: Text(kItemActions['domainSearch']!.first.label.of(context)),
+                ),
+                const SizedBox(width: 6),
+              ],
               StatusChip(r.available == true
                   ? Status(S.available, Tone.success)
                   : r.available == false
@@ -674,4 +670,47 @@ class _BuilderStartViewState extends State<BuilderStartView> {
         ),
     ]);
   }
+}
+
+
+/// Lets anything inside a page reload it after a successful write.
+class PageRefresh extends InheritedWidget {
+  const PageRefresh({super.key, required this.reload, required super.child});
+  final Future<void> Function() reload;
+
+  static Future<void> Function()? of(BuildContext context) => context.getInheritedWidgetOfExactType<PageRefresh>()?.reload;
+
+  @override
+  bool updateShouldNotify(PageRefresh old) => false;
+}
+
+Future<void> _runAndRefresh(BuildContext context, ActionDef a, Map<String, dynamic> raw) async {
+  final refresh = PageRefresh.of(context);
+  if (await runAction(context, a, item: raw)) await refresh?.call();
+}
+
+/// The page's own writes (create, edit, set) as buttons: the first in the orange primary style.
+class PageActionsBar extends StatelessWidget {
+  const PageActionsBar({super.key, required this.actions, this.raw = const {}});
+  final List<ActionDef> actions;
+  final Map<String, dynamic> raw;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Wrap(spacing: 10, runSpacing: 10, children: [
+          for (final (i, a) in actions.indexed)
+            i == 0
+                ? FilledButton.icon(
+                    onPressed: () => _runAndRefresh(context, a, raw),
+                    icon: Icon(a.icon, size: 18),
+                    label: Text(a.label.of(context)),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: () => _runAndRefresh(context, a, raw),
+                    icon: Icon(a.icon, size: 18),
+                    label: Text(a.label.of(context)),
+                  ),
+        ]),
+      );
 }

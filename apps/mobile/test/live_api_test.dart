@@ -9,6 +9,8 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nuzm_app/actions/action_model.dart';
+import 'package:nuzm_app/actions/registry.dart';
 import 'package:nuzm_app/api/api_client.dart';
 import 'package:nuzm_app/api/session_store.dart';
 import 'package:nuzm_app/app_scope.dart';
@@ -90,6 +92,140 @@ void main() {
       final lines = await app.data.chatLines(t.sessionId!);
       return 'session=${t.sessionId != null} reply=${t.reply == null ? 'pending' : '${t.reply!.length} chars'} lines=${lines.length}';
     });
+    // ---- writes, through the same action definitions the screens use
+    final orgId = app.organization!.orgId;
+    ActionContext ctx(Map<String, Object?> values, [Map<String, dynamic> item = const {}, Quote? quote]) =>
+        ActionContext(api: api, orgId: orgId, idempotencyKey: newIdempotencyKey(), values: values, item: item, quote: quote);
+    Future<Map<String, dynamic>?> newest(String path, bool Function(Map<String, dynamic>) where) async =>
+        (await ctx({}).list(path)).where(where).firstOrNull;
+    ActionDef pa(String page, String id) => kPageActions[page]!.firstWhere((a) => a.id == id);
+    ActionDef ia(String page, String id) => kItemActions[page]!.firstWhere((a) => a.id == id);
+    // A 4xx that means our request was wrong fails the check; refusals by policy, plan or vendor are recorded.
+    bool wrongRequest(Object e) =>
+        e is ApiException && const {'validation_failed', 'precondition_required', 'precondition_failed', 'etag_mismatch', 'idempotency_key_required', 'csrf_failed'}.contains(e.code);
+    Future<void> w(String name, Future<String> Function() f) async {
+      try {
+        rows.add('${name.padRight(22)} OK  ${await f()}');
+      } catch (e) {
+        final o = outcome(e);
+        rows.add('${name.padRight(22)} $o');
+        if (failsCheck(e) || wrongRequest(e)) crashes.add('$name: $o');
+      }
+    }
+
+    final tag = '$stamp'.substring(7);
+    await w('workspace.create', () async {
+      await pa('workspaces', 'create').run(ctx({'name': 'WS $tag'}));
+      return 'ok';
+    });
+    final ws = await newest('/v1/workspaces', (x) => x['name'] == 'WS $tag');
+    await w('workspace.rename', () async {
+      await ia('workspaces', 'rename').run(ctx({'name': 'WS $tag b'}, ws!));
+      return '${(await newest('/v1/workspaces', (x) => x['id'] == ws['id']))?['name']}';
+    });
+    await w('project.create', () async {
+      await pa('projects', 'create').run(ctx({'workspaceId': ws!['id'], 'name': 'Proj $tag'}));
+      return 'ok';
+    });
+    final proj = await newest('/v1/projects', (x) => x['name'] == 'Proj $tag');
+    await w('project.rename', () async {
+      await ia('projects', 'rename').run(ctx({'name': 'Proj $tag b'}, proj!));
+      return '${(await newest('/v1/projects', (x) => x['id'] == proj['id']))?['name']}';
+    });
+    await w('builder.create', () async {
+      await pa('appbuilder', 'create').run(ctx({'type': 'website', 'name': 'Site $tag'}));
+      return 'ok';
+    });
+    final bp = await newest('/v1/builder/projects', (x) => x['name'] == 'Site $tag');
+    await w('builder.rename', () async {
+      await ia('appbuilder', 'rename').run(ctx({'name': 'Site $tag b'}, bp!));
+      return 'ok';
+    });
+    await w('builder.delete', () async {
+      await ia('appbuilder', 'delete').run(ctx({'confirmName': 'Site $tag b'}, {...bp!, 'name': 'Site $tag b'}));
+      return 'ok';
+    });
+    await w('org.edit', () async {
+      await pa('orgSettings', 'edit').run(ctx({'name': 'Mobile IT $tag edited', 'defaultLocale': 'ar'}));
+      return '${(await api.get('/v1/organizations/$orgId'))['name']}';
+    });
+    await w('taxProfile.edit', () async {
+      await pa('taxProfile', 'edit').run(ctx({
+        'buyerType': 'b2b',
+        'legalAr': 'شركة اختبار',
+        'legalEn': 'Test Co',
+        'vat': '300000000000003',
+        'cr': '',
+        'street': 'King Fahd Rd',
+        'buildingNumber': '1234',
+        'district': 'Olaya',
+        'city': 'Riyadh',
+        'postalCode': '12211',
+      }));
+      return '${(await api.get('/v1/billing/tax-profile'))['legalName']}';
+    });
+    await w('limits.edit', () async {
+      await pa('limits', 'edit').run(ctx({'cap': '1500', 'fourEyes': '500'}));
+      return 'cap=${(await app.data.load('limits')).stats!.first.value}';
+    });
+    await w('aiBudgets.edit', () async {
+      final raw = (await app.data.load('aiBudgets')).raw;
+      await pa('aiBudgets', 'edit').run(ctx({'dailyCredits': '100', 'runMaxCredits': '20', 'totalCredits': ''}, raw));
+      return 'daily=${((await api.get('/v1/ai/budgets'))['org'] as Map)['dailyCredits']}';
+    });
+    await w('emailDomain.create', () async {
+      await pa('emailDomains', 'create').run(ctx({'domain': 'mail-$tag.example.test', 'purposes': 'both'}));
+      return 'ok';
+    });
+    await w('template.create', () async {
+      await pa('templates', 'create').run(ctx({'key': 'welcome-$tag', 'name': 'Welcome', 'locale': 'ar', 'subject': 'مرحبا', 'html': '<p>مرحبا</p>'}));
+      return 'ok';
+    });
+    await w('suppression.add', () async {
+      await pa('suppressions', 'create').run(ctx({'address': 'blocked-$tag@example.test'}));
+      return 'ok';
+    });
+    final sup = await newest('/v1/email/suppressions', (x) => x['address'] == 'blocked-$tag@example.test');
+    await w('suppression.remove', () async {
+      await ia('suppressions', 'remove').run(ctx({}, sup!));
+      return 'ok';
+    });
+    await w('team.invite', () async {
+      await pa('team', 'create').run(ctx({'email': 'invitee-$tag@example.test', 'role': 'viewer'}));
+      return 'ok';
+    });
+    // Paid: quote only (nothing is created on the dev stack without a human confirming a price).
+    for (final (name, page, values) in [
+      ('quote.storage', 'storage', <String, Object?>{'name': 'b-$tag', 'estimatedGb': '10'}),
+      ('quote.mailbox', 'mailboxes', <String, Object?>{'domainId': 'x', 'localPart': 'info', 'quotaMb': '1024'}),
+      ('quote.database', 'databases', <String, Object?>{'engine': 'postgresql', 'version': '16', 'planRef': 'small', 'storageGb': '10', 'name': 'db'}),
+    ]) {
+      await w(name, () async {
+        final q = Quote.fromJson(((await api.post('/v1/quotes', pa(page, 'create').quote!(ctx(values)))) as Map).cast<String, dynamic>());
+        return 'total=${q.totalMinor} ${q.currency} approval=${q.requiresApproval}';
+      });
+    }
+    await w('quote.hosting', () async {
+      final plan = (await ctx({}).list('/v1/hosting/plans')).first;
+      final rts = plan['runtimes'] as List? ?? const [];
+      final rt = rts.isEmpty ? '' : (rts.first is Map ? '${(rts.first as Map)['id'] ?? (rts.first as Map)['key']}' : '${rts.first}');
+      final body = pa('sites', 'create').quote!(ctx({'planId': plan['id'], 'runtime': rt}));
+      final q = Quote.fromJson(((await api.post('/v1/quotes', body)) as Map).cast<String, dynamic>());
+      return '${plan['name']}/$rt total=${q.totalMinor} ${q.currency} tax=${q.taxMinor} approval=${q.requiresApproval}';
+    });
+    await w('project.delete', () async {
+      await ia('projects', 'delete').run(ctx({}, proj!));
+      return 'ok';
+    });
+    await w('workspace.delete', () async {
+      await ia('workspaces', 'delete').run(ctx({}, ws!));
+      return 'ok';
+    });
+    await w('password.change', () async {
+      await pa('profile', 'password').run(ctx({'currentPassword': password, 'newPassword': '${password}X9'}));
+      return 'ok';
+    });
+
     await app.signOut();
     rows.add('signOut          OK  phase=${app.phase.name}');
 

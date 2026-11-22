@@ -130,7 +130,59 @@ class S {
         'Your message seems to contain a secret (a key or password). Remove it and send again.'),
     'email_not_verified': T('أكّد بريدك الإلكتروني أولًا.', 'Verify your email address first.'),
     'service_unavailable': T('الخدمة غير متاحة مؤقتًا من المزوّد. حاول بعد قليل.', 'The service is temporarily unavailable from the provider. Try again shortly.'),
+    'step_up_required': T('هذا الإجراء يحتاج تأكيد التحقق بخطوتين حديثًا. أكمله من لوحة التحكم على الويب ثم أعد المحاولة.',
+        'This action needs a recent two-step verification. Complete it in the web console, then try again.'),
+    'quote_expired': T('انتهت صلاحية السعر. اطلب سعرًا جديدًا.', 'The price expired. Get a new price.'),
+    'quote_consumed': T('استُخدم هذا السعر من قبل. اطلب سعرًا جديدًا.', 'This price was already used. Get a new price.'),
+    'price_changed': T('تغيّر السعر. اطلب سعرًا جديدًا.', 'The price changed. Get a new price.'),
+    'spend_approval_required': T('هذا المبلغ يتجاوز حد الإنفاق ويحتاج موافقة. اطلبها من صفحة موافقات الإنفاق.',
+        'This amount is over the spending limit and needs approval. Request it on the Spend approvals page.'),
+    'approval_required': T('يحتاج هذا الإجراء موافقة قبل التنفيذ.', 'This action needs approval before it runs.'),
+    'payment_required': T('يلزم الدفع أولًا.', 'Payment is required first.'),
+    'insufficient_funds': T('الرصيد غير كافٍ.', 'Not enough balance.'),
+    'etag_mismatch': T('تغيّر العنصر منذ فتحه. حدّث الصفحة ثم أعد المحاولة.', 'It changed since you opened it. Refresh and try again.'),
+    'precondition_failed': T('تغيّر العنصر منذ فتحه. حدّث الصفحة ثم أعد المحاولة.', 'It changed since you opened it. Refresh and try again.'),
+    'conflict': T('تعارض مع حالة حالية. حدّث الصفحة ثم أعد المحاولة.', 'It conflicts with the current state. Refresh and try again.'),
+    'name_taken': T('هذا الاسم مستخدم. اختر اسمًا آخر.', 'This name is taken. Choose another.'),
+    'quota_exceeded': T('تجاوز الحصة المسموحة لخطتك.', 'Over the quota of your plan.'),
+    'kind_not_available': T('هذه الخدمة غير متاحة للشراء بعد.', 'This service cannot be bought yet.'),
+    'no_capacity': T('لا توجد سعة متاحة حاليًا. جرّب خيارًا آخر.', 'No capacity right now. Try another option.'),
+    'no_eligible_offer': T('لا يوجد عرض مؤهل لهذا الاختيار.', 'No eligible offer for this choice.'),
+    'domain_unavailable': T('النطاق غير متاح للتسجيل.', 'The domain is not available to register.'),
+    'eligibility_blocked': T('النطاق غير مؤهل للتسجيل وفق السياسة.', 'The domain is not eligible under the policy.'),
+    'invalid_state': T('لا يمكن تنفيذ ذلك في الحالة الحالية.', 'This cannot be done in the current state.'),
+    'deletion_protected': T('العنصر محمي من الحذف.', 'It is protected from deletion.'),
+    'in_use': T('العنصر مستخدم حاليًا.', 'It is in use.'),
+    'weak_password': T('كلمة المرور ضعيفة أو شائعة. اختر أطول وأقوى.', 'The password is weak or common. Choose a longer, stronger one.'),
+    'validation_failed': T('بعض القيم غير صحيحة. راجعها ثم أعد المحاولة.', 'Some values are not valid. Check them and try again.'),
+    'sender_not_verified': T('هوية المرسل غير موثّقة بعد.', 'The sender identity is not verified yet.'),
+    'suppressed': T('العنوان في قائمة الحظر.', 'The address is on the suppression list.'),
+    'ownership_unverified': T('لم يتم التحقق من ملكية النطاق بعد.', 'Domain ownership is not verified yet.'),
     'mfa_required': T('هذا الإجراء يحتاج التحقق بخطوتين.', 'This action needs two-step verification.'),
   };
+  static const signInToChange = T('أنت تتصفح بيانات تجريبية. سجّل الدخول لتنفيذ التغييرات.',
+      'You are browsing sample data. Sign in to make changes.');
+  static const getPrice = T('اعرض السعر', 'Get the price');
+  static const confirmPaid = T('تأكيد وإنشاء', 'Confirm and create');
+  static const priceTitle = T('السعر', 'Price');
+  static const subtotal = T('المجموع قبل الضريبة', 'Subtotal');
+  static const taxEst = T('الضريبة (تقديرية)', 'Tax (estimate)');
+  static const total = T('الإجمالي', 'Total');
+  static const validFor = T('صالح لمدة', 'Valid for');
+  static const minutes = T('دقيقة', 'min');
+  static const needsApprovalNote = T('هذا المبلغ يتجاوز حد الإنفاق الشهري وقد يحتاج موافقة.',
+      'This amount goes over the monthly spending cap and may need approval.');
+  static const paidNote = T('سيُحتسب هذا المبلغ على مؤسستك عند التأكيد.', 'This amount is charged to your organization when you confirm.');
+  static const requiredField = T('مطلوب', 'Required');
+  static const invalidValue = T('قيمة غير صحيحة', 'Not a valid value');
+  static const cancel = T('إلغاء', 'Cancel');
+  static const confirmTitle = T('هل أنت متأكد؟', 'Are you sure?');
+  static const continueLabel = T('متابعة', 'Continue');
+  static const stepUpNote = T('يحتاج تحققًا بخطوتين حديثًا.', 'Needs a recent two-step verification.');
+  static const webOnlyWrites = T('الإنشاء والتعديل لهذه الصفحة متاحان من لوحة التحكم على الويب حاليًا.',
+      'Creating and editing on this page is in the web console for now.');
+  static const noOptions = T('لا توجد خيارات متاحة', 'No options available');
+  static const choose = T('اختر', 'Choose');
+  static const loadingOptions = T('جارٍ تحميل الخيارات…', 'Loading options…');
   static const ideas = T('أفكار للبدء', 'Ideas to start with');
 }

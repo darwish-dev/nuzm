@@ -7,7 +7,10 @@ import 'nav.dart';
 /// What a page shows. Whichever lists are present are drawn, in this order: stats, catalog, fields, items.
 @immutable
 class PageData {
-  const PageData({this.items, this.stats, this.catalog, this.fields, this.related, this.relatedPage});
+  const PageData({this.items, this.stats, this.catalog, this.fields, this.related, this.relatedPage, this.raw = const {}});
+
+  /// The API object behind a settings page (prefills its edit form).
+  final Map<String, dynamic> raw;
   final List<Item>? items;
   final List<Stat>? stats;
   final List<CatalogItem>? catalog;

@@ -9,8 +9,9 @@ existing API. It adds no endpoints, tables or migrations.
   labels from `packages/i18n`.
 - Auth is cookie-based (`nuzm_session` + `nuzm_csrf`, realm `web`). A native client can hold the cookies itself, so
   no API change was needed. The web build cannot (browser cookie rules), so it runs on sample data.
-- Assumption: the app is read-first. Writes beyond sign-in, organization creation, AI chat and marking notifications
-  read stay in the web console for now (they show a note).
+- Writes follow the web console's rules: quote → price → confirm for paid resources, If-Match on edits and deletes,
+  one Idempotency-Key per submission, typed confirmation where the API asks for it (build-project delete).
+  A few writes stay in the web console (see the app README, "Still in the web console").
 
 ## B. Plan and changed files
 - `apps/mobile/` (new Flutter app, see its README): `lib/api/*` (client, secure session store, data source, generated
@@ -32,8 +33,8 @@ None.
 | Command | Result |
 |---|---|
 | `flutter analyze` | PASS: No issues found |
-| `flutter test` | PASS: 28 passed, 1 skipped (the live check, run separately) |
-| `NUZM_LIVE_API=http://127.0.0.1:4000 flutter test test/live_api_test.dart` | PASS: sign-up → create org → 44/44 pages, notifications, recent chats and domain search loaded from the local API + Postgres; sign-out OK |
+| `flutter test` | PASS: 37 passed, 1 skipped (the live check, run separately) |
+| `NUZM_LIVE_API=http://127.0.0.1:4000 flutter test test/live_api_test.dart` | PASS: sign-up → create org → 44/44 pages read; writes through the app's own action definitions: workspace and project create, rename and delete; build project create, rename and delete; organization, tax profile, spending cap and AI budgets saved; template created; suppression added and removed; invitation sent; password changed; a hosting quote priced (Start/php:8.2 = 33.35 SAR incl. 4.35 tax). Email domains and storage, mailbox and database quotes answered `unsupported_capability` (no provider enabled on the dev stack): recorded, not failed. |
 | `pnpm scan:secrets` | PASS: 2490 files, 0 hits |
 | `pnpm compliance:claims-guard` | PASS |
 | `eslint .` / `prettier --check .` | Not clean, but no finding is in a file from this change: 3 ESLint files (`apps/web/components/PaymentsPanels.tsx`, `design/*/…mjs`) and 35 Prettier files, all untouched here |
@@ -42,7 +43,18 @@ The UI tests render every page in ar/en × light/dark at phone size and fail on 
 a fake HTTP server: cookies, CSRF only on unsafe methods, org header, UUID v4 idempotency key, 401 forgets the session,
 offline, sign-in → organization, no-organization path, mappers (minor units), forbidden/404, and the chat flow.
 
-Screenshots (web build, sample data): `docs/reports/mobile-app/{home-ar-dark,menu-ar-dark,home-ar-light,dashboard-ar-light}.jpg`.
+Screenshots (web build, sample data): `docs/reports/mobile-app/{home-ar-dark,menu-ar-dark,home-ar-light,dashboard-ar-light,create-form-ar-dark,detail-actions-ar-dark}.jpg`.
+
+Write tests (`test/actions_test.dart`):
+- **Requests:** one idempotency key per submission (a retry reuses it), CSRF on writes, If-Match from the ETag on edits and deletes, quote bodies built from the form and `quoteId` on create.
+- **Values:** money as integer minor units, approvals sending the scope hash, members addressed by user id, state-based visibility.
+- **UI flow:** form → validation → price → nothing created until confirm → create → list reloads.
+- **Sample mode:** never writes.
+
+Bugs the live run found and fixed:
+- **Build-project delete:** the app now asks for `confirmName`.
+- **Template key:** the form's check now matches the API's slug rule.
+- **Plan names:** they come in both languages (`{ar, en}`) and are now shown in the reader's language.
 
 ## F. Security, tenancy, billing, residency
 - Tenant context only from `/v1/me` memberships, sent as `x-nuzm-org`. The API stays the authority (RLS); the app
@@ -69,9 +81,10 @@ Screenshots (web build, sample data): `docs/reports/mobile-app/{home-ar-dark,men
 | Console identity in light and dark, same gradients | PASS (tokens from console-css.ts; screenshots) |
 | All console pages | PASS (44/44 render in tests; 44/44 load live) |
 | Integrated with API and database | PASS for reads, sign-in, org, notifications, domain search; NOT VERIFIED for AI replies (residency) |
-| Writes (create/edit/delete) | DEFERRED: web console for now |
+| Writes (create/edit/delete) | PASS for the non-paid writes (live); paid creates NOT VERIFIED live: quotes price correctly, but nothing was created without a person confirming a charge, and no provider is enabled on the dev stack for email, storage or databases |
 
 ## I. Next
-Create/edit flows per module (with the same idempotency and step-up rules as the web console), registration, password
-reset and two-step verification in the app, push notifications, a feature flag for the mobile client, and a
-simulator/device E2E run.
+Next steps:
+- **In-app flows:** paying invoices through the payment provider's redirect, setting up and answering two-step verification (that unlocks step-up actions), registration and password reset.
+- **Remaining writes:** workflows, connectors and webhooks.
+- **Infrastructure:** push notifications, a feature flag for the mobile client, and a simulator/device end-to-end run.

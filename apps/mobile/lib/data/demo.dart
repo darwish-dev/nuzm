@@ -39,7 +39,8 @@ class Status {
 
 @immutable
 class Item {
-  const Item(this.title, this.subtitle, {this.status, this.meta, this.icon, this.facts = const [], this.ltrTitle = false});
+  const Item(this.title, this.subtitle,
+      {this.status, this.meta, this.icon, this.facts = const [], this.ltrTitle = false, this.raw = const {}});
   final T title;
   final T subtitle;
   final Status? status;
@@ -51,6 +52,9 @@ class Item {
 
   /// Technical names (hosts, domains, emails) stay left-to-right in Arabic too.
   final bool ltrTitle;
+
+  /// The API object behind the row (empty for sample data): item actions read ids, versions and states from it.
+  final Map<String, dynamic> raw;
 }
 
 @immutable

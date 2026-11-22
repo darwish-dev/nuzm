@@ -50,10 +50,32 @@ NUZM_LIVE_API=http://127.0.0.1:4000 flutter test test/live_api_test.dart   # aga
 The live check registers a throwaway `mobile-it-<time>@example.test` account. Its password is random and never
 printed. The check refuses any host that is not local or `.test`.
 
-## Not yet in the app (web console only for now)
+## Writes (create, edit, delete)
 
-- Create, edit and delete actions: the app reads everything, signs in, switches organizations, chats with Nuzm AI and
-  marks notifications read; other writes show "available in the web console".
-- Registration, password reset and two-step verification.
+`lib/actions/registry.dart` holds every write, per page, against the same endpoints the web console calls. The screens
+show them as an orange button at the top of the page (create or edit) and as buttons on each item's detail screen.
+`lib/actions/action_sheet.dart` runs them:
+
+- **Forms** are checked before anything is sent (required fields, the API's own patterns, integer minor units for
+  money). Field errors the API returns are shown on the matching field.
+- **Paid resources** (servers, hosting sites, databases, buckets, mailboxes, domain register and renew) go through
+  `POST /v1/quotes` → the price (subtotal, tax estimate, total, validity, a note when it needs approval) → **Confirm**
+  → create with `quoteId`. Nothing is created before the person confirms the price. Changing the form invalidates
+  the price.
+- **Idempotency**: one `Idempotency-Key` per opened form, reused on retries. **Edits and deletes** read the
+  resource's ETag and send `If-Match`.
+- **Destructive actions** ask first. Deleting a build project asks for the project name, which the API requires.
+  **Step-up** actions (role change, spend decisions, bucket delete) are marked; without a recent two-step
+  verification the API answers `step_up_required` and the app explains it.
+- In **sample mode** the forms open but never write.
+
+Covered: workspaces, projects, build projects, mobile builds, AI approvals, AI budgets, servers (create, start, stop,
+reboot, delete), hosting sites (create, rename, back up, delete), domains (register from search, renew, lock,
+auto-renew), databases, buckets, email domains, mailboxes, senders, templates, messages, suppressions, spending cap,
+spend approvals, subscriptions (cancel), tax profile, team (invite, role, remove), organization, and password change.
+
+Still in the web console (`kWebOnlyWrites`): workflows, connectors, webhooks, marketplace and transfers (open-ended
+bodies), paying invoices and payment methods (the payment provider's redirect), SSO, agency and reseller,
+registration, password reset and setting up two-step verification.
 
 Fonts: Cairo (SIL OFL 1.1, `assets/fonts/Cairo-OFL.txt`), static weights cut from google/fonts `Cairo[slnt,wght].ttf`.

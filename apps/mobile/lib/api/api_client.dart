@@ -68,12 +68,18 @@ class ApiClient {
     await store.clear();
   }
 
-  Future<dynamic> get(String path, {Map<String, String>? query}) => _send('GET', path, query: query);
-  Future<dynamic> post(String path, [Object? body]) => _send('POST', path, body: body ?? const {});
-  Future<dynamic> patch(String path, Object body) => _send('PATCH', path, body: body);
-  Future<dynamic> put(String path, Object body) => _send('PUT', path, body: body);
+  Future<dynamic> get(String path, {Map<String, String>? query}) async => (await send('GET', path, query: query)).body;
 
-  Future<dynamic> _send(String method, String path, {Map<String, String>? query, Object? body}) async {
+  /// [idempotencyKey]: keep the same key when retrying the same user action (a new one is made otherwise).
+  Future<dynamic> post(String path, [Object? body, String? idempotencyKey]) async =>
+      (await send('POST', path, body: body ?? const {}, idempotencyKey: idempotencyKey)).body;
+  Future<dynamic> patch(String path, Object body, {String? ifMatch}) async =>
+      (await send('PATCH', path, body: body, ifMatch: ifMatch)).body;
+  Future<dynamic> put(String path, Object body, {String? ifMatch}) async => (await send('PUT', path, body: body, ifMatch: ifMatch)).body;
+  Future<dynamic> delete(String path, {String? ifMatch}) async => (await send('DELETE', path, ifMatch: ifMatch)).body;
+
+  Future<ApiResponse> send(String method, String path,
+      {Map<String, String>? query, Object? body, String? ifMatch, String? idempotencyKey}) async {
     await _ensureJar();
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: (query == null || query.isEmpty) ? null : query);
     final req = http.Request(method, uri);
@@ -84,7 +90,8 @@ class ApiClient {
       if (_jar.isNotEmpty) 'cookie': _jar.entries.map((e) => '${e.key}=${e.value}').join('; '),
       if (orgId != null) 'x-nuzm-org': orgId!,
       if (method != 'GET' && _jar[_csrfCookie] != null) 'x-csrf-token': _jar[_csrfCookie]!,
-      if (method == 'POST') 'idempotency-key': newIdempotencyKey(),
+      if (method == 'POST') 'idempotency-key': idempotencyKey ?? newIdempotencyKey(),
+      if (ifMatch != null) 'if-match': ifMatch,
     });
     if (body != null && method != 'GET') {
       req.headers['content-type'] = 'application/json';
@@ -99,7 +106,7 @@ class ApiClient {
     await _absorbCookies(res);
     final text = utf8.decode(res.bodyBytes);
     final json = text.isEmpty ? null : _tryJson(text);
-    if (res.statusCode >= 200 && res.statusCode < 300) return json;
+    if (res.statusCode >= 200 && res.statusCode < 300) return ApiResponse(json, res.headers);
     final p = json is Map ? json : const {};
     if (res.statusCode == 401) {
       // The session is gone (expired, revoked, signed out elsewhere): forget it.
@@ -148,6 +155,13 @@ class ApiClient {
   }
 
   void close() => _http.close();
+}
+
+class ApiResponse {
+  const ApiResponse(this.body, this.headers);
+  final dynamic body;
+  final Map<String, String> headers;
+  String? get etag => headers['etag'];
 }
 
 /// `package:http` joins several Set-Cookie headers with commas; split them without breaking `Expires=Wed, 21 Oct …`.

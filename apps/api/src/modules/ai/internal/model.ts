@@ -36,6 +36,13 @@ export interface AiConfig {
   maxConcurrentRuns: number;
   /** how long a pending approval stays valid (hours; PROPOSAL 24) */
   approvalTtlHours: number;
+  /**
+   * Provider codes the owner has approved for LIVE calls in this environment (`AI_LIVE_PROVIDERS`, comma separated; default none). A provider that is not listed refuses every
+   * call before its key is read, whatever its row says: storing a key, attesting terms and enabling a provider do NOT by themselves allow a live request (S-AG4).
+   */
+  liveProviders: string[];
+  /** The model contract the Claude adapter implements (`AI_CLAUDE_CONTRACT`, '1.0' default). '1.1' declares tool calling for it: only after a live probe is recorded (S-AG4). */
+  claudeContract: '1.0' | '1.1';
 }
 export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   const n = (k: string, d: number, min = 0) => {
@@ -58,6 +65,14 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     dataRegion: env.AI_DATA_REGION ?? 'sa-central',
     maxConcurrentRuns: Math.max(1, Math.floor(n('AI_MAX_CONCURRENT_RUNS', 5, 1))),
     approvalTtlHours: n('AI_APPROVAL_TTL_HOURS', 24, 0.0001),
+    liveProviders:
+      env.NODE_ENV === 'production'
+        ? []
+        : (env.AI_LIVE_PROVIDERS ?? '')
+            .split(',')
+            .map((x) => x.trim())
+            .filter((x) => /^[a-z][a-z0-9-]{0,62}$/.test(x)),
+    claudeContract: env.AI_CLAUDE_CONTRACT === '1.1' ? '1.1' : '1.0',
   };
 }
 

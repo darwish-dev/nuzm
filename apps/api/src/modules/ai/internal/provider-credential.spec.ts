@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MemorySecretStore } from '../../../common/secrets';
 import { ModelProviderService } from './provider.service';
 
@@ -207,14 +207,17 @@ describe('one-field Claude key', () => {
 
 describe('connection test', () => {
   const KEY = `test-only-${'t2Gx'.repeat(8)}`;
-  const withProbe = (probe?: (k: string) => Promise<{ outcome: string; httpStatus?: number }>) => {
+  const withProbe = (
+    probe?: (k: string) => Promise<{ outcome: string; httpStatus?: number }>,
+    live: string[] = ['claude'],
+  ) => {
     const t = tableSetup();
     const calls: string[] = [];
     const svc = new ModelProviderService(
       (t.svc as unknown as { db: never }).db,
       { record: (e: Record<string, unknown>) => void t.events.push(e) } as never,
       { get: () => undefined } as never,
-      {} as never,
+      { liveProviders: live } as never,
       t.secrets,
       probe
         ? ((async (k: string) => {
@@ -238,6 +241,16 @@ describe('connection test', () => {
       outcome: 'success',
       detail: { code: 'claude', outcome: 'ok', httpStatus: 200 },
     });
+  });
+  it('is refused while live calls to the provider are not approved (AI_LIVE_PROVIDERS): the key is not read and the probe never runs', async () => {
+    const { svc, calls, secrets } = withProbe(async () => ({ outcome: 'ok' }), []);
+    const saved = await svc.saveClaudeKey('admin-1', KEY);
+    const get = vi.spyOn(secrets, 'get');
+    await expect(svc.testConnection('admin-2', saved.id)).rejects.toMatchObject({
+      code: 'unsupported_capability',
+    });
+    expect(calls).toHaveLength(0);
+    expect(get).not.toHaveBeenCalled();
   });
   it('a rejected key is audited as a failure', async () => {
     const { svc, events } = withProbe(async () => ({ outcome: 'invalid_key', httpStatus: 401 }));

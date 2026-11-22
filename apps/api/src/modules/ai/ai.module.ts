@@ -73,6 +73,9 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
           r.register(
             CLAUDE_PROVIDER_ID,
             new AnthropicModelAdapter({
+              // closed unless the owner listed `claude` in AI_LIVE_PROVIDERS: nothing leaves the process before that, whatever the provider row says
+              liveEnabled: () => cfg.liveProviders.includes(CLAUDE_PROVIDER_ID),
+              contract: cfg.claudeContract,
               getApiKey: async () => {
                 const row = await db.withPlatformScope(
                   async (c) =>

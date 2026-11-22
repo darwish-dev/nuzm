@@ -474,6 +474,12 @@ export class ModelProviderService {
     const ref = (r.vault_ref as string | null) ?? null;
     if (!ref || !/^vault:\/\/(dev|mem)\/ai-/.test(ref))
       throw new ProblemException('validation_failed', 'save a key first, then test the connection');
+    // a connection test is a LIVE request to the vendor made with the key: it needs the owner's approval for live calls to this provider (AI_LIVE_PROVIDERS), like any call
+    if (!this.cfg.liveProviders?.includes(r.code as string))
+      throw new ProblemException(
+        'unsupported_capability',
+        "live calls to this provider are not approved in this environment yet (credentials, data terms and residency need the owner's approval, S-AG4)",
+      );
     const key = await this.secrets.get(ref).catch(() => null);
     if (!key)
       throw new ProblemException(

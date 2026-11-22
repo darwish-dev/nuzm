@@ -349,6 +349,8 @@ export class GatewayService {
         const timer = setTimeout(() => ac.abort(), this.cfg.callTimeoutMs);
         const onAbort = () => ac.abort();
         call.signal?.addEventListener('abort', onAbort);
+        // a signal that was ALREADY aborted never fires its event: without this the call would go out although the caller had cancelled
+        if (call.signal?.aborted) ac.abort();
         try {
           const callCtx = { callId: `${call.callId}#${attempt}`, signal: ac.signal };
           const request = {

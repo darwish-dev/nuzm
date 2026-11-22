@@ -100,6 +100,15 @@ Bugs the live run found and fixed:
   `NUZM_LIVE_API=… flutter test test/live_api_test.dart` → PASS.
 - **Screenshots:** `docs/reports/mobile-app/{home-ar-dark,menu-ar-dark,menu-settings-ar-dark,menu-ar-light}.jpg`.
 
+## Update 2026-11-23 (2): icons, top bar, dark default
+- Icons: Phosphor (regular) across the app through one map, `lib/widgets/nz_icons.dart` (Lucide removed).
+- Chat top bar: no title or mark; dark, borderless buttons and a credit pill (in both themes). The menu's balances
+  card is dark in both themes too.
+- The menu reveal is slower (900 ms open, 700 ms close). Profile moved from the section grid into Settings.
+- Light mode: the message box has no stroke or shadow. Dark is the default appearance.
+- Tests: `flutter analyze` no issues; `flutter test` all passed (39, 1 skipped). Screenshots updated, including
+  `menu-reveal-ar-dark.jpg` (mid-animation). No APK built this round (owner asked).
+
 ## I. Next
 Next steps:
 - **In-app flows:** paying invoices through the payment provider's redirect, setting up and answering two-step verification (that unlocks step-up actions), registration and password reset.

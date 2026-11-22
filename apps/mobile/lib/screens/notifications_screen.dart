@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_scope.dart';
 import '../data/data_source.dart';
@@ -7,6 +6,7 @@ import '../data/demo.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
+import '../widgets/nz_icons.dart';
 import 'section_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -56,7 +56,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (snap.connectionState != ConnectionState.done) return const SkeletonList(rows: 3);
                 if (snap.hasError) {
                   return StateView(
-                    icon: LucideIcons.cloudOff,
+                    icon: NzIcons.cloudOff,
                     tone: Tone.danger,
                     title: S.errorTitle.of(context),
                     hint: S.errorHint.of(context),
@@ -66,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 }
                 final list = snap.data!;
                 if (list.isEmpty) {
-                  return StateView(icon: LucideIcons.bell, title: S.noNotifications.of(context), hint: S.emptyHint.of(context));
+                  return StateView(icon: NzIcons.bell, title: S.noNotifications.of(context), hint: S.emptyHint.of(context));
                 }
                 return Column(children: [
                   for (final n in list)
@@ -102,9 +102,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   IconData _iconFor(Tone t) => switch (t) {
-        Tone.success => LucideIcons.circleCheck,
-        Tone.danger => LucideIcons.triangleAlert,
-        Tone.orange => LucideIcons.receipt,
-        _ => LucideIcons.bell,
+        Tone.success => NzIcons.circleCheck,
+        Tone.danger => NzIcons.triangleAlert,
+        Tone.orange => NzIcons.receipt,
+        _ => NzIcons.bell,
       };
 }

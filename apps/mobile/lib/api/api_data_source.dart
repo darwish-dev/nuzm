@@ -1,7 +1,7 @@
+import '../widgets/nz_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/data_source.dart';
 import '../data/demo.dart';
@@ -42,21 +42,21 @@ class ApiDataSource implements DataSource {
       case 'projects':
         return PageData(items: [
           for (final p in await _items('/v1/projects'))
-            _item(p, LucideIcons.folderKanban, title: s(p['name']), sub: _date(p['createdAt']), facts: [
+            _item(p, NzIcons.folderKanban, title: s(p['name']), sub: _date(p['createdAt']), facts: [
               (const T('المعرّف', 'ID'), s(p['id'])),
               (const T('سياسة المنطقة', 'Region policy'), s(p['defaultRegionPolicy'])),
             ]),
         ]);
       case 'workspaces':
         return PageData(items: [
-          for (final w in await _items('/v1/workspaces')) _item(w, LucideIcons.layoutGrid, title: s(w['name']), sub: s(w['slug'])),
+          for (final w in await _items('/v1/workspaces')) _item(w, NzIcons.layoutGrid, title: s(w['name']), sub: s(w['slug'])),
         ]);
       case 'builder':
         return const PageData();
       case 'appbuilder':
         return PageData(items: [
           for (final p in await _items('/v1/builder/projects'))
-            _item(p, LucideIcons.appWindow,
+            _item(p, NzIcons.appWindow,
                 title: s(p['name']),
                 sub: '${s(p['type'])} · ${_date(p['updatedAt'])}',
                 status: p['lastDeployment'] is Map ? _status((p['lastDeployment'] as Map)['status']) : null,
@@ -65,7 +65,7 @@ class ApiDataSource implements DataSource {
       case 'buildApprovals':
         return PageData(items: [
           for (final a in await _items('/v1/ai/approvals'))
-            _item(a, LucideIcons.badgeCheck,
+            _item(a, NzIcons.badgeCheck,
                 title: _humanize(a['type']), sub: s(a['action']), status: _status(a['status']), facts: [
               (const T('ينتهي', 'Expires'), _date(a['expiresAt'])),
               (const T('طلبه', 'Requested by'), s(a['requestedByKind'])),
@@ -74,43 +74,43 @@ class ApiDataSource implements DataSource {
       case 'mobile':
         return PageData(items: [
           for (final b in await _items('/v1/mobile/builds'))
-            _item(b, LucideIcons.smartphone,
+            _item(b, NzIcons.smartphone,
                 title: '${s(b['platform'])} · ${s(b['profile'])}', sub: _date(b['createdAt']), status: _status(b['status']), ltr: true),
         ]);
       case 'aiUsage':
         final c = await _obj('/v1/ai/credits');
         return PageData(stats: [
-          Stat(const T('الرصيد المتاح', 'Available credits'), _num(c['availableCredits']), icon: LucideIcons.sparkles,
+          Stat(const T('الرصيد المتاح', 'Available credits'), _num(c['availableCredits']), icon: NzIcons.sparkles,
               hint: c['lowCredit'] == true ? const T('الرصيد منخفض', 'Credit is low') : null),
-          Stat(const T('محجوز للتشغيلات الجارية', 'Reserved by running work'), _num(c['reservedCredits']), icon: LucideIcons.clock),
-          Stat(const T('آخر 30 يومًا', 'Last 30 days'), _num(c['last30DaysCredits']), icon: LucideIcons.trendingUp),
+          Stat(const T('محجوز للتشغيلات الجارية', 'Reserved by running work'), _num(c['reservedCredits']), icon: NzIcons.clock),
+          Stat(const T('آخر 30 يومًا', 'Last 30 days'), _num(c['last30DaysCredits']), icon: NzIcons.trendingUp),
         ]);
       case 'aiBudgets':
         final b = await _obj('/v1/ai/budgets');
         final org = (b['org'] is Map ? b['org'] as Map : const {});
         return PageData(raw: b, stats: [
-          Stat(const T('الحد اليومي', 'Daily credits'), _num(org['dailyCredits']), icon: LucideIcons.piggyBank),
-          Stat(const T('حد التشغيل الواحد', 'Per-run credits'), _num(org['runMaxCredits']), icon: LucideIcons.gauge),
-          Stat(const T('الحد الكلي', 'Total credits'), _num(org['totalCredits']), icon: LucideIcons.wallet),
-          Stat(const T('ميزانيات المشاريع', 'Project budgets'), '${(b['projects'] as List?)?.length ?? 0}', icon: LucideIcons.folderKanban),
+          Stat(const T('الحد اليومي', 'Daily credits'), _num(org['dailyCredits']), icon: NzIcons.piggyBank),
+          Stat(const T('حد التشغيل الواحد', 'Per-run credits'), _num(org['runMaxCredits']), icon: NzIcons.gauge),
+          Stat(const T('الحد الكلي', 'Total credits'), _num(org['totalCredits']), icon: NzIcons.wallet),
+          Stat(const T('ميزانيات المشاريع', 'Project budgets'), '${(b['projects'] as List?)?.length ?? 0}', icon: NzIcons.folderKanban),
         ]);
       case 'workflows':
-        return PageData(items: [for (final w in await _items('/v1/workflows')) _generic(w, LucideIcons.workflow)]);
+        return PageData(items: [for (final w in await _items('/v1/workflows')) _generic(w, NzIcons.workflow)]);
       case 'connectors':
-        return PageData(items: [for (final w in await _items('/v1/connectors')) _generic(w, LucideIcons.plug)]);
+        return PageData(items: [for (final w in await _items('/v1/connectors')) _generic(w, NzIcons.plug)]);
       case 'webhooks':
-        return PageData(items: [for (final w in await _items('/v1/webhook-endpoints')) _generic(w, LucideIcons.webhook, ltr: true)]);
+        return PageData(items: [for (final w in await _items('/v1/webhook-endpoints')) _generic(w, NzIcons.webhook, ltr: true)]);
       case 'marketplace':
         return PageData(catalog: [
           for (final l in await _items('/v1/marketplace/listings'))
             CatalogItem(T(_title(l), _title(l)), T(s(l['summary'] ?? l['description'] ?? l['category']), s(l['summary'] ?? l['description'] ?? l['category'])),
-                LucideIcons.store,
+                NzIcons.store,
                 tag: _priceTag(l['price'])),
         ]);
       case 'instances':
         return PageData(items: [
           for (final i in await _items('/v1/compute/instances'))
-            _item(i, LucideIcons.server,
+            _item(i, NzIcons.server,
                 title: s(i['name']),
                 sub: '${_planName(i['plan'])} · ${s(i['dataRegion'])}',
                 status: _status(i['status']),
@@ -126,7 +126,7 @@ class ApiDataSource implements DataSource {
       case 'sites':
         return PageData(items: [
           for (final x in await _items('/v1/hosting/sites'))
-            _item(x, LucideIcons.globe,
+            _item(x, NzIcons.globe,
                 title: s(x['primaryDomain'] ?? x['name']),
                 sub: '${_runtime(x['runtime'])} · ${_planName(x['plan'])}',
                 status: _status(x['status']),
@@ -136,12 +136,12 @@ class ApiDataSource implements DataSource {
       case 'hostingPlans':
         return PageData(catalog: [
           for (final p in await _items('/v1/hosting/plans'))
-            CatalogItem(localized(p['name']), T(_runtimes(p['runtimes']), _runtimes(p['runtimes'])), LucideIcons.layers, tag: _priceTag(p['price'])),
+            CatalogItem(localized(p['name']), T(_runtimes(p['runtimes']), _runtimes(p['runtimes'])), NzIcons.layers, tag: _priceTag(p['price'])),
         ]);
       case 'domainList':
         return PageData(items: [
           for (final d in await _items('/v1/domains'))
-            _item(d, LucideIcons.globe,
+            _item(d, NzIcons.globe,
                 title: s(d['name']),
                 sub: '${const T('ينتهي', 'Expires').ar} ${_date(d['expiresAt'])}',
                 subEn: 'Expires ${_date(d['expiresAt'])}',
@@ -154,51 +154,51 @@ class ApiDataSource implements DataSource {
                 ]),
         ]);
       case 'transfers':
-        return PageData(items: [for (final t in await _items('/v1/domains/transfers')) _generic(t, LucideIcons.arrowLeftRight, ltr: true)]);
+        return PageData(items: [for (final t in await _items('/v1/domains/transfers')) _generic(t, NzIcons.arrowLeftRight, ltr: true)]);
       case 'databases':
         return PageData(items: [
           for (final d in await _items('/v1/databases'))
-            _item(d, LucideIcons.database,
+            _item(d, NzIcons.database,
                 title: s(d['name']), sub: '${s(d['engine'])} ${s(d['version'])}', status: _status(d['status']), ltr: true,
                 facts: [(const T('منطقة البيانات', 'Data region'), s(d['dataRegion'])), (const T('TLS مطلوب', 'TLS required'), s(d['tlsRequired']))]),
         ]);
       case 'storage':
         return PageData(items: [
           for (final b in await _items('/v1/storage/buckets'))
-            _item(b, LucideIcons.container,
+            _item(b, NzIcons.container,
                 title: s(b['name']), sub: s(b['bucketName']), status: _status(b['status']), ltr: true,
                 facts: [(const T('عام', 'Public'), s(b['public'])), (const T('الإصدارات', 'Versioning'), s(b['versioning']))]),
         ]);
       case 'emailDomains':
         return PageData(items: [
           for (final d in await _items('/v1/email/domains'))
-            _item(d, LucideIcons.atSign, title: s(d['domain']), sub: _join(d['purposes']), status: _status(d['state']), ltr: true),
+            _item(d, NzIcons.atSign, title: s(d['domain']), sub: _join(d['purposes']), status: _status(d['state']), ltr: true),
         ]);
       case 'mailboxes':
         return PageData(items: [
           for (final m in await _items('/v1/email/mailboxes'))
-            _item(m, LucideIcons.inbox, title: s(m['address']), sub: '${_num(m['quotaMb'])} MB', status: _status(m['status']), ltr: true),
+            _item(m, NzIcons.inbox, title: s(m['address']), sub: '${_num(m['quotaMb'])} MB', status: _status(m['status']), ltr: true),
         ]);
       case 'messages':
         return PageData(items: [
           for (final m in await _items('/v1/email/messages'))
-            _item(m, LucideIcons.send,
+            _item(m, NzIcons.send,
                 title: s(m['category']), sub: '${_date(m['createdAt'])} · ${_num(m['recipientCount'])}', status: _status(m['status'])),
         ]);
       case 'senders':
         return PageData(items: [
           for (final x in await _items('/v1/email/sender-identities'))
-            _item(x, LucideIcons.badgeCheck, title: s(x['fromAddress']), sub: _date(x['createdAt']), status: _status(x['status']), ltr: true),
+            _item(x, NzIcons.badgeCheck, title: s(x['fromAddress']), sub: _date(x['createdAt']), status: _status(x['status']), ltr: true),
         ]);
       case 'templates':
         return PageData(items: [
           for (final x in await _items('/v1/email/templates'))
-            _item(x, LucideIcons.layoutTemplate, title: s(x['name']), sub: '${s(x['key'])} · ${s(x['locale'])} · v${s(x['version'])}'),
+            _item(x, NzIcons.layoutTemplate, title: s(x['name']), sub: '${s(x['key'])} · ${s(x['locale'])} · v${s(x['version'])}'),
         ]);
       case 'suppressions':
         return PageData(items: [
           for (final x in await _items('/v1/email/suppressions'))
-            _item(x, LucideIcons.ban, title: s(x['address']), sub: _humanize(x['reason']), ltr: true,
+            _item(x, NzIcons.ban, title: s(x['address']), sub: _humanize(x['reason']), ltr: true,
                 status: x['active'] == true ? Status.active : Status.stopped),
         ]);
       case 'billingOverview':
@@ -210,7 +210,7 @@ class ApiDataSource implements DataSource {
               if (b is Map)
                 Stat(T('الرصيد (${s(b['currency'])})', 'Balance (${s(b['currency'])})'),
                     _money(b['availableMinor'] ?? b['balanceMinor'] ?? b['amountMinor'], b['currency']),
-                    icon: LucideIcons.wallet),
+                    icon: NzIcons.wallet),
           ],
           related: invoices,
           relatedPage: 'invoices',
@@ -218,7 +218,7 @@ class ApiDataSource implements DataSource {
       case 'plansSubs':
         return PageData(items: [
           for (final x in await _items('/v1/billing/subscriptions'))
-            _item(x, LucideIcons.layers,
+            _item(x, NzIcons.layers,
                 title: s(x['planKey']),
                 sub: '${_date(x['currentPeriodStart'])} → ${_date(x['currentPeriodEnd'])}',
                 status: _status(x['status']),
@@ -228,14 +228,14 @@ class ApiDataSource implements DataSource {
         return PageData(stats: [
           for (final q in await _items('/v1/quotas'))
             Stat(T(_humanize(q['meterId']), _humanize(q['meterId'])), '${_num(q['used'])} / ${_num(q['limit'])} ${s(q['unit'])}',
-                progress: _pct(q['percent']), icon: LucideIcons.gauge),
+                progress: _pct(q['percent']), icon: NzIcons.gauge),
         ]);
       case 'invoices':
         return PageData(items: await _invoices());
       case 'payments':
         return PageData(items: [
           for (final x in await _items('/v1/billing/payments'))
-            _item(x, LucideIcons.creditCard, title: _date(x['createdAt']), sub: s(x['invoiceId'] ?? x['walletTopupId']),
+            _item(x, NzIcons.creditCard, title: _date(x['createdAt']), sub: s(x['invoiceId'] ?? x['walletTopupId']),
                 status: _status(x['status']), meta: _money(x['amountMinor'], x['currency'])),
         ]);
       case 'limits':
@@ -249,19 +249,19 @@ class ApiDataSource implements DataSource {
                   ? null
                   : T('موافقة شخصين فوق ${_money(l['fourEyesAboveMinor'], l['currency'])}',
                       'Two approvals above ${_money(l['fourEyesAboveMinor'], l['currency'])}'),
-              icon: LucideIcons.slidersHorizontal,
+              icon: NzIcons.slidersHorizontal,
             ),
         ]);
       case 'spendApprovals':
         return PageData(items: [
           for (final x in await _items('/v1/billing/spend-approvals'))
-            _item(x, LucideIcons.checkCheck, title: s(x['reason']), sub: _date(x['createdAt']), status: _status(x['status']),
+            _item(x, NzIcons.checkCheck, title: s(x['reason']), sub: _date(x['createdAt']), status: _status(x['status']),
                 meta: _money(x['amountMinor'], x['currency'])),
         ]);
       case 'ledger':
         return PageData(items: [
           for (final x in await _items('/v1/billing/ledger'))
-            _item(x, x['direction'] == 'credit' ? LucideIcons.arrowLeftRight : LucideIcons.fileText,
+            _item(x, x['direction'] == 'credit' ? NzIcons.arrowLeftRight : NzIcons.fileText,
                 title: s(x['description'] ?? _humanize(x['kind'])), sub: _date(x['occurredAt']),
                 meta: _money(((x['direction'] == 'debit') ? -1 : 1) * _int(x['amountMinor']), x['currency'])),
         ]);
@@ -279,7 +279,7 @@ class ApiDataSource implements DataSource {
       case 'team':
         return PageData(items: [
           for (final m in await _items('/v1/organizations/$orgId/members'))
-            _item(m, LucideIcons.user, title: s(m['displayName'] ?? m['email']), sub: s(m['email']), status: _role(m['role']),
+            _item(m, NzIcons.user, title: s(m['displayName'] ?? m['email']), sub: s(m['email']), status: _role(m['role']),
                 facts: [(const T('انضم', 'Joined'), _date(m['joinedAt']))]),
         ]);
       case 'orgSettings':
@@ -301,14 +301,14 @@ class ApiDataSource implements DataSource {
       case 'sso':
         return PageData(items: [
           for (final c in await _items('/v1/organizations/$orgId/sso-connections'))
-            _item(c, LucideIcons.keyRound, title: s(c['name']), sub: '${s(c['protocol']).toUpperCase()} · ${_join(c['domains'])}',
+            _item(c, NzIcons.keyRound, title: s(c['name']), sub: '${s(c['protocol']).toUpperCase()} · ${_join(c['domains'])}',
                 status: _status(c['status'])),
         ]);
       case 'agency':
       case 'partners':
-        return PageData(items: [for (final a in await _items('/v1/agencies')) _generic(a, LucideIcons.briefcase)]);
+        return PageData(items: [for (final a in await _items('/v1/agencies')) _generic(a, NzIcons.briefcase)]);
       case 'reseller':
-        return PageData(items: [for (final a in await _items('/v1/resellers')) _generic(a, LucideIcons.network)]);
+        return PageData(items: [for (final a in await _items('/v1/resellers')) _generic(a, NzIcons.network)]);
       case 'profile':
         final me = await _obj('/v1/me');
         return PageData(fields: [
@@ -327,7 +327,7 @@ class ApiDataSource implements DataSource {
 
   Future<List<Item>> _invoices({int? limit}) async => [
         for (final x in (await _items('/v1/billing/invoices', query: limit == null ? null : {'limit': '$limit'})))
-          _item(x, LucideIcons.receipt,
+          _item(x, NzIcons.receipt,
               title: s(x['number'] ?? x['id']),
               sub: '${_date(x['periodStart'])} → ${_date(x['periodEnd'])}',
               status: _status(x['status']),
@@ -357,12 +357,12 @@ class ApiDataSource implements DataSource {
     final stats = <Stat>[
       if (inst != null)
         Stat(const T('خوادم تعمل', 'Servers running'), '${inst.where((i) => i['status'] == 'running').length} / ${inst.length}',
-            icon: LucideIcons.server, progress: inst.isEmpty ? 0 : inst.where((i) => i['status'] == 'running').length / inst.length),
-      if (sites != null) Stat(const T('مواقع نشطة', 'Active sites'), '${sites.where((x) => x['status'] == 'active').length}', icon: LucideIcons.globe),
-      if (doms != null) Stat(const T('نطاقات', 'Domains'), '${doms.length}', icon: LucideIcons.globe),
+            icon: NzIcons.server, progress: inst.isEmpty ? 0 : inst.where((i) => i['status'] == 'running').length / inst.length),
+      if (sites != null) Stat(const T('مواقع نشطة', 'Active sites'), '${sites.where((x) => x['status'] == 'active').length}', icon: NzIcons.globe),
+      if (doms != null) Stat(const T('نطاقات', 'Domains'), '${doms.length}', icon: NzIcons.globe),
       if (inv != null)
         Stat(const T('فواتير مفتوحة', 'Open invoices'),
-            '${inv.where((x) => x['status'] == 'open' || x['status'] == 'partially_paid').length}', icon: LucideIcons.receipt),
+            '${inv.where((x) => x['status'] == 'open' || x['status'] == 'partially_paid').length}', icon: NzIcons.receipt),
     ];
     final attention = <(T, String, Tone)>[
       for (final x in inv ?? const <Map<String, dynamic>>[])

@@ -9,6 +9,7 @@ gradient angle. See `lib/theme/nuzm_colors.dart`:
 - the window is the chrome gradient (dark 180°, light 98°) with its glows, and the content sits in the frame
   (22 px top corners, 1 px border, 6 px from the edges)
 - primary buttons, the mic/send button and the counts use the orange gradient at 165°
+- icons are Phosphor (regular), all through `lib/widgets/nz_icons.dart`; dark is the default appearance
 - cards are 18 px with a 1 px border, fields 14 px, and section tabs are underlined in the accent colour
 
 ## Run

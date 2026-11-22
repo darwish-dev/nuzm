@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -10,6 +9,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import '../data/data_source.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
+import 'nz_icons.dart';
 
 typedef ComposerSend = void Function(String text, List<ChatAttachment> attachments);
 
@@ -180,8 +180,8 @@ class ComposerState extends State<Composer> with SingleTickerProviderStateMixin 
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              option('file', LucideIcons.fileText, S.attachFile, S.attachFileHint),
-              option('link', LucideIcons.link, S.attachLink, S.attachLinkHint),
+              option('file', NzIcons.fileText, S.attachFile, S.attachFileHint),
+              option('link', NzIcons.link, S.attachLink, S.attachLinkHint),
             ]),
           ),
         );
@@ -257,29 +257,33 @@ class ComposerState extends State<Composer> with SingleTickerProviderStateMixin 
             ),
             child: child,
           ),
-          child: round(LucideIcons.square, S.stopListening.of(context), null, nz.orangeInk, _stopListening,
+          child: round(NzIcons.square, S.stopListening.of(context), null, nz.orangeInk, _stopListening,
               size: 52, gradient: NuzmColors.orangeGradient),
         ),
       );
     } else if (_canSend) {
       action = KeyedSubtree(
         key: const ValueKey('send'),
-        child: round(LucideIcons.arrowUp, S.send.of(context), null, nz.orangeInk, _submit, size: 52, gradient: NuzmColors.orangeGradient),
+        child: round(NzIcons.arrowUp, S.send.of(context), null, nz.orangeInk, _submit, size: 52, gradient: NuzmColors.orangeGradient),
       );
     } else {
       action = KeyedSubtree(
         key: const ValueKey('mic'),
-        child: round(LucideIcons.mic, S.voice.of(context), null, nz.orangeInk, _toggleMic, size: 52, gradient: NuzmColors.orangeGradient),
+        child: round(NzIcons.mic, S.voice.of(context), null, nz.orangeInk, _toggleMic, size: 52, gradient: NuzmColors.orangeGradient),
       );
     }
 
+    // Light: a flat field with no stroke or shadow. Dark: the card with its hairline and a soft lift.
+    final light = Theme.of(context).brightness == Brightness.light;
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: nz.card,
+        color: light ? nz.elev : nz.card,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: _listening ? nz.orange.withValues(alpha: 0.6) : nz.border),
-        boxShadow: [BoxShadow(color: nz.shadow.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 8))],
+        border: _listening
+            ? Border.all(color: nz.orange.withValues(alpha: 0.6))
+            : (light ? null : Border.all(color: nz.border)),
+        boxShadow: light ? null : [BoxShadow(color: nz.shadow.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 8))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (_attachments.isNotEmpty)
@@ -294,7 +298,7 @@ class ComposerState extends State<Composer> with SingleTickerProviderStateMixin 
             ),
           ),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          round(LucideIcons.plus, S.attach.of(context), nz.elev, nz.fg, _attach),
+          round(NzIcons.plus, S.attach.of(context), nz.elev, nz.fg, _attach),
           const SizedBox(width: 6),
           Expanded(
             child: TextField(
@@ -342,7 +346,7 @@ class AttachmentChip extends StatelessWidget {
       padding: EdgeInsetsDirectional.fromSTEB(10, 6, onRemove == null ? 10 : 4, 6),
       decoration: BoxDecoration(color: nz.elev, borderRadius: BorderRadius.circular(12)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(attachment.isLink ? LucideIcons.link : LucideIcons.fileText, size: 14, color: nz.accent),
+        Icon(attachment.isLink ? NzIcons.link : NzIcons.fileText, size: 14, color: nz.accent),
         const SizedBox(width: 6),
         Flexible(
           child: Text(attachment.name,
@@ -357,7 +361,7 @@ class AttachmentChip extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: onRemove,
-              child: Padding(padding: const EdgeInsets.all(3), child: Icon(LucideIcons.x, size: 14, color: nz.muted)),
+              child: Padding(padding: const EdgeInsets.all(3), child: Icon(NzIcons.x, size: 14, color: nz.muted)),
             ),
           ),
       ]),

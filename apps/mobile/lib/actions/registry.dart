@@ -1,8 +1,8 @@
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/api_client.dart';
 import '../api/api_data_source.dart' show localized;
 import '../l10n/strings.dart';
+import '../widgets/nz_icons.dart';
 import 'action_model.dart';
 
 // Every write the app offers, per page, against the endpoints in spec/openapi/openapi.yaml. Paid resources go
@@ -37,7 +37,7 @@ FieldDef _nameFrom() => FieldDef('name', const T('الاسم', 'Name'), initial:
 ActionDef _rename(String Function(ActionContext) path, {String bodyKey = 'name'}) => ActionDef(
       id: 'rename',
       label: const T('إعادة التسمية', 'Rename'),
-      icon: LucideIcons.penLine,
+      icon: NzIcons.penLine,
       fields: [_nameFrom()],
       done: const T('تم الحفظ', 'Saved'),
       run: (c) async => c.versioned('PATCH', path(c), {bodyKey: c.v('name')}),
@@ -46,7 +46,7 @@ ActionDef _rename(String Function(ActionContext) path, {String bodyKey = 'name'}
 ActionDef _delete(String Function(ActionContext) path, {bool stepUp = false, T? confirm}) => ActionDef(
       id: 'delete',
       label: const T('حذف', 'Delete'),
-      icon: LucideIcons.trash2,
+      icon: NzIcons.trash2,
       destructive: true,
       stepUp: stepUp,
       confirm: confirm ?? const T('سيُحذف هذا العنصر. لا يمكن التراجع إلا حيث تسمح سياسة الاحتفاظ.',
@@ -84,7 +84,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('مساحة عمل جديدة', 'New workspace'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: const [_name],
       done: _created,
       run: (c) async => c.post('/v1/workspaces', {'name': c.v('name')}),
@@ -94,7 +94,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('مشروع جديد', 'New project'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         FieldDef('workspaceId', const T('مساحة العمل', 'Workspace'), kind: FieldKind.select, optionsFrom: _from('/v1/workspaces', (w) => '${w['name']}')),
         _name,
@@ -107,7 +107,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('مشروع بناء جديد', 'New build project'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: const [
         FieldDef('type', T('النوع', 'Type'), kind: FieldKind.select, options: [
           ('website', T('موقع', 'Website')),
@@ -124,7 +124,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('طلب بناء', 'Request a build'),
-      icon: LucideIcons.hammer,
+      icon: NzIcons.hammer,
       fields: [
         FieldDef('projectId', const T('المشروع', 'Project'),
             kind: FieldKind.select, optionsFrom: _from('/v1/builder/projects', (p) => '${p['name']}', where: (p) => p['type'] == 'mobile')),
@@ -139,7 +139,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'edit',
       label: const T('تعديل الميزانيات', 'Edit budgets'),
-      icon: LucideIcons.slidersHorizontal,
+      icon: NzIcons.slidersHorizontal,
       fields: [
         FieldDef('dailyCredits', const T('الحد اليومي (رصيد)', 'Daily credits'), kind: FieldKind.number, required: false,
             initial: (r) => _m(r['org'])['dailyCredits']),
@@ -160,7 +160,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('خادم جديد', 'New server'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         FieldDef('offerId', const T('الحجم والمنطقة', 'Size and region'),
             kind: FieldKind.select,
@@ -190,7 +190,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('موقع استضافة جديد', 'New hosting site'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         FieldDef('planId', const T('الخطة', 'Plan'),
             kind: FieldKind.select, optionsFrom: (c) async => [for (final p in await c.list('/v1/hosting/plans')) ('${p['id']}', localized(p['name']))]),
@@ -229,7 +229,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('قاعدة بيانات جديدة', 'New database'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         const FieldDef('engine', T('المحرك', 'Engine'), kind: FieldKind.select, options: [
           ('postgresql', T('PostgreSQL', 'PostgreSQL')),
@@ -261,7 +261,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('حاوية جديدة', 'New bucket'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         FieldDef('name', const T('الاسم', 'Name'), ltr: true, pattern: RegExp(r'^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$')),
         const FieldDef('estimatedGb', T('الحجم المتوقع (GB)', 'Expected size (GB)'), kind: FieldKind.number),
@@ -281,7 +281,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('إضافة نطاق بريد', 'Add an email domain'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: const [
         FieldDef('domain', T('النطاق', 'Domain'), ltr: true),
         FieldDef('purposes', T('الاستخدام', 'Use'), kind: FieldKind.select, options: [
@@ -301,7 +301,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('صندوق بريد جديد', 'New mailbox'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         FieldDef('domainId', const T('النطاق', 'Domain'),
             kind: FieldKind.select, optionsFrom: _from('/v1/email/domains', (d) => '${d['domain']}', where: (d) => d['state'] == 'verified')),
@@ -323,7 +323,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('هوية مرسل جديدة', 'New sender identity'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         FieldDef('domainId', const T('النطاق', 'Domain'), kind: FieldKind.select, optionsFrom: _from('/v1/email/domains', (d) => '${d['domain']}')),
         const FieldDef('fromAddress', T('عنوان المرسل', 'From address'), kind: FieldKind.email, ltr: true),
@@ -336,7 +336,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('قالب جديد', 'New template'),
-      icon: LucideIcons.plus,
+      icon: NzIcons.plus,
       fields: [
         // Same rule as the API (sender-template.service.ts): a lower-case slug.
         FieldDef('key', const T('المفتاح', 'Key'), ltr: true, pattern: RegExp(r'^[a-z][a-z0-9_-]{1,62}$'),
@@ -355,7 +355,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('إرسال رسالة', 'Send a message'),
-      icon: LucideIcons.send,
+      icon: NzIcons.send,
       fields: [
         FieldDef('senderId', const T('المرسل', 'Sender'),
             kind: FieldKind.select,
@@ -379,7 +379,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('حظر عنوان', 'Suppress an address'),
-      icon: LucideIcons.ban,
+      icon: NzIcons.ban,
       fields: const [FieldDef('address', T('العنوان', 'Address'), kind: FieldKind.email, ltr: true)],
       done: const T('أُضيف إلى قائمة الحظر', 'Added to the suppression list'),
       run: (c) async => c.post('/v1/email/suppressions', {'address': c.v('address').toLowerCase(), 'action': 'add'}),
@@ -389,7 +389,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'edit',
       label: const T('ضبط الحد الشهري', 'Set the monthly cap'),
-      icon: LucideIcons.slidersHorizontal,
+      icon: NzIcons.slidersHorizontal,
       fields: [
         FieldDef('cap', const T('الحد الشهري (ر.س)', 'Monthly cap (SAR)'),
             kind: FieldKind.money, initial: (r) => fromMinor(r['monthlyCapMinor'])),
@@ -409,7 +409,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'edit',
       label: const T('تعديل الملف الضريبي', 'Edit tax profile'),
-      icon: LucideIcons.penLine,
+      icon: NzIcons.penLine,
       fields: [
         FieldDef('buyerType', const T('نوع المشتري', 'Buyer type'),
             kind: FieldKind.select,
@@ -445,7 +445,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'create',
       label: const T('دعوة عضو', 'Invite a member'),
-      icon: LucideIcons.userPlus,
+      icon: NzIcons.userPlus,
       fields: const [
         FieldDef('email', T('البريد الإلكتروني', 'Email'), kind: FieldKind.email, ltr: true),
         FieldDef('role', T('الدور', 'Role'), kind: FieldKind.select, options: _roles),
@@ -458,7 +458,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'edit',
       label: const T('تعديل المؤسسة', 'Edit organization'),
-      icon: LucideIcons.penLine,
+      icon: NzIcons.penLine,
       fields: [
         FieldDef('name', const T('اسم المؤسسة', 'Organization name'), initial: (r) => r['name']),
         FieldDef('defaultLocale', const T('اللغة الافتراضية', 'Default language'),
@@ -472,7 +472,7 @@ final Map<String, List<ActionDef>> kPageActions = {
     ActionDef(
       id: 'password',
       label: const T('تغيير كلمة المرور', 'Change password'),
-      icon: LucideIcons.keyRound,
+      icon: NzIcons.keyRound,
       fields: const [
         FieldDef('currentPassword', T('كلمة المرور الحالية', 'Current password'), kind: FieldKind.password, ltr: true),
         FieldDef('newPassword', T('كلمة المرور الجديدة (12 حرفًا على الأقل)', 'New password (at least 12 characters)'), kind: FieldKind.password, ltr: true),
@@ -493,7 +493,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'delete',
       label: const T('حذف', 'Delete'),
-      icon: LucideIcons.trash2,
+      icon: NzIcons.trash2,
       destructive: true,
       fields: const [FieldDef('confirmName', T('اكتب اسم المشروع للتأكيد', 'Type the project name to confirm'))],
       confirm: const T('سيُحذف المشروع (يُحتفظ به لفترة الاحتفاظ) وتتوقف معايناته.',
@@ -510,8 +510,8 @@ final Map<String, List<ActionDef>> kItemActions = {
   ],
   'buildApprovals': [
     for (final (d, l, i) in [
-      ('approve', const T('موافقة', 'Approve'), LucideIcons.check),
-      ('reject', const T('رفض', 'Reject'), LucideIcons.x),
+      ('approve', const T('موافقة', 'Approve'), NzIcons.check),
+      ('reject', const T('رفض', 'Reject'), NzIcons.x),
     ])
       ActionDef(
         id: d,
@@ -528,9 +528,9 @@ final Map<String, List<ActionDef>> kItemActions = {
   ],
   'instances': [
     for (final (a, l, i, onlyWhen) in [
-      ('start', const T('تشغيل', 'Start'), LucideIcons.play, 'stopped'),
-      ('stop', const T('إيقاف', 'Stop'), LucideIcons.pause, 'running'),
-      ('reboot', const T('إعادة التشغيل', 'Reboot'), LucideIcons.rotateCw, 'running'),
+      ('start', const T('تشغيل', 'Start'), NzIcons.play, 'stopped'),
+      ('stop', const T('إيقاف', 'Stop'), NzIcons.pause, 'running'),
+      ('reboot', const T('إعادة التشغيل', 'Reboot'), NzIcons.rotateCw, 'running'),
     ])
       ActionDef(
         id: a,
@@ -548,7 +548,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'backup',
       label: const T('نسخة احتياطية الآن', 'Back up now'),
-      icon: LucideIcons.hardDrive,
+      icon: NzIcons.hardDrive,
       fields: const [FieldDef('label', T('وصف (اختياري)', 'Label (optional)'), required: false)],
       done: const T('بدأ النسخ الاحتياطي', 'Backup started'),
       run: (c) async => c.post('/v1/hosting/sites/${c.id}/backups', {if (c.opt('label') != null) 'label': c.v('label')}),
@@ -560,7 +560,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'renew',
       label: const T('تجديد سنة', 'Renew 1 year'),
-      icon: LucideIcons.rotateCw,
+      icon: NzIcons.rotateCw,
       quote: (c) => {
         'kind': 'domain',
         'items': [
@@ -573,7 +573,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'settings',
       label: const T('القفل والتجديد التلقائي', 'Lock and auto-renew'),
-      icon: LucideIcons.lock,
+      icon: NzIcons.lock,
       fields: [
         FieldDef('lock', const T('قفل النقل', 'Transfer lock'), kind: FieldKind.toggle, required: false, initial: (r) => r['locked'] == true),
         FieldDef('autoRenew', const T('تجديد تلقائي', 'Auto-renew'), kind: FieldKind.toggle, required: false, initial: (r) => r['autoRenew'] == true),
@@ -586,7 +586,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'register',
       label: const T('تسجيل النطاق', 'Register domain'),
-      icon: LucideIcons.globe,
+      icon: NzIcons.globe,
       fields: [
         const FieldDef('years', T('المدة', 'Term'), kind: FieldKind.select, options: [
           ('1', T('سنة', '1 year')),
@@ -616,7 +616,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'backup',
       label: const T('نسخة احتياطية الآن', 'Back up now'),
-      icon: LucideIcons.hardDrive,
+      icon: NzIcons.hardDrive,
       done: const T('بدأ النسخ الاحتياطي', 'Backup started'),
       run: (c) async => c.post('/v1/databases/${c.id}/backups', {'type': 'manual'}),
     ),
@@ -627,7 +627,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'quota',
       label: const T('تغيير الحصة', 'Change quota'),
-      icon: LucideIcons.gauge,
+      icon: NzIcons.gauge,
       fields: [
         FieldDef('gb', const T('الحصة (GB)', 'Quota (GB)'),
             kind: FieldKind.number, initial: (r) => r['quotaBytes'] == null ? null : '${(r['quotaBytes'] as num) ~/ 1000000000}'),
@@ -641,7 +641,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'verify',
       label: const T('إعادة التحقق الآن', 'Check again now'),
-      icon: LucideIcons.refreshCw,
+      icon: NzIcons.refreshCw,
       done: const T('بدأ التحقق', 'Check started'),
       run: (c) async => c.post('/v1/email/domains/${c.id}/verification', {}),
     ),
@@ -650,7 +650,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'quota',
       label: const T('تغيير السعة', 'Change size'),
-      icon: LucideIcons.gauge,
+      icon: NzIcons.gauge,
       fields: [FieldDef('quotaMb', const T('السعة (MB)', 'Size (MB)'), kind: FieldKind.number, initial: (r) => r['quotaMb'])],
       done: const T('تم الحفظ', 'Saved'),
       run: (c) async => c.versioned('PATCH', '/v1/email/mailboxes/${c.id}', {'quotaMb': c.n('quotaMb')}),
@@ -662,7 +662,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'remove',
       label: const T('إزالة من الحظر', 'Remove from the list'),
-      icon: LucideIcons.check,
+      icon: NzIcons.check,
       visible: (x) => x['active'] == true,
       confirm: const T('ستُرسل الرسائل إلى هذا العنوان مجددًا.', 'Messages will be sent to this address again.'),
       done: const T('أُزيل من قائمة الحظر', 'Removed from the list'),
@@ -673,7 +673,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'cancel',
       label: const T('إلغاء عند نهاية الفترة', 'Cancel at period end'),
-      icon: LucideIcons.x,
+      icon: NzIcons.x,
       destructive: true,
       visible: (x) => x['cancelAtPeriodEnd'] != true && x['status'] != 'cancelled',
       fields: const [FieldDef('reason', T('السبب (اختياري)', 'Reason (optional)'), required: false)],
@@ -685,8 +685,8 @@ final Map<String, List<ActionDef>> kItemActions = {
   ],
   'spendApprovals': [
     for (final (d, l, i) in [
-      ('approve', const T('موافقة', 'Approve'), LucideIcons.check),
-      ('deny', const T('رفض', 'Deny'), LucideIcons.x),
+      ('approve', const T('موافقة', 'Approve'), NzIcons.check),
+      ('deny', const T('رفض', 'Deny'), NzIcons.x),
     ])
       ActionDef(
         id: d,
@@ -705,7 +705,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'role',
       label: const T('تغيير الدور', 'Change role'),
-      icon: LucideIcons.userCog,
+      icon: NzIcons.userCog,
       stepUp: true,
       fields: [FieldDef('role', const T('الدور', 'Role'), kind: FieldKind.select, options: _roles, initial: (r) => r['role'])],
       done: const T('تم تغيير الدور', 'Role changed'),
@@ -715,7 +715,7 @@ final Map<String, List<ActionDef>> kItemActions = {
     ActionDef(
       id: 'remove',
       label: const T('إزالة من المؤسسة', 'Remove from organization'),
-      icon: LucideIcons.userMinus,
+      icon: NzIcons.userMinus,
       destructive: true,
       confirm: const T('سيفقد هذا العضو الوصول إلى المؤسسة فورًا.', 'This member loses access to the organization right away.'),
       done: const T('أُزيل العضو', 'Member removed'),

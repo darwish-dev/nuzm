@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/api_client.dart';
 import '../app_scope.dart';
@@ -12,6 +11,7 @@ import '../widgets/common.dart';
 import '../actions/action_model.dart';
 import '../actions/action_sheet.dart';
 import '../actions/registry.dart';
+import '../widgets/nz_icons.dart';
 import 'detail_screen.dart';
 import 'section_screen.dart';
 import 'sign_in_screen.dart';
@@ -78,7 +78,7 @@ class _PageBodyState extends State<PageBody> {
     final Widget body = switch (_state) {
       LoadState.loading => const SkeletonList(),
       LoadState.error => StateView(
-          icon: LucideIcons.cloudOff,
+          icon: NzIcons.cloudOff,
           tone: Tone.danger,
           title: S.errorTitle.of(context),
           hint: S.errorHint.of(context),
@@ -86,9 +86,9 @@ class _PageBodyState extends State<PageBody> {
           onAction: _load,
         ),
       LoadState.forbidden => StateView(
-          icon: LucideIcons.lock, tone: Tone.warn, title: S.forbiddenTitle.of(context), hint: S.forbiddenHint.of(context)),
+          icon: NzIcons.lock, tone: Tone.warn, title: S.forbiddenTitle.of(context), hint: S.forbiddenHint.of(context)),
       LoadState.notEnabled => StateView(
-          icon: LucideIcons.power, tone: Tone.neutral, title: S.notEnabledTitle.of(context), hint: S.notEnabledHint.of(context)),
+          icon: NzIcons.power, tone: Tone.neutral, title: S.notEnabledTitle.of(context), hint: S.notEnabledHint.of(context)),
       LoadState.ready => PageRefresh(reload: _load, child: _content(context)),
     };
     return RefreshIndicator(
@@ -211,7 +211,7 @@ class DashboardView extends StatelessWidget {
                   const SizedBox(height: 14),
                   FilledButton.icon(
                     onPressed: () => askAi(context, S.heroLine.of(context)),
-                    icon: const Icon(LucideIcons.sparkles, size: 18),
+                    icon: const Icon(NzIcons.sparkles, size: 18),
                     label: Text(S.askAi.of(context)),
                   ),
                 ]),
@@ -238,7 +238,7 @@ class DashboardView extends StatelessWidget {
           if (data.attention.isEmpty)
             ListTile(
               minTileHeight: 60,
-              leading: Icon(LucideIcons.circleCheck, color: toneColors(context, Tone.success).$2),
+              leading: Icon(NzIcons.circleCheck, color: toneColors(context, Tone.success).$2),
               title: Text(S.allClear.of(context)),
             ),
           for (final (text, pageId, tone) in data.attention)
@@ -542,7 +542,7 @@ class _DomainSearchViewState extends State<DomainSearchView> {
         decoration: BoxDecoration(color: nz.card, borderRadius: BorderRadius.circular(14.5)),
         child: Row(children: [
           const SizedBox(width: 12),
-          Icon(LucideIcons.globe, color: nz.muted),
+          Icon(NzIcons.globe, color: nz.muted),
           Expanded(
             child: TextField(
               controller: _ctrl,
@@ -629,7 +629,7 @@ class _BuilderStartViewState extends State<BuilderStartView> {
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            const IconTile(LucideIcons.sparkles, size: 44, tone: Tone.accent),
+            const IconTile(NzIcons.sparkles, size: 44, tone: Tone.accent),
             const SizedBox(width: 12),
             Expanded(child: Text(S.builderPrompt.of(context), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
           ]),
@@ -649,7 +649,7 @@ class _BuilderStartViewState extends State<BuilderStartView> {
               if (t.isNotEmpty) askAi(context, t);
             },
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-            icon: const Icon(LucideIcons.sparkles, size: 18),
+            icon: const Icon(NzIcons.sparkles, size: 18),
             label: Text(S.startBuilding.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),
         ]),
@@ -662,7 +662,7 @@ class _BuilderStartViewState extends State<BuilderStartView> {
             onTap: () => _ctrl.text = c.of(context),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Row(children: [
-              Icon(LucideIcons.sparkles, size: 18, color: nz.accent),
+              Icon(NzIcons.sparkles, size: 18, color: nz.accent),
               const SizedBox(width: 12),
               Expanded(child: Text(c.of(context), style: const TextStyle(fontWeight: FontWeight.w600))),
             ]),

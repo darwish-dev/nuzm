@@ -9,8 +9,9 @@ class CircularRevealRoute<T> extends PageRouteBuilder<T> {
       : super(
           opaque: false,
           barrierColor: Colors.transparent,
-          transitionDuration: const Duration(milliseconds: 460),
-          reverseTransitionDuration: const Duration(milliseconds: 360),
+          // Slow enough to see the circle open and close.
+          transitionDuration: const Duration(milliseconds: 900),
+          reverseTransitionDuration: const Duration(milliseconds: 700),
           pageBuilder: (context, _, __) => builder(context),
         );
 
@@ -27,11 +28,11 @@ class CircularRevealRoute<T> extends PageRouteBuilder<T> {
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
     if (MediaQuery.of(context).disableAnimations) return FadeTransition(opacity: animation, child: child);
-    final grow = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+    final grow = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic, reverseCurve: Curves.easeInOutCubic);
     final fade = CurvedAnimation(
       parent: animation,
-      curve: const Interval(0, 0.55, curve: Curves.easeOut),
-      reverseCurve: const Interval(0.25, 1, curve: Curves.easeIn),
+      curve: const Interval(0, 0.6, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.3, 1, curve: Curves.easeIn),
     );
     return AnimatedBuilder(
       animation: animation,

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_scope.dart';
 import '../data/data_source.dart';
 import '../data/nav.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
+import '../theme/nuzm_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/nz_icons.dart';
 import 'notifications_screen.dart';
 import 'section_screen.dart';
 
@@ -28,17 +29,18 @@ class _MenuScreenState extends State<MenuScreen> {
     return NzScaffold(
       // Close sits where the menu button was, so the circle opens and closes on the same spot.
       header: Row(children: [
-        CircleIconButton(icon: LucideIcons.x, tooltip: S.close.of(context), onTap: () => Navigator.of(context).pop()),
+        CircleIconButton(icon: NzIcons.x, tooltip: S.close.of(context), onTap: () => Navigator.of(context).pop()),
         const Spacer(),
         CircleIconButton(
-          icon: LucideIcons.bell,
+          icon: NzIcons.bell,
           tooltip: S.notifications.of(context),
           dot: true,
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
         ),
       ]),
       body: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 28), children: [
-        const _WalletCard(),
+        // The balances are a dark card in both themes, like the top bar's credit.
+        Theme(data: NuzmTheme.build(Brightness.dark), child: const _WalletCard()),
         const SizedBox(height: 10),
         const _OrgPicker(),
         const SizedBox(height: 14),
@@ -51,8 +53,8 @@ class _MenuScreenState extends State<MenuScreen> {
             crossAxisSpacing: 10,
             mainAxisExtent: 60,
           ),
-          itemCount: kCategories.length,
-          itemBuilder: (context, i) => _CategoryTile(kCategories[i]),
+          itemCount: _sections.length,
+          itemBuilder: (context, i) => _CategoryTile(_sections[i]),
         ),
         _SectionLabel(S.recentChats),
         NzCard(
@@ -68,7 +70,7 @@ class _MenuScreenState extends State<MenuScreen> {
               if (chats.isEmpty) {
                 return ListTile(
                   minTileHeight: 50,
-                  leading: Icon(LucideIcons.messageCircle, size: 18, color: nz.muted),
+                  leading: Icon(NzIcons.messageCircle, size: 18, color: nz.muted),
                   title: Text(snap.hasError ? S.errorTitle.of(context) : S.noChats.of(context),
                       style: TextStyle(color: nz.muted, fontSize: 13.5)),
                 );
@@ -79,7 +81,7 @@ class _MenuScreenState extends State<MenuScreen> {
                     minTileHeight: 50,
                     dense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    leading: Icon(LucideIcons.messageCircle, size: 18, color: nz.muted),
+                    leading: Icon(NzIcons.messageCircle, size: 18, color: nz.muted),
                     title: Text(c.title.of(context),
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     trailing: const ForwardChevron(size: 18),
@@ -95,6 +97,9 @@ class _MenuScreenState extends State<MenuScreen> {
     );
   }
 }
+
+/// Every console section except the profile, which sits in the settings.
+final _sections = [for (final c in kCategories) if (c.id != 'account') c];
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
@@ -166,13 +171,13 @@ class _WalletCard extends StatelessWidget {
             );
         Widget layered = IntrinsicHeight(
           child: Row(children: [
-            half(LucideIcons.wallet, S.wallet, b?.walletMinor == null ? null : displayValue('money:${b!.walletMinor}:${b.currency}', context),
+            half(NzIcons.wallet, S.wallet, b?.walletMinor == null ? null : displayValue('money:${b!.walletMinor}:${b.currency}', context),
                 'billingOverview'),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: VerticalDivider(width: 1, thickness: 1, color: nz.fg.withValues(alpha: 0.08)),
             ),
-            half(LucideIcons.sparkles, S.credits, b?.credits == null ? null : groupDigits(b!.credits!), 'aiUsage', low: b?.lowCredit == true),
+            half(NzIcons.sparkles, S.credits, b?.credits == null ? null : groupDigits(b!.credits!), 'aiUsage', low: b?.lowCredit == true),
           ]),
         );
         for (final g in nz.heroLayers.reversed) {
@@ -222,7 +227,7 @@ class _OrgPicker extends StatelessWidget {
           ),
         if (canSwitch) ...[
           const SizedBox(width: 8),
-          Icon(LucideIcons.chevronsUpDown, size: 17, color: nz.muted),
+          Icon(NzIcons.chevronsUpDown, size: 17, color: nz.muted),
         ],
       ]),
     );
@@ -258,7 +263,7 @@ class _OrgPicker extends StatelessWidget {
                   Text(o.role, style: TextStyle(color: nz.muted, fontSize: 12)),
                   if (o.orgId == app.organization?.orgId) ...[
                     const SizedBox(width: 8),
-                    Icon(LucideIcons.check, size: 18, color: nz.accent),
+                    Icon(NzIcons.check, size: 18, color: nz.accent),
                   ],
                 ]),
               ),
@@ -290,7 +295,7 @@ class _OrgAvatar extends StatelessWidget {
   }
 }
 
-/// Settings in the footer: appearance, language, and sign-out (or sign-in from sample mode).
+/// Settings in the footer: profile, appearance, language, and sign-out (or sign-in from sample mode).
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard();
 
@@ -314,8 +319,13 @@ class _SettingsCard extends StatelessWidget {
       bordered: false,
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(children: [
+        InkWell(
+          onTap: () => openPage(context, 'profile'),
+          child: row(NzIcons.user, categoryById('account').label, ForwardChevron(size: 18)),
+        ),
+        divider,
         row(
-          dark ? LucideIcons.moon : LucideIcons.sun,
+          dark ? NzIcons.moon : NzIcons.sun,
           S.appearance,
           _Segments(
             options: [S.light, S.dark],
@@ -325,7 +335,7 @@ class _SettingsCard extends StatelessWidget {
         ),
         divider,
         row(
-          LucideIcons.languages,
+          NzIcons.languages,
           S.languageLabel,
           _Segments(
             options: [S.arabicName, S.englishName],
@@ -339,7 +349,7 @@ class _SettingsCard extends StatelessWidget {
         ListTile(
           minTileHeight: 50,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-          leading: Icon(live || !app.canUseLive ? LucideIcons.logOut : LucideIcons.user, size: 18, color: nz.danger),
+          leading: Icon(live || !app.canUseLive ? NzIcons.logOut : NzIcons.user, size: 18, color: nz.danger),
           title: Text(live || !app.canUseLive ? S.signOut.of(context) : S.signIn.of(context),
               style: TextStyle(color: nz.danger, fontWeight: FontWeight.w700, fontSize: 14)),
           subtitle: live && app.email != null ? LtrText('${app.email}', style: TextStyle(color: nz.muted, fontSize: 12)) : null,

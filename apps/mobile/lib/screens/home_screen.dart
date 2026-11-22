@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/api_client.dart';
 import '../app_scope.dart';
@@ -9,6 +8,7 @@ import '../theme/nuzm_colors.dart';
 import '../widgets/circular_reveal.dart';
 import '../widgets/common.dart';
 import '../widgets/composer.dart';
+import '../widgets/nz_icons.dart';
 import 'menu_screen.dart';
 import 'section_screen.dart';
 import 'sign_in_screen.dart';
@@ -148,24 +148,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final empty = _messages.isEmpty;
-    final nz = context.nz;
     return NzScaffold(
       header: Row(children: [
-        KeyedSubtree(key: _menuKey, child: CircleIconButton(icon: LucideIcons.menu, tooltip: S.menu.of(context), dot: true, onTap: _openMenu)),
-        Expanded(
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            brandMark(context, size: 20),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(S.nuzmAi.of(context),
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: nz.chromeFg, fontSize: 14, fontWeight: FontWeight.w700)),
-            ),
-          ]),
-        ),
+        KeyedSubtree(key: _menuKey, child: CircleIconButton(icon: NzIcons.menu, tooltip: S.menu.of(context), dot: true, onTap: _openMenu)),
+        const Spacer(),
         // The AI credits the chat spends (the console's top-bar balance chip).
         CreditChip(onTap: () => openPage(context, 'aiUsage')),
         const SizedBox(width: 6),
-        CircleIconButton(icon: LucideIcons.squarePen, tooltip: S.newChat.of(context), onTap: _newChat),
+        CircleIconButton(icon: NzIcons.squarePen, tooltip: S.newChat.of(context), onTap: _newChat),
       ]),
       body: Column(children: [
         Expanded(
@@ -325,11 +315,11 @@ class _StartCards extends StatelessWidget {
           ),
         );
     return Row(children: [
-      card(LucideIcons.smartphone, S.startMobile, S.promptMobile),
+      card(NzIcons.smartphone, S.startMobile, S.promptMobile),
       const SizedBox(width: 8),
-      card(LucideIcons.appWindow, S.startWebApp, S.promptWebApp),
+      card(NzIcons.appWindow, S.startWebApp, S.promptWebApp),
       const SizedBox(width: 8),
-      card(LucideIcons.globe, S.startWebsite, S.promptWebsite),
+      card(NzIcons.globe, S.startWebsite, S.promptWebsite),
     ]);
   }
 }

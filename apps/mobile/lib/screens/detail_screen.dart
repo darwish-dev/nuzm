@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../actions/action_model.dart';
 import '../actions/action_sheet.dart';
@@ -9,6 +8,7 @@ import '../data/nav.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
+import '../widgets/nz_icons.dart';
 import 'section_screen.dart';
 
 /// Detail of one resource (server, site, invoice, member…): header, facts and actions.
@@ -106,7 +106,7 @@ class DetailScreen extends StatelessWidget {
             FilledButton.icon(
               onPressed: () => askAi(context, '${S.askAi.of(context)}: $title'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-              icon: const Icon(LucideIcons.sparkles, size: 18),
+              icon: const Icon(NzIcons.sparkles, size: 18),
               label: Text(S.askAi.of(context), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
       ]),

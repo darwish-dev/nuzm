@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n/strings.dart';
+import '../widgets/nz_icons.dart';
 
 /// How a page renders. Every page of the customer console maps to one of these.
 enum PageKind { dashboard, list, stats, catalog, form, domainSearch, builder }
@@ -41,100 +41,100 @@ class NavCategory {
 
 /// The customer console's navigation, category for category and page for page (labels from packages/i18n).
 const List<NavCategory> kCategories = [
-  NavCategory('dashboard', T('لوحة التحكم', 'Dashboard'), LucideIcons.layoutDashboard, [
-    NavGroup([NavPage('overview', T('نظرة عامة', 'Overview'), LucideIcons.layoutDashboard, PageKind.dashboard, '/')]),
+  NavCategory('dashboard', T('لوحة التحكم', 'Dashboard'), NzIcons.layoutDashboard, [
+    NavGroup([NavPage('overview', T('نظرة عامة', 'Overview'), NzIcons.layoutDashboard, PageKind.dashboard, '/')]),
   ]),
-  NavCategory('projects', T('المشاريع', 'Projects'), LucideIcons.folderKanban, [
+  NavCategory('projects', T('المشاريع', 'Projects'), NzIcons.folderKanban, [
     NavGroup([
-      NavPage('projects', T('المشاريع', 'Projects'), LucideIcons.folderKanban, PageKind.list, '/projects'),
-      NavPage('workspaces', T('مساحات العمل', 'Workspaces'), LucideIcons.layoutGrid, PageKind.list, '/workspaces'),
+      NavPage('projects', T('المشاريع', 'Projects'), NzIcons.folderKanban, PageKind.list, '/projects'),
+      NavPage('workspaces', T('مساحات العمل', 'Workspaces'), NzIcons.layoutGrid, PageKind.list, '/workspaces'),
     ]),
   ]),
-  NavCategory('build', T('البناء', 'Build'), LucideIcons.code, [
+  NavCategory('build', T('البناء', 'Build'), NzIcons.code, [
     NavGroup([
-      NavPage('builder', T('ابدأ مشروعًا', 'Start a project'), LucideIcons.sparkles, PageKind.builder, '/builder/projects'),
-      NavPage('appbuilder', T('منشئ التطبيقات', 'App builder'), LucideIcons.appWindow, PageKind.list, '/builder/apps'),
-      NavPage('buildApprovals', T('الموافقات', 'Approvals'), LucideIcons.badgeCheck, PageKind.list, '/approvals'),
-      NavPage('mobile', T('تطبيقات الجوال', 'Mobile apps'), LucideIcons.smartphone, PageKind.list, '/mobile/new'),
+      NavPage('builder', T('ابدأ مشروعًا', 'Start a project'), NzIcons.sparkles, PageKind.builder, '/builder/projects'),
+      NavPage('appbuilder', T('منشئ التطبيقات', 'App builder'), NzIcons.appWindow, PageKind.list, '/builder/apps'),
+      NavPage('buildApprovals', T('الموافقات', 'Approvals'), NzIcons.badgeCheck, PageKind.list, '/approvals'),
+      NavPage('mobile', T('تطبيقات الجوال', 'Mobile apps'), NzIcons.smartphone, PageKind.list, '/mobile/new'),
     ]),
     NavGroup(title: T('الذكاء الاصطناعي', 'AI'), [
-      NavPage('aiUsage', T('الاستهلاك والرصيد', 'Usage and credits'), LucideIcons.gauge, PageKind.stats, '/ai/usage'),
-      NavPage('aiBudgets', T('الميزانيات', 'Budgets'), LucideIcons.piggyBank, PageKind.stats, '/ai/budgets'),
+      NavPage('aiUsage', T('الاستهلاك والرصيد', 'Usage and credits'), NzIcons.gauge, PageKind.stats, '/ai/usage'),
+      NavPage('aiBudgets', T('الميزانيات', 'Budgets'), NzIcons.piggyBank, PageKind.stats, '/ai/budgets'),
     ]),
   ], badge: 1),
-  NavCategory('automation', T('الأتمتة', 'Automation'), LucideIcons.workflow, [
+  NavCategory('automation', T('الأتمتة', 'Automation'), NzIcons.workflow, [
     NavGroup([
-      NavPage('workflows', T('سير العمل', 'Workflows'), LucideIcons.workflow, PageKind.list, '/automation/workflows'),
-      NavPage('connectors', T('الموصّلات', 'Connectors'), LucideIcons.plug, PageKind.list, '/automation/connectors'),
-      NavPage('webhooks', T('خطافات الويب', 'Webhooks'), LucideIcons.webhook, PageKind.list, '/settings/webhooks'),
+      NavPage('workflows', T('سير العمل', 'Workflows'), NzIcons.workflow, PageKind.list, '/automation/workflows'),
+      NavPage('connectors', T('الموصّلات', 'Connectors'), NzIcons.plug, PageKind.list, '/automation/connectors'),
+      NavPage('webhooks', T('خطافات الويب', 'Webhooks'), NzIcons.webhook, PageKind.list, '/settings/webhooks'),
     ]),
   ]),
-  NavCategory('marketplace', T('السوق', 'Marketplace'), LucideIcons.store, [
-    NavGroup([NavPage('marketplace', T('السوق', 'Marketplace'), LucideIcons.store, PageKind.catalog, '/marketplace')]),
+  NavCategory('marketplace', T('السوق', 'Marketplace'), NzIcons.store, [
+    NavGroup([NavPage('marketplace', T('السوق', 'Marketplace'), NzIcons.store, PageKind.catalog, '/marketplace')]),
   ]),
-  NavCategory('cloud', T('السحابة', 'Cloud'), LucideIcons.cloud, title: T('البنية السحابية', 'Cloud infrastructure'), [
+  NavCategory('cloud', T('السحابة', 'Cloud'), NzIcons.cloud, title: T('البنية السحابية', 'Cloud infrastructure'), [
     NavGroup(title: T('البنية', 'Infrastructure'), [
-      NavPage('instances', T('الخوادم', 'Servers'), LucideIcons.server, PageKind.list, '/compute/instances'),
+      NavPage('instances', T('الخوادم', 'Servers'), NzIcons.server, PageKind.list, '/compute/instances'),
     ]),
   ]),
-  NavCategory('hosting', T('الاستضافة', 'Hosting'), LucideIcons.hardDrive, [
+  NavCategory('hosting', T('الاستضافة', 'Hosting'), NzIcons.hardDrive, [
     NavGroup([
-      NavPage('sites', T('مواقع الاستضافة', 'Hosting sites'), LucideIcons.globe, PageKind.list, '/hosting/sites'),
-      NavPage('hostingPlans', T('خطط الاستضافة', 'Hosting plans'), LucideIcons.layers, PageKind.catalog, '/hosting/plans'),
+      NavPage('sites', T('مواقع الاستضافة', 'Hosting sites'), NzIcons.globe, PageKind.list, '/hosting/sites'),
+      NavPage('hostingPlans', T('خطط الاستضافة', 'Hosting plans'), NzIcons.layers, PageKind.catalog, '/hosting/plans'),
     ]),
   ]),
-  NavCategory('domains', T('النطاقات', 'Domains'), LucideIcons.globe, [
+  NavCategory('domains', T('النطاقات', 'Domains'), NzIcons.globe, [
     NavGroup([
-      NavPage('domainList', T('نطاقاتي', 'My domains'), LucideIcons.globe, PageKind.list, '/domains'),
-      NavPage('domainSearch', T('بحث', 'Search'), LucideIcons.search, PageKind.domainSearch, '/domains/search'),
-      NavPage('transfers', T('النقل', 'Transfers'), LucideIcons.arrowLeftRight, PageKind.list, '/domains/transfers'),
+      NavPage('domainList', T('نطاقاتي', 'My domains'), NzIcons.globe, PageKind.list, '/domains'),
+      NavPage('domainSearch', T('بحث', 'Search'), NzIcons.search, PageKind.domainSearch, '/domains/search'),
+      NavPage('transfers', T('النقل', 'Transfers'), NzIcons.arrowLeftRight, PageKind.list, '/domains/transfers'),
     ]),
   ], badge: 1),
-  NavCategory('data', T('البيانات', 'Data'), LucideIcons.database, [
+  NavCategory('data', T('البيانات', 'Data'), NzIcons.database, [
     NavGroup([
-      NavPage('databases', T('قواعد البيانات', 'Databases'), LucideIcons.database, PageKind.list, '/databases'),
-      NavPage('storage', T('التخزين', 'Storage'), LucideIcons.container, PageKind.list, '/storage/buckets'),
+      NavPage('databases', T('قواعد البيانات', 'Databases'), NzIcons.database, PageKind.list, '/databases'),
+      NavPage('storage', T('التخزين', 'Storage'), NzIcons.container, PageKind.list, '/storage/buckets'),
     ]),
   ]),
-  NavCategory('email', T('البريد', 'Email'), LucideIcons.mail, [
+  NavCategory('email', T('البريد', 'Email'), NzIcons.mail, [
     NavGroup([
-      NavPage('emailDomains', T('النطاقات', 'Domains'), LucideIcons.atSign, PageKind.list, '/email/domains'),
-      NavPage('mailboxes', T('صناديق البريد', 'Mailboxes'), LucideIcons.inbox, PageKind.list, '/email/mailboxes'),
-      NavPage('messages', T('الرسائل', 'Messages'), LucideIcons.send, PageKind.list, '/email/messages'),
-      NavPage('senders', T('هويات المرسل', 'Sender identities'), LucideIcons.badgeCheck, PageKind.list, '/email/senders'),
-      NavPage('templates', T('القوالب', 'Templates'), LucideIcons.layoutTemplate, PageKind.list, '/email/templates'),
-      NavPage('suppressions', T('قائمة الحظر', 'Suppression list'), LucideIcons.ban, PageKind.list, '/email/suppressions'),
+      NavPage('emailDomains', T('النطاقات', 'Domains'), NzIcons.atSign, PageKind.list, '/email/domains'),
+      NavPage('mailboxes', T('صناديق البريد', 'Mailboxes'), NzIcons.inbox, PageKind.list, '/email/mailboxes'),
+      NavPage('messages', T('الرسائل', 'Messages'), NzIcons.send, PageKind.list, '/email/messages'),
+      NavPage('senders', T('هويات المرسل', 'Sender identities'), NzIcons.badgeCheck, PageKind.list, '/email/senders'),
+      NavPage('templates', T('القوالب', 'Templates'), NzIcons.layoutTemplate, PageKind.list, '/email/templates'),
+      NavPage('suppressions', T('قائمة الحظر', 'Suppression list'), NzIcons.ban, PageKind.list, '/email/suppressions'),
     ]),
   ], badge: 3),
-  NavCategory('finance', T('المالية', 'Finance'), LucideIcons.wallet, [
+  NavCategory('finance', T('المالية', 'Finance'), NzIcons.wallet, [
     NavGroup(title: T('الفوترة', 'Billing'), [
-      NavPage('billingOverview', T('نظرة عامة', 'Overview'), LucideIcons.wallet, PageKind.stats, '/billing'),
-      NavPage('plansSubs', T('الخطط والاشتراكات', 'Plans and subscriptions'), LucideIcons.layers, PageKind.catalog, '/billing/plans'),
-      NavPage('usageQuotas', T('الاستخدام والحصص', 'Usage and quotas'), LucideIcons.gauge, PageKind.stats, '/billing/usage'),
-      NavPage('invoices', T('الفواتير', 'Invoices'), LucideIcons.receipt, PageKind.list, '/billing/invoices'),
-      NavPage('payments', T('المدفوعات', 'Payments'), LucideIcons.creditCard, PageKind.list, '/billing/payments'),
+      NavPage('billingOverview', T('نظرة عامة', 'Overview'), NzIcons.wallet, PageKind.stats, '/billing'),
+      NavPage('plansSubs', T('الخطط والاشتراكات', 'Plans and subscriptions'), NzIcons.layers, PageKind.catalog, '/billing/plans'),
+      NavPage('usageQuotas', T('الاستخدام والحصص', 'Usage and quotas'), NzIcons.gauge, PageKind.stats, '/billing/usage'),
+      NavPage('invoices', T('الفواتير', 'Invoices'), NzIcons.receipt, PageKind.list, '/billing/invoices'),
+      NavPage('payments', T('المدفوعات', 'Payments'), NzIcons.creditCard, PageKind.list, '/billing/payments'),
     ]),
     NavGroup(title: T('الضبط والمتابعة', 'Control'), [
-      NavPage('limits', T('حدود الإنفاق', 'Spending limits'), LucideIcons.slidersHorizontal, PageKind.stats, '/billing/spending-limits'),
-      NavPage('spendApprovals', T('موافقات الإنفاق', 'Spend approvals'), LucideIcons.checkCheck, PageKind.list, '/billing/approvals'),
-      NavPage('ledger', T('كشف الحساب', 'Statement'), LucideIcons.fileText, PageKind.list, '/billing/ledger'),
-      NavPage('taxProfile', T('الملف الضريبي', 'Tax profile'), LucideIcons.landmark, PageKind.form, '/billing/tax-profile'),
+      NavPage('limits', T('حدود الإنفاق', 'Spending limits'), NzIcons.slidersHorizontal, PageKind.stats, '/billing/spending-limits'),
+      NavPage('spendApprovals', T('موافقات الإنفاق', 'Spend approvals'), NzIcons.checkCheck, PageKind.list, '/billing/approvals'),
+      NavPage('ledger', T('كشف الحساب', 'Statement'), NzIcons.fileText, PageKind.list, '/billing/ledger'),
+      NavPage('taxProfile', T('الملف الضريبي', 'Tax profile'), NzIcons.landmark, PageKind.form, '/billing/tax-profile'),
     ]),
   ], badge: 1),
-  NavCategory('organization', T('المؤسسة', 'Organization'), LucideIcons.building2, [
+  NavCategory('organization', T('المؤسسة', 'Organization'), NzIcons.building2, [
     NavGroup([
-      NavPage('team', T('الفريق', 'Team'), LucideIcons.users, PageKind.list, '/settings/team'),
-      NavPage('orgSettings', T('المؤسسة', 'Organization'), LucideIcons.building2, PageKind.form, '/settings/organization'),
-      NavPage('privacy', T('الخصوصية والبيانات', 'Privacy and data'), LucideIcons.shieldCheck, PageKind.form, '/privacy'),
-      NavPage('sso', T('الدخول الموحّد', 'Single sign-on'), LucideIcons.keyRound, PageKind.form, '/settings/security/sso'),
-      NavPage('agency', T('بوابة الوكالة', 'Agency portal'), LucideIcons.briefcase, PageKind.list, '/agency'),
-      NavPage('reseller', T('بوابة الموزّع', 'Reseller portal'), LucideIcons.network, PageKind.list, '/reseller'),
-      NavPage('partners', T('الشركاء', 'Partners'), LucideIcons.handshake, PageKind.list, '/settings/partners'),
+      NavPage('team', T('الفريق', 'Team'), NzIcons.users, PageKind.list, '/settings/team'),
+      NavPage('orgSettings', T('المؤسسة', 'Organization'), NzIcons.building2, PageKind.form, '/settings/organization'),
+      NavPage('privacy', T('الخصوصية والبيانات', 'Privacy and data'), NzIcons.shieldCheck, PageKind.form, '/privacy'),
+      NavPage('sso', T('الدخول الموحّد', 'Single sign-on'), NzIcons.keyRound, PageKind.form, '/settings/security/sso'),
+      NavPage('agency', T('بوابة الوكالة', 'Agency portal'), NzIcons.briefcase, PageKind.list, '/agency'),
+      NavPage('reseller', T('بوابة الموزّع', 'Reseller portal'), NzIcons.network, PageKind.list, '/reseller'),
+      NavPage('partners', T('الشركاء', 'Partners'), NzIcons.handshake, PageKind.list, '/settings/partners'),
     ]),
   ]),
-  NavCategory('account', T('الملف الشخصي', 'Profile'), LucideIcons.user, [
+  NavCategory('account', T('الملف الشخصي', 'Profile'), NzIcons.user, [
     NavGroup(title: T('حسابك', 'Your account'), [
-      NavPage('profile', T('الملف الشخصي', 'Profile'), LucideIcons.user, PageKind.form, '/account'),
+      NavPage('profile', T('الملف الشخصي', 'Profile'), NzIcons.user, PageKind.form, '/account'),
     ]),
   ]),
 ];

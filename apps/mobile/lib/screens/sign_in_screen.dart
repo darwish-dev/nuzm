@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/api_client.dart';
 import '../api/config.dart';
@@ -7,6 +6,7 @@ import '../app_scope.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
+import '../widgets/nz_icons.dart';
 
 /// Maps an API problem to a sentence for the user (the code stays in the logs, not on screen).
 String problemText(BuildContext context, Object e) {
@@ -38,12 +38,12 @@ class _Frame extends StatelessWidget {
         Text(S.appName.of(context), style: TextStyle(color: nz.chromeFg, fontSize: 17, fontWeight: FontWeight.w700)),
         const Spacer(),
         CircleIconButton(
-          icon: dark ? LucideIcons.sun : LucideIcons.moon,
+          icon: dark ? NzIcons.sun : NzIcons.moon,
           tooltip: (dark ? S.lightMode : S.darkMode).of(context),
           onTap: () => app.toggleTheme(Theme.of(context).brightness),
         ),
         const SizedBox(width: 8),
-        CircleIconButton(icon: LucideIcons.languages, tooltip: S.language.of(context), onTap: app.toggleLocale),
+        CircleIconButton(icon: NzIcons.languages, tooltip: S.language.of(context), onTap: app.toggleLocale),
       ]),
       body: Center(
         child: ConstrainedBox(
@@ -130,7 +130,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 S.password.of(context),
                 suffix: IconButton(
                   tooltip: (_obscure ? S.showPassword : S.hidePassword).of(context),
-                  icon: Icon(_obscure ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
+                  icon: Icon(_obscure ? NzIcons.eye : NzIcons.eyeOff, size: 20),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
@@ -159,7 +159,7 @@ class _SignInScreenState extends State<SignInScreen> {
       OutlinedButton.icon(
         onPressed: () => AppScope.read(context).useSampleData(),
         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-        icon: Icon(LucideIcons.sparkles, size: 18, color: nz.orangeText),
+        icon: Icon(NzIcons.sparkles, size: 18, color: nz.orangeText),
         label: Text(S.exploreSample.of(context), style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
     ]);

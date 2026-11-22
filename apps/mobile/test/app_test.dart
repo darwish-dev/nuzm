@@ -53,7 +53,8 @@ void main() {
       final c = AppController(themeMode: b == Brightness.dark ? ThemeMode.dark : ThemeMode.light);
       await tester.pumpWidget(NuzmApp(controller: c, useGoogleFonts: false));
       await tester.pumpAndSettle();
-      expect(find.textContaining('NUZM AI'), findsWidgets);
+      expect(find.text('NUZM AI'), findsNothing, reason: 'no title in the chat top bar');
+      expect(find.text('اكتب رسالتك إلى NUZM AI…'), findsOneWidget);
       expect(find.text('كيف أساعدك اليوم؟'), findsOneWidget, reason: 'one simple greeting, Claude-style');
       expect(Directionality.of(tester.element(find.byType(Scaffold).first)), TextDirection.rtl);
 
@@ -67,6 +68,10 @@ void main() {
       expect(find.textContaining('في هذه المعاينة'), findsOneWidget);
     });
   }
+
+  test('dark is the default appearance', () {
+    expect(AppController().themeMode, ThemeMode.dark);
+  });
 
   testWidgets('menu: wallet and credits, organization picker, every section, no search or shortcut circles', (tester) async {
     await setPhone(tester);
@@ -83,7 +88,7 @@ void main() {
     expect(find.textContaining('1,250.00'), findsOneWidget);
     expect(find.descendant(of: menu, matching: find.textContaining('7,420')), findsOneWidget);
     expect(find.text('المؤسسة'), findsWidgets, reason: 'organization picker');
-    for (final cat in kCategories) {
+    for (final cat in kCategories.where((c) => c.id != 'account')) {
       expect(find.descendant(of: menu, matching: find.text(cat.label.ar)), findsWidgets, reason: cat.id);
     }
     final scroll = find.descendant(of: menu, matching: find.byType(Scrollable)).first;
@@ -94,6 +99,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('تسجيل الخروج'), 300, scrollable: scroll);
     await tester.pumpAndSettle();
     expect(find.text('الإعدادات'), findsOneWidget);
+    expect(find.descendant(of: menu, matching: find.text('الملف الشخصي')), findsOneWidget, reason: 'profile is a settings row, not a tile');
     expect(find.text('تسجيل الخروج'), findsOneWidget);
     await tester.tap(find.descendant(of: menu, matching: find.text('English')));
     await tester.pumpAndSettle();

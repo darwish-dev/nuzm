@@ -1,7 +1,7 @@
+import '../widgets/nz_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/api_client.dart';
 import '../app_scope.dart';
@@ -294,7 +294,7 @@ class _ActionSheetState extends State<ActionSheet> {
           if (a.stepUp) ...[
             const SizedBox(height: 10),
             Row(children: [
-              Icon(LucideIcons.shieldCheck, size: 16, color: nz.muted),
+              Icon(NzIcons.shieldCheck, size: 16, color: nz.muted),
               const SizedBox(width: 6),
               Expanded(child: Text(S.stepUpNote.of(context), style: TextStyle(color: nz.muted, fontSize: 13))),
             ]),
@@ -315,7 +315,7 @@ class _ActionSheetState extends State<ActionSheet> {
             FilledButton.icon(
               onPressed: _busy ? null : _getQuote,
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-              icon: _busy ? _spinner(nz) : const Icon(LucideIcons.receipt, size: 18),
+              icon: _busy ? _spinner(nz) : const Icon(NzIcons.receipt, size: 18),
               label: Text(S.getPrice.of(context)),
             )
           else

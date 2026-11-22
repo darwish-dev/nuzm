@@ -15,11 +15,11 @@ class Membership {
   final String type;
 }
 
-/// App-wide state: language (Arabic by default, D-32), appearance, and the session.
+/// App-wide state: language (Arabic by default, D-32), appearance (dark by default), and the session.
 /// Live mode signs in against the API; sample mode ([DemoDataSource]) needs no account.
 class AppController extends ChangeNotifier {
   /// Sample data, already "signed in" (previews, tests).
-  AppController({Locale locale = const Locale('ar'), ThemeMode themeMode = ThemeMode.system, DataSource? data})
+  AppController({Locale locale = const Locale('ar'), ThemeMode themeMode = ThemeMode.dark, DataSource? data})
       : _locale = locale,
         _themeMode = themeMode,
         api = null,
@@ -27,7 +27,7 @@ class AppController extends ChangeNotifier {
         _phase = AppPhase.ready;
 
   /// Live API: starts signed out until [start] finds a stored session.
-  AppController.live(ApiClient this.api, {Locale locale = const Locale('ar'), ThemeMode themeMode = ThemeMode.system})
+  AppController.live(ApiClient this.api, {Locale locale = const Locale('ar'), ThemeMode themeMode = ThemeMode.dark})
       : _locale = locale,
         _themeMode = themeMode,
         _data = const DemoDataSource(),

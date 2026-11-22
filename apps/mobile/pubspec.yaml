@@ -15,7 +15,7 @@ dependencies:
   flutter_secure_storage: ^10.3.4
   http: ^1.6.0
   intl: ^0.20.2
-  lucide_icons_flutter: ^4.0.3
+  phosphor_flutter: ^2.1.0
   speech_to_text: ^7.4.0
 
 dev_dependencies:

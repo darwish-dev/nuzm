@@ -48,6 +48,7 @@ class NuzmColors extends ThemeExtension<NuzmColors> {
     required this.shadow,
     required this.chromeFg,
     required this.chromeButton,
+    required this.chromeButtonFg,
     required this.logoFilter,
   });
 
@@ -96,7 +97,9 @@ class NuzmColors extends ThemeExtension<NuzmColors> {
 
   /// Text and icons drawn directly on the chrome.
   final Color chromeFg;
+  /// Top-bar buttons and the credit chip: a dark, borderless disc in both themes.
   final Color chromeButton;
+  final Color chromeButtonFg;
 
   /// The console darkens the mint logo on light surfaces (`brightness(0.62) saturate(1.5)`).
   final ColorFilter? logoFilter;
@@ -160,7 +163,8 @@ class NuzmColors extends ThemeExtension<NuzmColors> {
     danger: const Color(0xFFF2766F),
     shadow: const Color(0x80000000),
     chromeFg: const Color(0xFFF4F0E8),
-    chromeButton: const Color(0x14FFFFFF),
+    chromeButton: const Color(0xD90D0E10),
+    chromeButtonFg: const Color(0xFFF4F0E8),
     logoFilter: null,
   );
 
@@ -198,7 +202,8 @@ class NuzmColors extends ThemeExtension<NuzmColors> {
     danger: const Color(0xFFB42D26),
     shadow: const Color(0x1F141428),
     chromeFg: const Color(0xFF17181A),
-    chromeButton: const Color(0x66FFFFFF),
+    chromeButton: const Color(0xF0181A1D),
+    chromeButtonFg: const Color(0xFFF4F0E8),
     logoFilter: _brightnessSaturate(0.62, 1.5),
   );
 

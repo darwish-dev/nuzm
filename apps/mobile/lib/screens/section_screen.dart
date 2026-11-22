@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_scope.dart';
 import '../data/nav.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
 import '../widgets/common.dart';
+import '../widgets/nz_icons.dart';
 import 'page_views.dart';
 
 T pageLabel(String pageId) => findPage(pageId).$2.label;
@@ -52,7 +52,7 @@ class _SectionScreenState extends State<SectionScreen> {
           ]),
         ),
         CircleIconButton(
-          icon: LucideIcons.sparkles,
+          icon: NzIcons.sparkles,
           tooltip: S.askAi.of(context),
           onTap: () => askAi(context, '${S.askAi.of(context)}: ${page.label.of(context)}'),
         ),

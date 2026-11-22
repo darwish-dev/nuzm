@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_scope.dart';
 import '../data/data_source.dart';
 import '../data/demo.dart';
 import '../l10n/strings.dart';
 import '../theme/nuzm_colors.dart';
+import 'nz_icons.dart';
 
 /// The console's window: the chrome gradient (`--nzc-chrome`, dark 180deg / light 98deg) with its glows.
 class NzBackground extends StatelessWidget {
@@ -66,7 +66,7 @@ class NzScaffold extends StatelessWidget {
   }
 }
 
-/// Round icon button. On the chrome (headers) it is a translucent disc; inside the frame a bordered card disc.
+/// Round icon button. On the chrome (headers) it is a dark borderless disc; inside the frame a bordered card disc.
 class CircleIconButton extends StatelessWidget {
   const CircleIconButton({
     super.key,
@@ -94,7 +94,7 @@ class CircleIconButton extends StatelessWidget {
         label: tooltip,
         child: Material(
           color: onChrome ? nz.chromeButton : nz.card,
-          shape: CircleBorder(side: BorderSide(color: onChrome ? nz.chromeFg.withValues(alpha: 0.12) : nz.border)),
+          shape: CircleBorder(side: onChrome ? BorderSide.none : BorderSide(color: nz.border)),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
@@ -102,7 +102,7 @@ class CircleIconButton extends StatelessWidget {
               width: size,
               height: size,
               child: Stack(alignment: Alignment.center, children: [
-                Icon(icon, size: size * 0.47, color: onChrome ? nz.chromeFg : nz.fg),
+                Icon(icon, size: size * 0.5, color: onChrome ? nz.chromeButtonFg : nz.fg),
                 if (dot)
                   PositionedDirectional(
                     top: size * 0.14,
@@ -291,7 +291,7 @@ class SampleChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: nz.orangeSoft, borderRadius: BorderRadius.circular(99)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(LucideIcons.info, size: 13, color: nz.orangeText),
+          Icon(NzIcons.info, size: 13, color: nz.orangeText),
           const SizedBox(width: 5),
           Text(S.sampleData.of(context), style: TextStyle(color: nz.orangeText, fontSize: 11.5, fontWeight: FontWeight.w700)),
         ]),
@@ -360,10 +360,10 @@ class ForwardChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Icon(isAr(context) ? LucideIcons.chevronLeft : LucideIcons.chevronRight, size: size, color: color ?? context.nz.muted);
+      Icon(isAr(context) ? NzIcons.chevronLeft : NzIcons.chevronRight, size: size, color: color ?? context.nz.muted);
 }
 
-IconData backIcon(BuildContext context) => isAr(context) ? LucideIcons.chevronRight : LucideIcons.chevronLeft;
+IconData backIcon(BuildContext context) => isAr(context) ? NzIcons.chevronRight : NzIcons.chevronLeft;
 
 class StateView extends StatelessWidget {
   const StateView({super.key, required this.icon, required this.title, required this.hint, this.action, this.onAction, this.tone});
@@ -469,23 +469,30 @@ class CreditChip extends StatelessWidget {
           excludeSemantics: true,
           child: Material(
             color: nz.chromeButton,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: low ? nz.orange : nz.chromeFg.withValues(alpha: 0.12)),
-            ),
+            shape: const StadiumBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: onTap,
               child: SizedBox(
                 height: 38,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 12, 0),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(LucideIcons.sparkles, size: 15, color: low ? nz.orangeText : nz.chromeFg),
-                    const SizedBox(width: 6),
+                    // The sparkle sits in its own small disc: accent (or orange when credit is low).
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: low ? NuzmColors.orangeGradient : NuzmColors.brandGradient,
+                      ),
+                      child: Icon(NzIcons.sparkles, size: 14, color: const Color(0xFF15302A)),
+                    ),
+                    const SizedBox(width: 7),
                     credits == null
-                        ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6, color: nz.chromeFg))
-                        : LtrText(groupDigits(credits), style: TextStyle(color: nz.chromeFg, fontWeight: FontWeight.w700, fontSize: 13.5)),
+                        ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6, color: nz.chromeButtonFg))
+                        : LtrText(groupDigits(credits),
+                            style: TextStyle(color: low ? nz.orange : nz.chromeButtonFg, fontWeight: FontWeight.w700, fontSize: 13.5)),
                   ]),
                 ),
               ),

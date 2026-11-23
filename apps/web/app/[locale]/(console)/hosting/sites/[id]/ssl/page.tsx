@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t, tDynamic } from '@nuzm/i18n';
 import { Badge, Banner, EmptyState, Ltr, PageTitle, Table, Icon } from '@nuzm/ui';
+import { IssueCertificateButton } from '../../../../../../../components/HostingControls';
 import { requireSession } from '../../../../../../../lib/server';
 import { view } from '../../../../../../../lib/view';
 
@@ -72,6 +73,11 @@ export default async function Ssl({ params }: { params: Promise<{ locale: string
         </>
       ),
   );
+  const bound = s.can('hosting:ssl:manage')
+    ? await unwrap(s.api.GET('/v1/hosting/sites/{id}/domains', { params: { path: { id } } })).catch(
+        () => null,
+      )
+    : null;
   return (
     <>
       <PageTitle>{t(locale, 'host.tab.ssl')}</PageTitle>
@@ -80,6 +86,14 @@ export default async function Ssl({ params }: { params: Promise<{ locale: string
         {t(locale, 'host.tab.overview')}
       </a>
       {body}
+      {bound && (
+        <IssueCertificateButton
+          locale={locale}
+          siteId={id}
+          domains={bound.items.filter((d) => d.state === 'active').map((d) => d.domain)}
+          mfaFactorId={s.me.mfaFactorId ?? null}
+        />
+      )}
     </>
   );
 }

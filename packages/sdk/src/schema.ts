@@ -2536,6 +2536,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/provider-network": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List provisioning network settings
+         * @description The vSwitch / VPC / subnet / security group / project ids typed in the console per provider and region (Alibaba and Huawei). Resource identifiers only: never credentials.
+         */
+        get: operations["adminListProviderNetwork"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-network/{providerKey}/{regionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the provisioning network settings of one region
+         * @description alibaba: {vSwitchId, securityGroupId, zoneId?}. huawei: {vpcId, subnetId, securityGroupId, availabilityZone?, projectId?}. Each value is a resource id (3 to 100 letters, digits, . _ -). Takes effect at once for provisioning; a region with no row is not configured and provisioning there is refused. Audited as provider.network_settings.saved (field names only).
+         */
+        put: operations["adminSaveProviderNetwork"];
+        post?: never;
+        /**
+         * Remove the provisioning network settings of one region
+         * @description The region becomes not configured. Audited as provider.network_settings.removed.
+         */
+        delete: operations["adminDeleteProviderNetwork"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect a provider with credentials typed in the console
+         * @description Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider's adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created.
+         */
+        post: operations["adminConnectProviderAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace the credentials of a provider account
+         * @description Body {credentials} (same field sets as adminConnectProviderAccount). Stores a new sealed entry, re-points the account at it and clears its verification time: verify it again. The replaced entry is deleted. Same profile limits as adminConnectProviderAccount. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.credentials_changed (references and field names only).
+         */
+        put: operations["adminReplaceProviderCredentials"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/provider-accounts": {
         parameters: {
             query?: never;
@@ -4329,6 +4413,26 @@ export interface paths {
          * @description Creates the DNet registrar account on the first save and updates it after that (owner request 2026-11-21, D-50). Body {label?, environment, baseUrl? (https), resellerId?, timeoutMs? (1000..60000), dataRegion? (default SA), currency? (default SAR), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. There is no DNet adapter until DNet documents its API (HG-07-03): verification answers 422 unsupported_capability. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dnet.settings_saved).
          */
         put: operations["saveDnetRegistrarSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/registrars/dynadot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the Dynadot connection settings (admin console)
+         * @description Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot's Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved).
+         */
+        put: operations["saveDynadotRegistrarSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -10337,6 +10441,33 @@ export interface components {
             scopeNote?: string;
             spendCap?: components["schemas"]["SpendCap"];
         };
+        ProviderNetworkSetting: {
+            providerKey: string;
+            regionId: string;
+            settings: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ProviderNetworkList: {
+            items: components["schemas"]["ProviderNetworkSetting"][];
+        };
+        ProviderAccountConnect: {
+            /** Format: uuid */
+            providerId: string;
+            name: string;
+            credentials: components["schemas"]["ProviderCredentials"];
+            scopeNote?: string;
+            spendCap?: components["schemas"]["SpendCap"];
+        };
+        ProviderCredentialsReplace: {
+            credentials: components["schemas"]["ProviderCredentials"];
+        };
+        /** @description Write-only named secret fields; only the fields of one provider's adapter are accepted (3 to 400 printable characters, no spaces). */
+        ProviderCredentials: {
+            [key: string]: string;
+        };
         ProviderAccountUpdate: {
             name?: string;
             /** @enum {string} */
@@ -12047,6 +12178,22 @@ export interface components {
             baseUrl?: string;
             resellerId?: string;
             timeoutMs?: number;
+            dataRegion?: string;
+            currency?: string;
+            /** @description A vault:// reference. Not together with credentials. */
+            vaultRef?: string;
+            /** @description Write-only; accepted outside production only (D-12). */
+            credentials?: {
+                apiKey?: string;
+                apiSecret?: string;
+            };
+        };
+        DynadotSettingsSave: {
+            label?: string;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            timeoutMs?: number;
+            searchBatch?: number;
             dataRegion?: string;
             currency?: string;
             /** @description A vault:// reference. Not together with credentials. */
@@ -19658,6 +19805,143 @@ export interface operations {
             404: components["responses"]["Problem"];
         };
     };
+    adminListProviderNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderNetworkList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminSaveProviderNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerKey: "alibaba" | "huawei";
+                regionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderNetworkSetting"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminDeleteProviderNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerKey: "alibaba" | "huawei";
+                regionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminConnectProviderAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderAccountConnect"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminReplaceProviderCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderCredentialsReplace"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
     adminListProviderAccounts: {
         parameters: {
             query?: {
@@ -23448,6 +23732,33 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DnetSettingsSave"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrarAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    saveDynadotRegistrarSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DynadotSettingsSave"];
             };
         };
         responses: {

@@ -3,6 +3,7 @@ import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { OperationsService } from '@nuzm/platform';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
+import { SealedVault } from '../../common/sealed-vault';
 import { SecretStore } from '../../common/secrets';
 import { IdentityModule } from '../identity';
 import { DB } from '../../common/tokens';
@@ -73,7 +74,13 @@ import { loadTldPolicy } from './internal/tld-policy';
   providers: [
     { provide: DnsTxtLookup, useFactory: (db: Db) => new DnsTxtLookup(db), inject: [DB] },
     { provide: DOMAINS_CONFIG, useFactory: () => domainsConfigFromEnv() },
-    { provide: DOMAINS_VAULT, useFactory: () => new UnavailableVault() },
+    {
+      provide: DOMAINS_VAULT,
+      // typed registrar credentials live in the sealed store (dev profile); without it, or in production before D-12, nothing resolves
+      useFactory: (s: SecretStore) =>
+        process.env.NODE_ENV === 'production' ? new UnavailableVault() : new SealedVault(s),
+      inject: [SecretStore],
+    },
     {
       provide: ADAPTER_FACTORIES,
       useFactory: (cfg: DomainsConfig) => productionFactories(cfg),

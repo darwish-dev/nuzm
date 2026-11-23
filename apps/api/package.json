@@ -32,6 +32,7 @@
     "@nuzm/adapter-live-verify": "workspace:*",
     "@nuzm/adapter-mock-compute": "workspace:*",
     "@nuzm/adapter-model": "workspace:*",
+    "@nuzm/adapter-dynadot": "workspace:*",
     "@nuzm/adapter-openprovider": "workspace:*",
     "@nuzm/adapter-resellerclub": "workspace:*",
     "@nuzm/adapter-runtime": "workspace:*",

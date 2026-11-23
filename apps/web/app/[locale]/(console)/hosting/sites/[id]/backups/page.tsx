@@ -2,10 +2,14 @@ import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
 import { Badge, EmptyState, Ltr, PageTitle, Table, Icon } from '@nuzm/ui';
+import {
+  BackupRowActions,
+  CreateBackupForm,
+} from '../../../../../../../components/HostingControls';
 import { requireSession } from '../../../../../../../lib/server';
 import { view } from '../../../../../../../lib/view';
 
-/** UI-M06-08: backups (size, checksum, expiry). Creating and restoring from the screen is NOT BUILT yet; the API has both. */
+/** UI-M06-08: backups (size, checksum, expiry). Create, restore and the download link are on this screen (they call the hosting API). */
 export default async function Backups({
   params,
 }: {
@@ -73,6 +77,20 @@ export default async function Backups({
               icon: 'calendar',
               render: (b) => (b.expiresAt ? <Ltr>{b.expiresAt.slice(0, 10)}</Ltr> : '—'),
             },
+            {
+              key: 'x',
+              header: '',
+              render: (b) => (
+                <BackupRowActions
+                  locale={locale}
+                  siteId={id}
+                  backupId={b.id}
+                  available={b.status === 'available'}
+                  canRestore={s.can('hosting:backup:restore')}
+                  mfaFactorId={s.me.mfaFactorId ?? null}
+                />
+              ),
+            },
           ]}
         />
       ),
@@ -85,6 +103,9 @@ export default async function Backups({
         {t(locale, 'host.tab.overview')}
       </a>
       {body}
+      {s.can('hosting:backup:create') && (
+        <CreateBackupForm locale={locale} siteId={id} mfaFactorId={s.me.mfaFactorId ?? null} />
+      )}
     </>
   );
 }

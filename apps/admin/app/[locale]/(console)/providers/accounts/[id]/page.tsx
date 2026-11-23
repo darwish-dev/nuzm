@@ -9,6 +9,7 @@ import {
   PlansTable,
   RegionsTable,
 } from '../../../../../../components/ProviderAccountDetail';
+import { ReplaceCredentialsForm } from '../../../../../../components/ProviderConnect';
 import { ProviderTabs } from '../../../../../../components/ProviderTabs';
 import { isUuid } from '../../../../../../lib/providers';
 import { requireStaff } from '../../../../../../lib/server';
@@ -61,6 +62,14 @@ export default async function AccountDetail({
             canManage={manage}
             catalog
           />
+          {manage && (
+            <ReplaceCredentialsForm
+              locale={locale}
+              accountId={account.id}
+              providerKey={account.providerKey}
+              mfaFactorId={s.me.mfaFactorId ?? null}
+            />
+          )}
           <h2 className="nz-h2">{t(locale, 'm05.adm.cap.title')}</h2>
           <p className="nz-muted">{t(locale, 'm05.adm.cap.unknownNote')}</p>
           <CapabilityTable locale={locale} rows={caps} />

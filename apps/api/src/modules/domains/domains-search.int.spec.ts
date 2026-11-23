@@ -16,9 +16,10 @@ describe('registrar registry (S28 task 6)', () => {
     const r = await k.admin('root', 'GET', '/v1/admin/registrars');
     expect(r.statusCode).toBe(200);
     const b = r.json();
-    // `dnet` is the seeded, disabled Saudi registrar (migration 1900): it is listed but has no account until the owner supplies its credentials
+    // `dnet` and `dynadot` are seeded, disabled registrars (migrations 1900, 1960): it is listed but has no account until the owner supplies its credentials
     expect(b.registrars.map((x: any) => x.providerCode).sort()).toEqual([
       'dnet',
+      'dynadot',
       'openprovider',
       'resellerclub',
     ]);

@@ -20,6 +20,7 @@ import {
   SidePanel,
   SummaryCard,
 } from '../../../../../../components/Overview';
+import { DeleteSiteForm } from '../../../../../../components/HostingControls';
 import { requireSession } from '../../../../../../lib/server';
 import { view } from '../../../../../../lib/view';
 
@@ -285,6 +286,14 @@ export default async function Site({
               </>
             }
           />
+          {s.can('hosting:site:delete') && site.status !== 'deleting' && (
+            <DeleteSiteForm
+              locale={locale}
+              siteId={id}
+              siteName={site.name}
+              mfaFactorId={s.me.mfaFactorId ?? null}
+            />
+          )}
         </>
       );
     },

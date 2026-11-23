@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -15,7 +16,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Platform, RequirePlatformPermission, type PlatformContext } from '../../common/access';
 import { etag, parseIfMatch } from '../../common/etag';
 import { ProblemException } from '../../common/errors';
-import { RealmOnly } from '../identity';
+import { RealmOnly, StepUp } from '../identity';
 import { CatalogService } from './internal/catalog.service';
 import { ProviderAccountService } from './internal/account.service';
 
@@ -42,6 +43,23 @@ export class AdminProviderAccountsController {
   @HttpCode(201)
   create(@Platform() who: PlatformContext, @Body() body: unknown) {
     return this.accounts.create(who.userId, body);
+  }
+
+  /** Connect with credentials typed in the console (write-only; sealed store, non-production). Needs a recent MFA check. */
+  @RequirePlatformPermission('admin:provider:manage')
+  @StepUp()
+  @Post('connect')
+  @HttpCode(201)
+  connect(@Platform() who: PlatformContext, @Body() body: unknown) {
+    return this.accounts.connect(who.userId, body);
+  }
+
+  /** Replace an account's credentials (rotation). Needs a recent MFA check; the account must be verified again. */
+  @RequirePlatformPermission('admin:provider:manage')
+  @StepUp()
+  @Put(':id/credentials')
+  setCredentials(@Platform() who: PlatformContext, @Param('id') id: string, @Body() body: unknown) {
+    return this.accounts.setCredentials(who.userId, id, body);
   }
 
   @RequirePlatformPermission('admin:provider:read')

@@ -4283,6 +4283,116 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-network:
+    get:
+      operationId: adminListProviderNetwork
+      tags: [cloud]
+      summary: 'List provisioning network settings'
+      description: 'The vSwitch / VPC / subnet / security group / project ids typed in the console per provider and region (Alibaba and Huawei). Resource identifiers only: never credentials.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderNetworkList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-network/{providerKey}/{regionId}:
+    put:
+      operationId: adminSaveProviderNetwork
+      tags: [cloud]
+      summary: 'Save the provisioning network settings of one region'
+      description: 'alibaba: {vSwitchId, securityGroupId, zoneId?}. huawei: {vpcId, subnetId, securityGroupId, availabilityZone?, projectId?}. Each value is a resource id (3 to 100 letters, digits, . _ -). Takes effect at once for provisioning; a region with no row is not configured and provisioning there is refused. Audited as provider.network_settings.saved (field names only).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: providerKey, in: path, required: true, schema: { type: string, enum: [alibaba, huawei] } }
+        - { name: regionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderNetworkSetting' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: adminDeleteProviderNetwork
+      tags: [cloud]
+      summary: 'Remove the provisioning network settings of one region'
+      description: 'The region becomes not configured. Audited as provider.network_settings.removed.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: providerKey, in: path, required: true, schema: { type: string, enum: [alibaba, huawei] } }
+        - { name: regionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/connect:
+    post:
+      operationId: adminConnectProviderAccount
+      tags: [cloud]
+      summary: 'Connect a provider with credentials typed in the console'
+      description: 'Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider''s adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderAccountConnect' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}/credentials:
+    put:
+      operationId: adminReplaceProviderCredentials
+      tags: [cloud]
+      summary: 'Replace the credentials of a provider account'
+      description: 'Body {credentials} (same field sets as adminConnectProviderAccount). Stores a new sealed entry, re-points the account at it and clears its verification time: verify it again. The replaced entry is deleted. Same profile limits as adminConnectProviderAccount. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.credentials_changed (references and field names only).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderCredentialsReplace' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/admin/provider-accounts:
     get:
       operationId: adminListProviderAccounts
@@ -7432,6 +7542,29 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/DnetSettingsSave' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrarAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/registrars/dynadot:
+    put:
+      operationId: saveDynadotRegistrarSettings
+      tags: [domains]
+      summary: Save the Dynadot connection settings (admin console)
+      description: 'Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot''s Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved).'
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DynadotSettingsSave' }
       responses:
         '200':
           description: Success
@@ -17542,6 +17675,39 @@ components:
           }
         scopeNote: { type: string }
         spendCap: { $ref: '#/components/schemas/SpendCap' }
+    ProviderNetworkSetting:
+      type: object
+      required: [providerKey, regionId, settings, updatedAt]
+      properties:
+        providerKey: { type: string }
+        regionId: { type: string }
+        settings: { type: object, additionalProperties: { type: string } }
+        updatedAt: { type: string, format: date-time }
+    ProviderNetworkList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProviderNetworkSetting' }
+    ProviderAccountConnect:
+      type: object
+      required: [providerId, name, credentials]
+      properties:
+        providerId: { type: string, format: uuid }
+        name: { type: string }
+        credentials: { $ref: '#/components/schemas/ProviderCredentials' }
+        scopeNote: { type: string }
+        spendCap: { $ref: '#/components/schemas/SpendCap' }
+    ProviderCredentialsReplace:
+      type: object
+      required: [credentials]
+      properties:
+        credentials: { $ref: '#/components/schemas/ProviderCredentials' }
+    ProviderCredentials:
+      type: object
+      description: 'Write-only named secret fields; only the fields of one provider''s adapter are accepted (3 to 400 printable characters, no spaces).'
+      additionalProperties: { type: string }
     ProviderAccountUpdate:
       type: object
       properties:
@@ -19904,6 +20070,24 @@ components:
         baseUrl: { type: string, description: An https URL without credentials, query or fragment. }
         resellerId: { type: string }
         timeoutMs: { type: integer, minimum: 1000, maximum: 60000 }
+        dataRegion: { type: string }
+        currency: { type: string }
+        vaultRef:
+          { type: string, description: A vault:// reference. Not together with credentials. }
+        credentials:
+          type: object
+          description: Write-only; accepted outside production only (D-12).
+          properties:
+            apiKey: { type: string }
+            apiSecret: { type: string }
+    DynadotSettingsSave:
+      type: object
+      required: [environment]
+      properties:
+        label: { type: string }
+        environment: { type: string, enum: [sandbox, production] }
+        timeoutMs: { type: integer, minimum: 1000, maximum: 60000 }
+        searchBatch: { type: integer, minimum: 1, maximum: 100 }
         dataRegion: { type: string }
         currency: { type: string }
         vaultRef:

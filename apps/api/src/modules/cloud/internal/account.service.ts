@@ -4,6 +4,9 @@ import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import type { AdapterRegistry } from './adapter-registry';
+import { randomBytes } from 'node:crypto';
+import type { SealedVault } from '../../../common/sealed-vault';
+import { parseCredentials } from './credential-schema';
 import {
   UUID,
   body,
@@ -107,7 +110,78 @@ export class ProviderAccountService {
     private readonly db: Db,
     private readonly audit: AuditSink,
     private readonly adapters: AdapterRegistry,
+    /** Where typed credentials go (sealed secret store, non-production). Absent = typed credentials are refused. */
+    private readonly sealed?: SealedVault,
   ) {}
+
+  /** Typed credentials are accepted only where a sealed store exists and the profile is not production (the production vault is undecided: D-12). */
+  private store(): SealedVault {
+    if (!this.sealed || process.env.NODE_ENV === 'production')
+      throw new ProblemException(
+        'unsupported_capability',
+        'storing credentials here is not available in this profile: the production vault is not decided yet (D-12); send a vault reference (credentialRef)',
+      );
+    return this.sealed;
+  }
+  private async providerKey(providerId: string): Promise<string> {
+    const r = await this.db.withPlatformScope(
+      async (c) =>
+        (await c.query(`SELECT key FROM cloud.providers WHERE id = $1`, [providerId])).rows[0],
+    );
+    if (!r) throw new ProblemException('not_found', 'provider not found');
+    return r.key as string;
+  }
+
+  /**
+   * Connect a provider with credentials typed in the admin console: the value goes straight into the sealed store (write-only) and the account is created with
+   * only the resulting `vault://` reference. Nothing secret is stored in the database, audited, logged or returned. Needs a fresh MFA check at the route.
+   */
+  async connect(actorUserId: string, input: unknown): Promise<AccountDto> {
+    const { credentials, ...rest } = body(input);
+    rejectCredentialValues(rest);
+    if ('credentialRef' in rest)
+      throw new ProblemException('validation_failed', 'send credentials or credentialRef, not both');
+    const providerId = rest.providerId;
+    if (typeof providerId !== 'string' || !UUID.test(providerId))
+      throw new ProblemException('validation_failed', 'providerId must be a UUID');
+    const key = await this.providerKey(providerId);
+    const fields = parseCredentials(key, credentials);
+    const vault = this.store();
+    const ref = await vault.putFields(`provider-${key}-${randomBytes(8).toString('hex')}`, fields);
+    try {
+      return await this.create(actorUserId, { ...rest, credentialRef: ref });
+    } catch (e) {
+      await vault.delete(ref); // no account took the secret: do not leave it behind
+      throw e;
+    }
+  }
+
+  /** Replace the credentials of an account (rotation): a new sealed entry, the account is re-pointed at it and must be verified again. */
+  async setCredentials(actorUserId: string, id: string, input: unknown): Promise<AccountDto> {
+    const before = await this.get(id);
+    const b = body(input);
+    const extra = Object.keys(b).filter((k) => k !== 'credentials');
+    if (extra.length) throw new ProblemException('validation_failed', `unknown field ${extra[0]}`);
+    const fields = parseCredentials(before.providerKey, b.credentials);
+    const vault = this.store();
+    const ref = await vault.putFields(`provider-${id}-${randomBytes(8).toString('hex')}`, fields);
+    await this.db.withPlatformScope(async (c) => {
+      await c.query(
+        `UPDATE cloud.provider_accounts SET vault_ref = $2, verified_at = NULL, updated_at = now(), version = version + 1 WHERE id = $1`,
+        [id, ref],
+      );
+      await this.audit.record({
+        action: 'provider.account.credentials_changed',
+        actorUserId,
+        resource: { type: 'provider_account', id },
+        outcome: 'success',
+        before: { credentialRef: before.credentialRef },
+        after: { credentialRef: ref, fields: Object.keys(fields) },
+      });
+    });
+    await vault.delete(before.credentialRef); // the replaced entry (no-op for a reference this store did not mint)
+    return this.get(id);
+  }
 
   async list(providerId?: string): Promise<AccountDto[]> {
     return this.db.withPlatformScope(async (c) =>

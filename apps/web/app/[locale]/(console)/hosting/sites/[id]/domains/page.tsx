@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
 import { isLocale, t, tDynamic } from '@nuzm/i18n';
 import { Badge, EmptyState, Ltr, PageTitle, Table, Icon } from '@nuzm/ui';
+import { AddDomainForm } from '../../../../../../../components/HostingControls';
 import { requireSession } from '../../../../../../../lib/server';
 import { view } from '../../../../../../../lib/view';
 
@@ -73,6 +74,9 @@ export default async function Domains({
         {t(locale, 'host.tab.overview')}
       </a>
       {body}
+      {s.can('hosting:domain:manage') && (
+        <AddDomainForm locale={locale} siteId={id} mfaFactorId={s.me.mfaFactorId ?? null} />
+      )}
     </>
   );
 }

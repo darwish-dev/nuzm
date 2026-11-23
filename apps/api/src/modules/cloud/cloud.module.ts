@@ -8,10 +8,13 @@ import {
 import type { VaultClient } from '@nuzm/adapter-contracts';
 import { OperationsService, type Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
+import { SealedVault, ChainedVault } from '../../common/sealed-vault';
+import { SecretStore } from '../../common/secrets';
 import { DB } from '../../common/tokens';
 import { PriceBookService, QuotaService, SpendService } from '../billing';
 import { OrderService, QuotePricerRegistry } from '../commerce';
 import { MockRegionRegistry, ResidencyService } from '../compliance';
+import { IdentityModule } from '../identity';
 import { AdminOffersController } from './admin-offers.controller';
 import { AdminResourcesController } from './admin-resources.controller';
 import { AdminProviderAccountsController } from './admin-provider-accounts.controller';
@@ -93,6 +96,7 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
  */
 @Global()
 @Module({
+  imports: [IdentityModule],
   controllers: [
     AdminProvidersController,
     AdminProviderAccountsController,
@@ -109,8 +113,10 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     { provide: AdapterRegistry, useFactory: () => defaultAdapterRegistry() },
     {
       provide: VAULT,
-      useFactory: (r: AdapterRegistry) => vaultFromEnv(r.redactor),
-      inject: [AdapterRegistry],
+      // typed credentials (sealed store, dev profile) first, then the optional dev vault file (NUZM_DEV_VAULT_FILE)
+      useFactory: (r: AdapterRegistry, s: SecretStore) =>
+        new ChainedVault([new SealedVault(s, r.redactor), vaultFromEnv(r.redactor)]),
+      inject: [AdapterRegistry, SecretStore],
     },
     {
       provide: ProviderService,
@@ -119,9 +125,9 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     },
     {
       provide: ProviderAccountService,
-      useFactory: (db: Db, a: AuditSink, r: AdapterRegistry) =>
-        new ProviderAccountService(db, a, r),
-      inject: [DB, AuditSink, AdapterRegistry],
+      useFactory: (db: Db, a: AuditSink, r: AdapterRegistry, s: SecretStore) =>
+        new ProviderAccountService(db, a, r, new SealedVault(s, r.redactor)),
+      inject: [DB, AuditSink, AdapterRegistry, SecretStore],
     },
     {
       provide: CatalogService,

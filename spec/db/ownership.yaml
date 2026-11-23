@@ -76,6 +76,7 @@ schemas:
       - M06
       - M08
       - M12
+      - M05-INT
     tables:
       - catalog_snapshots
       - evidence_items
@@ -83,6 +84,7 @@ schemas:
       - provider_accounts
       - provider_capabilities
       - provider_jobs
+      - provider_network_settings
       - provider_plans
       - provider_regions
       - providers
@@ -102,7 +104,7 @@ schemas:
   domains:
     owner_module: domains
     created_by: M07
-    extended_by: [ M07-INT ]
+    extended_by: [ M07-INT, M07-INT2 ]
     tables: [ dns_records, dns_zones, domain_contacts, domain_orders, domain_transfers, domains, eligibility_checks, registrar_accounts, registrars ]
   data:
     owner_module: data
@@ -295,6 +297,7 @@ tenant_less:
   - cloud.catalog_snapshots
   - cloud.provider_jobs
   - cloud.live_verification_runs
+  - cloud.provider_network_settings
   - cloud.routing_rules
   - cloud.resource_reconciliations
   - compute.images
@@ -373,6 +376,10 @@ migration_ranges:
   PLT-INT: "1920-1939"
   # M07 domains additions made after later milestones were applied (DNet registrar settings): above every applied ordinal, because the runner is forward-only
   M07-INT: "1900-1919"
+  # M05 cloud additions made after later milestones were applied (provider network settings typed in the admin console): above every applied ordinal, because the runner is forward-only
+  M05-INT: "1940-1959"
+  # M07 domains additions after the 1900-1919 range filled (Dynadot registrar row): above every applied ordinal, because the runner is forward-only
+  M07-INT2: "1960-1979"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
@@ -1675,6 +1682,12 @@ classification:
       created_at: internal
       updated_at: internal
       version: internal
+    cloud.provider_network_settings:
+      provider_key: internal
+      region_id: internal
+      settings: internal
+      updated_by: internal
+      updated_at: internal
     cloud.provider_capabilities:
       account_id: internal
       capability_id: internal

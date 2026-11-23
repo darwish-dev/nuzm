@@ -14,3 +14,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       - run: pnpm audit --prod --audit-level=high
+  # The combined, everything-included check (integration + browser E2E) needs a Postgres cluster and Chrome: `pnpm verify:full`. Not yet run anywhere (D-01).
+  full:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-16 redis-server
+      - run: pnpm install --frozen-lockfile
+      - run: NUZM_PGBIN=/usr/lib/postgresql/16/bin pnpm services:start
+      - run: NUZM_PGBIN=/usr/lib/postgresql/16/bin pnpm verify:full

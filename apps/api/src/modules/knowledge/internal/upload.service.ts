@@ -4,6 +4,7 @@ import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import {
   PLATFORMS,
+  PROVENANCE_CLASSES,
   REUSE_SCOPES,
   RESOURCE_TYPES,
   SHA256_RE,
@@ -255,6 +256,16 @@ export class UploadService {
         'forbidden',
         'allowing AI processing of a resource needs the publish permission',
       );
+    // THIRD_PARTY (two approvers, neither the uploader) is the default; declaring our own work FIRST_PARTY is a publish-level decision
+    const provenanceClass =
+      meta.provenanceClass === undefined
+        ? 'THIRD_PARTY'
+        : oneOf(PROVENANCE_CLASSES, meta.provenanceClass, 'metadata.provenanceClass')!;
+    if (provenanceClass === 'FIRST_PARTY' && !canPublish)
+      throw new ProblemException(
+        'forbidden',
+        'declaring a resource first-party needs the publish permission',
+      );
     if (meta.visibility !== undefined && meta.visibility !== 'PLATFORM_PRIVATE')
       throw new ProblemException(
         'validation_failed',
@@ -373,8 +384,8 @@ export class UploadService {
         resource = (
           await c.query(
             `INSERT INTO knowledge.resources (id, org_id, slug, name, description, resource_type, platform, frameworks, languages, category, tags, visibility,
-                                              source_kind, source_ref, status, default_eligible, data_region, created_by)
-             VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PLATFORM_PRIVATE', 'upload', $11, 'QUARANTINED', $12, $13, $14) RETURNING *`,
+                                              source_kind, source_ref, status, default_eligible, data_region, created_by, provenance_class)
+             VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PLATFORM_PRIVATE', 'upload', $11, 'QUARANTINED', $12, $13, $14, $15) RETURNING *`,
             [
               resourceId,
               slug,
@@ -390,6 +401,7 @@ export class UploadService {
               fields.defaultEligible,
               fields.region,
               actor,
+              provenanceClass,
             ],
           )
         ).rows[0] as Row;
@@ -435,6 +447,11 @@ export class UploadService {
           [resourceId, versionId],
         )
       ).rows[0] as Row;
+      // the ingestion pipeline (S-K2a): the worker claims this job, verifies the archive and queues extraction. Nothing is unpacked here.
+      await c.query(
+        `INSERT INTO knowledge.processing_jobs (id, version_id, org_id, kind, created_by) VALUES ($1, $2, NULL, 'VALIDATE', $3)`,
+        [newId(), versionId, actor],
+      );
       await c.query(
         `UPDATE knowledge.uploads SET state = 'COMPLETED', resource_id = $2 WHERE id = $1`,
         [uploadId, resourceId],

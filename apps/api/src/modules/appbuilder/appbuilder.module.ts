@@ -16,14 +16,25 @@ import {
   GatewayService,
   ModelAdapterRegistry,
   ModelProviderService,
+  AgentToolGateway,
+  AgentWorkspaceRegistry,
   RunKindRegistry,
   RunService,
+  SessionService,
   type AiConfig,
 } from '../ai';
-import { LivePreviewRegistry, ProjectDelegates } from '../builder';
+import { BuilderModule, LivePreviewRegistry, ProjectDelegates, ProjectService } from '../builder';
 import { ResidencyService } from '../compliance';
 import { DeployService, SitePublisherPort } from '../deploy';
 import { IdentityModule } from '../identity';
+import { CustomerTemplateService, KnowledgeModule } from '../knowledge';
+import { TemplateStartController } from './template-start.controller';
+import { TemplateStartService } from './internal/studio/template-start';
+import { GenerationController } from './generation.controller';
+import { GenerationService } from './internal/studio/generation';
+import { TemplateAdaptRunner } from './internal/studio/template-adapt';
+import { AgentLoopRunner } from './internal/studio/agent-loop';
+import { AgentProjectWorkspace } from './internal/studio/agent-workspace';
 import { ApprovalsController } from './approvals.controller';
 import { ExportsController } from './exports.controller';
 import { SandboxesController } from './sandboxes.controller';
@@ -254,7 +265,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
  * (D-21 OPEN): production answers 404 (M09 not connected) / 503 (no sandbox capacity).
  */
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, BuilderModule, KnowledgeModule],
   controllers: [
     SandboxesController,
     TestRunsController,
@@ -271,12 +282,63 @@ class LogSecurityAlerts extends SecurityAlertPort {
     StudioClaudeCodeController,
     AdminSkillsController,
     StudioSettingsController,
+    TemplateStartController,
+    GenerationController,
   ],
   providers: [
     ...M09_PORT_PROVIDERS,
     AppBuilderEnabledGuard,
     M09StubGuard,
     StudioEnabledGuard,
+    {
+      provide: TemplateStartService,
+      useFactory: (
+        db: Db,
+        t: CustomerTemplateService,
+        b: ProjectService,
+        p: ProjectsPort,
+        c: ChangeService,
+      ) => new TemplateStartService(db, t, b, p, c),
+      inject: [DB, CustomerTemplateService, ProjectService, ProjectsPort, ChangeService],
+    },
+    // S-K6: the adaptation of a copied template
+    {
+      provide: GenerationService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        t: CustomerTemplateService,
+        p: ProjectsPort,
+        r: RunService,
+        s: SessionService,
+      ) => new GenerationService(db, a, t, p, r, s),
+      inject: [DB, AuditSink, CustomerTemplateService, ProjectsPort, RunService, SessionService],
+    },
+    {
+      provide: AgentLoopRunner,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        g: GenerationService,
+        t: TemplateAdaptRunner,
+        tg: AgentToolGateway,
+        gw: GatewayService,
+      ) => new AgentLoopRunner(db, a, g, t, tg, gw),
+      inject: [
+        DB,
+        AuditSink,
+        GenerationService,
+        TemplateAdaptRunner,
+        AgentToolGateway,
+        GatewayService,
+      ],
+    },
+    {
+      provide: TemplateAdaptRunner,
+      useFactory: (db: Db, g: GenerationService, c: ChangeService) =>
+        new TemplateAdaptRunner(db, g, c),
+      inject: [DB, GenerationService, ChangeService],
+    },
     // ---- AI Studio (ADR-064) --------------------------------------------------------------------------------------------------------
     {
       provide: StudioFileWriter,
@@ -600,10 +662,18 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(AppDeploymentService) private readonly deployments: AppDeploymentService,
     @Inject(DB) private readonly db: Db,
     @Inject(SkillsService) private readonly skills: SkillsService,
+    @Inject(TemplateAdaptRunner) private readonly adapt: TemplateAdaptRunner,
+    @Inject(AgentLoopRunner) private readonly agentLoop: AgentLoopRunner,
+    @Inject(AgentWorkspaceRegistry) private readonly agentWorkspaces: AgentWorkspaceRegistry,
+    @Inject(GenerationService) private readonly generation: GenerationService,
   ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
-    this.registry.register(new WebappRunHandler(this.store, this.projects, this.graph));
+    this.registry.register(
+      new WebappRunHandler(this.store, this.projects, this.graph, this.adapt, this.agentLoop),
+    );
+    // S-AG2: the read-only agent tools read a web-app project through this provider (and nothing else)
+    this.agentWorkspaces.register('webapp', new AgentProjectWorkspace(this.generation));
     this.registry.register(new TestFixRunHandler(this.store, this.projects, this.testFix));
     this.projectDelegates.register(
       'webapp',

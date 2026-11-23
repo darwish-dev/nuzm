@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
+import { DB_URL as DB } from './env';
 
 /**
  * Mobile builder (M10B: UI-M10-12..17 customer console), Arabic and English projects. The mobile app opens in the SAME workspace as a website
@@ -17,7 +18,6 @@ import { T, audit, loc, signIn } from './helpers';
 
 // built at run time: a literal key header would trip the repository secret scanner
 const PEM_HEAD = ['-----BEGIN', 'PRIVATE KEY-----'].join(' ');
-const DB = 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_e2e';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();

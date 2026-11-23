@@ -34,6 +34,8 @@ export const STATES = [
 ] as const;
 export const VISIBILITIES = ['PLATFORM_PRIVATE', 'PLATFORM_PUBLISHED'] as const;
 export const REUSE_SCOPES = ['NONE', 'ARCHITECTURE_ONLY', 'COMPONENTS', 'FULL_STARTER'] as const;
+/** THIRD_PARTY needs two approvers who are not the uploader; FIRST_PARTY (our own work) needs one. Fixed at creation. */
+export const PROVENANCE_CLASSES = ['FIRST_PARTY', 'THIRD_PARTY'] as const;
 export const LICENSE_VERDICTS = ['ALLOWED', 'RESTRICTED', 'UNKNOWN', 'BLOCKED'] as const;
 
 /**
@@ -155,6 +157,7 @@ export interface ResourceDto {
   tags: string[];
   visibility: string;
   sourceKind: string;
+  provenanceClass: string;
   status: string;
   currentVersionId: string | null;
   defaultEligible: boolean;
@@ -176,6 +179,7 @@ export const toResource = (r: Row): ResourceDto => ({
   tags: (r.tags as string[]) ?? [],
   visibility: r.visibility as string,
   sourceKind: r.source_kind as string,
+  provenanceClass: (r.provenance_class as string | undefined) ?? 'THIRD_PARTY',
   status: r.status as string,
   currentVersionId: (r.current_version_id as string | null) ?? null,
   defaultEligible: r.default_eligible as boolean,

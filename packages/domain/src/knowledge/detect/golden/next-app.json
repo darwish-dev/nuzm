@@ -1,0 +1,436 @@
+{
+  "schemaVersion": "1",
+  "analyzer": {
+    "id": "project-detect",
+    "version": "1.0.0"
+  },
+  "frameworks": [
+    "nextjs",
+    "nodejs",
+    "react"
+  ],
+  "languages": [
+    "javascript",
+    "typescript"
+  ],
+  "languageStats": [
+    {
+      "name": "typescript",
+      "files": 9,
+      "bytes": 387
+    },
+    {
+      "name": "javascript",
+      "files": 1,
+      "bytes": 42
+    }
+  ],
+  "packageManagers": [
+    "npm"
+  ],
+  "modules": [],
+  "components": [],
+  "capabilities": [
+    {
+      "name": "http-api",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "kind": "file",
+          "path": "app/api/users/route.ts",
+          "detail": "/api/users"
+        }
+      ]
+    },
+    {
+      "name": "internationalization",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "kind": "file",
+          "path": "app/[locale]/dashboard/page.tsx",
+          "detail": "locale route segment"
+        },
+        {
+          "kind": "dependency",
+          "path": "package.json",
+          "line": 13,
+          "detail": "next-intl@^3.0.0"
+        }
+      ]
+    },
+    {
+      "name": "request-middleware",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "kind": "file",
+          "path": "middleware.ts"
+        }
+      ]
+    },
+    {
+      "name": "styling-system",
+      "confidence": 0.55,
+      "evidence": [
+        {
+          "kind": "dependency",
+          "path": "package.json",
+          "line": 17,
+          "detail": "tailwindcss@^3.4.0"
+        }
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "root": ".",
+      "name": "modern-saas",
+      "kind": "application",
+      "roles": [
+        {
+          "role": "backend",
+          "evidence": [
+            {
+              "kind": "file",
+              "path": "app/api/users/route.ts",
+              "detail": "API route handlers"
+            }
+          ]
+        },
+        {
+          "role": "frontend",
+          "evidence": [
+            {
+              "kind": "directory",
+              "path": "app",
+              "detail": "app router"
+            },
+            {
+              "kind": "config",
+              "path": "next.config.mjs"
+            },
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 11,
+              "detail": "react@^19.0.0"
+            }
+          ]
+        }
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "detections": [
+        {
+          "id": "nextjs",
+          "name": "Next.js",
+          "category": "framework",
+          "version": "15.0.3",
+          "versionSource": "lockfile",
+          "confidence": 0.99,
+          "level": "high",
+          "evidence": [
+            {
+              "kind": "directory",
+              "path": "app",
+              "detail": "app router"
+            },
+            {
+              "kind": "config",
+              "path": "next.config.mjs"
+            },
+            {
+              "kind": "script",
+              "path": "package.json",
+              "detail": "next dev/build/start"
+            },
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 10,
+              "detail": "next@^15.0.1"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "typescript",
+          "name": "TypeScript",
+          "category": "language",
+          "version": "5.4.0",
+          "versionSource": "declared",
+          "confidence": 0.9,
+          "level": "high",
+          "evidence": [
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 16,
+              "detail": "typescript@^5.4.0"
+            },
+            {
+              "kind": "config",
+              "path": "tsconfig.json"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "nodejs",
+          "name": "Node.js",
+          "category": "runtime",
+          "version": null,
+          "versionSource": null,
+          "confidence": 0.85,
+          "level": "high",
+          "evidence": [
+            {
+              "kind": "directory",
+              "path": "app",
+              "detail": "app router"
+            },
+            {
+              "kind": "manifest",
+              "path": "package.json"
+            },
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 18,
+              "detail": "@types/node@^22"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "tailwindcss",
+          "name": "Tailwind CSS",
+          "category": "tool",
+          "version": "3.4.0",
+          "versionSource": "declared",
+          "confidence": 0.65,
+          "level": "medium",
+          "evidence": [
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 17,
+              "detail": "tailwindcss@^3.4.0"
+            },
+            {
+              "kind": "config",
+              "path": "tailwind.config.ts"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "react",
+          "name": "React",
+          "category": "framework",
+          "version": "19.0.0",
+          "versionSource": "lockfile",
+          "confidence": 0.6,
+          "level": "medium",
+          "evidence": [
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 11,
+              "detail": "react@^19.0.0"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "packageManager": {
+        "name": "npm",
+        "version": null,
+        "confidence": 0.85,
+        "evidence": [
+          {
+            "kind": "lockfile",
+            "path": "package-lock.json"
+          }
+        ]
+      },
+      "entryPoints": [
+        {
+          "kind": "file",
+          "path": "app/layout.tsx",
+          "detail": "root layout"
+        }
+      ],
+      "build": {
+        "scripts": [
+          {
+            "name": "build",
+            "command": "next build"
+          },
+          {
+            "name": "dev",
+            "command": "next dev"
+          },
+          {
+            "name": "start",
+            "command": "next start"
+          }
+        ],
+        "configFiles": [
+          "next.config.mjs",
+          "tailwind.config.ts",
+          "tsconfig.json"
+        ],
+        "typescript": {
+          "path": "tsconfig.json",
+          "strict": true,
+          "target": "ES2022",
+          "module": "esnext"
+        },
+        "docker": [],
+        "ci": []
+      },
+      "dependencyCount": 7,
+      "dependencies": [
+        {
+          "name": "@types/node",
+          "range": "^22",
+          "resolved": null,
+          "kind": "dev",
+          "ecosystem": "npm",
+          "line": 18
+        },
+        {
+          "name": "next",
+          "range": "^15.0.1",
+          "resolved": "15.0.3",
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 10
+        },
+        {
+          "name": "next-intl",
+          "range": "^3.0.0",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 13
+        },
+        {
+          "name": "react",
+          "range": "^19.0.0",
+          "resolved": "19.0.0",
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 11
+        },
+        {
+          "name": "react-dom",
+          "range": "^19.0.0",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 12
+        },
+        {
+          "name": "tailwindcss",
+          "range": "^3.4.0",
+          "resolved": null,
+          "kind": "dev",
+          "ecosystem": "npm",
+          "line": 17
+        },
+        {
+          "name": "typescript",
+          "range": "^5.4.0",
+          "resolved": null,
+          "kind": "dev",
+          "ecosystem": "npm",
+          "line": 16
+        }
+      ]
+    }
+  ],
+  "workspaces": [],
+  "routes": [
+    {
+      "kind": "next-app-page",
+      "path": "/",
+      "methods": [
+        "GET"
+      ],
+      "dynamic": false,
+      "file": "app/page.tsx",
+      "project": ".",
+      "confidence": 0.9
+    },
+    {
+      "kind": "next-app-page",
+      "path": "/[locale]/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "dynamic": true,
+      "file": "app/[locale]/dashboard/page.tsx",
+      "project": ".",
+      "confidence": 0.9
+    },
+    {
+      "kind": "next-app-page",
+      "path": "/about",
+      "methods": [
+        "GET"
+      ],
+      "dynamic": false,
+      "file": "app/(marketing)/about/page.tsx",
+      "project": ".",
+      "confidence": 0.9
+    },
+    {
+      "kind": "next-route-handler",
+      "path": "/api/users",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic": false,
+      "file": "app/api/users/route.ts",
+      "project": ".",
+      "confidence": 0.9
+    },
+    {
+      "kind": "next-app-page",
+      "path": "/blog/[...slug]",
+      "methods": [
+        "GET"
+      ],
+      "dynamic": true,
+      "file": "app/blog/[...slug]/page.tsx",
+      "project": ".",
+      "confidence": 0.9
+    },
+    {
+      "kind": "next-app-page",
+      "path": "/login",
+      "methods": [
+        "GET"
+      ],
+      "dynamic": false,
+      "file": "app/@modal/login/page.tsx",
+      "project": ".",
+      "confidence": 0.9
+    }
+  ],
+  "screens": [],
+  "moduleFacts": [],
+  "ambiguities": [],
+  "stats": {
+    "filesConsidered": 13,
+    "filesRead": 4,
+    "bytesRead": 717,
+    "truncated": [],
+    "skippedLarge": 0
+  }
+}

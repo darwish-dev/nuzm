@@ -429,7 +429,7 @@ describe('uncertain outcomes: reconcile before retry (S29 task 2, AC-M07-03)', (
     ).reduce((a, b) => a + b, 0);
     expect(await wallet(k.orgA)).toBe(w0 - charged);
     expect(ok).toBeGreaterThan(30);
-  });
+  }, 180_000); // 50 runs, each with real reconciliation: about 30 s on an idle machine, far more when other work shares it
 });
 
 describe('concurrency and tenant isolation (S29, AC-M07-07)', () => {

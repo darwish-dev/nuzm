@@ -62,6 +62,7 @@ export function BuilderStart({
   canRun,
   appsEnabled = false,
   mobileEnabled = false,
+  templatesEnabled = false,
   initialType = 'website',
   githubEnabled = false,
 }: {
@@ -74,6 +75,8 @@ export function BuilderStart({
   appsEnabled?: boolean;
   /** the organization has `mobile_builder.enabled`: the mobile-app tile can be started (it opens the mobile preview) */
   mobileEnabled?: boolean;
+  /** the organization has `knowledge.customer_templates`: a link offers the template gallery (S-K7) */
+  templatesEnabled?: boolean;
   initialType?: StartType;
 }) {
   const router = useRouter();
@@ -587,6 +590,11 @@ export function BuilderStart({
               : t(locale, 'bld.wiz.credits.unknown')}
             {wallet?.lowCredit ? ` — ${t(locale, 'bld.wiz.credits.low')}` : ''}
           </p>
+          {templatesEnabled && (
+            <p className="bl-note">
+              <a href={`/${locale}/builder/templates`}>{t(locale, 'tpl.start.link')}</a>
+            </p>
+          )}
         </form>
 
         {call.problem && <ProblemNote locale={locale} problem={call.problem} />}

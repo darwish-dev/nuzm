@@ -195,3 +195,358 @@ export const licenseTone = (s: string): 'success' | 'danger' | 'warn' | undefine
 
 export const isUuidLike = (v: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+
+// ---- S-K2a: ingestion, review and activation (SCR-K-02) ----------------------------------------------------------------------------------
+export interface IngestJob {
+  id: string;
+  versionId: string;
+  versionSeq: number;
+  kind: string;
+  state: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'DEAD_LETTER';
+  attempt: number;
+  maxAttempts: number;
+  progress: number;
+  errorCode: string | null;
+  errorDetail: string | null;
+  cancelRequested: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string | null;
+}
+export interface IngestLog {
+  id: string;
+  seq: number;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  stage: string;
+  code: string;
+  message: string;
+  createdAt: string | null;
+}
+export interface IngestFinding {
+  id: string;
+  scanner: string;
+  code: string;
+  severity: 'info' | 'warn' | 'block';
+  path: string | null;
+  line: number | null;
+  detail: string;
+}
+export interface IngestFile {
+  id: string;
+  path: string;
+  sha256: string;
+  bytes: number;
+  language: string | null;
+  isBinary: boolean;
+  isExecutable: boolean;
+  stored: boolean;
+  secretFindings: number;
+}
+export interface ReviewBlocker {
+  code:
+    | 'state'
+    | 'not_analyzed'
+    | 'blocking_findings'
+    | 'license_not_allowed'
+    | 'rejected'
+    | 'approvals_missing';
+  detail: string;
+}
+export interface ReviewState {
+  versionId: string;
+  resourceId: string;
+  state: string;
+  stateReason: string | null;
+  provenanceClass: 'FIRST_PARTY' | 'THIRD_PARTY';
+  uploadedBy: string | null;
+  analysisJobId: string | null;
+  licenseProposal: { spdx: string | null; verdict: string; reason?: string } | null;
+  licenseVerdict: string;
+  findings: { info: number; warn: number; block: number };
+  requiredApprovals: number;
+  approvals: string[];
+  reviews: {
+    id: string;
+    decision: 'APPROVE' | 'REJECT';
+    reviewerId: string;
+    reason: string | null;
+    createdAt: string | null;
+  }[];
+  blockers: ReviewBlocker[];
+  canActivate: boolean;
+  you: { canReview: boolean; hasApproved: boolean; isUploader: boolean };
+}
+/** Reasons the UI has a translation for; any other `stateReason` is an archive rejection code, shown with the generic text and the code itself. */
+export const KNOWN_REASONS = [
+  'secrets_found',
+  'license_blocked',
+  'denied_dependency',
+  'install_script_network',
+  'blocking_findings',
+  'cancelled',
+  'rejected',
+  'processing_failed',
+  'archive_missing',
+] as const;
+export const isKnownReason = (r: string): r is (typeof KNOWN_REASONS)[number] =>
+  (KNOWN_REASONS as readonly string[]).includes(r);
+export const severityTone = (s: string): 'success' | 'danger' | 'warn' | undefined =>
+  s === 'block' ? 'danger' : s === 'warn' ? 'warn' : undefined;
+export const jobTone = (s: string): 'success' | 'danger' | 'warn' | undefined =>
+  s === 'SUCCEEDED'
+    ? 'success'
+    : s === 'FAILED' || s === 'DEAD_LETTER'
+      ? 'danger'
+      : s === 'CANCELLED'
+        ? 'warn'
+        : undefined;
+/** Jobs that can still be asked to stop. */
+export const isCancellable = (j: Pick<IngestJob, 'state' | 'cancelRequested'>) =>
+  (j.state === 'QUEUED' || j.state === 'RUNNING') && !j.cancelRequested;
+/** A version whose processing was interrupted (not rejected) can be queued again. */
+export const isRetryable = (v: { state: string }, reason: string | null) =>
+  (v.state === 'FAILED' || v.state === 'QUARANTINED') &&
+  !!reason &&
+  ['processing_failed', 'archive_missing', 'cancelled'].includes(reason);
+
+// ---- S-K2b: the project manifest (SCR-K-03) -------------------------------------------------------------------------------------------
+export interface ManEvidence {
+  kind: string;
+  path: string;
+  line?: number;
+  detail?: string;
+}
+export interface ManDetection {
+  id: string;
+  name: string;
+  category: 'framework' | 'runtime' | 'language' | 'library' | 'tool';
+  version: string | null;
+  versionSource: 'lockfile' | 'declared' | null;
+  confidence: number;
+  level: 'high' | 'medium' | 'low';
+  evidence: ManEvidence[];
+  notes: string[];
+}
+export interface ManProject {
+  root: string;
+  name: string | null;
+  kind: 'application' | 'library' | 'example' | 'tooling-root';
+  roles: { role: string; evidence: ManEvidence[] }[];
+  detections: ManDetection[];
+  packageManager: { name: string; version: string | null } | null;
+  build: { scripts: { name: string; command: string }[] };
+}
+export interface ManRoute {
+  kind: string;
+  path: string;
+  methods: string[];
+  file: string;
+  line?: number;
+  project: string;
+}
+export interface ManFact {
+  kind: string;
+  name: string;
+  file: string;
+  line?: number;
+  project: string;
+}
+export interface ProjectManifestView {
+  schemaVersion: string;
+  frameworks: string[];
+  languages: string[];
+  packageManagers: string[];
+  capabilities: { name: string; confidence: number; evidence: ManEvidence[] }[];
+  projects: ManProject[];
+  workspaces: { tool: string; root: string; members: string[]; evidence: ManEvidence[] }[];
+  routes: ManRoute[];
+  screens: ManFact[];
+  moduleFacts: ManFact[];
+  ambiguities: { code: string; detail: string; paths: string[] }[];
+  stats: { truncated: string[] };
+  architecture?: ArchitectureView;
+  componentStats?: { total: number; relationships: number };
+}
+export const levelTone = (l: string): 'success' | 'danger' | 'warn' | undefined =>
+  l === 'high' ? 'success' : l === 'low' ? 'warn' : undefined;
+export const evidenceText = (e: ManEvidence) => (e.line ? `${e.path}:${e.line}` : e.path);
+
+// ---- S-K2c: components and architecture (SCR-K-04) --------------------------------------------------------------------------------------
+export interface ComponentView {
+  id: string;
+  name: string;
+  kind: string;
+  framework: string | null;
+  path: string;
+  props: { name: string; type: string | null; required: boolean }[];
+  dependencies: string[];
+  styleDeps: string[];
+  assets: string[];
+  platforms: string[];
+  reuseAllowed: boolean;
+}
+export interface RelationshipView {
+  id: string;
+  fromKind: string;
+  fromRef: string;
+  toKind: string;
+  toRef: string;
+  relation: string;
+  evidence: { path: string; line?: number };
+}
+export interface ArchitectureView {
+  layers: { project: string; name: string; role: string; files: number }[];
+  modules: {
+    name: string;
+    project: string;
+    files: number;
+    dependsOn: { module: string; weight: number }[];
+  }[];
+  cycles: { files: string[]; size: number }[];
+  entryReachability: {
+    roots: number;
+    analysedFiles: number;
+    unreachable: number;
+    sample: string[];
+  } | null;
+  publicSurface: { project: string; file: string; exports: string[] }[];
+  orphanComponents: { name: string; path: string }[];
+  stats: {
+    files: number;
+    skipped: Record<string, number>;
+    internalImports: number;
+    unresolvedImports: number;
+    truncated: string[];
+  };
+}
+export const COMPONENT_KINDS = [
+  'react-component',
+  'react-class-component',
+  'next-page',
+  'next-layout',
+  'nest-module',
+  'nest-controller',
+  'nest-provider',
+  'nest-dto',
+  'flutter-widget',
+  'flutter-stateful-widget',
+  'flutter-state',
+  'flutter-state-holder',
+  'flutter-provider',
+] as const;
+export const COMPONENT_FRAMEWORKS = ['react', 'next', 'nestjs', 'flutter'] as const;
+
+// ---- Design DNA (S-K4) -----------------------------------------------------------------------------------------------------------
+export interface DnaEvidence {
+  path: string;
+  line: number;
+}
+export interface DnaEntryView {
+  name: string;
+  value: string;
+  resolved: string | null;
+  px: number | null;
+  mode: string;
+  origin: string;
+  evidence: DnaEvidence;
+}
+export interface DnaRoleView {
+  role: string;
+  token: string;
+  value: string;
+  hex: string | null;
+  mode: string;
+  via: 'name' | 'name+usage';
+  confidence: number;
+  evidence: DnaEvidence;
+}
+export interface DnaContrastView {
+  mode: string;
+  pair: string;
+  foreground: string;
+  background: string;
+  ratio: number;
+  aa: boolean;
+  aaLarge: boolean;
+  aaa: boolean;
+}
+export interface ProjectDnaView {
+  root: string;
+  name: string | null;
+  frameworks: string[];
+  sources: { path: string; kind: string; tokens: number }[];
+  modes: string[];
+  palette: { mode: string; roles: DnaRoleView[]; colors: DnaEntryView[] }[];
+  typography: {
+    families: DnaEntryView[];
+    sizes: DnaEntryView[];
+    weights: DnaEntryView[];
+    lineHeights: DnaEntryView[];
+  };
+  spacing: { scale: DnaEntryView[]; baseUnit: number | null; baseUnitInferred: boolean };
+  radius: DnaEntryView[];
+  shadows: DnaEntryView[];
+  breakpoints: DnaEntryView[];
+  motion: DnaEntryView[];
+  contrast: DnaContrastView[];
+  traits: {
+    darkMode: boolean;
+    multiTheme: boolean;
+    schemes: string[];
+    rtl: boolean;
+    logicalProperties: boolean;
+    arabicFont: boolean;
+    tailwind: boolean;
+    cssVariables: boolean;
+    material3: boolean | null;
+  };
+  dynamic: { name: string; path: string; line: number }[];
+  stats: { files: number; tokens: number; resolved: number; unresolved: number; dynamic: number };
+}
+export interface DesignDnaView {
+  schemaVersion: string;
+  analyzerVersion: string;
+  primary: number;
+  projects: ProjectDnaView[];
+  stats: {
+    files: number;
+    tokens: number;
+    variants: number;
+    skipped: Record<string, number>;
+    truncated: string[];
+  };
+}
+export interface ThemeTokenView {
+  id: string;
+  category: string;
+  name: string;
+  value: string | null;
+  resolvedValue: string | null;
+  sourcePath: string | null;
+  mode: string;
+  line: number | null;
+  origin: string;
+  dynamic: boolean;
+}
+export interface ThemeVariantView {
+  id: string;
+  kind: string;
+  name: string;
+  descriptor: Record<string, unknown>;
+  hasPreview: boolean;
+}
+export const THEME_CATEGORIES = [
+  'color',
+  'typography',
+  'spacing',
+  'radius',
+  'shadow',
+  'breakpoint',
+  'motion',
+  'other',
+] as const;
+/** A colour that is safe to put in a style attribute: only what the analyzer itself produces (`#rrggbb` or `#rrggbbaa`). */
+export const safeHex = (h: string | null | undefined): string | null =>
+  h && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(h) ? h : null;
+/** `text/background` → a message key suffix. */
+export const pairKey = (pair: string) => pair.replace(/[^a-z]+/gi, '_');

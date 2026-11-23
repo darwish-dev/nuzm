@@ -1,0 +1,370 @@
+{
+  "schemaVersion": "1",
+  "analyzer": {
+    "id": "project-detect",
+    "version": "1.0.0"
+  },
+  "frameworks": [
+    "nestjs",
+    "nodejs"
+  ],
+  "languages": [
+    "typescript"
+  ],
+  "languageStats": [
+    {
+      "name": "typescript",
+      "files": 5,
+      "bytes": 543
+    }
+  ],
+  "packageManagers": [],
+  "modules": [
+    "AppModule",
+    "UsersModule"
+  ],
+  "components": [],
+  "capabilities": [
+    {
+      "name": "api-documentation",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "kind": "dependency",
+          "path": "package.json",
+          "line": 13,
+          "detail": "@nestjs/swagger@^7"
+        },
+        {
+          "kind": "source",
+          "path": "src/main.ts",
+          "detail": "SwaggerModule.setup"
+        }
+      ]
+    },
+    {
+      "name": "authentication",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "kind": "dependency",
+          "path": "package.json",
+          "line": 14,
+          "detail": "@nestjs/jwt@^10"
+        }
+      ]
+    },
+    {
+      "name": "authorization-guards",
+      "confidence": 0.7,
+      "evidence": [
+        {
+          "kind": "source",
+          "path": "src/users/users.controller.ts",
+          "detail": "@UseGuards"
+        }
+      ]
+    },
+    {
+      "name": "containerization",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "kind": "file",
+          "path": "Dockerfile"
+        }
+      ]
+    },
+    {
+      "name": "database-access",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "kind": "dependency",
+          "path": "package.json",
+          "line": 15,
+          "detail": "typeorm@^0.3.20"
+        }
+      ]
+    },
+    {
+      "name": "http-api",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "kind": "file",
+          "path": "src/users/users.controller.ts",
+          "line": 4,
+          "detail": "/api/users"
+        }
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "root": ".",
+      "name": "property-api",
+      "kind": "application",
+      "roles": [
+        {
+          "role": "backend",
+          "evidence": [
+            {
+              "kind": "config",
+              "path": "nest-cli.json"
+            },
+            {
+              "kind": "source",
+              "path": "package.json",
+              "detail": "3 @Module/@Controller classes"
+            }
+          ]
+        }
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "detections": [
+        {
+          "id": "nestjs",
+          "name": "NestJS",
+          "category": "framework",
+          "version": "10.3.0",
+          "versionSource": "declared",
+          "confidence": 0.99,
+          "level": "high",
+          "evidence": [
+            {
+              "kind": "config",
+              "path": "nest-cli.json"
+            },
+            {
+              "kind": "source",
+              "path": "package.json",
+              "detail": "3 @Module/@Controller classes"
+            },
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 11,
+              "detail": "@nestjs/core@^10.3.0"
+            },
+            {
+              "kind": "file",
+              "path": "src/main.ts",
+              "detail": "NestFactory.create"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "nodejs",
+          "name": "Node.js",
+          "category": "runtime",
+          "version": "20",
+          "versionSource": "declared",
+          "confidence": 0.99,
+          "level": "high",
+          "evidence": [
+            {
+              "kind": "config",
+              "path": "nest-cli.json"
+            },
+            {
+              "kind": "manifest",
+              "path": "package.json"
+            },
+            {
+              "kind": "manifest",
+              "path": "package.json",
+              "detail": "engines.node >=20"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "typeorm",
+          "name": "TypeORM",
+          "category": "tool",
+          "version": "0.3.20",
+          "versionSource": "declared",
+          "confidence": 0.6,
+          "level": "medium",
+          "evidence": [
+            {
+              "kind": "dependency",
+              "path": "package.json",
+              "line": 15,
+              "detail": "typeorm@^0.3.20"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "packageManager": null,
+      "entryPoints": [
+        {
+          "kind": "file",
+          "path": "src/main.ts",
+          "detail": "NestFactory.create"
+        }
+      ],
+      "build": {
+        "scripts": [
+          {
+            "name": "build",
+            "command": "nest build"
+          },
+          {
+            "name": "start:dev",
+            "command": "nest start --watch"
+          }
+        ],
+        "configFiles": [
+          "Dockerfile",
+          "nest-cli.json"
+        ],
+        "typescript": null,
+        "docker": [
+          {
+            "path": "Dockerfile",
+            "baseImages": [
+              "node:20-alpine",
+              "node:20-alpine"
+            ]
+          }
+        ],
+        "ci": []
+      },
+      "dependencyCount": 5,
+      "dependencies": [
+        {
+          "name": "@nestjs/common",
+          "range": "^10.3.0",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 12
+        },
+        {
+          "name": "@nestjs/core",
+          "range": "^10.3.0",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 11
+        },
+        {
+          "name": "@nestjs/jwt",
+          "range": "^10",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 14
+        },
+        {
+          "name": "@nestjs/swagger",
+          "range": "^7",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 13
+        },
+        {
+          "name": "typeorm",
+          "range": "^0.3.20",
+          "resolved": null,
+          "kind": "runtime",
+          "ecosystem": "npm",
+          "line": 15
+        }
+      ]
+    }
+  ],
+  "workspaces": [],
+  "routes": [
+    {
+      "kind": "nest-controller-route",
+      "path": "/api/users",
+      "methods": [
+        "GET"
+      ],
+      "dynamic": false,
+      "file": "src/users/users.controller.ts",
+      "line": 4,
+      "project": ".",
+      "confidence": 0.85
+    },
+    {
+      "kind": "nest-controller-route",
+      "path": "/api/users",
+      "methods": [
+        "POST"
+      ],
+      "dynamic": false,
+      "file": "src/users/users.controller.ts",
+      "line": 8,
+      "project": ".",
+      "confidence": 0.85
+    },
+    {
+      "kind": "nest-controller-route",
+      "path": "/api/users/:id",
+      "methods": [
+        "GET"
+      ],
+      "dynamic": true,
+      "file": "src/users/users.controller.ts",
+      "line": 6,
+      "project": ".",
+      "confidence": 0.85
+    },
+    {
+      "kind": "nest-controller-route",
+      "path": "/api/users/:id/avatar",
+      "methods": [
+        "DELETE"
+      ],
+      "dynamic": true,
+      "file": "src/users/users.controller.ts",
+      "line": 10,
+      "project": ".",
+      "confidence": 0.85
+    }
+  ],
+  "screens": [],
+  "moduleFacts": [
+    {
+      "kind": "nest-module",
+      "name": "AppModule",
+      "file": "src/app.module.ts",
+      "line": 4,
+      "project": ".",
+      "confidence": 0.9
+    },
+    {
+      "kind": "nest-controller",
+      "name": "UsersController",
+      "file": "src/users/users.controller.ts",
+      "line": 2,
+      "project": ".",
+      "confidence": 0.9
+    },
+    {
+      "kind": "nest-module",
+      "name": "UsersModule",
+      "file": "src/users/users.module.ts",
+      "line": 2,
+      "project": ".",
+      "confidence": 0.9
+    }
+  ],
+  "ambiguities": [],
+  "stats": {
+    "filesConsidered": 8,
+    "filesRead": 6,
+    "bytesRead": 872,
+    "truncated": [],
+    "skippedLarge": 0
+  }
+}

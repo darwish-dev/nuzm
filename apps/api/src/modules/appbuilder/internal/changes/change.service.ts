@@ -96,17 +96,20 @@ export class ChangeService {
     };
   }
 
-  validate(patches: unknown): { patches: Patch[]; problems: { path: string; message: string }[] } {
+  validate(
+    patches: unknown,
+    maxPatches = MAX_PATCHES,
+  ): { patches: Patch[]; problems: { path: string; message: string }[] } {
     const problems: { path: string; message: string }[] = [];
     if (!Array.isArray(patches) || patches.length === 0)
       return {
         patches: [],
         problems: [{ path: 'patches', message: 'a non-empty list is required' }],
       };
-    if (patches.length > MAX_PATCHES)
+    if (patches.length > maxPatches)
       return {
         patches: [],
-        problems: [{ path: 'patches', message: `at most ${MAX_PATCHES} patches per change` }],
+        problems: [{ path: 'patches', message: `at most ${maxPatches} patches per change` }],
       };
     const out: Patch[] = [];
     const seen = new Set<string>();
@@ -182,6 +185,8 @@ export class ChangeService {
       message?: unknown;
       branch?: unknown;
     },
+    /** `maxPatches` is raised only by the template copy (S-K7): the first change of an empty project may add up to MAX_PROJECT_FILES files; every other check is the same. */
+    opts: { maxPatches?: number } = {},
   ): Promise<ChangeResult> {
     if (project.type !== 'webapp' && project.type !== 'mobile')
       throw new ProblemException(
@@ -192,7 +197,11 @@ export class ChangeService {
       throw new ProblemException('validation_failed', 'baseVersion must be a version id or null');
     const base = (body.baseVersion ?? null) as string | null;
     const source = body.source === 'ai' ? 'ai' : 'user';
-    const { patches, problems } = this.validate(body.patches);
+    // the raised limit exists only for the first change of an empty project (the template copy); on any project that already has a version the ordinary limit holds
+    const { patches, problems } = this.validate(
+      body.patches,
+      project.headVersionId === null ? opts.maxPatches : undefined,
+    );
     if (problems.length)
       throw new ProblemException(
         'change_rejected',

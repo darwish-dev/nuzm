@@ -264,7 +264,10 @@ export function KnowledgeUpload({
             <Banner tone="warn">
               {t(locale, 'kn.up.done')}{' '}
               {!resource && (
-                <a href={`/${locale}/ai-intelligence/library/${state.resourceId}`}>
+                <a
+                  href={`/${locale}/ai-intelligence/library/${state.resourceId}`}
+                  style={{ textDecoration: 'underline' }}
+                >
                   {t(locale, 'kn.up.open')}
                 </a>
               )}

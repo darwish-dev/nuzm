@@ -212,10 +212,11 @@ describe('projects category', () => {
 });
 
 describe('build category', () => {
-  it('holds the builders, usage and credits, and budgets (the web-app, approvals and mobile entries only with their flags on)', () => {
+  it('holds the builders, usage and credits, and budgets (the templates, web-app, approvals and mobile entries only with their flags on)', () => {
     const b = buildNav(all()).find((c) => c.id === 'build')!;
     expect(b.groups.flatMap((g) => g.items.map((i) => i.href))).toEqual([
       '/builder/projects',
+      '/builder/templates',
       '/builder/apps',
       '/approvals',
       '/mobile/new',
@@ -224,6 +225,16 @@ describe('build category', () => {
     ]);
     // full-screen start page: no section tab bar (usage and budgets link to each other on their own pages)
     expect(b.noTabs).toBe(true);
+  });
+  it('the templates entry shows only while knowledge.customer_templates is on for the organization', () => {
+    const hrefs = (ctx: NavContext) =>
+      buildNav(ctx)
+        .find((c) => c.id === 'build')!
+        .groups.flatMap((g) => g.items.map((i) => i.href));
+    expect(hrefs(all({ flag: (k) => k === 'ai.enabled' }))).not.toContain('/builder/templates');
+    expect(
+      hrefs(all({ flag: (k) => k === 'ai.enabled' || k === 'knowledge.customer_templates' })),
+    ).toContain('/builder/templates');
   });
 });
 

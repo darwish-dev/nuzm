@@ -15,3 +15,5 @@ apps/web/lib/api-docs/*.json
 apps/api/.gen-tmp/
 apps/desktop/release/
 apps/mobile/
+# golden manifests are compared byte for byte by their tests (S-K2b)
+packages/domain/src/knowledge/detect/golden/

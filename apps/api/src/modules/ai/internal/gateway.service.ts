@@ -1,6 +1,19 @@
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
-import { ModelAdapterError, estimateTokens, type ModelAdapter } from '@nuzm/adapter-model';
+import {
+  ModelAdapterError,
+  V1_1_CAPABILITIES,
+  assembleStream,
+  allowedToolCalls,
+  effectiveCapabilities,
+  estimateTokens,
+  toolSpecProblems,
+  type CompleteResponse,
+  type ModelAdapter,
+  type ModelCapability,
+  type ModelMessage,
+  type StreamChunk,
+} from '@nuzm/adapter-model';
 import {
   ResidencyDenied,
   assertResidency,
@@ -9,6 +22,7 @@ import {
   reservationFor,
   routeModels,
   scanForSecrets,
+  validateToolCalls,
   type Candidate,
   type Capability,
   type DataClass,
@@ -27,6 +41,14 @@ import type { ModelProviderService, ProviderDto } from './provider.service';
 import type { ModelAdapterRegistry } from './registry';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
+
+const PUBLIC_CAPABILITIES: readonly Capability[] = [
+  'chat',
+  'structured-output',
+  'long-context',
+  'embeddings',
+  'vision',
+];
 
 /** Decimal string → integer scaled by 1e6 (the provider's own price; used only for the COST record, never for what the customer pays). */
 const scaled = (d: string): bigint => {
@@ -74,8 +96,10 @@ export class GatewayService {
 
   private async offers(): Promise<Offer[]> {
     const out: Offer[] = [];
+    const evidence = await this.providers.verifiedCapabilities();
     for (const { row } of await this.providers.enabledWithAdapters()) {
       const adapter = this.registry.get(row.code)!;
+      const devReference = /^(mock|local)-/.test(row.code);
       for (const m of adapter.models()) {
         const rate = row.rateCard.models[m.modelId];
         if (!rate) continue; // no price = not offered (CLAUDE.md §4: never invent prices)
@@ -86,7 +110,18 @@ export class GatewayService {
             providerCode: row.code,
             modelId: m.modelId,
             region: row.region,
-            capabilities: m.capabilities as Capability[],
+            // version negotiation: the 1.1 capabilities count only from an adapter that implements contract 1.1 (a 1.0 adapter keeps exactly its 1.0 capabilities)
+            // D8: for a real provider a tool-calling capability counts only while the latest recorded evidence for this model and contract version is VERIFIED (unknown = unsupported);
+            // the dev-reference providers (mock-*, local-*) keep what their adapter declares
+            capabilities: effectiveCapabilities(
+              adapter.contractVersion,
+              m.capabilities as ModelCapability[],
+            ).filter(
+              (c) =>
+                devReference ||
+                !(V1_1_CAPABILITIES as readonly string[]).includes(c) ||
+                evidence.get(`${row.id}|${m.modelId}|${c}`) === adapter.contractVersion,
+            ) as Capability[],
             contextTokens: m.contextTokens,
             maxOutputTokens: m.maxOutputTokens,
             latencyClass: m.latencyClass,
@@ -143,7 +178,10 @@ export class GatewayService {
           providerCode: o.provider.code,
           modelId: o.candidate.modelId,
           region: o.provider.region,
-          capabilities: o.candidate.capabilities,
+          // the public contract lists the five capabilities of contract 1.0 until the owner approves the OpenAPI delta for the 1.1 ones (SCR-K-10 §7); the gateway itself already routes on all of them
+          capabilities: o.candidate.capabilities.filter((c) => PUBLIC_CAPABILITIES.includes(c)),
+          // D7 (variant B): one boolean instead of three new capability strings, so a client with closed enums is not affected
+          supportsTools: o.candidate.capabilities.includes('tool-use'),
           contextTokens: o.candidate.contextTokens,
           maxOutputTokens: o.candidate.maxOutputTokens,
           latencyClass: o.candidate.latencyClass,
@@ -197,8 +235,16 @@ export class GatewayService {
     if (!Number.isInteger(call.maxTokens) || call.maxTokens < 1 || call.maxTokens > 200_000)
       throw new ProblemException('validation_failed', 'maxTokens must be 1..200000');
 
-    // 1. secret scan on the OUTBOUND prompt: block, never redact-and-send
-    const prompt = call.messages.map((m) => m.content).join('\n');
+    // 0. tool requests: well-formed specs are checked BEFORE anything is reserved or sent (a malformed one is the caller's bug, not a provider error)
+    if (call.tools || call.toolChoice !== undefined || call.maxToolCalls !== undefined) {
+      const problems = toolSpecProblems(call.tools);
+      if (!call.tools) problems.push('toolChoice and maxToolCalls need tools');
+      if (problems.length)
+        throw new ProblemException('validation_failed', problems.slice(0, 4).join('; '));
+    }
+
+    // 1. secret scan on the OUTBOUND prompt (messages, tool calls and tool RESULTS, tool specs): block, never redact-and-send
+    const prompt = promptText(call);
     const findings = scanForSecrets(prompt, this.cfg.canaries);
     if (findings.length) {
       const kinds = [...new Set(findings.map((f) => f.kind))];
@@ -236,10 +282,22 @@ export class GatewayService {
       );
     const providers = [...new Map(offers.map((o) => [o.provider.code, o.provider])).values()];
     const { map: residency, evidence } = await this.verdicts(orgId, call.dataClass, providers);
-    const promptTokens = estimateTokens(call.messages);
+    const promptTokens =
+      estimateTokens(call.messages as ModelMessage[]) +
+      (call.tools ? Math.ceil(JSON.stringify(call.tools).length / 4) : 0);
     const routed = routeModels(
       {
         capability: call.capability,
+        ...(call.tools
+          ? {
+              alsoRequires: [
+                'tool-use',
+                ...(call.stream ? ['streaming-tool-calls'] : []),
+                // more than one call per response is routed only to a model that declares (and, for a real provider, has verified) parallel calls
+                ...((call.maxToolCalls ?? 1) > 1 ? ['parallel-tool-calls'] : []),
+              ] as Capability[],
+            }
+          : {}),
         promptTokens,
         maxTokens: call.maxTokens,
         dataClass: call.dataClass,
@@ -299,22 +357,42 @@ export class GatewayService {
         throw e;
       }
       const started = Date.now();
+      let delivered = 0; // chunks handed to the caller: a stream that fails after that point is not retried, so no delta is ever delivered twice
       for (let attempt = 1; attempt <= this.cfg.attemptsPerCandidate; attempt++) {
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), this.cfg.callTimeoutMs);
         const onAbort = () => ac.abort();
         call.signal?.addEventListener('abort', onAbort);
+        // a signal that was ALREADY aborted never fires its event: without this the call would go out although the caller had cancelled
+        if (call.signal?.aborted) ac.abort();
         try {
-          const resp = await offer.adapter.complete(
-            { callId: `${call.callId}#${attempt}`, signal: ac.signal },
-            {
-              model: r.candidate.modelId,
-              messages: call.messages,
-              maxTokens: call.maxTokens,
-              responseFormat: call.responseFormat ?? 'text',
-              task: call.task,
-            },
-          );
+          const callCtx = { callId: `${call.callId}#${attempt}`, signal: ac.signal };
+          const request = {
+            model: r.candidate.modelId,
+            messages: call.messages as ModelMessage[],
+            maxTokens: call.maxTokens,
+            responseFormat: call.responseFormat ?? 'text',
+            task: call.task,
+            ...(call.tools
+              ? {
+                  tools: call.tools,
+                  ...(call.toolChoice !== undefined ? { toolChoice: call.toolChoice } : {}),
+                  ...(call.maxToolCalls !== undefined ? { maxToolCalls: call.maxToolCalls } : {}),
+                }
+              : {}),
+          };
+          let resp: Pick<CompleteResponse, 'text' | 'finishReason' | 'usage' | 'toolCalls'>;
+          if (call.stream) {
+            const model = offer.adapter.models().find((m) => m.modelId === r.candidate.modelId)!;
+            resp = await assembleStream(offer.adapter.stream(callCtx, request), {
+              ...(call.tools ? { tools: call.tools } : {}),
+              maxCalls: call.tools ? allowedToolCalls(model, request) : 1,
+              onChunk: (ch: StreamChunk) => {
+                delivered++;
+                call.onChunk?.(ch);
+              },
+            });
+          } else resp = await offer.adapter.complete(callCtx, request);
           return await this.settle(
             call,
             offer,
@@ -362,6 +440,14 @@ export class GatewayService {
               throw new ProblemException(
                 'content_blocked',
                 'the model provider refused the content',
+              );
+            }
+            if (delivered > 0) {
+              // the caller already has part of the answer: neither a retry nor another candidate may repeat it
+              await this.budgets.release(orgId, reservation.id);
+              throw new ProblemException(
+                'service_unavailable',
+                `the model stream failed after it had started (${e.code})`,
               );
             }
             if (e.retryable && attempt < this.cfg.attemptsPerCandidate) continue; // same reservation: a retry never costs a second hold
@@ -417,8 +503,9 @@ export class GatewayService {
     reservation: Reservation,
     resp: {
       text: string;
-      finishReason: 'stop' | 'length' | 'refusal';
+      finishReason: 'stop' | 'length' | 'refusal' | 'tool_calls';
       usage: { inputTokens: number; outputTokens: number } | null;
+      toolCalls?: { id: string; name: string; args: unknown }[];
     },
     latencyMs: number,
     evidence: string | null,
@@ -426,9 +513,16 @@ export class GatewayService {
   ): Promise<GatewayResult> {
     const { orgId } = call;
     const estimated = resp.usage === null;
+    // tool calls the model asked for are output tokens too: a flagged estimate counts their names and arguments
+    const callChars = (resp.toolCalls ?? []).reduce(
+      (n, c) => n + c.name.length + JSON.stringify(c.args ?? {}).length,
+      0,
+    );
     const tin =
-      resp.usage?.inputTokens ?? offer.adapter.tokenCount(offer.candidate.modelId, call.messages);
-    const tout = resp.usage?.outputTokens ?? Math.ceil(resp.text.length / 4);
+      resp.usage?.inputTokens ??
+      offer.adapter.tokenCount(offer.candidate.modelId, call.messages as ModelMessage[]) +
+        (call.tools ? Math.ceil(JSON.stringify(call.tools).length / 4) : 0);
+    const tout = resp.usage?.outputTokens ?? Math.ceil((resp.text.length + callChars) / 4);
     const credits = creditsFor(offer.candidate.rate, tin, tout);
     const cost = providerCostMinor(offer.adapter.pricing, tin, tout);
 
@@ -451,7 +545,11 @@ export class GatewayService {
     const budget = await this.budgets.org(orgId);
     const body = budget.logBodies
       ? await this.cipher.encryptJson(
-          { prompt, response: resp.text },
+          {
+            prompt,
+            response: resp.text,
+            ...(resp.toolCalls?.length ? { toolCalls: resp.toolCalls } : {}),
+          },
           { column: 'ai.model_usage.body_enc', row: `${orgId}:${call.callId}` },
         )
       : null;
@@ -563,9 +661,18 @@ export class GatewayService {
       }
       return !first;
     });
+    // tool calls are validated against the DECLARED tools and their schemas; nothing is run. Calls without declared tools cannot exist: they are dropped.
+    const checked =
+      call.tools && resp.toolCalls?.length ? validateToolCalls(call.tools, resp.toolCalls) : null;
     return {
       text: resp.text,
-      finishReason: resp.finishReason,
+      finishReason: call.tools
+        ? resp.finishReason
+        : resp.finishReason === 'tool_calls'
+          ? 'stop'
+          : resp.finishReason,
+      ...(checked?.valid.length ? { toolCalls: checked.valid } : {}),
+      ...(checked?.rejected.length ? { rejectedToolCalls: checked.rejected } : {}),
       tokensIn: tin,
       tokensOut: tout,
       estimated,
@@ -626,4 +733,22 @@ export class GatewayService {
   static fingerprint(s: string) {
     return sha(s);
   }
+}
+
+/** Everything that is sent to the provider as text, for the outbound secret scan: messages, the text of their blocks (tool calls and tool RESULTS), and the tool specs. */
+function promptText(call: GatewayCall): string {
+  const parts: string[] = [];
+  for (const m of call.messages) {
+    parts.push(m.content);
+    for (const b of m.blocks ?? [])
+      parts.push(
+        b.type === 'text'
+          ? b.text
+          : b.type === 'tool_call'
+            ? `${b.name} ${JSON.stringify(b.args ?? null)}`
+            : b.content,
+      );
+  }
+  if (call.tools) parts.push(JSON.stringify(call.tools));
+  return parts.join('\n');
 }

@@ -1,0 +1,1353 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { t } from '@nuzm/i18n';
+import type {
+  ArchitectureView,
+  ComponentView,
+  DesignDnaView,
+  DnaEntryView,
+  DnaRoleView,
+  ProjectDnaView,
+  ThemeTokenView,
+  ThemeVariantView,
+  RelationshipView,
+  ProjectManifestView,
+  IngestFile,
+  IngestFinding,
+  IngestJob,
+  IngestLog,
+  KnowledgeVersion,
+  ReviewState,
+} from '../lib/knowledge';
+import { KnowledgeIngestion } from './KnowledgeIngestion';
+
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+interface Seen {
+  method: string;
+  url: string;
+  search: string;
+  body: unknown;
+}
+let seen: Seen[] = [];
+type Handler = (s: Seen) => Response | Promise<Response> | undefined;
+const RealRequest = globalThis.Request;
+const mockFetch = (h: Handler) => {
+  seen = [];
+  vi.stubGlobal(
+    'Request',
+    class extends RealRequest {
+      constructor(input: RequestInfo | URL, init?: RequestInit) {
+        super(
+          typeof input === 'string' && input.startsWith('/') ? `http://localhost${input}` : input,
+          init,
+        );
+      }
+    },
+  );
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const req = input instanceof Request ? input : null;
+      const u = new URL(req ? req.url : String(input), 'http://localhost');
+      const raw = req
+        ? await req
+            .clone()
+            .text()
+            .catch(() => '')
+        : (init.body as string | undefined);
+      const entry: Seen = {
+        method: (req?.method ?? init.method ?? 'GET').toUpperCase(),
+        url: u.pathname,
+        search: u.search,
+        body: raw ? JSON.parse(raw) : undefined,
+      };
+      seen.push(entry);
+      return (await h(entry)) ?? json(404, {});
+    }),
+  );
+};
+beforeEach(() => {
+  document.cookie = 'nuzm_admin_csrf=csrf-123';
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+const RID = '00000000-0000-7000-8000-000000000001';
+const V1 = '00000000-0000-7000-8000-0000000000a1';
+const V2 = '00000000-0000-7000-8000-0000000000a2';
+const versions: KnowledgeVersion[] = [
+  {
+    id: V1,
+    seq: 1,
+    semver: null,
+    state: 'AWAITING_REVIEW',
+    checksumSha256: 'a'.repeat(64),
+    bytes: 10,
+    sourceCommit: null,
+    licenseVerdict: 'UNKNOWN',
+    createdAt: null,
+    activatedAt: null,
+  },
+  {
+    id: V2,
+    seq: 2,
+    semver: null,
+    state: 'QUARANTINED',
+    checksumSha256: 'b'.repeat(64),
+    bytes: 10,
+    sourceCommit: null,
+    licenseVerdict: 'UNKNOWN',
+    createdAt: null,
+    activatedAt: null,
+  },
+];
+const review = (over: Partial<ReviewState> = {}): ReviewState => ({
+  versionId: V1,
+  resourceId: RID,
+  state: 'AWAITING_REVIEW',
+  stateReason: null,
+  provenanceClass: 'THIRD_PARTY',
+  uploadedBy: 'u-up',
+  analysisJobId: 'job-x',
+  licenseProposal: { spdx: 'MIT', verdict: 'ALLOWED' },
+  licenseVerdict: 'UNKNOWN',
+  findings: { info: 1, warn: 2, block: 0 },
+  requiredApprovals: 2,
+  approvals: ['u-1'],
+  reviews: [
+    {
+      id: 'r1',
+      decision: 'APPROVE',
+      reviewerId: 'u-1',
+      reason: null,
+      createdAt: '2026-11-20T10:00:00.000Z',
+    },
+  ],
+  blockers: [{ code: 'approvals_missing', detail: 'x' }],
+  canActivate: false,
+  you: { canReview: true, hasApproved: false, isUploader: false },
+  ...over,
+});
+const job = (over: Partial<IngestJob> = {}): IngestJob => ({
+  id: 'job-1',
+  versionId: V1,
+  versionSeq: 1,
+  kind: 'EXTRACT',
+  state: 'SUCCEEDED',
+  attempt: 1,
+  maxAttempts: 3,
+  progress: 100,
+  errorCode: null,
+  errorDetail: null,
+  cancelRequested: false,
+  startedAt: null,
+  finishedAt: '2026-11-20T10:00:00.000Z',
+  createdAt: null,
+  ...over,
+});
+const finding = (over: Partial<IngestFinding> = {}): IngestFinding => ({
+  id: 'f1',
+  scanner: 'dependencies',
+  code: 'lifecycle_script',
+  severity: 'warn',
+  path: 'package.json',
+  line: null,
+  detail: '"postinstall" runs at install time; it was NOT run',
+  ...over,
+});
+const file = (over: Partial<IngestFile> = {}): IngestFile => ({
+  id: 'i1',
+  path: 'src/app.ts',
+  sha256: 'c'.repeat(64),
+  bytes: 2048,
+  language: 'typescript',
+  isBinary: false,
+  isExecutable: false,
+  stored: true,
+  secretFindings: 0,
+  ...over,
+});
+const log = (over: Partial<IngestLog> = {}): IngestLog => ({
+  id: 'l1',
+  seq: 1,
+  level: 'info',
+  stage: 'EXTRACT',
+  code: 'extract.done',
+  message: 'analysis finished; the package awaits review',
+  createdAt: null,
+  ...over,
+});
+
+interface World {
+  review?: ReviewState | Response;
+  jobs?: IngestJob[] | Response;
+  findings?: IngestFinding[] | Response;
+  files?: IngestFile[] | Response;
+  logs?: IngestLog[];
+  manifest?: ProjectManifestView | null | Response;
+  components?: ComponentView[] | Response;
+  relationships?: RelationshipView[];
+}
+const world =
+  (w: World = {}): Handler =>
+  (s) => {
+    const wrap = (x: unknown, extra: object = {}) =>
+      x instanceof Response ? x : json(200, { items: x, nextCursor: null, ...extra });
+    if (s.url.endsWith('/review') && s.method === 'GET')
+      return w.review instanceof Response ? w.review : json(200, w.review ?? review());
+    if (s.url.endsWith('/processing-jobs') && s.method === 'GET') return wrap(w.jobs ?? [job()]);
+    if (s.url.endsWith('/manifest'))
+      return w.manifest instanceof Response
+        ? w.manifest.clone()
+        : json(200, { manifest: w.manifest === undefined ? null : w.manifest });
+    if (s.url.endsWith('/components')) {
+      if (w.components instanceof Response) return w.components.clone();
+      const list = w.components ?? [];
+      const kind = new URL(`http://x${s.search}`).searchParams.get('kind');
+      const q = new URL(`http://x${s.search}`).searchParams.get('q');
+      return json(200, {
+        items: list.filter(
+          (c) =>
+            (!kind || c.kind === kind) && (!q || c.name.toLowerCase().includes(q.toLowerCase())),
+        ),
+        nextCursor: null,
+      });
+    }
+    if (s.url.endsWith('/relationships'))
+      return json(200, { items: w.relationships ?? [], nextCursor: null });
+    if (s.url.endsWith('/design'))
+      return json(200, { versionId: V1, createdAt: null, design: null }); // the design analysis (S-K4) has not run unless a test says so
+    if (s.url.endsWith('/theme-tokens') || s.url.endsWith('/theme-variants'))
+      return json(200, { items: [], nextCursor: null });
+    if (s.url.endsWith('/logs')) return json(200, { items: w.logs ?? [log()], nextCursor: null });
+    if (s.url.endsWith('/findings'))
+      return wrap(w.findings ?? [finding()], { summary: { info: 0, warn: 1, block: 0 } });
+    if (s.url.endsWith('/files')) return wrap(w.files ?? [file()]);
+    return undefined;
+  };
+const ui = (
+  props: Partial<{ locale: 'ar' | 'en'; canManage: boolean; canPublish: boolean }> = {},
+) =>
+  render(
+    <KnowledgeIngestion
+      locale={props.locale ?? 'en'}
+      resourceId={RID}
+      versions={versions}
+      currentVersionId={V1}
+      canManage={props.canManage ?? true}
+      canPublish={props.canPublish ?? true}
+    />,
+  );
+const en = (k: Parameters<typeof t>[1], p?: Record<string, string | number>) => t('en', k, p);
+
+describe('KnowledgeIngestion: what a reviewer sees', () => {
+  it('shows the state, licence proposal, findings, approvals, blockers, decisions, jobs and inventory', async () => {
+    mockFetch(world());
+    ui();
+    const review$ = await screen
+      .findByRole('region', { name: en('ki.review') })
+      .catch(() => screen.findByLabelText(en('ki.review')));
+    await within(review$).findByText(en('ki.approvals.count', { n: 1, need: 2 }));
+    expect(within(review$).getByText('MIT')).toBeTruthy();
+    expect(within(review$).getByText(en('ki.prov.THIRD_PARTY'))).toBeTruthy();
+    expect(within(review$).getByText(en('ki.blocker.approvals_missing'))).toBeTruthy();
+    expect(within(review$).getByText(en('ki.decision.APPROVE'))).toBeTruthy();
+    // jobs, findings, files
+    expect(await screen.findByText(en('ki.kind.EXTRACT'))).toBeTruthy();
+    expect(await screen.findByText('dependencies/lifecycle_script')).toBeTruthy();
+    expect(await screen.findByText('src/app.ts')).toBeTruthy();
+    // the version selector lists every version with its state
+    expect(
+      screen.getByRole('option', { name: `#2 · ${en('kn.status.QUARANTINED')}` }),
+    ).toBeTruthy();
+  });
+  it('renders the same sections in Arabic', async () => {
+    mockFetch(world());
+    ui({ locale: 'ar' });
+    expect(await screen.findByText(t('ar', 'ki.approvals.count', { n: 1, need: 2 }))).toBeTruthy();
+    expect(screen.getByText(t('ar', 'ki.jobs'), { selector: 'h2' })).toBeTruthy();
+    expect(await screen.findByText(t('ar', 'ki.kind.EXTRACT'))).toBeTruthy();
+    expect(screen.getByText(t('ar', 'ki.findings'), { selector: 'h2' })).toBeTruthy();
+  });
+  it('explains why a version is quarantined, with a translated reason or the raw archive code', async () => {
+    mockFetch(
+      world({
+        review: review({
+          state: 'QUARANTINED',
+          stateReason: 'secrets_found',
+          blockers: [
+            { code: 'state', detail: '' },
+            { code: 'blocking_findings', detail: '' },
+          ],
+          findings: { info: 0, warn: 0, block: 2 },
+        }),
+      }),
+    );
+    ui();
+    expect(await screen.findByText(en('ki.reason.secrets_found'))).toBeTruthy();
+    cleanup();
+    mockFetch(
+      world({
+        review: review({ state: 'FAILED', stateReason: 'path_traversal', analysisJobId: null }),
+      }),
+    );
+    ui();
+    expect(await screen.findByText('path_traversal')).toBeTruthy();
+    expect(screen.getByText(new RegExp(en('ki.reason.archive').slice(0, 20)))).toBeTruthy();
+  });
+  it('a failed section shows an error with a retry; a forbidden one says so without a retry; empty lists say so', async () => {
+    let calls = 0;
+    mockFetch((s) => {
+      if (s.url.endsWith('/findings'))
+        return ++calls === 1
+          ? json(500, {})
+          : json(200, { items: [], nextCursor: null, summary: { info: 0, warn: 0, block: 0 } });
+      return world({ files: json(403, {}), jobs: [] })(s);
+    });
+    ui();
+    await screen.findByText(en('ki.forbidden'));
+    expect(screen.getByText(en('ki.jobs.none'))).toBeTruthy();
+    const err = await screen.findByText(en('ki.load.error'));
+    fireEvent.click(within(err.parentElement!).getByRole('button', { name: en('ki.retry.load') }));
+    expect(await screen.findByText(en('ki.findings.none'))).toBeTruthy();
+  });
+  it('passes the severity, search and stored filters to the API', async () => {
+    mockFetch(world());
+    ui();
+    await screen.findByText('src/app.ts');
+    fireEvent.change(screen.getByLabelText(en('ki.findings.filter')), {
+      target: { value: 'block' },
+    });
+    fireEvent.change(screen.getByLabelText(en('ki.files.filter')), { target: { value: 'false' } });
+    await waitFor(() =>
+      expect(
+        seen.some((x) => x.url.endsWith('/findings') && x.search.includes('severity=block')),
+      ).toBe(true),
+    );
+    await waitFor(() =>
+      expect(seen.some((x) => x.url.endsWith('/files') && x.search.includes('stored=false'))).toBe(
+        true,
+      ),
+    );
+  });
+  it('loads another version when the selector changes', async () => {
+    mockFetch(world());
+    ui();
+    await screen.findByText('src/app.ts');
+    fireEvent.change(screen.getByLabelText(en('ki.version')), { target: { value: V2 } });
+    await waitFor(() =>
+      expect(seen.some((x) => x.url.includes(`/versions/${V2}/review`))).toBe(true),
+    );
+  });
+});
+
+describe('KnowledgeIngestion: the review gate', () => {
+  it('approve needs both confirmations, then records the decision and reloads', async () => {
+    mockFetch((s) =>
+      s.method === 'POST' && s.url.endsWith('/reviews')
+        ? json(
+            201,
+            review({
+              approvals: ['u-1', 'u-2'],
+              you: { canReview: false, hasApproved: true, isUploader: false },
+            }),
+          )
+        : world()(s),
+    );
+    ui();
+    const approve = (await screen.findByRole('button', {
+      name: en('ki.approve'),
+    })) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(en('ki.check.findings')));
+    expect(approve.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(en('ki.check.license')));
+    expect(approve.disabled).toBe(false);
+    fireEvent.click(approve);
+    await screen.findByText(en('ki.done.approved'));
+    const post = seen.find((x) => x.method === 'POST')!;
+    expect(post.url).toBe(`/v1/admin/knowledge/resources/${RID}/reviews`);
+    expect(post.body).toEqual({
+      versionId: V1,
+      decision: 'approve',
+      checklist: { findingsReviewed: true, licenseReviewed: true },
+    });
+  });
+  it('reject needs a reason of 10 characters before anything is sent', async () => {
+    mockFetch((s) =>
+      s.method === 'POST' ? json(201, review({ state: 'QUARANTINED' })) : world()(s),
+    );
+    ui();
+    fireEvent.click(await screen.findByRole('button', { name: en('ki.reject') }));
+    const note = screen.getByLabelText(en('ki.reject.note'));
+    fireEvent.change(note, { target: { value: 'too short' } });
+    fireEvent.click(screen.getByRole('button', { name: en('ki.reject.confirm') }));
+    expect(await screen.findByText(en('ki.reject.short'))).toBeTruthy();
+    expect(seen.some((x) => x.method === 'POST')).toBe(false);
+    fireEvent.change(note, { target: { value: 'The licence file is not the seller one.' } });
+    fireEvent.click(screen.getByRole('button', { name: en('ki.reject.confirm') }));
+    await screen.findByText(en('ki.done.rejected'));
+    expect(seen.find((x) => x.method === 'POST')!.body).toEqual({
+      versionId: V1,
+      decision: 'reject',
+      note: 'The licence file is not the seller one.',
+    });
+  });
+  it('activation is disabled while anything blocks it and sends the version when the gate is open', async () => {
+    mockFetch(world());
+    ui();
+    expect(
+      ((await screen.findByRole('button', { name: en('ki.activate') })) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    cleanup();
+    mockFetch((s) =>
+      s.method === 'POST' && s.url.endsWith('/activation')
+        ? json(200, review({ state: 'ACTIVE' }))
+        : world({
+            review: review({
+              canActivate: true,
+              blockers: [],
+              approvals: ['u-1', 'u-2'],
+              you: { canReview: false, hasApproved: true, isUploader: false },
+            }),
+          })(s),
+    );
+    ui();
+    const btn = (await screen.findByRole('button', {
+      name: en('ki.activate'),
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(btn.disabled).toBe(false));
+    expect(screen.getByText(en('ki.blockers.none'))).toBeTruthy();
+    fireEvent.click(btn);
+    await screen.findByText(en('ki.done.activated'));
+    expect(seen.find((x) => x.method === 'POST')!.body).toEqual({ versionId: V1 });
+    expect(screen.getByText(en('ki.activate.note'))).toBeTruthy();
+  });
+  it('the uploader of a third-party resource cannot review it; someone who approved already is told so', async () => {
+    mockFetch(
+      world({
+        review: review({ you: { canReview: false, hasApproved: false, isUploader: true } }),
+      }),
+    );
+    ui();
+    expect(await screen.findByText(en('ki.you.uploader'))).toBeTruthy();
+    expect(screen.queryByRole('button', { name: en('ki.approve') })).toBeNull();
+    cleanup();
+    mockFetch(
+      world({
+        review: review({ you: { canReview: false, hasApproved: true, isUploader: false } }),
+      }),
+    );
+    ui();
+    expect(await screen.findByText(en('ki.you.approved'))).toBeTruthy();
+  });
+  it('a staff member without the publish permission sees the state but has no review or activation controls', async () => {
+    mockFetch(world());
+    ui({ canPublish: false });
+    await screen.findByText(en('ki.approvals.count', { n: 1, need: 2 }));
+    for (const k of ['ki.approve', 'ki.reject', 'ki.activate'] as const)
+      expect(screen.queryByRole('button', { name: en(k) })).toBeNull();
+  });
+  it('maps API refusals to plain messages (409 conflict, 403 forbidden)', async () => {
+    mockFetch((s) =>
+      s.method === 'POST'
+        ? json(409, { code: 'knowledge_approval_required' })
+        : world({ review: review({ canActivate: true, blockers: [] }) })(s),
+    );
+    ui();
+    fireEvent.click(await screen.findByRole('button', { name: en('ki.activate') }));
+    expect(await screen.findByText(en('kn.err.conflict'))).toBeTruthy();
+  });
+});
+
+describe('KnowledgeIngestion: jobs and logs', () => {
+  it('shows a job log on demand, never anything beyond the structured message', async () => {
+    mockFetch(
+      world({
+        logs: [
+          log({
+            level: 'warn',
+            stage: 'EXTRACT',
+            message: 'analysis finished; the package stays quarantined (secrets_found)',
+          }),
+        ],
+      }),
+    );
+    ui();
+    fireEvent.click(await screen.findByRole('button', { name: en('ki.logs') }));
+    expect(
+      await screen.findByText('analysis finished; the package stays quarantined (secrets_found)'),
+    ).toBeTruthy();
+    expect(screen.getByText(en('ki.logs.note'))).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: en('ki.logs.hide') }));
+    expect(screen.queryByText(/stays quarantined/)).toBeNull();
+  });
+  it('cancel is offered only for a queued or running job and only with the manage permission', async () => {
+    mockFetch((s) =>
+      s.method === 'POST'
+        ? json(200, { jobId: 'job-2', result: 'CANCEL_REQUESTED' })
+        : world({
+            jobs: [
+              job({ id: 'job-2', kind: 'VALIDATE', state: 'RUNNING' }),
+              job({ id: 'job-3', state: 'SUCCEEDED' }),
+            ],
+          })(s),
+    );
+    ui();
+    const buttons = await screen.findAllByRole('button', { name: en('ki.cancel') });
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]!);
+    await screen.findByText(en('ki.cancel.requested'));
+    expect(seen.find((x) => x.method === 'POST')!.url).toBe(
+      `/v1/admin/knowledge/resources/${RID}/processing-jobs/job-2/cancellation`,
+    );
+    cleanup();
+    mockFetch(world({ jobs: [job({ state: 'QUEUED' })] }));
+    ui({ canManage: false });
+    await screen.findByText(en('ki.job.QUEUED'));
+    expect(screen.queryByRole('button', { name: en('ki.cancel') })).toBeNull();
+  });
+  it('offers a retry for an interrupted version only', async () => {
+    mockFetch((s) =>
+      s.method === 'POST'
+        ? json(200, { versionId: V1, jobId: 'j' })
+        : world({
+            review: review({
+              state: 'FAILED',
+              stateReason: 'processing_failed',
+              analysisJobId: null,
+              blockers: [],
+              approvals: [],
+            }),
+          })(s),
+    );
+    ui();
+    fireEvent.click(await screen.findByRole('button', { name: en('ki.retry') }));
+    await screen.findByText(en('ki.retry.done'));
+    expect(seen.find((x) => x.method === 'POST')!.url).toBe(
+      `/v1/admin/knowledge/resources/${RID}/versions/${V1}/reprocessing`,
+    );
+    cleanup();
+    mockFetch(
+      world({
+        review: review({ state: 'FAILED', stateReason: 'ratio_exceeded', analysisJobId: null }),
+      }),
+    );
+    ui();
+    await screen.findByText('ratio_exceeded');
+    expect(screen.queryByRole('button', { name: en('ki.retry') })).toBeNull();
+  });
+});
+
+const manifest = (over: Partial<ProjectManifestView> = {}): ProjectManifestView => ({
+  schemaVersion: '1',
+  frameworks: ['nextjs', 'nestjs'],
+  languages: ['typescript'],
+  packageManagers: ['pnpm'],
+  capabilities: [
+    {
+      name: 'internationalization',
+      confidence: 0.85,
+      evidence: [{ kind: 'file', path: 'apps/web/app/[locale]/page.tsx' }],
+    },
+  ],
+  projects: [
+    {
+      root: 'apps/web',
+      name: 'web',
+      kind: 'application',
+      roles: [{ role: 'frontend', evidence: [] }],
+      packageManager: { name: 'pnpm', version: null },
+      build: { scripts: [] },
+      detections: [
+        {
+          id: 'nextjs',
+          name: 'Next.js',
+          category: 'framework',
+          version: '15.0.2',
+          versionSource: 'lockfile',
+          confidence: 0.99,
+          level: 'high',
+          evidence: [
+            { kind: 'dependency', path: 'apps/web/package.json', line: 7, detail: 'next@^15' },
+          ],
+          notes: [],
+        },
+      ],
+    },
+    {
+      root: 'examples/demo',
+      name: null,
+      kind: 'example',
+      roles: [],
+      packageManager: null,
+      build: { scripts: [] },
+      detections: [
+        {
+          id: 'vue',
+          name: 'Vue',
+          category: 'framework',
+          version: null,
+          versionSource: null,
+          confidence: 0.6,
+          level: 'medium',
+          evidence: [{ kind: 'dependency', path: 'examples/demo/package.json' }],
+          notes: [],
+        },
+      ],
+    },
+  ],
+  workspaces: [{ tool: 'pnpm', root: '.', members: ['apps/api', 'apps/web'], evidence: [] }],
+  routes: [
+    {
+      kind: 'next-app-page',
+      path: '/[locale]/dashboard',
+      methods: ['GET'],
+      file: 'apps/web/app/[locale]/dashboard/page.tsx',
+      project: 'apps/web',
+    },
+    {
+      kind: 'nest-controller-route',
+      path: '/api/users/:id',
+      methods: ['GET'],
+      file: 'apps/api/src/users.controller.ts',
+      line: 9,
+      project: 'apps/api',
+    },
+  ],
+  screens: [
+    {
+      kind: 'flutter-screen',
+      name: 'HomeScreen',
+      file: 'lib/screens/home_screen.dart',
+      line: 3,
+      project: '.',
+    },
+  ],
+  moduleFacts: [
+    {
+      kind: 'nest-module',
+      name: 'UsersModule',
+      file: 'apps/api/src/users.module.ts',
+      line: 2,
+      project: 'apps/api',
+    },
+  ],
+  ambiguities: [
+    { code: 'examples_excluded', detail: 'x', paths: ['examples/demo'] },
+    { code: 'brand_new_code', detail: 'A new ambiguity the UI has no translation for.', paths: [] },
+  ],
+  stats: { truncated: ['routes'] },
+  ...over,
+});
+
+describe('KnowledgeIngestion: the detected project (S-K2b)', () => {
+  it('shows frameworks with version, source, confidence and evidence; examples are not counted', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    expect(await within(card).findByText('Next.js', { selector: 'strong' })).toBeTruthy();
+    expect(within(card).getByText('15.0.2')).toBeTruthy();
+    expect(within(card).getByText(`(${en('km.src.lockfile')})`)).toBeTruthy();
+    expect(within(card).getByText(/High/)).toBeTruthy();
+    expect(within(card).getByText('apps/web/package.json:7')).toBeTruthy(); // evidence is a path and a line
+    expect(within(card).queryByText('Vue', { selector: 'strong' })).toBeNull(); // the example project's framework is not a package framework
+    expect(within(card).getByText('pnpm', { selector: 'dd *' })).toBeTruthy();
+  });
+  it('lists projects, workspaces, capabilities, routes, screens and modules; known ambiguities are translated and unknown ones fall back to the analyzer text', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    await within(card)
+      .findByText('apps/web', { selector: 'td *, td' })
+      .catch(() => undefined);
+    expect(within(card).getAllByText('apps/web').length).toBeGreaterThan(0);
+    expect(within(card).getByText(en('km.kind.example'))).toBeTruthy();
+    expect(within(card).getByText(/members/)).toBeTruthy();
+    expect(within(card).getByText('internationalization')).toBeTruthy();
+    expect(within(card).getByText('/[locale]/dashboard')).toBeTruthy();
+    expect(within(card).getByText('/api/users/:id')).toBeTruthy();
+    expect(within(card).getByText('apps/api/src/users.controller.ts:9')).toBeTruthy();
+    expect(within(card).getByText(en('km.route.nest-controller-route'))).toBeTruthy();
+    expect(within(card).getByText('HomeScreen')).toBeTruthy();
+    expect(within(card).getByText('UsersModule')).toBeTruthy();
+    expect(within(card).getByText(en('km.amb.examples_excluded'))).toBeTruthy();
+    expect(within(card).getByText('A new ambiguity the UI has no translation for.')).toBeTruthy();
+    expect(within(card).getByText('routes')).toBeTruthy(); // the truncation note
+  });
+  it('renders in Arabic with translated labels', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui({ locale: 'ar' });
+    const card = await screen.findByLabelText(t('ar', 'km.title'));
+    expect(await within(card).findByText(t('ar', 'km.frameworks'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'km.amb.examples_excluded'))).toBeTruthy();
+    expect(
+      within(card).getByText(t('ar', 'km.route.next-app-page'), { exact: false }),
+    ).toBeTruthy();
+  });
+  it('says when detection has not run, when nothing is proven, and handles a forbidden or failed read', async () => {
+    mockFetch(world({ manifest: null }));
+    ui();
+    expect(await screen.findByText(en('km.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(
+      world({
+        manifest: manifest({
+          projects: [],
+          routes: [],
+          screens: [],
+          moduleFacts: [],
+          capabilities: [],
+          workspaces: [],
+          ambiguities: [],
+          languages: [],
+          packageManagers: [],
+          stats: { truncated: [] },
+        }),
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    expect(await within(card).findByText(en('km.frameworks.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.routes.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.capabilities.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.ambiguities.none'))).toBeTruthy();
+    expect(within(card).getByText(en('km.pm.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: json(403, {}) }));
+    ui();
+    const c2 = await screen.findByLabelText(en('km.title'));
+    expect(await within(c2).findByText(en('ki.forbidden'))).toBeTruthy();
+  });
+  it('shows routes in pages of 50 with a "show more" button', async () => {
+    const routes = Array.from({ length: 120 }, (_, i) => ({
+      kind: 'next-app-page',
+      path: `/p${String(i).padStart(3, '0')}`,
+      methods: ['GET'],
+      file: `app/p${i}/page.tsx`,
+      project: '.',
+    }));
+    mockFetch(world({ manifest: manifest({ routes }) }));
+    ui();
+    const card = await screen.findByLabelText(en('km.title'));
+    expect(await within(card).findByText('/p049')).toBeTruthy();
+    expect(within(card).queryByText('/p050')).toBeNull();
+    fireEvent.click(within(card).getByRole('button', { name: en('km.more') }));
+    expect(await within(card).findByText('/p149'.replace('149', '099'))).toBeTruthy();
+  });
+  it('loads the manifest of the version that is selected', async () => {
+    mockFetch(world({ manifest: manifest() }));
+    ui();
+    await screen.findByLabelText(en('km.title'));
+    fireEvent.change(screen.getByLabelText(en('ki.version')), { target: { value: V2 } });
+    await waitFor(() =>
+      expect(seen.some((x) => x.url.includes(`/versions/${V2}/manifest`))).toBe(true),
+    );
+  });
+});
+
+const comp = (over: Partial<ComponentView> = {}): ComponentView => ({
+  id: 'c1',
+  name: 'Button',
+  kind: 'react-component',
+  framework: 'react',
+  path: 'src/components/button.tsx',
+  props: [
+    { name: 'label', type: 'string', required: true },
+    { name: 'primary', type: 'boolean', required: false },
+  ],
+  dependencies: ['react'],
+  styleDeps: ['./button.module.css'],
+  assets: [],
+  platforms: ['web'],
+  reuseAllowed: false,
+  ...over,
+});
+const arch = (over: Partial<ArchitectureView> = {}): ArchitectureView => ({
+  layers: [
+    { project: '.', name: 'components', role: 'ui', files: 12 },
+    { project: '.', name: 'app', role: 'presentation', files: 5 },
+  ],
+  modules: [
+    {
+      name: 'src/app',
+      project: '.',
+      files: 5,
+      dependsOn: [{ module: 'src/components', weight: 7 }],
+    },
+  ],
+  cycles: [{ files: ['src/a.tsx', 'src/b.tsx'], size: 2 }],
+  entryReachability: { roots: 3, analysedFiles: 17, unreachable: 2, sample: ['src/old.tsx'] },
+  publicSurface: [],
+  orphanComponents: [{ name: 'Unused', path: 'src/components/unused.tsx' }],
+  stats: {
+    files: 17,
+    skipped: { minified: 1, parse_error: 2 },
+    internalImports: 30,
+    unresolvedImports: 4,
+    truncated: ['files'],
+  },
+  ...over,
+});
+const v2 = (a: ArchitectureView = arch()) =>
+  manifest({ schemaVersion: '2', architecture: a, componentStats: { total: 2, relationships: 3 } });
+
+describe('KnowledgeIngestion: components and architecture (S-K2c)', () => {
+  it('lists components with kind and file, opens details with props, platforms and relationships, and says they are not reusable yet', async () => {
+    mockFetch(
+      world({
+        manifest: v2(),
+        components: [
+          comp(),
+          comp({
+            id: 'c2',
+            name: 'Home',
+            kind: 'next-page',
+            framework: 'next',
+            path: 'src/app/page.tsx',
+            props: [],
+          }),
+        ],
+        relationships: [
+          {
+            id: 'r1',
+            fromKind: 'component',
+            fromRef: 'src/app/page.tsx#Home',
+            toKind: 'component',
+            toRef: 'src/components/button.tsx#Button',
+            relation: 'renders',
+            evidence: { path: 'src/app/page.tsx', line: 3 },
+          },
+        ],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByText('Button')).toBeTruthy();
+    expect(within(card).getByText(en('kc.kind.next-page'), { selector: '.nz-badge' })).toBeTruthy();
+    expect(within(card).getByText('src/components/button.tsx')).toBeTruthy();
+    fireEvent.click(within(card).getAllByRole('button', { name: en('kc.details') })[0]!);
+    const detail = await within(card).findByLabelText('Button');
+    expect(within(detail).getByText(en('kc.reuse.no'))).toBeTruthy();
+    expect(within(detail).getByText('label')).toBeTruthy();
+    expect(within(detail).getByText('string')).toBeTruthy();
+    expect(within(detail).getByText(en('kc.prop.required'))).toBeTruthy();
+    expect(within(detail).getByText('./button.module.css')).toBeTruthy();
+    expect(await within(detail).findByText(en('kc.rel.renders'))).toBeTruthy();
+    expect(within(detail).getByText('src/app/page.tsx:3')).toBeTruthy();
+    // the relationships are requested for THIS component
+    await waitFor(() =>
+      expect(
+        seen.some(
+          (x) =>
+            x.url.endsWith('/relationships') &&
+            decodeURIComponent(x.search).includes('ref=src/components/button.tsx#Button'),
+        ),
+      ).toBe(true),
+    );
+    fireEvent.click(within(card).getByRole('button', { name: en('kc.hide') }));
+    expect(within(card).queryByLabelText('Button')).toBeNull();
+  });
+  it('filters by kind, framework and search through the API', async () => {
+    mockFetch(
+      world({
+        manifest: v2(),
+        components: [
+          comp(),
+          comp({
+            id: 'c2',
+            name: 'Home',
+            kind: 'next-page',
+            framework: 'next',
+            path: 'src/app/page.tsx',
+          }),
+        ],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    await within(card).findByText('Home');
+    fireEvent.change(within(card).getByLabelText(en('kc.kind')), {
+      target: { value: 'next-page' },
+    });
+    await waitFor(() => expect(within(card).queryByText('src/components/button.tsx')).toBeNull());
+    expect(
+      seen.some((x) => x.url.endsWith('/components') && x.search.includes('kind=next-page')),
+    ).toBe(true);
+    fireEvent.change(within(card).getByLabelText(en('kc.framework')), {
+      target: { value: 'flutter' },
+    });
+    await waitFor(() =>
+      expect(seen.some((x) => x.search.includes('framework=flutter'))).toBe(true),
+    );
+    fireEvent.change(within(card).getByLabelText(en('kc.search')), { target: { value: 'zzz' } });
+    expect(await within(card).findByText(en('kc.components.none'))).toBeTruthy();
+  });
+  it('shows layers, modules with weights, cycles, reachability, orphans, skipped files and the truncation note', async () => {
+    mockFetch(world({ manifest: v2(), components: [comp()] }));
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByText(en('kc.arch'))).toBeTruthy();
+    expect(within(card).getByText(en('kc.role.ui'))).toBeTruthy();
+    expect(within(card).getByText('src/components (7)')).toBeTruthy();
+    expect(within(card).getByText('src/a.tsx ⇄ src/b.tsx')).toBeTruthy();
+    expect(within(card).getByText(en('kc.arch.reach.text', { n: 2, total: 17 }))).toBeTruthy();
+    expect(within(card).getByText('Unused')).toBeTruthy();
+    expect(within(card).getByText(/minified 1/)).toBeTruthy();
+    expect(within(card).getByText('files')).toBeTruthy();
+  });
+  it('clean architecture: no cycles, no entry points', async () => {
+    mockFetch(
+      world({
+        manifest: v2(
+          arch({
+            cycles: [],
+            entryReachability: null,
+            orphanComponents: [],
+            stats: {
+              files: 1,
+              skipped: {},
+              internalImports: 0,
+              unresolvedImports: 0,
+              truncated: [],
+            },
+          }),
+        ),
+        components: [comp()],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByText(en('kc.arch.cycles.none'))).toBeTruthy();
+    expect(within(card).getByText(en('kc.arch.reach.none'))).toBeTruthy();
+    expect(within(card).getByText(en('kc.arch.orphans.none'))).toBeTruthy();
+  });
+  it('Arabic labels', async () => {
+    mockFetch(world({ manifest: v2(), components: [comp()] }));
+    ui({ locale: 'ar' });
+    const card = await screen.findByLabelText(t('ar', 'kc.title'));
+    expect(await within(card).findByText(t('ar', 'kc.kind.react-component'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kc.arch.cycles'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kc.role.ui'))).toBeTruthy();
+  });
+  it('not analysed (no manifest, or only schema 1), forbidden and failed reads', async () => {
+    mockFetch(world({ manifest: null }));
+    ui();
+    expect(await screen.findByText(en('kc.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: manifest() })); // schema 1: detection only
+    ui();
+    expect(await screen.findByText(en('kc.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: v2(), components: json(500, {}) }));
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(await within(card).findByRole('alert')).toBeTruthy();
+    cleanup();
+    mockFetch(world({ manifest: json(403, {}) }));
+    ui();
+    const c2 = await screen.findByLabelText(en('kc.title'));
+    expect(await within(c2).findByText(en('ki.forbidden'))).toBeTruthy();
+  });
+});
+
+// ---- Design DNA (S-K4) -----------------------------------------------------------------------------------------------------------
+const ev = (path = 'src/app/globals.css', line = 5) => ({ path, line });
+const role = (over: Partial<DnaRoleView> = {}): DnaRoleView => ({
+  role: 'primary',
+  token: '--primary',
+  value: '221 83% 53%',
+  hex: '#2563eb',
+  mode: 'base',
+  via: 'name+usage',
+  confidence: 0.95,
+  evidence: ev(),
+  ...over,
+});
+const entry = (over: Partial<DnaEntryView> = {}): DnaEntryView => ({
+  name: '--radius',
+  value: '0.5rem',
+  resolved: null,
+  px: 8,
+  mode: 'base',
+  origin: 'css-var',
+  evidence: ev('src/app/globals.css', 8),
+  ...over,
+});
+const projectDna = (over: Partial<ProjectDnaView> = {}): ProjectDnaView => ({
+  root: '.',
+  name: 'shop',
+  frameworks: ['nextjs'],
+  sources: [{ path: 'src/app/globals.css', kind: 'css', tokens: 9 }],
+  modes: ['base', 'dark'],
+  palette: [
+    {
+      mode: 'base',
+      roles: [
+        role(),
+        role({
+          role: 'background',
+          token: '--background',
+          hex: '#ffffff',
+          via: 'name',
+          confidence: 0.85,
+        }),
+      ],
+      colors: [
+        entry({ name: '--border', value: '214 32% 91%', resolved: 'hsl(214 32% 91%)', px: null }),
+      ],
+    },
+    {
+      mode: 'dark',
+      roles: [role({ role: 'background', token: '--background', hex: '#020617', mode: 'dark' })],
+      colors: [],
+    },
+  ],
+  typography: {
+    families: [entry({ name: '--font-sans', value: 'Cairo, sans-serif', px: null })],
+    sizes: [entry({ name: 'fontSize.sm', value: '0.875rem', px: 14 })],
+    weights: [],
+    lineHeights: [],
+  },
+  spacing: {
+    scale: [entry({ name: 'spacing.4', value: '1rem', px: 16 })],
+    baseUnit: 4,
+    baseUnitInferred: true,
+  },
+  radius: [entry()],
+  shadows: [],
+  breakpoints: [],
+  motion: [],
+  contrast: [
+    {
+      mode: 'base',
+      pair: 'text/background',
+      foreground: '#020617',
+      background: '#ffffff',
+      ratio: 19.8,
+      aa: true,
+      aaLarge: true,
+      aaa: true,
+    },
+    {
+      mode: 'base',
+      pair: 'primary/background',
+      foreground: '#2563eb',
+      background: '#ffffff',
+      ratio: 3.9,
+      aa: false,
+      aaLarge: true,
+      aaa: false,
+    },
+    {
+      mode: 'dark',
+      pair: 'text/background',
+      foreground: '#f8fafc',
+      background: '#020617',
+      ratio: 18.1,
+      aa: true,
+      aaLarge: true,
+      aaa: true,
+    },
+  ],
+  traits: {
+    darkMode: true,
+    multiTheme: false,
+    schemes: ['dark'],
+    rtl: true,
+    logicalProperties: false,
+    arabicFont: true,
+    tailwind: true,
+    cssVariables: true,
+    material3: null,
+  },
+  dynamic: [{ name: 'colors.plugin', path: 'tailwind.config.ts', line: 4 }],
+  stats: { files: 2, tokens: 9, resolved: 3, unresolved: 0, dynamic: 1 },
+  ...over,
+});
+const dna = (over: Partial<DesignDnaView> = {}): DesignDnaView => ({
+  schemaVersion: '1',
+  analyzerVersion: '1.0.0',
+  primary: 0,
+  projects: [projectDna()],
+  stats: {
+    files: 2,
+    tokens: 9,
+    variants: 2,
+    skipped: { minified: 1, timeout: 1 },
+    truncated: ['palette_colors'],
+  },
+  ...over,
+});
+const token = (over: Partial<ThemeTokenView> = {}): ThemeTokenView => ({
+  id: 't1',
+  category: 'color',
+  name: '--primary',
+  value: '221 83% 53%',
+  resolvedValue: null,
+  sourcePath: 'src/app/globals.css',
+  mode: 'base',
+  line: 5,
+  origin: 'css-var',
+  dynamic: false,
+  ...over,
+});
+interface DesignWorld {
+  design?: DesignDnaView | null | Response;
+  tokens?: ThemeTokenView[] | Response;
+  variants?: ThemeVariantView[] | Response;
+}
+const designWorld =
+  (d: DesignWorld = {}): Handler =>
+  (s) => {
+    if (s.url.endsWith('/design'))
+      return d.design instanceof Response
+        ? d.design.clone()
+        : json(200, {
+            versionId: V1,
+            createdAt: null,
+            design: d.design === undefined ? dna() : d.design,
+          });
+    if (s.url.endsWith('/theme-tokens')) {
+      if (d.tokens instanceof Response) return d.tokens.clone();
+      const sp = new URL(`http://x${s.search}`).searchParams;
+      const cat = sp.get('category');
+      const q = sp.get('q');
+      return json(200, {
+        items: (d.tokens ?? []).filter(
+          (x) =>
+            (!cat || x.category === cat) && (!q || x.name.toLowerCase().includes(q.toLowerCase())),
+        ),
+        nextCursor: null,
+      });
+    }
+    if (s.url.endsWith('/theme-variants'))
+      return d.variants instanceof Response
+        ? d.variants.clone()
+        : json(200, { items: d.variants ?? [], nextCursor: null });
+    return world({ manifest: v2() })(s);
+  };
+
+describe('KnowledgeIngestion: Design DNA (S-K4)', () => {
+  it('shows roles with their colour, token, confidence and evidence, contrast with WCAG levels, typography, spacing, traits, and says nothing is reusable yet', async () => {
+    mockFetch(designWorld({ tokens: [token()] }));
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    expect(await within(card).findByText(en('kd.role.primary'))).toBeTruthy();
+    expect(within(card).getByText('#2563eb')).toBeTruthy();
+    expect(within(card).getAllByText('--primary').length).toBeGreaterThan(0);
+    expect(within(card).getByText(/95%/)).toBeTruthy();
+    expect(within(card).getAllByText('src/app/globals.css:5').length).toBeGreaterThan(0);
+    expect(within(card).getByText(en('kc.reuse.no'))).toBeTruthy();
+    // contrast, base mode only
+    const table = within(card).getByRole('table', { name: en('kd.contrast') });
+    expect(within(table).getByText('19.8:1')).toBeTruthy();
+    expect(within(table).getByText(en('kd.pair.text_background'))).toBeTruthy();
+    expect(within(table).getAllByText(en('kd.aa.pass')).length).toBe(1);
+    expect(within(table).getByText(en('kd.aa.fail'))).toBeTruthy();
+    expect(within(table).queryByText('18.1:1')).toBeNull();
+    // typography, spacing and radius
+    expect(within(card).getByText('Cairo, sans-serif')).toBeTruthy();
+    expect(within(card).getByText(en('kd.baseUnit', { n: 4 }), { exact: false })).toBeTruthy();
+    expect(within(card).getByText(en('kd.inferred'), { exact: false })).toBeTruthy();
+    expect(within(card).getAllByText('0.5rem').length).toBeGreaterThan(0);
+    // traits
+    for (const k of [
+      'kd.trait.darkMode',
+      'kd.trait.rtl',
+      'kd.trait.arabicFont',
+      'kd.trait.tailwind',
+    ] as const)
+      expect(within(card).getByText(en(k), { selector: '.nz-badge' })).toBeTruthy();
+    expect(within(card).queryByText(en('kd.trait.material3'))).toBeNull();
+    // computed values are listed as such, with where they are
+    expect(within(card).getByText(en('kd.dynamic.note'))).toBeTruthy();
+    expect(within(card).getByText('colors.plugin')).toBeTruthy();
+    expect(within(card).getByText('tailwind.config.ts:4')).toBeTruthy();
+    // stats with skipped reasons and truncation
+    expect(within(card).getByText(/2 files, 9 tokens, 2 variants/)).toBeTruthy();
+    expect(within(card).getByText(new RegExp(en('kc.skip.timeout')))).toBeTruthy();
+    expect(within(card).getByText('palette_colors')).toBeTruthy();
+  });
+
+  it('a colour that is not a plain hex never reaches a style attribute', async () => {
+    mockFetch(
+      designWorld({
+        design: dna({
+          projects: [
+            projectDna({
+              palette: [
+                {
+                  mode: 'base',
+                  roles: [
+                    role({ hex: 'red;background:url(//evil/x)' }),
+                    role({ role: 'accent', hex: '#abc123' }),
+                  ],
+                  colors: [],
+                },
+              ],
+              modes: ['base'],
+            }),
+          ],
+        }),
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    await within(card).findByText(en('kd.role.accent'));
+    const chips = [...card.querySelectorAll('.kd-chip')] as HTMLElement[];
+    expect(chips).toHaveLength(2);
+    expect(chips[0]!.getAttribute('style')).toBeNull();
+    expect(chips[1]!.style.backgroundColor).not.toBe('');
+    expect(card.innerHTML).not.toContain('evil');
+  });
+
+  it('switches the mode and the project', async () => {
+    mockFetch(
+      designWorld({
+        design: dna({
+          primary: 1,
+          projects: [
+            projectDna({
+              root: 'app',
+              name: 'app',
+              modes: ['base'],
+              palette: [
+                {
+                  mode: 'base',
+                  roles: [role({ role: 'info', token: 'info', hex: '#00aaff' })],
+                  colors: [],
+                },
+              ],
+              contrast: [],
+            }),
+            projectDna(),
+          ],
+        }),
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    expect(await within(card).findByText('#ffffff')).toBeTruthy(); // the primary project (index 1) is shown first
+    fireEvent.change(within(card).getByLabelText(en('kd.mode')), { target: { value: 'dark' } });
+    expect(await within(card).findByText('#020617')).toBeTruthy();
+    expect(within(card).queryByText('#ffffff')).toBeNull();
+    const table = within(card).getByRole('table', { name: en('kd.contrast') });
+    expect(within(table).getByText('18.1:1')).toBeTruthy();
+    fireEvent.change(within(card).getByLabelText(en('kd.project')), { target: { value: '0' } });
+    expect(await within(card).findByText(en('kd.role.info'))).toBeTruthy();
+    expect(within(card).getByText(en('kd.contrast.none'))).toBeTruthy();
+  });
+
+  it('lists the tokens (computed ones marked, resolved values shown), filters through the API, and lists the variants', async () => {
+    mockFetch(
+      designWorld({
+        tokens: [
+          token(),
+          token({
+            id: 't2',
+            name: 'colors.brand',
+            value: 'hsl(var(--primary))',
+            resolvedValue: 'hsl(221 83% 53%)',
+            origin: 'tailwind-config',
+            sourcePath: 'tailwind.config.ts',
+            line: 3,
+          }),
+          token({
+            id: 't3',
+            name: 'colors.plugin',
+            value: null,
+            dynamic: true,
+            origin: 'tailwind-config',
+          }),
+          token({ id: 't4', category: 'radius', name: '--radius', value: '0.5rem', mode: 'dark' }),
+        ],
+        variants: [
+          {
+            id: 'v1',
+            kind: 'color-scheme',
+            name: 'dark',
+            descriptor: { path: 'src/app/globals.css' },
+            hasPreview: false,
+          },
+          {
+            id: 'v2',
+            kind: 'sidebar',
+            name: 'Sidebar',
+            descriptor: { path: 'src/components/sidebar.tsx' },
+            hasPreview: false,
+          },
+        ],
+      }),
+    );
+    ui();
+    const card = await screen.findByLabelText(en('kd.title'));
+    const table = await within(card).findByRole('table', { name: en('kd.tokens') });
+    expect(within(table).getByText('hsl(var(--primary)) → hsl(221 83% 53%)')).toBeTruthy();
+    expect(within(table).getByText(en('kd.computed'))).toBeTruthy();
+    expect(
+      within(table).getAllByText(en('kd.origin.tailwind-config'), { exact: false }).length,
+    ).toBe(2);
+    expect(
+      within(card).getByText(en('kd.variant.sidebar'), { selector: '.nz-badge' }),
+    ).toBeTruthy();
+    expect(within(card).getByText('src/components/sidebar.tsx')).toBeTruthy();
+    fireEvent.change(within(card).getByLabelText(en('kd.category')), {
+      target: { value: 'radius' },
+    });
+    await waitFor(() =>
+      expect(
+        seen.some((x) => x.url.endsWith('/theme-tokens') && x.search.includes('category=radius')),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(within(card).queryByText('colors.brand')).toBeNull());
+    fireEvent.change(within(card).getByLabelText(en('kd.search')), {
+      target: { value: 'nothing-like-this' },
+    });
+    expect(await within(card).findByText(en('kd.tokens.none'))).toBeTruthy();
+  });
+
+  it('Arabic labels', async () => {
+    mockFetch(designWorld({ tokens: [token()] }));
+    ui({ locale: 'ar' });
+    const card = await screen.findByLabelText(t('ar', 'kd.title'));
+    expect(await within(card).findByText(t('ar', 'kd.role.primary'))).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kd.contrast'), { selector: 'h3' })).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kd.trait.rtl'), { selector: '.nz-badge' })).toBeTruthy();
+    expect(within(card).getByText(t('ar', 'kd.palette'))).toBeTruthy();
+  });
+
+  it('not analysed, forbidden and failed reads; a failed token list does not hide the document', async () => {
+    mockFetch(designWorld({ design: null }));
+    ui();
+    expect(await screen.findByText(en('kd.none'))).toBeTruthy();
+    cleanup();
+    mockFetch(designWorld({ design: json(403, {}) }));
+    ui();
+    const c1 = await screen.findByLabelText(en('kd.title'));
+    expect(await within(c1).findByText(en('ki.forbidden'))).toBeTruthy();
+    cleanup();
+    mockFetch(designWorld({ design: json(500, {}) }));
+    ui();
+    const c2 = await screen.findByLabelText(en('kd.title'));
+    expect(await within(c2).findByRole('alert')).toBeTruthy();
+    cleanup();
+    mockFetch(designWorld({ tokens: json(500, {}) }));
+    ui();
+    const c3 = await screen.findByLabelText(en('kd.title'));
+    expect(await within(c3).findByText(en('kd.role.primary'))).toBeTruthy();
+    expect(await within(c3).findByText(en('ki.load.error'))).toBeTruthy();
+  });
+
+  it('the component section still works with the schema-3 manifest', async () => {
+    mockFetch(designWorld({ tokens: [] }));
+    ui();
+    const card = await screen.findByLabelText(en('kc.title'));
+    expect(within(card).queryByText(en('kc.none'))).toBeNull();
+  });
+});

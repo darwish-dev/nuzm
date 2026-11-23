@@ -20,4 +20,9 @@ describe('shared UUID check', () => {
     ])
       expect(isUuid(v)).toBe(false);
   });
+
+  it('is exactly the pattern the ZATCA validator used before it imported this one (spec/zatca pin: changing it changes e-invoice validation)', () => {
+    expect(UUID.source).toBe('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+    expect(UUID.flags).toBe('i');
+  });
 });

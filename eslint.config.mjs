@@ -60,6 +60,76 @@ export default tseslint.config(
     },
   },
   {
+    // D-46, SCR-K-10 §4 (AC-AG-07): the read-only agent tool executors are pure. No node builtin, no process, no network, no dynamic code. (`separation.spec.ts` checks the same from the
+    // source text.) The shared module-boundary patterns are repeated because a rule set here replaces the general one for these files.
+    files: ['packages/domain/src/ai/agent-tools/**/*.ts'],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@nuzm/*/src/*', '@nuzm/*/dist/*'],
+              message: 'Import a package only through its public entry point.',
+            },
+            {
+              group: ['../**/internal', '../**/internal/**', '@/**/internal/**'],
+              message: 'Module internals are private; import the module public index only.',
+            },
+            {
+              group: ['**/apps/*', '../../apps/*', '../../../apps/*'],
+              message: 'Apps must not import from other apps.',
+            },
+            {
+              group: [
+                'node:*',
+                'child_process',
+                'fs',
+                'fs/*',
+                'net',
+                'http',
+                'https',
+                'dns',
+                'tls',
+                'vm',
+                'worker_threads',
+                'os',
+                'path',
+                'url',
+                'cluster',
+                'dgram',
+              ],
+              message:
+                'The read-only agent tools must not reach the system: no process, filesystem, network or code-execution module.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        'process',
+        'require',
+        'fetch',
+        'eval',
+        'setTimeout',
+        'setInterval',
+        'XMLHttpRequest',
+        'WebSocket',
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ImportExpression',
+          message: 'No dynamic import in the read-only agent tools.',
+        },
+        { selector: "NewExpression[callee.name='Function']", message: 'No dynamic code.' },
+      ],
+      'no-eval': 'error',
+      'no-new-func': 'error',
+    },
+  },
+  {
     files: ['**/*.mjs', '**/*.js', 'scripts/**'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },

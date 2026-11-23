@@ -126,7 +126,47 @@ beforeAll(async () => {
     [
       id(601),
       V(1),
-      JSON.stringify({ designDna: { style: 'minimal' }, internalNote: 'never-exposed' }),
+      JSON.stringify({
+        capabilities: [
+          { name: 'Authentication', evidence: [{ path: 'src/secret/auth.ts', line: 3 }] },
+        ],
+        internalNote: 'never-exposed',
+      }),
+    ],
+  );
+  await root(
+    `INSERT INTO knowledge.analysis_results (id, version_id, org_id, analyzer, analyzer_version, content_hash, result) VALUES ($1,$2,NULL,'design-dna','1.0.0',$3,$4::jsonb)`,
+    [
+      id(604),
+      V(1),
+      HASH,
+      JSON.stringify({
+        primary: 0,
+        projects: [
+          {
+            modes: ['base', 'dark'],
+            traits: { darkMode: true, rtl: false },
+            sources: [{ path: 'src/secret/globals.css', kind: 'css', tokens: 9 }],
+            palette: [
+              {
+                mode: 'base',
+                roles: [
+                  {
+                    role: 'primary',
+                    hex: '#2563eb',
+                    token: '--primary',
+                    evidence: { path: 'src/secret/globals.css', line: 4 },
+                  },
+                ],
+              },
+            ],
+            typography: {
+              families: [{ value: 'Cairo', evidence: { path: 'src/secret/tokens.css', line: 1 } }],
+            },
+            spacing: { baseUnit: 4 },
+          },
+        ],
+      }),
     ],
   );
   await root(
@@ -304,8 +344,34 @@ describe('knowledge.v_published_templates is the only door', () => {
           ).rows,
       )
     )[0];
-    expect(row.design_dna).toEqual({ style: 'minimal' }); // only the design summary key, not the whole manifest (the internal note stays out)
+    // a SAFE summary of the Design DNA: modes, traits, role colours, font families, base unit. No paths, no evidence, no token names, nothing of the manifest.
+    expect(row.design_dna).toEqual({
+      modes: ['base', 'dark'],
+      traits: { darkMode: true, rtl: false },
+      roles: [{ role: 'primary', hex: '#2563eb' }],
+      families: ['Cairo'],
+      baseUnit: 4,
+    });
+    expect(JSON.stringify(row)).not.toMatch(/src\/secret|never-exposed|--primary|objects\/x/);
     expect(row.preview_keys).toEqual(['previews/sidebar.png']);
+    const more = (
+      await as(
+        'nuzm_app',
+        tenant(A),
+        async (c) =>
+          (
+            await c.query(
+              `SELECT capabilities, component_count, license_spdx FROM knowledge.v_published_templates WHERE resource_id = $1`,
+              [P_PUB],
+            )
+          ).rows,
+      )
+    )[0];
+    expect(more.capabilities).toEqual([{ name: 'Authentication' }]); // names only: the evidence paths stay out
+    expect(JSON.stringify(more)).not.toContain('src/secret');
+    expect(names).toEqual(
+      expect.arrayContaining(['capabilities', 'component_count', 'license_spdx']),
+    );
   });
   it('drops a template the moment it is disabled, its licence changes, or reuse is switched off', async () => {
     await root(`UPDATE knowledge.resources SET status = 'DISABLED' WHERE id = $1`, [P_PUB]);
@@ -340,7 +406,7 @@ describe('integrity rules in the database', () => {
           `UPDATE knowledge.resource_versions SET state = 'ACTIVE', license_verdict = '${licence}' WHERE id = $1`,
           [V(3)],
         ),
-      ).toMatch(/check constraint/i);
+      ).toMatch(/check constraint|licen[sc]e/i);
   });
   it('a resource has at most one ACTIVE version', async () => {
     const msg = await fails(
@@ -445,7 +511,7 @@ describe('integrity rules in the database', () => {
     );
     expect(
       await fails('nuzm_app', staff, q(`90,'ai-opinion',NULL,false`), [id(961), V(1)]),
-    ).toMatch(/check constraint/i);
+    ).toMatch(/check constraint|licen[sc]e/i);
     expect(
       await fails('nuzm_app', staff, q(`NULL,'not-run',NULL,false`), [id(962), V(1)]),
     ).toBeNull();
@@ -464,7 +530,7 @@ describe('integrity rules in the database', () => {
     ).toBeNull();
     expect(
       await fails('nuzm_app', tenant(A), e('cost_minor, currency', "120, 'sar'"), [id(972), A]),
-    ).toMatch(/check constraint/i);
+    ).toMatch(/check constraint|licen[sc]e/i);
   });
   it("a customer's generation plan is invisible to another customer", async () => {
     await root(
@@ -511,5 +577,297 @@ describe('integrity rules in the database', () => {
     expect(await hit('payroll')).toBe(0);
     // no Arabic stemmer: a prefixed form is a different token (a known limit of the lexical layer, ADR-065; the semantic layer waits for D-47)
     expect(await hit('المستشفى')).toBe(0);
+  });
+});
+
+describe('knowledge.v_template_copy_files is a guarded road to the files of ONE eligible version (S-K7)', () => {
+  const files = (org: string | null, guc: Record<string, string>) =>
+    as(
+      'nuzm_app',
+      { ...(org ? tenant(org) : {}), ...guc },
+      async (c) =>
+        (
+          await c.query(
+            `SELECT version_id, path, object_key FROM knowledge.v_template_copy_files ORDER BY path`,
+          )
+        ).rows,
+    );
+  it('is empty unless the transaction names the version (a customer cannot list files by guessing ids)', async () => {
+    expect(await files(A, {})).toEqual([]);
+    expect(await files(A, { 'app.template_copy_version': '' })).toEqual([]);
+    expect(await files(A, { 'app.template_copy_version': 'not-a-uuid' })).toEqual([]);
+    expect(await files(null, {})).toEqual([]);
+    // the staff scope does not open it either: it is the copy road, not an admin view
+    expect(
+      await as(
+        'nuzm_app',
+        staff,
+        async (c) => (await c.query(`SELECT 1 FROM knowledge.v_template_copy_files`)).rowCount,
+      ),
+    ).toBe(0);
+  });
+  it('returns the stored text files of the named published version, and only those', async () => {
+    const rows = await files(A, { 'app.template_copy_version': V(1) });
+    expect(rows).toEqual([{ version_id: V(1), path: 'src/app.tsx', object_key: 'objects/x' }]);
+    expect(await files(B, { 'app.template_copy_version': V(1) })).toHaveLength(1); // any organization may copy a published template
+  });
+  it('is empty for a version that is private, not licence-allowed, not active, or a tenant-private one', async () => {
+    await root(
+      `INSERT INTO knowledge.resource_files (id, version_id, org_id, path, sha256, bytes, object_key) VALUES ($1,$2,NULL,'a.ts',$3,1,'objects/priv'),($4,$5,NULL,'b.ts',$3,1,'objects/lic'),($6,$7,$8,'c.ts',$3,1,'objects/own')`,
+      [id(700), V(2), HASH, id(701), V(3), id(702), V(4), A],
+    );
+    for (const v of [V(2), V(3), V(4), V(5)])
+      expect(await files(A, { 'app.template_copy_version': v })).toEqual([]);
+  });
+  it('drops the moment the template is disabled, its licence changes or reuse is switched off, and never lists binary or unstored files', async () => {
+    await root(
+      `INSERT INTO knowledge.resource_files (id, version_id, org_id, path, sha256, bytes, is_binary, object_key) VALUES ($1,$2,NULL,'logo.png',$3,9,true,'objects/bin'),($4,$2,NULL,'gone.txt',$3,9,false,NULL)`,
+      [id(710), V(1), HASH, id(711)],
+    );
+    expect((await files(A, { 'app.template_copy_version': V(1) })).map((r) => r.path)).toEqual([
+      'src/app.tsx',
+    ]);
+    await root(`UPDATE knowledge.resources SET status = 'DISABLED' WHERE id = $1`, [P_PUB]);
+    expect(await files(A, { 'app.template_copy_version': V(1) })).toEqual([]);
+    await root(`UPDATE knowledge.resources SET status = 'ACTIVE' WHERE id = $1`, [P_PUB]);
+    await root(
+      `UPDATE knowledge.resource_permissions SET reuse_scope = 'NONE' WHERE resource_id = $1`,
+      [P_PUB],
+    );
+    expect(await files(A, { 'app.template_copy_version': V(1) })).toEqual([]);
+    await root(
+      `UPDATE knowledge.resource_permissions SET reuse_scope = 'FULL_STARTER', license_verdict = 'RESTRICTED' WHERE resource_id = $1`,
+      [P_PUB],
+    );
+    expect(await files(A, { 'app.template_copy_version': V(1) })).toEqual([]);
+    await root(
+      `UPDATE knowledge.resource_permissions SET license_verdict = 'ALLOWED' WHERE resource_id = $1`,
+      [P_PUB],
+    );
+    expect(await files(A, { 'app.template_copy_version': V(1) })).toHaveLength(1);
+  });
+  it('the base tables stay closed to a tenant session even with the copy setting', async () => {
+    const q: Record<string, string> = {
+      resource_files: 'WHERE org_id IS NULL',
+      resource_versions: 'WHERE org_id IS NULL',
+      resources: 'WHERE org_id IS NULL',
+      resource_search_documents: 'WHERE org_id IS NULL',
+      analysis_results: 'WHERE org_id IS NULL',
+      engine_settings: '',
+      template_defaults: '',
+    };
+    for (const [t, where] of Object.entries(q))
+      expect(
+        await as(
+          'nuzm_app',
+          { ...tenant(A), 'app.template_copy_version': V(1) },
+          async (c) => (await c.query(`SELECT 1 FROM knowledge.${t} ${where}`)).rowCount,
+        ),
+        t,
+      ).toBe(0);
+  });
+});
+
+describe('a customer records its own usage and plans, and nobody else does (S-K7)', () => {
+  const asOrg = <T>(org: string, fn: (c: Client) => Promise<T>) => as('nuzm_app', tenant(org), fn);
+  it('usage events: a tenant inserts and reads only its own; a forged organization is refused; events are append-only', async () => {
+    await asOrg(A, async (c) => {
+      await c.query(
+        `INSERT INTO knowledge.usage_events (id, org_id, resource_id, version_id, kind) VALUES ($1,$2,$3,$4,'COPIED')`,
+        [id(800), A, P_PUB, V(1)],
+      );
+    });
+    await root(
+      `INSERT INTO knowledge.usage_events (id, org_id, resource_id, version_id, kind) VALUES ($1,$2,$3,$4,'COPIED'),($5,$2,$3,$4,'RECOMMENDED')`,
+      [id(801), A, P_PUB, V(1), id(802)],
+    );
+    await root(
+      `INSERT INTO knowledge.usage_events (id, org_id, resource_id, version_id, kind) VALUES ($1,$2,$3,$4,'COPIED')`,
+      [id(803), B, P_PUB, V(1)],
+    );
+    expect(
+      await asOrg(A, async (c) => (await c.query(`SELECT 1 FROM knowledge.usage_events`)).rowCount),
+    ).toBe(2);
+    expect(
+      await asOrg(B, async (c) => (await c.query(`SELECT 1 FROM knowledge.usage_events`)).rowCount),
+    ).toBe(1);
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(A),
+        `INSERT INTO knowledge.usage_events (id, org_id, resource_id, kind) VALUES ($1,$2,$3,'COPIED')`,
+        [id(804), B, P_PUB],
+      ),
+    ).toMatch(/row-level security/);
+    expect(
+      await fails('nuzm_app', tenant(A), `UPDATE knowledge.usage_events SET kind = 'REJECTED'`),
+    ).toMatch(/permission denied|append-only/);
+    expect(await fails('nuzm_app', tenant(A), `DELETE FROM knowledge.usage_events`)).toMatch(
+      /permission denied|append-only/,
+    );
+  });
+  it("generation plans and resource links are the tenant's own: no cross-tenant read, no forged organization", async () => {
+    await asOrg(A, async (c) => {
+      await c.query(
+        `INSERT INTO knowledge.generation_plans (id, org_id, project_id, selection_strategy, adaptation_mode, requirements, plan) VALUES ($1,$2,$3,'AUTO_SELECT','ADAPTIVE','{}','{}')`,
+        [id(810), A, id(811)],
+      );
+      await c.query(
+        `INSERT INTO knowledge.generation_resource_links (id, org_id, plan_id, resource_version_id, role, strategy) VALUES ($1,$2,$3,$4,'STARTER','COPY')`,
+        [id(812), A, id(810), V(1)],
+      );
+    }).catch(() => undefined); // each statement set runs in a rolled-back transaction; the visible rows below are written as the owner
+    await root(
+      `INSERT INTO knowledge.generation_plans (id, org_id, project_id, selection_strategy, adaptation_mode, requirements, plan) VALUES ($1,$2,$3,'AUTO_SELECT','ADAPTIVE','{}','{}') ON CONFLICT DO NOTHING`,
+      [id(810), A, id(811)],
+    );
+    await root(
+      `INSERT INTO knowledge.generation_resource_links (id, org_id, plan_id, resource_version_id, role, strategy) VALUES ($1,$2,$3,$4,'STARTER','COPY') ON CONFLICT DO NOTHING`,
+      [id(812), A, id(810), V(1)],
+    );
+    expect(
+      await asOrg(
+        A,
+        async (c) =>
+          (await c.query(`SELECT 1 FROM knowledge.generation_plans WHERE id = $1`, [id(810)]))
+            .rowCount,
+      ),
+    ).toBe(1);
+    expect(
+      await asOrg(
+        B,
+        async (c) => (await c.query(`SELECT 1 FROM knowledge.generation_plans`)).rowCount,
+      ),
+    ).toBe(0);
+    expect(
+      await asOrg(
+        B,
+        async (c) => (await c.query(`SELECT 1 FROM knowledge.generation_resource_links`)).rowCount,
+      ),
+    ).toBe(0);
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(B),
+        `INSERT INTO knowledge.generation_plans (id, org_id, project_id, selection_strategy, adaptation_mode, requirements, plan) VALUES ($1,$2,$3,'AUTO_SELECT','ADAPTIVE','{}','{}')`,
+        [id(813), A, id(811)],
+      ),
+    ).toMatch(/row-level security/);
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(B),
+        `INSERT INTO knowledge.generation_resource_links (id, org_id, resource_version_id, role, strategy) VALUES ($1,$2,$3,'STARTER','COPY')`,
+        [id(814), A, V(1)],
+      ),
+    ).toMatch(/row-level security/);
+  });
+});
+
+describe('the workspace baseline and the AI-processing permission (S-K6)', () => {
+  const asOrg = <T>(org: string, fn: (c: Client) => Promise<T>) => as('nuzm_app', tenant(org), fn);
+  it("a copy's baseline is a tenant row: written with the link, readable by its organization only, and append-only", async () => {
+    await root(
+      `INSERT INTO knowledge.generation_resource_links (id, org_id, resource_version_id, role, strategy, project_id, baseline) VALUES ($1,$2,$3,'STARTER','COPY',$4,$5::jsonb)`,
+      [id(820), A, V(1), id(821), JSON.stringify({ 'src/a.ts': HASH })],
+    );
+    const own = await asOrg(
+      A,
+      async (c) =>
+        (
+          await c.query(
+            `SELECT project_id, baseline FROM knowledge.generation_resource_links WHERE project_id = $1`,
+            [id(821)],
+          )
+        ).rows,
+    );
+    expect(own).toEqual([{ project_id: id(821), baseline: { 'src/a.ts': HASH } }]);
+    expect(
+      await asOrg(
+        B,
+        async (c) =>
+          (
+            await c.query(
+              `SELECT 1 FROM knowledge.generation_resource_links WHERE project_id = $1`,
+              [id(821)],
+            )
+          ).rowCount,
+      ),
+    ).toBe(0);
+    // the baseline is an object, and a link is never changed or removed
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(A),
+        `INSERT INTO knowledge.generation_resource_links (id, org_id, resource_version_id, role, strategy, project_id, baseline) VALUES ($1,$2,$3,'STARTER','COPY',$4,'[]'::jsonb)`,
+        [id(822), A, V(1), id(821)],
+      ),
+    ).toMatch(/check constraint/i);
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(A),
+        `UPDATE knowledge.generation_resource_links SET baseline = '{}'::jsonb`,
+      ),
+    ).toMatch(/permission denied|append-only/);
+    expect(
+      await fails('nuzm_app', tenant(A), `DELETE FROM knowledge.generation_resource_links`),
+    ).toMatch(/permission denied|append-only/);
+    // a forged organization is refused
+    expect(
+      await fails(
+        'nuzm_app',
+        tenant(B),
+        `INSERT INTO knowledge.generation_resource_links (id, org_id, resource_version_id, role, strategy, project_id, baseline) VALUES ($1,$2,$3,'STARTER','COPY',$4,'{}'::jsonb)`,
+        [id(823), A, V(1), id(821)],
+      ),
+    ).toMatch(/row-level security/);
+  });
+  it('v_template_context_permissions says only whether AI processing is permitted, and only for a version a customer may use', async () => {
+    await root(
+      `UPDATE knowledge.resource_permissions SET ai_processing = true WHERE resource_id = $1`,
+      [P_PUB],
+    );
+    const q = (org: string) =>
+      asOrg(
+        org,
+        async (c) =>
+          (
+            await c.query(
+              `SELECT * FROM knowledge.v_template_context_permissions ORDER BY version_id`,
+            )
+          ).rows,
+      );
+    const rows = await q(A);
+    expect(rows.find((r) => r.version_id === V(1))).toEqual({
+      version_id: V(1),
+      ai_processing: true,
+    });
+    expect(Object.keys(rows[0]!).sort()).toEqual(['ai_processing', 'version_id']);
+    // not for a private resource or a restricted licence; a tenant's OWN template is visible to that tenant only
+    for (const v of [V(2), V(3)])
+      expect(
+        rows.find((r) => r.version_id === v),
+        v,
+      ).toBeUndefined();
+    expect(rows.find((r) => r.version_id === V(4))).toBeDefined();
+    expect((await q(B)).find((r) => r.version_id === V(4))).toBeUndefined();
+    await root(
+      `UPDATE knowledge.resource_permissions SET ai_processing = false WHERE resource_id = $1`,
+      [P_PUB],
+    );
+    expect((await q(B)).find((r) => r.version_id === V(1))).toEqual({
+      version_id: V(1),
+      ai_processing: false,
+    });
+    // the base permissions table stays closed to a tenant session
+    expect(
+      await asOrg(
+        A,
+        async (c) =>
+          (await c.query(`SELECT 1 FROM knowledge.resource_permissions WHERE org_id IS NULL`))
+            .rowCount,
+      ),
+    ).toBe(0);
   });
 });

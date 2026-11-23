@@ -39,6 +39,21 @@ describe('Claude adapter: the ModelAdapter contract', () => {
     const results = await runModelConformance(make);
     expect(results.filter((r) => !r.ok)).toEqual([]);
   });
+  it('stays on contract 1.0 until its tool-use capability is read from the official documentation and probed (S-AG4): no 1.1 capability, and the v1.1 cases are reported as skipped', async () => {
+    const a = make();
+    expect(a.contractVersion).toBe('1.0.0');
+    expect(
+      a
+        .models()
+        .flatMap((m) => m.capabilities)
+        .some(
+          (c) => c === 'tool-use' || c === 'streaming-tool-calls' || c === 'parallel-tool-calls',
+        ),
+    ).toBe(false);
+    const r = await runModelConformance(make);
+    expect(r.some((c) => c.skipped && /implements 1\.0\.0/.test(c.detail ?? ''))).toBe(true);
+    expect(r.filter((c) => !c.ok)).toEqual([]);
+  });
   it('declares only documented facts and UNATTESTED data terms (a human attests, HG-09-01)', () => {
     const a = make();
     expect(a.models().map((m) => m.modelId)).toEqual([CLAUDE_MODEL_ID]);

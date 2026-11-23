@@ -6,10 +6,13 @@ import {
   OutboxRelay,
   eventId,
 } from '@nuzm/platform';
+import { resolveKnowledgeStore } from '@nuzm/adapter-knowledge-store';
+import { canariesFromEnv } from '@nuzm/domain';
 import { initTelemetry, withSpan } from '@nuzm/telemetry';
 import { makeAuditJob } from './audit-job';
 import { automationConsumer, AUTOMATION_TOPICS } from './automation-consumers';
 import { walletProjector } from './billing-consumers';
+import { KnowledgeIngestService } from './knowledge/ingest-service';
 import { makePartitionJob, usageIngestor } from './metering-consumers';
 import { runLoop } from './loop';
 
@@ -64,11 +67,46 @@ const auditJob = process.env.AUDIT_CHECKPOINT_KEY
     })
   : (log('audit_job_disabled', { reason: 'AUDIT_CHECKPOINT_KEY not set' }), null);
 
+// AI Intelligence Center ingestion (S-K2a, ADR-065). OFF unless KNOWLEDGE_INGEST_ENABLED=true AND an object store resolves. In production the store resolves only with
+// a complete S3 configuration, vault-resolved credentials and a human attestation (D-42); until then this worker claims nothing and says why.
+const knowledgeStore =
+  process.env.KNOWLEDGE_INGEST_ENABLED === 'true'
+    ? resolveKnowledgeStore(
+        process.env /* production credentials: a vault resolver arrives with D-42 */,
+      )
+    : null;
+const knowledge = knowledgeStore?.store
+  ? new KnowledgeIngestService(db, knowledgeStore.store, {
+      log,
+      canaries: canariesFromEnv(),
+      detect: process.env.KNOWLEDGE_DETECT_ENABLED === 'true', // S-K2b project detection stage: off until accepted
+      components: process.env.KNOWLEDGE_COMPONENTS_ENABLED === 'true', // S-K2c component and architecture stage: off until accepted (needs detect)
+      index: process.env.KNOWLEDGE_INDEX_ENABLED === 'true', // S-K5 search-index stage: off until accepted (needs detect)
+      design: process.env.KNOWLEDGE_DESIGN_ENABLED === 'true', // S-K4 design analysis stage: off until accepted (needs components)
+      sandbox: {
+        threads: Number(process.env.KNOWLEDGE_PARSER_THREADS) || undefined, // parser sandbox (S-K2c): threads, 1-4, default 2
+        timeoutMs: Number(process.env.KNOWLEDGE_PARSER_TIMEOUT_MS) || undefined, // per file, default 10 000
+        maxOldGenerationSizeMb: Number(process.env.KNOWLEDGE_PARSER_HEAP_MB) || undefined, // per thread, default 384
+      },
+    })
+  : null;
+log(
+  knowledge ? 'knowledge_ingest_enabled' : 'knowledge_ingest_disabled',
+  knowledge
+    ? { adapter: knowledgeStore?.status.adapter }
+    : {
+        reason: knowledgeStore
+          ? knowledgeStore.status.problems
+          : 'KNOWLEDGE_INGEST_ENABLED is not true',
+      },
+);
+
 void runLoop(
   () =>
     withSpan('worker.tick', async () => {
       await auditJob?.();
       await partitions();
+      await knowledge?.drain(3);
       const r = await relay.runOnce(async (row) => {
         const handler = subscribers.get(row.topic);
         // Unknown topic: acknowledge after logging so the outbox does not grow unbounded before

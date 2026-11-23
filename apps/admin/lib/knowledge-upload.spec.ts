@@ -10,6 +10,9 @@ import {
   type UploadProgress,
 } from './knowledge-upload';
 
+/** Parts of the tests: small, because the checksum is a pure-JavaScript SHA-256 (megabytes cost seconds, and the whole workspace runs its tests in parallel). */
+const SMALL = 64 * 1024;
+
 const sha = (b: Uint8Array) => createHash('sha256').update(b).digest('hex');
 const meta = {
   name: 'Modern SaaS',
@@ -49,7 +52,7 @@ function fakeApi(
 ) {
   const calls: Call[] = [];
   const attempts = new Map<number, number>();
-  const partSize = over.partSize ?? PART_HINT;
+  const partSize = over.partSize ?? SMALL;
   const fetchFn = (async (url: string, init: RequestInit = {}) => {
     const headers = Object.fromEntries(
       Object.entries((init.headers ?? {}) as Record<string, string>).map(([k, v]) => [
@@ -112,14 +115,31 @@ describe('checkFile mirrors the server rules before a single byte is hashed', ()
 });
 
 describe('runUpload', () => {
-  const data = new Uint8Array(randomBytes(2 * PART_HINT + 1234)); // three parts
+  const data = new Uint8Array(randomBytes(2 * SMALL + 1234)); // three parts
+  const run: typeof runUpload = (o) => runUpload({ hintPartSize: SMALL, ...o });
+
+  it('with the production part size (the 8 MiB hint of the server) the part checksums are those of the file, and the upload completes', async () => {
+    const big = new Uint8Array(randomBytes(PART_HINT + 1234)); // two parts: the one test that pays for real-size hashing
+    const api = fakeApi({ partSize: PART_HINT });
+    const r = await runUpload({
+      file: file(big),
+      metadata: meta,
+      deps: { fetch: api.fetch, csrf: () => 'c', sleep: instant },
+      onProgress: () => undefined,
+    });
+    expect(r).toEqual({ resourceId: 'res-1' });
+    const puts = api.puts();
+    expect(puts).toHaveLength(2);
+    expect(puts[0]!.headers['x-part-sha256']).toBe(sha(big.subarray(0, PART_HINT)));
+    expect(puts[1]!.headers['x-part-sha256']).toBe(sha(big.subarray(PART_HINT)));
+  }, 120_000);
 
   it('hashes, opens a session, sends every part with its own checksum, then completes with the part list and metadata', async () => {
     const api = fakeApi();
     const store = memory();
     const seen: UploadProgress[] = [];
     let session = '';
-    const r = await runUpload({
+    const r = await run({
       file: file(data),
       metadata: meta,
       deps: { fetch: api.fetch, csrf: () => 'csrf-token', store, sleep: instant },
@@ -141,7 +161,7 @@ describe('runUpload', () => {
     const puts = api.puts();
     expect(puts.map((p) => p.url.split('/').pop())).toEqual(['1', '2', '3']);
     for (const [i, p] of puts.entries()) {
-      const part = data.subarray(i * PART_HINT, (i + 1) * PART_HINT);
+      const part = data.subarray(i * SMALL, (i + 1) * SMALL);
       expect(p.headers['x-part-sha256']).toBe(sha(part));
       expect(p.headers['content-type']).toBe('application/octet-stream');
       expect((p.body as Blob).size).toBe(part.length);
@@ -172,7 +192,7 @@ describe('runUpload', () => {
       JSON.stringify({ fp: `modern.zip:${data.length}:1700000000000:${sha(data)}`, id: 'up-1' }),
     );
     const seen: UploadProgress[] = [];
-    await runUpload({
+    await run({
       file: file(data),
       metadata: meta,
       deps: { fetch: api.fetch, csrf: () => 'c', store, sleep: instant },
@@ -183,14 +203,14 @@ describe('runUpload', () => {
     expect(seen.find((p) => p.phase === 'sending')).toMatchObject({ resumed: 2, total: 3 });
     const done = JSON.parse(api.calls.at(-1)!.body as string);
     expect(done.parts).toHaveLength(3); // the completion still lists every part, with the checksums of THIS file
-    expect(done.parts[0].sha256).toBe(sha(data.subarray(0, PART_HINT)));
+    expect(done.parts[0].sha256).toBe(sha(data.subarray(0, SMALL)));
   });
 
   it('does not resume for a different file, and opens a fresh session when the remembered one is no longer open', async () => {
     const store = memory();
     store.setItem('nuzm.knowledge.upload', JSON.stringify({ fp: 'other.zip:1:2:3', id: 'up-1' }));
     const a = fakeApi();
-    await runUpload({
+    await run({
       file: file(data),
       metadata: meta,
       deps: { fetch: a.fetch, csrf: () => 'c', store, sleep: instant },
@@ -202,7 +222,7 @@ describe('runUpload', () => {
       'nuzm.knowledge.upload',
       JSON.stringify({ fp: `modern.zip:${data.length}:1700000000000:${sha(data)}`, id: 'up-1' }),
     );
-    await runUpload({
+    await run({
       file: file(data),
       metadata: meta,
       deps: { fetch: b.fetch, csrf: () => 'c', store, sleep: instant },
@@ -215,7 +235,7 @@ describe('runUpload', () => {
   it('uses the server part size when it differs from the hint, with matching checksums', async () => {
     const small = new Uint8Array(randomBytes(300_000));
     const api = fakeApi({ partSize: 262_144 });
-    await runUpload({
+    await run({
       file: file(small),
       metadata: meta,
       deps: { fetch: api.fetch, csrf: () => 'c', sleep: instant },
@@ -232,7 +252,7 @@ describe('runUpload', () => {
       failPart: (n, a) =>
         n === 1 && a < 2 ? (a === 0 ? 'network' : new Response('', { status: 503 })) : null,
     });
-    await runUpload({
+    await run({
       file: file(data),
       metadata: meta,
       deps: { fetch: ok.fetch, csrf: () => 'c', sleep: instant },
@@ -241,7 +261,7 @@ describe('runUpload', () => {
     expect(ok.puts().filter((p) => p.url.endsWith('/parts/1'))).toHaveLength(3);
     const bad = fakeApi({ failPart: () => 'network' });
     await expect(
-      runUpload({
+      run({
         file: file(data),
         metadata: meta,
         deps: { fetch: bad.fetch, csrf: () => 'c', sleep: instant },
@@ -258,7 +278,7 @@ describe('runUpload', () => {
     ] as const) {
       const api = fakeApi({ failPart: () => new Response('', { status }) });
       await expect(
-        runUpload({
+        run({
           file: file(data),
           metadata: meta,
           deps: { fetch: api.fetch, csrf: () => 'c', sleep: instant },
@@ -273,7 +293,7 @@ describe('runUpload', () => {
     const api = fakeApi({ completion: new Response('{}', { status: 409 }) });
     const store = memory();
     await expect(
-      runUpload({
+      run({
         file: file(data),
         metadata: meta,
         deps: { fetch: api.fetch, csrf: () => 'c', store, sleep: instant },
@@ -286,7 +306,7 @@ describe('runUpload', () => {
   it('rejects a bad file before any request', async () => {
     const api = fakeApi();
     await expect(
-      runUpload({
+      run({
         file: file(data, 'evil.exe'),
         metadata: meta,
         deps: { fetch: api.fetch, csrf: () => 'c' },
@@ -300,7 +320,7 @@ describe('runUpload', () => {
     const ctl = new AbortController();
     const api = fakeApi();
     const store = memory();
-    const p = runUpload({
+    const p = run({
       file: file(data),
       metadata: meta,
       deps: { fetch: api.fetch, csrf: () => 'c', store, sleep: instant },

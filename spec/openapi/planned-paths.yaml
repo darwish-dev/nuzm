@@ -167,27 +167,9 @@ planned:
       status: planned,
     }
   - {
-      path: '/v1/admin/knowledge/resources/{id}/activation',
-      milestone: K,
-      slice: S-K2,
-      status: planned,
-    }
-  - {
-      path: '/v1/admin/knowledge/resources/{id}/reviews',
-      milestone: K,
-      slice: S-K2,
-      status: planned,
-    }
-  - {
       path: '/v1/admin/knowledge/resources/{id}/components',
       milestone: K,
       slice: S-K3,
-      status: planned,
-    }
-  - {
-      path: '/v1/admin/knowledge/resources/{id}/processing-jobs',
-      milestone: K,
-      slice: S-K2,
       status: planned,
     }
   - { path: '/v1/admin/knowledge/defaults', milestone: K, slice: S-K5, status: planned }

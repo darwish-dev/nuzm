@@ -95,6 +95,14 @@ export const CATEGORIES: Category[] = [
             perm: ['builder:read'],
             flag: 'ai.enabled',
           },
+          // S-K7: ready-made templates (the platform's published ones and the organization's own), only while `knowledge.customer_templates` is on for the organization
+          {
+            id: 'templates',
+            label: 'tpl.nav',
+            href: '/builder/templates',
+            perm: ['builder:read'],
+            flag: 'knowledge.customer_templates',
+          },
           // M10A: the web / full-stack app builder, only while its own flag is on for the organization
           {
             id: 'appbuilder',

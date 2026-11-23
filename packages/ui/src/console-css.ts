@@ -3129,4 +3129,23 @@ html[dir='rtl'] .nzc-orgws-projects a > .nzc-icon { transform: scaleX(-1); }
 .nzc-stack-section#invitations > form .nz-row, .nzc-stack-section#invitations > form.nz-row { align-items: end; }
 .nzc-stack-section :is(#members, #invitations, #apikeys) .nz-state { padding-block: 22px; }
 .nzc-stack-section .nz-state { padding-block: 24px; }
+.kni { display: grid; gap: 16px; }
+.kni .nz-card { display: grid; gap: 12px; align-content: start; }
+.kni .nz-h2, .kni .nz-h3 { margin: 0; }
+.kni-toolbar { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; }
+.kni-toolbar > * { min-inline-size: min(100%, 200px); }
+.kni-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px 20px; margin: 0; }
+.kni-facts dt { color: var(--nzc-muted); }
+.kni-facts dd { margin: 0; overflow-wrap: anywhere; }
+.kni-list { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; }
+.kni-log { margin: 0; padding: 10px 12px; max-block-size: 260px; overflow: auto; border: 1px solid var(--nzc-border); border-radius: 10px; background: var(--nzc-field); font-size: 0.85em; list-style: none; display: grid; gap: 4px; }
+.kni-log li { display: grid; grid-template-columns: max-content max-content 1fr; gap: 8px; align-items: baseline; }
+.kni-pad { padding-block: 8px; }
+.kd-swatches { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.kd-swatch { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--nzc-border); border-radius: 10px; background: var(--nzc-field); overflow-wrap: anywhere; }
+.kr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.kr-cand { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--nzc-border); border-radius: 10px; background: var(--nzc-field); overflow-wrap: anywhere; }
+.kr-score { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kr-bar { inline-size: min(100%, 220px); block-size: 10px; accent-color: var(--nzc-accent, currentColor); }
+.kd-chip { flex: none; inline-size: 36px; block-size: 36px; border-radius: 8px; border: 1px solid var(--nzc-border); background: repeating-conic-gradient(var(--nzc-border) 0% 25%, transparent 0% 50%) 50% / 12px 12px; }
 `;

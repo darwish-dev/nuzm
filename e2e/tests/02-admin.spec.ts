@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { T, audit, loc, signIn, totp } from './helpers';
 
-const ADMIN = 'http://127.0.0.1:3001';
+import { ADMIN, WEB } from './env';
 
 test('admin console: staff sign-in with mandatory MFA, suspend/reinstate, audit viewer', async ({
   page,
@@ -43,7 +43,7 @@ test('admin console: staff sign-in with mandatory MFA, suspend/reinstate, audit 
   const owner = await browser.newContext({ locale: L === 'ar' ? 'ar-SA' : 'en-GB' });
   const op = await owner.newPage();
   await signIn(op, info, `owner-${L}@example.test`);
-  await op.goto(`http://127.0.0.1:3000/${L}/workspaces`);
+  await op.goto(`${WEB}/${L}/workspaces`);
   await expect(op.getByRole('heading', { name: T(info, 'state.suspended.title') })).toBeVisible();
   await audit(op, info, 'customer-suspended');
   await owner.close();

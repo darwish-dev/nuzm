@@ -1,12 +1,23 @@
 import { createHash } from 'node:crypto';
 import { defineConfig } from '@playwright/test';
+import {
+  ADMIN,
+  ADMIN_PORT,
+  API,
+  API_PORT,
+  E2E_DB,
+  IDP_PORT,
+  PG_PORT,
+  STORE_DIR,
+  WEB,
+  WEB_PORT,
+} from './tests/env';
 
 /**
  * Browser E2E for the customer and admin consoles, in Arabic (RTL) and English (LTR) projects.
  * Runs against a throwaway database (`nuzm_e2e`), the real API, the dev identity provider and the BUILT Next.js apps.
  * `channel: 'chrome'` uses the installed Chrome (Playwright's bundled Chromium does not support macOS 13).
  */
-const E2E_DB = 'nuzm_e2e';
 /** Service key of the synthetic metering producer the billing E2E posts usage with (test-only value). */
 export const PRODUCER_KEY = 'e2e-producer-key';
 export const USERS = [
@@ -16,7 +27,16 @@ export const USERS = [
   { sub: 'e2e-billing-en', email: 'billing-en@example.test', name: 'Omar Billing' },
   { sub: 'e2e-staff-ar', email: 'staff-ar@example.test', name: 'Sara Staff' },
   { sub: 'e2e-staff-en', email: 'staff-en@example.test', name: 'Sara Staff' },
+  // S-K2a: the two other people a third-party package needs before it can be activated (the uploader cannot be one of them)
+  { sub: 'e2e-approver1-ar', email: 'approver1-ar@example.test', name: 'Huda Security' },
+  { sub: 'e2e-approver1-en', email: 'approver1-en@example.test', name: 'Huda Security' },
+  { sub: 'e2e-approver2-ar', email: 'approver2-ar@example.test', name: 'Faisal Admin' },
+  { sub: 'e2e-approver2-en', email: 'approver2-en@example.test', name: 'Faisal Admin' },
 ];
+
+/** How long a server may take to come up. Defaults are for an idle machine; `E2E_SERVER_TIMEOUT_MS` raises them when other work shares the machine (it never lowers them). */
+const SERVER_START_MS = (dflt: number) =>
+  Math.max(dflt, Number(process.env.E2E_SERVER_TIMEOUT_MS) || 0);
 
 export default defineConfig({
   testDir: './tests',
@@ -29,7 +49,7 @@ export default defineConfig({
   globalSetup: './global-setup.ts',
   use: {
     channel: 'chrome',
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: WEB,
     trace: 'retain-on-failure',
     viewport: { width: 1280, height: 900 },
   },
@@ -40,11 +60,16 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @nuzm/api run dev:stack',
-      url: 'http://127.0.0.1:4000/healthz',
-      timeout: 180_000,
+      url: `${API}/healthz`,
+      timeout: SERVER_START_MS(180_000),
       reuseExistingServer: false,
       env: {
-        DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/${E2E_DB}`,
+        PORT: String(API_PORT),
+        KNOWLEDGE_STORE_DIR: STORE_DIR,
+        DEV_IDP_PORT: String(IDP_PORT),
+        WEB_ORIGIN: WEB,
+        ADMIN_ORIGIN: `http://127.0.0.1:${ADMIN_PORT}`,
+        DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:${PG_PORT}/${E2E_DB}`,
         DEV_IDP_USERS: JSON.stringify(USERS),
         DATA_LOCAL_REFERENCE: 'true', // M08: in-memory dev-reference adapters (mock-*, NOT VERIFIED) so the managed-data screens can be exercised; never production
         // M07: local MOCK registrars (Openprovider/ResellerClub shaped from their docs: NOT VERIFIED vendor behaviour) behind the real adapters, dev only
@@ -62,17 +87,19 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm --filter @nuzm/web exec next start -p 3000 -H 127.0.0.1',
-      url: 'http://127.0.0.1:3000/ar/login',
-      timeout: 120_000,
+      command: `pnpm --filter @nuzm/web exec next start -p ${WEB_PORT} -H 127.0.0.1`,
+      url: `${WEB}/ar/login`,
+      timeout: SERVER_START_MS(120_000),
       reuseExistingServer: false,
-      env: { PSP_SANDBOX_UI: 'true' }, // the e2e API runs the sandbox PSP, so the sandbox card picker is shown
+      env: { PSP_SANDBOX_UI: 'true', API_ORIGIN: API, WEB_ORIGIN: WEB, ADMIN_ORIGIN: ADMIN }, // the e2e API runs the sandbox PSP, so the sandbox card picker is shown
     },
     {
-      command: 'pnpm --filter @nuzm/admin exec next start -p 3001 -H 127.0.0.1',
-      url: 'http://127.0.0.1:3001/ar/login',
-      timeout: 120_000,
+      command: `pnpm --filter @nuzm/admin exec next start -p ${ADMIN_PORT} -H 127.0.0.1`,
+      url: `http://127.0.0.1:${ADMIN_PORT}/ar/login`,
+      timeout: SERVER_START_MS(120_000),
       reuseExistingServer: false,
+      // the consoles read these at run time (sign-in return address, API for server-side rendering)
+      env: { API_ORIGIN: API, WEB_ORIGIN: WEB, ADMIN_ORIGIN: ADMIN },
     },
   ],
 });

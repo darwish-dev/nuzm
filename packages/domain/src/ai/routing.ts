@@ -5,7 +5,16 @@ import type { RateCard } from './credits';
  * BEFORE this function) and the data-terms policy. The function ranks only what is ALLOWED; it never "falls back" across a residency or data-terms
  * refusal, and a candidate whose worst-case reservation exceeds the budget is excluded, so a fallback can never overspend.
  */
-export type Capability = 'chat' | 'structured-output' | 'long-context' | 'embeddings' | 'vision';
+export type Capability =
+  | 'chat'
+  | 'structured-output'
+  | 'long-context'
+  | 'embeddings'
+  | 'vision'
+  // ModelAdapter contract 1.1 (D-46, ADR-066): only counted from an adapter that declares the contract and the capability
+  | 'tool-use'
+  | 'streaming-tool-calls'
+  | 'parallel-tool-calls';
 export type DataClass =
   'public' | 'internal' | 'customer-content' | 'personal' | 'financial' | 'credentials';
 
@@ -35,6 +44,8 @@ export type Exclusion =
   | 'class_not_allowed';
 export interface ModelRoutingRequest {
   capability: Capability;
+  /** further capabilities the model must also declare (tool calling needs `tool-use` besides the capability of the task); absent for every existing caller */
+  alsoRequires?: readonly Capability[];
   /** prompt tokens (estimate) + requested output tokens must fit the model context */
   promptTokens: number;
   maxTokens: number;
@@ -90,7 +101,11 @@ export function routeModels(
       ex('class_not_allowed');
       continue;
     }
-    if (!c.capabilities.includes(req.capability)) ex('capability');
+    if (
+      !c.capabilities.includes(req.capability) ||
+      (req.alsoRequires ?? []).some((x) => !c.capabilities.includes(x))
+    )
+      ex('capability');
     else if (req.promptTokens + req.maxTokens > c.contextTokens) ex('context');
     else if (req.maxTokens > c.maxOutputTokens) ex('output_limit');
     else if (req.residency[c.providerCode] !== 'allow')

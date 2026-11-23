@@ -28,6 +28,13 @@ export class Db {
 
   constructor(url: string, opts: { max?: number } = {}) {
     this.pool = new Pool({ connectionString: url, max: opts.max ?? 10 });
+    // An idle pooled connection can be ended by the server (restart, failover, `DROP DATABASE ... FORCE`). pg re-emits that as an 'error' event on the pool, and an
+    // EventEmitter without a listener throws: the whole process would crash. The pool already discards the dead client; the next query gets a fresh one.
+    this.pool.on('error', (e) => {
+      process.stderr.write(
+        `${JSON.stringify({ level: 'warn', event: 'db_pool_idle_client_error', message: e.message })}\n`,
+      );
+    });
   }
 
   private async tx<T>(gucs: Record<string, string>, fn: (c: PoolClient) => Promise<T>): Promise<T> {
@@ -77,6 +84,14 @@ export class Db {
   /** Explicit, audited cross-org scope for the worker claim loop (operations, outbox). */
   withWorkerClaim<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
     return this.tx({ 'app.worker_scope': 'claim' }, fn);
+  }
+
+  /**
+   * AI Intelligence Center ingestion worker (S-K2a). The database opens ONLY platform library rows (org_id IS NULL) of the knowledge schema to this scope, and
+   * only for the columns the nuzm_worker role is granted: it cannot activate a version, set a licence verdict or write a review.
+   */
+  withKnowledgeWorker<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
+    return this.tx({ 'app.worker_scope': 'knowledge' }, fn);
   }
 
   /**

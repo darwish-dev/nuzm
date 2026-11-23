@@ -1,18 +1,18 @@
 {
   "summary": {
-    "generatedAt": "2026-11-20T19:53:50.274Z",
-    "operations": 468,
+    "generatedAt": "2026-11-22T09:56:06.753Z",
+    "operations": 502,
     "byClass": {
-      "org": 284,
-      "admin": 135,
+      "org": 294,
+      "admin": 159,
       "scim": 12,
       "any-authenticated": 15,
       "service-key": 1,
       "public": 21
     },
     "unclassified": [],
-    "exercised": 617,
-    "refused": 574,
+    "exercised": 675,
+    "refused": 632,
     "explained2xx": 43,
     "classifiedNotCrossed": 0,
     "unexplained2xx": 0,
@@ -20,8 +20,8 @@
       "0": 37,
       "200": 5,
       "400": 1,
-      "401": 270,
-      "404": 304
+      "401": 318,
+      "404": 314
     },
     "note": "operates on the caller's own principal, a service credential, or is public: no tenant identifier to cross",
     "explained": {
@@ -1739,6 +1739,66 @@
       "verdict": "refused"
     },
     {
+      "op": "GET /v1/builder/templates [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/templates/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/template-recommendations [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/projects/from-template [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/generation-plans [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/generation-plans/{id} [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/projects/{id}/template-workspace [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/generation-plans/{id}/context [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/generation-plans/{id}/timeline [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/generation-plans/{id}/runs [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
       "op": "GET /v1/organizations/{orgId} [B session, path orgId = A]",
       "cls": "org",
       "status": 404,
@@ -2927,6 +2987,18 @@
       "verdict": "refused"
     },
     {
+      "op": "PUT /v1/admin/registrars/dnet [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/registrars/dnet [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
       "op": "POST /v1/admin/registrars/{id}/verification [B web session]",
       "cls": "admin",
       "status": 401,
@@ -3438,6 +3510,282 @@
     },
     {
       "op": "POST /v1/admin/knowledge/resources/{id}/archival [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/processing-jobs [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/processing-jobs [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/logs [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/logs [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/cancellation [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/cancellation [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/findings [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/findings [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/files [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/files [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/review [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/review [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/versions/{versionId}/reprocessing [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/versions/{versionId}/reprocessing [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/reviews [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/reviews [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/activation [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/resources/{id}/activation [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/manifest [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/manifest [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/components [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/components [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/relationships [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/relationships [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/design [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/design [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-tokens [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-tokens [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-variants [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-variants [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/search [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/search [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/recommendations [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/knowledge/recommendations [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/settings/recommendation [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/settings/recommendation [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/knowledge/settings/recommendation [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/knowledge/settings/recommendation [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/settings/recommendation/revisions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/settings/recommendation/revisions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/defaults [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/knowledge/defaults [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/knowledge/defaults [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/admin/knowledge/defaults [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/admin/knowledge/defaults/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/admin/knowledge/defaults/{id} [B api key]",
       "cls": "admin",
       "status": 401,
       "verdict": "refused"

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
+import { DB_URL as DB } from './env';
 
 /**
  * M12 console screens in the Arabic (RTL) and English projects: customer SSO (UI-M12-01) and the admin operations and governance screens
@@ -17,7 +18,6 @@ import { T, audit, loc, signIn } from './helpers';
 
 const ADMIN = 'http://127.0.0.1:3001';
 const WEB = 'http://127.0.0.1:3000';
-const DB = 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_e2e';
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();

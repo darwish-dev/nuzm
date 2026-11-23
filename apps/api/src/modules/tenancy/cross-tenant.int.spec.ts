@@ -101,6 +101,7 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (o.path.startsWith('/v1/mobile/builds/')) return A.mobileBuild; // M10B
   if (o.path.startsWith('/v1/ai/sessions/')) return A.aiSession;
   if (o.path.startsWith('/v1/ai/runs/')) return A.aiRun;
+  if (o.path.startsWith('/v1/builder/generation-plans/')) return A.genPlan; // S-K6/S-AG3: a plan of org A
   if (o.path.startsWith('/v1/builder/projects/')) return A.bProject;
   if (o.path.startsWith('/v1/deployments/')) return A.deployment;
   // <<< M09
@@ -416,6 +417,18 @@ beforeAll(async () => {
       createdBy: aliceId,
     })
   ).id;
+  // S-K6/S-AG3: a generation plan of org A on that project (written directly: a plan needs a template copy to be useful, isolation does not). Its routes are flagged off by default.
+  A.genPlan = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO knowledge.generation_plans (id, org_id, project_id, selection_strategy, plan, created_by)
+     VALUES ($1, $2, $3, 'USER_SELECTED', '{"execution":{"status":"READY"}}'::jsonb, $4)`,
+    [A.genPlan, orgA, A.m10Project, aliceId],
+  );
+  for (const k of ['knowledge.generation', 'knowledge.customer_templates'])
+    await h.env.sql(
+      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, NULL, 'true')`,
+      [k],
+    );
   // M10A rows of org A in its own tables (written directly): a sandbox, a test run and an export of that project
   A.m10Sandbox = crypto.randomUUID();
   A.m10TestRun = crypto.randomUUID();
@@ -712,7 +725,8 @@ describe("after all the hostile calls, org A's data is untouched", () => {
           x.method === 'GET' &&
           !x.path.includes('{userId}') &&
           !x.path.startsWith('/v1/marketplace/purchases/') && // needs the ledger-backed invoice chain: see marketplace.int.spec
-          !x.path.startsWith('/v1/offers/'), // needs an eligible provider offer: the 200 path is in compute-flow.int.spec
+          !x.path.startsWith('/v1/offers/') && // needs an eligible provider offer: the 200 path is in compute-flow.int.spec
+          !x.path.endsWith('/generation-plans/{id}/context'), // needs a template copy to assemble a pack: the 200 path is in knowledge/review.int.spec
       )) {
         const r = await app.inject({
           method: 'GET',

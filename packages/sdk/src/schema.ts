@@ -4607,7 +4607,7 @@ export interface paths {
         put?: never;
         /**
          * Configure, attest, enable or disable a model provider; kill switch
-         * @description Body {action: configure|save_claude_key|set_credential|clear_credential|attest|request_enable|enable|disable|kill_switch, ...}. save_claude_key (admin:ai:manage) takes only `apiKey`: it creates the `claude` provider if missing (unattested, disabled, region `unspecified`) and then behaves like set_credential. set_credential (admin:ai:manage) takes `apiKey` (20-400 printable characters, write-only), seals it in the secret store and points the provider at its `vault://` reference; the provider is disabled and must be attested/enabled again; 422 `unsupported_capability` in a production profile (the production vault is not decided, D-12). clear_credential (admin:ai:manage) removes the key and the reference and disables the provider. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`).
+         * @description Body {action: configure|save_claude_key|set_credential|clear_credential|attest|request_enable|enable|disable|record_capability_evidence|probe_tool_use|kill_switch, ...}. save_claude_key (admin:ai:manage) takes only `apiKey`: it creates the `claude` provider if missing (unattested, disabled, region `unspecified`) and then behaves like set_credential. set_credential (admin:ai:manage) takes `apiKey` (20-400 printable characters, write-only), seals it in the secret store and points the provider at its `vault://` reference; the provider is disabled and must be attested/enabled again; 422 `unsupported_capability` in a production profile (the production vault is not decided, D-12). clear_credential (admin:ai:manage) removes the key and the reference and disables the provider. configure (admin:ai:manage) creates or updates the config; credential VALUES are refused (422 `credential_value_rejected`), only a `vaultRef`; a change of region or rate card disables the provider and drops a region-bound attestation. attest (admin:ai:approve) records the human attestation of the contractual data terms (HG-09-01) with its reference. request_enable (admin:ai:manage) then enable (admin:ai:approve, a DIFFERENT person) turn a provider on: 422 `unsupported_capability` unless the adapter is registered, a rate card exists and the data terms are attested (dev-reference mock-*\/local-* providers exist only outside production). kill_switch (admin:ai:manage) stops every AI call, globally or for `orgId`, effective on the next call. Needs a recent MFA verification. Audited (`ai.provider.*`, `ai.killswitch.toggled`). record_capability_evidence (admin:ai:approve; body model, capability, state VERIFIED|NOT VERIFIED, evidenceRef) appends the recorded result of a capability probe: a real provider's tool-calling capability counts only while the latest row is VERIFIED for the adapter's current contract (S-AG4b, D8). probe_tool_use (admin:ai:approve; body approvalRef, maxTotalTokens) is part of the contract but answers 422 unsupported_capability until the live probe is approved (D9); nothing is sent.
          */
         post: operations["actOnAiModelProvider"];
         delete?: never;
@@ -4627,7 +4627,7 @@ export interface paths {
         put?: never;
         /**
          * Test the connection of a model provider with its stored key
-         * @description LIVE, read-only check that the stored key is accepted by the provider (Claude only: a model listing, no prompt, no customer data, nothing billed; one attempt, 10 s timeout, a fixed host). Changes nothing; the key is read from the secret store here and never returned, logged or audited: the audit event `ai.provider.connection_tested` carries only the outcome and HTTP status. Needs `admin:ai:manage` and a recent MFA verification. 422 `unsupported_capability` in a production profile (D-12) or for a provider other than Claude; 422 `validation_failed` when no key is stored. A result of `unreachable`, `invalid_key`, `forbidden`, `rate_limited` or `error` is a normal 200 answer, not an HTTP error.
+         * @description LIVE, read-only check that the stored key is accepted by the provider (Claude only: a model listing, no prompt, no customer data, nothing billed; one attempt, 10 s timeout, a fixed host). Changes nothing; the key is read from the secret store here and never returned, logged or audited: the audit event `ai.provider.connection_tested` carries only the outcome and HTTP status. Needs `admin:ai:manage` and a recent MFA verification. 422 `unsupported_capability` in a production profile (D-12) or for a provider other than Claude; 422 `validation_failed` when no key is stored. A result of `unreachable`, `invalid_key`, `forbidden`, `rate_limited` or `error` is a normal 200 answer, not an HTTP error. It is refused (422 `unsupported_capability`) before the key is read while the owner has not approved live calls to this provider in this environment (`AI_LIVE_PROVIDERS`; S-AG4).
          */
         post: operations["testAiModelProviderConnection"];
         delete?: never;
@@ -7238,6 +7238,634 @@ export interface paths {
          * @description Body {reason}. Soft delete under the retention policy.
          */
         post: operations["archiveKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/processing-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List processing jobs with progress and actionable errors
+         * @description Cursor pagination, newest first; `versionId` narrows to one version. Shows state, attempt, progress and the error code and detail of a failure. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeProcessingJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the processing log of one job
+         * @description Oldest first; `cursor` is the last `seq` received. Logs carry stages, codes and counts, never file content or a matched secret. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeProcessingLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/processing-jobs/{jobId}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a processing job
+         * @description A queued job is cancelled at once; a running job is asked to stop at its next checkpoint and records nothing. The version returns to QUARANTINED. Audited. Permission `admin:ai_knowledge:manage`.
+         */
+        post: operations["cancelKnowledgeProcessingJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the scan findings of a version
+         * @description Secret, licence, dependency, lifecycle-script and risky-file findings of the current analysis (plus archive rejections). Evidence is a kind and `path:line`; the matched text is never stored or returned. `summary` counts by severity. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the file inventory of a version
+         * @description Path, size, SHA-256, language, binary and executable flags and whether the content was kept in the snapshot. Never file content. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the review state of a version
+         * @description The licence proposal, the finding counts of the current analysis, the approvals recorded and required, every decision, the blockers that stop activation right now, and what the caller may do. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeReviewState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/reprocessing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry an interrupted version
+         * @description Queues validation again for a version whose processing was interrupted (infrastructure failure, missing archive, cancellation); for an analysed version without a manifest it queues project detection again, and for one with only the schema-1 manifest it queues the component analysis again. A rejected or already analysed package is not retried: upload a fixed version. Audited. Permission `admin:ai_knowledge:manage`.
+         */
+        post: operations["reprocessKnowledgeVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an approval or a rejection
+         * @description Body {versionId, decision: approve|reject, note?, checklist?}. Append-only. An approval states that the findings and the licence were reviewed (`checklist.findingsReviewed` and `checklist.licenseReviewed` true); a rejection needs a note and returns the version to QUARANTINED. A third-party resource needs two approvals from different staff accounts, and its uploader cannot review it. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        post: operations["reviewKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a version
+         * @description Body {versionId, note?}. Needs a completed analysis without blocking findings, a licence proposal and verdict of ALLOWED, and the approvals above; the database checks every condition again. The previous active version is retired to DISABLED (restorable through the same gate), never overwritten. Publishing the resource to customers is a separate, explicit visibility change. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        post: operations["activateKnowledgeResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the project manifest of a version
+         * @description The evidence-backed project manifest produced by static detection (S-K2b): frameworks with versions and confidence, languages, package managers, projects and workspaces, build configuration, dependencies, routes, screens, modules and capabilities, each with evidence paths. `manifest` is null while detection has not run. Nothing is executed to produce it. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/components": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the components of a version
+         * @description The component registry produced by parse-only analysis (S-K2c): name, kind, framework, file, props, dependencies, style and asset imports, platforms. `reuseAllowed` is always false until a person allows reuse. Never file content. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeComponents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the relationships of a version
+         * @description Component and file relationships with evidence (`path`, `line`): renders, imports, declares, exports, injects, guarded_by, state_of, routes_to, route_renders. `ref` matches either end. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeRelationships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Design DNA of a version
+         * @description The design analysis of a version (S-K4): palette roles per mode with the file and line that prove them, confidence and WCAG contrast of role pairs, typography, spacing, radius, shadows, breakpoints, motion and traits, per project. Computed values are listed as dynamic, never invented. `design` is null when the design analysis has not run. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeDesign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the design tokens of a version
+         * @description Design tokens read from stylesheets, token files and theme configuration: category, name, the value as written, the value after references were resolved, the mode (base, light, dark or a named scheme), the file and line. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeThemeTokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/resources/{id}/versions/{versionId}/theme-variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the theme variants of a version
+         * @description Colour schemes, layouts, sidebars, headers, footers, page templates, dashboard shells and screens found in the package, each with a descriptor (file, component, mode). Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeThemeVariants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search the platform library
+         * @description Hybrid retrieval over the platform library (S-K5): structured filters, lexical and symbol matching with bilingual (Arabic and English) concept groups, component names and design traits. Every hit says whether it is eligible and, if not, every reason. Relevance is the share of the requirement's concept groups the resource covers. No model is used. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["searchKnowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend library resources for a requirement
+         * @description Ranks the eligible library for a requirement and explains the result (S-K5). Hard filters run first (licence, publication, reuse permission, platform and framework compatibility, adaptation mode); excluded resources are listed with every reason. Eligible ones are scored with the configured weights (functional, framework, architecture, design, quality, reuse) over the dimensions the requirement exercises; a dimension with no evidence is not measured. The strategy (AUTO_SELECT, USER_SELECTED, ADMIN_DEFAULT, GENERATE_FROM_SCRATCH) is applied: a user's choice is honoured or explained, never substituted. Read-only: nothing is written. Permission `admin:ai_knowledge:read`.
+         */
+        post: operations["recommendKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/settings/recommendation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The recommendation weights
+         * @description The weights of the recommendation model (D-48; defaults functional 25, framework 20, architecture 20, design 15, quality 10, reuse 10) and the minimum score for automatic selection, with the revision. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["getKnowledgeRecommendationSettings"];
+        /**
+         * Change the recommendation weights
+         * @description Replaces the weights (integers adding up to 100) and the minimum score. `If-Match` carries the current revision; a `reason` of 10 to 500 characters is required. The previous value goes to the append-only history and the audit log. Permission `admin:ai_knowledge:publish`.
+         */
+        put: operations["updateKnowledgeRecommendationSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/settings/recommendation/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History of the recommendation weights
+         * @description Every change of the weights, newest first: who, why, the new and the previous value. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeRecommendationRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin defaults
+         * @description The admin default resources by platform, framework, category, plan and mode (`*` matches anything). A default is a preference: it still passes every compatibility and permission check. Permission `admin:ai_knowledge:read`.
+         */
+        get: operations["listKnowledgeDefaults"];
+        /**
+         * Set an admin default
+         * @description Creates or replaces the default for a combination of platform, framework, category, plan and mode. The resource must be a platform resource that is not archived; an optional `versionPin` must be one of its versions. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        put: operations["setKnowledgeDefault"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/knowledge/defaults/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an admin default
+         * @description Removes one default. Audited. Permission `admin:ai_knowledge:publish`.
+         */
+        delete: operations["deleteKnowledgeDefault"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the templates
+         * @description The published templates of the platform library and the organization's own (S-K7): metadata, compatibility facts, the reuse the permissions allow, the licence, a safe design summary and capability names. Never file contents, paths or object keys. Text search is over the published metadata, Arabic or English. Requires `builder:read`. 404 while the flag `knowledge.customer_templates` is off.
+         */
+        get: operations["listBuilderTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One template
+         * @description A published template. A resource that is not active, published, licence-eligible and reuse-permitted is 404, indistinguishable from a missing one. Requires `builder:read`.
+         */
+        get: operations["getBuilderTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/template-recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend templates for a requirement
+         * @description The recommendation engine (S-K5) answered for a customer: hard filters first, then the weighted model over eligible templates only, then the strategy. A user's choice is honoured or explained, never substituted; an unusable choice that the customer may not see is reported as not found. Nothing is returned about resources the customer may not see (no exclusion list, no document text, no paths). Records the customer's own usage events for the top results. Requires `builder:read`.
+         */
+        post: operations["recommendBuilderTemplates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/from-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a project from a template
+         * @description Copies the pinned, immutable version of a published template into a NEW web-app project of the organization through the safe-change pipeline (path, secret and canary checks, size limits, dependency policy, one Git commit). The template is never modified. Eligibility is re-checked for the adaptation mode (default ADAPTIVE) at copy time: an unusable template answers `knowledge_template_incompatible` (409) with the reasons, a changed template 409. Binary and unstored files are not copied and are listed. Records the customer's usage events, a link from the project to the pinned version, and the audit event `knowledge.template.copied`. Requires `builder:write`; needs `app_builder.enabled` and `knowledge.customer_templates`.
+         */
+        post: operations["createBuilderProjectFromTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a generation plan
+         * @description Records the requirement and the deterministic template selection for a project of the organization. Executing the plan (generation) is the run engine with a model (S-K6) and is reported as blocked in the plan. Requires `builder:write`; audited (`knowledge.plan.created`).
+         */
+        post: operations["createBuilderGenerationPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One generation plan
+         * @description A plan of this organization (another organization's plan is a 404). Requires `builder:read`.
+         */
+        get: operations["getBuilderGenerationPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/projects/{id}/template-workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A project compared with its template copy
+         * @description The project's current files compared with the baseline its template copy recorded (what the copy wrote: path and checksum), so the comparison needs neither the template nor its files and keeps working after the template changes or is withdrawn. Lists added, modified and removed paths of the customer's own project, with exact counts. A project that was not copied from a template (or was copied before baselines were recorded) answers `linked: false`. Requires `builder:read`; 404 while `knowledge.generation` is off.
+         */
+        get: operations["getBuilderTemplateWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans/{id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a model would receive for a plan
+         * @description The bounded, ordered context assembled for a plan from the CURRENT state of the project: the platform policy for the adaptation mode (trusted), then the requirement, template facts, the file index and file contents by priority, each as a data block. Shows what was left out and why. Source of a template is sent only when the template's AI-processing permission allows it: contents of files that are still the template's are withheld otherwise (paths and sizes only); the customer's own work is always eligible. Nothing is sent anywhere by this call. Requires `builder:read`; 404 while `knowledge.generation` is off.
+         */
+        get: operations["getBuilderGenerationContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read-only execution timeline of a plan run
+         * @description What the run of a plan did, step by step (S-AG3): the model turns (phase, tokens), the read-only tool calls of each (tool, redacted arguments, outcome, result size), the validation and apply steps, a fallback to the single-call adaptation and why, the limits used against their ceilings, and the outcome. Only the customer's own run data; nothing is written, no model is called, no file content is returned. A plan without a run answers mode NONE; a single-call run answers SINGLE_CALL. Requires `builder:read`; 404 while `knowledge.generation` is off.
+         */
+        get: operations["getBuilderGenerationTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/generation-plans/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adapt the template copy
+         * @description Starts a run of the existing `webapp` kind with `input.templatePlanId`. With `agentic: true` (and `knowledge.agentic_generation` on, else 422) the run uses the read-only agent loop (S-AG3: plan, explore through the read-only tool gateway, propose, validate, apply; strict turn, token, time, cost and tool-call ceilings; checkpoints; falls back to the single call before anything is applied). Without it: ONE structured model call over the assembled context (metered, residency-checked, budget-capped, output secret-scanned, repair loop), then the proposed change set passes the same safety checks as every change and is committed on the AI branch `work/ai`, never on the main branch. Not the coding agent: no tool use, no on-demand file fetch, nothing is executed (D-46 open, D-21 blocks any run of the result). A plan starts once (409 otherwise). Requires `ai:write`, `app_builder.enabled` and `knowledge.generation`; audited. Model quality is NOT VERIFIED.
+         */
+        post: operations["startBuilderGenerationPlanRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11583,6 +12211,8 @@ export interface components {
             creditsPerMillionInput: string;
             /** @description integer string */
             creditsPerMillionOutput: string;
+            /** @description True when the model may be offered tools: its provider has a recorded, verified tool-use capability for the current adapter contract (or is a development-reference provider). False otherwise; never a promise about quality. */
+            supportsTools?: boolean;
         };
         AiModelList: {
             items: components["schemas"]["AiModel"][];
@@ -11651,7 +12281,31 @@ export interface components {
             enableRequestedBy?: string | null;
             enabledBy?: string | null;
             adapterRegistered: boolean;
+            /**
+             * @description The ModelAdapter contract the registered adapter implements; null without an adapter.
+             * @enum {string|null}
+             */
+            contractVersion?: "1.0.0" | "1.1.0" | null;
+            /** @description True when this environment lists the provider as approved for live calls (AI_LIVE_PROVIDERS). Closed by default. */
+            liveCallsApproved?: boolean;
+            /** @description The latest recorded state per model and tool-calling capability (the history stays in the database). */
+            capabilityEvidence?: components["schemas"]["AiCapabilityEvidence"][];
             version: number;
+        };
+        AiCapabilityEvidence: {
+            model: string;
+            /** @enum {string} */
+            capability: "tool-use" | "streaming-tool-calls" | "parallel-tool-calls";
+            /** @enum {string} */
+            state: "VERIFIED" | "NOT VERIFIED";
+            /** @description Reference to the stored probe report. */
+            evidenceRef: string;
+            /** @description The adapter contract the evidence was recorded for; a different build no longer counts. */
+            contractVersion: string;
+            /** Format: uuid */
+            recordedBy: string;
+            /** Format: date-time */
+            recordedAt: string;
         };
         AiModelProviderList: {
             items: components["schemas"]["AiModelProvider"][];
@@ -11672,7 +12326,7 @@ export interface components {
         };
         AiModelProviderAction: {
             /** @enum {string} */
-            action: "configure" | "save_claude_key" | "set_credential" | "clear_credential" | "attest" | "request_enable" | "enable" | "disable" | "kill_switch";
+            action: "configure" | "save_claude_key" | "set_credential" | "clear_credential" | "attest" | "request_enable" | "enable" | "disable" | "record_capability_evidence" | "probe_tool_use" | "kill_switch";
             /** Format: uuid */
             id?: string;
             code?: string;
@@ -11694,6 +12348,24 @@ export interface components {
             on?: boolean;
             /** Format: uuid */
             orgId?: string;
+            /** @description record_capability_evidence: the model id. */
+            model?: string;
+            /**
+             * @description record_capability_evidence: the capability.
+             * @enum {string}
+             */
+            capability?: "tool-use" | "streaming-tool-calls" | "parallel-tool-calls";
+            /**
+             * @description record_capability_evidence: the recorded state.
+             * @enum {string}
+             */
+            state?: "VERIFIED" | "NOT VERIFIED";
+            /** @description record_capability_evidence: reference to the stored probe report. */
+            evidenceRef?: string;
+            /** @description probe_tool_use: the recorded approval of the live probe (D9). */
+            approvalRef?: string;
+            /** @description probe_tool_use: the approved token ceiling for the whole probe (at least its worst case). */
+            maxTotalTokens?: number;
         };
         AiSessionInput: {
             title: string;
@@ -12988,6 +13660,13 @@ export interface components {
         KnowledgeJob: {
             /** Format: uuid */
             id?: string;
+            /** Format: uuid */
+            versionId?: string;
+            versionSeq?: number;
+            maxAttempts?: number;
+            cancelRequested?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
             kind?: string;
             /** @enum {string} */
             state?: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | "DEAD_LETTER";
@@ -13036,6 +13715,11 @@ export interface components {
             /** @enum {string} */
             processingPriority?: "LOW" | "NORMAL" | "HIGH";
             dataRegion?: string;
+            /**
+             * @description Default THIRD_PARTY (two approvers, neither the uploader). FIRST_PARTY needs the publish permission and is fixed at creation.
+             * @enum {string}
+             */
+            provenanceClass?: "FIRST_PARTY" | "THIRD_PARTY";
         };
         KnowledgePermissions: {
             /** @enum {string} */
@@ -13069,6 +13753,8 @@ export interface components {
             status?: "UPLOADING" | "QUARANTINED" | "VALIDATING" | "ANALYZING" | "INDEXING" | "AWAITING_REVIEW" | "ACTIVE" | "FAILED" | "DISABLED" | "ARCHIVED";
             /** Format: uuid */
             currentVersionId?: string;
+            /** @enum {string} */
+            provenanceClass?: "FIRST_PARTY" | "THIRD_PARTY";
             visibility?: string;
             /** Format: date-time */
             createdAt?: string;
@@ -13151,6 +13837,844 @@ export interface components {
         KnowledgeVersionPage: {
             items: components["schemas"]["KnowledgeVersion"][];
             nextCursor: string | null;
+        };
+        KnowledgeJobPage: {
+            items: components["schemas"]["KnowledgeJob"][];
+            nextCursor: string | null;
+        };
+        KnowledgeLog: {
+            /** Format: uuid */
+            id?: string;
+            seq?: number;
+            /** @enum {string} */
+            level?: "debug" | "info" | "warn" | "error";
+            stage?: string;
+            code?: string;
+            message?: string;
+            data?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        KnowledgeLogPage: {
+            items: components["schemas"]["KnowledgeLog"][];
+            nextCursor: string | null;
+        };
+        KnowledgeJobCancellation: {
+            /** Format: uuid */
+            jobId?: string;
+            /** @enum {string} */
+            result?: "CANCELLED" | "CANCEL_REQUESTED";
+        };
+        KnowledgeReprocessing: {
+            /** Format: uuid */
+            versionId?: string;
+            /** Format: uuid */
+            jobId?: string;
+        };
+        KnowledgeFinding: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            scanner?: "secrets" | "license" | "dependencies" | "risky_files" | "sensitive_files" | "archive";
+            code?: string;
+            /** @enum {string} */
+            severity?: "info" | "warn" | "block";
+            path?: string | null;
+            line?: number | null;
+            detail?: string;
+        };
+        KnowledgeFindingPage: {
+            items: components["schemas"]["KnowledgeFinding"][];
+            nextCursor: string | null;
+            summary: {
+                info?: number;
+                warn?: number;
+                block?: number;
+            };
+        };
+        KnowledgeFile: {
+            /** Format: uuid */
+            id?: string;
+            path?: string;
+            sha256?: string;
+            bytes?: number;
+            language?: string | null;
+            isBinary?: boolean;
+            isExecutable?: boolean;
+            stored?: boolean;
+            secretFindings?: number;
+        };
+        KnowledgeFilePage: {
+            items: components["schemas"]["KnowledgeFile"][];
+            nextCursor: string | null;
+        };
+        KnowledgeReviewEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            decision?: "APPROVE" | "REJECT";
+            /** Format: uuid */
+            reviewerId?: string;
+            reason?: string | null;
+            checklist?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        KnowledgeReviewBlocker: {
+            /** @enum {string} */
+            code?: "state" | "not_analyzed" | "blocking_findings" | "license_not_allowed" | "rejected" | "approvals_missing";
+            detail?: string;
+        };
+        KnowledgeReviewState: {
+            /** Format: uuid */
+            versionId?: string;
+            /** Format: uuid */
+            resourceId?: string;
+            state?: string;
+            stateReason?: string | null;
+            /** @enum {string} */
+            provenanceClass?: "FIRST_PARTY" | "THIRD_PARTY";
+            /** Format: uuid */
+            uploadedBy?: string | null;
+            /** Format: uuid */
+            analysisJobId?: string | null;
+            licenseProposal?: {
+                [key: string]: unknown;
+            } | null;
+            /** @enum {string} */
+            licenseVerdict?: "ALLOWED" | "RESTRICTED" | "UNKNOWN" | "BLOCKED";
+            summary?: {
+                [key: string]: unknown;
+            } | null;
+            findings?: {
+                info?: number;
+                warn?: number;
+                block?: number;
+            };
+            requiredApprovals?: number;
+            approvals?: string[];
+            reviews?: components["schemas"]["KnowledgeReviewEntry"][];
+            blockers?: components["schemas"]["KnowledgeReviewBlocker"][];
+            canActivate?: boolean;
+            you?: {
+                canReview?: boolean;
+                hasApproved?: boolean;
+                isUploader?: boolean;
+            };
+        };
+        KnowledgeReviewInput: {
+            /** Format: uuid */
+            versionId: string;
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            note?: string;
+            checklist?: {
+                findingsReviewed?: boolean;
+                licenseReviewed?: boolean;
+            };
+        };
+        KnowledgeActivationInput: {
+            /** Format: uuid */
+            versionId: string;
+            note?: string;
+        };
+        KnowledgeManifestDetail: {
+            /** Format: uuid */
+            versionId: string;
+            schemaVersion: string | null;
+            /** Format: date-time */
+            createdAt: string | null;
+            /** @description ProjectManifest (schemaVersion 1); see docs/spec-change-requests/SCR-K-03-project-detection.md for the shape. */
+            manifest: {
+                [key: string]: unknown;
+            } | null;
+        };
+        KnowledgeComponent: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            kind?: string;
+            framework?: string | null;
+            path?: string;
+            props?: {
+                name?: string;
+                type?: string | null;
+                required?: boolean;
+            }[];
+            dependencies?: string[];
+            styleDeps?: string[];
+            assets?: string[];
+            platforms?: string[];
+            reuseAllowed?: boolean;
+        };
+        KnowledgeComponentPage: {
+            items: components["schemas"]["KnowledgeComponent"][];
+            nextCursor: string | null;
+        };
+        KnowledgeRelationship: {
+            /** Format: uuid */
+            id?: string;
+            fromKind?: string;
+            fromRef?: string;
+            toKind?: string;
+            toRef?: string;
+            relation?: string;
+            evidence?: {
+                path?: string;
+                line?: number;
+            };
+        };
+        KnowledgeRelationshipPage: {
+            items: components["schemas"]["KnowledgeRelationship"][];
+            nextCursor: string | null;
+        };
+        KnowledgeDesignDetail: {
+            /** Format: uuid */
+            versionId: string;
+            /** Format: date-time */
+            createdAt: string | null;
+            /** @description Design DNA (schemaVersion 1); see docs/spec-change-requests/SCR-K-06-design-dna.md for the shape. */
+            design: {
+                [key: string]: unknown;
+            } | null;
+        };
+        KnowledgeThemeToken: {
+            /** Format: uuid */
+            id?: string;
+            category?: string;
+            name?: string;
+            value?: string | null;
+            resolvedValue?: string | null;
+            sourcePath?: string | null;
+            mode?: string;
+            line?: number | null;
+            origin?: string;
+            dynamic?: boolean;
+        };
+        KnowledgeThemeTokenPage: {
+            items: components["schemas"]["KnowledgeThemeToken"][];
+            nextCursor: string | null;
+        };
+        KnowledgeThemeVariant: {
+            /** Format: uuid */
+            id?: string;
+            kind?: string;
+            name?: string;
+            descriptor?: {
+                [key: string]: unknown;
+            };
+            hasPreview?: boolean;
+        };
+        KnowledgeThemeVariantPage: {
+            items: components["schemas"]["KnowledgeThemeVariant"][];
+            nextCursor: string | null;
+        };
+        KnowledgeSearchHit: {
+            /** Format: uuid */
+            resourceId?: string;
+            /** Format: uuid */
+            versionId?: string | null;
+            versionSeq?: number | null;
+            name?: string;
+            description?: string | null;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            category?: string | null;
+            tags?: string[];
+            status?: string;
+            /** @description Share (0-100) of the requirement concept groups the resource covers; null without text. */
+            relevance?: number | null;
+            matchedGroups?: string[];
+            matches?: {
+                kind?: string;
+                ref?: string;
+                title?: string;
+                snippet?: string;
+            }[];
+            components?: {
+                name?: string;
+                ref?: string;
+            }[];
+            eligibility?: {
+                eligible?: boolean;
+                reasons?: string[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            permissions?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        KnowledgeSearchResult: {
+            query: {
+                text?: string;
+                groups?: {
+                    key?: string;
+                    from?: string[];
+                    concept?: boolean;
+                }[];
+            };
+            total: number;
+            items: components["schemas"]["KnowledgeSearchHit"][];
+        };
+        KnowledgeRecommendationRequest: {
+            /** @description The requirement in Arabic or English. */
+            text?: string;
+            /** @enum {string} */
+            platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            frameworks?: string[];
+            /** @description Exclude resources that lack a requested framework (otherwise frameworks only score). */
+            frameworksRequired?: boolean;
+            category?: string;
+            plan?: string;
+            /**
+             * @default ADAPTIVE
+             * @enum {string}
+             */
+            mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /**
+             * @default AUTO_SELECT
+             * @enum {string}
+             */
+            strategy?: "AUTO_SELECT" | "USER_SELECTED" | "ADMIN_DEFAULT" | "GENERATE_FROM_SCRATCH";
+            /**
+             * Format: uuid
+             * @description The resource the person chose (strategy USER_SELECTED).
+             */
+            resourceId?: string;
+            /** @description The generation will send source to a model: the resource must permit AI processing. */
+            requiresAiProcessing?: boolean;
+            design?: {
+                darkMode?: boolean;
+                rtl?: boolean;
+                arabicFont?: boolean;
+                tailwind?: boolean;
+                /** @example #2563eb */
+                primaryColor?: string;
+            };
+            /** @default 10 */
+            limit?: number;
+        };
+        KnowledgeRecommendationDimension: {
+            /** @enum {string} */
+            dimension?: "functional" | "framework" | "architecture" | "design" | "quality" | "reuse";
+            weight?: number;
+            effectiveWeight?: number;
+            score?: number | null;
+            applicable?: boolean;
+            points?: number;
+            note?: string;
+            detail?: {
+                [key: string]: unknown;
+            };
+        };
+        KnowledgeRecommendedResource: {
+            /** Format: uuid */
+            resourceId?: string;
+            /** Format: uuid */
+            versionId?: string | null;
+            versionSeq?: number | null;
+            name?: string;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            category?: string | null;
+            score?: number;
+            confidence?: number;
+            /** @description True when the requirement states needs and the resource meets none of them; its score is then 0 whatever its structure, quality or permissions. */
+            gated?: boolean;
+            dimensions?: components["schemas"]["KnowledgeRecommendationDimension"][];
+            usage?: {
+                /** @enum {string|null} */
+                recommended?: "FULL_STARTER" | "COMPONENTS" | "ARCHITECTURE_ONLY" | null;
+                allowed?: string[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            permissions?: {
+                [key: string]: unknown;
+            } | null;
+            matches?: {
+                [key: string]: unknown;
+            }[];
+            components?: {
+                [key: string]: unknown;
+            }[];
+        };
+        KnowledgeRecommendation: {
+            requirement?: {
+                [key: string]: unknown;
+            };
+            settings: {
+                weights?: {
+                    [key: string]: number;
+                };
+                minScore?: number;
+                revision?: number;
+            };
+            decision: {
+                requested?: string;
+                /** @enum {string} */
+                strategy?: "AUTO_SELECT" | "USER_SELECTED" | "ADMIN_DEFAULT" | "GENERATE_FROM_SCRATCH";
+                /** Format: uuid */
+                selectedResourceId?: string | null;
+                notes?: string[];
+            };
+            selected?: components["schemas"]["KnowledgeRecommendedResource"] | null;
+            userChoice?: {
+                /** Format: uuid */
+                resourceId?: string;
+                name?: string | null;
+                reasons?: string[];
+            } | null;
+            adminDefault?: {
+                [key: string]: unknown;
+            } | null;
+            ranked: components["schemas"]["KnowledgeRecommendedResource"][];
+            alternatives?: components["schemas"]["KnowledgeRecommendedResource"][];
+            excluded: {
+                /** Format: uuid */
+                resourceId?: string;
+                name?: string;
+                reasons?: string[];
+            }[];
+            stats: {
+                considered?: number;
+                eligible?: number;
+                ranked?: number;
+                excluded?: number;
+                truncated?: boolean;
+            };
+        };
+        KnowledgeEngineSettings: {
+            /** @description functional, framework, architecture, design, quality, reuse; integers adding up to 100. */
+            weights: {
+                [key: string]: number;
+            };
+            minScore: number;
+            /** @description 0 while the defaults are in use. */
+            revision: number;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: uuid */
+            updatedBy?: string | null;
+            defaults?: {
+                [key: string]: unknown;
+            };
+            isDefault?: boolean;
+        };
+        KnowledgeEngineSettingsUpdate: {
+            weights: {
+                [key: string]: number;
+            };
+            minScore: number;
+            reason: string;
+        };
+        KnowledgeEngineSettingsRevisionList: {
+            items: {
+                revision?: number;
+                value?: {
+                    [key: string]: unknown;
+                };
+                previous?: {
+                    [key: string]: unknown;
+                } | null;
+                /** Format: uuid */
+                changedBy?: string | null;
+                reason?: string;
+                /** Format: date-time */
+                createdAt?: string | null;
+            }[];
+        };
+        KnowledgeDefault: {
+            /** Format: uuid */
+            id?: string;
+            platform?: string;
+            framework?: string;
+            category?: string;
+            plan?: string;
+            mode?: string;
+            /** Format: uuid */
+            resourceId?: string;
+            resourceName?: string | null;
+            /** Format: uuid */
+            versionPin?: string | null;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        KnowledgeDefaultList: {
+            items: components["schemas"]["KnowledgeDefault"][];
+        };
+        KnowledgeDefaultInput: {
+            /**
+             * @default *
+             * @enum {string}
+             */
+            platform?: "*" | "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            /** @default * */
+            framework?: string;
+            /** @default * */
+            category?: string;
+            /** @default * */
+            plan?: string;
+            /**
+             * @default *
+             * @enum {string}
+             */
+            mode?: "*" | "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /** Format: uuid */
+            resourceId: string;
+            /** Format: uuid */
+            versionPin?: string | null;
+        };
+        KnowledgeDefaultRemoved: {
+            /** Format: uuid */
+            id?: string;
+        };
+        BuilderTemplate: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            versionId?: string;
+            versionSeq?: number;
+            semver?: string | null;
+            name?: string;
+            description?: string | null;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            languages?: string[];
+            category?: string | null;
+            tags?: string[];
+            /** @enum {string} */
+            ownership?: "PLATFORM" | "OWN";
+            reuse?: {
+                scope?: string;
+                componentReuse?: boolean;
+                starterEligible?: boolean;
+                architectureReference?: boolean;
+                usages?: ("FULL_STARTER" | "COMPONENTS" | "ARCHITECTURE_ONLY")[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            /** @description Safe design summary: modes, traits, role colours, font families, base unit. No paths, no evidence. */
+            design?: {
+                [key: string]: unknown;
+            } | null;
+            capabilities?: string[];
+            componentCount?: number;
+            previewCount?: number;
+        };
+        BuilderTemplatePage: {
+            items: components["schemas"]["BuilderTemplate"][];
+            nextCursor: string | null;
+        };
+        BuilderTemplateRecommendationRequest: {
+            text?: string;
+            /** @enum {string} */
+            platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+            frameworks?: string[];
+            frameworksRequired?: boolean;
+            category?: string;
+            plan?: string;
+            /**
+             * @default ADAPTIVE
+             * @enum {string}
+             */
+            mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /**
+             * @default AUTO_SELECT
+             * @enum {string}
+             */
+            strategy?: "AUTO_SELECT" | "USER_SELECTED" | "ADMIN_DEFAULT" | "GENERATE_FROM_SCRATCH";
+            /** Format: uuid */
+            resourceId?: string;
+            design?: {
+                darkMode?: boolean;
+                rtl?: boolean;
+                arabicFont?: boolean;
+                tailwind?: boolean;
+                primaryColor?: string;
+            };
+            /** @default 10 */
+            limit?: number;
+        };
+        BuilderTemplateCandidate: {
+            /** Format: uuid */
+            resourceId?: string;
+            /** Format: uuid */
+            versionId?: string | null;
+            versionSeq?: number | null;
+            name?: string;
+            resourceType?: string;
+            platform?: string | null;
+            frameworks?: string[];
+            category?: string | null;
+            score?: number;
+            confidence?: number;
+            gated?: boolean;
+            dimensions?: components["schemas"]["KnowledgeRecommendationDimension"][];
+            usage?: {
+                recommended?: string | null;
+                allowed?: string[];
+            };
+            license?: {
+                spdx?: string | null;
+                verdict?: string;
+            };
+            components?: {
+                name?: string;
+            }[];
+        };
+        BuilderTemplateRecommendation: {
+            requirement?: {
+                [key: string]: unknown;
+            };
+            decision: {
+                requested?: string;
+                strategy?: string;
+                /** Format: uuid */
+                selectedResourceId?: string | null;
+                notes?: string[];
+            };
+            selected?: components["schemas"]["BuilderTemplateCandidate"] | null;
+            userChoice?: {
+                /** Format: uuid */
+                resourceId?: string;
+                reasons?: string[];
+            } | null;
+            ranked: components["schemas"]["BuilderTemplateCandidate"][];
+            alternatives?: components["schemas"]["BuilderTemplateCandidate"][];
+            stats: {
+                eligible?: number;
+                ranked?: number;
+            };
+        };
+        BuilderFromTemplateRequest: {
+            /** Format: uuid */
+            resourceId: string;
+            /**
+             * Format: uuid
+             * @description The version the customer was shown; a different active version answers 409.
+             */
+            versionId?: string;
+            name: string;
+            /**
+             * @default ADAPTIVE
+             * @enum {string}
+             */
+            adaptationMode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /** Format: uuid */
+            planId?: string;
+        };
+        BuilderFromTemplateResult: {
+            project?: {
+                /** Format: uuid */
+                id?: string;
+                name?: string;
+                type?: string;
+            };
+            /** Format: uuid */
+            versionId?: string;
+            commit?: string;
+            branch?: string;
+            template?: {
+                /** Format: uuid */
+                resourceId?: string;
+                /** Format: uuid */
+                versionId?: string;
+                versionSeq?: number | null;
+                name?: string;
+                mode?: string;
+                usage?: string | null;
+            };
+            license?: {
+                spdx?: string | null;
+            };
+            files?: {
+                copied?: number;
+                skipped?: {
+                    path?: string;
+                    reason?: string;
+                }[];
+            };
+            risks?: {
+                [key: string]: unknown;
+            }[];
+        };
+        BuilderGenerationPlanRequest: components["schemas"]["BuilderTemplateRecommendationRequest"] & {
+            /** Format: uuid */
+            projectId: string;
+        };
+        BuilderGenerationPlan: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** @enum {string} */
+            status?: "PLANNED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+            strategy?: string;
+            mode?: string;
+            requirements?: {
+                [key: string]: unknown;
+            };
+            plan?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string | null;
+        };
+        BuilderWorkspaceDiff: {
+            added?: string[];
+            modified?: string[];
+            removed?: string[];
+            unchanged?: number;
+            baselineFiles?: number;
+            currentFiles?: number;
+            /** @description Share of baseline files that were modified or removed. */
+            departure?: number;
+            truncated?: boolean;
+            counts?: {
+                added?: number;
+                modified?: number;
+                removed?: number;
+            };
+        };
+        BuilderTemplateWorkspace: {
+            linked: boolean;
+            project: {
+                /** Format: uuid */
+                id?: string;
+                /** Format: uuid */
+                headVersionId?: string | null;
+            };
+            /** Format: date-time */
+            copiedAt?: string | null;
+            templateAvailable?: boolean;
+            template?: {
+                /** Format: uuid */
+                resourceId?: string;
+                /** Format: uuid */
+                versionId?: string;
+                versionSeq?: number;
+                name?: string;
+                license?: string | null;
+            } | null;
+            diff?: components["schemas"]["BuilderWorkspaceDiff"];
+        };
+        BuilderGenerationContext: {
+            /** Format: uuid */
+            planId?: string;
+            /** Format: uuid */
+            projectId?: string;
+            /** @enum {string} */
+            mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            /** @description The template's permission to send its source to a model; false also when the template is no longer available. */
+            aiProcessing?: boolean;
+            template?: {
+                /** Format: uuid */
+                resourceId?: string;
+                /** Format: uuid */
+                versionId?: string;
+                name?: string;
+                license?: string | null;
+            } | null;
+            policy?: string;
+            tokens?: {
+                used?: number;
+                budget?: number;
+            };
+            blocks?: {
+                /** @enum {string} */
+                kind?: "requirement" | "template" | "file_index" | "file";
+                label?: string;
+                tokens?: number;
+                text?: string;
+            }[];
+            included?: string[];
+            excluded?: {
+                path?: string;
+                /** @enum {string} */
+                reason?: "ai_processing_not_allowed" | "too_large" | "over_budget" | "too_many_files" | "not_text";
+            }[];
+            notes?: string[];
+        };
+        BuilderGenerationRunRequest: {
+            budget?: {
+                maxTokens?: number;
+                maxCredits?: number;
+            };
+            /** @description Use the read-only agent loop (needs knowledge.agentic_generation; 422 otherwise). Default false. */
+            agentic?: boolean;
+        };
+        BuilderAgentLimit: {
+            used: number;
+            max: number;
+        };
+        BuilderAgentToolCall: {
+            callId: string;
+            tool: string;
+            /** @description Redacted arguments (secrets and file contents never shown). */
+            args: {
+                [key: string]: unknown;
+            };
+            status: string;
+            errorCode: string | null;
+            resultBytes: number;
+            durationMs: number | null;
+        };
+        BuilderAgentStep: {
+            seq: number;
+            /** @description turn-N, validate[-N], apply or fallback. */
+            node: string;
+            /** @enum {string|null} */
+            phase: "plan" | "explore" | "propose" | "validate" | "apply" | "fallback" | null;
+            /** @enum {string} */
+            status: "pending" | "running" | "succeeded" | "failed" | "waiting_approval" | "skipped" | "cancelled";
+            errorCode: string | null;
+            /** @description Why the loop fell back (fallback step only). */
+            reason: string | null;
+            tokensIn: number;
+            tokensOut: number;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            finishedAt: string | null;
+            toolCalls: components["schemas"]["BuilderAgentToolCall"][];
+        };
+        BuilderAgentTimeline: {
+            /** Format: uuid */
+            planId: string;
+            /** Format: uuid */
+            runId: string | null;
+            /** @enum {string} */
+            mode: "NONE" | "SINGLE_CALL" | "AGENTIC" | "AGENTIC_FELL_BACK";
+            runState: string | null;
+            fellBack: string | null;
+            /** @description The agent plan text of the first turn, bounded. */
+            plan: string | null;
+            limits: {
+                turns: components["schemas"]["BuilderAgentLimit"];
+                toolCalls: components["schemas"]["BuilderAgentLimit"];
+                resultBytes: components["schemas"]["BuilderAgentLimit"];
+                tokens: components["schemas"]["BuilderAgentLimit"];
+                seconds: components["schemas"]["BuilderAgentLimit"];
+            };
+            steps: components["schemas"]["BuilderAgentStep"][];
+            outcome: {
+                [key: string]: unknown;
+            } | null;
         };
     };
     responses: {
@@ -27974,6 +29498,1057 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeProcessingJobs: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Only the jobs of this version. */
+                versionId?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeJobPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeProcessingLogs: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The last `seq` received. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeLogPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    cancelKnowledgeProcessingJob: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeJobCancellation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeFindings: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Filter by severity. */
+                severity?: "info" | "warn" | "block";
+                /** @description Filter by scanner. */
+                scanner?: "secrets" | "license" | "dependencies" | "risky_files" | "sensitive_files" | "archive";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFindingPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeFiles: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Path contains. */
+                q?: string;
+                /** @description Only stored or only not-stored files. */
+                stored?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFilePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeReviewState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReviewState"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    reprocessKnowledgeVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReprocessing"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    reviewKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReviewState"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    activateKnowledgeResource: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeActivationInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReviewState"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeManifestDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeComponents: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Name or path contains. */
+                q?: string;
+                /** @description Component kind. */
+                kind?: string;
+                /** @description Framework. */
+                framework?: "react" | "next" | "nestjs" | "flutter";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeComponentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeRelationships: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Relation name. */
+                relation?: string;
+                /** @description A component (`path#Name`), file path or route path that is either end of the relationship. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRelationshipPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeDesign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDesignDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeThemeTokens: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Name or path contains. */
+                q?: string;
+                category?: "color" | "typography" | "spacing" | "radius" | "shadow" | "breakpoint" | "motion" | "other";
+                /** @description base, light, dark, scoped or a named scheme. */
+                mode?: string;
+                origin?: "css-var" | "scss-var" | "less-var" | "tailwind-theme" | "tailwind-config" | "tokens-json" | "js-theme" | "flutter-theme";
+                /** @description Only computed (true) or only literal (false) tokens. */
+                dynamic?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeThemeTokenPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeThemeVariants: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeThemeVariantPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    searchKnowledge: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Free text, Arabic or English. */
+                q?: string;
+                /** @description Resource type. */
+                type?: string;
+                /** @description Platform. */
+                platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+                /** @description Framework (entered or detected). */
+                framework?: string;
+                /** @description Language. */
+                language?: string;
+                /** @description Category. */
+                category?: string;
+                /** @description Tag. */
+                tag?: string;
+                /** @description Resource status. */
+                status?: string;
+                /** @description Only eligible (true) or only ineligible (false) resources. */
+                eligible?: "true" | "false";
+                /** @description Adaptation mode used to judge eligibility (default ADAPTIVE). */
+                mode?: "STRICT" | "ADAPTIVE" | "CREATIVE";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSearchResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    recommendKnowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRecommendation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getKnowledgeRecommendationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeEngineSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateKnowledgeRecommendationSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The current settings revision (0 while the defaults are in use); a stale value returns 412. */
+                "If-Match": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeEngineSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeEngineSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeRecommendationRevisions: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeEngineSettingsRevisionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listKnowledgeDefaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDefaultList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    setKnowledgeDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeDefaultInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDefault"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteKnowledgeDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDefaultRemoved"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listBuilderTemplates: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from nextCursor. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Free text. */
+                q?: string;
+                /** @description Resource type. */
+                type?: string;
+                /** @description Platform. */
+                platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
+                /** @description Framework. */
+                framework?: string;
+                /** @description Category. */
+                category?: string;
+                /** @description Tag. */
+                tag?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplatePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBuilderTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplate"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    recommendBuilderTemplates: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderTemplateRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplateRecommendation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createBuilderProjectFromTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderFromTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderFromTemplateResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createBuilderGenerationPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderGenerationPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBuilderGenerationPlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderTemplateWorkspace: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderTemplateWorkspace"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderGenerationContext: {
+        parameters: {
+            query?: {
+                /** @description Token budget of the pack (clamped). */
+                budget?: number;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationContext"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBuilderGenerationTimeline: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderAgentTimeline"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    startBuilderGenerationPlanRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BuilderGenerationRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderGenerationPlan"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            402: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
         };
     };
 }

@@ -462,7 +462,8 @@ export function ProfileMenu(props: {
       <button
         type="button"
         className="nzc-avatar-btn"
-        aria-label={props.labels.menu}
+        // WCAG 2.5.3 (label in name): the accessible name starts with the initials that are visible on the button
+        aria-label={`${props.initials} ${props.labels.menu}`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}

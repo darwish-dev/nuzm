@@ -15,8 +15,9 @@
       "apps/api/src/modules/invoicing/internal/zatca/signing.ts",
       "apps/api/src/modules/invoicing/internal/zatca/csr.ts",
       "apps/api/src/modules/invoicing/internal/zatca/validator.ts",
-      "spec/zatca/synthetic-profile.yaml"
+      "spec/zatca/synthetic-profile.yaml",
+      "packages/domain/src/ids.ts"
     ],
-    "sha256": "1b8d7337cbfe8bc3bebd07ac315f1566aef9a9b7e0a44a95454eb2825e71b280"
+    "sha256": "c79aab4d57ab7ecc9ef3c086b90ae1df2404dd091792201a8e077408b9d1e0a7"
   }
 }

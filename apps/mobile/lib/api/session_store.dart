@@ -9,6 +9,10 @@ abstract class SessionStore {
   Future<String?> readOrg();
   Future<void> writeOrg(String? orgId);
   Future<void> clear();
+
+  /// Whether the first-launch onboarding was seen (kept across sign-outs; not a secret).
+  Future<bool> readOnboarded();
+  Future<void> writeOnboarded();
 }
 
 /// Keychain (iOS) / EncryptedSharedPreferences-Keystore (Android). The session cookie is a credential: never logged.
@@ -17,6 +21,19 @@ class SecureSessionStore implements SessionStore {
   final FlutterSecureStorage _s;
   static const _kCookies = 'nuzm.cookies';
   static const _kOrg = 'nuzm.org';
+  static const _kOnboarded = 'nuzm.onboarded';
+
+  @override
+  Future<bool> readOnboarded() async {
+    try {
+      return await _s.read(key: _kOnboarded) == '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> writeOnboarded() => _s.write(key: _kOnboarded, value: '1');
 
   @override
   Future<Map<String, String>> readCookies() async {
@@ -55,6 +72,12 @@ class SecureSessionStore implements SessionStore {
 class MemorySessionStore implements SessionStore {
   Map<String, String> cookies = {};
   String? org;
+  bool onboarded = false;
+
+  @override
+  Future<bool> readOnboarded() async => onboarded;
+  @override
+  Future<void> writeOnboarded() async => onboarded = true;
 
   @override
   Future<Map<String, String>> readCookies() async => Map.of(cookies);

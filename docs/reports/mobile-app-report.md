@@ -140,8 +140,25 @@ Bugs the live run found and fixed:
 - Tests: `flutter analyze` no issues; `flutter test` all passed (43, 1 skipped); live check PASS.
 - Screenshots: `docs/reports/mobile-app/{domain-list,domain-search,domain-transfer}-ar-dark.jpg`.
 
+## Update 2026-11-23 (5): onboarding, sign-in and sign-up like the website
+- **Onboarding** (first launch, once per device; `lib/screens/onboarding_screen.dart`): three slides on the brand
+  surface (floating orb with a turning gradient ring, chips that slide in, parallax, a glow that follows the
+  slides; a still version when the system asks for reduced motion), then "Create an account", "Sign in" or
+  sample data. The "seen" flag is kept in the secure store next to the session (`SessionStore.readOnboarded`).
+- **Sign-in / sign-up** follow the website's `AuthShell`: a brand panel (the console's dark chrome gradient and
+  glows, the same in both themes) with the website's texts, and the form card (themed). Sign-up shows its two steps
+  (account → organization) and the organization step continues them.
+  - Sign-up calls `POST /v1/auth/register` (email, 12–128 character password, optional display name, locale);
+    email checks run before sending; `email_in_use` and `weak_password` show on their fields; a strength meter.
+  - "Forgot your password?" calls `POST /v1/auth/password/forgot` and never says whether the account exists.
+- Web preview only: `?screen=onboarding|signin|register` opens those screens on sample data (the web build cannot
+  sign in).
+- Live: sign-up through the app → organization step; a taken email → `email_in_use`; forgot password → 202 for both
+  an existing and an unknown address. Tests: `flutter analyze` no issues; `flutter test` all passed (45, 1 skipped).
+- Screenshots: `docs/reports/mobile-app/{onboarding-1-ar,sign-in-ar-dark,register-ar-dark}.jpg`.
+
 ## I. Next
 Next steps:
-- **In-app flows:** paying invoices through the payment provider's redirect, setting up and answering two-step verification (that unlocks step-up actions), registration and password reset.
+- **In-app flows:** paying invoices through the payment provider's redirect, setting up and answering two-step verification (that unlocks step-up actions), and setting a new password from the reset link (the link opens the website today).
 - **Remaining writes:** workflows, connectors and webhooks (domain transfers are now in the app).
 - **Infrastructure:** push notifications, a feature flag for the mobile client, and a simulator/device end-to-end run.

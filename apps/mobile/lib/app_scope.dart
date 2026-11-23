@@ -4,7 +4,7 @@ import 'api/api_client.dart';
 import 'api/api_data_source.dart';
 import 'data/data_source.dart';
 
-enum AppPhase { starting, signedOut, needsOrg, ready }
+enum AppPhase { starting, onboarding, signedOut, needsOrg, ready }
 
 @immutable
 class Membership {
@@ -19,12 +19,12 @@ class Membership {
 /// Live mode signs in against the API; sample mode ([DemoDataSource]) needs no account.
 class AppController extends ChangeNotifier {
   /// Sample data, already "signed in" (previews, tests).
-  AppController({Locale locale = const Locale('ar'), ThemeMode themeMode = ThemeMode.dark, DataSource? data})
+  AppController({Locale locale = const Locale('ar'), ThemeMode themeMode = ThemeMode.dark, DataSource? data, AppPhase phase = AppPhase.ready})
       : _locale = locale,
         _themeMode = themeMode,
         api = null,
         _data = data ?? const DemoDataSource(),
-        _phase = AppPhase.ready;
+        _phase = phase;
 
   /// Live API: starts signed out until [start] finds a stored session.
   AppController.live(ApiClient this.api, {Locale locale = const Locale('ar'), ThemeMode themeMode = ThemeMode.dark})
@@ -101,7 +101,7 @@ class AppController extends ChangeNotifier {
     final a = api;
     if (a == null) return _set(AppPhase.ready);
     a.locale = _locale.languageCode;
-    if (!await a.hasSession()) return _set(AppPhase.signedOut);
+    if (!await a.hasSession()) return _set(await a.store.readOnboarded() ? AppPhase.signedOut : AppPhase.onboarding);
     try {
       await _loadMe();
     } on ApiException catch (e) {
@@ -110,6 +110,37 @@ class AppController extends ChangeNotifier {
       _set(AppPhase.signedOut);
     }
   }
+
+  /// Which auth page the signed-out screen opens on (the onboarding's "Create account" opens sign-up).
+  bool startOnRegister = false;
+
+  /// Leaves the onboarding for sign-in or sign-up; it is not shown again on this device.
+  Future<void> finishOnboarding({bool register = false}) async {
+    startOnRegister = register;
+    await api?.store.writeOnboarded();
+    _set(AppPhase.signedOut);
+  }
+
+  /// Back to the onboarding from the auth pages (or, in sample mode, to the chat).
+  void showOnboarding() => _set(AppPhase.onboarding);
+
+  /// POST /v1/auth/register: creates the account (email not verified yet) and signs it in; then the
+  /// organization step (`needsOrg`). Throws [ApiException] (409 email_in_use, 422 weak_password / validation_failed, 429).
+  Future<void> register({required String email, required String password, String? displayName}) async {
+    final a = api!;
+    await a.clearSession();
+    final name = displayName?.trim() ?? '';
+    await a.post('/v1/auth/register', {
+      'email': email.trim(),
+      'password': password,
+      if (name.isNotEmpty) 'displayName': name,
+      'locale': _locale.languageCode,
+    });
+    await _loadMe();
+  }
+
+  /// POST /v1/auth/password/forgot: always 202 (no account enumeration); the link arrives by email.
+  Future<void> forgotPassword(String email) => api!.post('/v1/auth/password/forgot', {'email': email.trim()});
 
   /// POST /v1/auth/password/login (realm web). Throws [ApiException] (401 invalid_credentials, 429, ...).
   Future<void> signIn(String email, String password) async {

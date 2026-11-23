@@ -39,10 +39,16 @@ void main() {
     final password = List.generate(24, (_) => 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[r.nextInt(55)]).join();
 
     final api = ApiClient(baseUrl: base!, store: MemorySessionStore(), locale: 'ar');
-    await api.post('/v1/auth/register', {'email': email, 'password': password, 'displayName': 'Mobile IT', 'locale': 'ar'});
+    // The app's own sign-up (the register screen calls this), then the organization step.
     final app = AppController.live(api);
-    await app.start();
+    await app.register(email: email, password: password, displayName: 'Mobile IT');
     expect(app.phase, AppPhase.needsOrg, reason: 'a new account has no organization');
+    // A taken email is refused with the code the register screen shows on the email field.
+    final again = AppController.live(ApiClient(baseUrl: base!, store: MemorySessionStore(), locale: 'ar'));
+    await expectLater(again.register(email: email, password: password), throwsA(isA<ApiException>().having((e) => e.code, 'code', 'email_in_use')));
+    // Forgot password answers the same whether or not the account exists.
+    await again.forgotPassword(email);
+    await again.forgotPassword('nobody-$stamp@example.test');
     await app.createOrg('Mobile IT $stamp');
     expect(app.phase, AppPhase.ready);
     expect(app.data.isLive, isTrue);

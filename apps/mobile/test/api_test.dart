@@ -113,10 +113,18 @@ void main() {
           }))
       ..on('POST', '/v1/auth/logout', (_) => http.Response('', 204, headers: {'set-cookie': 'nuzm_session=; Max-Age=0; Path=/'}));
 
-    test('starts signed out without a stored session', () async {
-      final c = AppController.live(ApiClient(baseUrl: 'http://api.test', store: MemorySessionStore(), client: FakeApi().client));
+    test('first launch opens the onboarding; once seen, it starts signed out', () async {
+      final store = MemorySessionStore();
+      final c = AppController.live(ApiClient(baseUrl: 'http://api.test', store: store, client: FakeApi().client));
       await c.start();
+      expect(c.phase, AppPhase.onboarding);
+      await c.finishOnboarding(register: true);
       expect(c.phase, AppPhase.signedOut);
+      expect(c.startOnRegister, isTrue);
+      expect(store.onboarded, isTrue);
+      final again = AppController.live(ApiClient(baseUrl: 'http://api.test', store: store, client: FakeApi().client));
+      await again.start();
+      expect(again.phase, AppPhase.signedOut);
     });
 
     test('sign-in loads the memberships, picks the organization and switches to live data', () async {
@@ -298,7 +306,7 @@ void main() {
             ],
           }))
       ..on('GET', '/v1/databases', (_) => json({'code': 'forbidden', 'title': 'Forbidden', 'status': 403}, status: 403));
-    final c = AppController.live(ApiClient(baseUrl: 'http://api.test', store: MemorySessionStore(), client: f.client),
+    final c = AppController.live(ApiClient(baseUrl: 'http://api.test', store: MemorySessionStore()..onboarded = true, client: f.client),
         themeMode: ThemeMode.dark);
     await tester.pumpWidget(NuzmApp(controller: c, useGoogleFonts: false));
     await tester.runAsync(c.start);
@@ -320,5 +328,106 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('لا تملك صلاحية هذه الصفحة'), findsOneWidget);
     expect(find.text('بيانات تجريبية'), findsNothing, reason: 'live data carries no sample chip');
+  });
+
+  testWidgets('first launch: onboarding → create account (field errors from the API) → organization → home', (tester) async {
+    tester.view.physicalSize = const Size(390, 844) * 3;
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    var registered = false;
+    var hasOrg = false;
+    final f = FakeApi()
+      ..on('POST', '/v1/auth/register', (r) {
+        final b = jsonDecode(r.body) as Map;
+        if (b['email'] == 'taken@example.test') {
+          return json({'code': 'email_in_use', 'title': 'exists', 'status': 409}, status: 409);
+        }
+        registered = true;
+        return json({'id': 'u2'}, status: 201, headers: {'set-cookie': 'nuzm_session=s; Path=/,nuzm_csrf=c; Path=/'});
+      })
+      ..on('GET', '/v1/me', (_) => json({
+            'id': 'u2',
+            'email': 'new@example.test',
+            'displayName': 'Sara',
+            'locale': 'ar',
+            'memberships': [
+              if (hasOrg) {'orgId': org, 'name': 'Sara Studio', 'slug': 's', 'type': 'customer', 'status': 'active', 'role': 'owner'},
+            ],
+          }))
+      ..on('POST', '/v1/organizations', (_) {
+        hasOrg = true;
+        return json({'id': org}, status: 201);
+      });
+    final store = MemorySessionStore();
+    final c = AppController.live(ApiClient(baseUrl: 'http://api.test', store: store, client: f.client), themeMode: ThemeMode.dark);
+    await tester.pumpWidget(NuzmApp(controller: c, useGoogleFonts: false));
+    await tester.runAsync(c.start);
+    // The onboarding animates forever (floating orb): pump frames instead of settling.
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(c.phase, AppPhase.onboarding);
+    expect(find.text('ابنِ بالمحادثة'), findsOneWidget);
+    await tester.tap(find.text('تخطّي'));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('تحكّم كامل في الإنفاق'), findsOneWidget);
+    await tester.tap(find.text('إنشاء حساب'));
+    await tester.pumpAndSettle();
+    expect(store.onboarded, isTrue);
+    expect(find.text('إنشاء حساب في نظم'), findsOneWidget);
+
+    // Client-side checks first: nothing is sent for a bad email or a short password.
+    await tester.enterText(find.byType(TextField).at(1), 'not-an-email');
+    await tester.enterText(find.byType(TextField).at(2), 'short');
+    await tester.tap(find.text('إنشاء الحساب'));
+    await tester.pumpAndSettle();
+    expect(find.text('أدخل بريدًا إلكترونيًا صالحًا.'), findsOneWidget);
+    expect(f.requests.where((r) => r.url.path == '/v1/auth/register'), isEmpty);
+
+    await tester.enterText(find.byType(TextField).at(0), 'Sara');
+    await tester.enterText(find.byType(TextField).at(1), 'taken@example.test');
+    await tester.enterText(find.byType(TextField).at(2), 'a long pass phrase here');
+    await tester.pumpAndSettle();
+    expect(find.text('قوية'), findsOneWidget, reason: 'strength meter');
+    await tester.tap(find.text('إنشاء الحساب'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('يوجد حساب بهذا البريد'), findsOneWidget, reason: '409 email_in_use on the email field');
+
+    await tester.enterText(find.byType(TextField).at(1), 'new@example.test');
+    await tester.tap(find.text('إنشاء الحساب'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(registered, isTrue);
+    final body = jsonDecode(f.last('POST', '/v1/auth/register').body) as Map;
+    expect(body, {'email': 'new@example.test', 'password': 'a long pass phrase here', 'displayName': 'Sara', 'locale': 'ar'});
+    expect(c.phase, AppPhase.needsOrg);
+    expect(find.text('أنشئ مؤسستك'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Sara Studio');
+    await tester.tap(find.text('إنشاء'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(c.phase, AppPhase.ready);
+    expect(c.organization?.name, 'Sara Studio');
+  });
+
+  testWidgets('forgot password: sends the email and never says whether the account exists', (tester) async {
+    tester.view.physicalSize = const Size(390, 844) * 3;
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final f = FakeApi()..on('POST', '/v1/auth/password/forgot', (_) => http.Response('', 202));
+    final c = AppController.live(ApiClient(baseUrl: 'http://api.test', store: MemorySessionStore()..onboarded = true, client: f.client));
+    await tester.pumpWidget(NuzmApp(controller: c, useGoogleFonts: false));
+    await tester.runAsync(c.start);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'someone@example.test');
+    await tester.tap(find.text('نسيت كلمة المرور؟'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إرسال الرابط'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(jsonDecode(f.last('POST', '/v1/auth/password/forgot').body), {'email': 'someone@example.test'});
+    expect(find.textContaining('إن كان هناك حساب'), findsOneWidget);
   });
 }

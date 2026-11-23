@@ -44,7 +44,8 @@ release builds do not allow plain http.
   on every POST. Cookies are kept in the Keychain / Android Keystore (`flutter_secure_storage`) and never logged.
 - `lib/api/api_data_source.dart` maps each page to the endpoint the web console uses for it: `/v1/compute/instances`,
   `/v1/billing/invoices`, `/v1/organizations/{orgId}/members`, and so on. Money stays in integer minor units.
-- Sign-in uses `POST /v1/auth/password/login`. The organization comes from `/v1/me` memberships; an account with no
+- First launch shows the onboarding once. Sign-in uses `POST /v1/auth/password/login`; sign-up `POST /v1/auth/register`;
+  "Forgot your password?" `POST /v1/auth/password/forgot`. The organization comes from `/v1/me` memberships; an account with no
   organization is asked to create one (`POST /v1/organizations`).
 - Nuzm AI chat flow: `POST /v1/ai/sessions` → `POST /v1/ai/sessions/{id}/messages` → `POST /v1/ai/runs`
   (`kind: chat`) → poll the run → read the assistant message.
@@ -101,6 +102,6 @@ spend approvals, subscriptions (cancel), tax profile, team (invite, role, remove
 
 Still in the web console (`kWebOnlyWrites`): workflows, connectors, webhooks and the marketplace (open-ended
 bodies), paying invoices and payment methods (the payment provider's redirect), SSO, agency and reseller,
-registration, password reset and setting up two-step verification.
+setting a new password from the reset link, and setting up two-step verification.
 
 Fonts: Cairo (SIL OFL 1.1, `assets/fonts/Cairo-OFL.txt`), static weights cut from google/fonts `Cairo[slnt,wght].ttf`.

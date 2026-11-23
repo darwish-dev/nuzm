@@ -150,11 +150,12 @@ class S {
     'no_eligible_offer': T('لا يوجد عرض مؤهل لهذا الاختيار.', 'No eligible offer for this choice.'),
     'domain_unavailable': T('النطاق غير متاح للتسجيل.', 'The domain is not available to register.'),
     'transfer_locked': T('النطاق مقفل لدى المسجّل الحالي؛ افتح القفل ثم أعد المحاولة.', 'The domain is locked at its current registrar; unlock it and try again.'),
+    'email_in_use': T('يوجد حساب بهذا البريد الإلكتروني. سجّل الدخول بدلًا من ذلك.', 'An account with this email already exists. Sign in instead.'),
+    'weak_password': T('كلمة المرور شائعة أو ضعيفة. اختر جملة أطول.', 'That password is too common or weak. Choose a longer phrase.'),
     'eligibility_blocked': T('النطاق غير مؤهل للتسجيل وفق السياسة.', 'The domain is not eligible under the policy.'),
     'invalid_state': T('لا يمكن تنفيذ ذلك في الحالة الحالية.', 'This cannot be done in the current state.'),
     'deletion_protected': T('العنصر محمي من الحذف.', 'It is protected from deletion.'),
     'in_use': T('العنصر مستخدم حاليًا.', 'It is in use.'),
-    'weak_password': T('كلمة المرور ضعيفة أو شائعة. اختر أطول وأقوى.', 'The password is weak or common. Choose a longer, stronger one.'),
     'validation_failed': T('بعض القيم غير صحيحة. راجعها ثم أعد المحاولة.', 'Some values are not valid. Check them and try again.'),
     'sender_not_verified': T('هوية المرسل غير موثّقة بعد.', 'The sender identity is not verified yet.'),
     'suppressed': T('العنوان في قائمة الحظر.', 'The address is on the suppression list.'),
@@ -282,4 +283,63 @@ class S {
   static const trStart = T('ابدأ النقل', 'Start transfer');
   static const trInProgress = T('عمليات النقل', 'Your transfers');
   static const trNone = T('لا توجد عمليات نقل بعد.', 'No transfers yet.');
+  // Onboarding (first launch).
+  static const onbSkip = T('تخطّي', 'Skip');
+  static const onbNext = T('التالي', 'Next');
+  static const onbPages = [
+    (
+      T('ابنِ بالمحادثة', 'Build by chatting'),
+      T('صف فكرتك لـ NUZM AI وسيحوّلها إلى موقع أو تطبيق ويب أو تطبيق جوال جاهز.',
+          'Describe your idea to NUZM AI and it turns it into a website, a web app or a mobile app.'),
+    ),
+    (
+      T('كل خدماتك في مكان واحد', 'Everything in one place'),
+      T('خوادم سحابية، واستضافة، ونطاقات، وبريد، وقواعد بيانات — تديرها من جوالك.',
+          'Cloud servers, hosting, domains, email and databases, managed from your phone.'),
+    ),
+    (
+      T('تحكّم كامل في الإنفاق', 'Full control of spending'),
+      T('محفظة ورصيد ذكاء وحدود إنفاق؛ ترى السعر وتوافق قبل أي إجراء مدفوع.',
+          'A wallet, AI credits and spending limits: you see the price and approve before anything is paid.'),
+    ),
+  ];
+  static const onbChips = [
+    [T('موقع', 'Website'), T('تطبيق ويب', 'Web app'), T('تطبيق جوال', 'Mobile app')],
+    [T('خوادم', 'Servers'), T('استضافة', 'Hosting'), T('نطاقات', 'Domains'), T('بريد', 'Email')],
+    [T('المحفظة', 'Wallet'), T('رصيد الذكاء', 'AI credits'), T('الموافقات', 'Approvals')],
+  ];
+  static const onbCreate = T('إنشاء حساب', 'Create an account');
+  static const onbHaveAccount = T('لدي حساب — تسجيل الدخول', 'I have an account — sign in');
+  // Auth pages (the website's AuthShell texts).
+  static const panelLoginTitle = T('أهلًا بعودتك', 'Welcome back');
+  static const panelLoginSub = T('سجّل الدخول لتدير خوادمك السحابية واستضافتك ونطاقاتك ومنشئ المواقع بالذكاء الاصطناعي.',
+      'Sign in to manage your cloud servers, hosting, domains and the AI website builder.');
+  static const panelRegisterTitle = T('ابدأ مع نظم', 'Get started with Nuzm');
+  static const panelRegisterSub = T('أنشئ حسابك في دقيقة، ثم جهّز مؤسستك.', 'Create your account in a minute, then set up your organization.');
+  static const panelFeatures = [T('خوادم سحابية', 'Cloud servers'), T('استضافة ونطاقات', 'Hosting and domains'), T('منشئ مواقع بالذكاء الاصطناعي', 'AI website builder')];
+  static const loginTitle = T('تسجيل الدخول إلى نظم', 'Sign in to Nuzm');
+  static const loginBody = T('أدخل بريدك الإلكتروني وكلمة المرور للمتابعة.', 'Enter your email and password to continue.');
+  static const registerTitle = T('إنشاء حساب في نظم', 'Create your Nuzm account');
+  static const registerBody = T('أنشئ حسابًا بالبريد الإلكتروني وكلمة المرور، ثم أنشئ مؤسستك.',
+      'Create an account with your email and a password, then create your organization.');
+  static const registerSubmit = T('إنشاء الحساب', 'Create account');
+  static const displayName = T('الاسم الظاهر (اختياري)', 'Display name (optional)');
+  static const passwordHelp = T('من 12 إلى 128 حرفًا. جملة طويلة أفضل من رموز معقّدة.', '12 to 128 characters. A long phrase beats complicated symbols.');
+  static const passwordShort = T('12 حرفًا على الأقل.', 'At least 12 characters.');
+  static const passwordStrength = [T('ضعيفة', 'Weak'), T('مقبولة', 'Fair'), T('جيدة', 'Good'), T('قوية', 'Strong')];
+  static const badEmail = T('أدخل بريدًا إلكترونيًا صالحًا.', 'Enter a valid email address.');
+  static const loginNoAccount = T('ليس لديك حساب؟', "Don't have an account?");
+  static const loginRegister = T('إنشاء حساب', 'Create an account');
+  static const haveAccount = T('لديك حساب بالفعل؟', 'Already have an account?');
+  static const forgot = T('نسيت كلمة المرور؟', 'Forgot your password?');
+  static const forgotTitle = T('استعادة كلمة المرور', 'Reset your password');
+  static const forgotBody = T('أدخل بريدك الإلكتروني وسنرسل رابطًا لتعيين كلمة مرور جديدة إن كان الحساب موجودًا.',
+      'Enter your email and, if an account exists, we will send a link to set a new password.');
+  static const forgotSubmit = T('إرسال الرابط', 'Send the link');
+  static const forgotSent = T('إن كان هناك حساب بهذا البريد فستصلك رسالة خلال دقائق.', 'If an account uses this email, a message is on its way.');
+  static const stepAccount = T('الحساب', 'Account');
+  static const stepOrg = T('المؤسسة', 'Organization');
+  static const orgStepSub = T('آخر خطوة: أنشئ مؤسستك لتبدأ باستخدام الخدمات.', 'Last step: create your organization so you can start using the services.');
+  static const or = T('أو', 'Or');
+  static const aboutApp = T('تعرّف على NUZM AI', 'About NUZM AI');
 }

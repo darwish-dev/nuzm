@@ -2,8 +2,11 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { formatMinor } from '@nuzm/i18n';
 import { PRODUCER_KEY } from '../playwright.config';
-import { T, audit, loc, signIn, totp } from './helpers';
-import { DB_URL as DB } from './env';
+import { T, audit, loc, signIn, totp, expectActiveOrg } from './helpers';
+import { API, DB_URL as DB } from './env';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
@@ -20,7 +23,7 @@ const at = (hours: number) => new Date(monthStart.getTime() + hours * 3_600_000)
 
 /** Synthetic producer: real events through the real ingest endpoint (service key), as a node agent would send them. */
 async function emit(orgId: string, meterId: string, unit: string, quantity: string, hour: number) {
-  const r = await fetch('http://127.0.0.1:4000/v1/internal/metering/events', {
+  const r = await fetch(`${API}/v1/internal/metering/events`, {
     method: 'POST',
     headers: { authorization: `Bearer ${PRODUCER_KEY}`, 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -119,7 +122,7 @@ test('billing: usage, quotas, statement, spending cap, quote and four-eyes appro
     await go('/orgs/new');
     await page.getByLabel(T(info, 'field.name')).fill(`Billing ${L}`);
     await page.getByRole('button', { name: T(info, 'action.create') }).click();
-    await expect(page.getByText(T(info, 'home.org', { org: `Billing ${L}` }))).toBeVisible();
+    await expectActiveOrg(page, info, `Billing ${L}`);
     org = (
       await sql<{ id: string }>(
         `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,

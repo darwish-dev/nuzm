@@ -6,14 +6,19 @@
  * Admin screens UI-M05-08..15 in Arabic and English with axe: provider registry and health, accounts (vault references only, verification
  * job), account detail (capability matrix, regions with evidence kind, plans), routing rules and the dry-run simulator, cross-org resources
  * (audited read, force reconcile), operations monitor, provider costs with RC-04 and margin, and live verification (read-only).
- * Runs after 02-admin (the staff user exists, MFA enrolled) and 01-customer / 06 (this locale's owner organization exists).
+ * Creates its own owner organization; the staff user is seeded by global setup.
  */
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { ADMIN, DB_URL as DB } from './env';
+import { ensureOwnerOrg, seedCloudCatalog } from './fixtures/templates';
+import { resetDatabase } from './reset';
 
-const ADMIN = 'http://127.0.0.1:3001';
+test.beforeAll(resetDatabase);
+// the registry, routing and live-verification screens need provider accounts: the development catalog (a mock provider, NOT VERIFIED) provides them
+test.beforeAll(seedCloudCatalog);
+
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -40,6 +45,7 @@ const revoke = (userId: string, role: string) =>
 
 test('admin providers and cloud: registry, accounts, detail, routing, resources, operations, costs, live verification', async ({
   page,
+  browser,
 }, info) => {
   const L = loc(info);
   const staff = `staff-${L}@example.test`;
@@ -49,13 +55,17 @@ test('admin providers and cloud: registry, accounts, detail, routing, resources,
   const form = (key: Parameters<typeof T>[1]) => page.getByRole('form', { name: T(info, key) });
   const table = (key: Parameters<typeof T>[1]) => page.getByRole('table', { name: T(info, key) });
 
+  // a customer organization for the cross-organization screens, created through the screen (no spec depends on another one's data)
+  const customer = await browser.newContext({ locale: L === 'ar' ? 'ar-SA' : 'en-GB' });
+  await ensureOwnerOrg(await customer.newPage(), info, `Providers ${L}`);
+  await customer.close();
   const org = (
     await sql<{ id: string }>(
       `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [`owner-${L}@example.test`],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
   const staffUser = (
     await sql<{ id: string }>(`SELECT id FROM identity.users WHERE email = $1`, [staff])
   )[0]!;
@@ -69,7 +79,7 @@ test('admin providers and cloud: registry, accounts, detail, routing, resources,
     await expect(page.getByText(T(info, 'm05.adm.notVerified'))).toBeVisible();
     await expect(table('m05.adm.reg.title')).toBeVisible();
     await expect(table('m05.adm.reg.health')).toBeVisible();
-    await expect(page.getByRole('navigation', { name: T(info, 'm05.adm.nav') })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: T(info, 'nc.nav.side') })).toBeVisible();
     await audit(page, info, 'provider-registry');
 
     // --- UI-M05-09: accounts. A secret typed into the credential field is refused on the screen; a vault reference is accepted.
@@ -138,12 +148,12 @@ test('admin providers and cloud: registry, accounts, detail, routing, resources,
     const rule = form('m05.adm.rt.newRule');
     await rule.getByRole('button', { name: T(info, 'action.save') }).click();
     await expect(rule.getByRole('alert').first()).toBeVisible();
-    await rule.getByLabel(T(info, 'm05.adm.rt.ruleKey'), { exact: true }).fill(`e2e.${L}.prefer`);
+    await rule.getByLabel(T(info, 'm05.adm.rt.ruleKey'), { exact: true }).fill(`e2e-${L}-prefer`);
     await rule.getByLabel(T(info, 'm05.adm.rt.countries'), { exact: true }).fill('SA');
     await rule.getByLabel(T(info, 'm05.adm.rt.providerKey'), { exact: true }).fill('mock');
     await rule.getByRole('button', { name: T(info, 'action.save') }).click();
     await expect(page.getByText(T(info, 'm05.adm.rt.saved'))).toBeVisible();
-    await expect(table('m05.adm.rt.rules').getByText(`e2e.${L}.prefer`)).toBeVisible();
+    await expect(table('m05.adm.rt.rules').getByText(`e2e-${L}-prefer`)).toBeVisible();
     const sim = form('m05.adm.rt.sim');
     await expect(page.getByText(T(info, 'm05.adm.rt.sim.readOnly'))).toBeVisible();
     await sim.getByLabel(T(info, 'm05.adm.rt.sim.org'), { exact: true }).fill(org.id);
@@ -193,7 +203,8 @@ test('admin providers and cloud: registry, accounts, detail, routing, resources,
     await h1('m05.adm.lv.title');
     await expect(page.getByText(T(info, 'm05.adm.lv.ownerOnly'))).toBeVisible();
     await expect(page.getByText('HG-05-01').first()).toBeVisible();
-    await expect(page.locator('main').getByRole('button')).toHaveCount(0);
+    // nothing in the page can start a run: no action button (the cards/table display toggle is a view control, not an action)
+    await expect(page.locator('main button:not([aria-pressed])')).toHaveCount(0);
     await expect(page.locator('main form')).toHaveCount(0);
     await audit(page, info, 'provider-live-verification');
 
@@ -216,7 +227,7 @@ test('admin providers and cloud: registry, accounts, detail, routing, resources,
       page.getByRole('alert').filter({ hasText: T(info, 'state.forbidden.title') }),
     ).toBeVisible();
     await expect(
-      page.getByRole('navigation', { name: T(info, 'nav.primary') }).getByRole('link', {
+      page.getByRole('navigation', { name: T(info, 'nc.nav.rail') }).getByRole('link', {
         name: T(info, 'nav.admin.providers'),
       }),
     ).toHaveCount(0);

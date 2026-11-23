@@ -549,6 +549,12 @@ export function PriceRulesEditor({
   const router = useRouter();
   const call = useM11Call(locale, mfaFactorId);
   const [rows, setRows] = useState<Row[]>(ruleSet.rules.map(rowFromRule));
+  // a new version from the server (after a save) replaces the rows; the notice and the other state stay (the page no longer remounts this editor by version)
+  const [seenVersion, setSeenVersion] = useState(ruleSet.version);
+  if (ruleSet.version !== seenVersion) {
+    setSeenVersion(ruleSet.version);
+    setRows(ruleSet.rules.map(rowFromRule));
+  }
   const [sample, setSample] = useState('10000');
   const [shown, setShown] = useState(false);
   const patch = (key: string, p: Partial<Row>) =>

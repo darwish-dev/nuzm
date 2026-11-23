@@ -25,6 +25,7 @@ STORE="$(node -e "console.log(require('os').tmpdir())")/nuzm-e2e-knowledge-$DB"
 
 cleanup() {
   "$PGBIN/dropdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin --if-exists --force "$DB" >/dev/null 2>&1 || true
+  "$PGBIN/dropdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin --if-exists --force "${DB}_tpl" >/dev/null 2>&1 || true
   rm -rf "$STORE"
 }
 trap cleanup EXIT

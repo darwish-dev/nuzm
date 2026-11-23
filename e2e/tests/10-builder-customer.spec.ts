@@ -1,7 +1,11 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { WEB, DB_URL as DB } from './env';
+import { ensureOwnerOrg, enableMockModel } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
@@ -57,14 +61,17 @@ const rx = (info: TestInfo, key: Parameters<typeof T>[1], names: string[] = []) 
 };
 
 /** Keyboard only: press Tab until the focused control has this accessible name (or visible text); fails after `max` presses (a keyboard trap would show here). */
-async function tabTo(page: Page, name: string, max = 80) {
+async function tabTo(page: Page, name: string, max = 80, tag?: string) {
   for (let i = 0; i < max; i++) {
     await page.keyboard.press('Tab');
     const label = await page.evaluate(() => {
       const a = document.activeElement as HTMLElement | null;
-      return (a?.getAttribute('aria-label') || a?.innerText || '').trim();
+      return {
+        text: (a?.getAttribute('aria-label') || a?.innerText || '').trim(),
+        tag: a?.tagName ?? '',
+      };
     });
-    if (label === name) return;
+    if (label.text === name && (!tag || label.tag === tag)) return;
   }
   throw new Error(`keyboard: "${name}" was not reachable with Tab within ${max} presses`);
 }
@@ -91,32 +98,28 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
 }, info) => {
   const L = loc(info);
   const owner = `owner-${L}@example.test`;
-  const base = `http://127.0.0.1:3000/${L}`;
+  const base = `${WEB}/${L}`;
+  // the owner organization is created here, through the screen (no spec depends on another one's data); this also signs the owner in
+  await ensureOwnerOrg(page, info, `Site ${L}`);
   const org = (
     await sql<{ id: string; user_id: string }>(
       `SELECT m.org_id AS id, m.user_id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [owner],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
 
   // ---- fixtures
+  await sql(
+    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'hosting.enabled', NULL, 'true') ON CONFLICT DO NOTHING`,
+  ); // the publish form lists the organization's hosting sites, which the API serves only while hosting is on
   await sql(
     `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'ai.enabled', NULL, 'true') ON CONFLICT DO NOTHING`,
   );
   await sql(
     `UPDATE platform.feature_flags SET value = 'true' WHERE key = 'ai.enabled' AND org_id IS NULL`,
   );
-  const models = {
-    'mock-chat-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
-    'mock-long-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
-  };
-  await sql(
-    `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, rate_card_version, rate_card, enabled, enabled_at)
-     VALUES (gen_random_uuid(), 'mock-model', 'mock', 'Mock model', 'sa-central', 'e2e-1', $1::jsonb, true, now())
-     ON CONFLICT (code) DO UPDATE SET enabled = true, enabled_at = coalesce(ai.model_providers.enabled_at, now()), rate_card = EXCLUDED.rate_card`,
-    [JSON.stringify({ models })],
-  );
+  await enableMockModel();
   await creditWallet(org.id, '1000000').catch(() => undefined); // already credited by an earlier run of this locale: fine
   const node = crypto.randomUUID();
   const plan = crypto.randomUUID();
@@ -181,7 +184,7 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
   await expect(approve).toBeVisible({ timeout: 60_000 });
   await audit(page, info, 'builder-plan-approval');
   await approve.click();
-  await expect(page.getByText(T(info, 'bld.run.state.succeeded')).first()).toBeVisible({
+  await expect(page.getByText(T(info, 'bld.card.done')).first()).toBeVisible({
     timeout: 90_000,
   });
   await expect(page.getByTitle(T(info, 'bld.preview.frame'))).toHaveAttribute(
@@ -203,6 +206,8 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
   await page.getByRole('button', { name: rx(info, 'bld.preview.desktop', ['width']) }).click();
 
   // ---- edit a heading in the inspector (diff, undo, redo)
+  const editToggle = page.getByRole('button', { name: T(info, 'bld.ws.edit'), exact: true }); // the inspector opens with the Edit toggle
+  if ((await editToggle.getAttribute('aria-pressed')) !== 'true') await editToggle.click();
   await page
     .getByRole('button', { name: new RegExp(T(info, 'bld.section.hero')) })
     .first()
@@ -216,13 +221,13 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
     page.getByRole('heading', { name: rx(info, 'bld.diff.title', ['seq']) }),
   ).toBeVisible();
   await audit(page, info, 'builder-inspector-diff');
-  await page.getByRole('button', { name: T(info, 'bld.insp.undo') }).click();
-  await expect(page.getByRole('button', { name: T(info, 'bld.insp.redo') })).toBeEnabled();
-  await page.getByRole('button', { name: T(info, 'bld.insp.redo') }).click();
+  await page.getByText(T(info, 'bld.insp.undo'), { exact: true }).click();
+  await expect(page.getByText(T(info, 'bld.insp.redo'), { exact: true })).toBeEnabled();
+  await page.getByText(T(info, 'bld.insp.redo'), { exact: true }).click();
 
   // code / diff tab
   await page.getByRole('button', { name: T(info, 'bld.ws.code') }).click();
-  await expect(page.getByRole('table', { name: T(info, 'bld.code.files') })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'index.html' })).toBeVisible(); // the generated files are a tree (the Files tab), with the page the run produced
   await audit(page, info, 'builder-code');
   await page.getByRole('button', { name: T(info, 'bld.ws.preview') }).click();
 
@@ -234,13 +239,13 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
         ? 'غيّر عنوان الصفحة الرئيسية إلى "أطباق الواحة".'
         : 'Change the home page heading to "Oasis dishes".',
     );
-  await page.getByRole('button', { name: T(info, 'bld.chat.send') }).click();
+  await page.getByRole('button', { name: T(info, 'bld.chat.send'), exact: true }).click();
   await expect(page.getByRole('button', { name: T(info, 'bld.approval.approve') })).toBeVisible({
     timeout: 60_000,
   });
   await audit(page, info, 'builder-change-approval');
   await page.getByRole('button', { name: T(info, 'bld.approval.deny') }).click();
-  await expect(page.getByText(T(info, 'bld.run.state.cancelled')).first()).toBeVisible({
+  await expect(page.getByText(T(info, 'bld.card.rejected')).first()).toBeVisible({
     timeout: 30_000,
   });
 
@@ -263,7 +268,9 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
   await expect(page.getByText(rx(info, 'bld.seo.scoreValue', ['score'])).first()).toBeVisible();
   await audit(page, info, 'builder-seo');
   await page.goto(`${project}/forms`);
-  await expect(page.getByRole('heading', { name: T(info, 'bld.forms.submissions') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'bld.forms.submissions'), exact: true }),
+  ).toBeVisible();
   await audit(page, info, 'builder-forms');
   await page.goto(`${project}/cms`);
   await page.getByRole('button', { name: T(info, 'bld.cms.newCollection') }).click();
@@ -285,7 +292,7 @@ test('customer website builder: wizard, workspace, edit, approval, SEO, versions
   await expect(page.getByRole('heading', { name: T(info, 'bld.dep.form') })).toBeVisible();
   await audit(page, info, 'builder-deployments');
   await page.locator('main#main').focus();
-  await tabTo(page, T(info, 'bld.dep.publish'));
+  await tabTo(page, T(info, 'bld.dep.publish'), 80, 'BUTTON'); // the form's button (the top bar has a link with the same name)
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog', { name: T(info, 'bld.dep.confirm.title') });
   await expect(dialog).toBeVisible();

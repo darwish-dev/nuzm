@@ -594,20 +594,22 @@ export function WorkflowEditor({
         {hints.errors.length === 0 && hints.warnings.length === 0 ? (
           <p role="status">{t(locale, 'm11.wf.hints.ok')}</p>
         ) : (
-          <ul role="status">
-            {hints.errors.map((i, n) => (
-              <li key={`e${n}`} className="nz-error-text">
-                <Badge tone="danger">{t(locale, 'm11.wf.hints.error')}</Badge> <Ltr>{i.path}</Ltr>{' '}
-                {i.message}
-              </li>
-            ))}
-            {hints.warnings.map((i, n) => (
-              <li key={`w${n}`}>
-                <Badge tone="warn">{t(locale, 'm11.wf.hints.warning')}</Badge> <Ltr>{i.path}</Ltr>{' '}
-                {i.message}
-              </li>
-            ))}
-          </ul>
+          <div role="status">
+            <ul>
+              {hints.errors.map((i, n) => (
+                <li key={`e${n}`} className="nz-error-text">
+                  <Badge tone="danger">{t(locale, 'm11.wf.hints.error')}</Badge> <Ltr>{i.path}</Ltr>{' '}
+                  {i.message}
+                </li>
+              ))}
+              {hints.warnings.map((i, n) => (
+                <li key={`w${n}`}>
+                  <Badge tone="warn">{t(locale, 'm11.wf.hints.warning')}</Badge> <Ltr>{i.path}</Ltr>{' '}
+                  {i.message}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 

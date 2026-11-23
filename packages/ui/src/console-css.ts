@@ -103,6 +103,8 @@ export const consoleCss = `
 .nzc[data-theme="light"] { --nuzm-color-border-strong: #c2c2ca; }
 .nzc a { color: var(--nzc-accent); text-decoration: none; }
 .nzc a:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* a link inside running text is told apart by more than colour (WCAG 1.4.1; axe link-in-text-block): the accent on the muted text is only about 1.7:1 */
+.nzc :is(p, li, label, .nz-cell-value) a:not([class]) { text-decoration: underline; text-underline-offset: 3px; }
 .nzc :focus-visible { outline: 2px solid var(--nzc-accent); outline-offset: 2px; border-radius: 6px; }
 .nzc .nzc-num, .nzc td, .nzc .nzc-stat-value { font-variant-numeric: tabular-nums; }
 
@@ -159,7 +161,7 @@ export const consoleCss = `
 .nzc-chip .nzc-icon { color: var(--nzc-accent); }
 .nzc-top select { min-block-size: 38px; max-inline-size: 200px; }
 .nzc > .nz-main { padding: 56px 20px; }
-.nzc > .nz-main > p:last-child a { display: inline-block; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--nzc-border); background: var(--nzc-card); color: var(--nzc-fg); }
+.nzc > .nz-main > p:last-child a { text-decoration: none; display: inline-block; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--nzc-border); background: var(--nzc-card); color: var(--nzc-fg); }
 .nzc-body, .nzc-rail, .nzc-tabs > ul { scrollbar-width: none; -ms-overflow-style: none; }
 .nzc-body::-webkit-scrollbar, .nzc-rail::-webkit-scrollbar, .nzc-tabs > ul::-webkit-scrollbar { display: none; }
 .nzc-menu { position: relative; }
@@ -1536,11 +1538,12 @@ html[lang='ar'] .bl-label { letter-spacing: 0; text-transform: none; font-size: 
 .bl-type input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .bl-type:has(input:focus-visible) { outline: 2px solid var(--nzc-accent); outline-offset: 2px; }
 .bl-type:has(input:checked) { border-color: var(--nzc-accent); background: color-mix(in srgb, var(--nzc-accent) 12%, var(--nzc-card)); box-shadow: 0 10px 30px color-mix(in srgb, var(--nzc-accent) 16%, transparent); }
-.bl-type[data-soon='true'] { opacity: 0.82; }
+.bl-type[data-soon='true'] { border-style: dashed; } /* the soon badge says it; a faded tile fell below the AA text contrast */
 .bl-type-icon { display: grid; place-items: center; flex: none; inline-size: 44px; block-size: 44px; border-radius: 14px; background: color-mix(in srgb, var(--nzc-accent) 16%, var(--nzc-field)); color: var(--nzc-accent); }
 .bl-type-text { display: grid; gap: 3px; min-inline-size: 0; flex: 1; }
 .bl-type-text strong { font-size: 16px; }
 .bl-type-text small { color: var(--nzc-muted); font-size: 12.5px; line-height: 1.4; }
+.bl-type:has(input:checked) .bl-type-text small { color: var(--nzc-fg); } /* the checked tile is tinted with the accent: muted text on it was 4.43:1, below AA */
 .bl-type-dot { flex: none; inline-size: 18px; block-size: 18px; border: 2px solid var(--nzc-border); border-radius: 50%; transition: border-color 0.15s ease, background 0.15s ease; }
 .bl-type:has(input:checked) .bl-type-dot { border-color: var(--nzc-accent); background: radial-gradient(circle, var(--nzc-accent) 0 45%, transparent 50%); }
 .bl-note { margin: 0; text-align: center; color: var(--nzc-muted); font-size: 13px; }

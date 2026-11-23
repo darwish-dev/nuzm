@@ -587,34 +587,41 @@ export function CodePane({
       </div>
 
       <section className="bwc-bottom" aria-label={t(locale, 'bld.cx.panel.label')}>
-        <div className="bwc-btabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={bottom === 'status'}
-            onClick={tab('status')}
+        <div className="bwc-btabs">
+          {/* only the tabs sit in the tablist (the collapse button is not a tab); `display: contents` keeps the row's layout */}
+          <div
+            role="tablist"
+            aria-label={t(locale, 'bld.cx.panel.label')}
+            style={{ display: 'contents' }}
           >
-            <Icon name="sparkle" size={15} />
-            {t(locale, 'bld.cx.panel.status')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={bottom === 'changes'}
-            onClick={tab('changes')}
-          >
-            <Icon name="refresh" size={15} />
-            {t(locale, 'bld.cx.panel.changes')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={bottom === 'publish'}
-            onClick={tab('publish')}
-          >
-            <Icon name="external" size={15} />
-            {t(locale, 'bld.cx.panel.publish')}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={bottom === 'status'}
+              onClick={tab('status')}
+            >
+              <Icon name="sparkle" size={15} />
+              {t(locale, 'bld.cx.panel.status')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={bottom === 'changes'}
+              onClick={tab('changes')}
+            >
+              <Icon name="refresh" size={15} />
+              {t(locale, 'bld.cx.panel.changes')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={bottom === 'publish'}
+              onClick={tab('publish')}
+            >
+              <Icon name="external" size={15} />
+              {t(locale, 'bld.cx.panel.publish')}
+            </button>
+          </div>
           <span className="bws-spacer" />
           <button
             type="button"

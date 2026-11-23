@@ -17,8 +17,11 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import { Client } from 'pg';
-import { T, audit, loc, signIn } from './helpers';
+import { T, audit, loc, signIn, expectActiveOrg } from './helpers';
 import { DB_URL as DB } from './env';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 const FLAG = 'cloud.provisioning';
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
@@ -56,20 +59,17 @@ async function ownerOrg(page: Page, info: Parameters<typeof T>[0]) {
     await page.goto(`/${L}/orgs/new`);
     await page.getByLabel(T(info, 'field.name')).fill(`Compute ${L}`);
     await page.getByRole('button', { name: T(info, 'action.create') }).click();
-    await expect(page.getByText(T(info, 'home.org', { org: `Compute ${L}` }))).toBeVisible();
+    await expectActiveOrg(page, info, `Compute ${L}`);
     org = (await find())!;
   }
   return org.id;
 }
 
-const navLink = (
-  page: Page,
-  info: Parameters<typeof T>[0],
-  key: 'm05.web.nav.offers' | 'm05.web.nav.instances',
-) =>
+/** The console's navigation rail: the Cloud servers category (its one page is the instances list) appears only for a member with the permissions while the flag is on. */
+const cloudNav = (page: Page, info: Parameters<typeof T>[0]) =>
   page
-    .getByRole('navigation', { name: T(info, 'nav.primary') })
-    .getByRole('link', { name: T(info, key) });
+    .getByRole('navigation', { name: T(info, 'nc.nav.rail') })
+    .getByRole('link', { name: T(info, 'nc.cat.cloud') });
 
 test.describe.configure({ mode: 'serial' });
 
@@ -78,8 +78,7 @@ test('compute: flag off hides the navigation and shows "not available"', async (
   await setFlag(false);
   await ownerOrg(page, info);
   await page.goto(`/${L}`);
-  await expect(navLink(page, info, 'm05.web.nav.offers')).toHaveCount(0);
-  await expect(navLink(page, info, 'm05.web.nav.instances')).toHaveCount(0);
+  await expect(cloudNav(page, info)).toHaveCount(0);
   for (const path of ['/compute/offers', '/compute/instances', '/compute/instances/new']) {
     await page.goto(`/${L}${path}`);
     await expect(
@@ -106,9 +105,10 @@ test('compute: offers, empty states, wizard guard, approvals and forbidden views
   // navigation entries appear for a member with the permissions
   await expect(async () => {
     await go('');
-    await expect(navLink(page, info, 'm05.web.nav.offers')).toBeVisible({ timeout: 2_000 });
+    await expect(cloudNav(page, info)).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
-  await expect(navLink(page, info, 'm05.web.nav.instances')).toBeVisible();
+  await cloudNav(page, info).click();
+  await expect(page).toHaveURL(/\/compute\/instances/);
 
   // --- UI-M05-01: filters; AC-M05-03: country=SA with no verified Saudi region shows the empty state, never a stale offer
   await go('/compute/offers');
@@ -117,7 +117,9 @@ test('compute: offers, empty states, wizard guard, approvals and forbidden views
   await page.getByLabel(T(info, 'field.country')).fill('SA');
   await page.getByRole('button', { name: T(info, 'action.search') }).click();
   await expect(page).toHaveURL(/country=SA/);
-  await expect(page.getByText(T(info, 'm05.web.offers.empty.title'))).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'm05.web.offers.empty.title') }),
+  ).toBeVisible();
   await expect(page.getByRole('table')).toHaveCount(0);
   await audit(page, info, 'compute-offers-empty-sa');
   await go('/compute/offers?country=SAU&minVcpu=0'); // invalid filters: reported next to the fields, nothing sent to the API

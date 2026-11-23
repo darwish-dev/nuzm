@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
-import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { T, audit, loc } from './helpers';
+import { WEB, DB_URL as DB } from './env';
+import { ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
@@ -15,25 +19,26 @@ const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[]
 
 /**
  * Customer hosting screens UI-M06-01, 03, 04, 05, 06, 07, 08, 09 (read-only; creation wizard UI-M06-02 and settings UI-M06-10 are NOT BUILT).
- * Runs after 01-customer (it uses that test's owner organization). STATUS: written, NOT RUN (the E2E ports belong to another session; see the M06 report).
+ * Creates its own owner organization. STATUS: written, NOT RUN (the E2E ports belong to another session; see the M06 report).
  */
 test('customer hosting: plans, sites, site overview, domains, TLS, databases, backups, usage (ar/en, axe, states)', async ({
   page,
 }, info) => {
   const L = loc(info);
   const owner = `owner-${L}@example.test`;
+  // the owner organization is created here, through the screen (no spec depends on another one's data); this also signs the owner in
+  await ensureOwnerOrg(page, info, `Hosting ${L}`);
   const org = (
     await sql<{ id: string; user_id: string }>(
       `SELECT m.org_id AS id, m.user_id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [owner],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
   await sql(
     `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'hosting.enabled', NULL, 'true') ON CONFLICT DO NOTHING`,
   );
-  await signIn(page, info, owner);
-  const base = `http://127.0.0.1:3000/${L}/hosting`;
+  const base = `${WEB}/${L}/hosting`;
 
   // empty states first: no node, no plan, no site
   await page.goto(`${base}/plans`);

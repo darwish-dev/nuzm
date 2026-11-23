@@ -1,9 +1,12 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { ADMIN, DB_URL as DB } from './env';
+import { ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
 
-const ADMIN = 'http://127.0.0.1:3001';
+test.beforeAll(resetDatabase);
+
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -23,7 +26,7 @@ const elevate = (email: string) =>
 
 const nav = (page: Page, info: TestInfo) =>
   page
-    .getByRole('navigation', { name: T(info, 'nav.primary') })
+    .getByRole('navigation', { name: T(info, 'nc.nav.rail') }) // the rail lists the categories the staff member may open
     .getByRole('link', { name: T(info, 'aia.nav.ai'), exact: true });
 
 /**
@@ -46,17 +49,22 @@ const nav = (page: Page, info: TestInfo) =>
  */
 test('admin AI: providers (empty, configure, attestation gates, enable/disable, kill switch), run oversight, quality, read-only and forbidden roles (ar/en, axe)', async ({
   page,
+  browser,
 }, info) => {
   const L = loc(info);
   const staff = `staff-${L}@example.test`;
   const owner = `owner-${L}@example.test`;
+  // a customer organization whose runs the staff screens look at, created through the screen (no spec depends on another one's data)
+  const customer = await browser.newContext({ locale: L === 'ar' ? 'ar-SA' : 'en-GB' });
+  await ensureOwnerOrg(await customer.newPage(), info, `AI ${L}`);
+  await customer.close();
   const org = (
     await sql<{ id: string }>(
       `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [owner],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
 
   await signIn(page, info, staff, ADMIN);
   await elevate(staff);
@@ -86,6 +94,11 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     await expect(page.getByText(T(info, 'aia.emptyBody'))).toContainText('D-18');
     await expect(page.getByText(T(info, 'aia.emptyBody'))).toContainText('HG-09-01');
     await audit(page, info, 'ai-admin-providers-empty');
+    // the Claude key card is the primary path; the kill switch and the generic configure form sit in the collapsed "advanced" section, which the next steps open
+    await expect(
+      page.getByRole('heading', { name: T(info, 'aia.claude.title'), level: 2 }),
+    ).toBeVisible();
+    await page.getByText(T(info, 'aia.advanced'), { exact: true }).click();
 
     // ---- kill switch: confirmation first; cancelling changes nothing; confirming engages it; releasing needs its own confirmation
     await page.getByRole('button', { name: T(info, 'aia.ks.engage') }).click();
@@ -112,7 +125,7 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     await fill(T(info, 'aia.cfg.displayName'), 'Acme E2E');
     await fill(T(info, 'aia.cfg.region'), 'sa-central');
     await fill(T(info, 'aia.cfg.vault'), 'sk-live-0123456789abcdef');
-    await page.getByRole('button', { name: T(info, 'action.save') }).click();
+    await page.getByRole('button', { name: T(info, 'action.save'), exact: true }).click();
     await expect(page.getByText(T(info, 'aia.cfg.err.vault'))).toBeVisible();
 
     // ---- configure a (non-dev) provider with a vault reference and a rate card
@@ -121,16 +134,24 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
       T(info, 'aia.cfg.rateCard'),
       '{"models":{"acme-1":{"creditsPerMillionInput":"1000","creditsPerMillionOutput":"2000"}}}',
     );
-    await page.getByRole('button', { name: T(info, 'action.save') }).click();
+    await page.getByRole('button', { name: T(info, 'action.save'), exact: true }).click();
     await expect(page.getByText(T(info, 'aia.cfg.done'))).toBeVisible();
     const row = page.getByRole('row').filter({ hasText: 'acme-e2e' });
     await expect(row).toBeVisible();
-    await expect(row.getByText('vault://ai/e2e-acme')).toBeVisible(); // the reference, never a value
-    await expect(row.getByText(T(info, 'aia.notAttested'))).toBeVisible();
-    await expect(row.getByText(T(info, 'aia.blocker.adapter_not_registered'))).toBeVisible();
-    await expect(row.getByText(T(info, 'aia.blocker.not_attested'))).toBeVisible();
-    await expect(row.getByText(T(info, 'aia.blocker.not_requested'))).toBeVisible();
-    await expect(row.getByText(T(info, 'aia.blocker.no_rate_card'))).toHaveCount(0);
+    await expect(row.getByText('vault://ai/e2e-acme', { exact: true })).toBeVisible(); // the reference, never a value
+    await expect(row.getByText(T(info, 'aia.notAttested'), { exact: true })).toBeVisible();
+    await expect(
+      row.getByRole('listitem').filter({ hasText: T(info, 'aia.blocker.adapter_not_registered') }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole('listitem').filter({ hasText: T(info, 'aia.blocker.not_attested') }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole('listitem').filter({ hasText: T(info, 'aia.blocker.not_requested') }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole('listitem').filter({ hasText: T(info, 'aia.blocker.no_rate_card') }),
+    ).toHaveCount(0);
     await audit(page, info, 'ai-admin-providers-configured');
 
     // ---- enabling is blocked and says why; the human attestation (HG-09-01) is recorded with a reference
@@ -147,9 +168,13 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     await expect(page.getByText(T(info, 'aia.done.attest'))).toBeVisible();
     await expect(row.getByText(T(info, 'aia.attested'), { exact: true })).toBeVisible();
     await expect(row.getByText('HG-09-01/e2e-reference')).toBeVisible();
-    await expect(row.getByText(T(info, 'aia.blocker.not_attested'))).toHaveCount(0);
+    await expect(
+      row.getByRole('listitem').filter({ hasText: T(info, 'aia.blocker.not_attested') }),
+    ).toHaveCount(0);
     // still not enableable: no adapter is registered for this provider
-    await expect(row.getByText(T(info, 'aia.blocker.adapter_not_registered'))).toBeVisible();
+    await expect(
+      row.getByRole('listitem').filter({ hasText: T(info, 'aia.blocker.adapter_not_registered') }),
+    ).toBeVisible();
     await expect(
       row.getByRole('button', { name: T(info, 'aia.enable'), exact: true }),
     ).toBeDisabled();
@@ -164,7 +189,7 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
       T(info, 'aia.cfg.rateCard'),
       '{"models":{"mock-chat-1":{"creditsPerMillionInput":"1000","creditsPerMillionOutput":"2000"}}}',
     );
-    await page.getByRole('button', { name: T(info, 'action.save') }).click();
+    await page.getByRole('button', { name: T(info, 'action.save'), exact: true }).click();
     const saved = page.getByText(T(info, 'aia.cfg.done'));
     const refused = page.getByText(T(info, 'aia.err.refused'));
     await expect(saved.or(refused)).toBeVisible();
@@ -182,7 +207,11 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
         await expect(mock.getByText(T(info, 'aia.disabled'), { exact: true })).toBeVisible();
       } else {
         // no local adapter registered in this stack: enabling stays blocked and explained
-        await expect(mock.getByText(T(info, 'aia.blocker.adapter_not_registered'))).toBeVisible();
+        await expect(
+          mock
+            .getByRole('listitem')
+            .filter({ hasText: T(info, 'aia.blocker.adapter_not_registered') }),
+        ).toBeVisible();
       }
     }
     await expect(page.getByText(T(info, 'aia.enableRules'))).toBeVisible();
@@ -218,7 +247,10 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
       await mk('succeeded', null, 'SECRET-PROMPT-E2E-2');
       await mk('running', null, 'SECRET-PROMPT-E2E-3');
     }
-    await page.getByRole('link', { name: T(info, 'aia.tab.runs') }).click();
+    await page
+      .getByRole('navigation', { name: T(info, 'nc.nav.side') })
+      .getByRole('link', { name: T(info, 'aia.tab.runs') })
+      .click();
     await expect(
       page.getByRole('heading', { name: T(info, 'aia.runs.title'), level: 1 }),
     ).toBeVisible();
@@ -241,7 +273,7 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     await expect(page.getByText(T(info, 'aia.ks.orgInvalid'))).toBeVisible();
     await expect(page.getByRole('table')).toHaveCount(0);
     await page.goto(`${ADMIN}/${L}/ai/runs?orgId=${crypto.randomUUID()}`);
-    await expect(page.getByText(T(info, 'aia.runs.empty'))).toBeVisible();
+    await expect(page.getByText(T(info, 'aia.runs.empty'), { exact: true })).toBeVisible();
     await audit(page, info, 'ai-admin-runs-empty');
 
     // ================================================================ UI-M09-14 quality

@@ -76,7 +76,6 @@ export default async function BucketDetail({
             main={
               <>
                 <PolicyEditor
-                  key={`p-${policy.etag}`}
                   locale={locale}
                   bucketId={bucket.id}
                   policy={policy.policy as PolicyDoc}

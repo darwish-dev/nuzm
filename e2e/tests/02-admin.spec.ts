@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 import { T, audit, loc, signIn, totp } from './helpers';
 
 import { ADMIN, WEB } from './env';
+import { ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 test('admin console: staff sign-in with mandatory MFA, suspend/reinstate, audit viewer', async ({
   page,
@@ -10,6 +14,11 @@ test('admin console: staff sign-in with mandatory MFA, suspend/reinstate, audit 
   const L = loc(info);
   const adm = (path: string) => `${ADMIN}/${L}${path}`;
   const orgName = L === 'ar' ? 'شركة الأفق 2' : 'Horizon Cloud 2';
+
+  // the customer organization this spec acts on is created here, through the screen, as a customer would (no spec depends on another one's data)
+  const seed = await browser.newContext({ locale: L === 'ar' ? 'ar-SA' : 'en-GB' });
+  await ensureOwnerOrg(await seed.newPage(), info, orgName);
+  await seed.close();
 
   // --- sign-in → MFA is mandatory: the first screen is enrolment (QR + manual key)
   await signIn(page, info, `staff-${L}@example.test`, ADMIN);

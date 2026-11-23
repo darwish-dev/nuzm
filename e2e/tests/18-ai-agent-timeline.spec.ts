@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { WEB } from './env';
 import { T, audit, loc } from './helpers';
 import { ensureOwnerOrg, orgFlag, publishTemplate, sql } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * AI Intelligence Center, slice S-AG3 (SCR-K-10): the customer's read-only agent execution timeline END TO END in Arabic (RTL) and English with real browsers.

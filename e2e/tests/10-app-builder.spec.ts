@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { ADMIN, WEB, DB_URL as DB } from './env';
+import { elevate, ensureOwnerOrg, enableMockModel } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * App builder (M10A): the customer-console web-app workspace, Arabic and English projects, plus the admin oversight screens (UI-M10-18/19).
@@ -28,7 +32,6 @@ import { DB_URL as DB } from './env';
  *     otherwise they are skipped explicitly. The sandbox runtime is NEVER isolated (D-21/HG-10-02): every sandbox shown must carry the stand-in notice.
  */
 
-const ADMIN = 'http://127.0.0.1:3001';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -91,50 +94,36 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
 }, info) => {
   const L = loc(info);
   const owner = `owner-${L}@example.test`;
-  const base = `http://127.0.0.1:3000/${L}`;
+  const base = `${WEB}/${L}`;
+  // the owner organization is created here, through the screen (no spec depends on another one's data); this also signs the owner in
+  await ensureOwnerOrg(page, info, `Builder ${L}`);
   const org = (
     await sql<{ id: string }>(
       `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [owner],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
 
   // ---- fixtures
   await setFlag('ai.enabled', true);
-  await sql(
-    `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, rate_card_version, rate_card, enabled, enabled_at)
-     VALUES (gen_random_uuid(), 'mock-model', 'mock', 'Mock model', 'sa-central', 'e2e-1', $1::jsonb, true, now())
-     ON CONFLICT (code) DO UPDATE SET enabled = true, enabled_at = coalesce(ai.model_providers.enabled_at, now()), rate_card = EXCLUDED.rate_card`,
-    [
-      JSON.stringify({
-        models: {
-          'mock-chat-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
-          'mock-long-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
-        },
-      }),
-    ],
-  );
+  await enableMockModel();
   await creditWallet(org.id, '1000000').catch(() => undefined); // already credited by an earlier run of this locale: fine
 
   await signIn(page, info, owner);
-  const nav = page.getByRole('navigation', { name: T(info, 'nav.primary') });
 
-  // ---- flag OFF: no nav entry; the web-app tile is "coming soon" and cannot be started
+  // ---- flag OFF (the builder category is not on the rail, so the flag-gated entries are covered by nav.spec.ts): the web-app tile is "coming soon" and cannot be started
   await setFlag('app_builder.enabled', false);
   await page.goto(`${base}/builder/projects`);
-  await expect(nav.getByRole('link', { name: T(info, 'm10.nav.builder') })).toHaveCount(0);
   await page.getByLabel(new RegExp(T(info, 'bld.start.type.webapp'))).check();
   await expect(
     page.getByRole('button', { name: new RegExp(T(info, 'bld.start.go')) }),
   ).toBeDisabled();
   await audit(page, info, 'm10a-flag-off');
 
-  // ---- flag ON: the App builder and Approvals entries appear; the app start screen preselects the web-app type
+  // ---- flag ON: the app start screen preselects the web-app type
   await setFlag('app_builder.enabled', true);
   await page.goto(`${base}/builder/apps`);
-  await expect(nav.getByRole('link', { name: T(info, 'm10.nav.builder') })).toBeVisible();
-  await expect(nav.getByRole('link', { name: T(info, 'm10.nav.approvals') })).toBeVisible();
   await expect(page.getByLabel(new RegExp(T(info, 'bld.start.type.webapp')))).toBeChecked();
   await audit(page, info, 'm10a-apps-start');
 
@@ -155,7 +144,7 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
   const agents = page.getByRole('list', { name: T(info, 'm10a.run.agents') });
   await expect(agents).toBeVisible({ timeout: 30_000 });
   await expect(agents.getByRole('listitem')).toHaveCount(7);
-  await expect(page.getByText(T(info, 'm10a.meter.tokens'))).toBeVisible();
+  await expect(page.getByText(T(info, 'm10a.meter.tokens'), { exact: true })).toBeVisible();
   await audit(page, info, 'm10a-run-progress');
 
   // the run ends, or waits for a human: the approval it waits on is decided right here in the chat (bound to the exact action, with its confirmation)
@@ -226,7 +215,9 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
 
   // ---- UI-M10-10: exports
   await page.goto(`${project}/exports`);
-  await expect(page.getByRole('heading', { name: T(info, 'm10.exp.title') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'm10.exp.title'), exact: true }),
+  ).toBeVisible();
   await audit(page, info, 'm10a-exports');
 
   // ---- UI-M10-09: deployments (web app): a target is needed; production asks for an approval
@@ -274,6 +265,7 @@ test('admin: AI run oversight and sandbox fleet are read only (UI-M10-18/19)', a
   const L = loc(info);
   const staff = `staff-${L}@example.test`;
   await signIn(page, info, staff, ADMIN);
+  await elevate(staff);
   await page.goto(`${ADMIN}/${L}/ai/runs`);
   const forbidden = await page
     .getByText(T(info, 'state.forbidden.title'))
@@ -284,15 +276,16 @@ test('admin: AI run oversight and sandbox fleet are read only (UI-M10-18/19)', a
     'the e2e staff user lacks admin:ai:read (platform_admin, support or security role): not granted here',
   );
   await expect(
-    page.getByRole('heading', { name: T(info, 'm10.adm.runs.title'), level: 1 }),
+    page.getByRole('heading', { name: T(info, 'aia.tab.runs'), level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText(T(info, 'm10.adm.runs.metadataOnly'))).toBeVisible();
+  await expect(page.getByText(T(info, 'aia.runs.noContent'))).toBeVisible();
   await audit(page, info, 'm10-admin-runs');
 
   await page.goto(`${ADMIN}/${L}/sandboxes`);
   await expect(page.getByText(T(info, 'm10.adm.sbx.m05'))).toBeVisible();
   await expect(page.getByText(T(info, 'm10.adm.sbx.noKill'))).toBeVisible();
   // no kill / terminate control exists on this screen
-  await expect(page.locator('main').getByRole('button')).toHaveCount(0);
+  // no action button (the cards/table display toggle is a view control, not an action)
+  await expect(page.locator('main button:not([aria-pressed])')).toHaveCount(0);
   await audit(page, info, 'm10-admin-sandboxes');
 });

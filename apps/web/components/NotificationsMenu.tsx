@@ -58,7 +58,9 @@ export function NotificationsMenu(props: {
     setUnread((n) => Math.max(0, n + (i.read ? 1 : -1)));
   }
 
-  const name = unread > 0 ? `${props.labels.menu} (${unread})` : props.labels.menu;
+  // the badge shows `shown`, so the accessible name ends with exactly that text (WCAG 2.5.3 Label in Name); axe does not read "(2)" as the token "2", so no parentheses
+  const shown = unread > 99 ? '99+' : String(unread);
+  const name = unread > 0 ? `${props.labels.menu} ${shown}` : props.labels.menu;
   return (
     <div className="nzc-menu" ref={ref}>
       <button
@@ -72,7 +74,7 @@ export function NotificationsMenu(props: {
         <Icon name="bell" />
         {unread > 0 && (
           <span className="nzc-dot" aria-hidden="true">
-            {unread > 99 ? '99+' : unread}
+            {shown}
           </span>
         )}
       </button>

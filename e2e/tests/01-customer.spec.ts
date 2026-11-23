@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { T, audit, loc, signIn, totp } from './helpers';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 test('customer console: onboarding, projects, security and team screens', async ({
   page,
@@ -13,13 +16,21 @@ test('customer console: onboarding, projects, security and team screens', async 
 
   // --- sign in, empty state, create organization
   await signIn(page, info, email);
-  await expect(page.getByRole('heading', { name: T(info, 'home.noOrg.title') })).toBeVisible();
-  await audit(page, info, 'home-empty');
-  await page.getByRole('link', { name: create }).click();
+  // a person with no organization is taken straight to creating one (the console redirects `/` to `/orgs/new` until an organization exists)
+  await expect(page).toHaveURL(/\/orgs\/new$/);
+  await expect(
+    page.getByRole('heading', { name: T(info, 'org.new.title'), level: 1 }),
+  ).toBeVisible();
   await audit(page, info, 'org-new');
   await page.getByLabel(name).fill(orgName);
   await page.getByRole('button', { name: create }).click();
-  await expect(page.getByText(T(info, 'home.org', { org: orgName }))).toBeVisible();
+  // the dashboard greets the person and the header's organization switcher shows the new organization
+  await expect(
+    page.getByRole('heading', { name: T(info, 'home.title', { name: 'Layla Owner' }), level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole('combobox', { name: T(info, 'field.orgSwitcher') })).toContainText(
+    orgName,
+  );
   await audit(page, info, 'home');
 
   // --- workspaces → projects → environments

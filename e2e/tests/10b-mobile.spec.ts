@@ -1,7 +1,11 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
-import { T, audit, loc, signIn } from './helpers';
+import { T, audit, loc } from './helpers';
 import { DB_URL as DB } from './env';
+import { creditAiWallet, enableMockModel, ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * Mobile builder (M10B: UI-M10-12..17 customer console), Arabic and English projects. The mobile app opens in the SAME workspace as a website
@@ -39,14 +43,16 @@ async function setFlag(key: string, on: boolean) {
   ]);
 }
 async function ownerOrg(page: Page, info: TestInfo, email: string) {
-  await signIn(page, info, email);
+  await ensureOwnerOrg(page, info, `Mobile ${loc(info)}`); // created through the screen (no spec depends on another one's data); this also signs the owner in
   const org = (
     await sql<{ id: string }>(
       `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [email],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
+  await enableMockModel();
+  await creditAiWallet(org.id, '1000000').catch(() => undefined); // already credited in this database: fine
 }
 
 test('mobile builder: flag, start, the workspace (preview, code, spec), builds, signing references, release preparation, old links (ar/en, axe, states)', async ({
@@ -62,11 +68,7 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
   await setFlag('mobile_builder.enabled', false);
   await go('/mobile/new');
   await expect(page.getByText(T(info, 'mobile.unavailable.title'))).toBeVisible();
-  await expect(
-    page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'mobile.nav.mobile') }),
-  ).toHaveCount(0);
+  // (the builder category is not on the rail, so the flag-gated Mobile entry is covered by nav.spec.ts)
   await audit(page, info, 'm10b-not-enabled');
 
   // --- flag ON: the Mobile apps entry opens the builder's start screen with the Mobile tile selected
@@ -87,7 +89,7 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
   await expect(page.getByText('An app for field teams to follow their daily tasks')).toBeVisible();
   for (const k of ['preview', 'code', 'spec', 'builds', 'signing', 'releases'] as const)
     await expect(page.getByRole('button', { name: T(info, `mws.tab.${k}`) })).toBeVisible();
-  await expect(page.getByRole('button', { name: T(info, 'mws.build') })).toBeVisible();
+  await expect(page.getByRole('button', { name: T(info, 'mws.build'), exact: true })).toBeVisible();
   // the run reaches a final or waiting state on its own (design ready, or failed with a reason): never a stuck "Running"
   await expect(
     page.locator('.mws-run[data-phase="approval"], .mws-run[data-phase="failed"]'),
@@ -124,7 +126,9 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
 
   // --- UI-M10-15: signing references: no key field; a pasted key is refused in the browser and nothing is sent
   await page.getByRole('button', { name: T(info, 'mws.tab.signing') }).click();
-  await expect(page.locator('input[type=password], input[type=file], textarea')).toHaveCount(1); // only the chat composer
+  await expect(
+    page.locator('input[type=password], input[type=file], textarea:visible'),
+  ).toHaveCount(1); // only the chat composer (visible fields: a hidden tab panel may hold its own)
   await page.getByLabel(T(info, 'mobile.signing.label')).fill('Upload key');
   await page
     .getByLabel(T(info, 'mobile.signing.vaultRef'))
@@ -165,11 +169,10 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
   // and a mobile app in "Your projects" opens in the workspace too
   await go('/builder/projects?type=mobile');
   await page
-    .getByRole('link', { name: new RegExp(`Field|app`, 'i') })
+    .getByRole('link', { name: new RegExp('field teams', 'i') })
     .first()
     .click();
   await expect(page).toHaveURL(new RegExp(`/builder/projects/[0-9a-f-]{36}$`));
 
-  // --- forbidden state: a viewer cannot open signing (owner/admin only)
-  await signIn(page, info, `viewer-${L}@example.test`).catch(() => undefined);
+  // (the viewer's forbidden state for signing is NOT covered here: the dev identity provider has no viewer user, and the old step signed in as one and asserted nothing)
 });

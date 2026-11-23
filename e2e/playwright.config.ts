@@ -38,6 +38,9 @@ export const USERS = [
 const SERVER_START_MS = (dflt: number) =>
   Math.max(dflt, Number(process.env.E2E_SERVER_TIMEOUT_MS) || 0);
 
+/** `E2E_REUSE_SERVERS=1` (set by scripts/e2e-stack.sh) lets a run use servers that are already up; the default is to start and stop its own. */
+const REUSE = process.env.E2E_REUSE_SERVERS === '1';
+
 export default defineConfig({
   testDir: './tests',
   timeout: 120_000,
@@ -62,15 +65,17 @@ export default defineConfig({
       command: 'pnpm --filter @nuzm/api run dev:stack',
       url: `${API}/healthz`,
       timeout: SERVER_START_MS(180_000),
-      reuseExistingServer: false,
+      reuseExistingServer: REUSE,
       env: {
         PORT: String(API_PORT),
         KNOWLEDGE_STORE_DIR: STORE_DIR,
         DEV_IDP_PORT: String(IDP_PORT),
         WEB_ORIGIN: WEB,
         ADMIN_ORIGIN: `http://127.0.0.1:${ADMIN_PORT}`,
+        PAYMENT_RETURN_URL_ALLOWLIST: WEB, // the customer is sent back to the console of THIS stack (the default allows only :3000)
         DATABASE_URL: `postgres://nuzm_app:nuzm_dev_only@127.0.0.1:${PG_PORT}/${E2E_DB}`,
         DEV_IDP_USERS: JSON.stringify(USERS),
+        AI_LOCAL_REFERENCE: 'true', // M09/M10: the in-memory dev-reference model (mock-model, NOT VERIFIED) and the in-memory site publisher; never production, never a live provider
         DATA_LOCAL_REFERENCE: 'true', // M08: in-memory dev-reference adapters (mock-*, NOT VERIFIED) so the managed-data screens can be exercised; never production
         // M07: local MOCK registrars (Openprovider/ResellerClub shaped from their docs: NOT VERIFIED vendor behaviour) behind the real adapters, dev only
         DOMAINS_DEV_MOCKS: 'true',
@@ -90,14 +95,14 @@ export default defineConfig({
       command: `pnpm --filter @nuzm/web exec next start -p ${WEB_PORT} -H 127.0.0.1`,
       url: `${WEB}/ar/login`,
       timeout: SERVER_START_MS(120_000),
-      reuseExistingServer: false,
+      reuseExistingServer: REUSE,
       env: { PSP_SANDBOX_UI: 'true', API_ORIGIN: API, WEB_ORIGIN: WEB, ADMIN_ORIGIN: ADMIN }, // the e2e API runs the sandbox PSP, so the sandbox card picker is shown
     },
     {
       command: `pnpm --filter @nuzm/admin exec next start -p ${ADMIN_PORT} -H 127.0.0.1`,
       url: `http://127.0.0.1:${ADMIN_PORT}/ar/login`,
       timeout: SERVER_START_MS(120_000),
-      reuseExistingServer: false,
+      reuseExistingServer: REUSE,
       // the consoles read these at run time (sign-in return address, API for server-side rendering)
       env: { API_ORIGIN: API, WEB_ORIGIN: WEB, ADMIN_ORIGIN: ADMIN },
     },

@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { ADMIN, DB_URL as DB } from './env';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * Admin console screens of M11 (UI-M11-20..22), Arabic and English projects.
@@ -14,7 +17,6 @@ import { DB_URL as DB } from './env';
  * database (a version that is `pending`); a wrong id and a stale decision are asserted too.
  */
 
-const ADMIN = 'http://127.0.0.1:3001';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -35,7 +37,7 @@ test('admin: moderation decision, programs oversight, automation abuse (UI-M11-2
     `UPDATE identity.sessions SET mfa_level = 'totp', mfa_verified_at = now() WHERE user_id = (SELECT id FROM identity.users WHERE email = $1)`,
     [staff],
   );
-  const nav = page.getByRole('navigation', { name: T(info, 'nav.primary') });
+  const nav = page.getByRole('navigation', { name: T(info, 'nc.nav.side') }); // the section navigation lists the items of the current category
 
   // seed (test data): a publisher org, a listing and one PENDING version with its moderation case
   const staffId = (
@@ -92,7 +94,7 @@ test('admin: moderation decision, programs oversight, automation abuse (UI-M11-2
       T(info, 'm11.adm.mod.done', { decision: T(info, 'm11.adm.mod.decision.approve') }),
     ),
   ).toBeVisible();
-  await expect(page.getByText(T(info, 'm11.pub.mod.approved'))).toBeVisible();
+  await expect(page.getByText(T(info, 'm11.pub.mod.approved'), { exact: true })).toBeVisible();
   await audit(page, info, 'm11-admin-moderation-done');
   // deciding again on a version that is no longer pending is stale (409)
   await page.getByRole('button', { name: T(info, 'm11.adm.mod.submit.approve') }).click();

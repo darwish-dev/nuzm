@@ -1,7 +1,10 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
-import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { T, audit, loc, signIn, expectActiveOrg } from './helpers';
+import { ADMIN, DB_URL as DB } from './env';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * Managed data and email screens (UI-M08-01..14), customer console, Arabic and English projects.
@@ -16,7 +19,6 @@ import { DB_URL as DB } from './env';
  * Runs after 01..05: it uses the owner organization created by the customer test and the MFA enrolment of the staff users.
  */
 
-const ADMIN = 'http://127.0.0.1:3001';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -91,7 +93,11 @@ const PROVIDERS: { service: string; code: string; config: Record<string, unknown
     code: 'mock-object-storage',
     config: { defaultRegion: 'sa-central' },
   },
-  { service: 'transactional-email', code: 'mock-transactional-email', config: {} },
+  {
+    service: 'transactional-email',
+    code: 'mock-transactional-email',
+    config: { processingRegion: 'sa-central' }, // the dev-reference sender "processes" in-Kingdom, like the mailbox one: an unstated region is never allowed
+  },
   { service: 'mailbox', code: 'mock-mailbox', config: { processingRegion: 'sa-central' } },
 ];
 
@@ -170,7 +176,7 @@ async function ownerOrg(page: Page, info: TestInfo, email: string) {
     await page.goto(`/${L}/orgs/new`);
     await page.getByLabel(T(info, 'field.name'), { exact: true }).fill(`M08 ${L}`);
     await page.getByRole('button', { name: T(info, 'action.create') }).click();
-    await expect(page.getByText(T(info, 'home.org', { org: `M08 ${L}` }))).toBeVisible();
+    await expectActiveOrg(page, info, `M08 ${L}`);
   }
   await elevate(email);
 }
@@ -195,8 +201,9 @@ test('managed data: databases and buckets (UI-M08-01..07)', async ({ page, brows
 
   // --- navigation entries for the owner
   await go('/databases');
-  const nav = page.getByRole('navigation', { name: T(info, 'nav.primary') });
-  for (const k of ['m8.nav.databases', 'm8.nav.storage', 'm8.nav.email'] as const)
+  const nav = page.getByRole('navigation', { name: T(info, 'nc.nav.rail') });
+  // the rail offers the Data and Email categories (databases and storage are the Data category's tabs)
+  for (const k of ['nc.cat.data', 'nc.cat.email'] as const)
     await expect(nav.getByRole('link', { name: T(info, k) })).toBeVisible();
 
   // --- UI-M08-01: empty list
@@ -378,7 +385,7 @@ test('email: domains, senders, templates, suppressions (UI-M08-08..14)', async (
 
   // without a provider the answer is a plain "not available" (422 unsupported_capability), never a fake domain
   await disableProviders();
-  await page.getByLabel(T(info, 'm8.emd.domain')).fill(domain);
+  await page.getByLabel(T(info, 'm8.emd.domain'), { exact: true }).fill(domain);
   await page.getByRole('button', { name: T(info, 'm8.emd.addAction') }).click();
   await expect(
     page.getByText(T(info, 'm8.err.unsupported'), { exact: false }).first(),
@@ -388,7 +395,7 @@ test('email: domains, senders, templates, suppressions (UI-M08-08..14)', async (
   if (await enableLocalProviders(browser, info)) {
     // --- UI-M08-09: required records, per-record status, copy, DMARC, manual instructions, re-check
     await go('/email/domains');
-    await page.getByLabel(T(info, 'm8.emd.domain')).fill(domain);
+    await page.getByLabel(T(info, 'm8.emd.domain'), { exact: true }).fill(domain);
     await page.getByRole('button', { name: T(info, 'm8.emd.addAction') }).click();
     await page.waitForURL(/\/email\/domains\/[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { name: domain, level: 1 })).toBeVisible();
@@ -444,7 +451,7 @@ test('email: domains, senders, templates, suppressions (UI-M08-08..14)', async (
     'dir',
     'rtl',
   );
-  await expect(page.getByText(T(info, 'm8.tp.rtl'))).toBeVisible();
+  await expect(page.getByText(T(info, 'm8.tp.rtl'), { exact: true })).toBeVisible();
   await page.getByLabel(T(info, 'field.locale')).selectOption('en');
   await expect(page.frameLocator('iframe[sandbox=""]').locator('html')).toHaveAttribute(
     'dir',
@@ -453,7 +460,8 @@ test('email: domains, senders, templates, suppressions (UI-M08-08..14)', async (
   await page.getByLabel(T(info, 'field.locale')).selectOption('ar');
   // the detected {{name}} placeholder is declared as a variable
   await expect(page.getByLabel(T(info, 'm8.tp.varType', { name: 'name' }))).toBeVisible();
-  await audit(page, info, 'm8-email-template-editor');
+  // the preview frame is sandboxed without scripts (axe cannot run inside it) and shows the customer's own email HTML, not the console's UI: the editor around it is audited
+  await audit(page, info, 'm8-email-template-editor', [], ['iframe[sandbox=""]']);
   await page.getByRole('button', { name: T(info, 'm8.tp.save') }).click();
   await expect(page.getByText(T(info, 'm8.tp.saved', { version: 1 }))).toBeVisible();
   // the sanitized html the API returned is previewed: the script is gone
@@ -475,12 +483,12 @@ test('email: domains, senders, templates, suppressions (UI-M08-08..14)', async (
   await page.getByLabel(T(info, 'm8.su.address')).fill(address);
   await page.getByRole('button', { name: T(info, 'm8.su.addAction') }).click();
   await expect(page.getByText(T(info, 'm8.su.added'))).toBeVisible();
-  await expect(page.getByRole('cell', { name: address })).toBeVisible();
+  await expect(page.getByRole('cell', { name: address, exact: true })).toBeVisible();
   await audit(page, info, 'm8-email-suppressions');
   await page.getByRole('button', { name: T(info, 'm8.su.removeFor', { address }) }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel(T(info, 'm8.su.override'))).toHaveCount(0); // not a protective reason
   await audit(page, info, 'm8-email-suppression-remove');
   await dialog.getByRole('button', { name: T(info, 'm8.su.removeAction') }).click();
-  await expect(page.getByRole('cell', { name: address })).toHaveCount(0);
+  await expect(page.getByRole('cell', { name: address, exact: true })).toHaveCount(0);
 });

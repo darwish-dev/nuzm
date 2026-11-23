@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
+import { PanelResizer } from './PanelResizer';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
 import { AppBuildingScene } from './AppBuildingScene';
 import { BrandMark } from './BrandLogo';
@@ -135,9 +136,10 @@ export function WorkspaceShell<T extends string>({
       </header>
 
       <div className="bws-body">
-        <section className="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
+        <section className="bws-chat" id="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
           {chat}
         </section>
+        <PanelResizer locale={locale} chatId="bws-chat" />
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {banner && <Banner tone="danger">{banner}</Banner>}
           {phase !== 'off' && (

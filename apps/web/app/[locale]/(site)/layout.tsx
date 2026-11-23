@@ -9,6 +9,7 @@ import '../../../components/site/chrome.css';
 import '../../../components/site/builder-service.css';
 import '../../../components/site/service-detail.css';
 import '../../../components/site/hub.css';
+import '../../../components/site/signature.css';
 
 /** The public pages (services): the landing page's identity stylesheet plus the layout of the service pages. The <html> element comes from the locale layout. */
 export default function SiteLayout({ children }: { children: ReactNode }) {

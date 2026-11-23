@@ -16,6 +16,7 @@ import '../components/site/flat.css';
 import '../components/landing/landing-rtl.css';
 import '../components/site/chrome.css';
 import '../components/landing/downloads.css';
+import '../components/site/signature.css';
 
 /** The landing page is the one page outside the proxy's `/<locale>` tree: it reads the same language cookie itself. No cookie means English, as before. */
 async function currentLocale(): Promise<Locale> {

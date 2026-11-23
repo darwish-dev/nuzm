@@ -36,7 +36,9 @@ const api = (over: (url: string, init: RequestInit) => Response | undefined = ()
     return json(500, {});
   });
 const openPanel = (locale: 'en' | 'ar' = 'en') => {
-  fireEvent.click(screen.getByRole('button', { name: t(locale, 'bld.hist.open') }));
+  fireEvent.click(
+    screen.getByRole('button', { name: t(locale, 'bld.hist.projects'), expanded: false }),
+  );
   return screen.getByRole('complementary', { name: t(locale, 'bld.hist.title') });
 };
 
@@ -65,20 +67,32 @@ describe('builder chat history', () => {
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
     const panel = openPanel();
-    const menu = await within(panel).findByRole('link', { name: /Menu page/ });
-    expect(menu.getAttribute('href')).toBe('/builder/projects/p1?session=s1');
-    const folder = within(panel).getByRole('button', { name: /^Coffee shop/ });
+    // folders start closed
+    const folder = await within(panel).findByRole('button', { name: /^Coffee shop/ });
+    expect(folder.getAttribute('aria-expanded')).toBe('false');
+    expect(within(panel).queryByRole('link', { name: /Menu page/ })).toBeNull();
+    fireEvent.click(folder);
     expect(folder.getAttribute('aria-expanded')).toBe('true');
+    const menu = within(panel).getByRole('link', { name: /Menu page/ });
+    expect(menu.getAttribute('href')).toBe('/builder/projects/p1?session=s1');
     fireEvent.click(folder);
     expect(within(panel).queryByRole('link', { name: /Menu page/ })).toBeNull();
-    expect(within(panel).getAllByText(t('en', 'bld.hist.noChats')).length).toBe(1);
+    // a project with one chat is a direct link to it, with nothing to unfold; one with none opens the project
+    const clinic = within(panel).getByRole('link', { name: /^Clinic app/ });
+    expect(clinic.getAttribute('href')).toBe('/builder/projects/p2?session=s2');
+    expect(within(panel).queryByRole('button', { name: /^Clinic app/ })).toBeNull();
+    expect(
+      within(panel)
+        .getByRole('link', { name: /^Empty project/ })
+        .getAttribute('href'),
+    ).toBe('/builder/projects/p3');
     // a chat without a project is listed apart, not as a link
     expect(within(panel).getByText('Loose idea').closest('a')).toBeNull();
     // searching finds chats inside folders, and whole folders by name
     fireEvent.change(within(panel).getByPlaceholderText(t('en', 'bld.hist.search')), {
       target: { value: 'booking' },
     });
-    expect(within(panel).getByRole('link', { name: /Booking form/ })).toBeTruthy();
+    expect(within(panel).getByRole('link', { name: /Clinic app/ })).toBeTruthy();
     expect(within(panel).queryByRole('button', { name: /^Coffee shop/ })).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('complementary')).toBeNull();
@@ -112,7 +126,7 @@ describe('builder chat history', () => {
     vi.stubGlobal('fetch', api());
     render(<BuilderHistory locale="en" canChat={false} />);
     const panel = openPanel();
-    await within(panel).findByRole('link', { name: /Menu page/ });
+    await within(panel).findByRole('link', { name: /^Clinic app/ });
     expect(within(panel).queryByRole('button', { name: /New chat in/ })).toBeNull();
   });
 

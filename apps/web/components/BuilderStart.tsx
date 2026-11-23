@@ -1,8 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { t, tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
-import { Badge, Banner, Icon, type IconName } from '@nuzm/ui';
+import { Badge, Banner, Icon } from '@nuzm/ui';
 import {
   TEMPLATE_IDS,
   credits,
@@ -15,6 +15,7 @@ import {
 import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
 import { ProblemNote } from './BuilderBits';
 import { BuilderHistory } from './BuilderHistory';
+import { TemplatesButton, type StartTemplate } from './StartTemplates';
 import { GithubPicker, SourceChip, SourceMenu, readLocalSource } from './StartSources';
 import { MAX_IMPORT_FILES, batchPatches, type StartSource } from '../lib/start-sources';
 
@@ -36,20 +37,6 @@ export const startTypes = (appsEnabled: boolean, mobileEnabled = false) =>
   }));
 
 const MAX_PROMPT = 600;
-const EXAMPLES: { id: string; icon: IconName }[] = [
-  { id: 'restaurant', icon: 'hosting' },
-  { id: 'portfolio', icon: 'user' },
-  { id: 'clinic', icon: 'shield' },
-  { id: 'shop', icon: 'tag' },
-];
-
-/** Starting points for a web app (shown while the web-app type is selected). */
-const APP_EXAMPLES: { id: string; icon: IconName }[] = [
-  { id: 'crm', icon: 'organization' },
-  { id: 'inventory', icon: 'data' },
-  { id: 'booking', icon: 'tag' },
-];
-
 /** A project name (1..100 characters) from the first words of the description: the person never has to name anything to start. */
 export function nameFromPrompt(prompt: string): string {
   const words = prompt
@@ -76,9 +63,6 @@ export function BuilderStart({
   appsEnabled = false,
   mobileEnabled = false,
   initialType = 'website',
-  projects,
-  projectCount = 0,
-  initialTab,
   githubEnabled = false,
 }: {
   locale: Locale;
@@ -91,11 +75,6 @@ export function BuilderStart({
   /** the organization has `mobile_builder.enabled`: the mobile-app tile can be started (it opens the mobile preview) */
   mobileEnabled?: boolean;
   initialType?: StartType;
-  /** the organization's projects, rendered by the server: shown in the "My projects" tab */
-  projects?: ReactNode;
-  projectCount?: number;
-  /** which tab of the lower section opens first: the projects when there are some, else the examples */
-  initialTab?: 'examples' | 'projects';
 }) {
   const router = useRouter();
   const call = useBuilderCall();
@@ -107,10 +86,6 @@ export function BuilderStart({
   const [err, setErr] = useState('');
   const [optErr, setOptErr] = useState('');
   const [partial, setPartial] = useState<string | null>(null);
-  const hasProjects = projects !== undefined;
-  const [tab, setTab] = useState<'examples' | 'projects'>(
-    initialTab ?? (hasProjects && projectCount > 0 ? 'projects' : 'examples'),
-  );
   const box = useRef<HTMLTextAreaElement>(null);
   const opts = useRef<HTMLDetailsElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
@@ -179,24 +154,15 @@ export function BuilderStart({
       return (['ar', 'en'] as const).filter((x) => next.includes(x));
     });
 
-  function pickExample(id: string) {
-    // the website examples are shown for every type but web app: picking one selects the website type (a web-app example keeps the web-app type)
-    if (type !== 'webapp') setType('website');
-    setPrompt(
-      t(locale, (type === 'webapp' ? `m10a.start.ex.${id}` : `bld.start.ex.${id}`) as MessageKey),
-    );
+  /** A template from the Templates popup: its type, its description in the prompt (to read and edit), and for a website its bilingual site template. */
+  function pickTemplate(tpl: StartTemplate) {
+    choose(null);
+    setType(tpl.kind);
+    setTemplate(tpl.siteTemplate ?? '');
+    setPrompt(t(locale, tpl.prompt));
     setErr('');
-    // back to the prompt: the chosen words are there to read, edit and send
-    document
-      .getElementById('bld-start-h')
-      ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
     box.current?.focus({ preventScroll: true });
   }
-
-  const toMore = (e: { preventDefault(): void }) => {
-    e.preventDefault();
-    document.getElementById('bl-more')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-  };
 
   async function submit(e?: FormEvent) {
     e?.preventDefault();
@@ -392,10 +358,6 @@ export function BuilderStart({
 
   const typeName = (id: StartType) => t(locale, `bld.start.type.${id}` as MessageKey);
 
-  const exampleList = type === 'webapp' ? APP_EXAMPLES : EXAMPLES;
-  const exText = (id: string) =>
-    t(locale, (type === 'webapp' ? `m10a.start.ex.${id}` : `bld.start.ex.${id}`) as MessageKey);
-
   return (
     <div className="bl">
       <BuilderHistory locale={locale} canChat={canRun} />
@@ -444,18 +406,16 @@ export function BuilderStart({
                 onFolder={() => folderInput.current?.click()}
                 onFiles={() => filesInput.current?.click()}
                 onGithub={() => setGhOpen(true)}
-                onTemplate={() => {
-                  choose(null);
-                  setType('website');
-                  if (opts.current) opts.current.open = true;
-                  opts.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+              />
+              <TemplatesButton
+                locale={locale}
+                initialKind={effectiveType}
+                available={{
+                  website: true,
+                  webapp: appsEnabled,
+                  mobile: mobileEnabled,
                 }}
-                onExisting={() => {
-                  if (hasProjects) setTab('projects');
-                  document
-                    .getElementById('bl-more')
-                    ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-                }}
+                onPick={pickTemplate}
               />
               <input
                 ref={folderInput}
@@ -635,80 +595,6 @@ export function BuilderStart({
             {t(locale, 'bld.wiz.partial')}{' '}
             <a href={`/builder/projects/${partial}`}>{t(locale, 'bld.wiz.openProject')}</a>
           </p>
-        )}
-
-        <a className="bl-cue" href="#bl-more" onClick={toMore}>
-          <span>{t(locale, 'bld.land.scroll')}</span>
-          <Icon name="chevron" size={16} />
-        </a>
-      </section>
-
-      <section className="bl-more" id="bl-more" aria-label={t(locale, 'bld.land.sections')}>
-        <div className="bl-tabs" role="tablist" aria-label={t(locale, 'bld.land.sections')}>
-          {hasProjects && (
-            <button
-              type="button"
-              role="tab"
-              id="bl-tab-projects"
-              aria-selected={tab === 'projects'}
-              aria-controls="bl-panel-projects"
-              onClick={() => setTab('projects')}
-            >
-              <Icon name="projects" size={16} />
-              {t(locale, 'bld.land.tab.projects')}
-              <span className="bl-count-badge">{projectCount}</span>
-            </button>
-          )}
-          <button
-            type="button"
-            role="tab"
-            id="bl-tab-examples"
-            aria-selected={tab === 'examples'}
-            aria-controls="bl-panel-examples"
-            onClick={() => setTab('examples')}
-          >
-            <Icon name="sparkle" size={16} />
-            {t(locale, 'bld.land.tab.examples')}
-          </button>
-        </div>
-
-        {tab === 'examples' && (
-          <div role="tabpanel" id="bl-panel-examples" aria-labelledby="bl-tab-examples">
-            <ul className="bl-ex-grid">
-              {exampleList.map((x) => (
-                <li key={x.id}>
-                  <button
-                    type="button"
-                    className="bl-ex"
-                    data-example={x.id}
-                    onClick={() => pickExample(x.id)}
-                  >
-                    <span className="bl-ex-art" aria-hidden="true">
-                      <i />
-                      <i />
-                      <i />
-                      <span className="bl-ex-icon">
-                        <Icon name={x.icon} size={22} />
-                      </span>
-                    </span>
-                    <span className="bl-ex-body">
-                      <strong>{t(locale, `bld.land.exTitle.${x.id}` as MessageKey)}</strong>
-                      <span className="bl-ex-text">{exText(x.id)}</span>
-                    </span>
-                    <span className="bl-ex-use">
-                      {t(locale, 'bld.land.use')}
-                      <Icon name="arrow" size={16} />
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {tab === 'projects' && hasProjects && (
-          <div role="tabpanel" id="bl-panel-projects" aria-labelledby="bl-tab-projects">
-            {projects}
-          </div>
         )}
       </section>
     </div>

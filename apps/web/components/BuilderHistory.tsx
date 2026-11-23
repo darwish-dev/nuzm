@@ -74,10 +74,12 @@ export function BuilderHistory({ locale, canChat = true }: { locale: Locale; can
   const [sessions, setSessions] = useState<HistorySession[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [q, setQ] = useState('');
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // folders start closed; the person opens the ones they want (a search opens every folder it matches)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState<string | null>(null);
   const [createErr, setCreateErr] = useState<string | null>(null);
   const toggle = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
   const loaded = useRef(false);
 
   async function load() {
@@ -112,6 +114,21 @@ export function BuilderHistory({ locale, canChat = true }: { locale: Locale; can
     return () => document.removeEventListener('keydown', esc);
   }, [open]);
 
+  // the sidebar scrolls on its own: a wheel or touch scroll over it never moves the page behind it, even past the end of the list
+  useEffect(() => {
+    const el = panel.current;
+    if (!el || !open) return;
+    const wheel = (e: WheelEvent) => {
+      const list = el.querySelector<HTMLElement>('.bh-list');
+      if (!list || !list.contains(e.target as Node)) return e.preventDefault();
+      const atTop = list.scrollTop <= 0;
+      const atEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
+      if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atEnd)) e.preventDefault();
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, [open]);
+
   async function newChat(projectId: string) {
     if (creating) return;
     setCreating(projectId);
@@ -137,7 +154,7 @@ export function BuilderHistory({ locale, canChat = true }: { locale: Locale; can
     .filter((f) => match(f.project.name) || f.chats.length > 0);
   const looseShown = loose.filter((c) => match(c.title));
   const flip = (id: string) =>
-    setCollapsed((cur) => {
+    setExpanded((cur) => {
       const n = new Set(cur);
       if (n.has(id)) n.delete(id);
       else n.add(id);
@@ -153,15 +170,16 @@ export function BuilderHistory({ locale, canChat = true }: { locale: Locale; can
         className="bh-toggle"
         aria-expanded={open}
         aria-controls="bh-panel"
-        aria-label={t(locale, open ? 'bld.hist.close' : 'bld.hist.open')}
         title={t(locale, 'bld.hist.title')}
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name="panel" size={19} />
+        <span>{t(locale, 'bld.hist.projects')}</span>
       </button>
       {open && <div className="bh-scrim" aria-hidden="true" onClick={close} />}
       <aside
         id="bh-panel"
+        ref={panel}
         className="bh-panel"
         aria-label={t(locale, 'bld.hist.title')}
         hidden={!open}
@@ -229,29 +247,53 @@ export function BuilderHistory({ locale, canChat = true }: { locale: Locale; can
               <p className="bh-label">{t(locale, 'bld.hist.projects')}</p>
               <ul className="bh-folders">
                 {shown.map((f) => {
-                  const isOpen = needle !== '' || !collapsed.has(f.project.id);
+                  // a project with one chat (or none) is a direct link: there is nothing to unfold
+                  const single = f.chats.length <= 1;
+                  const isOpen = !single && (needle !== '' || expanded.has(f.project.id));
                   const listId = `bh-f-${f.project.id}`;
+                  const head = (
+                    <>
+                      <span className="bh-folder-icon" data-type={f.project.type}>
+                        <Icon name={typeIcon(f.project.type)} size={14} />
+                      </span>
+                      <span className="bh-folder-name" dir="auto">
+                        {f.project.name}
+                      </span>
+                    </>
+                  );
                   return (
                     <li key={f.project.id} className="bh-folder" data-open={isOpen || undefined}>
                       <div className="bh-folder-row">
-                        <button
-                          type="button"
-                          className="bh-folder-btn"
-                          aria-expanded={isOpen}
-                          aria-controls={listId}
-                          onClick={() => flip(f.project.id)}
-                        >
-                          <span className="bh-chev" aria-hidden="true">
-                            <Icon name="chevron" size={13} />
-                          </span>
-                          <span className="bh-folder-icon" data-type={f.project.type}>
-                            <Icon name={typeIcon(f.project.type)} size={14} />
-                          </span>
-                          <span className="bh-folder-name" dir="auto">
-                            {f.project.name}
-                          </span>
-                          <span className="bh-count">{f.chats.length}</span>
-                        </button>
+                        {single ? (
+                          <a
+                            className="bh-folder-btn"
+                            href={
+                              f.chats[0]
+                                ? `/builder/projects/${f.project.id}?session=${f.chats[0].id}`
+                                : `/builder/projects/${f.project.id}`
+                            }
+                            title={f.project.name}
+                          >
+                            <span className="bh-chev" aria-hidden="true" />
+                            {head}
+                            <small className="bh-when">{when(f.latest)}</small>
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            className="bh-folder-btn"
+                            aria-expanded={isOpen}
+                            aria-controls={listId}
+                            title={f.project.name}
+                            onClick={() => flip(f.project.id)}
+                          >
+                            <span className="bh-chev" aria-hidden="true">
+                              <Icon name="chevron" size={12} />
+                            </span>
+                            {head}
+                            <span className="bh-count">{f.chats.length}</span>
+                          </button>
+                        )}
                         {canChat && (
                           <button
                             type="button"
@@ -275,21 +317,17 @@ export function BuilderHistory({ locale, canChat = true }: { locale: Locale; can
                       )}
                       {isOpen && (
                         <ul className="bh-chats" id={listId}>
-                          {f.chats.length === 0 ? (
-                            <li className="bh-none">{t(locale, 'bld.hist.noChats')}</li>
-                          ) : (
-                            f.chats.map((c) => (
-                              <li key={c.id}>
-                                <a
-                                  href={`/builder/projects/${f.project.id}?session=${c.id}`}
-                                  title={c.title}
-                                >
-                                  <span dir="auto">{c.title}</span>
-                                  <small>{when(c.createdAt)}</small>
-                                </a>
-                              </li>
-                            ))
-                          )}
+                          {f.chats.map((c) => (
+                            <li key={c.id}>
+                              <a
+                                href={`/builder/projects/${f.project.id}?session=${c.id}`}
+                                title={c.title}
+                              >
+                                <span dir="auto">{c.title}</span>
+                                <small>{when(c.createdAt)}</small>
+                              </a>
+                            </li>
+                          ))}
                         </ul>
                       )}
                     </li>

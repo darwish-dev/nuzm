@@ -27,6 +27,7 @@ import {
   type AppProject,
 } from './WebAppPanels';
 import { AppStudioPanel } from './WebAppAiStudio';
+import type { StudioView } from '../lib/ai-studio';
 import { AppCodePanel } from './WebAppCode';
 import { AppDataPane, type DataView } from './WebAppData';
 import { WebAppRunHistory } from './WebAppHistory';
@@ -86,6 +87,8 @@ export function WebAppWorkspace({
 }) {
   const [project, setProject] = useState(initial);
   const [tab, select] = useShellTab<AppTab>(initialTab);
+  // the AI Studio view to open on (the chat's assistant switcher opens it on Claude Code)
+  const [studioView, setStudioView] = useState<StudioView>('instructions');
   const [runId, setRunId] = useState<string | null>(initialRun?.id ?? null);
   const [runActive, setRunActive] = useState(initialRun ? isRunActive(initialRun.state) : false);
   const [chatKey, setChatKey] = useState(0);
@@ -221,6 +224,14 @@ export function WebAppWorkspace({
           refreshKey={chatKey}
           activeRun={runActive}
           mode="webapp"
+          onClaude={
+            allowedTabs.includes('studio')
+              ? () => {
+                  setStudioView('claude');
+                  select('studio');
+                }
+              : undefined
+          }
           onRun={(run) => {
             setRunId(run.id);
             setRunActive(true);
@@ -269,6 +280,8 @@ export function WebAppWorkspace({
         />
       ) : tab === 'studio' ? (
         <AppStudioPanel
+          key={studioView}
+          initialView={studioView}
           locale={locale}
           projectId={project.id}
           can={can}

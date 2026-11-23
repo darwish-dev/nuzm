@@ -63,7 +63,7 @@ export function SiteHeader({
   }, []);
   return (
     <header ref={header} className="site-header wrap svc-header">
-      <a href={`/${locale}`} aria-label={labels.home} className="brand">
+      <a href={`/?lang=${locale}`} aria-label={labels.home} className="brand">
         <BrandWordmark />
       </a>
       <nav className={open ? 'main-nav is-open' : 'main-nav'} aria-label={labels.nav}>

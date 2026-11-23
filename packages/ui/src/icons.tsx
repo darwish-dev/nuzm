@@ -287,6 +287,16 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   send: <path d="M12 19V5M6 11l6-6 6 6" />,
+  mic: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
+    </>
+  ),
+  stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
+  paperclip: (
+    <path d="m20 11.5-7.9 7.9a5 5 0 0 1-7.1-7.1l8.3-8.3a3.4 3.4 0 0 1 4.8 4.8l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.6-7.6" />
+  ),
   more: (
     <>
       <circle cx="5" cy="12" r="1.2" />

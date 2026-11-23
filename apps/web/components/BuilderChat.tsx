@@ -6,6 +6,15 @@ import type { Message, Page_, Run, Session } from '../lib/builder';
 import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
 import { BrandMark } from './BrandLogo';
 import { ProblemNote, when } from './BuilderBits';
+import {
+  AttachMenu,
+  AttachmentChips,
+  DictateButton,
+  EngineSwitch,
+  MAX_ATTACHMENTS,
+  readAttachments,
+  type ChatAttachment,
+} from './ChatComposer';
 
 /** What each workspace's chat starts: the kind of run, its input, the length limits and the texts. */
 const CHAT = {
@@ -54,6 +63,16 @@ function ChatMessage({ locale, m }: { locale: Locale; m: Message }) {
         <bdi dir="auto" className="bld-msg-body">
           {m.content}
         </bdi>
+        {m.attachments && m.attachments.length > 0 && (
+          <span className="bld-msg-atts">
+            {m.attachments.map((a, i) => (
+              <span key={i} className="bld-msg-att">
+                <Icon name={a.kind === 'url' ? 'external' : 'paperclip'} size={12} />
+                <bdi dir="auto">{a.kind === 'url' ? (a.url ?? '') : (a.name ?? '')}</bdi>
+              </span>
+            ))}
+          </span>
+        )}
         <time className="nz-sr" dateTime={m.createdAt}>
           {t(locale, 'bld.chat.role.user')} · {when_}
         </time>
@@ -105,6 +124,7 @@ export function Chat({
   thread,
   history,
   mode = 'website',
+  onClaude,
 }: {
   locale: Locale;
   projectId: string;
@@ -129,14 +149,28 @@ export function Chat({
    * 3..600 characters). `webapp`: a `webapp` run (a brief of up to 8000 characters for the agent graph). The texts say so.
    */
   mode?: 'website' | 'webapp' | 'mobile';
+  /** the web app's Claude Code panel (AI Studio): offered in the assistant switcher where it exists */
+  onClaude?: () => void;
 }) {
   const cfg = CHAT[mode];
   const call = useBuilderCall();
   const [sessionId, setSessionId] = useState(session?.id ?? null);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [text, setText] = useState('');
+  const [atts, setAtts] = useState<ChatAttachment[]>([]);
+  const [attNote, setAttNote] = useState('');
+  // attachments are read by the website edit run (and the plain chat): the other workspaces start runs that take the words only
+  const canAttach = mode === 'website';
   const keys = useRef({ session: newKey(), message: newKey(), run: newKey() });
   const log = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  // the box grows with the words, up to its maximum height (only the height: long words wrap, the width never changes)
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
   const hist = history?.(messages) ?? {};
   /** the instruction already stored as a message whose run could not start: a retry must not add the same message twice */
   const storedText = useRef<string | null>(null);
@@ -179,7 +213,18 @@ export function Chat({
       const stored = await call.run(
         () =>
           bapi.post<Message>(`/v1/ai/sessions/${sessionRef}/messages`, {
-            body: { content: instruction },
+            body: {
+              content: instruction,
+              ...(canAttach && atts.length > 0
+                ? {
+                    attachments: atts.map((x) =>
+                      x.kind === 'url'
+                        ? { kind: 'url', url: x.url }
+                        : { kind: 'text', name: x.name, text: x.text },
+                    ),
+                  }
+                : {}),
+            },
             idempotencyKey: keys.current.message,
           }),
         (m) => {
@@ -204,6 +249,8 @@ export function Chat({
         keys.current.run = newKey();
         storedText.current = null;
         setText('');
+        setAtts([]);
+        setAttNote('');
         onRun(run);
       },
       (p) => {
@@ -235,44 +282,97 @@ export function Chat({
         <form className="bld-composer" onSubmit={(e) => void send(e)}>
           {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
           <div className="bld-composer-box">
-            <label className="nz-sr" htmlFor="bld-chat-input">
-              {t(locale, 'bld.chat.input')}
-            </label>
-            <textarea
-              id="bld-chat-input"
-              className="bld-composer-input"
-              dir="auto"
-              rows={3}
-              maxLength={cfg.max}
-              placeholder={t(locale, activeRun ? cfg.busy : cfg.placeholder)}
-              disabled={activeRun}
-              aria-describedby="bld-chat-help"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send(e as never);
-              }}
+            <AttachmentChips
+              locale={locale}
+              items={atts}
+              onRemove={(i) => setAtts((l) => l.filter((_, j) => j !== i))}
             />
-            <div className="bld-composer-foot">
-              <span className="bld-chip">
-                <Icon
-                  name={mode === 'website' ? 'globe' : mode === 'webapp' ? 'code' : 'phone'}
-                  size={14}
+            {/* one compact row, like a chat app: attach at the start, the words, then send and the microphone */}
+            <div className="bcx-line">
+              {canAttach && (
+                <AttachMenu
+                  locale={locale}
+                  disabled={activeRun}
+                  full={atts.length >= MAX_ATTACHMENTS}
+                  onFiles={(files) =>
+                    void readAttachments(files).then(({ ok, refused }) => {
+                      const room = MAX_ATTACHMENTS - atts.length;
+                      setAtts((l) => [...l, ...ok.slice(0, room)]);
+                      setAttNote(
+                        refused.length > 0
+                          ? t(locale, 'bld.chat.att.refused', {
+                              names: refused.map((r) => r.name).join('، '),
+                            })
+                          : ok.length > room
+                            ? t(locale, 'bld.chat.att.full')
+                            : '',
+                      );
+                    })
+                  }
+                  onLink={(url) => setAtts((l) => [...l, { kind: 'url', url }])}
                 />
-                {t(locale, `bld.start.type.${mode}` as MessageKey)}
-              </span>
+              )}
+              <label className="nz-sr" htmlFor="bld-chat-input">
+                {t(locale, 'bld.chat.input')}
+              </label>
+              <textarea
+                id="bld-chat-input"
+                ref={input}
+                className="bld-composer-input"
+                dir="auto"
+                rows={1}
+                maxLength={cfg.max}
+                placeholder={t(locale, activeRun ? cfg.busy : cfg.placeholder)}
+                disabled={activeRun}
+                aria-describedby="bld-chat-help"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter sends, Shift+Enter starts a new line (an input method still composing a word keeps its Enter)
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    void send(e as never);
+                  }
+                }}
+              />
               <button
                 type="submit"
                 className="bld-send"
                 disabled={call.busy || activeRun || text.trim().length < cfg.min}
                 aria-label={t(locale, 'bld.chat.send')}
               >
-                <Icon name="send" size={18} />
+                <Icon name="send" size={17} />
               </button>
+              <DictateButton
+                locale={locale}
+                disabled={activeRun}
+                onText={(words) =>
+                  setText((cur) => (cur.trim() ? `${cur.trimEnd()} ${words}` : words))
+                }
+              />
             </div>
           </div>
+          {/* a quiet line under the box: what the chat works on, which assistant answers, and whether a run is working */}
+          <div className="bcx-meta">
+            <span className="bcx-meta-type">
+              {t(locale, `bld.start.type.${mode}` as MessageKey)}
+            </span>
+            <EngineSwitch locale={locale} projectId={projectId} mode={mode} onClaude={onClaude} />
+            <span
+              className="bcx-ring"
+              data-active={activeRun || call.busy || undefined}
+              role="img"
+              aria-label={t(locale, activeRun ? 'bld.chat.state.working' : 'bld.chat.state.ready')}
+              title={t(locale, activeRun ? 'bld.chat.state.working' : 'bld.chat.state.ready')}
+            />
+          </div>
+          {attNote && (
+            <p className="bld-composer-note" role="status">
+              {attNote}
+            </p>
+          )}
           <p className="bld-composer-help" id="bld-chat-help">
-            {t(locale, cfg.help)}
+            {t(locale, cfg.help)} <span className="bcx-keys">{t(locale, 'bld.chat.keys')}</span>
           </p>
         </form>
       ) : (

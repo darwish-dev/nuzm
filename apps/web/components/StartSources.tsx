@@ -18,13 +18,13 @@ import {
 } from '../lib/start-sources';
 
 /**
- * The "+" of the start screen's prompt box: start a project from a folder or files on the person's device, from a GitHub repository, from a template,
- * or open one of their projects — the way a chat starts with an attachment. Files are read in the browser and only text files are kept (see
+ * The "+" of the start screen's prompt box: start a project from a folder or files on the person's device or from a GitHub repository — the way a
+ * chat starts with an attachment (templates have their own button; projects are in the history sidebar). Files are read in the browser and only text files are kept (see
  * `lib/start-sources.ts`); the upload itself happens when the person presses Start, through the API's safe-diff change path.
  */
 
 type MenuItem = {
-  id: 'folder' | 'files' | 'github' | 'template' | 'existing';
+  id: 'folder' | 'files' | 'github';
   icon: IconName;
   label: string;
   hint: string;
@@ -38,8 +38,6 @@ export function SourceMenu({
   onFolder,
   onFiles,
   onGithub,
-  onTemplate,
-  onExisting,
 }: {
   locale: Locale;
   /** the web-app builder is on: imported code becomes a web app (or a mobile app for Flutter) */
@@ -49,8 +47,6 @@ export function SourceMenu({
   onFolder: () => void;
   onFiles: () => void;
   onGithub: () => void;
-  onTemplate: () => void;
-  onExisting: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -95,25 +91,11 @@ export function SourceMenu({
           : t(locale, 'bld.src.github.off'),
       disabled: !appsEnabled || !githubEnabled,
     },
-    {
-      id: 'template',
-      icon: 'grid',
-      label: t(locale, 'bld.src.template'),
-      hint: t(locale, 'bld.src.template.hint'),
-    },
-    {
-      id: 'existing',
-      icon: 'list',
-      label: t(locale, 'bld.src.existing'),
-      hint: t(locale, 'bld.src.existing.hint'),
-    },
   ];
   const act: Record<MenuItem['id'], () => void> = {
     folder: onFolder,
     files: onFiles,
     github: onGithub,
-    template: onTemplate,
-    existing: onExisting,
   };
   return (
     <div className="bl-src" ref={wrap}>

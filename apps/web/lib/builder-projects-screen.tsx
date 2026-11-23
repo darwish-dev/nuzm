@@ -86,8 +86,7 @@ export async function ProjectsScreen({
           initial={filter}
         />
       );
-      // a filter or a page of results means the person is browsing their projects: open that tab
-      const browsing = filter !== 'all' || Boolean(one(sp.cursor));
+      // someone who can start projects finds their projects in the history sidebar of the start screen; a read-only member sees the list
       return canCreate ? (
         <BuilderStart
           locale={locale}
@@ -97,9 +96,6 @@ export async function ProjectsScreen({
           mobileEnabled={mobileOn}
           key={startType}
           initialType={startType}
-          projects={list}
-          projectCount={page.items.length}
-          initialTab={browsing || page.items.length > 0 ? 'projects' : 'examples'}
           githubEnabled={flagEnabled(g.s.me.featureFlags, AI_STUDIO_FLAG)}
         />
       ) : (
@@ -109,7 +105,7 @@ export async function ProjectsScreen({
   );
   return (
     <>
-      {/* full screen: the console's sidebar and top bar step aside (see `.bfs-float`); the only chrome is a floating way out at the bottom */}
+      {/* full screen: the console's sidebar and top bar step aside (see `.bfs-float`); the only chrome is a way out at the top corner, opposite the projects button */}
       <a className="bfs-float" href={`/console`}>
         <Icon name="close" size={16} />
         {t(locale, 'bld.ws.exit')}

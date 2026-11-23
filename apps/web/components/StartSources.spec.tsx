@@ -56,7 +56,7 @@ const pickFolder = (files: File[]) => {
 };
 
 describe('builder start: start from a source', () => {
-  it('offers device, GitHub, template and existing projects, and says why an option is off', () => {
+  it('offers the device and GitHub, and says why an option is off', () => {
     start({ appsEnabled: true, githubEnabled: false });
     const menu = openMenu();
     const items = within(menu).getAllByRole('menuitem');
@@ -64,8 +64,6 @@ describe('builder start: start from a source', () => {
       t('en', 'bld.src.folder'),
       t('en', 'bld.src.files'),
       t('en', 'bld.src.github'),
-      t('en', 'bld.src.template'),
-      t('en', 'bld.src.existing'),
     ]);
     const gh = items[2] as HTMLButtonElement;
     expect(gh.disabled).toBe(true);
@@ -79,7 +77,6 @@ describe('builder start: start from a source', () => {
     const items = within(openMenu()).getAllByRole('menuitem') as HTMLButtonElement[];
     expect(items[0]!.disabled).toBe(true);
     expect(items[1]!.disabled).toBe(true);
-    expect(items[3]!.disabled).toBe(false);
   });
 
   it('imports a folder as a web app through the safe-diff change path, leaving secrets and dependencies out', async () => {

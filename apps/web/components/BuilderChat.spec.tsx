@@ -91,11 +91,93 @@ describe('chat messages', () => {
       container.querySelector('.bld-msg[data-role="system"] .bld-msg-head strong')?.textContent,
     ).toBe(t('en', 'bld.chat.role.system'));
   });
-  it('the composer shows what the chat edits (website, web app or mobile) and a round send button', () => {
-    const { container } = chat(false);
-    expect(container.querySelector('.bld-chip')?.textContent).toContain(
-      t('en', 'bld.start.type.website'),
+  it('the composer shows the assistant switch (Nuzm AI) and the send button', () => {
+    chat(false);
+    expect(screen.getByRole('button', { name: /Nuzm AI/ }).getAttribute('aria-haspopup')).toBe(
+      'menu',
     );
     expect(screen.getByRole('button', { name: t('en', 'bld.chat.send') })).toBeTruthy();
+  });
+});
+
+describe('chat composer: attachments, keys and the assistant switch', () => {
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  const setup = (mode: 'website' | 'webapp' = 'website', onClaude?: () => void) => {
+    const calls: { url: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        calls.push({ url, body: init.body ? JSON.parse(String(init.body)) : undefined });
+        if (url.endsWith('/v1/ai/sessions')) return json(201, { id: 's1' });
+        if (url.endsWith('/messages'))
+          return json(201, {
+            id: 'm1',
+            role: 'user',
+            content: 'x',
+            createdAt: '2026-11-23T10:00:00Z',
+          });
+        if (url.endsWith('/v1/ai/runs')) return json(202, { id: 'r1', state: 'queued' });
+        return json(500, {});
+      }),
+    );
+    const onRun = vi.fn();
+    render(
+      <Chat
+        locale="en"
+        projectId="p1"
+        projectName="Site"
+        session={null}
+        initialMessages={[]}
+        canWrite
+        refreshKey={0}
+        activeRun={false}
+        onRun={onRun}
+        mode={mode}
+        onClaude={onClaude}
+      />,
+    );
+    return { calls, onRun };
+  };
+  const box = () => screen.getByLabelText(t('en', 'bld.chat.input')) as HTMLTextAreaElement;
+
+  it('sends a link with the message, then clears it; Enter sends and Shift+Enter does not', async () => {
+    const { calls, onRun } = setup();
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.chat.att.add') }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: new RegExp(t('en', 'bld.chat.att.linkTitle')) }),
+    );
+    fireEvent.change(screen.getByLabelText(t('en', 'bld.chat.att.linkLabel')), {
+      target: { value: 'https://example.com/about' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.chat.att.addLink') }));
+    expect(screen.getByText('example.com')).toBeTruthy();
+    fireEvent.change(box(), { target: { value: 'use the about page' } });
+    fireEvent.keyDown(box(), { key: 'Enter', shiftKey: true });
+    expect(calls).toHaveLength(0);
+    fireEvent.keyDown(box(), { key: 'Enter' });
+    await vi.waitFor(() => expect(onRun).toHaveBeenCalled());
+    const stored = calls.find((c) => c.url.endsWith('/messages'))!;
+    expect(stored.body).toEqual({
+      content: 'use the about page',
+      attachments: [{ kind: 'url', url: 'https://example.com/about' }],
+    });
+    expect(screen.queryByText('example.com')).toBeNull();
+  });
+
+  it('offers attachments only where the run reads them (not in a web app)', () => {
+    setup('webapp');
+    expect(screen.queryByRole('button', { name: t('en', 'bld.chat.att.add') })).toBeNull();
+  });
+
+  it('Nuzm AI is the assistant; Claude Code is offered for web apps only', () => {
+    setup('website');
+    fireEvent.click(screen.getByRole('button', { name: /Nuzm AI/ }));
+    const claude = screen.getByRole('menuitemradio', { name: /Claude Code/ }) as HTMLButtonElement;
+    expect(claude.disabled).toBe(true);
+    expect(claude.textContent).toContain(t('en', 'bld.chat.engine.claudeWebapp'));
+    expect(
+      screen.getByRole('menuitemradio', { name: /Nuzm AI/ }).getAttribute('aria-checked'),
+    ).toBe('true');
   });
 });

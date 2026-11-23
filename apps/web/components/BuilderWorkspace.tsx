@@ -7,6 +7,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
+import { PanelResizer } from './PanelResizer';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
 import {
   emptyHistory,
@@ -397,7 +398,7 @@ export function Workspace({
       </header>
 
       <div className="bws-body">
-        <section className="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
+        <section className="bws-chat" id="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
           <Chat
             locale={locale}
             projectId={detail.id}
@@ -426,6 +427,7 @@ export function Workspace({
           />
         </section>
 
+        <PanelResizer locale={locale} chatId="bws-chat" />
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {reloadError && <Banner tone="danger">{t(locale, 'bld.ws.reloadFailed')}</Banner>}
           {!panel && view === 'preview' && scene !== 'off' && (

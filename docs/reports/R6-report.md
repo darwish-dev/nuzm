@@ -43,9 +43,13 @@ None. (Test fixtures write rows with SQL to the throw-away e2e database only.)
 | `pnpm spec:lint`, `spec:drift`, `scan:secrets`, `sdk:check`, `zatca:guard`, `compliance:claims-guard` | all exit 0 |
 | `pnpm test:integration` (`TEST_CONCURRENCY=2`) | db 102, platform 32, worker 92 passed; api 2118 passed, 2 failed, 2 skipped. Both failures investigated: `email.int.spec` usage reconciliation was **time-zone dependent** (it counted the day with a bare date in the database session's zone; failed on this machine, UTC+3, between 00:00 and 03:00 local) and is fixed (31 of 31 pass); `agent-loop.int.spec` "a cancel request stops the loop" is a **load-sensitive timing flake** (passes alone; the machine had just rebooted with load average 70). Not re-run as a whole suite after the fix: **NOT VERIFIED as a complete run** |
 
-Skipped on purpose (both locales), not hidden:
-1. `08-compute-customer` "offer → quote → create → delete on the mock catalog": needs `M05_E2E_MOCK_CATALOG` (the S17 mock-compute catalog); an opt-in environment precondition.
-2. `10-app-builder` deploy / rollback leg: needs a hosting site and a deploy target (HG-05/HG-06); skipped with that reason, not faked.
+**Closure run (2026-11-24, after `0a64bf78`):** full isolated E2E `ar` **45 passed, 2 skipped, 0 failed**; `en` **45 passed, 2 skipped, 0 failed** (47 tests per language; includes the new viewer/cross-tenant test); `pnpm test:integration` (`TEST_CONCURRENCY=2`): db 102, platform 32, worker 92, api **2128 passed, 2 skipped, 0 failed**; `pnpm test` 52 of 52 tasks; lint, typecheck, spec/compliance checks all exit 0. The earlier integration findings are resolved: the email reconciliation test counts the UTC day, and the agent-loop cancel flake was a **real race in `RunService`** (a cancel the handler saw itself, before the 100 ms poll fired, ended as `failed`/`conflict` instead of `cancelled`): fixed in `run.service.ts`, with a deterministic mid-turn test added.
+
+The 10b viewer test was rebuilt as `mobile builder: signing is owner/admin only` (ar and en): a real `viewer` membership for the billing user gets the forbidden screen and **no API call**, `GET` and `POST /v1/mobile/signing-credentials` answer 403 and store nothing; a signed-in user with no membership in the organization gets 401/403/404 and none of its data (tenant isolation); an owner control request returns 201, so the refusals are authorization and not a malformed request.
+
+Skipped on purpose (both locales), not hidden. **Exact prerequisites:**
+1. `08-compute-customer` "offer → quote → create → delete on the mock catalog": runs only when the environment variable `M05_E2E_MOCK_CATALOG` is set for the Playwright process **and** the stack's API was started with the S17 mock-compute catalog seeded with at least one verified in-Kingdom offer, a SAR price book and an allowed processor (the spec header, lines 12–14). Today `pnpm test:e2e` neither seeds that catalog nor sets the variable.
+2. `10-app-builder` deploy / rollback leg (inside the test "app builder: start from one prompt …"): runs only when the app was built and the organization has an active hosting site to publish to (`hosting.sites` row in status `active`, the `hosting.enabled` flag on, and a deploy target). A **real** target needs HG-05/HG-06. The local in-memory publisher (`AI_LOCAL_REFERENCE=true`, set in the e2e API) could stand in as `10-builder-customer` does by seeding a node, plan and site with SQL; that was not done here, so this leg is not exercised: **NOT VERIFIED**.
 
 ## F. Security, isolation, billing, residency
 - Every spec starts from a clean template database; no cross-spec data. Tenant isolation specs (14 test 4, 15–18) still pass.
@@ -65,7 +69,7 @@ Unchanged by R6: D1, D2, D4, D5, D6, D12 (and D3/D9 execution) — see §I. HG-0
 | Isolated environment used | PASS |
 | axe in every spec (WCAG 2 A/AA, 2.1 A/AA tags) | PASS, with the exclusions below |
 | Unit, lint, typecheck, compliance, spec checks | PASS |
-| Integration | PASS except as noted in §E (one fixed test re-run alone; one load flake re-run alone); no full re-run |
+| Integration | PASS: full suite after the fixes, 0 failed |
 | Assertions weakened or tests skipped to get green | NO; two documented precondition skips (§E) |
 | Dropped assertions (listed, with reason) | builder-category nav entries (not on the rail; `nav.spec.ts` covers the flags); 10b "viewer cannot open signing" (the step signed in as a user the dev IdP does not have and asserted nothing; **NOT covered**, to be rebuilt with a real viewer membership) |
 | axe settings | legacy mode and one exclusion for the sandboxed, script-less email preview iframe (default mode cannot finish a run against it) |

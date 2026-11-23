@@ -719,7 +719,9 @@ export class RunService {
           .catch(() => undefined);
       } else if (
         ac.signal.aborted ||
-        (e instanceof ProblemException && e.code === 'conflict' && ac.signal.aborted)
+        // a handler that saw the cancel request itself (it reads the run row at its own boundaries) throws this conflict; the 100 ms poll above may not have fired yet,
+        // and a user-requested cancel must never end as `failed` because of that ordering
+        (e instanceof ProblemException && e.code === 'conflict' && e.detail === 'cancelled')
       ) {
         await this.finish(orgId, runId, 'cancelled', { error: { code: 'cancelled_by_user' } });
         await this.ops

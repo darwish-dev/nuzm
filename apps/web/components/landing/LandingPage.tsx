@@ -11,7 +11,7 @@ import { PlatformBento } from '../site/PlatformBento';
 import { SiteFooter } from '../site/SiteFooter';
 import { AiBuildShowcase } from './AiBuildShowcase';
 import { AiChatSection } from './AiChatSection';
-import { DownloadSection } from './DownloadSection';
+import { DownloadSection, type DesktopOffer } from './DownloadSection';
 import { TechStrip } from './TechStrip';
 import { useSectionScroll } from './useSectionScroll';
 
@@ -20,7 +20,14 @@ import { useSectionScroll } from './useSectionScroll';
 // Identity radii: 999px controls, 28px cards, 16px inset panels.
 const WORKFLOW_ICONS: IconName[] = ['cloud', 'code', 'workflow'];
 
-export function LandingPage({ locale = 'en' }: { locale?: Locale }) {
+export function LandingPage({
+  locale = 'en',
+  desktop = {},
+}: {
+  locale?: Locale;
+  /** the desktop installers the site can offer (read on the server); a missing platform stays "Soon" */
+  desktop?: DesktopOffer;
+}) {
   const d = landingText(locale);
   const other: Locale = locale === 'ar' ? 'en' : 'ar';
   const { prompts, workflows } = d;
@@ -231,7 +238,7 @@ export function LandingPage({ locale = 'en' }: { locale?: Locale }) {
         </a>
       </section>
 
-      <DownloadSection locale={locale} />
+      <DownloadSection locale={locale} desktop={desktop} />
 
       <SiteFooter
         locale={locale}

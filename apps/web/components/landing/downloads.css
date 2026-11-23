@@ -60,6 +60,42 @@
   font-size: 10px;
   font-weight: 600;
 }
+/* a real download: clickable, lifts on hover, keyboard focus is visible */
+.landing a.store-button.store-live {
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+.landing a.store-button.store-live:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  text-decoration: none;
+}
+.landing a.store-button.store-live:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+/* how to open an unsigned build the first time, under the buttons */
+.download-help {
+  margin-top: 12px;
+  max-width: 52ch;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.download-help summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 600;
+}
+.download-help ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-inline-start: 18px;
+}
 
 /* desktop window: the capture of the dashboard, as large as the card allows */
 .desktop-shot {

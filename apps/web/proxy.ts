@@ -10,6 +10,8 @@ const OWN = (p: string) =>
   p === '/designs' ||
   p.startsWith('/designs/') ||
   p.startsWith('/fonts/') ||
+  // the desktop installers (`/download/mac`, `/download/windows`): a file route, not a translated page
+  p.startsWith('/download/') ||
   /\.[a-z0-9]+$/i.test(p);
 
 /**

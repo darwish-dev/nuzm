@@ -2779,9 +2779,8 @@ html[lang='ar'] .nzc-status-title { letter-spacing: 0; text-transform: none; fon
 .nzc-status-attention .nzc-status-dot[data-tone='warn'], .nzc[data-theme="dark"] .nzc-status-dot[data-tone='warn'] { background: var(--nzc-orange); }
 
 /* Orange across every console page, through the shared classes: one accent per section, teal stays the main colour. Primary buttons are orange above (.nz-btn). */
-/* the active tab's underline and the page title's short underline */
+/* the active tab's underline (page titles have no underline) */
 .nzc-tab[aria-current="page"]::after, .nzc-tab[data-current]::after { background: var(--nzc-orange); }
-.nzc .nz-h1::after, .nzc-hero h1:not(.nz-h1)::after { content: ""; display: block; inline-size: 32px; block-size: 3px; margin-block-start: 8px; border-radius: 3px; background: var(--nzc-orange); }
 /* attention chips and strips: the warn tone is the website's orange */
 .nzc .nz-badge[data-tone="warn"], .nzc .nz-banner[data-tone="warn"], .nzc-method-soon { background: var(--nzc-orange-soft); color: var(--nzc-orange-text); border-color: transparent; }
 /* progress: meters are orange, and the largest row of a bar list */
@@ -3148,4 +3147,244 @@ html[dir='rtl'] .nzc-orgws-projects a > .nzc-icon { transform: scaleX(-1); }
 .kr-score { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .kr-bar { inline-size: min(100%, 220px); block-size: 10px; accent-color: var(--nzc-accent, currentColor); }
 .kd-chip { flex: none; inline-size: 36px; block-size: 36px; border-radius: 8px; border: 1px solid var(--nzc-border); background: repeating-conic-gradient(var(--nzc-border) 0% 25%, transparent 0% 50%) 50% / 12px 12px; }
+
+/* ==========================================================================================================================================================
+ * SIGN IN / SIGN UP — the website's identity: the mint field with a dotted texture, one glass card, light headline, orange pill button, sage chips.
+ * The brand panel keeps its place; the form side becomes one calm card. Works in dark and light, Arabic (RTL) and English.
+ * ======================================================================================================================================================== */
+.nzc-split {
+  position: relative;
+  background:
+    radial-gradient(60% 55% at 28% -8%, color-mix(in srgb, #bcdccb 20%, transparent), transparent 70%),
+    radial-gradient(circle at 1px 1px, rgba(188, 220, 203, 0.10) 1px, transparent 1.4px) 0 0 / 22px 22px,
+    var(--nzc-bg);
+}
+.nzc[data-theme='light'] .nzc-split {
+  background:
+    radial-gradient(60% 55% at 28% -8%, color-mix(in srgb, #bcdccb 38%, transparent), transparent 70%),
+    radial-gradient(circle at 1px 1px, rgba(52, 67, 77, 0.07) 1px, transparent 1.4px) 0 0 / 22px 22px,
+    var(--nzc-bg);
+}
+/* the brand panel: deeper teal, the same dotted field, light headline with the sage second tone */
+.nzc-split-panel {
+  background:
+    radial-gradient(60% 38% at 24% 6%, rgba(255, 255, 255, 0.5), transparent 72%),
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.10) 1px, transparent 1.4px) 0 0 / 22px 22px,
+    linear-gradient(180deg, #cfe8da 0%, #93b6b3 20%, #587079 48%, #34434d 72%, #14181b 100%);
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6);
+}
+.nzc-split-headline { font-weight: 500; letter-spacing: -0.035em; }
+.nzc-split-list li {
+  background: rgba(10, 16, 20, 0.34);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.nzc-split-list li > i { background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); font-weight: 700; }
+.nzc-split-list li[data-state='current'] { background: #f4f0e8; }
+.nzc-split-list li[data-state='current'] > i { background: #14181b; color: #f4f0e8; }
+.nzc-split-list li[data-state='done'] > i { background: #bcdccb; color: #14181b; }
+
+/* the language switch: a small pill */
+.nzc-split-top > * { padding: 8px 14px; border-radius: 999px; background: var(--nzc-field); color: var(--nzc-fg); font-size: 14px; font-weight: 600; text-decoration: none; }
+
+/* the form card */
+.nzc-split-card {
+  position: relative;
+  inline-size: min(100%, 460px);
+  padding: 38px 36px 34px;
+  gap: 18px;
+  border-radius: 30px;
+  background:
+    radial-gradient(90% 60% at 50% -18%, color-mix(in srgb, #bcdccb 14%, transparent), transparent 72%),
+    color-mix(in srgb, var(--nzc-card) 90%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 30px 70px -34px rgba(0, 0, 0, 0.7);
+}
+.nzc[data-theme='light'] .nzc-split-card { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 30px 70px -40px rgba(52, 67, 77, 0.35); }
+.nzc-split-card h1 { font-size: clamp(26px, 2.4vw, 34px); font-weight: 500; letter-spacing: -0.035em; line-height: 1.15; }
+.nzc-split-card h1::after { content: ''; display: block; inline-size: 32px; block-size: 3px; margin: 12px auto 0; border-radius: 3px; background: var(--nzc-orange); }
+.nzc-split-card-sub { margin: 0 0 6px; line-height: 1.6; }
+.nzc-split-card form { gap: 16px; }
+.nzc-split-card .nz-field { margin: 0; gap: 8px; }
+.nzc-split-card .nz-field label { font-size: 13.5px; font-weight: 600; color: var(--nzc-muted); }
+.nzc-split-card :is(input, select) {
+  min-block-size: 52px;
+  padding-inline: 16px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: var(--nzc-field);
+  color: var(--nzc-fg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.nzc-split-card .nzc-pw input { padding-inline-end: 56px; }
+.nzc-split-card :is(input, select):hover { background: color-mix(in srgb, var(--nzc-field) 80%, var(--nzc-fg) 6%); }
+.nzc-split-card :is(input, select):focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, #93b6b3 70%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, #93b6b3 22%, transparent);
+}
+/* the main action: the website's orange pill; the provider button: a quiet pill */
+.nzc-split-card .nz-btn { min-block-size: 52px; border-radius: 999px; font-size: 15.5px; font-weight: 700; }
+.nzc-split-card .nz-btn:not([data-variant='secondary']):not([data-variant='ghost']) { box-shadow: 0 14px 28px -14px rgba(233, 161, 109, 0.7); transition: transform 0.15s ease, filter 0.15s ease; }
+.nzc-split-card .nz-btn:not([data-variant='secondary']):not([data-variant='ghost']):hover { transform: translateY(-1px); filter: brightness(1.04); }
+.nzc-split-card .nz-btn:active { transform: scale(0.985); }
+.nzc-split-card .nz-btn[data-variant='secondary'] { background: var(--nzc-field); color: var(--nzc-fg); box-shadow: none; }
+.nzc-split-card .nz-btn[data-variant='secondary']:hover { background: var(--nzc-card-hi, var(--nzc-field)); }
+.nzc-split-links { line-height: 1.7; }
+.nzc-split-links a { color: var(--nzc-fg); font-weight: 650; text-decoration: none; border-block-end: 1px solid color-mix(in srgb, var(--nzc-orange) 70%, transparent); }
+.nzc-split-links a:hover { color: var(--nzc-orange-text, var(--nzc-orange)); }
+.nzc-or { text-transform: none; }
+.nzc-split-back { border-radius: 999px; background: var(--nzc-field); color: var(--nzc-muted); }
+.nzc-split-back:hover, .nzc-split-back:focus-visible { color: var(--nzc-fg); background: var(--nzc-card-hi, var(--nzc-field)); }
+@media (max-width: 900px) {
+  .nzc-split-card { padding: 28px 22px 26px; border-radius: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nzc-split-card .nz-btn, .nzc-split-card :is(input, select) { transition: none; }
+}
+
+/* ==========================================================================================================================================================
+ * RESOURCE CARDS (the shared Table in card view: domains, servers, websites, databases, buckets, mailboxes, projects…) and "Manage" as a text link.
+ * One calm card: a soft top light, a larger title, quiet details, a hairline above the footer, and "Manage →" as orange text (no button).
+ * ======================================================================================================================================================== */
+.nzc .nz-table-wrap[data-view="cards"] tbody tr {
+  position: relative;
+  border-radius: 26px;
+  background:
+    radial-gradient(90% 60% at 18% -12%, color-mix(in srgb, #bcdccb 11%, transparent), transparent 70%),
+    var(--nzc-card);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+  transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+.nzc[data-theme='light'] .nz-table-wrap[data-view="cards"] tbody tr {
+  background:
+    radial-gradient(90% 60% at 18% -12%, color-mix(in srgb, #bcdccb 30%, transparent), transparent 70%),
+    var(--nzc-card);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(52, 67, 77, 0.06);
+}
+.nzc .nz-table-wrap[data-view="cards"] tbody tr:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 9%, transparent), 0 18px 36px -22px rgba(0, 0, 0, 0.55); }
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] tbody tr { padding: 22px 22px 18px; gap: 4px 8px; }
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td[data-card="title"] { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.25; overflow-wrap: anywhere; }
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] .nz-card-icon > span { border-radius: 15px; background: color-mix(in srgb, var(--nzc-fg) 8%, transparent); color: var(--nzc-fg); }
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td[data-card="meta"] { font-size: 13px; line-height: 1.55; }
+/* a hairline between the details and the footer row (the card's last line: the date or value on one side, "Manage →" on the other) */
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] tbody tr::after {
+  block-size: 1px;
+  margin-block: 14px 10px;
+  background: color-mix(in srgb, var(--nzc-fg) 9%, transparent);
+}
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td[data-card="footer"] .nz-cell-value { font-size: 14px; font-weight: 650; }
+.nzc .nz-table-wrap[data-view="cards"][data-card="rich"] td.nz-manage-col { align-self: center; }
+
+/* "Manage →": orange text and an arrow, nothing else */
+.nzc .nz-manage-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: var(--nzc-orange-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nzc .nz-manage-link .nzc-icon { transition: transform 0.16s ease; }
+.nzc .nz-manage-link:hover .nzc-icon, .nzc .nz-manage-link:focus-visible .nzc-icon { transform: translateX(3px); }
+[dir='rtl'] .nzc .nz-manage-link .nzc-icon { transform: scaleX(-1); }
+[dir='rtl'] .nzc .nz-manage-link:hover .nzc-icon, [dir='rtl'] .nzc .nz-manage-link:focus-visible .nzc-icon { transform: scaleX(-1) translateX(3px); }
+.nzc .nz-manage-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.nzc .nz-manage-link:focus-visible { outline: 2px solid var(--nzc-orange-text); outline-offset: 3px; border-radius: 6px; }
+/* in a plain (non-rich) card the link sits at the card's bottom edge; in the classic table it is a plain link in its column */
+.nzc .nz-table-wrap[data-view="cards"] td.nz-manage-col { padding-block-start: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .nzc .nz-manage-link .nzc-icon, .nzc .nz-table-wrap[data-view="cards"] tbody tr { transition: none; }
+}
+
+/* ==========================================================================================================================================================
+ * DOMAIN SEARCH as a landing screen: before a search, the page is exactly one screen (no scrolling): the search hero fills it and its parts scale with the
+ * window height. With results, the page scrolls as usual.
+ * ======================================================================================================================================================== */
+.nzc .ds-page[data-state='landing'] { display: flex; flex-direction: column; gap: 8px; block-size: calc(100dvh - 180px); min-block-size: 0; overflow: hidden; }
+.nzc .ds-page[data-state='landing'] .nzc-back { flex: none; align-self: flex-start; }
+.nzc .ds-page[data-state='landing'] .ld-hero { flex: 1 1 0; min-block-size: 0; padding: 0 24px; }
+.nzc .ds-page[data-state='landing'] .ld-inner { gap: clamp(8px, 1.9dvh, 18px); }
+.nzc .ds-page[data-state='landing'] .ld-title { font-size: clamp(26px, 6.4dvh, 56px); }
+.nzc .ds-page[data-state='landing'] .ld-sub { font-size: clamp(13px, 1.9dvh, 16px); margin: 0; }
+.nzc .ds-page[data-state='landing'] .ld-tld { padding-block: clamp(8px, 1.4dvh, 14px); }
+@media (max-height: 760px) { .nzc .ds-page[data-state='landing'] .ld-art, .nzc .ds-page[data-state='landing'] .ld-note { display: none; } }
+@media (max-height: 620px) { .nzc .ds-page[data-state='landing'] .ld-sub, .nzc .ds-page[data-state='landing'] .ld-brand { display: none; } }
+@media (max-width: 900px) { .nzc .ds-page[data-state='landing'] { block-size: auto; overflow: visible; } .nzc .ds-page[data-state='landing'] .ld-hero { padding: 28px 16px; } }
+
+/* ==========================================================================================================================================================
+ * DASHBOARD RESOURCES (Servers, Domains, Websites): each card is a header (icon, name, count, "View all →" as orange text) over a roomy list of
+ * RECTANGULAR rows at the full width of the card. The list shows only the rows that fit whole (no half-cut row, no inner scrolling); "View all" / "+N more" opens the rest.
+ * ======================================================================================================================================================== */
+.nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > header > .nzc-status-all {
+  padding: 2px 4px; border-radius: 6px; background: none; color: var(--nzc-orange-text); font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > header > .nzc-status-all:hover { background: none; text-decoration: underline; text-underline-offset: 4px; }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) {
+  grid-template-columns: minmax(0, 1fr) !important; align-items: start; row-gap: 10px; padding: 16px 18px !important;
+}
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > :is(p, ul) { grid-column: 1 !important; padding-inline-start: 0 !important; }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > ul { display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; gap: 6px; overflow: hidden !important; }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li { flex: none; inline-size: 100%; }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li a {
+  min-block-size: 44px; padding: 10px 14px; border-radius: 8px;
+  background: color-mix(in srgb, var(--nzc-fg) 5%, transparent);
+  border-inline-start: 3px solid var(--nzc-muted);
+}
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li a:has(.nzc-status-dot[data-tone='ok']) { border-inline-start-color: var(--nzc-success); }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li a:has(.nzc-status-dot[data-tone='warn']) { border-inline-start-color: var(--nzc-orange); }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li a:has(.nzc-status-dot[data-tone='bad']) { border-inline-start-color: var(--nzc-danger); }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li .nzc-status-dot { display: none; }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li a:hover { background: color-mix(in srgb, var(--nzc-fg) 9%, transparent); }
+.nzc-status[data-layout='row'] .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) li small { font-size: 12.5px; }
+
+/* ==========================================================================================================================================================
+ * DASHBOARD LAYOUT (wide screens): the three resources side by side in one row (Servers | Domains | Websites), then "Needs attention" and
+ * "Recent activity" in a second row. Narrower screens keep the stacked layout above.
+ * ======================================================================================================================================================== */
+@media (min-width: 1101px) {
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; grid-auto-flow: row; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-title { grid-column: 1 / -1 !important; grid-row: 1 !important; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-card[data-kind='servers'] { grid-column: 1 !important; grid-row: 2 !important; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-card[data-kind='domains'] { grid-column: 2 !important; grid-row: 2 !important; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-card[data-kind='sites'] { grid-column: 3 !important; grid-row: 2 !important; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-attention { grid-column: 1 / span 2 !important; grid-row: 3 !important; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-activity { grid-column: 3 !important; grid-row: 3 !important; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity):not(:has(> .nzc-status-attention)) > .nzc-status-activity { grid-column: 1 / -1 !important; }
+  /* the attention items sit in two columns when there is the width for it */
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-attention > ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-attention { padding: 18px 20px; gap: 12px; }
+}
+@media (min-width: 1101px) and (min-height: 600px) {
+  .nzc-home > .nzc-status[data-layout='row']:has(> .nzc-status-activity) { grid-template-rows: auto minmax(0, 1.1fr) minmax(0, 1fr); }
+  /* the second row shows whole items only too (what does not fit is on the full page behind "View all") */
+  .nzc-home > .nzc-status[data-layout='row'] > :is(.nzc-status-attention, .nzc-status-activity) > ul { display: flex !important; flex-direction: column; flex-wrap: wrap; align-content: flex-start; overflow: hidden !important; min-block-size: 0; }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-attention > ul > li { flex: none; inline-size: calc(50% - 4px); }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-activity > ul > li { flex: none; inline-size: 100%; }
+}
+
+/* ==========================================================================================================================================================
+ * DASHBOARD RESOURCES, NESTED: Servers, Domains and Websites are inner cards inside ONE shared panel (the panel is the outer card; each resource is a card within it).
+ * ======================================================================================================================================================== */
+.nzc-status-group {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; padding: 12px; min-inline-size: 0; min-block-size: 0; overflow: hidden;
+  border-radius: 30px; background: color-mix(in srgb, var(--nzc-fg) 6%, transparent);
+}
+.nzc-status-group > .nzc-status-card { min-block-size: 0; border-radius: 20px; background: var(--nzc-card); }
+.nzc-status-group > .nzc-status-card { grid-template-rows: auto minmax(0, 1fr); }
+.nzc-status-group > .nzc-status-card > ul { min-block-size: 0; align-self: stretch; }
+.nzc[data-theme="light"] .nzc-status-group > .nzc-status-card { background: #ffffff; }
+.nzc-status[data-layout='row'] > .nzc-status-group { grid-column: 1 / -1; }
+@media (min-width: 1101px) {
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-group { grid-column: 1 / -1 !important; grid-row: 2 !important; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+}
 `;

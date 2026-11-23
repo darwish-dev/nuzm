@@ -38,7 +38,7 @@
   gap: 8px;
   padding: 8px 14px;
   border-radius: 999px;
-  color: #22262d;
+  color: #000;
   font-size: 13px;
   cursor: not-allowed;
   user-select: none;
@@ -56,9 +56,20 @@
 .store-button small {
   padding: 2px 7px;
   border-radius: 999px;
-  background: #22262d1f;
+  background: #0000001f;
+  color: #000;
   font-size: 10px;
   font-weight: 600;
+}
+/* black text and icons on every button, including the links, which would otherwise take the site's link colour */
+.landing .store-button,
+.landing a.store-button,
+.landing .store-button strong,
+.landing .store-button small {
+  color: #000;
+}
+.store-button svg {
+  color: #000;
 }
 /* a real download: clickable, lifts on hover, keyboard focus is visible */
 .landing a.store-button.store-live {

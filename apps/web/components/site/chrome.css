@@ -1529,3 +1529,212 @@ body:has(.landing)::-webkit-scrollbar,
   scroll-snap-stop: normal;
   overscroll-behavior-y: auto;
 }
+
+/* Floating dock: four round icon buttons (appearance, language, to the top, to the bottom), no text, at the bottom left of every public page. */
+.landing .float-dock {
+  position: fixed;
+  left: 18px;
+  bottom: 76px; /* clear of the framework's own corner badge in development */
+  z-index: 40;
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: 0 14px 34px -12px #0000008c;
+}
+.landing .float-dock :is(button, a) {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+.landing .float-dock :is(button, a):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.landing .float-dock :is(button, a):active:not(:disabled) {
+  transform: scale(0.92);
+}
+.landing .float-dock :is(button, a):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.landing .float-dock button:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+/* the icon is a chevron pointing right: turn it up or down */
+.landing .float-dock button[data-dir='up'] svg {
+  transform: rotate(-90deg);
+}
+.landing .float-dock button[data-dir='down'] svg {
+  transform: rotate(90deg);
+}
+/* the sun / moon is the accent: the website's orange */
+.landing .float-dock button:first-child {
+  color: #e9a16d;
+}
+/* narrower screens have no side margin: the dock lies along the bottom edge, clear of the headline and the buttons */
+@media (max-width: 1100px) {
+  .landing .float-dock {
+    grid-auto-flow: column;
+    left: 64px;
+    bottom: 14px;
+  }
+}
+@media (max-width: 767px) {
+  .landing .float-dock {
+    left: 64px;
+    bottom: 14px;
+    gap: 4px;
+    padding: 4px;
+  }
+  .landing .float-dock :is(button, a) {
+    width: 34px;
+    height: 34px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing .float-dock :is(button, a) {
+    transition: none;
+  }
+}
+
+/* Compact menus: the Services and AI Builder panels take only the height their content needs. Tighter padding, rows and feature card; one calm accent
+   (the website's orange) for the open category and the arrow of a hovered row. */
+@media (min-width: 901px) {
+  .landing .svc-menu-panel.mega-panel {
+    grid-template-columns: 196px minmax(0, 1fr) 212px;
+    gap: 18px;
+    padding: 16px;
+    border-radius: 22px;
+    max-height: none;
+    overflow: visible;
+    box-shadow: 0 22px 54px -20px #000a;
+  }
+  .landing .mega-categories {
+    gap: 2px;
+    padding-inline-end: 14px;
+  }
+  .landing .mega-categories button {
+    padding: 10px 10px;
+    font-size: 12.5px;
+    border-radius: 11px;
+    position: relative;
+  }
+  .landing .mega-categories button[aria-pressed='true']::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block: 9px;
+    inline-size: 3px;
+    border-radius: 3px;
+    background: #e9a16d;
+  }
+  .landing .mega-heading {
+    padding: 2px 4px 10px;
+  }
+  .landing .mega-heading > span {
+    font-size: 12.5px;
+    letter-spacing: 0.01em;
+  }
+  .landing .mega-product-grid {
+    gap: 2px 8px;
+  }
+  .landing .svc-header .mega-product-grid > a {
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+  .landing .mega-product-grid > a > svg:last-child {
+    margin-top: 0;
+  }
+  .landing .mega-product-grid .svc-menu-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+  .landing .mega-product-grid strong {
+    font-size: 12.5px;
+    line-height: 1.35;
+  }
+  .landing .mega-product-grid small {
+    margin-top: 2px;
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+  /* the feature card: shorter, the artwork smaller, the text close together */
+  .landing .mega-feature {
+    gap: 8px;
+    padding: 16px;
+    border-radius: 16px;
+    justify-content: flex-start;
+  }
+  .landing .mega-feature-art {
+    width: 84px;
+    height: 76px;
+    margin: 8px 0 14px;
+    border-radius: 22px;
+    box-shadow:
+      inset 2px 2px 3px #fff9,
+      5px 7px 0 #59746b,
+      10px 16px 24px #0003;
+  }
+  .landing .mega-feature-art i {
+    width: 34px;
+    height: 34px;
+    right: -11px;
+    bottom: -11px;
+    border-radius: 11px;
+  }
+  .landing .mega-feature > strong {
+    font-size: 19px;
+    line-height: 1.2;
+  }
+  .landing .mega-feature > p {
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .landing .svc-header .mega-feature > a {
+    padding-top: 8px;
+  }
+  /* AI Builder: three short rows, the conversation artwork smaller */
+  .landing .mega-panel.mega-builders {
+    grid-template-columns: minmax(0, 1fr) 236px;
+  }
+  .landing .mega-builders .mega-product-grid {
+    gap: 4px;
+  }
+  .landing .mega-builders .mega-product-grid > a {
+    padding: 12px 12px;
+  }
+  .landing .mega-builders .mega-product-grid .svc-menu-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+  .landing .mega-builders .mega-product-grid strong {
+    font-size: 15px;
+  }
+  .landing .mega-builders .mega-product-grid small {
+    font-size: 11.5px;
+  }
+  .landing .mega-chat-art {
+    height: 156px;
+    margin: 0 0 10px;
+  }
+}

@@ -8,6 +8,7 @@ import { SERVICES, pick, site } from '../../lib/site-content';
 import { doc } from '../../lib/docs-content';
 import { landingText } from '../../lib/landing-text';
 import { PlatformBento } from '../site/PlatformBento';
+import { FloatingDock } from '../site/FloatingDock';
 import { SiteFooter } from '../site/SiteFooter';
 import { AiBuildShowcase } from './AiBuildShowcase';
 import { AiChatSection } from './AiChatSection';
@@ -23,8 +24,11 @@ const WORKFLOW_ICONS: IconName[] = ['cloud', 'code', 'workflow'];
 export function LandingPage({
   locale = 'en',
   desktop = {},
+  initialMode = 'dark',
 }: {
   locale?: Locale;
+  /** the appearance the visitor chose before (the `nuzm_theme` cookie, read on the server) */
+  initialMode?: 'dark' | 'light';
   /** the desktop installers the site can offer (read on the server); a missing platform stays "Soon" */
   desktop?: DesktopOffer;
 }) {
@@ -35,7 +39,7 @@ export function LandingPage({
   useSectionScroll(scrollRoot);
   const [prompt, setPrompt] = useState('');
   const [recommendation, setRecommendation] = useState<number | null>(null);
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(initialMode !== 'light');
   const demo = useRef<HTMLDialogElement>(null);
   const result = useRef<HTMLDivElement>(null);
   const recommendationData = recommendation === null ? null : workflows[recommendation];
@@ -243,6 +247,12 @@ export function LandingPage({
       <SiteFooter
         locale={locale}
         home
+        langHref={`/?lang=${other}`}
+        dark={dark}
+        onToggleTheme={() => setDark(!dark)}
+      />
+      <FloatingDock
+        locale={locale}
         langHref={`/?lang=${other}`}
         dark={dark}
         onToggleTheme={() => setDark(!dark)}

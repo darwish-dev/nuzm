@@ -4799,20 +4799,75 @@
   position: relative;
 }
 .bridge-hub > span {
+  position: relative;
+  isolation: isolate;
   width: 100px;
   height: 100px;
-  border-radius: 29px;
+  border-radius: 30px;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 30% 20%, #77989b, #34434d 70%);
-  border: 1px solid #93b6b377;
+  /* a dark glass body with a mint glow rising from the bottom */
+  background:
+    radial-gradient(80% 70% at 50% 108%, #93b6b333, transparent 70%),
+    linear-gradient(160deg, #26343a, #121a1e 75%);
   box-shadow:
-    inset 1px 2px 3px #e5fff088,
-    0 0 50px #93b6b319;
+    inset 0 1px 0 #ffffff1f,
+    0 18px 36px -14px #000000bb,
+    0 0 56px #93b6b31f;
+}
+/* the edge: a thin ring that runs teal to orange and turns slowly */
+.bridge-hub > span::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--hub-angle, 0deg),
+    #93b6b3,
+    #cfe8da 22%,
+    #e9a16d 50%,
+    #f2b98c 62%,
+    #93b6b3
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: hub-turn 9s linear infinite;
+  pointer-events: none;
+}
+/* a faint inner plate behind the mark */
+.bridge-hub > span::after {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  z-index: -1;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #93b6b31f, #93b6b308);
+  border: 1px solid #93b6b324;
+  pointer-events: none;
 }
 .bridge-hub img {
-  filter: brightness(0) invert(1);
   object-fit: contain;
+  filter: drop-shadow(0 2px 8px #93b6b355);
+}
+@property --hub-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes hub-turn {
+  to {
+    --hub-angle: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bridge-hub > span::before {
+    animation: none;
+  }
 }
 .bridge-hub strong {
   font-size: 23px;
@@ -4956,7 +5011,11 @@
   .bridge-hub > span {
     width: 76px;
     height: 76px;
-    border-radius: 22px;
+    border-radius: 23px;
+  }
+  .bridge-hub > span::after {
+    inset: 10px;
+    border-radius: 15px;
   }
   .bridge-hub img {
     width: 40px;

@@ -2542,3 +2542,20 @@
     clip-path: inset(-60px -65px -60px 0);
   }
 }
+
+/* The line under the headline: a readable size, a short measure, and balanced wrapping so no single word is left alone on the last line. */
+.landing .cx-heading p {
+  max-inline-size: 32ch;
+  margin-block: 14px 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--ink) 74%, transparent);
+  text-wrap: balance;
+}
+@media (max-width: 900px) {
+  .landing .cx-heading p {
+    max-inline-size: 34ch;
+    margin-inline: auto;
+    font-size: 14px;
+  }
+}

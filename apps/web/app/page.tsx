@@ -39,13 +39,14 @@ export default async function Index() {
   const locale = await currentLocale();
   // which desktop installers can be downloaded right now (a configured address or a file on this server)
   const desktop = await desktopDownloads();
+  const mode = (await cookies()).get('nuzm_theme')?.value === 'light' ? 'light' : 'dark';
   return (
     <html lang={locale} dir={dir(locale)}>
       <head>
         <link rel="stylesheet" href="/fonts/identity/fonts.css" />
       </head>
       <body className="nuzm-landing">
-        <LandingPage locale={locale} desktop={desktop} />
+        <LandingPage locale={locale} desktop={desktop} initialMode={mode} />
       </body>
     </html>
   );

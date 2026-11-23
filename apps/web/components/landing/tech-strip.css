@@ -67,8 +67,9 @@
     transform: translateX(-50%);
   }
 }
-[dir='rtl'] .tech-track {
-  animation-direction: reverse;
+/* The strip slides the same way in both languages: its own flow is left to right, so the loop never leaves an empty gap in Arabic (the logo names are Latin). */
+[dir='rtl'] .tech-strip {
+  direction: ltr;
 }
 @media (prefers-reduced-motion: reduce) {
   .tech-track {

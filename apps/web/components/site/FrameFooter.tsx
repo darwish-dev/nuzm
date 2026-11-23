@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { Locale } from '@nuzm/i18n';
+import { FloatingDock } from './FloatingDock';
 import { SiteFooter } from './SiteFooter';
 
 /** The shared footer for the server-rendered public pages: it holds the appearance state, switches the page (`data-mode` on the nearest `.landing`) and remembers the choice in the same `nuzm_theme` cookie the rest of the site reads. */
@@ -24,5 +25,10 @@ export function FrameFooter({
       /* cookies refused: the choice lasts for this page only */
     }
   }
-  return <SiteFooter locale={locale} langHref={langHref} dark={dark} onToggleTheme={toggle} />;
+  return (
+    <>
+      <SiteFooter locale={locale} langHref={langHref} dark={dark} onToggleTheme={toggle} />
+      <FloatingDock locale={locale} langHref={langHref} dark={dark} onToggleTheme={toggle} />
+    </>
+  );
 }

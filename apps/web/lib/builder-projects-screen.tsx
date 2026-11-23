@@ -6,6 +6,7 @@ import { ProjectCards } from '../components/BuilderProjects';
 import { FilterableProjects } from '../components/ProjectList';
 import { APP_BUILDER_FLAG } from './appbuilder';
 import { MOBILE_FLAG } from './mobile';
+import { AI_STUDIO_FLAG } from './ai-studio';
 import { applyFilter, filterOf, type ProjectFilter } from './appworkspace';
 import { one, unwrapCall } from './compute';
 import type { Credits, Page_, Project } from './builder';
@@ -99,6 +100,7 @@ export async function ProjectsScreen({
           projects={list}
           projectCount={page.items.length}
           initialTab={browsing || page.items.length > 0 ? 'projects' : 'examples'}
+          githubEnabled={flagEnabled(g.s.me.featureFlags, AI_STUDIO_FLAG)}
         />
       ) : (
         <div className="bl-readonly">{list}</div>

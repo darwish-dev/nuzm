@@ -1,4 +1,4 @@
-import { ServiceVisual } from './ServiceVisual';
+import { Cover } from './Hub';
 import type { ReactNode } from 'react';
 import { Icon } from '@nuzm/ui';
 import { locales, type Locale } from '@nuzm/i18n';
@@ -6,7 +6,7 @@ import { BrandWordmark } from '../BrandLogo';
 import { DocsSearch, type SearchEntry } from '../docs/DocsSearch';
 import { DocsToc, type TocItem } from '../docs/DocsToc';
 import { HelpfulRating } from '../docs/HelpfulRating';
-import { ThemeToggle } from '../docs/ThemeToggle';
+import { FrameFooter } from './FrameFooter';
 import { DocsSidebar } from '../docs/DocsParts';
 import { GUIDES, doc } from '../../lib/docs-content';
 import { REF } from '../../lib/api-docs';
@@ -93,16 +93,19 @@ export function DocsFrame({
               {crumb.label}
             </a>
           )}
-          <div className={art ? 'doc-head doc-head-art' : 'doc-head'}>
-            <div>
+          {/* the hero panel of every documentation page: the same family as the Blog and Academy heroes (dotted field, pill, icon cover) */}
+          <div className={art ? 'doc-hero doc-hero-art' : 'doc-hero'}>
+            <div className="doc-hero-copy">
+              <span className="hub-pill">
+                <span className="hub-pill-icon">
+                  <Icon name="list" size={13} />
+                </span>
+                {crumb ? crumb.label : doc('docs', locale)}
+              </span>
               <h1>{title}</h1>
               {lead && <p className="doc-lead">{lead}</p>}
             </div>
-            {art && (
-              <div className="doc-art doc-product-art">
-                <ServiceVisual slug="ai-builder" />
-              </div>
-            )}
+            {art && <Cover icon="code" tone={0} big />}
           </div>
           <div className="doc-content">{children}</div>
         </main>
@@ -121,14 +124,7 @@ export function DocsFrame({
           />
         </aside>
       </div>
-      <ThemeToggle
-        initial={mode}
-        labels={{
-          light: doc('themeLight', locale),
-          dark: doc('themeDark', locale),
-          group: doc('themeGroup', locale),
-        }}
-      />
+      <FrameFooter locale={locale} initial={mode} langHref={`/${other}${path}`} />
     </div>
   );
 }

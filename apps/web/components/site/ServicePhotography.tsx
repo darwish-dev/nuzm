@@ -51,7 +51,7 @@ export function ServicePhotography({
 }) {
   const photo = steps
     ? photos[s.slug === 'email' ? 'hosting' : 'ai-builder']!
-    : (photos[s.slug] ?? photos.hosting!);
+    : (photos[s.slug.endsWith('-ai-builder') ? 'ai-builder' : s.slug] ?? photos.hosting!);
   return (
     <figure className={`svc-photo${steps ? ' svc-photo-steps' : ''}`}>
       <img

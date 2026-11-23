@@ -16,8 +16,33 @@ export function ServiceHero({ locale, s }: { locale: Locale; s: ServiceContent }
         </nav>
         <h1>{pick(s.headline, locale)}</h1>
         <p className="svc-lead">{pick(s.intro, locale)}</p>
+        {s.slug.endsWith('-ai-builder') && (
+          <div
+            className="svc-builder-stack"
+            aria-label={locale === 'ar' ? 'تقنيات المشروع' : 'Project technologies'}
+          >
+            {(s.slug === 'flutter-ai-builder'
+              ? ['flutter']
+              : s.slug === 'nextjs-ai-builder'
+                ? ['nextjs', 'react']
+                : ['react', 'nestjs']
+            ).map((tech) => (
+              <span key={tech}>
+                <img src={`/brand/technologies/${tech}.svg`} alt="" width={22} height={22} />
+                {
+                  { flutter: 'Flutter', nextjs: 'Next.js', react: 'React', nestjs: 'NestJS' }[
+                    tech as 'flutter' | 'nextjs' | 'react' | 'nestjs'
+                  ]
+                }
+              </span>
+            ))}
+          </div>
+        )}
         <div className="svc-actions">
-          <a className="button button-white" href={`/${locale}/register`}>
+          <a
+            className="button button-white"
+            href={`/${locale}${s.slug.endsWith('-ai-builder') ? s.href : '/register'}`}
+          >
             {site('start', locale)} <Icon name="sparkle" size={15} />
           </a>
           <a className="button button-outline svc-ghost" href={`/${locale}${s.href}`}>

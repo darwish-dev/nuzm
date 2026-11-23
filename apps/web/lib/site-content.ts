@@ -1,3 +1,4 @@
+import { BUILDER_PAGES } from './builder-pages';
 import type { IconName } from '@nuzm/ui';
 import type { Locale } from '@nuzm/i18n';
 
@@ -664,6 +665,8 @@ SERVICES.splice(2, 0, {
     ar: 'خادم افتراضي لما تبنيه لاحقًا.',
   },
 });
+
+SERVICES.push(...BUILDER_PAGES);
 
 export const serviceBySlug = (slug: string): ServiceContent | undefined =>
   SERVICES.find((s) => s.slug === slug);

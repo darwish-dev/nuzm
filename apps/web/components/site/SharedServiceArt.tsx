@@ -1,3 +1,4 @@
+import { AiChatArtwork } from './AiChatArtwork';
 import { Icon } from '@nuzm/ui';
 
 /** Single source for homepage and service-page product illustrations. */
@@ -108,23 +109,7 @@ export function SharedServiceArt({ slug }: { slug: string }) {
         </>
       );
     case 'ai-builder':
-      return (
-        <>
-          <span className="bn-code" dir="ltr">
-            <span className="bn-prompt">
-              <Icon name="sparkle" size={14} />
-              <i />
-            </span>
-            <code>
-              <span className="n">1</span>
-              <span className="k">const</span> site = <span className="k">await</span> nuzm.build();
-              <br />
-              <span className="n">2</span>
-              <span className="k">await</span> site.publish();
-            </code>
-          </span>
-        </>
-      );
+      return <AiChatArtwork />;
     case 'email':
       return (
         <>

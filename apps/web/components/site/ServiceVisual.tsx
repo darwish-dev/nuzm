@@ -12,6 +12,7 @@ const classes: Record<string, string> = {
 };
 /** Exactly the same illustration markup and materials used on the homepage. */
 export function ServiceVisual({ slug }: { slug: string }) {
+  if (slug.endsWith('-ai-builder')) slug = 'ai-builder';
   return (
     <div className="bn svc-shared-art" aria-hidden="true">
       <div className={`bn-card ${classes[slug] ?? 'bn-ai'}`}>

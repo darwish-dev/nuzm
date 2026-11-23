@@ -14,6 +14,9 @@ import {
 } from '../lib/builder';
 import { bapi, newKey, useBuilderCall } from '../lib/builder-client';
 import { ProblemNote } from './BuilderBits';
+import { BuilderHistory } from './BuilderHistory';
+import { GithubPicker, SourceChip, SourceMenu, readLocalSource } from './StartSources';
+import { MAX_IMPORT_FILES, batchPatches, type StartSource } from '../lib/start-sources';
 
 /**
  * What can be started. `website` always; `webapp` only while the organization has the app builder on (flag `app_builder.enabled`); `mobile` only while it has
@@ -76,8 +79,11 @@ export function BuilderStart({
   projects,
   projectCount = 0,
   initialTab,
+  githubEnabled = false,
 }: {
   locale: Locale;
+  /** AI Studio is on for the organization: a project can start from a GitHub repository (its GitHub App connection) */
+  githubEnabled?: boolean;
   credits: Credits | null;
   canRun: boolean;
   /** the organization has `app_builder.enabled`: the web-app tile can be started */
@@ -106,10 +112,65 @@ export function BuilderStart({
     initialTab ?? (hasProjects && projectCount > 0 ? 'projects' : 'examples'),
   );
   const box = useRef<HTMLTextAreaElement>(null);
-  const created = useRef<{ projectId?: string; sessionId?: string; requestStored?: boolean }>({});
+  const opts = useRef<HTMLDetailsElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
+  const filesInput = useRef<HTMLInputElement>(null);
+  // where the project starts from: nothing (the prompt alone), the person's files or a GitHub repository
+  const [source, setSource] = useState<StartSource | null>(null);
+  const [ghOpen, setGhOpen] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const created = useRef<{
+    projectId?: string;
+    headVersionId?: string | null;
+    sessionId?: string;
+    requestStored?: boolean;
+    /** import batches already applied (a retry continues after them) */
+    importedBatches?: number;
+    imported?: boolean;
+    linked?: boolean;
+    versionId?: string | null;
+  }>({});
+  const importKeys = useRef<string[]>([]);
   const keys = useRef({ project: newKey(), session: newKey(), message: newKey(), run: newKey() });
   const types = startTypes(appsEnabled, mobileEnabled);
-  const startable = types.find((x) => x.id === type)?.available === true;
+  // imported code is never a website (a site model, no free file tree): it becomes a web app, or a mobile app for a Flutter project
+  const effectiveType: StartType = source
+    ? source.kind === 'local' && source.type === 'mobile' && mobileEnabled
+      ? 'mobile'
+      : 'webapp'
+    : type;
+  const startable = types.find((x) => x.id === effectiveType)?.available === true;
+
+  async function pickFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
+    setReading(true);
+    setErr('');
+    const r = await readLocalSource(list);
+    setReading(false);
+    if (r === 'empty') return setErr(t(locale, 'bld.src.empty'));
+    if ('tooMany' in r)
+      return setErr(
+        t(locale, 'bld.src.tooMany', {
+          count: r.tooMany.toLocaleString(locale === 'ar' ? 'ar-SA' : 'en'),
+          max: MAX_IMPORT_FILES.toLocaleString(locale === 'ar' ? 'ar-SA' : 'en'),
+        }),
+      );
+    choose(r);
+  }
+  function choose(next: StartSource | null) {
+    setSource(next);
+    setGhOpen(false);
+    // a new source means a new import: the keys of the old one must not be reused
+    created.current = {};
+    keys.current = { project: newKey(), session: newKey(), message: newKey(), run: newKey() };
+    importKeys.current = [];
+    if (next)
+      setType(
+        next.kind === 'local' && next.type === 'mobile' && mobileEnabled ? 'mobile' : 'webapp',
+      );
+    box.current?.focus({ preventScroll: true });
+  }
 
   const toggleLang = (l: SiteLocale) =>
     setLangs((cur) => {
@@ -141,7 +202,7 @@ export function BuilderStart({
     e?.preventDefault();
     if (call.busy || !startable) return;
     const text = prompt.trim();
-    if (text.length < 1 || text.length > MAX_PROMPT) {
+    if ((!source && text.length < 1) || text.length > MAX_PROMPT) {
       setErr(t(locale, 'bld.start.promptErr', { max: MAX_PROMPT }));
       box.current?.focus();
       return;
@@ -160,7 +221,11 @@ export function BuilderStart({
     setPartial(null);
     const c = created.current;
     if (!c.projectId) {
-      const base = nameFromPrompt(text);
+      const base = nameFromPrompt(
+        text ||
+          (source?.kind === 'github' ? source.fullName.split('/').pop()! : source?.label) ||
+          '',
+      );
       for (let attempt = 0; attempt < 3 && !c.projectId; attempt++) {
         const name = attempt === 0 ? base : `${base.slice(0, 90)} ${attempt + 1}`;
         let taken = false;
@@ -168,15 +233,16 @@ export function BuilderStart({
           () =>
             bapi.post<Project>('/v1/builder/projects', {
               body: {
-                type,
+                type: effectiveType,
                 name,
                 locale: langs,
-                ...(type === 'website' && template ? { templateId: template } : {}),
+                ...(effectiveType === 'website' && template ? { templateId: template } : {}),
               },
               idempotencyKey: keys.current.project,
             }),
           (p) => {
             c.projectId = p.id;
+            c.headVersionId = p.headVersionId;
           },
           // the same words twice: take the next free name instead of asking the person to rename anything
           (p) => {
@@ -190,6 +256,18 @@ export function BuilderStart({
         if (!ok && !taken) return;
       }
       if (!c.projectId) return;
+    }
+    if (source && !c.imported) {
+      const ok = await importSource(source);
+      if (!ok) {
+        setPartial(c.projectId ?? null);
+        return;
+      }
+    }
+    // with a source and no words, the project opens with the imported code: no AI run is started
+    if (!text) {
+      router.push(`/builder/projects/${c.projectId}`);
+      return;
     }
     if (!c.sessionId) {
       const ok = await call.run(
@@ -208,7 +286,7 @@ export function BuilderStart({
       if (!ok) return;
     }
     // a mobile app's design request is also the first message of its chat (the workspace shows it above the live run); it is context, so a refusal does not stop the run
-    if (type === 'mobile' && !c.requestStored) {
+    if (effectiveType === 'mobile' && !c.requestStored) {
       const stored = await bapi.post<{ id: string }>(`/v1/ai/sessions/${c.sessionId}/messages`, {
         body: { content: text },
         idempotencyKey: keys.current.message,
@@ -220,11 +298,11 @@ export function BuilderStart({
         bapi.post<Run>('/v1/ai/runs', {
           body: {
             sessionId: c.sessionId,
-            kind: type,
+            kind: effectiveType,
             projectId: c.projectId,
             // the person's words travel as DATA: `brief.prompt` for an app, `description` for a website
             input:
-              type === 'webapp'
+              effectiveType === 'webapp'
                 ? { brief: { prompt: text, locales: langs } }
                 : { description: text },
             ...(cap ? { budget: { maxCredits: Number(cap) } } : {}),
@@ -241,6 +319,71 @@ export function BuilderStart({
     );
   }
 
+  /** Brings the chosen source into the new project. Local files: change sets through the safe-diff pipeline, chained on the version each one creates
+   *  (a retry continues after the batches already applied). GitHub: link the repository, then pull it (the same checks apply). */
+  async function importSource(src: StartSource): Promise<boolean> {
+    const c = created.current;
+    const pid = c.projectId!;
+    if (src.kind === 'github') {
+      if (!c.linked) {
+        let already = false;
+        const linked = await call.run(
+          () =>
+            bapi.post(`/v1/builder/projects/${pid}/github/link`, {
+              body: { fullName: src.fullName },
+            }),
+          () => undefined,
+          // an earlier attempt already linked this project
+          (p) => {
+            if (p.code === 'conflict') {
+              already = true;
+              return true;
+            }
+          },
+        );
+        if (!linked && !already) return false;
+        c.linked = true;
+      }
+      const pulled = await call.run(
+        () => bapi.post(`/v1/builder/projects/${pid}/github/pull`, { body: {} }),
+        () => undefined,
+      );
+      if (pulled) c.imported = true;
+      return pulled;
+    }
+    const batches = batchPatches(src.files);
+    if (c.versionId === undefined) c.versionId = c.headVersionId ?? null;
+    for (let i = c.importedBatches ?? 0; i < batches.length; i++) {
+      setProgress({ done: i, total: batches.length });
+      importKeys.current[i] ??= newKey();
+      const ok = await call.run(
+        () =>
+          bapi.post<{ versionId: string }>(`/v1/builder/projects/${pid}/changes`, {
+            body: {
+              baseVersion: c.versionId,
+              patches: batches[i],
+              message:
+                batches.length > 1
+                  ? `Import ${src.label} (${i + 1}/${batches.length})`
+                  : `Import ${src.label}`,
+            },
+            idempotencyKey: importKeys.current[i],
+          }),
+        (d) => {
+          c.versionId = d.versionId;
+          c.importedBatches = i + 1;
+        },
+      );
+      if (!ok) {
+        setProgress(null);
+        return false;
+      }
+    }
+    setProgress(null);
+    c.imported = true;
+    return true;
+  }
+
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submit();
   };
@@ -255,6 +398,7 @@ export function BuilderStart({
 
   return (
     <div className="bl">
+      <BuilderHistory locale={locale} canChat={canRun} />
       <section className="bl-hero" aria-labelledby="bld-start-h">
         <div className="bl-glow" aria-hidden="true" />
         <form className="bl-form" onSubmit={(e) => void submit(e)} noValidate>
@@ -269,6 +413,7 @@ export function BuilderStart({
           </header>
 
           <div className="bl-prompt">
+            {source && <SourceChip locale={locale} source={source} onRemove={() => choose(null)} />}
             <label className="nz-sr" htmlFor="bld-prompt">
               {t(locale, 'bld.start.promptLabel')}
             </label>
@@ -280,7 +425,9 @@ export function BuilderStart({
               rows={4}
               maxLength={MAX_PROMPT}
               value={prompt}
-              placeholder={t(locale, 'bld.start.placeholder')}
+              placeholder={
+                source ? t(locale, 'bld.src.promptOptional') : t(locale, 'bld.start.placeholder')
+              }
               aria-invalid={err ? true : undefined}
               aria-describedby={err ? 'bld-prompt-err' : 'bld-prompt-hint'}
               onChange={(e) => {
@@ -290,6 +437,47 @@ export function BuilderStart({
               onKeyDown={onKey}
             />
             <div className="bl-prompt-foot">
+              <SourceMenu
+                locale={locale}
+                appsEnabled={appsEnabled}
+                githubEnabled={githubEnabled}
+                onFolder={() => folderInput.current?.click()}
+                onFiles={() => filesInput.current?.click()}
+                onGithub={() => setGhOpen(true)}
+                onTemplate={() => {
+                  choose(null);
+                  setType('website');
+                  if (opts.current) opts.current.open = true;
+                  opts.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+                }}
+                onExisting={() => {
+                  if (hasProjects) setTab('projects');
+                  document
+                    .getElementById('bl-more')
+                    ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+                }}
+              />
+              <input
+                ref={folderInput}
+                type="file"
+                hidden
+                multiple
+                {...{ webkitdirectory: '', directory: '' }}
+                onChange={(e) => {
+                  void pickFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              <input
+                ref={filesInput}
+                type="file"
+                hidden
+                multiple
+                onChange={(e) => {
+                  void pickFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
               <span className="bl-count" id="bld-prompt-hint">
                 <bdi dir="ltr">
                   {prompt.length}/{MAX_PROMPT}
@@ -299,10 +487,21 @@ export function BuilderStart({
               <button
                 className="bl-go"
                 type="submit"
-                disabled={call.busy || !startable}
+                disabled={call.busy || reading || !startable}
                 aria-busy={call.busy}
               >
-                <span>{call.busy ? t(locale, 'state.loading') : t(locale, 'bld.start.go')}</span>
+                <span>
+                  {progress
+                    ? t(locale, 'bld.src.importing', {
+                        done: progress.done,
+                        total: progress.total,
+                      })
+                    : call.busy
+                      ? t(locale, 'state.loading')
+                      : source && !prompt.trim()
+                        ? t(locale, 'bld.src.open')
+                        : t(locale, 'bld.start.go')}
+                </span>
                 <Icon name="arrow" size={18} />
               </button>
             </div>
@@ -311,6 +510,18 @@ export function BuilderStart({
             <p className="nz-error-text bl-err" id="bld-prompt-err" role="alert">
               {err}
             </p>
+          )}
+          {reading && (
+            <p className="bl-note" role="status" aria-busy="true">
+              {t(locale, 'bld.src.reading')}
+            </p>
+          )}
+          {ghOpen && (
+            <GithubPicker
+              locale={locale}
+              onPick={(r) => choose({ kind: 'github', fullName: r.fullName, private: r.private })}
+              onClose={() => setGhOpen(false)}
+            />
           )}
 
           <div className="bl-types" role="radiogroup" aria-labelledby="bld-types">
@@ -324,7 +535,8 @@ export function BuilderStart({
                     type="radio"
                     name="bld-type"
                     value={x.id}
-                    checked={type === x.id}
+                    checked={effectiveType === x.id}
+                    disabled={Boolean(source) && x.id === 'website'}
                     onChange={() => setType(x.id)}
                     aria-describedby={`bld-type-${x.id}`}
                   />
@@ -352,11 +564,11 @@ export function BuilderStart({
           </div>
           {!startable && (
             <p className="bl-note" role="status">
-              {t(locale, 'bld.start.soonNote', { type: typeName(type) })}
+              {t(locale, 'bld.start.soonNote', { type: typeName(effectiveType) })}
             </p>
           )}
 
-          <details className="bl-opts">
+          <details className="bl-opts" ref={opts}>
             <summary>{t(locale, 'bld.start.options')}</summary>
             <p className="bl-note">{t(locale, 'bld.start.options.hint')}</p>
             <div className="bl-opts-grid">
@@ -373,7 +585,7 @@ export function BuilderStart({
                   </label>
                 ))}
               </fieldset>
-              {type === 'website' && (
+              {effectiveType === 'website' && (
                 <label className="bl-field">
                   <span>{t(locale, 'bld.wiz.template')}</span>
                   <select
@@ -421,9 +633,7 @@ export function BuilderStart({
         {partial && (
           <p role="status" className="bl-note">
             {t(locale, 'bld.wiz.partial')}{' '}
-            <a href={`/builder/projects/${partial}`}>
-              {t(locale, 'bld.wiz.openProject')}
-            </a>
+            <a href={`/builder/projects/${partial}`}>{t(locale, 'bld.wiz.openProject')}</a>
           </p>
         )}
 

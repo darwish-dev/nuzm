@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from '@nuzm/ui';
 import { BrandWordmark } from '../BrandLogo';
+import { ServiceMegaMenu } from './ServiceMegaMenu';
 
 export interface MenuService {
   slug: string;
@@ -38,47 +39,69 @@ export function SiteHeader({
 }) {
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDetailsElement>(null);
+  const builderMenu = useRef<HTMLDetailsElement>(null);
+  const header = useRef<HTMLElement>(null);
+  const closeMenus = () => {
+    if (menu.current) menu.current.open = false;
+    if (builderMenu.current) builderMenu.current.open = false;
+    setOpen(false);
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (menu.current?.open) menu.current.open = false;
-      setOpen(false);
+      closeMenus();
+    };
+    const outside = (event: PointerEvent) => {
+      if (!header.current?.contains(event.target as Node)) closeMenus();
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', outside);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', outside);
+    };
   }, []);
   return (
-    <header className="site-header wrap svc-header">
+    <header ref={header} className="site-header wrap svc-header">
       <a href={`/${locale}`} aria-label={labels.home} className="brand">
         <BrandWordmark />
       </a>
       <nav className={open ? 'main-nav is-open' : 'main-nav'} aria-label={labels.nav}>
-        <details className="svc-menu" ref={menu}>
+        <details
+          className="svc-menu"
+          ref={menu}
+          onToggle={(e) => {
+            if (e.currentTarget.open && builderMenu.current) builderMenu.current.open = false;
+          }}
+        >
           <summary>
             {labels.services}
             <Icon name="chevron" size={12} />
           </summary>
-          <div className="svc-menu-panel">
-            {services.map((s) => (
-              <a key={s.slug} href={`/${locale}/services/${s.slug}`} onClick={() => setOpen(false)}>
-                <span className="svc-menu-icon">
-                  <Icon name={s.icon} size={18} />
-                </span>
-                <span>
-                  <strong>{s.name}</strong>
-                  <small>{s.tagline}</small>
-                </span>
-              </a>
-            ))}
-            <a className="svc-menu-all" href={`/${locale}/services`} onClick={() => setOpen(false)}>
-              {labels.allServices}
-              <Icon name="arrow" size={14} />
-            </a>
-          </div>
+          <ServiceMegaMenu services={services} locale={locale} close={closeMenus} />
         </details>
-        {services.slice(0, 4).map((s) => (
-          <a key={s.slug} className="svc-nav-link" href={`/${locale}/services/${s.slug}`}>
-            {s.name}
+        <details
+          className="svc-menu builder-menu"
+          ref={builderMenu}
+          onToggle={(e) => {
+            if (e.currentTarget.open && menu.current) menu.current.open = false;
+          }}
+        >
+          <summary>
+            {locale === 'ar' ? 'منشئ الذكاء الاصطناعي' : 'AI Builder'}
+            <Icon name="chevron" size={12} />
+          </summary>
+          <ServiceMegaMenu services={services} locale={locale} builders close={closeMenus} />
+        </details>
+        {(
+          [
+            ['blog', 'المدونة', 'Blog'],
+            ['academy', 'الأكاديمية', 'Academy'],
+            ['community', 'المجتمع', 'Community'],
+          ] as const
+        ).map(([path, ar, en]) => (
+          <a key={path} className="svc-nav-link" href={`/${locale}/${path}`}>
+            {locale === 'ar' ? ar : en}
           </a>
         ))}
         <a className="svc-nav-link svc-nav-dev" href={`/${locale}/docs`}>

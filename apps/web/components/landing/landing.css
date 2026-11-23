@@ -89,7 +89,7 @@
   color: #22262d !important;
   border-radius: 40px;
 }
-.skip-link:focus {
+.skip-link:focus-visible {
   top: 12px;
 }
 .landing .button {

@@ -13,3 +13,4 @@ apps/web/lib/api-docs/*.json
 .claude/worktrees/
 .claude/skills/
 apps/api/.gen-tmp/
+apps/desktop/release/

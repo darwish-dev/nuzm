@@ -1,0 +1,45 @@
+# Packaging for Windows and macOS (docs: apps/desktop/README.md).
+# Builds are UNSIGNED: code signing / notarization needs production certificates (CLAUDE.md §5, human gate).
+appId: com.nuzm.desktop
+productName: Nuzm
+copyright: Copyright © Nuzm
+directories:
+  output: release
+  buildResources: resources
+files:
+  - dist/**/*.js
+  - '!dist/**/*.spec.js'
+  - static/**
+  - resources/icon.png
+  - package.json
+  - app-config.json
+extraMetadata:
+  main: dist/main.js
+# app-config.json (optional) sets the console origin for a packaged build; see app-config.example.json
+asar: true
+npmRebuild: false
+mac:
+  category: public.app-category.business
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  identity: null
+dmg:
+  title: Nuzm
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  signExecutable: false # unsigned until the code-signing gate; icon and version metadata are still applied
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Nuzm
+  installerLanguages: [ar_SA, en_US]
+  multiLanguageInstaller: true

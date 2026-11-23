@@ -1,5 +1,10 @@
 import { v7 as uuidv7 } from 'uuid';
-import { contractAtLeast, probeWorstCase } from '@nuzm/adapter-model';
+import {
+  ProbeRefused,
+  contractAtLeast,
+  probeWorstCase,
+  runCapabilityProbe,
+} from '@nuzm/adapter-model';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import type { SecretStore } from '../../../common/secrets';
@@ -641,7 +646,7 @@ export class ModelProviderService {
    * The live capability probe (S-AG4, SCR-K-11 item 4). The action is part of the contract but is NOT available yet: running it is a live provider call that needs the owner's
    * approval of the probe (D9), the agreement (D2), a credential (D4) and the live gate (D3). The request is validated and the refusal is audited; nothing is sent anywhere.
    */
-  async probeToolUse(actor: string, id: string, b: Record<string, unknown>): Promise<never> {
+  async probeToolUse(actor: string, id: string, b: Record<string, unknown>): Promise<ProviderDto> {
     const r = await this.load(id);
     const worst = probeWorstCase();
     if (typeof b.approvalRef !== 'string' || b.approvalRef.length < 3 || b.approvalRef.length > 200)
@@ -654,18 +659,106 @@ export class ModelProviderService {
         'validation_failed',
         `maxTotalTokens must be an integer of at least the worst case (${worst.totalTokens})`,
       );
+    const refuse = async (reason: string, message: string): Promise<never> => {
+      await this.audit.record({
+        action: 'ai.provider.probe_refused',
+        actorUserId: actor,
+        actorType: 'user',
+        resource: { type: 'model_provider', id },
+        outcome: 'failure',
+        detail: { code: r.code, reason },
+      });
+      throw new ProblemException('unsupported_capability', `${message}; nothing was sent`);
+    };
+    // gate 1 (D9): the owner's recorded approval of THIS probe, by reference; the request can lower the token cap, never raise it
+    const approval = this.cfg.probeApprovals?.find((x) => x.ref === b.approvalRef);
+    if (!approval)
+      return refuse(
+        'not_approved_d9',
+        'the live probe is not available: no recorded approval (D9) matches this reference',
+      );
+    // gate 2 (D3): the live gate of this provider (a dev-reference mock-*/local-* adapter makes no live request, so it needs none)
+    const devReference = /^(mock|local)-/.test(r.code as string);
+    if (!devReference && !(this.cfg.liveProviders ?? []).includes(r.code as string))
+      return refuse(
+        'live_gate_closed_d3',
+        'the live probe is not available: the live gate for this provider is closed (D3)',
+      );
+    // gate 3 (D2/D4): the agreement is attested and a credential exists (a real provider only)
+    if (!devReference) {
+      const terms = r.data_terms as { attested?: boolean };
+      if (terms.attested !== true || !r.attestation_ref)
+        return refuse(
+          'not_attested_d2',
+          'the live probe is not available: the data terms are not attested (D2)',
+        );
+      if (!r.vault_ref)
+        return refuse('no_credential_d4', 'the live probe is not available: no credential (D4)');
+    }
+    const adapter = this.registry.get(r.code as string);
+    if (!adapter)
+      return refuse(
+        'adapter_not_registered',
+        'the live probe is not available: no adapter is registered for this provider',
+      );
+    const model = typeof b.model === 'string' ? b.model : '';
+    const cap = Math.min(b.maxTotalTokens as number, approval.maxTotalTokens);
     await this.audit.record({
-      action: 'ai.provider.probe_refused',
+      action: 'ai.provider.probe_started',
       actorUserId: actor,
       actorType: 'user',
       resource: { type: 'model_provider', id },
-      outcome: 'failure',
-      detail: { code: r.code, reason: 'not_available_until_d9' },
+      outcome: 'success',
+      detail: {
+        code: r.code,
+        model,
+        approvalRef: approval.ref,
+        maxRequests: approval.maxRequests,
+        maxTotalTokens: cap,
+      },
     });
-    throw new ProblemException(
-      'unsupported_capability',
-      'the live probe is not available yet: it needs the approval of the probe (D9), the agreement (D2), a credential (D4) and the live gate (D3); nothing was sent',
-    );
+    let report;
+    try {
+      report = await runCapabilityProbe(adapter, model, {
+        ref: approval.ref,
+        approvedBy: approval.approvedBy,
+        environment: 'non-production',
+        maxRequests: approval.maxRequests,
+        maxTotalTokens: cap,
+      });
+    } catch (e) {
+      if (e instanceof ProbeRefused)
+        throw new ProblemException('validation_failed', e.message.slice(0, 200));
+      throw e;
+    }
+    // the report is the evidence: one row per capability (VERIFIED only when the whole rule held; anything else is recorded as NOT VERIFIED), in dependency order
+    for (const capability of ['tool-use', 'parallel-tool-calls', 'streaming-tool-calls'] as const) {
+      const declared = adapter.models().find((m) => m.modelId === model)?.capabilities;
+      if (!declared?.includes(capability)) continue;
+      await this.recordCapabilityEvidence(actor, id, {
+        model,
+        capability,
+        state: report.capabilities[capability],
+        evidenceRef: `probe:${approval.ref}:${report.startedAt}`.slice(0, 200),
+      });
+    }
+    await this.audit.record({
+      action: 'ai.provider.probe_finished',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: report.stoppedEarly ? 'failure' : 'success',
+      detail: {
+        code: r.code,
+        model,
+        approvalRef: approval.ref,
+        requests: report.requests,
+        totalTokens: report.totalTokens,
+        stoppedEarly: report.stoppedEarly ?? null,
+        capabilities: report.capabilities,
+      },
+    });
+    return this.view(await this.load(id));
   }
 
   /**

@@ -1,4 +1,7 @@
-# S-AG4 — the bounded live capability probe (PREPARED, NOT EXECUTED)
+# S-AG4 — the bounded live capability probe (PREPARED, WRAPPER BUILT BEHIND CLOSED GATES, NOT EXECUTED)
+
+> **Update 2026-11-24:** the admin action `probe_tool_use` now has its wrapper (`ModelProviderService.probeToolUse`). It runs the harness only when ALL of these hold, else it answers 422 `unsupported_capability`, audits `ai.provider.probe_refused` with the reason, and sends nothing: (1) the owner's recorded approval of this probe is in `AI_PROBE_APPROVALS` (D9; default none; ignored in production; malformed values give none); (2) for a real provider, its code is in `AI_LIVE_PROVIDERS` (D3); (3) its data terms are attested (D2) and a credential reference exists (D4); (4) the adapter is registered and the request's token cap is at least the worst case (the effective cap is the lower of the request and the approval). Then it audits `probe_started`, runs the bounded script (no retries), writes one evidence row per declared capability (`VERIFIED` only when the whole rule held, otherwise `NOT VERIFIED`, with the reference `probe:<approval>:<time>`), and audits `probe_finished` (counts and outcomes only: no key, no content). Tested with the scripted client only (`capability-evidence.int.spec.ts`); **never run against a live provider**. Deviation from §5.2, recorded: the harness calls the adapter directly (it sends only the eight constant prompts, public data, bounded by the approval) instead of going through the gateway as an internal "platform probe" organization; routing it through the gateway is optional hardening to decide with D9. The gates above are the owner's D2, D3, D4, D9 (see `OWNER-APPROVAL-CHECKLIST.md`).
+
 
 Date: 2026-11-22 · Status: **the harness exists and is tested with scripted clients only. It has never run against a live provider, it is not wired to any route, job, console action or environment variable, and it cannot start itself.** Running it live is decision D9 and needs D2, D3 and D4 first.
 Code: `packages/adapters/model/src/probe.ts` (`runCapabilityProbe`, `probeWorstCase`, `assertProbeAllowed`), tests `probe.spec.ts` (15). Related: `S-AG4-PREP.md` §6, `S-AG4-PRICING.md`, SCR-K-11 items 3–4.
@@ -39,5 +42,5 @@ No customer, organization or project data: the messages are the eight constants 
 ## 6. Approval record (template the owner fills when D9 is decided)
 `ref`: ______ · `approvedBy`: ______ · environment `non-production` · provider/model: Claude / `claude-opus-5-5` · `maxRequests` ≥ 8 · `maxTotalTokens` ≥ 11,716 · vendor-side cap in force (yes/no, amount) · D2 reference · D4 key owner · gate opened by (D3): ______ · date: ______.
 
-## 7. Not in this preparation
-No admin action, route, evidence table, job or script that runs the probe; no live call of any kind; no OpenAI or Gemini target (the harness is provider-neutral and is exercised against the scripted mock to show it).
+## 7. Not in this preparation (updated 2026-11-24)
+The admin action, the evidence table and the wrapper now exist behind the gates above; still no live call of any kind, no job or script that runs the probe by itself; no OpenAI or Gemini target (the harness is provider-neutral and is exercised against the scripted mock to show it).

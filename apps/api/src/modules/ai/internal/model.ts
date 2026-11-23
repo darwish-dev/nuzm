@@ -41,6 +41,17 @@ export interface AiConfig {
    * call before its key is read, whatever its row says: storing a key, attesting terms and enabling a provider do NOT by themselves allow a live request (S-AG4).
    */
   liveProviders: string[];
+  /**
+   * The owner's recorded approvals of the bounded capability probe (D9), `AI_PROBE_APPROVALS` as a JSON array of {ref, approvedBy, environment: "non-production", maxRequests,
+   * maxTotalTokens}. Default none: without a matching entry the probe is refused before anything is sent. Never read in production.
+   */
+  probeApprovals: {
+    ref: string;
+    approvedBy: string;
+    environment: 'non-production';
+    maxRequests: number;
+    maxTotalTokens: number;
+  }[];
 }
 export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   const n = (k: string, d: number, min = 0) => {
@@ -63,6 +74,7 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     dataRegion: env.AI_DATA_REGION ?? 'sa-central',
     maxConcurrentRuns: Math.max(1, Math.floor(n('AI_MAX_CONCURRENT_RUNS', 5, 1))),
     approvalTtlHours: n('AI_APPROVAL_TTL_HOURS', 24, 0.0001),
+    probeApprovals: parseProbeApprovals(env),
     liveProviders:
       env.NODE_ENV === 'production'
         ? []
@@ -123,4 +135,25 @@ export interface GatewayResult {
   region: string;
   callId: string;
   duplicate: boolean;
+}
+
+/** `AI_PROBE_APPROVALS`: a malformed value, a production process or an entry that is not fully specified yields no approval (fail closed). */
+function parseProbeApprovals(env: NodeJS.ProcessEnv): AiConfig['probeApprovals'] {
+  if (env.NODE_ENV === 'production' || !env.AI_PROBE_APPROVALS) return [];
+  try {
+    const raw = JSON.parse(env.AI_PROBE_APPROVALS) as unknown;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(
+      (x): x is AiConfig['probeApprovals'][number] =>
+        !!x &&
+        typeof x === 'object' &&
+        typeof (x as { ref?: unknown }).ref === 'string' &&
+        typeof (x as { approvedBy?: unknown }).approvedBy === 'string' &&
+        (x as { environment?: unknown }).environment === 'non-production' &&
+        Number.isInteger((x as { maxRequests?: unknown }).maxRequests) &&
+        Number.isInteger((x as { maxTotalTokens?: unknown }).maxTotalTokens),
+    );
+  } catch {
+    return [];
+  }
 }

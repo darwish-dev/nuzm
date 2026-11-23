@@ -1480,24 +1480,10 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 .bwd-v { font-weight: 600; min-inline-size: 84px; }
 @media (max-width: 900px) { .bwc-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .bwc-side { max-block-size: 38vh; } }
 
-/* The floating AI builder card, and the slim bar of the full-screen start page */
-/* The AI builder button: a compact accent pill at the start edge of the page (left in English, right in Arabic), just beside the sidebar. Light on purpose: it is always there, so it stays small and quiet. */
-.nzc a.bfab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--rail-w, 68px) + 22px); z-index: 54; display: inline-flex; align-items: center; gap: 10px; padding-block: 6px; padding-inline: 6px 10px; border: 1px solid transparent; border-radius: 10px; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink); text-decoration: none; box-shadow: 0 4px 14px rgba(20, 24, 27, 0.2); animation: nzc-cart-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: transform 0.15s, box-shadow 0.15s, filter 0.15s; }
-.nzc a.bfab:hover { transform: translateY(-2px); color: var(--nzc-orange-ink); filter: brightness(0.94); box-shadow: 0 8px 20px rgba(20, 24, 27, 0.26); }
-.nzc a.bfab:focus-visible { outline: 3px solid var(--nzc-fg); outline-offset: 3px; }
-.bfab-icon { display: grid; place-items: center; inline-size: 32px; block-size: 32px; border-radius: 8px; background: rgba(20, 24, 27, 0.1); flex: none; }
-.nzc a.bfab .bfab-icon .nzc-logo { block-size: 18px; inline-size: auto; filter: brightness(0); opacity: 0.88; }
-.bfab-text { display: grid; min-inline-size: 0; }
-.bfab-text strong { font-size: 13.5px; font-weight: 650; line-height: 1.2; }
-.bfab-text small { display: none; }
-.bfab-go { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 8px; background: rgba(20, 24, 27, 0.1); flex: none; }
-.nzc a.bfab:hover .bfab-go { background: rgba(20, 24, 27, 0.2); }
-@media (max-width: 900px) { .nzc a.bfab { inset-inline-start: 14px; } }
-html[dir='rtl'] .bfab-go .nzc-icon { transform: scaleX(-1); }
+/* The slim bar of the full-screen start page */
 .nzc a.bws-exit { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--nzc-field); color: var(--nzc-muted); font-size: 13px; text-decoration: none; }
 .nzc a.bws-exit { padding: 0; inline-size: 36px; block-size: 36px; justify-content: center; }
 .nzc a.bws-exit:hover { background: var(--nzc-card-hi); color: var(--nzc-fg); }
-@media (prefers-reduced-motion: reduce) { .nzc a.bfab { animation: none; } }
 
 /* The preview while the AI writes the site: a wireframe whose sections appear one after another, looping until the run ends */
 .bscene-wrap { position: absolute; inset: 0; z-index: 2; animation: bscene-in 0.35s ease both; }
@@ -2070,7 +2056,7 @@ html[lang='ar'] .hs-hero h2 { letter-spacing: 0; line-height: 1.3; }
 .hs-chip { padding: 3px 10px; border-radius: 999px; background: var(--nzc-field); border: 1px solid var(--nzc-border); font-size: 12px; }
 .hs-choose .nz-btn { inline-size: 100%; min-block-size: 46px; border-radius: 14px; font-weight: 700; }
 @media (max-width: 860px) { .hs-hero { grid-template-columns: minmax(0, 1fr); padding: 30px 22px; } .hs-hero-art { display: none; } }
-@media (prefers-reduced-motion: reduce) { .hs-type, .hs-plan, .nzc a.bfab { transition: none; } .hs-type:hover, .hs-plan:hover, .nzc a.bfab:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .hs-type, .hs-plan { transition: none; } .hs-type:hover, .hs-plan:hover { transform: none; } }
 
 /* "Being built" scenes of the other project types (the website's is the page wireframe above): a web app's three layers with data packets between them, and a Flutter phone assembled beside its widget tree. */
 .ascene { background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--nzc-accent) 14%, transparent), transparent 62%), radial-gradient(circle, color-mix(in srgb, var(--nzc-accent) 22%, transparent) 1px, transparent 1.6px) 0 0 / 22px 22px, var(--nzc-field); }
@@ -2950,4 +2936,197 @@ html[dir='rtl'] .nzc .bld-msg[data-role='user'] { border-radius: 18px 18px 18px 
 @keyframes bcx-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .bcx-ring[data-active] { animation: none; border-block-start-color: var(--nzc-orange); } }
 .nzc .bld-composer-help { margin: 6px 6px 0; font-size: 11px; opacity: 0.85; }
+
+/* ---------- the dashboard, simple: one column (welcome, build invitation, attention and resources, services, activity) ---------- */
+.nzc-home { display: grid; gap: 22px; inline-size: min(100%, 1180px); margin-inline: auto; padding-block-end: 32px; }
+.nzc-home > .nzc-home-welcome { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0; }
+.nzc-home > .nzc-home-welcome h1 { margin: 0; color: var(--sig-ink, var(--nzc-fg)); font-size: clamp(24px, 2.4vw, 32px); font-weight: var(--sig-weight, 500); }
+.nzc-home > .nzc-home-welcome > span { display: inline-flex; align-items: center; gap: 8px; color: var(--nzc-muted); font-size: 13px; }
+.nzc a.nzc-home-start { position: relative; isolation: isolate; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; padding: clamp(20px, 3vw, 30px); overflow: hidden; border: 1px solid var(--sig-box-edge, var(--nzc-border)); border-radius: 22px; background: var(--sig-glow, none), var(--nzc-card); color: var(--nzc-fg); text-decoration: none; transition: border-color 0.15s ease; }
+.nzc a.nzc-home-start::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle, var(--sig-dot, transparent) 1.3px, transparent 1.8px) 0 0 / 22px 22px; -webkit-mask-image: radial-gradient(70% 90% at 50% 0%, #000 20%, transparent 75%); mask-image: radial-gradient(70% 90% at 50% 0%, #000 20%, transparent 75%); pointer-events: none; }
+.nzc a.nzc-home-start:hover { border-color: color-mix(in srgb, var(--nzc-accent) 45%, transparent); }
+.nzc-home-start-text { display: grid; gap: 6px; max-inline-size: 60ch; }
+.nzc-home-start-text small { color: var(--nzc-orange-text); font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+html[lang='ar'] .nzc-home-start-text small { letter-spacing: 0; text-transform: none; font-size: 12.5px; }
+.nzc-home-start-text strong { color: var(--sig-ink, var(--nzc-fg)); font-size: clamp(22px, 2.3vw, 30px); font-weight: var(--sig-weight, 500); }
+.nzc-home-start-text span { color: var(--sig-sub, var(--nzc-muted)); font-size: 14px; line-height: 1.6; }
+.nzc-home-start-go { display: inline-flex; align-items: center; gap: 12px; padding: 7px; padding-inline-end: 8px; border-radius: 16px; background: linear-gradient(145deg, #cfe8da, #93b6b3); color: #1b2c29; box-shadow: 0 6px 18px rgba(20, 40, 36, 0.22); transition: filter 0.15s ease, transform 0.15s ease; }
+.nzc a.nzc-home-start:hover .nzc-home-start-go { filter: brightness(1.04); transform: translateY(-1px); }
+.nzc-home-start-go > strong { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.nzc-home-start-mark, .nzc-home-start-arrow { display: grid; place-items: center; flex: none; inline-size: 44px; block-size: 44px; border-radius: 12px; background: rgba(20, 40, 36, 0.1); }
+.nzc-home-start-arrow { inline-size: 36px; block-size: 36px; border-radius: 10px; }
+.nzc-home-start-mark img { block-size: 22px; inline-size: auto; filter: brightness(0); opacity: 0.85; }
+@media (prefers-reduced-motion: reduce) { .nzc-home-start-go { transition: none; } .nzc a.nzc-home-start:hover .nzc-home-start-go { transform: none; } }
+html[dir='rtl'] .nzc-home-start-arrow .nzc-icon { transform: scaleX(-1); }
+/* attention (only when something needs it) and the resources, side by side */
+.nzc-status[data-layout='row'] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.nzc-status[data-layout='row']:has(> .nzc-status-attention) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); }
+/* bento: attention is the tall card on the start side; the resources stack beside it as compact rows (count and "View all" at the end) */
+.nzc-status[data-layout='row'] > .nzc-status-attention { grid-row: span 3; align-content: start; gap: 14px; padding: 20px; }
+.nzc-status[data-layout='row'] > .nzc-status-attention ul { display: grid; gap: 8px; }
+.nzc-status[data-layout='row']:has(> .nzc-status-attention) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) { grid-column: 2; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 14px; row-gap: 4px; padding: 14px 16px; }
+.nzc-status[data-layout='row']:has(> .nzc-status-attention) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > header { grid-column: 1; }
+.nzc-status[data-layout='row']:has(> .nzc-status-attention) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > :is(p, ul) { grid-column: 1; margin: 0; padding-inline-start: 46px; }
+.nzc-status[data-layout='row']:has(> .nzc-status-attention) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > .nzc-status-all { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+@media (max-width: 1100px) { .nzc-status[data-layout='row'] { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nzc-status[data-layout='row']:has(> .nzc-status-attention) { grid-template-columns: minmax(0, 1fr); } .nzc-status[data-layout='row'] > .nzc-status-attention { grid-row: auto; } .nzc-status[data-layout='row']:has(> .nzc-status-attention) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) { grid-column: 1; } }
+@media (max-width: 600px) { .nzc-status[data-layout='row'], .nzc-status[data-layout='row']:has(> .nzc-status-attention) { grid-template-columns: minmax(0, 1fr); } }
+.nzc-status[data-layout='row'] > .nzc-status-title { grid-column: 1 / -1; margin: 0; }
+/* attention is one card among the others (not a full-width band) */
+.nzc-status[data-layout='row'] > .nzc-status-card { align-content: start; }
+.nzc-home-section { display: grid; gap: 12px; }
+.nzc-home-section h2, .nzc-status[data-layout='row'] > .nzc-status-title { color: var(--nzc-muted); font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+html[lang='ar'] :is(.nzc-home-section h2, .nzc-status[data-layout='row'] > .nzc-status-title) { letter-spacing: 0; text-transform: none; font-size: 13.5px; }
+.nzc-home-section h2 { margin: 0; }
+.nzc-home-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nzc-home-section-head a { color: var(--nzc-accent); font-size: 13px; text-decoration: none; }
+/* recent activity: a tall card at the end of the top row (attention | resources | activity) */
+.nzc-status[data-layout='row']:has(> .nzc-status-activity) { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-auto-flow: row dense; }
+.nzc-status[data-layout='row']:has(> .nzc-status-attention):has(> .nzc-status-activity) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr); }
+.nzc-status[data-layout='row'] > :is(.nzc-status-attention, .nzc-status-activity) { grid-row: 2 / span 3; align-content: start; gap: 14px; padding: 20px; }
+.nzc-status[data-layout='row'] > .nzc-status-attention { grid-column: 1; }
+.nzc-status[data-layout='row'] > .nzc-status-activity { grid-column: -2 / -1; grid-template-rows: auto 1fr auto; }
+.nzc-status[data-layout='row']:has(> .nzc-status-activity):not(:has(> .nzc-status-attention)) > .nzc-status-card:not(.nzc-status-activity) { grid-column: 1; }
+.nzc-status[data-layout='row']:has(> .nzc-status-attention):has(> .nzc-status-activity) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) { grid-column: 2; }
+/* the resources sit compact (one line each) whenever a tall card is beside them */
+.nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 14px; row-gap: 4px; padding: 14px 16px; }
+.nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > header { grid-column: 1; }
+.nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > :is(p, ul) { grid-column: 1; margin: 0; padding-inline-start: 46px; }
+.nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > .nzc-status-all { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.nzc-status-activity ul { display: grid; align-content: start; gap: 0; margin: 0; padding: 0; list-style: none; }
+.nzc-status-activity li { display: flex; align-items: flex-start; gap: 10px; padding-block: 9px; border-block-end: 1px solid var(--nzc-border); }
+.nzc-status-activity li:last-child { border-block-end: 0; }
+.nzc-status-activity li > .nzc-status-dot { margin-block-start: 6px; background: var(--nzc-accent); }
+.nzc-status-activity .nzc-status-text { display: grid; gap: 2px; min-inline-size: 0; font-size: 13.5px; line-height: 1.45; }
+.nzc-status-activity .nzc-status-text > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nzc-status-activity time { color: var(--nzc-muted); font-size: 11.5px; }
+.nzc-status-activity > .nzc-status-all { align-self: end; }
+@media (max-width: 1100px) {
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity), .nzc-status[data-layout='row']:has(> .nzc-status-attention):has(> .nzc-status-activity) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .nzc-status[data-layout='row']:has(> .nzc-status-attention):has(> .nzc-status-activity) > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) { grid-column: 1 / -1; }
+  .nzc-status[data-layout='row']:has(> .nzc-status-attention):has(> .nzc-status-activity) > :is(.nzc-status-attention, .nzc-status-activity) { grid-row: auto; grid-column: auto; }
+}
+@media (max-width: 700px) {
+  .nzc-status[data-layout='row']:has(> .nzc-status-activity), .nzc-status[data-layout='row']:has(> .nzc-status-attention):has(> .nzc-status-activity) { grid-template-columns: minmax(0, 1fr); }
+  .nzc-status[data-layout='row'] > :is(.nzc-status-attention, .nzc-status-activity), .nzc-status[data-layout='row'] > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) { grid-row: auto; grid-column: 1 !important; }
+}
+/* The home fits the screen: the page itself never scrolls; the cards fill the space left under the banner and each scrolls inside itself when its
+   list grows. Only where there is room (wide and tall enough); smaller screens keep the normal page scroll. */
+@media (min-width: 1101px) and (min-height: 600px) {
+  .nzc-body:has(> .nzc-home) { display: flex; flex-direction: column; overflow: hidden; padding-block-end: 22px; }
+  .nzc-home { flex: 1; min-block-size: 0; grid-template-rows: auto auto minmax(0, 1fr); padding-block-end: 0; }
+  .nzc-home > .nzc-status[data-layout='row'] { min-block-size: 0; grid-template-rows: auto repeat(3, minmax(0, 1fr)); }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-card { min-block-size: 0; overflow: hidden; }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-card > ul { min-block-size: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--nzc-muted) 40%, transparent) transparent; }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-attention { grid-template-rows: auto minmax(0, 1fr); }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-activity { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) { grid-template-rows: auto minmax(0, 1fr); align-items: start; }
+  .nzc-home > .nzc-status[data-layout='row'] > .nzc-status-card:not(.nzc-status-attention, .nzc-status-activity) > ul { max-block-size: 100%; }
+}
+/* Opening and closing AI Studio (StudioTransition keeps the animation for those two moments only). The dashboard's Nuzm AI button and the studio share one
+   name, so the browser grows the button into the studio on the way in and shrinks the studio back into the button on the way out; from anywhere else the
+   studio rises in and sinks away on its own. Never under "reduce motion". */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  .nzc-home-start-go, .bl, .bws { view-transition-name: nuzm-studio; }
+  ::view-transition-group(nuzm-studio) { animation-duration: 520ms; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); border-radius: 18px; overflow: hidden; }
+  ::view-transition-old(nuzm-studio), ::view-transition-new(nuzm-studio) { block-size: 100%; inline-size: 100%; object-fit: cover; animation-duration: 520ms; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  ::view-transition-new(nuzm-studio):only-child { animation: nzc-studio-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  ::view-transition-old(nuzm-studio):only-child { animation: nzc-studio-out 300ms cubic-bezier(0.4, 0, 1, 1) both; }
+  ::view-transition-old(root) { animation: nzc-studio-fade-out 260ms ease both; }
+  ::view-transition-new(root) { animation: nzc-studio-fade-in 380ms ease 80ms both; }
+}
+@keyframes nzc-studio-in { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes nzc-studio-out { to { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@keyframes nzc-studio-fade-out { to { opacity: 0; } }
+@keyframes nzc-studio-fade-in { from { opacity: 0; } }
+
+/* ---------- The organization page: a header, quick links, then its parts ---------- */
+.nzc-orgp { display: grid; gap: 18px; inline-size: min(100%, 1180px); margin-inline: auto; }
+.nzc-orgp-hero { position: relative; isolation: isolate; display: flex; flex-wrap: wrap; align-items: center; gap: 18px 22px; padding: clamp(20px, 3vw, 28px); overflow: hidden; border: 1px solid var(--sig-box-edge, var(--nzc-border)); border-radius: 22px; background: var(--sig-glow, none), var(--nzc-card); }
+.nzc-orgp-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle, var(--sig-dot, transparent) 1.3px, transparent 1.8px) 0 0 / 22px 22px; -webkit-mask-image: radial-gradient(70% 90% at 50% 0%, #000 20%, transparent 75%); mask-image: radial-gradient(70% 90% at 50% 0%, #000 20%, transparent 75%); pointer-events: none; }
+.nzc-orgp-avatar { display: grid; place-items: center; flex: none; inline-size: 58px; block-size: 58px; border-radius: 18px; background: linear-gradient(145deg, #cfe8da, #93b6b3); color: #1b2c29; font-size: 24px; font-weight: 700; }
+.nzc-orgp-id { display: grid; flex: 1; gap: 6px; min-inline-size: 220px; }
+.nzc-orgp-id h1 { margin: 0; color: var(--sig-ink, var(--nzc-fg)); font-size: clamp(22px, 2.2vw, 28px); font-weight: var(--sig-weight, 500); }
+.nzc-orgp-id p { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; color: var(--sig-sub, var(--nzc-muted)); font-size: 13.5px; }
+.nzc-orgp-stats { display: flex; gap: 10px; margin: 0; }
+.nzc-orgp-stats > div { display: grid; gap: 2px; min-inline-size: 96px; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--nzc-field) 80%, transparent); }
+.nzc-orgp-stats dt { color: var(--nzc-muted); font-size: 11.5px; }
+.nzc-orgp-stats dd { margin: 0; color: var(--nzc-fg); font-size: 18px; font-weight: 650; }
+.nzc-orgp-nav { position: sticky; inset-block-start: -30px; z-index: 3; display: flex; gap: 6px; padding: 6px; overflow-x: auto; scrollbar-width: none; border-radius: 14px; background: color-mix(in srgb, var(--nzc-card) 92%, transparent); backdrop-filter: blur(10px); }
+.nzc .nzc-orgp-nav a { display: inline-flex; flex: none; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; color: var(--nzc-muted); font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.nzc .nzc-orgp-nav a:hover { background: var(--sig-chip-on, var(--nzc-card-hi)); color: var(--nzc-fg); }
+.nzc .nzc-orgp-nav a:focus-visible { outline: 2px solid var(--nzc-accent); outline-offset: 1px; }
+.nzc-orgp .nzc-stack-section { scroll-margin-block-start: 64px; border-radius: 20px; padding: 22px; }
+.nzc-orgp .nzc-stack-head .nz-h2, .nzc-team .nzc-stack-head .nz-h2 { font-size: 17px; font-weight: 650; }
+@media (max-width: 760px) { .nzc-orgp-stats { inline-size: 100%; } .nzc-orgp-stats > div { flex: 1; min-inline-size: 0; } }
+
+/* workspaces, each a card holding its projects */
+.nzc-orgws { display: grid; gap: 14px; }
+.nzc-orgws-new, .nzc-orgws-add, .nzc-audit-search { display: flex; align-items: center; gap: 8px; }
+.nzc-orgws-new input, .nzc-orgws-add input, .nzc-audit-search input { flex: 1; min-inline-size: 0; block-size: 40px; padding-inline: 14px; border: 1px solid var(--nzc-border); border-radius: 12px; background: var(--nzc-field); color: var(--nzc-fg); font: inherit; font-size: 14px; }
+.nzc-orgws-new { max-inline-size: 520px; }
+.nzc-orgws-new input:focus-visible, .nzc-orgws-add input:focus-visible, .nzc-audit-search input:focus-visible { outline: 2px solid var(--nzc-accent); outline-offset: 1px; }
+.nzc-orgws-new button, .nzc-orgws-add button, .nzc-audit-search button { display: inline-flex; flex: none; align-items: center; gap: 6px; block-size: 40px; padding-inline: 16px; border: 0; border-radius: 12px; background: linear-gradient(145deg, #cfe8da, #93b6b3); color: #1b2c29; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.nzc-orgws-new button:disabled, .nzc-orgws-add button:disabled { opacity: 0.6; cursor: default; }
+.nzc-orgws-add input { block-size: 34px; font-size: 13px; }
+.nzc-orgws-add button { block-size: 34px; padding-inline: 12px; background: var(--nzc-field); color: var(--nzc-fg); font-weight: 600; }
+.nzc-orgws-add button:hover { background: var(--nzc-card-hi); }
+.nzc-orgws-none, .nzc-orgws-empty { margin: 0; color: var(--nzc-muted); font-size: 13.5px; }
+.nzc-orgws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.nzc-orgws-card { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; min-inline-size: 0; padding: 16px; border-radius: 16px; background: var(--nzc-field); }
+.nzc-orgws-card > header { display: flex; align-items: center; gap: 12px; }
+.nzc-orgws-icon { display: grid; place-items: center; flex: none; inline-size: 36px; block-size: 36px; border-radius: 11px; background: color-mix(in srgb, var(--nzc-accent) 16%, transparent); color: var(--nzc-accent); }
+.nzc-orgws-title { display: grid; flex: 1; gap: 2px; min-inline-size: 0; }
+.nzc-orgws-title strong { overflow: hidden; font-size: 15px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.nzc-orgws-title small { color: var(--nzc-muted); font-size: 12px; }
+.nzc-orgws-del { display: grid; place-items: center; flex: none; inline-size: 28px; block-size: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--nzc-muted); cursor: pointer; }
+.nzc-orgws-del:hover { background: var(--nzc-danger-soft); color: var(--nzc-danger); }
+.nzc-orgws-del:focus-visible { outline: 2px solid var(--nzc-accent); }
+.nzc-orgws-projects { display: grid; align-content: start; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.nzc-orgws-projects li { display: flex; align-items: center; gap: 4px; }
+.nzc .nzc-orgws-projects a { display: flex; flex: 1; align-items: center; gap: 10px; min-inline-size: 0; padding: 8px 10px; border-radius: 10px; color: var(--nzc-fg); font-size: 13.5px; text-decoration: none; }
+.nzc .nzc-orgws-projects a > span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nzc .nzc-orgws-projects a > .nzc-icon { color: var(--nzc-muted); }
+.nzc .nzc-orgws-projects a:hover { background: var(--nzc-card); }
+html[dir='rtl'] .nzc-orgws-projects a > .nzc-icon { transform: scaleX(-1); }
+.nzc-orgws-dot { flex: none; inline-size: 7px; block-size: 7px; border-radius: 50%; background: var(--nzc-orange); }
+
+/* the audit log: a timeline grouped by day */
+.nzc-audit-search { position: relative; max-inline-size: 560px; margin-block-end: 16px; }
+.nzc-audit-search > .nzc-icon { position: absolute; inset-inline-start: 13px; color: var(--nzc-muted); pointer-events: none; }
+.nzc-audit-search input { padding-inline-start: 38px; }
+.nzc-audit { display: grid; gap: 18px; }
+.nzc-audit-day h3 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px; color: var(--nzc-fg); font-size: 14px; font-weight: 650; }
+.nzc-audit-day h3 span { color: var(--nzc-muted); font-size: 12px; font-weight: 500; }
+.nzc-audit-day ol { margin: 0; padding: 0; list-style: none; border-radius: 16px; background: var(--nzc-field); }
+.nzc-audit-day li { position: relative; display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
+.nzc-audit-day li + li { border-block-start: 1px solid var(--nzc-border); }
+.nzc-audit-dot { flex: none; inline-size: 9px; block-size: 9px; border-radius: 50%; background: var(--nzc-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--nzc-accent) 18%, transparent); }
+.nzc-audit-day li:not([data-outcome='success']) .nzc-audit-dot { background: var(--nzc-danger); box-shadow: 0 0 0 4px var(--nzc-danger-soft); }
+.nzc-audit-main { display: grid; flex: 1; gap: 4px; min-inline-size: 0; }
+.nzc-audit-main p { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
+.nzc-audit-main p > :last-child::first-letter { text-transform: uppercase; }
+.nzc-audit-area { padding: 1px 8px; border-radius: 999px; background: var(--nzc-orange-soft); color: var(--nzc-orange-text); font-size: 11.5px; font-weight: 700; }
+.nzc-audit-main small { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--nzc-muted); font-size: 12px; }
+.nzc-audit-main code { padding: 1px 6px; border-radius: 6px; background: var(--nzc-card); font-size: 11.5px; }
+.nzc-audit-side { display: flex; flex: none; align-items: center; gap: 12px; }
+.nzc-audit-side time { min-inline-size: 44px; color: var(--nzc-muted); font-size: 12.5px; text-align: end; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .nzc-audit-day li { flex-wrap: wrap; } .nzc-audit-side { inline-size: 100%; justify-content: space-between; padding-inline-start: 23px; } }
+
+/* ---------- Team: members as a list, the invitation form in one line ---------- */
+.nzc-members { display: grid; margin: 0; padding: 0; list-style: none; border-radius: 16px; background: var(--nzc-field); }
+.nzc-members > li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 16px; }
+.nzc-members > li + li { border-block-start: 1px solid var(--nzc-border); }
+.nzc-members-avatar { display: grid; place-items: center; flex: none; inline-size: 40px; block-size: 40px; border-radius: 50%; background: linear-gradient(145deg, #cfe8da, #93b6b3); color: #1b2c29; font-weight: 700; }
+.nzc-members-who { display: grid; flex: 1; gap: 2px; min-inline-size: 180px; }
+.nzc-members-who strong { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 650; }
+.nzc-members-who small, .nzc-members-joined small { color: var(--nzc-muted); font-size: 12.5px; }
+.nzc-members-you { padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--nzc-accent) 16%, transparent); color: var(--nzc-accent); font-size: 11px; font-weight: 700; }
+.nzc-members-joined { display: grid; gap: 2px; min-inline-size: 150px; font-size: 13px; }
+.nzc-members-role { flex: none; }
+.nzc-members-role .nz-row { margin: 0; flex-wrap: nowrap; align-items: center; }
+.nzc-members-role .nz-field-label, .nzc-members-role label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+.nzc-stack-section#invitations > form .nz-row, .nzc-stack-section#invitations > form.nz-row { align-items: end; }
+.nzc-stack-section :is(#members, #invitations, #apikeys) .nz-state { padding-block: 22px; }
+.nzc-stack-section .nz-state { padding-block: 24px; }
 `;

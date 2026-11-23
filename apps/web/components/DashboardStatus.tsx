@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Icon, type IconName } from '@nuzm/ui';
 import type { AttentionItem, StatusRow } from '../lib/dashboard-status';
@@ -74,46 +75,57 @@ export function DashboardStatus({
   servers,
   domains,
   sites,
+  layout = 'column',
+  activity,
 }: {
   locale: Locale;
   base: string;
+  /** `row`: the resources side by side under the welcome, and the attention card only when something needs attention */
+  layout?: 'column' | 'row';
+  /** a recent-activity card drawn last, beside the resources (row layout) */
+  activity?: ReactNode;
   attention: AttentionItem[];
   servers: { count: number; capped?: boolean; rows: StatusRow[] } | null;
   domains: { count: number; capped?: boolean; rows: StatusRow[] } | null;
   sites: { count: number; capped?: boolean; rows: StatusRow[] } | null;
 }) {
   return (
-    <aside className="nzc-status" aria-label={t(locale, 'ds.title')}>
+    <section className="nzc-status" data-layout={layout} aria-label={t(locale, 'ds.title')}>
       <p className="nzc-status-title" aria-hidden="true">
         {t(locale, 'ds.title')}
       </p>
-      <section className="nzc-status-card nzc-status-attention" aria-labelledby="ds-attention">
-        <header>
-          <span className="nzc-status-icon" aria-hidden="true">
-            <Icon name="bell" size={18} />
-          </span>
-          <h2 id="ds-attention">{t(locale, 'ds.attention')}</h2>
-          <span className="nzc-status-count" data-alert={attention.length > 0 ? 'true' : undefined}>
-            {attention.length}
-          </span>
-        </header>
-        {attention.length === 0 ? (
-          <p className="nzc-status-empty nzc-status-ok">
-            <Icon name="check" size={16} /> {t(locale, 'ds.attention.none')}
-          </p>
-        ) : (
-          <ul>
-            {attention.map((a) => (
-              <li key={a.id}>
-                <a href={a.href}>
-                  <span className="nzc-status-dot" data-tone={a.tone} aria-hidden="true" />
-                  <span className="nzc-status-text">{a.text}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {(layout === 'column' || attention.length > 0) && (
+        <section className="nzc-status-card nzc-status-attention" aria-labelledby="ds-attention">
+          <header>
+            <span className="nzc-status-icon" aria-hidden="true">
+              <Icon name="bell" size={18} />
+            </span>
+            <h2 id="ds-attention">{t(locale, 'ds.attention')}</h2>
+            <span
+              className="nzc-status-count"
+              data-alert={attention.length > 0 ? 'true' : undefined}
+            >
+              {attention.length}
+            </span>
+          </header>
+          {attention.length === 0 ? (
+            <p className="nzc-status-empty nzc-status-ok">
+              <Icon name="check" size={16} /> {t(locale, 'ds.attention.none')}
+            </p>
+          ) : (
+            <ul>
+              {attention.map((a) => (
+                <li key={a.id}>
+                  <a href={a.href}>
+                    <span className="nzc-status-dot" data-tone={a.tone} aria-hidden="true" />
+                    <span className="nzc-status-text">{a.text}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       {servers && (
         <Card
           id="servers"
@@ -153,6 +165,7 @@ export function DashboardStatus({
           emptyText={t(locale, 'ds.empty.sites')}
         />
       )}
-    </aside>
+      {activity}
+    </section>
   );
 }

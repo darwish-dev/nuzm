@@ -92,13 +92,13 @@ describe('organization chip', () => {
       { orgId: 'o1', name: 'Acme' },
       { orgId: 'o2', name: 'Globex' },
     ],
-    workspacesHref: '/workspaces',
-    workspacesLabel: 'Workspaces and projects',
+    workspacesHref: '/settings/organization',
+    workspacesLabel: 'Organization',
   };
-  it('has an icon link to the workspaces next to the switcher', () => {
+  it('has an icon link to the organization page next to the switcher', () => {
     render(<OrgSwitcher {...props} />);
-    expect(screen.getByRole('link', { name: 'Workspaces and projects' }).getAttribute('href')).toBe(
-      '/workspaces',
+    expect(screen.getByRole('link', { name: 'Organization' }).getAttribute('href')).toBe(
+      '/settings/organization',
     );
     expect((screen.getByLabelText('Switch organization') as HTMLSelectElement).value).toBe('o1');
   });

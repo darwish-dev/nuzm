@@ -18,7 +18,7 @@ import { VerifyEmailPill } from '../../../components/AuthForms';
 import { ActiveOrgCookie, OrgSwitcher } from '../../../components/ConsoleChrome';
 import { ConsoleFrame, ProfileMenu, SupportToggle } from '../../../components/ConsoleShell';
 import { SupportPanel, type SupportTopic } from '../../../components/SupportPanel';
-import { FloatingBuilder } from '../../../components/FloatingBuilder';
+import { StudioTransition } from '../../../components/StudioTransition';
 import { FloatingCart } from '../../../components/FloatingCart';
 import { NotificationsMenu } from '../../../components/NotificationsMenu';
 import {
@@ -177,8 +177,8 @@ export default async function ConsoleLayout({
                 label={t(locale, 'field.orgSwitcher')}
                 current={s.org.orgId}
                 orgs={s.me.memberships.map((m) => ({ orgId: m.orgId, name: m.name }))}
-                workspacesHref={`${base}/workspaces`}
-                workspacesLabel={t(locale, 'nc.org.workspaces')}
+                workspacesHref={`${base}/settings/organization`}
+                workspacesLabel={t(locale, 'nc.grp.organization')}
               />
             )}
             {s.org && s.can('billing:read') && (
@@ -278,11 +278,9 @@ export default async function ConsoleLayout({
         {s.org && <ActiveOrgCookie orgId={s.org.orgId} />}
         {children}
       </ConsoleFrame>
+      <StudioTransition />
       {s.org && s.can('hosting:site:create') && (
         <FloatingCart locale={locale} orgId={s.org.orgId} />
-      )}
-      {s.org && s.can('builder:read') && flagEnabled(s.me.featureFlags, 'ai.enabled') && (
-        <FloatingBuilder locale={locale} />
       )}
     </>
   );

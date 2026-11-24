@@ -17,8 +17,9 @@ const CODE_EXT = /\.(?:[cm]?[jt]sx?)$/;
 export const isCodePath = (p: string) => CODE_EXT.test(p);
 const RESOLVE_EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.css'] as const;
 
+/** Names of Node's own modules, used only to tell `import 'path'` from a package that must be declared. */
 const NODE_BUILTINS = new Set(
-  ['assert', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto', 'dgram', 'dns', 'domain', 'events', 'fs', 'http', 'http2', 'https', 'module', 'net', 'os', 'path', 'perf_hooks', 'process', 'punycode', 'querystring', 'readline', 'stream', 'string_decoder', 'timers', 'tls', 'tty', 'url', 'util', 'v8', 'vm', 'worker_threads', 'zlib'],
+  'assert buffer child_process cluster console constants crypto dgram dns domain events fs http http2 https module net os path perf_hooks process punycode querystring readline stream string_decoder timers tls tty url util v8 vm worker_threads zlib'.split(' '),
 );
 
 /** Replaces comments with spaces (newlines kept, so line numbers stay right). Strings are left alone: an import specifier IS a string. */

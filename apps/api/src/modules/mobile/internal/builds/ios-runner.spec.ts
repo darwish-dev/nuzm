@@ -32,7 +32,9 @@ const PLIST =
 const PODFILE = "# platform :ios, '13.0'\n";
 
 /** a fake toolchain: records every command and lays down the files the real tools would */
-function fake(opts: { xcodeVersion?: string; failAt?: string; failOut?: string } = {}) {
+function fake(
+  opts: { xcodeVersion?: string; failAt?: string; failOut?: string; podfile?: boolean } = {},
+) {
   const calls: string[] = [];
   const exec: Exec = async (cmd, args, cwd) => {
     const line = `${cmd} ${args.join(' ')}`;
@@ -52,8 +54,10 @@ function fake(opts: { xcodeVersion?: string; failAt?: string; failOut?: string }
     if (args[0] === 'create') {
       await mkdir(join(cwd, 'ios/Runner'), { recursive: true });
       await writeFile(join(cwd, 'ios/Runner/Info.plist'), PLIST);
-      await writeFile(join(cwd, 'ios/Podfile'), PODFILE);
     }
+    // real `flutter create` writes no Podfile (verified); whether `pub get` writes one with plugins is NOT verified, so the fake makes it optional
+    if (args[0] === 'pub' && opts.podfile !== false)
+      await writeFile(join(cwd, 'ios/Podfile'), PODFILE);
     if (args[0] === 'build' && args[1] === 'ios') {
       await mkdir(join(cwd, 'build/ios/iphonesimulator/Runner.app'), { recursive: true });
       await writeFile(join(cwd, 'build/ios/iphonesimulator/Runner.app/Runner'), 'bin');

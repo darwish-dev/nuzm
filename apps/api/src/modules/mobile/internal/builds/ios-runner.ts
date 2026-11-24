@@ -177,17 +177,11 @@ export class MacosIosRunner extends BuildRunnerPort {
         'build_ios',
       );
       const plistPath = join(root, 'ios/Runner/Info.plist');
-      const podPath = join(root, 'ios/Podfile');
       try {
         await writeFile(
           plistPath,
           applyIosPermissions(await readFile(plistPath, 'utf8'), m.permissions ?? ['internet']),
         );
-        if (m.ios?.deploymentTarget !== undefined)
-          await writeFile(
-            podPath,
-            applyIosDeploymentTarget(await readFile(podPath, 'utf8'), m.ios.deploymentTarget),
-          );
       } catch (e) {
         throw new BuildFailure('platform_config_failed', String((e as Error).message));
       }
@@ -203,6 +197,22 @@ export class MacosIosRunner extends BuildRunnerPort {
       // 4. dependencies, supply-chain gate on the resolved lockfile BEFORE anything compiles
       await stepAs(flutter, ['pub', 'get'], 'pub get', 'pub_get');
       await i.verifyLock(await readFile(join(root, 'pubspec.lock'), 'utf8').catch(() => ''));
+      // `flutter create` does not write ios/Podfile (verified 2026-11-24 with Flutter 3.35.7); it appears once Flutter integrates plugins. The deployment-target override is applied only
+      // to a Podfile that exists, and an explicit override with no Podfile is an error rather than a silent no-op.
+      if (m.ios?.deploymentTarget !== undefined) {
+        const podPath = join(root, 'ios/Podfile');
+        try {
+          await writeFile(
+            podPath,
+            applyIosDeploymentTarget(await readFile(podPath, 'utf8'), m.ios.deploymentTarget),
+          );
+        } catch (e) {
+          throw new BuildFailure(
+            'platform_config_failed',
+            `ios.deploymentTarget could not be applied: ${(e as Error).message}`,
+          );
+        }
+      }
       // 5. checks, then the two builds (never with signing)
       await stepAs(flutter, ['analyze'], 'flutter analyze', 'analyze');
       await stepAs(flutter, ['test'], 'flutter test', 'test');

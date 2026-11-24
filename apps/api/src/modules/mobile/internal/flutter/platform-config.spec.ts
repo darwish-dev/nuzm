@@ -8,7 +8,7 @@ import {
   validatePlatformSettings,
 } from './platform-config';
 
-// shapes of the files `flutter create` (3.35.x) writes; hand-reduced, SIMULATED until the first captured create is added
+// shapes of the files `flutter create` (3.35.7) writes; hand-reduced. VERIFIED 2026-11-24 against a real `flutter create --no-pub`: android/app/build.gradle.kts has `compileSdk = flutter.compileSdkVersion`, `minSdk = flutter.minSdkVersion`; ios/Runner/Info.plist ends `</dict>\n</plist>`. The Podfile is NOT written by `flutter create` (so PODFILE below is only the shape Flutter writes later; Groovy build.gradle is unverified)
 const KTS = `android {
     namespace = "com.example.app"
     compileSdk = flutter.compileSdkVersion

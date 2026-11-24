@@ -26,7 +26,8 @@ Run as `nuzm-build`, in a fresh temp directory, on the **template project or a p
 ```bash
 flutter --version --machine        # must be 3.35.7 (the build refuses otherwise)
 flutter create --platforms=ios --org <org> --project-name <name> .
-# apply tool/nuzm-mobile.json: Info.plist usage strings (applyIosPermissions) and the deployment target (applyIosDeploymentTarget), then checkPlatformFiles
+# apply tool/nuzm-mobile.json: Info.plist usage strings (applyIosPermissions), then checkPlatformFiles. The deployment target (applyIosDeploymentTarget) is applied to ios/Podfile after `pub get`:
+# `flutter create` writes NO Podfile (verified with Flutter 3.35.7); if the Podfile is still absent after pub get, an explicit ios.deploymentTarget is a platform_config_failed error (first real run must settle this)
 flutter pub get
 flutter analyze && flutter test
 flutter build ios --no-codesign --simulator   # produces build/ios/iphonesimulator/Runner.app

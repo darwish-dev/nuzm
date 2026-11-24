@@ -86,6 +86,11 @@ describe.skipIf(!ON)(
         );
         const apk = out.artifacts[0]!;
         expect(apk.kind).toBe('apk');
+        // optional: keep the built APK for infra/mobile/android/verify-apk.sh (a directory the caller owns)
+        if (process.env.MOBILE_KEEP_APK_DIR) {
+          mkdirSync(process.env.MOBILE_KEEP_APK_DIR, { recursive: true });
+          writeFileSync(join(process.env.MOBILE_KEEP_APK_DIR, apk.fileName), apk.bytes);
+        }
         expect(apk.bytes.subarray(0, 2).toString('latin1')).toBe('PK'); // an APK is a zip
         expect(apk.bytes.includes(Buffer.from('AndroidManifest.xml'))).toBe(true);
         expect(apk.bytes.length).toBeGreaterThan(1_000_000);

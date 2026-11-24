@@ -122,12 +122,16 @@ describe.skipIf(!ON)(
     });
 
     it.skipIf(!GRADLE)(
-      'Gradle: minSdk too low for a plugin (the declarative android.minSdk repair case)',
+      'Gradle: compileSdk too low for a dependency (the declarative android.compileSdk repair case; minSdk 21 was tried first and built fine on 2026-11-24)',
       { timeout: 25 * 60_000 },
       async () => {
         const files = generateFlutterProject(SAMPLE_MOBILE_SPEC);
         const m = JSON.parse(files['tool/nuzm-mobile.json']!) as Record<string, unknown>;
-        files['tool/nuzm-mobile.json'] = JSON.stringify({ ...m, android: { minSdk: 21 } }, null, 2);
+        files['tool/nuzm-mobile.json'] = JSON.stringify(
+          { ...m, android: { compileSdk: 34 } },
+          null,
+          2,
+        );
         const lines: string[] = [];
         const err = await new LocalAndroidRunner()
           .run(
@@ -146,9 +150,9 @@ describe.skipIf(!ON)(
           );
         expect(err).toBeInstanceOf(BuildFailure);
         const out = lines.join('\n');
-        save('gradle-min-sdk', 'flutter build apk --debug (android.minSdk=21)', out);
+        save('gradle-compile-sdk', 'flutter build apk --debug (android.compileSdk=34)', out);
         expect(parsed(out, 'build_apk').errors.map((e) => e.errorClass)).toContain(
-          'gradle_min_sdk_mismatch',
+          'gradle_compile_sdk_mismatch',
         );
       },
     );

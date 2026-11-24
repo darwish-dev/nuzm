@@ -31,7 +31,7 @@ The GitHub side (environment `production`, secrets `DEPLOY_SSH_KEY` and `DEPLOY_
 ssh root@89.116.29.136 'bash -s' < infra/deploy/install-on-server.sh
 ```
 
-Then do steps 7 and 8 below (nginx, DNS, first run). Confirm the host key fingerprint `SHA256:3CZNf9hsIe6mnDtGD7qWmt+D+1f/PT0t1EDHdH9twHQ` (ED25519) against your hosting panel before the first deploy; it is pinned in `DEPLOY_KNOWN_HOSTS`.
+Then do step 8 (first run) and step 7 (nginx and HTTPS) below, in that order. Confirm the host key fingerprint `SHA256:3CZNf9hsIe6mnDtGD7qWmt+D+1f/PT0t1EDHdH9twHQ` (ED25519) against your hosting panel before the first deploy; it is pinned in `DEPLOY_KNOWN_HOSTS`.
 
 ## One-time setup (owner; manual version of the same steps)
 
@@ -44,7 +44,12 @@ Then do steps 7 and 8 below (nginx, DNS, first run). Confirm the host key finger
    - Variables: `DEPLOY_HOST=89.116.29.136`, `ADMIN_ORIGIN=https://admin.nuzm.dev`.
    - Optionally: required reviewers; limit deployment branches to `main`.
 6. **Server env files** (root-owned, mode 640, never committed): fill `/etc/nuzm/web.env` and `/etc/nuzm/admin.env` with the runtime variables the apps need (they can start empty for the public pages).
-7. **nginx**: merge the `location /` proxies from `infra/deploy/nginx/nuzm.conf.example` into your existing vhost; add a DNS A record `admin` → `89.116.29.136` and a certificate for it. Then `nginx -t && systemctl reload nginx`.
+7. **nginx + HTTPS** (run in the VPS web console as root, after the first deploy has put the files in place; nothing to paste, it ships with the release):
+   - `bash /srv/nuzm/current/infra/deploy/nginx-https.sh check` is read-only and shows the current vhosts, certificates and whether the apps answer.
+   - `AGREE_LE_TOS=yes bash /srv/nuzm/current/infra/deploy/nginx-https.sh admin` creates a new vhost for `admin.nuzm.dev` and requests its Let's Encrypt certificate (you accept the subscriber agreement by setting `AGREE_LE_TOS`). It touches nothing existing. Optional: `CERTBOT_EMAIL=you@example.com`.
+   - `bash /srv/nuzm/current/infra/deploy/nginx-https.sh www` moves the old `www.nuzm.dev`/`nuzm.dev` vhost aside (to `/root/nuzm-disabled`), keeps its certificate and proxies to the web app. It refuses if the web app is not answering on `127.0.0.1:3000` or if the old vhost also serves other domains.
+   - `bash /srv/nuzm/current/infra/deploy/nginx-https.sh rollback` restores the old `www` vhost.
+   - Every change archives `/etc/nginx` to `/root/nginx-backup-<time>.tgz` first, and `nginx -t` must pass before each reload. Status: NOT VERIFIED on the real server.
 8. **First run**: GitHub → Actions → `deploy` → Run workflow, then watch it.
 
 ## Rollback and recovery

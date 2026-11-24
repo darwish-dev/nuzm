@@ -286,3 +286,18 @@ describe('model repair strategy (scripted completion, no model)', () => {
     expect(repairMessage('DATA-x', input)).toContain('untrusted');
   });
 });
+
+import { discoverComponents } from './index';
+describe('reusable component discovery', () => {
+  it('finds exported capitalised components, ranks by reuse, skips tests and non-components', () => {
+    const files = M({
+      'components/Button.tsx': 'export function Button() { return <b/>; }\nexport const helper = 1;\nexport function useThing() {}',
+      'components/Card.tsx': 'export const Card = () => <div/>;',
+      'app/page.tsx': "import { Button } from '../components/Button';\nexport default function Page() { return <Button/>; }",
+      'app/other.tsx': "import { Button } from '../components/Button';\nexport function Other() {}",
+      'components/Button.spec.tsx': 'export function ButtonSpec() {}',
+      'lib/util.ts': 'export function Util() {}',
+    });
+    expect(discoverComponents(files).map((c) => `${c.name}:${c.importedBy}`)).toEqual(['Button:2', 'Card:0', 'Other:0', 'Page:0']);
+  });
+});

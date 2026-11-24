@@ -7,3 +7,4 @@ export * from './validate';
 export * from './diagnose';
 export * from './repair';
 export * from './context';
+export * from './components';

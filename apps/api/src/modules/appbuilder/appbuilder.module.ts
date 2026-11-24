@@ -45,6 +45,7 @@ import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
 import { ChangeService } from './internal/changes/change.service';
 import { ChangeToolsService } from './internal/changes/change-tools.service';
+import { BuilderInsightService } from './internal/changes/builder-insight.service';
 import { WebappChangesDelegate, WebappDeployDelegateImpl } from './internal/delegates';
 import { AppDeploymentService, DEFAULT_DEPLOY_CONFIG } from './internal/deploy/deployment.service';
 import {
@@ -476,6 +477,12 @@ class LogSecurityAlerts extends SecurityAlertPort {
       useFactory: (p: ProjectsPort, ch: ChangeService, c: CanaryRegistry, a: AuditSink) =>
         new ChangeToolsService(p, ch, c, a),
       inject: [ProjectsPort, ChangeService, CanaryRegistry, AuditSink],
+    },
+    {
+      provide: BuilderInsightService,
+      useFactory: (p: ProjectsPort, ch: ChangeService, g: ModelGatewayPort, a: AuditSink) =>
+        new BuilderInsightService(p, ch, g, a),
+      inject: [ProjectsPort, ChangeService, ModelGatewayPort, AuditSink],
     },
     {
       provide: TestRunService,

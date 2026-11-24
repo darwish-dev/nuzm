@@ -14,3 +14,10 @@ Launch facts are recorded below only after the session exists.
 
 ## Launch facts (verified: each session exists and was started by the Master on 2026-11-24)
 Sessions 02–07 run in worktrees `.claude/worktrees/ai-{providers,benchmarks,sandbox,builder-tools,deployment,qa-security}` on branches `feature/ai-*`, each with `node_modules` cloned (copy-on-write) from the baseline worktree, so no parallel `pnpm install` is needed. Branches and worktrees are local only (no remote exists; none is needed).
+
+## Integration batch 1 (2026-11-24)
+Merged (non-destructive, `--no-ff`, no textual conflicts): providers (`5781c6f0`), sandbox (`2f5277b4`), benchmarks (`07c6555e`), builder-tools (`7a089f52`), deployment (`8d787bfa`), qa-security (`a77529ab`) → integration head `4af0920c`.
+Checks on the merged head: `pnpm typecheck` 50 of 52 tasks; the failure is `apps/api/src/modules/benchmarks/admin-benchmarks.controller.ts` TS4053 (Session 03 asked to fix). Not yet run on the merged head: lint, unit, integration, E2E, spec checks, SDK check.
+Master-owned patches (OpenAPI, ownership manifest, registrations) are applied by the owning session on its own branch under a temporary, recorded authorization from the Master (SDK regeneration stays with the Master). ACCEPTED: CONTRACT-04-1, CONTRACT-04-2, S02 CONTRACT-1/2/4 (CONTRACT-3 is a design note, not applied: D6 extension is owner-blocked), S03 CONTRACT-S03-1/2/3, S05 CONTRACT-1/2, S06 CONTRACT-2 and CONTRACT-1 (wiring delegated to S05).
+Defects from Session 07: DEFECT-1, 3, 4, 5, 6 fixed on worker branches (merged), re-test pending; DEFECT-2 assigned to Session 04.
+Heavy-run schedule (one at a time): 1) integration head after batch 2 (typecheck, lint, unit); 2) `test:integration`; 3) isolated E2E `ar` then `en`.

@@ -244,3 +244,120 @@ describe.each(['en', 'ar'] as const)('BenchmarksDashboard Phase 2 sections (%s)'
     expect(section('bench-stages')).toBeTruthy();
   });
 });
+
+const withGov = (state: string, extra: Record<string, unknown> = {}) =>
+  full({
+    thresholds: {
+      version: '2-proposed',
+      status: state === 'ACCEPTED' ? 'ACCEPTED' : 'PROPOSED',
+      acceptance: null,
+      items: [],
+      governance: {
+        state,
+        proposedBy: 'dev-1',
+        summary: 'recommended',
+        reviews: [{ by: 'rev-1', verdict: 'approve', note: 'checked it' }],
+        decidedBy: null,
+        reason: null,
+        ...extra,
+      },
+    },
+  });
+
+describe.each(['en', 'ar'] as const)('BenchmarksDashboard threshold governance (%s)', (locale) => {
+  it('shows the governance state, who proposed and the reviews', () => {
+    render(
+      <BenchmarksDashboard
+        locale={locale}
+        overview={withGov('UNDER_REVIEW')}
+        canRecord
+        canApprove
+      />,
+    );
+    const sec = document.getElementById('bench-gov-thresholds')!.closest('section')!;
+    expect(within(sec).getByText(bt(locale, 'govState_UNDER_REVIEW'))).toBeTruthy();
+    expect(within(sec).getByText(/dev-1/)).toBeTruthy();
+    expect(within(sec).getByText(/checked it/)).toBeTruthy();
+    expect(
+      within(sec).getAllByText(bt(locale, 'verdict_approve'), { exact: false }).length,
+    ).toBeGreaterThan(0);
+  });
+  it('shows a rejection with its reason and no review list when there is none', () => {
+    render(
+      <BenchmarksDashboard
+        locale={locale}
+        overview={withGov('REJECTED', { reviews: [], decidedBy: 'owner-1', reason: 'too strict' })}
+        canRecord
+        canApprove
+      />,
+    );
+    expect(screen.getByText(bt(locale, 'govNoReviews'))).toBeTruthy();
+    expect(screen.getByText(/too strict/)).toBeTruthy();
+    expect(screen.getByText(bt(locale, 'govState_REJECTED'))).toBeTruthy();
+  });
+  it('offers accept and reject only to a person who may approve, propose/review to a manager, and nothing to a reader', () => {
+    const options = (canRecord: boolean, canApprove: boolean) => {
+      cleanup();
+      render(
+        <BenchmarksDashboard
+          locale={locale}
+          overview={withGov('UNDER_REVIEW')}
+          canRecord={canRecord}
+          canApprove={canApprove}
+        />,
+      );
+      const sel = screen.queryByLabelText(bt(locale, 'actionLabel')) as HTMLSelectElement | null;
+      return sel ? [...sel.options].map((o) => o.value) : [];
+    };
+    expect(options(true, true)).toEqual(['review', 'accept', 'reject', 'propose']);
+    expect(options(true, false)).toEqual(['review', 'propose']);
+    expect(options(false, true)).toEqual(['accept', 'reject']);
+    expect(options(false, false)).toEqual([]);
+  });
+  it('records a review through the admin endpoint with a fresh request id and refreshes', async () => {
+    fetchMock.mockResolvedValue({ ok: true });
+    render(
+      <BenchmarksDashboard
+        locale={locale}
+        overview={withGov('UNDER_REVIEW')}
+        canRecord
+        canApprove={false}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(bt(locale, 'fieldNote')), {
+      target: { value: 'looks right' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: bt(locale, 'submit') }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body).toMatchObject({
+      action: 'review_thresholds',
+      version: '2-proposed',
+      verdict: 'approve',
+      note: 'looks right',
+    });
+    expect(body.requestId).toMatch(/^[0-9a-f-]{36}$/);
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(screen.getByText(bt(locale, 'govDone'))).toBeTruthy();
+  });
+  it('shows the failure and does not refresh when the server refuses (for example four eyes)', async () => {
+    fetchMock.mockResolvedValue({ ok: false });
+    render(
+      <BenchmarksDashboard
+        locale={locale}
+        overview={withGov('UNDER_REVIEW')}
+        canRecord
+        canApprove
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(bt(locale, 'actionLabel')), {
+      target: { value: 'accept' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: bt(locale, 'submit') }));
+    await waitFor(() => expect(screen.getByText(bt(locale, 'failed'))).toBeTruthy());
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({
+      action: 'accept_thresholds',
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});

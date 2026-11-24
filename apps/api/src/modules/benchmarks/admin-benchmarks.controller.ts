@@ -44,6 +44,15 @@ export class AdminBenchmarksController {
       case 'compare':
         need('admin:ai:read');
         return this.svc.compare(b.ids);
+      case 'propose_thresholds':
+        need('admin:ai:manage');
+        return this.svc.proposeThresholds(who.userId, b);
+      case 'review_thresholds':
+        need('admin:ai:manage');
+        return this.svc.reviewThresholds(who.userId, b);
+      case 'reject_thresholds':
+        need('admin:ai:approve');
+        return this.svc.rejectThresholds(who.userId, b);
       case 'accept_thresholds':
         need('admin:ai:approve');
         return this.svc.acceptThresholds(who.userId, b);

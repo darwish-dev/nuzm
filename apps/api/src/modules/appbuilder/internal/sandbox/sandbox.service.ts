@@ -6,6 +6,13 @@ import type { ResidencyService } from '../../../compliance';
 import { SANDBOX_QUOTA, iso, newId, type Row } from '../core';
 import type { OrgBudgetPort, ProjectRecord } from '../ports/m09';
 import type { CanaryRegistry } from './canary';
+import {
+  budgetRefusalMessage,
+  isSandboxPurpose,
+  resolveBudget,
+  type PurposeBudget,
+  type SandboxPurpose,
+} from './budget-gate';
 import { redactSecrets } from './paths';
 import {
   DEFAULT_QUOTA,
@@ -66,6 +73,8 @@ export class SandboxService {
     private readonly canaries: CanaryRegistry,
     private readonly cfg: SandboxConfig = DEFAULT_SANDBOX_CONFIG,
     private readonly now: () => Date = () => new Date(),
+    /** per-purpose budget gates; a purpose without one uses `orgBudget` (the AI wallet): default behaviour unchanged */
+    private readonly purposeBudgets: Partial<Record<SandboxPurpose, PurposeBudget>> = {},
   ) {}
 
   dto(r: Row): SandboxDto {
@@ -92,7 +101,11 @@ export class SandboxService {
     actor: string,
     project: ProjectRecord,
     body: { profile?: unknown; ttlMinutes?: unknown },
+    /** chosen by the CALLER in code, never from the request body; selects the budget gate (default `user_sandbox`, whose gate is the AI wallet unless configured otherwise) */
+    purpose: SandboxPurpose = 'user_sandbox',
   ): Promise<SandboxDto> {
+    if (!isSandboxPurpose(purpose))
+      throw new ProblemException('validation_failed', 'unknown sandbox purpose');
     if (project.type !== 'webapp')
       throw new ProblemException(
         'unsupported_capability',
@@ -122,11 +135,9 @@ export class SandboxService {
         res.reasons.map((r) => r.message.en).join('; ') ||
           'sandbox placement is not allowed by the residency policy',
       );
-    if ((await this.orgBudget.remainingMinor(orgId)) <= 0)
-      throw new ProblemException(
-        'budget_required',
-        'the organization has no AI credit left for a sandbox',
-      );
+    const budget = resolveBudget(purpose, this.purposeBudgets, this.orgBudget);
+    if ((await budget.port.remainingMinor(orgId)) <= 0)
+      throw new ProblemException('budget_required', budgetRefusalMessage(budget.gate));
     if ((await this.runtime.freeSlots()) <= 0)
       throw new ProblemException(
         'sandbox_no_capacity',
@@ -197,6 +208,7 @@ export class SandboxService {
           runtime: this.runtime.kind,
           isolation: this.runtime.isolation,
           dataRegion: this.cfg.nodeRegion,
+          purpose,
         },
       });
       return this.dto(ready);

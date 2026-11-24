@@ -7928,7 +7928,8 @@ export const messages = {
     'bt.roll.preview': 'اعرض ما سيتغيّر',
     'bt.roll.go': 'تراجع',
     'bt.roll.confirmTitle': 'التراجع عن المشروع؟',
-    'bt.roll.confirmBody': 'تُنشأ نسخة جديدة بملفات النسخة المختارة. لا يُمحى شيء: يمكنك العودة إلى الأمام من السجل.',
+    'bt.roll.confirmBody':
+      'تُنشأ نسخة جديدة بملفات النسخة المختارة. لا يُمحى شيء: يمكنك العودة إلى الأمام من السجل.',
     'bt.roll.done': 'تم التراجع عن المشروع وأُنشئت نسخة جديدة.',
     'bt.plan.title': 'خطة التنفيذ',
     'bt.plan.stack': 'التقنيات',
@@ -7999,7 +8000,8 @@ export const messages = {
     'bt.finding.undeclared_package': 'حزمة مستخدمة وغير معلنة في package.json',
     'bt.finding.unresolved_import': 'استيراد لا يطابق أي ملف في المشروع',
     'bt.build.title': 'البناء والإصلاح',
-    'bt.build.simulated': 'محاكاة: لم يجرِ أي بناء حقيقي. تُظهر النتائج ترابط الخطوات وليس أن كودك يُبنى.',
+    'bt.build.simulated':
+      'محاكاة: لم يجرِ أي بناء حقيقي. تُظهر النتائج ترابط الخطوات وليس أن كودك يُبنى.',
     'bt.build.totals': '{builds} عمليات بناء، {ops} إصلاحات مطبّقة',
     'bt.build.pending': '{n} إصلاحات تنتظر موافقتك ولم تُطبَّق.',
     'bt.build.iteration': 'الجولة {n}',
@@ -8025,7 +8027,8 @@ export const messages = {
     'bt.build.reason.build_refused': 'لم يُسمح بالبناء',
     'bt.build.reason.cancelled': 'أُلغي',
     'bt.mem.title': 'ذاكرة المشروع',
-    'bt.mem.help': 'ملاحظات قصيرة يقرؤها المساعد كخلفية عن هذا المشروع. هي ملاحظات وليست أوامر ولا تحتوي أسراراً.',
+    'bt.mem.help':
+      'ملاحظات قصيرة يقرؤها المساعد كخلفية عن هذا المشروع. هي ملاحظات وليست أوامر ولا تحتوي أسراراً.',
     'bt.mem.empty': 'لا ملاحظات بعد.',
     'bt.mem.kind': 'النوع',
     'bt.mem.text': 'الملاحظة',
@@ -16218,7 +16221,8 @@ export const messages = {
     'bt.roll.preview': 'Show what changes',
     'bt.roll.go': 'Roll back',
     'bt.roll.confirmTitle': 'Roll back the project?',
-    'bt.roll.confirmBody': 'A new version is created with the files of the chosen version. Nothing is erased: you can roll forward again from the history.',
+    'bt.roll.confirmBody':
+      'A new version is created with the files of the chosen version. Nothing is erased: you can roll forward again from the history.',
     'bt.roll.done': 'The project was rolled back. A new version was created.',
     'bt.plan.title': 'Implementation plan',
     'bt.plan.stack': 'Stack',
@@ -16278,7 +16282,8 @@ export const messages = {
     'bt.finding.install_script': 'An install-time script is not allowed',
     'bt.finding.invalid_json': 'The file is not valid JSON',
     'bt.finding.missing_planned_file': 'A file the plan promised does not exist',
-    'bt.finding.network_in_build_config': 'Build tooling must not start processes or call the network',
+    'bt.finding.network_in_build_config':
+      'Build tooling must not start processes or call the network',
     'bt.finding.package_name_missing': 'package.json has no name',
     'bt.finding.placeholder_text': 'Placeholder text was left in the file',
     'bt.finding.remote_dependency': 'A dependency points at a URL or local path',
@@ -16289,7 +16294,8 @@ export const messages = {
     'bt.finding.undeclared_package': 'A package is used but not declared in package.json',
     'bt.finding.unresolved_import': 'An import does not match any project file',
     'bt.build.title': 'Build and repair',
-    'bt.build.simulated': 'Simulated: no real build ran. These results show how the steps connect, not that your code builds.',
+    'bt.build.simulated':
+      'Simulated: no real build ran. These results show how the steps connect, not that your code builds.',
     'bt.build.totals': '{builds} builds, {ops} repairs applied',
     'bt.build.pending': '{n} repairs are waiting for your approval and were not applied.',
     'bt.build.iteration': 'Round {n}',
@@ -16315,7 +16321,8 @@ export const messages = {
     'bt.build.reason.build_refused': 'the build was not allowed',
     'bt.build.reason.cancelled': 'cancelled',
     'bt.mem.title': 'Project memory',
-    'bt.mem.help': 'Short notes the assistant reads as background about this project. They are notes, never commands, and they never hold secrets.',
+    'bt.mem.help':
+      'Short notes the assistant reads as background about this project. They are notes, never commands, and they never hold secrets.',
     'bt.mem.empty': 'No notes yet.',
     'bt.mem.kind': 'Type',
     'bt.mem.text': 'Note',

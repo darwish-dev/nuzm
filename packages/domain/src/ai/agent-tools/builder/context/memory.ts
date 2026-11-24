@@ -15,7 +15,13 @@ export const MEMORY_PATH = 'nuzm.memory.json';
 export const MEMORY_LIMITS = { maxEntries: 200, maxTextChars: 400, maxRenderEntries: 40 } as const;
 export type MemoryKind = 'decision' | 'convention' | 'preference' | 'fact' | 'issue';
 export type MemorySource = 'user' | 'agent' | 'review';
-export const MEMORY_KINDS: readonly MemoryKind[] = ['decision', 'convention', 'preference', 'fact', 'issue'];
+export const MEMORY_KINDS: readonly MemoryKind[] = [
+  'decision',
+  'convention',
+  'preference',
+  'fact',
+  'issue',
+];
 export interface MemoryEntry {
   id: string;
   kind: MemoryKind;
@@ -45,9 +51,10 @@ export type MemoryErrorCode =
 export type MemoryResult<T> = { ok: true; value: T } | { ok: false; code: MemoryErrorCode };
 
 // eslint-disable-next-line no-control-regex -- control and bidi characters are removed on purpose
-const UNSAFE = /[\u0000-\u001f\u007f​-‏‪-‮⁦-⁩﻿]/g;
+const UNSAFE = /[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
 /** Text an automated writer may not store: links, shell commands, and phrases that address the model. */
-const AUTOMATED_UNSAFE = /https?:\/\/|\bwww\.|\b(?:curl|wget|sudo|chmod|rm\s+-rf|npm\s+i(?:nstall)?|pip\s+install)\b|\b(?:ignore|disregard|forget)\b.{0,30}\b(?:instructions?|rules?|above|previous)\b|\bsystem prompt\b|\byou (?:must|should|will) (?:always|never)\b|تجاهل.{0,20}التعليمات/i;
+const AUTOMATED_UNSAFE =
+  /https?:\/\/|\bwww\.|\b(?:curl|wget|sudo|chmod|rm\s+-rf|npm\s+i(?:nstall)?|pip\s+install)\b|\b(?:ignore|disregard|forget)\b.{0,30}\b(?:instructions?|rules?|above|previous)\b|\bsystem prompt\b|\byou (?:must|should|will) (?:always|never)\b|تجاهل.{0,20}التعليمات/i;
 
 export function cleanText(raw: string): string {
   return raw.replace(UNSAFE, ' ').replace(/\s+/g, ' ').trim();
@@ -57,8 +64,10 @@ export function validateEntryText(text: string, source: MemorySource): MemoryRes
   const t = cleanText(text);
   if (t.length === 0) return { ok: false, code: 'empty_text' };
   if (t.length > MEMORY_LIMITS.maxTextChars) return { ok: false, code: 'text_too_long' };
-  if (scanForSecrets(t).length || t.includes('NZCANARY-')) return { ok: false, code: 'secret_detected' };
-  if (source !== 'user' && AUTOMATED_UNSAFE.test(t)) return { ok: false, code: 'unsafe_for_source' };
+  if (scanForSecrets(t).length || t.includes('NZCANARY-'))
+    return { ok: false, code: 'secret_detected' };
+  if (source !== 'user' && AUTOMATED_UNSAFE.test(t))
+    return { ok: false, code: 'unsafe_for_source' };
   return { ok: true, value: t };
 }
 
@@ -73,7 +82,11 @@ export interface NewEntry {
 }
 
 /** Adds an entry. An identical entry (same kind, same normalised text) is not added twice: the existing one is returned. When the memory is full the oldest UNPINNED entry goes. */
-export function addEntry(m: ProjectMemory, e: NewEntry, newId: () => string): MemoryResult<{ memory: ProjectMemory; entry: MemoryEntry; added: boolean }> {
+export function addEntry(
+  m: ProjectMemory,
+  e: NewEntry,
+  newId: () => string,
+): MemoryResult<{ memory: ProjectMemory; entry: MemoryEntry; added: boolean }> {
   if (!MEMORY_KINDS.includes(e.kind)) return { ok: false, code: 'bad_kind' };
   if (!['user', 'agent', 'review'].includes(e.source)) return { ok: false, code: 'bad_source' };
   const v = validateEntryText(e.text, e.source);
@@ -83,17 +96,32 @@ export function addEntry(m: ProjectMemory, e: NewEntry, newId: () => string): Me
   if (same) return { ok: true, value: { memory: m, entry: same, added: false } };
   let entries = [...m.entries];
   if (entries.length >= MEMORY_LIMITS.maxEntries) {
-    const victim = entries.findIndex((x) => !x.pinned && x.supersededBy) >= 0 ? entries.findIndex((x) => !x.pinned && x.supersededBy) : entries.findIndex((x) => !x.pinned);
+    const victim =
+      entries.findIndex((x) => !x.pinned && x.supersededBy) >= 0
+        ? entries.findIndex((x) => !x.pinned && x.supersededBy)
+        : entries.findIndex((x) => !x.pinned);
     if (victim < 0) return { ok: false, code: 'memory_full' };
     entries.splice(victim, 1);
   }
-  const entry: MemoryEntry = { id: newId(), kind: e.kind, text: v.value, source: e.source, at: e.at, pinned: e.pinned === true };
+  const entry: MemoryEntry = {
+    id: newId(),
+    kind: e.kind,
+    text: v.value,
+    source: e.source,
+    at: e.at,
+    pinned: e.pinned === true,
+  };
   entries = [...entries, entry];
   return { ok: true, value: { memory: { version: 1, entries }, entry, added: true } };
 }
 
 /** Replaces an entry by a newer one (history kept: the old entry stays, marked `supersededBy`). */
-export function supersede(m: ProjectMemory, oldId: string, e: NewEntry, newId: () => string): MemoryResult<{ memory: ProjectMemory; entry: MemoryEntry }> {
+export function supersede(
+  m: ProjectMemory,
+  oldId: string,
+  e: NewEntry,
+  newId: () => string,
+): MemoryResult<{ memory: ProjectMemory; entry: MemoryEntry }> {
   const idx = m.entries.findIndex((x) => x.id === oldId && !x.supersededBy);
   if (idx < 0) return { ok: false, code: 'not_found' };
   const added = addEntry({ version: 1, entries: m.entries.filter((_, i) => i !== idx) }, e, newId);
@@ -108,12 +136,22 @@ export function forget(m: ProjectMemory, id: string): MemoryResult<ProjectMemory
   return { ok: true, value: { version: 1, entries: m.entries.filter((x) => x.id !== id) } };
 }
 
-export const activeEntries = (m: ProjectMemory): MemoryEntry[] => m.entries.filter((x) => !x.supersededBy);
+export const activeEntries = (m: ProjectMemory): MemoryEntry[] =>
+  m.entries.filter((x) => !x.supersededBy);
 
-const words = (s: string) => new Set(normalizeText(s).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3));
+const words = (s: string) =>
+  new Set(
+    normalizeText(s)
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length >= 3),
+  );
 
 /** The entries most relevant to a query: word overlap, pinned first, then newer first. Deterministic. */
-export function selectRelevant(m: ProjectMemory, query: string, k: number = MEMORY_LIMITS.maxRenderEntries): MemoryEntry[] {
+export function selectRelevant(
+  m: ProjectMemory,
+  query: string,
+  k: number = MEMORY_LIMITS.maxRenderEntries,
+): MemoryEntry[] {
   const q = words(query);
   return activeEntries(m)
     .map((e, idx) => {
@@ -142,7 +180,24 @@ export function renderMemory(entries: readonly MemoryEntry[], maxTokens: number)
 }
 
 export function serializeMemory(m: ProjectMemory): string {
-  return JSON.stringify({ version: 1, entries: m.entries.map((e) => ({ id: e.id, kind: e.kind, text: e.text, source: e.source, at: e.at, pinned: e.pinned, ...(e.supersededBy ? { supersededBy: e.supersededBy } : {}) })) }, null, 2) + '\n';
+  return (
+    JSON.stringify(
+      {
+        version: 1,
+        entries: m.entries.map((e) => ({
+          id: e.id,
+          kind: e.kind,
+          text: e.text,
+          source: e.source,
+          at: e.at,
+          pinned: e.pinned,
+          ...(e.supersededBy ? { supersededBy: e.supersededBy } : {}),
+        })),
+      },
+      null,
+      2,
+    ) + '\n'
+  );
 }
 
 /** Strict parse of the stored file: any shape or limit violation is an error (a corrupt memory is reported, never half-loaded). */
@@ -154,16 +209,43 @@ export function parseMemory(text: string): MemoryResult<ProjectMemory> {
     return { ok: false, code: 'invalid_memory' };
   }
   const o = j as { version?: unknown; entries?: unknown };
-  if (!o || typeof o !== 'object' || o.version !== 1 || !Array.isArray(o.entries) || o.entries.length > MEMORY_LIMITS.maxEntries) return { ok: false, code: 'invalid_memory' };
+  if (
+    !o ||
+    typeof o !== 'object' ||
+    o.version !== 1 ||
+    !Array.isArray(o.entries) ||
+    o.entries.length > MEMORY_LIMITS.maxEntries
+  )
+    return { ok: false, code: 'invalid_memory' };
   const ids = new Set<string>();
   const entries: MemoryEntry[] = [];
   for (const raw of o.entries as Partial<MemoryEntry>[]) {
-    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || ids.has(raw.id) || typeof raw.at !== 'string' || typeof raw.pinned !== 'boolean') return { ok: false, code: 'invalid_memory' };
-    if (!MEMORY_KINDS.includes(raw.kind as MemoryKind) || !['user', 'agent', 'review'].includes(raw.source as string)) return { ok: false, code: 'invalid_memory' };
+    if (
+      !raw ||
+      typeof raw !== 'object' ||
+      typeof raw.id !== 'string' ||
+      ids.has(raw.id) ||
+      typeof raw.at !== 'string' ||
+      typeof raw.pinned !== 'boolean'
+    )
+      return { ok: false, code: 'invalid_memory' };
+    if (
+      !MEMORY_KINDS.includes(raw.kind as MemoryKind) ||
+      !['user', 'agent', 'review'].includes(raw.source as string)
+    )
+      return { ok: false, code: 'invalid_memory' };
     const v = validateEntryText(String(raw.text), raw.source as MemorySource);
     if (!v.ok) return { ok: false, code: 'invalid_memory' };
     ids.add(raw.id);
-    entries.push({ id: raw.id, kind: raw.kind as MemoryKind, text: v.value, source: raw.source as MemorySource, at: raw.at, pinned: raw.pinned, ...(typeof raw.supersededBy === 'string' ? { supersededBy: raw.supersededBy } : {}) });
+    entries.push({
+      id: raw.id,
+      kind: raw.kind as MemoryKind,
+      text: v.value,
+      source: raw.source as MemorySource,
+      at: raw.at,
+      pinned: raw.pinned,
+      ...(typeof raw.supersededBy === 'string' ? { supersededBy: raw.supersededBy } : {}),
+    });
   }
   return { ok: true, value: { version: 1, entries } };
 }
@@ -178,15 +260,34 @@ export function memoryOps(files: ReadonlyMap<string, string>, m: ProjectMemory):
   const next = serializeMemory(m);
   const cur = files.get(MEMORY_PATH);
   if (cur === undefined) return [{ op: 'add', path: MEMORY_PATH, content: next }];
-  return cur === next ? [] : [{ op: 'modify', path: MEMORY_PATH, content: next, expectedHash: sha256Hex(cur) }];
+  return cur === next
+    ? []
+    : [{ op: 'modify', path: MEMORY_PATH, content: next, expectedHash: sha256Hex(cur) }];
 }
 
 /** The facts a plan settles, as candidate memory entries (the caller adds the ones the owner accepts). */
 export function entriesFromPlan(plan: ImplementationPlan, at: string): NewEntry[] {
   const out: NewEntry[] = [
-    { kind: 'decision', text: `Stack: ${plan.stack.title.en} (${plan.stack.reason})`, source: 'agent', at },
-    { kind: 'fact', text: `Product type: ${plan.productType}; ${plan.tasks.length} planned tasks in ${plan.waves} waves`, source: 'agent', at },
+    {
+      kind: 'decision',
+      text: `Stack: ${plan.stack.title.en} (${plan.stack.reason})`,
+      source: 'agent',
+      at,
+    },
+    {
+      kind: 'fact',
+      text: `Product type: ${plan.productType}; ${plan.tasks.length} planned tasks in ${plan.waves} waves`,
+      source: 'agent',
+      at,
+    },
   ];
-  for (const n of plan.analysis.notes) out.push({ kind: 'fact', text: n.en.slice(0, MEMORY_LIMITS.maxTextChars), source: 'agent', at, pinned: true });
+  for (const n of plan.analysis.notes)
+    out.push({
+      kind: 'fact',
+      text: n.en.slice(0, MEMORY_LIMITS.maxTextChars),
+      source: 'agent',
+      at,
+      pinned: true,
+    });
   return out;
 }

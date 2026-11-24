@@ -29,17 +29,29 @@ export class ProjectRepairService {
     ctx: { runId: string; profiles?: readonly builderTools.BuildProfile[]; signal?: AbortSignal },
   ) {
     if (p.type !== 'webapp' && p.type !== 'mobile')
-      throw new ProblemException('unsupported_capability', 'this applies to web-app and mobile projects');
+      throw new ProblemException(
+        'unsupported_capability',
+        'this applies to web-app and mobile projects',
+      );
     if (!this.build)
-      throw new ProblemException('unsupported_capability', 'no build service is configured: running builds is blocked until the sandbox runtime is approved');
-    if (!p.headVersionId) throw new ProblemException('conflict', 'the project has no version to review');
+      throw new ProblemException(
+        'unsupported_capability',
+        'no build service is configured: running builds is blocked until the sandbox runtime is approved',
+      );
+    if (!p.headVersionId)
+      throw new ProblemException('conflict', 'the project has no version to review');
     const files = await this.projects.readFiles(orgId, p.id, p.headVersionId);
     if (!files) throw new ProblemException('not_found', 'project version not found');
     let head = p;
     const committed: ChangeResult[] = [];
     const io: builderTools.RepairIO = {
       commit: async (ops, label) => {
-        const r = await this.changes.apply(orgId, actor, head, { baseVersion: head.headVersionId, patches: ops, source: 'ai', message: label });
+        const r = await this.changes.apply(orgId, actor, head, {
+          baseVersion: head.headVersionId,
+          patches: ops,
+          source: 'ai',
+          message: label,
+        });
         committed.push(r);
         head = { ...head, headVersionId: r.versionId }; // the next repair builds on the version it just made
         return { versionId: r.versionId };
@@ -63,7 +75,15 @@ export class ProjectRepairService {
       actorUserId: actor,
       resource: { type: 'project', id: p.id },
       outcome: report.status === 'passed' ? 'success' : 'failure',
-      after: { status: report.status, reason: report.reason, rounds: report.iterations.length, builds: report.builds, repairs: report.totalOps, origin: report.origin, runId: ctx.runId },
+      after: {
+        status: report.status,
+        reason: report.reason,
+        rounds: report.iterations.length,
+        builds: report.builds,
+        repairs: report.totalOps,
+        origin: report.origin,
+        runId: ctx.runId,
+      },
     });
     return {
       status: report.status,
@@ -74,7 +94,10 @@ export class ProjectRepairService {
       builds: report.builds,
       pendingApproval: report.pendingApproval.length,
       versionId: report.versionId,
-      note: report.origin === 'MOCK' ? 'simulated: no real build ran; this does not show that the code builds' : null,
+      note:
+        report.origin === 'MOCK'
+          ? 'simulated: no real build ran; this does not show that the code builds'
+          : null,
     };
   }
 }

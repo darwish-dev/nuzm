@@ -8,3 +8,4 @@ export * from './diagnose';
 export * from './repair';
 export * from './context';
 export * from './components';
+export * from './sha256';

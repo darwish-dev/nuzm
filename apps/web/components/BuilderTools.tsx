@@ -53,7 +53,12 @@ export interface PlanView {
   fileCount: number;
   approvals: { taskId: string; reason: string }[];
   risks: { code: string; text: Bilingual }[];
-  analysis: { questions: { id: string; text: Bilingual }[]; ambiguities: { id: string; text: Bilingual }[]; notes: Bilingual[]; confidence: number };
+  analysis: {
+    questions: { id: string; text: Bilingual }[];
+    ambiguities: { id: string; text: Bilingual }[];
+    notes: Bilingual[];
+    confidence: number;
+  };
 }
 export interface EstimateView {
   totalTokens: number;
@@ -73,7 +78,13 @@ export interface RepairIterationView {
   failed: boolean;
   findings: number;
   opsApplied: number;
-  diagnostics: { kind: string; path: string | null; line: number | null; code: string | null; message: string }[];
+  diagnostics: {
+    kind: string;
+    path: string | null;
+    line: number | null;
+    code: string | null;
+    message: string;
+  }[];
 }
 export interface RepairReportView {
   status: 'passed' | 'failed' | 'stopped';
@@ -93,10 +104,19 @@ export interface MemoryEntryView {
 }
 
 const MEMORY_KINDS = ['decision', 'convention', 'preference', 'fact', 'issue'] as const;
-const sevTone = (s: FindingView['severity']) => (s === 'error' ? 'danger' : s === 'warning' ? 'warn' : undefined);
+const sevTone = (s: FindingView['severity']) =>
+  s === 'error' ? 'danger' : s === 'warning' ? 'warn' : undefined;
 const biText = (b: Bilingual, locale: Locale) => b[locale];
 
-function StateNote({ locale, state, children }: { locale: Locale; state: PanelState; children?: never }) {
+function StateNote({
+  locale,
+  state,
+  children,
+}: {
+  locale: Locale;
+  state: PanelState;
+  children?: never;
+}) {
   void children;
   if (state === 'loading')
     return (
@@ -119,9 +139,30 @@ function StateNote({ locale, state, children }: { locale: Locale; state: PanelSt
 export function DiffText({ locale, diff, label }: { locale: Locale; diff: string; label: string }) {
   if (!diff) return <p className="nz-muted">{t(locale, 'bt.preview.nodiff')}</p>;
   return (
-    <pre dir="ltr" lang="en" aria-label={label} className="bt-diff" style={{ overflowX: 'auto', margin: 0, padding: 8, background: 'var(--nuzm-color-surface)', border: '1px solid var(--nuzm-color-border)', borderRadius: 'var(--nuzm-radius-sm)' }}>
+    <pre
+      dir="ltr"
+      lang="en"
+      aria-label={label}
+      className="bt-diff"
+      style={{
+        overflowX: 'auto',
+        margin: 0,
+        padding: 8,
+        background: 'var(--nuzm-color-surface)',
+        border: '1px solid var(--nuzm-color-border)',
+        borderRadius: 'var(--nuzm-radius-sm)',
+      }}
+    >
       {diff.split('\n').map((line, i) => {
-        const kind = line.startsWith('@@') ? 'hunk' : line.startsWith('+++') || line.startsWith('---') ? 'meta' : line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : 'ctx';
+        const kind = line.startsWith('@@')
+          ? 'hunk'
+          : line.startsWith('+++') || line.startsWith('---')
+            ? 'meta'
+            : line.startsWith('+')
+              ? 'add'
+              : line.startsWith('-')
+                ? 'del'
+                : 'ctx';
         return (
           <span
             key={i}
@@ -191,16 +232,39 @@ export function ChangePreviewPanel({
           </ul>
         </div>
       )}
-      {preview.ok && preview.files.length === 0 && <p className="nz-muted">{t(locale, 'bt.preview.none')}</p>}
+      {preview.ok && preview.files.length === 0 && (
+        <p className="nz-muted">{t(locale, 'bt.preview.none')}</p>
+      )}
       {preview.files.length > 0 && (
         <>
-          <p aria-live="polite">{t(locale, 'bt.preview.totals', { files: preview.totals.files, added: preview.totals.added, removed: preview.totals.removed })}</p>
+          <p aria-live="polite">
+            {t(locale, 'bt.preview.totals', {
+              files: preview.totals.files,
+              added: preview.totals.added,
+              removed: preview.totals.removed,
+            })}
+          </p>
           <div className="nz-row" style={{ alignItems: 'flex-start' }}>
-            <ul className="bld-list" aria-label={t(locale, 'bt.preview.files')} style={{ minInlineSize: 220 }}>
+            <ul
+              className="bld-list"
+              aria-label={t(locale, 'bt.preview.files')}
+              style={{ minInlineSize: 220 }}
+            >
               {preview.files.map((f, i) => (
                 <li key={`${f.op}-${f.path}`}>
-                  <button type="button" className="nz-btn" data-variant={i === selected ? 'primary' : 'secondary'} aria-pressed={i === selected} aria-controls={`${id}-diff`} onClick={() => setSelected(i)}>
-                    <Badge tone={f.op === 'delete' ? 'danger' : f.op === 'add' ? 'success' : undefined}>{t(locale, `bt.preview.op.${f.op}`)}</Badge>{' '}
+                  <button
+                    type="button"
+                    className="nz-btn"
+                    data-variant={i === selected ? 'primary' : 'secondary'}
+                    aria-pressed={i === selected}
+                    aria-controls={`${id}-diff`}
+                    onClick={() => setSelected(i)}
+                  >
+                    <Badge
+                      tone={f.op === 'delete' ? 'danger' : f.op === 'add' ? 'success' : undefined}
+                    >
+                      {t(locale, `bt.preview.op.${f.op}`)}
+                    </Badge>{' '}
                     <Ltr>{f.path}</Ltr>
                     <span className="nz-muted">
                       {' '}
@@ -218,15 +282,23 @@ export function ChangePreviewPanel({
                       <Ltr>{file.from}</Ltr> → <Ltr>{file.path}</Ltr>
                     </p>
                   )}
-                  <DiffText locale={locale} diff={file.diff} label={t(locale, 'bt.preview.diffOf', { path: file.path })} />
-                  {file.diffTruncated && <p className="nz-muted">{t(locale, 'bt.preview.truncated')}</p>}
+                  <DiffText
+                    locale={locale}
+                    diff={file.diff}
+                    label={t(locale, 'bt.preview.diffOf', { path: file.path })}
+                  />
+                  {file.diffTruncated && (
+                    <p className="nz-muted">{t(locale, 'bt.preview.truncated')}</p>
+                  )}
                 </>
               )}
             </div>
           </div>
         </>
       )}
-      {(preview.drift ?? 0) > 0 && <p className="nz-muted">{t(locale, 'bt.preview.drift', { n: preview.drift! })}</p>}
+      {(preview.drift ?? 0) > 0 && (
+        <p className="nz-muted">{t(locale, 'bt.preview.drift', { n: preview.drift! })}</p>
+      )}
       {preview.risks.length > 0 && (
         <div>
           <h4 className="nz-h2">{t(locale, 'bt.preview.risks')}</h4>
@@ -242,7 +314,12 @@ export function ChangePreviewPanel({
       {needsConfirm && (
         <Banner tone="warn">
           <label>
-            <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> {t(locale, 'bt.preview.confirm')}
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+            />{' '}
+            {t(locale, 'bt.preview.confirm')}
           </label>
         </Banner>
       )}
@@ -340,7 +417,11 @@ export function RollbackControls({
           }}
         />
       )}
-      <ConfirmDialog open={open} title={t(locale, 'bt.roll.confirmTitle')} onClose={() => setOpen(false)}>
+      <ConfirmDialog
+        open={open}
+        title={t(locale, 'bt.roll.confirmTitle')}
+        onClose={() => setOpen(false)}
+      >
         <p>{t(locale, 'bt.roll.confirmBody')}</p>
         <div className="nz-row">
           <Button
@@ -384,7 +465,9 @@ export function PlanPanel({
         <StateNote locale={locale} state={state === 'ready' ? 'error' : state} />
       </section>
     );
-  const waves = Array.from({ length: plan.waves }, (_, w) => plan.tasks.filter((x) => x.wave === w)).filter((w) => w.length > 0);
+  const waves = Array.from({ length: plan.waves }, (_, w) =>
+    plan.tasks.filter((x) => x.wave === w),
+  ).filter((w) => w.length > 0);
   const done = plan.tasks.filter((x) => progress[x.id] === 'done').length;
   return (
     <section aria-labelledby="bt-plan-h">
@@ -392,15 +475,33 @@ export function PlanPanel({
         {t(locale, 'bt.plan.title')}
       </h3>
       <p>
-        <Badge>{tDynamic(locale, `bt.product.${plan.productType}`, plan.productType)}</Badge> {t(locale, 'bt.plan.stack')}: <bdi dir="ltr">{biText(plan.stack.title, locale)}</bdi>{' '}
-        <span className="nz-muted">({t(locale, plan.stack.reason === 'requested' ? 'bt.plan.stack.requested' : 'bt.plan.stack.default')})</span>
+        <Badge>{tDynamic(locale, `bt.product.${plan.productType}`, plan.productType)}</Badge>{' '}
+        {t(locale, 'bt.plan.stack')}: <bdi dir="ltr">{biText(plan.stack.title, locale)}</bdi>{' '}
+        <span className="nz-muted">
+          (
+          {t(
+            locale,
+            plan.stack.reason === 'requested' ? 'bt.plan.stack.requested' : 'bt.plan.stack.default',
+          )}
+          )
+        </span>
       </p>
       <p className="nz-muted">
-        {t(locale, 'bt.plan.summary', { tasks: plan.tasks.length, waves: plan.waves, files: plan.fileCount })} · {t(locale, 'bt.plan.confidence', { pct: Math.round(plan.analysis.confidence * 100) })}
+        {t(locale, 'bt.plan.summary', {
+          tasks: plan.tasks.length,
+          waves: plan.waves,
+          files: plan.fileCount,
+        })}{' '}
+        · {t(locale, 'bt.plan.confidence', { pct: Math.round(plan.analysis.confidence * 100) })}
       </p>
       {estimate && (
         <p>
-          {t(locale, 'bt.plan.estimate', { tokens: estimate.totalTokens.toLocaleString(locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB'), cost: formatMinor(String(estimate.costMinor), 'SAR', locale) })}{' '}
+          {t(locale, 'bt.plan.estimate', {
+            tokens: estimate.totalTokens.toLocaleString(
+              locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB',
+            ),
+            cost: formatMinor(String(estimate.costMinor), 'SAR', locale),
+          })}{' '}
           <span className="nz-muted">{t(locale, 'bt.plan.estimate.note')}</span>
         </p>
       )}
@@ -427,9 +528,18 @@ export function PlanPanel({
                 const st = progress[task.id] ?? 'pending';
                 return (
                   <li key={task.id} data-task={task.id}>
-                    <Ltr>{task.id}</Ltr> <strong>{biText(task.title, locale)}</strong> <Badge>{tDynamic(locale, `bt.kind.${task.kind}`, task.kind)}</Badge>{' '}
-                    {Object.keys(progress).length > 0 && <Badge tone={st === 'done' ? 'success' : st === 'failed' ? 'danger' : undefined}>{t(locale, `bt.task.state.${st}`)}</Badge>}{' '}
-                    {task.approval && <Badge tone="warn">{t(locale, 'bt.task.needsApproval')}</Badge>}
+                    <Ltr>{task.id}</Ltr> <strong>{biText(task.title, locale)}</strong>{' '}
+                    <Badge>{tDynamic(locale, `bt.kind.${task.kind}`, task.kind)}</Badge>{' '}
+                    {Object.keys(progress).length > 0 && (
+                      <Badge
+                        tone={st === 'done' ? 'success' : st === 'failed' ? 'danger' : undefined}
+                      >
+                        {t(locale, `bt.task.state.${st}`)}
+                      </Badge>
+                    )}{' '}
+                    {task.approval && (
+                      <Badge tone="warn">{t(locale, 'bt.task.needsApproval')}</Badge>
+                    )}
                     <ul>
                       {task.acceptance.map((a, i) => (
                         <li key={i} className="nz-muted">
@@ -493,7 +603,17 @@ export function PlanPanel({
 }
 
 // ───────────────────────── review findings ─────────────────────────
-export function ReviewPanel({ locale, state, findings = [], summary }: { locale: Locale; state: PanelState; findings?: FindingView[]; summary?: { passed: boolean; errors: number; warnings: number } }) {
+export function ReviewPanel({
+  locale,
+  state,
+  findings = [],
+  summary,
+}: {
+  locale: Locale;
+  state: PanelState;
+  findings?: FindingView[];
+  summary?: { passed: boolean; errors: number; warnings: number };
+}) {
   if (state !== 'ready')
     return (
       <section aria-labelledby="bt-rev-h">
@@ -510,7 +630,14 @@ export function ReviewPanel({ locale, state, findings = [], summary }: { locale:
       </h3>
       {summary && (
         <p role="status" aria-live="polite">
-          <Badge tone={summary.passed ? 'success' : 'danger'}>{summary.passed ? t(locale, 'bt.review.passed') : t(locale, 'bt.review.failed', { errors: summary.errors, warnings: summary.warnings })}</Badge>
+          <Badge tone={summary.passed ? 'success' : 'danger'}>
+            {summary.passed
+              ? t(locale, 'bt.review.passed')
+              : t(locale, 'bt.review.failed', {
+                  errors: summary.errors,
+                  warnings: summary.warnings,
+                })}
+          </Badge>
         </p>
       )}
       {findings.length === 0 ? (
@@ -519,7 +646,8 @@ export function ReviewPanel({ locale, state, findings = [], summary }: { locale:
         <ul className="bld-list">
           {findings.map((f, i) => (
             <li key={`${f.code}-${f.path}-${f.line}-${i}`}>
-              <Badge tone={sevTone(f.severity)}>{t(locale, `bt.sev.${f.severity}`)}</Badge> {tDynamic(locale, `bt.finding.${f.code}`, f.message)}
+              <Badge tone={sevTone(f.severity)}>{t(locale, `bt.sev.${f.severity}`)}</Badge>{' '}
+              {tDynamic(locale, `bt.finding.${f.code}`, f.message)}
               {f.path && (
                 <span className="nz-muted">
                   {' '}
@@ -543,21 +671,36 @@ export function RepairTimeline({ locale, report }: { locale: Locale; report: Rep
       </h3>
       {report.origin === 'MOCK' && <Banner tone="warn">{t(locale, 'bt.build.simulated')}</Banner>}
       <p role="status" aria-live="polite">
-        <Badge tone={report.status === 'passed' ? 'success' : report.status === 'failed' ? 'danger' : 'warn'}>{t(locale, `bt.build.status.${report.status}`)}</Badge>{' '}
-        {tDynamic(locale, `bt.build.reason.${report.reason}`, report.reason)} · {t(locale, 'bt.build.totals', { builds: report.builds, ops: report.totalOps })}
+        <Badge
+          tone={
+            report.status === 'passed' ? 'success' : report.status === 'failed' ? 'danger' : 'warn'
+          }
+        >
+          {t(locale, `bt.build.status.${report.status}`)}
+        </Badge>{' '}
+        {tDynamic(locale, `bt.build.reason.${report.reason}`, report.reason)} ·{' '}
+        {t(locale, 'bt.build.totals', { builds: report.builds, ops: report.totalOps })}
       </p>
-      {report.pendingApproval > 0 && <Banner tone="warn">{t(locale, 'bt.build.pending', { n: report.pendingApproval })}</Banner>}
+      {report.pendingApproval > 0 && (
+        <Banner tone="warn">{t(locale, 'bt.build.pending', { n: report.pendingApproval })}</Banner>
+      )}
       <ol className="bld-list" aria-label={t(locale, 'bt.build.title')}>
         {report.iterations.map((it) => (
           <li key={it.n}>
-            <strong>{t(locale, 'bt.build.iteration', { n: it.n })}</strong> <Badge>{t(locale, `bt.build.phase.${it.phase}`)}</Badge>{' '}
-            <Badge tone={it.failed ? 'danger' : 'success'}>{it.failed ? t(locale, 'bt.build.failed') : t(locale, 'bt.build.ok')}</Badge>
-            {it.opsApplied > 0 && <span className="nz-muted"> {t(locale, 'bt.build.ops', { n: it.opsApplied })}</span>}
+            <strong>{t(locale, 'bt.build.iteration', { n: it.n })}</strong>{' '}
+            <Badge>{t(locale, `bt.build.phase.${it.phase}`)}</Badge>{' '}
+            <Badge tone={it.failed ? 'danger' : 'success'}>
+              {it.failed ? t(locale, 'bt.build.failed') : t(locale, 'bt.build.ok')}
+            </Badge>
+            {it.opsApplied > 0 && (
+              <span className="nz-muted"> {t(locale, 'bt.build.ops', { n: it.opsApplied })}</span>
+            )}
             {it.diagnostics.length > 0 && (
               <ul>
                 {it.diagnostics.map((d, i) => (
                   <li key={i} className="nz-muted">
-                    {d.path && <Ltr>{d.line ? `${d.path}:${d.line}` : d.path}</Ltr>} {d.code && <Ltr>{d.code}</Ltr>} <bdi dir="auto">{d.message}</bdi>
+                    {d.path && <Ltr>{d.line ? `${d.path}:${d.line}` : d.path}</Ltr>}{' '}
+                    {d.code && <Ltr>{d.code}</Ltr>} <bdi dir="auto">{d.message}</bdi>
                   </li>
                 ))}
               </ul>
@@ -610,10 +753,18 @@ export function MemoryPanel({
         <ul className="bld-list">
           {entries.map((e) => (
             <li key={e.id}>
-              <Badge>{t(locale, `bt.mem.kind.${e.kind}`)}</Badge> {e.pinned && <Badge tone="warn">{t(locale, 'bt.mem.pinned')}</Badge>} <bdi dir="auto">{e.text}</bdi>{' '}
+              <Badge>{t(locale, `bt.mem.kind.${e.kind}`)}</Badge>{' '}
+              {e.pinned && <Badge tone="warn">{t(locale, 'bt.mem.pinned')}</Badge>}{' '}
+              <bdi dir="auto">{e.text}</bdi>{' '}
               <span className="nz-muted">({t(locale, `bt.mem.source.${e.source}`)})</span>
               {canWrite && onForget && (
-                <Button type="button" variant="secondary" disabled={busy} onClick={() => onForget(e.id)} aria-label={t(locale, 'bt.mem.forgetNote', { text: e.text.slice(0, 40) })}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => onForget(e.id)}
+                  aria-label={t(locale, 'bt.mem.forgetNote', { text: e.text.slice(0, 40) })}
+                >
                   {t(locale, 'bt.mem.forget')}
                 </Button>
               )}
@@ -625,7 +776,11 @@ export function MemoryPanel({
         <form onSubmit={submit} className="nz-row">
           <Field id="bt-mem-kind" label={t(locale, 'bt.mem.kind')}>
             {(x) => (
-              <Select {...x} value={kind} onChange={(e) => setKind(e.target.value as MemoryEntryView['kind'])}>
+              <Select
+                {...x}
+                value={kind}
+                onChange={(e) => setKind(e.target.value as MemoryEntryView['kind'])}
+              >
                 {MEMORY_KINDS.map((k) => (
                   <option key={k} value={k}>
                     {t(locale, `bt.mem.kind.${k}`)}
@@ -635,10 +790,18 @@ export function MemoryPanel({
             )}
           </Field>
           <Field id="bt-mem-text" label={t(locale, 'bt.mem.text')}>
-            {(x) => <Input {...x} value={text} maxLength={400} onChange={(e) => setText(e.target.value)} />}
+            {(x) => (
+              <Input
+                {...x}
+                value={text}
+                maxLength={400}
+                onChange={(e) => setText(e.target.value)}
+              />
+            )}
           </Field>
           <label>
-            <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} /> {t(locale, 'bt.mem.pinned')}
+            <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />{' '}
+            {t(locale, 'bt.mem.pinned')}
           </label>
           <Button type="submit" disabled={busy || !text.trim()}>
             {t(locale, 'bt.mem.add')}

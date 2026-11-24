@@ -49,7 +49,10 @@ export class ChangeToolsService {
   }
   private async canaryErrors(ops: readonly FileOp[]): Promise<boolean> {
     for (const o of ops)
-      if (typeof o.content === 'string' && (await this.canaries.scan(o.content, { sandboxId: null, source: 'change preview' })).length)
+      if (
+        typeof o.content === 'string' &&
+        (await this.canaries.scan(o.content, { sandboxId: null, source: 'change preview' })).length
+      )
         return true;
     return false;
   }
@@ -67,9 +70,14 @@ export class ChangeToolsService {
     if (base !== null && !isUuid(base))
       throw new ProblemException('validation_failed', 'baseVersion must be a version id or null');
     if (base !== p.headVersionId)
-      throw new ProblemException('base_mismatch', 'the project changed since you loaded it', undefined, {
-        currentVersion: p.headVersionId,
-      });
+      throw new ProblemException(
+        'base_mismatch',
+        'the project changed since you loaded it',
+        undefined,
+        {
+          currentVersion: p.headVersionId,
+        },
+      );
     const files = await this.files(orgId, p, p.headVersionId);
     let ops: unknown = body.patches;
     let drift = 0;
@@ -88,17 +96,31 @@ export class ChangeToolsService {
     }
     const prev = previewChangeSet(files, ops, { hasHead: p.headVersionId !== null });
     if (prev.ok && (await this.canaryErrors(Array.isArray(ops) ? (ops as FileOp[]) : [])))
-      prev.errors.push({ at: 'ops', code: 'canary_detected', message: 'a platform canary token was found in the change' });
+      prev.errors.push({
+        at: 'ops',
+        code: 'canary_detected',
+        message: 'a platform canary token was found in the change',
+      });
     prev.ok = prev.errors.length === 0;
     const { next: _next, ...view } = prev;
-    return { ...view, baseVersion: base as string | null, headVersion: p.headVersionId, drift, ops: Array.isArray(ops) ? (ops as FileOp[]) : [] };
+    return {
+      ...view,
+      baseVersion: base as string | null,
+      headVersion: p.headVersionId,
+      drift,
+      ops: Array.isArray(ops) ? (ops as FileOp[]) : [],
+    };
   }
 
   /** The diff of two versions of the project (`from` -> `to`). Read-only. */
   async diff(orgId: string, p: ProjectRecord, from: string, to: string): Promise<PreviewView> {
     this.assertTree(p);
-    if (!isUuid(from) || !isUuid(to)) throw new ProblemException('validation_failed', 'from and to must be version ids');
-    const [a, b] = [await this.files(orgId, p, from.toLowerCase()), await this.files(orgId, p, to.toLowerCase())];
+    if (!isUuid(from) || !isUuid(to))
+      throw new ProblemException('validation_failed', 'from and to must be version ids');
+    const [a, b] = [
+      await this.files(orgId, p, from.toLowerCase()),
+      await this.files(orgId, p, to.toLowerCase()),
+    ];
     const ops = planRestore(a, b);
     if (ops.length === 0)
       return {
@@ -126,20 +148,41 @@ export class ChangeToolsService {
   ): Promise<ChangeResult & { restoredFrom: string }> {
     this.assertTree(p);
     const target = body.targetVersion;
-    if (!isUuid(target)) throw new ProblemException('validation_failed', 'targetVersion must be a version id');
+    if (!isUuid(target))
+      throw new ProblemException('validation_failed', 'targetVersion must be a version id');
     if (body.baseVersion !== undefined && body.baseVersion !== p.headVersionId)
-      throw new ProblemException('base_mismatch', 'the project changed since you loaded it', undefined, {
-        currentVersion: p.headVersionId,
-      });
-    if (!p.headVersionId) throw new ProblemException('conflict', 'the project has no version to roll back from');
+      throw new ProblemException(
+        'base_mismatch',
+        'the project changed since you loaded it',
+        undefined,
+        {
+          currentVersion: p.headVersionId,
+        },
+      );
+    if (!p.headVersionId)
+      throw new ProblemException('conflict', 'the project has no version to roll back from');
     if (target.toLowerCase() === p.headVersionId)
       throw new ProblemException('conflict', 'that version already is the head');
-    const [cur, want] = [await this.files(orgId, p, p.headVersionId), await this.files(orgId, p, target.toLowerCase())];
+    const [cur, want] = [
+      await this.files(orgId, p, p.headVersionId),
+      await this.files(orgId, p, target.toLowerCase()),
+    ];
     const ops = planRestore(cur, want);
-    if (ops.length === 0) throw new ProblemException('conflict', 'that version has the same files as the head');
-    return this.applyPlanned(orgId, actor, p, ops, cur, body.confirmed === true, `Rollback to ${target.slice(0, 8)}`, 'builder.change.rolled_back', {
-      restoredFrom: target.toLowerCase(),
-    }).then((r) => ({ ...r, restoredFrom: target.toLowerCase() }));
+    if (ops.length === 0)
+      throw new ProblemException('conflict', 'that version has the same files as the head');
+    return this.applyPlanned(
+      orgId,
+      actor,
+      p,
+      ops,
+      cur,
+      body.confirmed === true,
+      `Rollback to ${target.slice(0, 8)}`,
+      'builder.change.rolled_back',
+      {
+        restoredFrom: target.toLowerCase(),
+      },
+    ).then((r) => ({ ...r, restoredFrom: target.toLowerCase() }));
   }
 
   /** Undoes ONE earlier version (`versionId` against its parent), keeping later work; files edited since are reported as conflicts and left alone. */
@@ -150,11 +193,17 @@ export class ChangeToolsService {
     body: { versionId?: unknown; baseVersion?: unknown; confirmed?: unknown },
   ): Promise<ChangeResult & { revertedVersion: string; conflicts: string[] }> {
     this.assertTree(p);
-    if (!isUuid(body.versionId)) throw new ProblemException('validation_failed', 'versionId must be a version id');
+    if (!isUuid(body.versionId))
+      throw new ProblemException('validation_failed', 'versionId must be a version id');
     if (body.baseVersion !== undefined && body.baseVersion !== p.headVersionId)
-      throw new ProblemException('base_mismatch', 'the project changed since you loaded it', undefined, {
-        currentVersion: p.headVersionId,
-      });
+      throw new ProblemException(
+        'base_mismatch',
+        'the project changed since you loaded it',
+        undefined,
+        {
+          currentVersion: p.headVersionId,
+        },
+      );
     if (!p.headVersionId) throw new ProblemException('conflict', 'the project has no version');
     const v = await this.projects.getVersion(orgId, p.id, body.versionId.toLowerCase());
     if (!v) throw new ProblemException('not_found', 'project version not found');
@@ -165,13 +214,27 @@ export class ChangeToolsService {
     if (plan.ops.length === 0)
       throw new ProblemException(
         'conflict',
-        plan.conflicts.length ? 'every file of that change was edited since: nothing can be reverted safely' : 'that version changed nothing',
-        plan.conflicts.slice(0, 50).map((path) => ({ field: path, message: 'edited after that change' })),
+        plan.conflicts.length
+          ? 'every file of that change was edited since: nothing can be reverted safely'
+          : 'that version changed nothing',
+        plan.conflicts
+          .slice(0, 50)
+          .map((path) => ({ field: path, message: 'edited after that change' })),
       );
-    const r = await this.applyPlanned(orgId, actor, p, plan.ops, cur, body.confirmed === true, `Revert ${v.id.slice(0, 8)}`, 'builder.change.reverted', {
-      revertedVersion: v.id,
-      conflicts: plan.conflicts.length,
-    });
+    const r = await this.applyPlanned(
+      orgId,
+      actor,
+      p,
+      plan.ops,
+      cur,
+      body.confirmed === true,
+      `Revert ${v.id.slice(0, 8)}`,
+      'builder.change.reverted',
+      {
+        revertedVersion: v.id,
+        conflicts: plan.conflicts.length,
+      },
+    );
     return { ...r, revertedVersion: v.id, conflicts: plan.conflicts };
   }
 
@@ -211,7 +274,14 @@ export class ChangeToolsService {
       actorUserId: actor,
       resource: { type: 'project', id: p.id },
       outcome: 'success',
-      after: { versionId: result.versionId, files: prev.totals.files, added: prev.totals.added, removed: prev.totals.removed, confirmed, ...extra },
+      after: {
+        versionId: result.versionId,
+        files: prev.totals.files,
+        added: prev.totals.added,
+        removed: prev.totals.removed,
+        confirmed,
+        ...extra,
+      },
     });
     return result;
   }

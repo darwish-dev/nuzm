@@ -17,7 +17,10 @@ export class BuilderToolsEnabledGuard implements CanActivate {
     const orgId = ctx.switchToHttp().getRequest<FastifyRequest>().access?.orgId;
     if (!orgId) return true;
     if (!(await flagOn(this.db, orgId, BUILDER_TOOLS_FLAG)))
-      throw new ProblemException('not_found', 'the builder tools are not enabled for this organization');
+      throw new ProblemException(
+        'not_found',
+        'the builder tools are not enabled for this organization',
+      );
     return true;
   }
 }

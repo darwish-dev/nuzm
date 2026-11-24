@@ -32,9 +32,15 @@ export interface BuildPort {
   build(req: BuildRequest): Promise<BuildResult>;
 }
 
-export type BuildScript = Partial<BuildResult> | ((req: BuildRequest, attempt: number) => Partial<BuildResult>);
+export type BuildScript =
+  Partial<BuildResult> | ((req: BuildRequest, attempt: number) => Partial<BuildResult>);
 
-const DEFAULT: BuildResult = { status: 'completed', logs: '[MOCK] scripted default: nothing was built\n', artifacts: [], durationMs: 1 };
+const DEFAULT: BuildResult = {
+  status: 'completed',
+  logs: '[MOCK] scripted default: nothing was built\n',
+  artifacts: [],
+  durationMs: 1,
+};
 const MAX_LOG = 64 * 1024;
 
 export class ScriptedBuildPort implements BuildPort {

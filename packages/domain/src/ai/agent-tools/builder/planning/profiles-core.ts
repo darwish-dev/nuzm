@@ -81,5 +81,18 @@ export const UNSUPPORTED_STACKS: readonly { name: string; keywords: readonly str
 ];
 
 // ── shared module files per family ──
-export const WEB_SCAFFOLD = ['package.json', 'tsconfig.json', 'next.config.mjs', 'app/layout.tsx', 'app/page.tsx', 'README.md'];
-export const API_SCAFFOLD = ['package.json', 'tsconfig.json', 'src/main.ts', 'src/app.module.ts', 'README.md'];
+export const WEB_SCAFFOLD = [
+  'package.json',
+  'tsconfig.json',
+  'next.config.mjs',
+  'app/layout.tsx',
+  'app/page.tsx',
+  'README.md',
+];
+export const API_SCAFFOLD = [
+  'package.json',
+  'tsconfig.json',
+  'src/main.ts',
+  'src/app.module.ts',
+  'README.md',
+];

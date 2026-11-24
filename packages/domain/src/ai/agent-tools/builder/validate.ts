@@ -14,20 +14,34 @@ export interface Finding {
   line: number | null;
   message: string;
 }
-const f = (severity: Severity, code: string, path: string | null, line: number | null, message: string): Finding => ({ severity, code, path, line, message });
+const f = (
+  severity: Severity,
+  code: string,
+  path: string | null,
+  line: number | null,
+  message: string,
+): Finding => ({ severity, code, path, line, message });
 
-export const VALIDATE_LIMITS = { maxFileBytes: 1_000_000, maxFindings: 200, maxFiles: 5_000 } as const;
+export const VALIDATE_LIMITS = {
+  maxFileBytes: 1_000_000,
+  maxFindings: 200,
+  maxFiles: 5_000,
+} as const;
 
 type Open = { ch: string; line: number };
 const PAIRS: Record<string, string> = { ')': '(', ']': '[', '}': '{' };
 const REGEX_PREV = new Set('(,=:[!&|?{};'.split(''));
-const KEYWORD_BEFORE_REGEX = /(?:^|[^\w$])(?:return|typeof|case|in|of|delete|void|throw|new|else|do)\s*$/;
+const KEYWORD_BEFORE_REGEX =
+  /(?:^|[^\w$])(?:return|typeof|case|in|of|delete|void|throw|new|else|do)\s*$/;
 
 /**
  * Bracket balance of a JS/TS/CSS file, aware of comments, strings, template literals and regex literals. A quote that does not close on its own line is treated as plain text (an
  * apostrophe in JSX text), so a real file is never reported broken because of it. Returns the first problem, or null.
  */
-export function bracketProblem(text: string, opts: { css?: boolean } = {}): { line: number; kind: 'mismatch' | 'unclosed' | 'unexpected' } | null {
+export function bracketProblem(
+  text: string,
+  opts: { css?: boolean } = {},
+): { line: number; kind: 'mismatch' | 'unclosed' | 'unexpected' } | null {
   const stack: Open[] = [];
   let line = 1;
   let i = 0;
@@ -97,7 +111,11 @@ export function bracketProblem(text: string, opts: { css?: boolean } = {}): { li
         } else i++;
       }
       lastSig = 'a';
-    } else if (c === '/' && !opts.css && (lastSig === '' || REGEX_PREV.has(lastSig) || KEYWORD_BEFORE_REGEX.test(tail))) {
+    } else if (
+      c === '/' &&
+      !opts.css &&
+      (lastSig === '' || REGEX_PREV.has(lastSig) || KEYWORD_BEFORE_REGEX.test(tail))
+    ) {
       // regex literal
       let j = i + 1;
       let cls = false;
@@ -142,59 +160,150 @@ function jsonLine(msg: string, text: string): number | null {
   return p ? text.slice(0, Number(p[1])).split('\n').length : null;
 }
 
-const INSTALL_HOOKS = ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'prepublishOnly'];
-const BUILD_CONFIG = /^(?:[\w.-]*\.)?(?:config|rc)\.[cm]?[jt]s$|^(?:next|vite|webpack|rollup|babel|postcss|tailwind|eslint|jest|vitest)[\w.-]*\.[cm]?[jt]s$/;
-const NET_IN_CONFIG = /\bchild_process\b|\bfetch\s*\(|\bhttps?\.(?:get|request)\b|require\(\s*['"]https?['"]\s*\)|\b(?:curl|wget)\b/;
+const INSTALL_HOOKS = [
+  'preinstall',
+  'install',
+  'postinstall',
+  'prepare',
+  'prepublish',
+  'prepublishOnly',
+];
+const BUILD_CONFIG =
+  /^(?:[\w.-]*\.)?(?:config|rc)\.[cm]?[jt]s$|^(?:next|vite|webpack|rollup|babel|postcss|tailwind|eslint|jest|vitest)[\w.-]*\.[cm]?[jt]s$/;
+const NET_IN_CONFIG =
+  /\bchild_process\b|\bfetch\s*\(|\bhttps?\.(?:get|request)\b|require\(\s*['"]https?['"]\s*\)|\b(?:curl|wget)\b/;
 const EVAL = /\beval\s*\(|\bnew\s+Function\s*\(/;
 const REMOTE_DEP = /^(?:git(?:\+\w+)?:|github:|https?:|file:|link:|ssh:)/;
 
 /** Static checks of ONE file. */
 export function validateFile(path: string, text: string): Finding[] {
   const out: Finding[] = [];
-  if (isAgentSensitivePath(path)) return [f('error', 'sensitive_path', path, null, 'a file that is never part of a project change')];
-  if (text.length > VALIDATE_LIMITS.maxFileBytes) return [f('error', 'file_too_large', path, null, 'the file is too large to check')];
+  if (isAgentSensitivePath(path))
+    return [
+      f('error', 'sensitive_path', path, null, 'a file that is never part of a project change'),
+    ];
+  if (text.length > VALIDATE_LIMITS.maxFileBytes)
+    return [f('error', 'file_too_large', path, null, 'the file is too large to check')];
   if (text.trim() === '') out.push(f('warning', 'empty_file', path, null, 'the file is empty'));
-  for (const s of scanForSecrets(text)) out.push(f('error', 'secret_detected', path, text.slice(0, s.index).split('\n').length, 'the file contains something that looks like a secret'));
-  if (text.includes('NZCANARY-')) out.push(f('error', 'canary_detected', path, null, 'the file contains a platform canary token'));
+  for (const s of scanForSecrets(text))
+    out.push(
+      f(
+        'error',
+        'secret_detected',
+        path,
+        text.slice(0, s.index).split('\n').length,
+        'the file contains something that looks like a secret',
+      ),
+    );
+  if (text.includes('NZCANARY-'))
+    out.push(
+      f('error', 'canary_detected', path, null, 'the file contains a platform canary token'),
+    );
   const base = path.split('/').pop()!;
   if (path.endsWith('.json')) {
     try {
       const j = JSON.parse(text) as unknown;
       if (base === 'package.json' && j && typeof j === 'object') {
         const pj = j as Record<string, unknown>;
-        const scripts = pj.scripts && typeof pj.scripts === 'object' ? Object.keys(pj.scripts as object) : [];
+        const scripts =
+          pj.scripts && typeof pj.scripts === 'object' ? Object.keys(pj.scripts as object) : [];
         for (const h of INSTALL_HOOKS)
-          if (scripts.includes(h)) out.push(f('error', 'install_script', path, null, 'an install-time script is not allowed in a generated project'));
-        for (const k of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+          if (scripts.includes(h))
+            out.push(
+              f(
+                'error',
+                'install_script',
+                path,
+                null,
+                'an install-time script is not allowed in a generated project',
+              ),
+            );
+        for (const k of [
+          'dependencies',
+          'devDependencies',
+          'optionalDependencies',
+          'peerDependencies',
+        ]) {
           const o = pj[k];
           if (o && typeof o === 'object')
             for (const v of Object.values(o as Record<string, unknown>))
               if (typeof v === 'string' && REMOTE_DEP.test(v)) {
-                out.push(f('error', 'remote_dependency', path, null, 'a dependency points at a URL, git repository or local path instead of a registry version'));
+                out.push(
+                  f(
+                    'error',
+                    'remote_dependency',
+                    path,
+                    null,
+                    'a dependency points at a URL, git repository or local path instead of a registry version',
+                  ),
+                );
                 break;
               }
         }
-        if (typeof pj.name !== 'string') out.push(f('warning', 'package_name_missing', path, null, 'package.json has no name'));
+        if (typeof pj.name !== 'string')
+          out.push(f('warning', 'package_name_missing', path, null, 'package.json has no name'));
       }
     } catch (e) {
-      out.push(f('error', 'invalid_json', path, jsonLine(String((e as Error).message), text), 'the file is not valid JSON'));
+      out.push(
+        f(
+          'error',
+          'invalid_json',
+          path,
+          jsonLine(String((e as Error).message), text),
+          'the file is not valid JSON',
+        ),
+      );
     }
   } else if (isCodePath(path)) {
     const bp = bracketProblem(text);
-    if (bp) out.push(f('error', 'unbalanced_brackets', path, bp.line, bp.kind === 'unclosed' ? 'a bracket is opened and never closed' : bp.kind === 'unexpected' ? 'a closing bracket has no opening one' : 'a closing bracket does not match the one opened'));
-    if (EVAL.test(text)) out.push(f('warning', 'dynamic_code', path, null, 'dynamic code evaluation (eval or new Function) is used'));
+    if (bp)
+      out.push(
+        f(
+          'error',
+          'unbalanced_brackets',
+          path,
+          bp.line,
+          bp.kind === 'unclosed'
+            ? 'a bracket is opened and never closed'
+            : bp.kind === 'unexpected'
+              ? 'a closing bracket has no opening one'
+              : 'a closing bracket does not match the one opened',
+        ),
+      );
+    if (EVAL.test(text))
+      out.push(
+        f(
+          'warning',
+          'dynamic_code',
+          path,
+          null,
+          'dynamic code evaluation (eval or new Function) is used',
+        ),
+      );
     if (BUILD_CONFIG.test(base) && NET_IN_CONFIG.test(text))
-      out.push(f('error', 'network_in_build_config', path, null, 'build tooling must not start processes or make network calls'));
+      out.push(
+        f(
+          'error',
+          'network_in_build_config',
+          path,
+          null,
+          'build tooling must not start processes or make network calls',
+        ),
+      );
   } else if (path.endsWith('.css')) {
     const bp = bracketProblem(text, { css: true });
     if (bp) out.push(f('error', 'unbalanced_brackets', path, bp.line, 'a brace is not balanced'));
   }
-  if (/lorem ipsum/i.test(text)) out.push(f('warning', 'placeholder_text', path, null, 'placeholder text was left in the file'));
+  if (/lorem ipsum/i.test(text))
+    out.push(f('warning', 'placeholder_text', path, null, 'placeholder text was left in the file'));
   return out;
 }
 
 /** Static checks of the whole project (or only `paths`), the import graph included. */
-export function validateProject(files: ReadonlyMap<string, string>, opts: { paths?: ReadonlySet<string> } = {}): Finding[] {
+export function validateProject(
+  files: ReadonlyMap<string, string>,
+  opts: { paths?: ReadonlySet<string> } = {},
+): Finding[] {
   const out: Finding[] = [];
   let n = 0;
   for (const [path, text] of files) {
@@ -209,11 +318,38 @@ export function validateProject(files: ReadonlyMap<string, string>, opts: { path
   const imp = analyzeImports(files);
   for (const u of imp.unresolved)
     if (!opts.paths || opts.paths.has(u.path))
-      out.push(f('error', 'unresolved_import', u.path, u.line, u.reason === 'outside_project' ? 'an import points outside the project' : 'an import does not match any project file'));
+      out.push(
+        f(
+          'error',
+          'unresolved_import',
+          u.path,
+          u.line,
+          u.reason === 'outside_project'
+            ? 'an import points outside the project'
+            : 'an import does not match any project file',
+        ),
+      );
   for (const m of imp.missingPackages)
     if (!opts.paths || opts.paths.has(m.path))
-      out.push(f('warning', 'undeclared_package', m.path, m.line, 'a package is imported but not declared in package.json'));
-  for (const c of imp.cycles) out.push(f('warning', 'import_cycle', c[0]!, null, `files import each other in a cycle (${c.length} files)`));
+      out.push(
+        f(
+          'warning',
+          'undeclared_package',
+          m.path,
+          m.line,
+          'a package is imported but not declared in package.json',
+        ),
+      );
+  for (const c of imp.cycles)
+    out.push(
+      f(
+        'warning',
+        'import_cycle',
+        c[0]!,
+        null,
+        `files import each other in a cycle (${c.length} files)`,
+      ),
+    );
   return out.slice(0, VALIDATE_LIMITS.maxFindings);
 }
 
@@ -235,13 +371,26 @@ export const summarize = (findings: readonly Finding[]): ReviewSummary => {
  */
 export function reviewProject(
   files: ReadonlyMap<string, string>,
-  opts: { changedPaths?: ReadonlySet<string>; plan?: { tasks: readonly { id: string; files: readonly string[] }[] }; doneTasks?: ReadonlySet<string> } = {},
+  opts: {
+    changedPaths?: ReadonlySet<string>;
+    plan?: { tasks: readonly { id: string; files: readonly string[] }[] };
+    doneTasks?: ReadonlySet<string>;
+  } = {},
 ): { findings: Finding[]; summary: ReviewSummary } {
   const findings = validateProject(files, opts.changedPaths ? { paths: opts.changedPaths } : {});
   for (const t of opts.plan?.tasks ?? []) {
     if (opts.doneTasks && !opts.doneTasks.has(t.id)) continue;
     for (const p of t.files)
-      if (!files.has(p)) findings.push(f('warning', 'missing_planned_file', p, null, `task ${t.id} planned this file and it does not exist`));
+      if (!files.has(p))
+        findings.push(
+          f(
+            'warning',
+            'missing_planned_file',
+            p,
+            null,
+            `task ${t.id} planned this file and it does not exist`,
+          ),
+        );
   }
   return { findings, summary: summarize(findings) };
 }

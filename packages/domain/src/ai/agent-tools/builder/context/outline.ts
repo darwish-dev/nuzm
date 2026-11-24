@@ -16,7 +16,13 @@ export function outlineFile(path: string, text: string, maxChars = 1200): string
   } else if (path.endsWith('.json')) {
     try {
       const j = JSON.parse(text) as unknown;
-      out = `outline of ${path}: ` + (j && typeof j === 'object' ? `keys ${Object.keys(j as object).slice(0, 30).join(', ')}` : typeof j);
+      out =
+        `outline of ${path}: ` +
+        (j && typeof j === 'object'
+          ? `keys ${Object.keys(j as object)
+              .slice(0, 30)
+              .join(', ')}`
+          : typeof j);
     } catch {
       out = `outline of ${path}: not valid JSON`;
     }

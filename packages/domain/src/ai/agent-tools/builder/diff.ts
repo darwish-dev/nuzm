@@ -44,7 +44,11 @@ export function diffLines(a: readonly string[], b: readonly string[]): Edit[] {
   let pre = 0;
   while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++;
   let suf = 0;
-  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf])
+  while (
+    suf < a.length - pre &&
+    suf < b.length - pre &&
+    a[a.length - 1 - suf] === b[b.length - 1 - suf]
+  )
     suf++;
   const am = a.slice(pre, a.length - suf);
   const bm = b.slice(pre, b.length - suf);
@@ -99,8 +103,7 @@ function myers(a: readonly string[], b: readonly string[]): Edit[] {
   for (let d = found; d > 0; d--) {
     const vv = trace[d]!; // state before round d = result of round d-1
     const k = x - y;
-    const prevK =
-      k === -d || (k !== d && vv[off + k - 1]! < vv[off + k + 1]!) ? k + 1 : k - 1;
+    const prevK = k === -d || (k !== d && vv[off + k - 1]! < vv[off + k + 1]!) ? k + 1 : k - 1;
     const prevX = vv[off + prevK]!;
     const prevY = prevX - prevK;
     while (x > prevX && y > prevY) {
@@ -141,7 +144,10 @@ export interface DiffStats {
 }
 
 /** Hunks (with context) of an edit script. An identical pair has no hunks. */
-export function toHunks(edits: readonly Edit[], context: number = DIFF_LIMITS.contextLines): Hunk[] {
+export function toHunks(
+  edits: readonly Edit[],
+  context: number = DIFF_LIMITS.contextLines,
+): Hunk[] {
   const hunks: Hunk[] = [];
   const changeIdx: number[] = [];
   edits.forEach((e, i) => {
@@ -231,8 +237,7 @@ export function diffFile(
   const hunks = toHunks(edits);
   const stats = statsOf(edits);
   const renamed = oldPath !== newPath;
-  if (hunks.length === 0 && !renamed)
-    return { stats, hunks, text: '', coarse: tooBig };
+  if (hunks.length === 0 && !renamed) return { stats, hunks, text: '', coarse: tooBig };
   const head = [
     `--- ${oldPath === null ? '/dev/null' : `a/${oldPath}`}`,
     `+++ ${newPath === null ? '/dev/null' : `b/${newPath}`}`,
@@ -253,7 +258,8 @@ export type ApplyError =
   | { code: 'hunk_out_of_range'; hunk: number }
   | { code: 'hunks_overlap'; hunk: number };
 
-export type ApplyResult = { ok: true; text: string; drift: number[] } | { ok: false; error: ApplyError };
+export type ApplyResult =
+  { ok: true; text: string; drift: number[] } | { ok: false; error: ApplyError };
 
 const matchesAt = (lines: readonly string[], at: number, want: readonly string[]): boolean => {
   if (at < 0 || at + want.length > lines.length) return false;
@@ -275,17 +281,20 @@ export function applyHunks(text: string, hunks: readonly Hunk[]): ApplyResult {
     const h = hunks[hi]!;
     const want = h.lines.filter((l) => l.kind !== 'ins').map((l) => l.text);
     const repl = h.lines.filter((l) => l.kind !== 'del').map((l) => l.text);
-    const stated = Math.max(0, (h.oldLines === 0 ? h.oldStart : h.oldStart - 1));
+    const stated = Math.max(0, h.oldLines === 0 ? h.oldStart : h.oldStart - 1);
     if (want.length === 0) {
       // a pure insertion: stated position is the only anchor
       if (stated > lines.length || stated < cursor)
-        return { ok: false, error: { code: stated < cursor ? 'hunks_overlap' : 'hunk_out_of_range', hunk: hi } };
+        return {
+          ok: false,
+          error: { code: stated < cursor ? 'hunks_overlap' : 'hunk_out_of_range', hunk: hi },
+        };
       out.push(...lines.slice(cursor, stated), ...repl);
       cursor = stated;
       drift.push(0);
       continue;
     }
-    let at = -1;
+    let at: number;
     if (matchesAt(lines, stated, want) && stated >= cursor) at = stated;
     else {
       let best = -1;
@@ -305,7 +314,10 @@ export function applyHunks(text: string, hunks: readonly Hunk[]): ApplyResult {
       if (best < 0) {
         // distinguish "overlaps an earlier hunk" from "context does not match"
         const earlier = matchesAt(lines, stated, want) && stated < cursor;
-        return { ok: false, error: { code: earlier ? 'hunks_overlap' : 'hunk_context_mismatch', hunk: hi } };
+        return {
+          ok: false,
+          error: { code: earlier ? 'hunks_overlap' : 'hunk_context_mismatch', hunk: hi },
+        };
       }
       if (tie) return { ok: false, error: { code: 'hunk_ambiguous', hunk: hi } };
       at = best;
@@ -344,8 +356,10 @@ function cleanHeaderPath(raw: string): string | null | undefined {
  * Paths are returned as written (minus `a/`/`b/`); the caller validates them with the same path rules as every other model-supplied path.
  */
 export function parseUnifiedDiff(text: string): ParseResult {
-  if (typeof text !== 'string' || text.length === 0) return { ok: false, errors: ['the diff is empty'] };
-  if (text.length > DIFF_LIMITS.maxDiffChars) return { ok: false, errors: ['the diff is too large'] };
+  if (typeof text !== 'string' || text.length === 0)
+    return { ok: false, errors: ['the diff is empty'] };
+  if (text.length > DIFF_LIMITS.maxDiffChars)
+    return { ok: false, errors: ['the diff is too large'] };
   const rows = text.replace(/\r\n/g, '\n').split('\n');
   if (rows[rows.length - 1] === '') rows.pop();
   const files: FilePatch[] = [];
@@ -355,7 +369,11 @@ export function parseUnifiedDiff(text: string): ParseResult {
     const r = rows[i]!;
     if (!r.startsWith('--- ')) {
       // preamble lines ("diff --git", "index ...") between files are tolerated; anything else before the first header is not
-      if (/^(diff |index |new file mode|deleted file mode|similarity index|rename (from|to)|old mode|new mode)/.test(r)) {
+      if (
+        /^(diff |index |new file mode|deleted file mode|similarity index|rename (from|to)|old mode|new mode)/.test(
+          r,
+        )
+      ) {
         i++;
         continue;
       }
@@ -404,7 +422,10 @@ export function parseUnifiedDiff(text: string): ParseResult {
       i++;
       let oldSeen = 0;
       let newSeen = 0;
-      while (i < rows.length && (oldSeen < h.oldLines || newSeen < h.newLines || rows[i]!.startsWith('\\'))) {
+      while (
+        i < rows.length &&
+        (oldSeen < h.oldLines || newSeen < h.newLines || rows[i]!.startsWith('\\'))
+      ) {
         const row = rows[i]!;
         if (row.startsWith('\\')) {
           // "\ No newline at end of file": the previous line has no terminator

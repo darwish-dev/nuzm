@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '../sha256';
 import { outlineFile } from './outline';
 import { estimateTokens } from './tokens';
 
@@ -8,7 +8,8 @@ import { estimateTokens } from './tokens';
  * items to head and tail, fold old conversation turns into one line, drop the least important. Pinned items (the system text, the plan, the current task) are never altered or dropped.
  * If the pinned items alone exceed the budget the result says `overBudget`: the caller must shrink the task, the compressor will not silently lose a pinned item.
  */
-export type ContextKind = 'system' | 'plan' | 'memory' | 'file' | 'tool_result' | 'turn' | 'diagnostic' | 'note';
+export type ContextKind =
+  'system' | 'plan' | 'memory' | 'file' | 'tool_result' | 'turn' | 'diagnostic' | 'note';
 export interface ContextItem {
   id: string;
   kind: ContextKind;
@@ -34,9 +35,13 @@ export interface CompressionResult {
   overBudget: boolean;
   steps: string[];
 }
-export const COMPRESS_LIMITS = { maxItems: 500, maxItemTokensAfterTruncate: 600, keepRecentTurns: 4 } as const;
+export const COMPRESS_LIMITS = {
+  maxItems: 500,
+  maxItemTokensAfterTruncate: 600,
+  keepRecentTurns: 4,
+} as const;
 
-const hash = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+const hash = (s: string) => sha256Hex(s).slice(0, 16);
 
 function headTail(text: string, maxTokens: number): string {
   if (estimateTokens(text) <= maxTokens) return text;
@@ -46,7 +51,10 @@ function headTail(text: string, maxTokens: number): string {
     return text.slice(0, chars) + '\n[… cut …]';
   }
   // keep as many lines at each end as the budget allows, shrinking until the result fits
-  let keep = Math.max(2, Math.floor(maxTokens / Math.max(1, estimateTokens(text) / lines.length) / 2));
+  let keep = Math.max(
+    2,
+    Math.floor(maxTokens / Math.max(1, estimateTokens(text) / lines.length) / 2),
+  );
   for (let k = 0; k < 10; k++) {
     if (keep * 2 >= lines.length) keep = Math.floor(lines.length / 2) - 1;
     const out = `${lines.slice(0, keep).join('\n')}\n[… ${lines.length - keep * 2} lines omitted …]\n${lines.slice(-keep).join('\n')}`;
@@ -59,12 +67,19 @@ function headTail(text: string, maxTokens: number): string {
 export function compressContext(items: readonly ContextItem[], budget: number): CompressionResult {
   const steps: string[] = [];
   const dropped: CompressionResult['dropped'] = [];
-  let cur: CompressedItem[] = items.slice(0, COMPRESS_LIMITS.maxItems).map((i) => ({ ...i, tokens: estimateTokens(i.text) }));
-  if (items.length > COMPRESS_LIMITS.maxItems) steps.push(`only the first ${COMPRESS_LIMITS.maxItems} items were considered`);
+  let cur: CompressedItem[] = items
+    .slice(0, COMPRESS_LIMITS.maxItems)
+    .map((i) => ({ ...i, tokens: estimateTokens(i.text) }));
+  if (items.length > COMPRESS_LIMITS.maxItems)
+    steps.push(`only the first ${COMPRESS_LIMITS.maxItems} items were considered`);
   const total = () => cur.reduce((n, i) => n + i.tokens, 0);
   const fits = () => total() <= budget;
   // lowest priority first; among equals, the earliest (oldest) first
-  const order = () => cur.map((i, idx) => ({ i, idx })).filter((x) => !x.i.pinned).sort((a, b) => a.i.priority - b.i.priority || a.idx - b.idx);
+  const order = () =>
+    cur
+      .map((i, idx) => ({ i, idx }))
+      .filter((x) => !x.i.pinned)
+      .sort((a, b) => a.i.priority - b.i.priority || a.idx - b.idx);
 
   // 1. duplicates (same kind and text) keep the first
   const seen = new Set<string>();
@@ -118,7 +133,14 @@ export function compressContext(items: readonly ContextItem[], budget: number): 
       const text = `[${old.length} earlier messages omitted: ${u} from the user, ${old.length - u} from the assistant]`;
       const first = cur.findIndex((i) => i === old[0]);
       const ids = new Set(old.map((t) => t.id));
-      const folded: CompressedItem = { id: `folded-${old[0]!.id}`, kind: 'turn', text, priority: 50, tokens: estimateTokens(text), change: 'folded' };
+      const folded: CompressedItem = {
+        id: `folded-${old[0]!.id}`,
+        kind: 'turn',
+        text,
+        priority: 50,
+        tokens: estimateTokens(text),
+        change: 'folded',
+      };
       cur = cur.filter((i) => !ids.has(i.id));
       cur.splice(Math.min(first, cur.length), 0, folded);
       steps.push(`folded ${old.length} earlier conversation turn(s)`);

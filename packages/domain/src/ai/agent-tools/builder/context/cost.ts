@@ -37,17 +37,27 @@ export interface PlanEstimate {
   costMinor: number;
 }
 
-export function estimatePlan(plan: ImplementationPlan, rates: Rates, opts: { repairRounds?: number } = {}): PlanEstimate {
+export function estimatePlan(
+  plan: ImplementationPlan,
+  rates: Rates,
+  opts: { repairRounds?: number } = {},
+): PlanEstimate {
   const rounds = Math.max(0, Math.min(opts.repairRounds ?? 1, 3));
   const tasks = plan.tasks.map((t) => {
     const base = TASK_TOKENS[t.kind];
     const inputTokens = base.input * t.size;
     const outputTokens = base.output * t.size;
-    return { taskId: t.id, inputTokens, outputTokens, costMinor: costMinor(inputTokens, rates.inputPer1k) + costMinor(outputTokens, rates.outputPer1k) };
+    return {
+      taskId: t.id,
+      inputTokens,
+      outputTokens,
+      costMinor:
+        costMinor(inputTokens, rates.inputPer1k) + costMinor(outputTokens, rates.outputPer1k),
+    };
   });
   const inputTokens = tasks.reduce((n, t) => n + t.inputTokens, 0);
   const outputTokens = tasks.reduce((n, t) => n + t.outputTokens, 0);
-  const repairTokens = Math.ceil(((inputTokens + outputTokens) * 0.3 * rounds)); // 30% of the build work per round
+  const repairTokens = Math.ceil((inputTokens + outputTokens) * 0.3 * rounds); // 30% of the build work per round
   return {
     tasks,
     inputTokens,
@@ -55,7 +65,10 @@ export function estimatePlan(plan: ImplementationPlan, rates: Rates, opts: { rep
     repairTokens,
     totalTokens: inputTokens + outputTokens + repairTokens,
     // the repair allowance is priced at the blended rate of the plan
-    costMinor: tasks.reduce((n, t) => n + t.costMinor, 0) + costMinor(Math.ceil(repairTokens / 2), rates.inputPer1k) + costMinor(Math.ceil(repairTokens / 2), rates.outputPer1k),
+    costMinor:
+      tasks.reduce((n, t) => n + t.costMinor, 0) +
+      costMinor(Math.ceil(repairTokens / 2), rates.inputPer1k) +
+      costMinor(Math.ceil(repairTokens / 2), rates.outputPer1k),
   };
 }
 
@@ -64,13 +77,19 @@ export type BudgetAllocation =
   | { ok: false; reason: 'infeasible'; needed: number };
 
 /** Splits a token budget over the tasks in proportion to their estimates (never below a floor), keeping a reserve for the repair loop. Refuses a budget that cannot cover the floors. */
-export function allocateBudget(plan: ImplementationPlan, maxTokens: number, opts: { floor?: number; reserveShare?: number } = {}): BudgetAllocation {
+export function allocateBudget(
+  plan: ImplementationPlan,
+  maxTokens: number,
+  opts: { floor?: number; reserveShare?: number } = {},
+): BudgetAllocation {
   const floor = opts.floor ?? 2_000;
   const reserve = Math.floor(maxTokens * Math.min(Math.max(opts.reserveShare ?? 0.15, 0), 0.5));
   const usable = maxTokens - reserve;
   const need = plan.tasks.length * floor;
   if (need > usable) return { ok: false, reason: 'infeasible', needed: need + reserve };
-  const weights = plan.tasks.map((t) => (TASK_TOKENS[t.kind].input + TASK_TOKENS[t.kind].output) * t.size);
+  const weights = plan.tasks.map(
+    (t) => (TASK_TOKENS[t.kind].input + TASK_TOKENS[t.kind].output) * t.size,
+  );
   const sum = weights.reduce((a, b) => a + b, 0);
   let spare = usable - need;
   const perTask = plan.tasks.map((t, i) => {
@@ -83,13 +102,29 @@ export function allocateBudget(plan: ImplementationPlan, maxTokens: number, opts
 }
 
 /** Whole-file replacement is simplest, but costs output tokens in proportion to the FILE; a unified diff costs in proportion to the CHANGE. */
-export function chooseEditMode(f: { bytes: number; changedLines: number; totalLines: number }): 'whole_file' | 'unified_diff' {
+export function chooseEditMode(f: {
+  bytes: number;
+  changedLines: number;
+  totalLines: number;
+}): 'whole_file' | 'unified_diff' {
   if (f.bytes < 2_000 || f.totalLines <= 0) return 'whole_file';
   return f.changedLines / f.totalLines <= 0.3 ? 'unified_diff' : 'whole_file';
 }
 
-const STABILITY: Record<ContextKind, number> = { system: 0, memory: 1, plan: 2, file: 3, tool_result: 4, note: 5, diagnostic: 6, turn: 7 };
+const STABILITY: Record<ContextKind, number> = {
+  system: 0,
+  memory: 1,
+  plan: 2,
+  file: 3,
+  tool_result: 4,
+  note: 5,
+  diagnostic: 6,
+  turn: 7,
+};
 /** Orders prompt parts from most stable to most volatile, so a provider that caches a shared prefix can reuse it between turns. Stable sort: parts of one kind keep their order. */
 export function cacheFriendlyOrder<T extends { kind: ContextKind }>(parts: readonly T[]): T[] {
-  return parts.map((p, i) => ({ p, i })).sort((a, b) => STABILITY[a.p.kind] - STABILITY[b.p.kind] || a.i - b.i).map((x) => x.p);
+  return parts
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => STABILITY[a.p.kind] - STABILITY[b.p.kind] || a.i - b.i)
+    .map((x) => x.p);
 }

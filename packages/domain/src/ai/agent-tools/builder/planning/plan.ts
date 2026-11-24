@@ -28,9 +28,14 @@ function selectModules(profile: ProductProfile, features: ReadonlySet<string>): 
   return profile.modules.filter((m) => chosen.has(m.id));
 }
 
-function pickStack(profile: ProductProfile, requested: string | null): { stack: StackOption; reason: 'requested' | 'default' } {
+function pickStack(
+  profile: ProductProfile,
+  requested: string | null,
+): { stack: StackOption; reason: 'requested' | 'default' } {
   const found = requested ? profile.stacks.find((s) => s.id === requested) : undefined;
-  return found ? { stack: found, reason: 'requested' } : { stack: profile.stacks[0]!, reason: 'default' };
+  return found
+    ? { stack: found, reason: 'requested' }
+    : { stack: profile.stacks[0]!, reason: 'default' };
 }
 
 const TEST_KINDS = new Set(['backend', 'frontend', 'auth', 'integration', 'schema']);
@@ -54,13 +59,25 @@ export function buildPlan(analysis: RequirementAnalysis, rawText = ''): Implemen
     if (seen.has(m.id)) throw new Error(`dependency cycle at ${m.id}`);
     seen.add(m.id);
     const deps = m.dependsOn.filter((d) => ids.has(d));
-    const d = deps.length ? 1 + Math.max(...deps.map((x) => visit(mods.find((y) => y.id === x)!, seen))) : 0;
+    const d = deps.length
+      ? 1 +
+        Math.max(
+          ...deps.map((x) =>
+            visit(
+              mods.find((y) => y.id === x)!,
+              seen,
+            ),
+          ),
+        )
+      : 0;
     seen.delete(m.id);
     depth.set(m.id, d);
     return d;
   };
   for (const m of mods) visit(m, new Set());
-  const ordered = [...mods].sort((a, c) => depth.get(a.id)! - depth.get(c.id)! || mods.indexOf(a) - mods.indexOf(c));
+  const ordered = [...mods].sort(
+    (a, c) => depth.get(a.id)! - depth.get(c.id)! || mods.indexOf(a) - mods.indexOf(c),
+  );
   const taskId = new Map(ordered.map((m, i) => [m.id, `T${String(i + 1).padStart(2, '0')}`]));
 
   const tasks: PlanTask[] = ordered.map((m) => ({
@@ -92,7 +109,14 @@ export function buildPlan(analysis: RequirementAnalysis, rawText = ''): Implemen
         return null; // static sites and documents have no automated tests to generate
     }
   };
-  const testFiles = [...new Set(tasks.filter((t) => TEST_KINDS.has(t.kind)).map((t) => testPath(t.moduleId)).filter((p): p is string => p !== null))];
+  const testFiles = [
+    ...new Set(
+      tasks
+        .filter((t) => TEST_KINDS.has(t.kind))
+        .map((t) => testPath(t.moduleId))
+        .filter((p): p is string => p !== null),
+    ),
+  ];
   let testsId: string | null = null;
   if (testFiles.length) {
     testsId = nextId();
@@ -104,7 +128,12 @@ export function buildPlan(analysis: RequirementAnalysis, rawText = ''): Implemen
       dependsOn: buildTasks.map((t) => t.id),
       wave: maxWave + 1,
       files: testFiles,
-      acceptance: [b('Each module has a test for success, validation failure and a forbidden caller', 'لكل وحدة اختبار للنجاح وفشل التحقق ومستخدم غير مصرح')],
+      acceptance: [
+        b(
+          'Each module has a test for success, validation failure and a forbidden caller',
+          'لكل وحدة اختبار للنجاح وفشل التحقق ومستخدم غير مصرح',
+        ),
+      ],
       size: 3,
       approval: null,
     });
@@ -121,7 +150,12 @@ export function buildPlan(analysis: RequirementAnalysis, rawText = ''): Implemen
       dependsOn: buildTasks.map((t) => t.id),
       wave: maxWave + 1,
       files: ['README.md', 'docs/architecture.md', 'docs/runbook.md'],
-      acceptance: [b('The README explains how to run, test and configure the project', 'يشرح الملف README كيفية التشغيل والاختبار والإعداد')],
+      acceptance: [
+        b(
+          'The README explains how to run, test and configure the project',
+          'يشرح الملف README كيفية التشغيل والاختبار والإعداد',
+        ),
+      ],
       size: 2,
       approval: null,
     });
@@ -135,27 +169,73 @@ export function buildPlan(analysis: RequirementAnalysis, rawText = ''): Implemen
     dependsOn: reviewDeps.length ? reviewDeps : tasks.map((t) => t.id),
     wave: maxWave + (reviewDeps.length ? 2 : 1),
     files: [],
-    acceptance: [b('A review pass found no secrets, no unsafe paths and every acceptance item met', 'مراجعة لم تجد أسراراً ولا مسارات غير آمنة وكل بنود القبول متحققة')],
+    acceptance: [
+      b(
+        'A review pass found no secrets, no unsafe paths and every acceptance item met',
+        'مراجعة لم تجد أسراراً ولا مسارات غير آمنة وكل بنود القبول متحققة',
+      ),
+    ],
     size: 2,
     approval: null,
   });
 
-  const approvals = tasks.filter((t) => t.approval).map((t) => ({ taskId: t.id, reason: t.approval! }));
+  const approvals = tasks
+    .filter((t) => t.approval)
+    .map((t) => ({ taskId: t.id, reason: t.approval! }));
   const risks: ImplementationPlan['risks'] = [];
   for (const name of rawText ? unsupportedStacksIn(rawText) : [])
-    risks.push({ code: 'stack_unsupported', text: b(`${name} was asked for but is not generated; ${stack.title.en} is used.`, `طُلب ${name} لكنه غير مدعوم؛ يُستخدم ${stack.title.ar}.`) });
+    risks.push({
+      code: 'stack_unsupported',
+      text: b(
+        `${name} was asked for but is not generated; ${stack.title.en} is used.`,
+        `طُلب ${name} لكنه غير مدعوم؛ يُستخدم ${stack.title.ar}.`,
+      ),
+    });
   if (analysis.ambiguities.length)
-    risks.push({ code: 'ambiguous_requirement', text: b('The requirement is ambiguous; answer the open questions before generating.', 'المتطلبات غير واضحة؛ أجب عن الأسئلة المفتوحة قبل التوليد.') });
+    risks.push({
+      code: 'ambiguous_requirement',
+      text: b(
+        'The requirement is ambiguous; answer the open questions before generating.',
+        'المتطلبات غير واضحة؛ أجب عن الأسئلة المفتوحة قبل التوليد.',
+      ),
+    });
   if (analysis.confidence < 0.3)
-    risks.push({ code: 'low_confidence', text: b('Very little of the text could be placed; expect a generic plan.', 'تعذر تحديد معظم النص؛ توقع خطة عامة.') });
+    risks.push({
+      code: 'low_confidence',
+      text: b(
+        'Very little of the text could be placed; expect a generic plan.',
+        'تعذر تحديد معظم النص؛ توقع خطة عامة.',
+      ),
+    });
   if (analysis.truncated)
-    risks.push({ code: 'requirement_truncated', text: b('The requirement text was cut at the length limit.', 'قُصّ نص المتطلبات عند حد الطول.') });
+    risks.push({
+      code: 'requirement_truncated',
+      text: b('The requirement text was cut at the length limit.', 'قُصّ نص المتطلبات عند حد الطول.'),
+    });
   if (features.has('invoices'))
-    risks.push({ code: 'regulated_area', text: b('Invoicing touches tax rules; no compliance is claimed.', 'تمس الفواتير القواعد الضريبية؛ لا يُدَّعى امتثال.') });
+    risks.push({
+      code: 'regulated_area',
+      text: b(
+        'Invoicing touches tax rules; no compliance is claimed.',
+        'تمس الفواتير القواعد الضريبية؛ لا يُدَّعى امتثال.',
+      ),
+    });
   if (features.has('payments') || features.has('subscriptions'))
-    risks.push({ code: 'payment_integration', text: b('Payment code runs in test mode only until the owner supplies a provider.', 'يعمل كود الدفع بوضع تجريبي فقط حتى يوفر المالك مزوداً.') });
+    risks.push({
+      code: 'payment_integration',
+      text: b(
+        'Payment code runs in test mode only until the owner supplies a provider.',
+        'يعمل كود الدفع بوضع تجريبي فقط حتى يوفر المالك مزوداً.',
+      ),
+    });
   if (tasks.length > 30)
-    risks.push({ code: 'large_plan', text: b('The plan is large; consider building it in stages.', 'الخطة كبيرة؛ يُنصح بالبناء على مراحل.') });
+    risks.push({
+      code: 'large_plan',
+      text: b(
+        'The plan is large; consider building it in stages.',
+        'الخطة كبيرة؛ يُنصح بالبناء على مراحل.',
+      ),
+    });
 
   const files = new Set(tasks.flatMap((t) => t.files));
   return {
@@ -199,10 +279,14 @@ export function validatePlan(plan: unknown): { ok: true } | { ok: false; problem
   if (!p || typeof p !== 'object' || p.version !== 1 || !Array.isArray(p.tasks))
     return { ok: false, problems: [{ at: 'plan', message: 'not a version 1 plan' }] };
   if (p.tasks.length === 0 || p.tasks.length > PLAN_LIMITS.maxTasks)
-    problems.push({ at: 'tasks', message: `between 1 and ${PLAN_LIMITS.maxTasks} tasks are required` });
+    problems.push({
+      at: 'tasks',
+      message: `between 1 and ${PLAN_LIMITS.maxTasks} tasks are required`,
+    });
   const index = new Map<string, number>();
   p.tasks.forEach((t, i) => {
-    if (typeof t?.id !== 'string' || !/^T\d{2,3}$/.test(t.id)) problems.push({ at: `tasks[${i}].id`, message: 'bad task id' });
+    if (typeof t?.id !== 'string' || !/^T\d{2,3}$/.test(t.id))
+      problems.push({ at: `tasks[${i}].id`, message: 'bad task id' });
     else if (index.has(t.id)) problems.push({ at: `tasks[${i}].id`, message: 'duplicate task id' });
     else index.set(t.id, i);
   });
@@ -212,24 +296,44 @@ export function validatePlan(plan: unknown): { ok: true } | { ok: false; problem
     if (!t || typeof t !== 'object') return void problems.push({ at, message: 'not an object' });
     for (const d of Array.isArray(t.dependsOn) ? t.dependsOn : []) {
       const di = index.get(d);
-      if (di === undefined) problems.push({ at: `${at}.dependsOn`, message: 'depends on an unknown task' });
-      else if (di >= i) problems.push({ at: `${at}.dependsOn`, message: 'a task may only depend on an earlier task (no cycles)' });
-      else if ((p.tasks![di]!.wave ?? 0) >= (t.wave ?? 0)) problems.push({ at: `${at}.wave`, message: 'wave must be later than every dependency' });
+      if (di === undefined)
+        problems.push({ at: `${at}.dependsOn`, message: 'depends on an unknown task' });
+      else if (di >= i)
+        problems.push({
+          at: `${at}.dependsOn`,
+          message: 'a task may only depend on an earlier task (no cycles)',
+        });
+      else if ((p.tasks![di]!.wave ?? 0) >= (t.wave ?? 0))
+        problems.push({ at: `${at}.wave`, message: 'wave must be later than every dependency' });
     }
-    if (!Number.isInteger(t.size) || t.size < 1 || t.size > 5) problems.push({ at: `${at}.size`, message: 'size is 1 to 5' });
+    if (!Number.isInteger(t.size) || t.size < 1 || t.size > 5)
+      problems.push({ at: `${at}.size`, message: 'size is 1 to 5' });
     const files = Array.isArray(t.files) ? t.files : [];
-    if (files.length > PLAN_LIMITS.maxFilesPerTask) problems.push({ at: `${at}.files`, message: `at most ${PLAN_LIMITS.maxFilesPerTask} files per task` });
+    if (files.length > PLAN_LIMITS.maxFilesPerTask)
+      problems.push({
+        at: `${at}.files`,
+        message: `at most ${PLAN_LIMITS.maxFilesPerTask} files per task`,
+      });
     for (const f of files) {
       const n = normalizeToolPath(f);
-      if (!n.ok) problems.push({ at: `${at}.files`, message: 'a file path is not a valid relative path' });
-      else if (projectPathProblem(n.path)) problems.push({ at: `${at}.files`, message: 'a file path is reserved or malformed' });
-      else if (isAgentSensitivePath(n.path)) problems.push({ at: `${at}.files`, message: 'a file path is a sensitive file' });
-      else if (seenFiles.has(n.path) && seenFiles.get(n.path) !== t.moduleId && t.moduleId !== 'docs' && t.moduleId !== 'tests')
+      if (!n.ok)
+        problems.push({ at: `${at}.files`, message: 'a file path is not a valid relative path' });
+      else if (projectPathProblem(n.path))
+        problems.push({ at: `${at}.files`, message: 'a file path is reserved or malformed' });
+      else if (isAgentSensitivePath(n.path))
+        problems.push({ at: `${at}.files`, message: 'a file path is a sensitive file' });
+      else if (
+        seenFiles.has(n.path) &&
+        seenFiles.get(n.path) !== t.moduleId &&
+        t.moduleId !== 'docs' &&
+        t.moduleId !== 'tests'
+      )
         problems.push({ at: `${at}.files`, message: 'a file is owned by two tasks' });
       else seenFiles.set(n.path, t.moduleId);
     }
   });
   const last = p.tasks[p.tasks.length - 1];
-  if (last && last.kind !== 'review') problems.push({ at: 'tasks', message: 'the last task must be a review' });
+  if (last && last.kind !== 'review')
+    problems.push({ at: 'tasks', message: 'the last task must be a review' });
   return problems.length ? { ok: false, problems } : { ok: true };
 }

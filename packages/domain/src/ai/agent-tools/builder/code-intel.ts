@@ -19,7 +19,9 @@ const RESOLVE_EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.cs
 
 /** Names of Node's own modules, used only to tell `import 'path'` from a package that must be declared. */
 const NODE_BUILTINS = new Set(
-  'assert buffer child_process cluster console constants crypto dgram dns domain events fs http http2 https module net os path perf_hooks process punycode querystring readline stream string_decoder timers tls tty url util v8 vm worker_threads zlib'.split(' '),
+  'assert buffer child_process cluster console constants crypto dgram dns domain events fs http http2 https module net os path perf_hooks process punycode querystring readline stream string_decoder timers tls tty url util v8 vm worker_threads zlib'.split(
+    ' ',
+  ),
 );
 
 /** Replaces comments with spaces (newlines kept, so line numbers stay right). Strings are left alone: an import specifier IS a string. */
@@ -68,8 +70,14 @@ export interface ImportRef {
   line: number;
 }
 const IMPORT_RES: { re: RegExp; kind: ImportRef['kind'] }[] = [
-  { re: /(?:^|[\s;])import\s+(?:[\w*${},\s]+?\s+from\s+)?(['"])([^'"\n]{1,300})\1/g, kind: 'static' },
-  { re: /(?:^|[\s;])export\s+(?:\*|\{[^}]*\})\s*(?:as\s+\w+\s*)?from\s+(['"])([^'"\n]{1,300})\1/g, kind: 'static' },
+  {
+    re: /(?:^|[\s;])import\s+(?:[\w*${},\s]+?\s+from\s+)?(['"])([^'"\n]{1,300})\1/g,
+    kind: 'static',
+  },
+  {
+    re: /(?:^|[\s;])export\s+(?:\*|\{[^}]*\})\s*(?:as\s+\w+\s*)?from\s+(['"])([^'"\n]{1,300})\1/g,
+    kind: 'static',
+  },
   { re: /\bimport\s*\(\s*(['"])([^'"\n]{1,300})\1\s*\)/g, kind: 'dynamic' },
   { re: /\brequire\s*\(\s*(['"])([^'"\n]{1,300})\1\s*\)/g, kind: 'require' },
 ];
@@ -89,13 +97,15 @@ export function parseImports(text: string): ImportRef[] {
   return out.sort((a, b) => a.line - b.line);
 }
 
-const isRelative = (s: string) => s === '.' || s === '..' || s.startsWith('./') || s.startsWith('../');
+const isRelative = (s: string) =>
+  s === '.' || s === '..' || s.startsWith('./') || s.startsWith('../');
 /** `@scope/pkg/sub` -> `@scope/pkg`; `pkg/sub` -> `pkg` */
 export function packageName(spec: string): string {
   const p = spec.split('/');
   return spec.startsWith('@') ? p.slice(0, 2).join('/') : p[0]!;
 }
-export const isBuiltin = (spec: string) => spec.startsWith('node:') || NODE_BUILTINS.has(spec.split('/')[0]!);
+export const isBuiltin = (spec: string) =>
+  spec.startsWith('node:') || NODE_BUILTINS.has(spec.split('/')[0]!);
 
 function joinPath(dir: string, rel: string): string | null {
   const parts = dir === '' ? [] : dir.split('/');
@@ -109,10 +119,15 @@ function joinPath(dir: string, rel: string): string | null {
   return parts.join('/');
 }
 
-export type Resolution = { ok: true; path: string } | { ok: false; reason: 'not_found' | 'outside_project' };
+export type Resolution =
+  { ok: true; path: string } | { ok: false; reason: 'not_found' | 'outside_project' };
 
 /** Resolves a relative (or `@/`, `~/` alias) specifier the way a bundler would: exact, with an extension, as a directory index, and `.js` written for a `.ts` source. */
-export function resolveImport(fromPath: string, spec: string, files: ReadonlyMap<string, string>): Resolution {
+export function resolveImport(
+  fromPath: string,
+  spec: string,
+  files: ReadonlyMap<string, string>,
+): Resolution {
   let base: string | null;
   const dir = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/')) : '';
   if (isRelative(spec)) base = joinPath(dir, spec);
@@ -139,7 +154,12 @@ function tryResolve(base: string, files: ReadonlyMap<string, string>): string | 
 export interface ImportAnalysis {
   /** file -> project files it imports */
   graph: Map<string, string[]>;
-  unresolved: { path: string; spec: string; line: number; reason: 'not_found' | 'outside_project' }[];
+  unresolved: {
+    path: string;
+    spec: string;
+    line: number;
+    reason: 'not_found' | 'outside_project';
+  }[];
   /** bare packages imported but not declared in package.json */
   missingPackages: { path: string; pkg: string; line: number }[];
   /** packages declared in `dependencies` but never imported (information only) */
@@ -148,14 +168,25 @@ export interface ImportAnalysis {
   truncated: boolean;
 }
 
-function declaredPackages(files: ReadonlyMap<string, string>): { all: Set<string>; deps: Set<string> } | null {
+function declaredPackages(
+  files: ReadonlyMap<string, string>,
+): { all: Set<string>; deps: Set<string> } | null {
   const raw = files.get('package.json');
   if (raw === undefined) return null;
   try {
     const j = JSON.parse(raw) as Record<string, unknown>;
-    const names = (k: string) => (j[k] && typeof j[k] === 'object' ? Object.keys(j[k] as object) : []);
+    const names = (k: string) =>
+      j[k] && typeof j[k] === 'object' ? Object.keys(j[k] as object) : [];
     const deps = new Set(names('dependencies'));
-    return { deps, all: new Set([...deps, ...names('devDependencies'), ...names('peerDependencies'), ...names('optionalDependencies')]) };
+    return {
+      deps,
+      all: new Set([
+        ...deps,
+        ...names('devDependencies'),
+        ...names('peerDependencies'),
+        ...names('optionalDependencies'),
+      ]),
+    };
   } catch {
     return null;
   }
@@ -184,7 +215,8 @@ export function analyzeImports(files: ReadonlyMap<string, string>): ImportAnalys
       } else if (!isBuiltin(imp.spec)) {
         const pkg = packageName(imp.spec);
         used.add(pkg);
-        if (declared && !declared.all.has(pkg) && !pkg.startsWith('@types/')) missingPackages.push({ path, pkg, line: imp.line });
+        if (declared && !declared.all.has(pkg) && !pkg.startsWith('@types/'))
+          missingPackages.push({ path, pkg, line: imp.line });
       }
     }
     graph.set(path, [...deps].sort());
@@ -254,12 +286,21 @@ export interface CodeSymbol {
   exported: boolean;
 }
 const SYMBOL_RES: { re: RegExp; kind: SymbolKind }[] = [
-  { re: /^\s*(export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s+([A-Za-z_$][\w$]*)/, kind: 'function' },
-  { re: /^\s*(export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/, kind: 'class' },
+  {
+    re: /^\s*(export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s+([A-Za-z_$][\w$]*)/,
+    kind: 'function',
+  },
+  {
+    re: /^\s*(export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/,
+    kind: 'class',
+  },
   { re: /^\s*(export\s+)?(?:declare\s+)?const\s+enum\s+([A-Za-z_$][\w$]*)/, kind: 'enum' },
   { re: /^\s*(export\s+)?(?:declare\s+)?enum\s+([A-Za-z_$][\w$]*)/, kind: 'enum' },
   { re: /^\s*(export\s+)?(?:declare\s+)?interface\s+([A-Za-z_$][\w$]*)/, kind: 'interface' },
-  { re: /^\s*(export\s+)?(?:declare\s+)?type\s+([A-Za-z_$][\w$]*)\s*(?:<[^=]*>)?\s*=/, kind: 'type' },
+  {
+    re: /^\s*(export\s+)?(?:declare\s+)?type\s+([A-Za-z_$][\w$]*)\s*(?:<[^=]*>)?\s*=/,
+    kind: 'type',
+  },
   { re: /^\s*(export\s+)?(?:declare\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)/, kind: 'const' },
 ];
 
@@ -308,6 +349,9 @@ export function searchSymbols(
     }
   }
   return hits
-    .sort((a, b) => b.rank - a.rank || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) || a.line - b.line)
+    .sort(
+      (a, b) =>
+        b.rank - a.rank || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) || a.line - b.line,
+    )
     .slice(0, limit);
 }

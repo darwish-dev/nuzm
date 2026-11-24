@@ -20,16 +20,27 @@ const isUiFile = (p: string) => /\.(tsx|jsx)$/.test(p) || /(^|\/)components\//.t
 export function discoverComponents(files: ReadonlyMap<string, string>): ComponentInfo[] {
   const graph = analyzeImports(files).graph;
   const usedBy = new Map<string, number>();
-  for (const [from, deps] of graph) for (const d of deps) if (d !== from) usedBy.set(d, (usedBy.get(d) ?? 0) + 1);
+  for (const [from, deps] of graph)
+    for (const d of deps) if (d !== from) usedBy.set(d, (usedBy.get(d) ?? 0) + 1);
   const out: ComponentInfo[] = [];
   for (const [path, text] of files) {
     if (!isUiFile(path) || isAgentSensitivePath(path) || /\.(spec|test)\./.test(path)) continue;
     for (const s of extractSymbols(path, text)) {
-      if (!s.exported || !CAPITAL.test(s.name) || (s.kind !== 'function' && s.kind !== 'const' && s.kind !== 'class')) continue;
+      if (
+        !s.exported ||
+        !CAPITAL.test(s.name) ||
+        (s.kind !== 'function' && s.kind !== 'const' && s.kind !== 'class')
+      )
+        continue;
       out.push({ name: s.name, path, line: s.line, importedBy: usedBy.get(path) ?? 0 });
     }
   }
   return out
-    .sort((a, b) => b.importedBy - a.importedBy || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.path < b.path ? -1 : 1))
+    .sort(
+      (a, b) =>
+        b.importedBy - a.importedBy ||
+        (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) ||
+        (a.path < b.path ? -1 : 1),
+    )
     .slice(0, COMPONENT_LIMITS.maxResults);
 }

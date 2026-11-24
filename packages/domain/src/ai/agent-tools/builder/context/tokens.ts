@@ -21,6 +21,7 @@ export function estimateTokens(text: string): number {
 }
 
 export function costMinor(tokens: number, ratePer1kMinor: number): number {
-  if (!Number.isInteger(ratePer1kMinor) || ratePer1kMinor < 0) throw new Error('the rate must be a non-negative integer of minor units per 1000 tokens');
+  if (!Number.isInteger(ratePer1kMinor) || ratePer1kMinor < 0)
+    throw new Error('the rate must be a non-negative integer of minor units per 1000 tokens');
   return Math.ceil((Math.max(0, tokens) * ratePer1kMinor) / 1000);
 }

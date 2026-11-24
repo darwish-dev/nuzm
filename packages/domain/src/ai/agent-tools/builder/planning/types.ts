@@ -27,7 +27,16 @@ export interface Bilingual {
   ar: string;
 }
 
-export type TaskKind = 'config' | 'schema' | 'backend' | 'frontend' | 'auth' | 'integration' | 'tests' | 'docs' | 'review';
+export type TaskKind =
+  | 'config'
+  | 'schema'
+  | 'backend'
+  | 'frontend'
+  | 'auth'
+  | 'integration'
+  | 'tests'
+  | 'docs'
+  | 'review';
 
 /** A capability a customer may ask for, recognised by keywords in either language. */
 export interface FeatureDef {
@@ -124,7 +133,10 @@ export interface ImplementationPlan {
   risks: { code: string; text: Bilingual }[];
   /** relative effort in "size points" (sum of task sizes) */
   effort: number;
-  analysis: Pick<RequirementAnalysis, 'features' | 'impliedFeatures' | 'questions' | 'ambiguities' | 'notes' | 'confidence'>;
+  analysis: Pick<
+    RequirementAnalysis,
+    'features' | 'impliedFeatures' | 'questions' | 'ambiguities' | 'notes' | 'confidence'
+  >;
 }
 
 export const PLAN_LIMITS = {

@@ -5,3 +5,5 @@
 - **Proposed description text:** replace "The approver is a human member with a write role (403 otherwise); there is no AI identity in this path." with "The approver is a person signed in (a session, never an API key) who holds `ai:approve` (403 otherwise); there is no AI identity in this path. The audit event names that person."
 - **Tests:** `run-approval-actor.int.spec.ts` (4), `runs.int.spec.ts` (21, unchanged and green). Session 07's `qa-run-approval.int.spec.ts` `it.fails('DEFECT-6 …')` should now pass: remove the `it.fails` wrapper and the `CONFIRMED TODAY` test there.
 - **Related, not mine:** DEFECT-4 (deploy approvals, Session 06) has the same root cause; a shared approver check would be better than two copies. DEFECT-2 (`packages/domain/src/ai/ssrf.ts`, IPv6 spellings of private IPv4 treated as public) is in a file nobody's row owns: the Master decides who fixes it; the AI module's URL fetcher only consumes it.
+
+**Master answer:** ACCEPTED (applied by S02 under Master authorization, 2026-11-24): the new description text is in `openapi.yaml` (`decideAiRunApproval`)

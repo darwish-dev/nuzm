@@ -17,3 +17,5 @@ Expand/contract: nothing to contract.
 
 ## Security notes
 Platform-scoped RLS (`app.platform_scope='admin'` for all, worker read-only), `FORCE ROW LEVEL SECURITY`, grants SELECT+INSERT only, UPDATE/DELETE/TRUNCATE refused by trigger (tested). Contains prices as integer strings, no secrets, no personal data.
+
+**Master answer:** ACCEPTED (applied by S02 under Master authorization, 2026-11-24): the rows (including `PROV: "1900-1919"`) are in `spec/db/ownership.yaml`. Note: after merging `integration/ai-engine`, migrations 1920/1921 (`ai`) and 1980 (`deploy`) have no range key / `extended_by` entry yet, so every DB test fails with `ordinal … outside ranges` until the Master adds them; S02 did not add other sessions' keys

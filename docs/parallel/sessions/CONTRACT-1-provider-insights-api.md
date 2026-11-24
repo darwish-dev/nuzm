@@ -196,3 +196,5 @@ Also add the four paths to `spec/openapi/planned-paths.yaml` only if the repo co
 
 ## 5. Tests added (already green on branch `feature/ai-providers`)
 `provider-insights.int.spec.ts` (10), `rate-card-history.int.spec.ts` (5), `resilience.int.spec.ts` (15). Contract tests for the new routes (status codes, permission, step-up on the action, no credential in any answer) follow with the controller.
+
+**Master answer:** ACCEPTED (applied by S02 under Master authorization, 2026-11-24). Deviation from §3, within the flexibility §3 itself allowed: `discover_models` is NOT an action on `actOnAiModelProvider` (that would have changed the response type of an existing operation, which every admin client reads as a provider). It is the separate operation `POST /v1/admin/ai/model-providers/{id}/model-discovery` (`discoverAiProviderModels`, response `AiModelDiscovery`), the same pattern as `connection-test`. Spec, controllers (`admin-ai-providers.controller.ts`, new `admin-ai-usage.controller.ts`) and route tests (`provider-insights-routes.int.spec.ts`, 5) are on the branch; the SDK is not regenerated (Master)

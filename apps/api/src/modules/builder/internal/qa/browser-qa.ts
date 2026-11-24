@@ -200,6 +200,9 @@ export async function runBrowserQa(
           }) as never);
           page.on('pageerror', ((e: Error) =>
             seen.push(`script error: ${String(e.message).slice(0, 160)}`)) as never);
+          page.on('response', ((r: { status(): number; url(): string }) => {
+            if (r.status() >= 400) seen.push(`HTTP ${r.status()}: ${r.url().slice(0, 100)}`);
+          }) as never);
           page.on('requestfailed', ((r: {
             url(): string;
             failure(): { errorText: string } | null;
@@ -248,7 +251,7 @@ export async function runBrowserQa(
             );
           if (vp.name === 'desktop') {
             const order = await page.evaluate<number[]>(() =>
-              Array.from(document.querySelectorAll('header nav a, nav a'))
+              Array.from(document.querySelectorAll('header nav ul a'))
                 .slice(0, 6)
                 .map((a) => Math.round(a.getBoundingClientRect().left))
                 .filter((x, i, arr) => arr.indexOf(x) === i),
@@ -261,7 +264,7 @@ export async function runBrowserQa(
                 findings.push(
                   f(
                     'nav_order',
-                    `${where}: the navigation runs ${rtlOrder ? 'right-to-left' : 'left-to-right'} on a ${want} page`,
+                    `${where}: the navigation runs ${rtlOrder ? 'right-to-left' : 'left-to-right'} on a ${want} page (link left edges: ${order.join(', ')})`,
                     p.path,
                     'use logical (start/end) layout',
                     'warning',

@@ -98,3 +98,11 @@ Mutation corpus (`qa.spec.ts`, 42 tests, all passed on the first run): 33 target
 - Master assigned `packages/domain/src/builder/templates/**` to S04.
 - Draft of the W2 browser/HTTP-edge negative cases for S08 (not run, needs the isolated E2E stack): `DRAFT-p3-s04-preview-isolation.spec.ts.txt`. The existing `10-builder-customer.spec.ts` already covers the framed preview, sandbox attribute and viewport widths in ar and en.
 - Quiet window: S04's Postgres (:54354) is stopped; nothing heavy was run after the batch above.
+
+
+## Addendum 2 (heavy window): final typecheck and the first real-browser QA run
+
+- Branch merged with `integration/ai-engine` (clean). `pnpm typecheck` in `apps/api` through `heavy-slot.sh`: exit 0 (before the runner edit below; the runner edit is re-checked in the next slot).
+- Browser QA runner, FIRST RUN (LIVE-VERIFIED locally: Chrome 158.0.8127.88, axe-core 4.14.0, loopback server, 10 pages x 2 viewports, services template): FAILED. One real finding, `label-content-name-mismatch` on the language-switch link (WCAG 2.5.3), 15 reported loads. Renderer file, so requested in `CONTRACT-P3-S04-2-language-link-accessible-name.md`. The jsdom gates had passed this artifact: the browser run adds real coverage.
+- Runner defect found and fixed by this run: `nav_order` false positive (footer links included); failed responses now report their URL. One unexplained console 404 seen once, not reproduced.
+- Only the `services` template was run in the browser; the other 7 templates and the W2 browser E2E are still NOT RUN.

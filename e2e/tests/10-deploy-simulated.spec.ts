@@ -222,11 +222,11 @@ test('website: a queued SIMULATED deployment is cancelled from the console and n
   const d = await page.request.get(`/v1/deployments/${deploymentId}`, { headers });
   expect(d.status()).toBe(200);
   expect(await d.json()).toMatchObject({ state: 'cancelled', simulated: true });
-  const op = await sql<{ status: string }>(
-    `SELECT status FROM platform.operations WHERE resource_id = $1`,
+  const op = await sql<{ state: string }>(
+    `SELECT state FROM platform.operations WHERE resource_id = $1`,
     [deploymentId],
   );
-  expect(op[0]?.status).toBe('cancelled');
+  expect(op[0]?.state).toBe('cancelled');
   const again = await page.request.post(`/v1/deployments/${deploymentId}/cancel`, {
     headers: { ...headers, 'idempotency-key': `e2e-cancel-again-${deploymentId}` },
   });

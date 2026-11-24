@@ -280,6 +280,17 @@ export function AppDeployments({
     setItems((l) =>
       l.some((x) => x.id === d.id) ? l.map((x) => (x.id === d.id ? d : x)) : [d, ...l],
     );
+  /** A release that finished may have superseded an earlier one (or been rolled back): read the list again so no row shows a stale "live". */
+  const refreshList = () =>
+    void bapi
+      .get<{ items: AppDeployment[] }>('/v1/deployments', { query: { projectId, limit: 20 } })
+      .then((r) => {
+        if (r.response.ok && r.data) setItems(r.data.items);
+      });
+  const changed = (d: AppDeployment) => {
+    upsert(d);
+    if (!isAppDeployActive(d.state)) refreshList();
+  };
   const siteName = (id?: string) => sites.find((s) => s.id === id)?.name;
 
   async function call(action: 'deploy' | 'rollback', rollbackId?: string) {
@@ -524,7 +535,7 @@ export function AppDeployments({
           ]}
         />
       )}
-      {sel && <Detail key={sel.id} locale={locale} d={sel} onChanged={upsert} />}
+      {sel && <Detail key={sel.id} locale={locale} d={sel} onChanged={changed} />}
 
       <ConfirmDialog
         open={confirmRb !== null}

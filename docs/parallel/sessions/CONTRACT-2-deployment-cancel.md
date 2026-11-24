@@ -35,6 +35,18 @@ Under `paths`, after `/v1/deployments/{id}/rollback`:
 Schema `Deployment` (additive): `state` enum gains `cancelled`; new optional property
 `simulated: { type: boolean, description: 'true: published through the local in-memory stand-in (SIMULATED, nothing reached a hosting node); false is reserved for a live-verified real publisher' }`.
 
+## Proposed `spec/db/ownership.yaml` patch (REQUIRED: without it the migration runner refuses migration 1980)
+The runner validates every migration ordinal against `migration_ranges` of the schema's owner and extenders; there is no range for ids 1900+ yet. Needed for ids 1980-1999 (I ran my tests with exactly this patch applied LOCALLY and UNCOMMITTED in my worktree):
+```yaml
+# under schemas.deploy
+    extended_by:
+      - M10
+      - S06-DEPLOY
+# under migration_ranges
+  S06-DEPLOY: "1980-1999"
+```
+No table or column is added by migration 1980, so no classification entry is needed.
+
 ## Why
 Customers could not stop a deployment they started by mistake (queued behind another one, or running); the platform had no recovery for a deployment whose worker died after its operation was cancelled. `simulated` makes the local stand-in visible to API clients and to the console (HG-05/HG-06: nothing real is deployed).
 

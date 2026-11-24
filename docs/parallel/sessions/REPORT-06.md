@@ -36,10 +36,10 @@
 - `SimulatedHealthProbe` (deploy module, unit-tested, 2/2 pass) + CONTRACT-1 (one registration line in `appbuilder.module.ts`, Session 05's file).
 - G3 cancellation of website deployments: migration 1980 (`cancelled` terminal state), `POST /v1/deployments/{id}/cancel`, engine checkpoints (before build / stage / switch), `SitePublisherPort.discard`, UI cancel button + `cancelled` label, audit `deploy.deployment.cancelled`. CONTRACT-2.
 - G6 recovery: `tick()` now recovers orphans (operation cancelled / flagged with no live lease → `cancelled`; operation ended without finishing the deployment → `failed` `operation_lost`); an expired lease is re-claimed as before (reconcile before retry).
-- G5 integration tests written: `apps/api/src/modules/deploy/deploy-s06.int.spec.ts` (status sync + simulated flag + log resume; cancel queued; cancel running at the checkpoint; too late after the switch; 401/403/404; orphan recovery ×2; dead worker re-claim; authorization and tenant matrix). **NOT YET RUN** (§8).
+- G5 integration tests written: `apps/api/src/modules/deploy/deploy-s06.int.spec.ts` (status sync + simulated flag + log resume; cancel queued; cancel running at the checkpoint; too late after the switch; 401/403/404; orphan recovery ×2; dead worker re-claim; authorization and tenant matrix). passes (§8).
 
 ## 3. Remaining
-Run the new integration spec and the existing `deploy.int.spec.ts` against my own Postgres (:54346) when machine load allows; fix what they show. Then decide G4 (below). One targeted E2E run (heavy-run request §13).
+The one targeted E2E run (§13), after the Master applies CONTRACT-1 and rebuilds the consoles. Nothing else READY/MOCKABLE is left.
 
 ## 4. Blocked
 - G4 environment variables: DEPENDENT. A static website publish has no runtime to receive variables; the web-app pipeline (Session 05) only lists names in `nuzm.app.json` (`deploy.env`) and its target port has no environment channel. A store with no consumer would be dead code. Needs: a consumer in the app-builder deploy path (Session 05) or a node-agent environment command (HG-05-01/02).
@@ -60,17 +60,22 @@ Run the new integration spec and the existing `deploy.int.spec.ts` against my ow
 - CONTRACT-2 `deployment cancel` (OpenAPI route + `Deployment` schema: `cancelled` state and `simulated`; SDK regeneration): PROPOSED. Until applied, `pnpm spec:drift` lists the new route.
 
 ## 8. Test commands and ACTUAL results
+Own Postgres: `NUZM_PGPORT=54346 pnpm services:start` (Postgres started; redis not installed, not needed), `NUZM_TEST_ADMIN_URL=postgres://nuzm_admin@127.0.0.1:54346/postgres DATABASE_ADMIN_URL=postgres://nuzm_admin@127.0.0.1:54346/nuzm_dev`, run from `apps/api`.
 | Command | Result |
 |---|---|
-| `npx vitest run src/modules/deploy/internal/simulated-health.spec.ts` (apps/api) | 2 passed |
-| `npx vitest run` in `packages/i18n` | 9 passed (placeholders and key parity hold with the new block) |
-| `pnpm --filter @nuzm/api typecheck` | only 1 error, **pre-existing and not mine**: `src/modules/cloud/internal/adapter-registry.ts(69,33) TS2345`; no error in any deploy file |
-| `npx tsc --noEmit` in `apps/web`, `npx tsc -p e2e/tsconfig.json --noEmit` | clean |
-| `npx eslint` on every touched file; `npx prettier --write` | clean |
-| `deploy-s06.int.spec.ts`, `deploy.int.spec.ts` against Postgres :54346 | **NOT RUN yet** (machine load average 22–40, memory nearly exhausted; MASTER-PLAN §2 rule 5) |
-Note: workspace package `dist` folders did not exist in the fresh worktree; `turbo run build --filter=@nuzm/api^...` restored them from the turbo cache (21 of 21 cached) before the typecheck.
+| `npx vitest run --config vitest.integration.config.mts src/modules/deploy` (after DEFECT-4 fix) | **2 files, 22 tests passed** (`deploy.int.spec.ts` 12 + `deploy-s06.int.spec.ts` 10) |
+| `... src/modules/deploy/deploy.int.spec.ts src/modules/appbuilder/m09-real.int.spec.ts` (before the DEFECT-4 change) | 2 files, 31 tests passed (regression check: the `simulated` field and the port change broke nothing in the web-app deployment tests) |
+| `npx vitest run src/modules/deploy/internal/simulated-health.spec.ts` | 2 passed |
+| `npx vitest run` in `packages/i18n` | 9 passed |
+| `pnpm --filter @nuzm/api typecheck` | 1 error, pre-existing and not mine (`cloud/internal/adapter-registry.ts(69,33) TS2345`); none in deploy files |
+| `npx tsc --noEmit` (apps/web), `npx tsc -p e2e/tsconfig.json --noEmit`, `npx eslint` + `prettier` on touched files | clean |
+| E2E `10-app-builder` deploy leg | **NOT RUN** (heavy-run request, §13) |
+| Not run: `pnpm spec:drift` / `sdk:check` (they would flag the cancel route until CONTRACT-2 is applied), `compliance:*` checks (full-DB) |
+**Local-only, uncommitted change**: `spec/db/ownership.yaml` carries the migration-range patch of CONTRACT-2 in my worktree so the runner accepts migration 1980. It is Master-owned and must NOT be merged from my branch (I never `git add` it). If the Master applies it first, my working copy is identical.
+Note: workspace package `dist` folders did not exist in the fresh worktree; `turbo run build --filter=@nuzm/api^...` restored them from the turbo cache before the typecheck.
 
 ## 9. Security findings
+- **DEFECT-4 (from Session 07, medium) FIXED**: confirming a publish approval (`POST /v1/deployments` with `approvalId`) now requires a signed-in person (`actor.kind === 'session'`); an API key may ask for the approval but its confirmation answers 403 `forbidden`, creates nothing and leaves the approval `pending`. Test: `deploy-s06.int.spec.ts` "DEFECT-4 …" (passes). Session 07's `it.fails` test in `qa-deploy-approval.int.spec.ts` should now turn red and lose `.fails`; their "CONFIRMED TODAY" control must be deleted. Not changed, **owner decision needed**: (a) a `developer` role holds `deploy:write` and can self-confirm a production publish, whereas the M10 engine requires owner/admin for `production_deploy`; (b) rollback reuses the earlier approval and needs no new one (M10 has a separate `production_rollback`).
 - No new secret handling. The cancel route needs `deploy:write`; cross-tenant ids answer 404; a cancellation never touches the live site; a viewer cannot cancel (tests written).
 - `SimulatedHealthProbe` answers only for the reserved `.invalid` TLD (cannot resolve anywhere) and only when wired under `AI_LOCAL_REFERENCE`; every other URL keeps the real probe's SSRF rules.
 - Pre-existing observation (Session 05's code): the web-app health gate resolves the customer-controlled domain from the control plane; its SSRF guard (`HttpHealthProbe`) is in place and unchanged.
@@ -78,7 +83,7 @@ Note: workspace package `dist` folders did not exist in the fresh worktree; `tur
 ## 10. Integration requirements
 Module registration unchanged (DeployModule already registered). Any new route needs the Master to apply the OpenAPI patch (see CONTRACT files).
 
-## 11. Delivery completion: ~65 % of the READY/MOCKABLE list written, ~15 % of it verified by a test run · Readiness: NOT READY until the targeted tests have been run
+## 11. Delivery completion: ~85 % (all READY/MOCKABLE API/UI items implemented; API tests verified; E2E leg unrun) · Readiness: API side READY for merge after CONTRACT-1/2; E2E leg NOT VERIFIED
 
 ## 12. Next available tasks
 Run and fix the integration specs; E2E heavy run; then (optional) a preview-lifecycle read-only status page is not in my ownership.
@@ -87,4 +92,4 @@ Run and fix the integration specs; E2E heavy run; then (optional) a preview-life
 - One targeted E2E run of `e2e/tests/10-app-builder.spec.ts` (projects `ar` and `en`, deploy leg) on the isolated stack: `scripts/e2e-stack.sh start` then `run`, free ports, own database. **Prerequisite: the Master applies CONTRACT-1 (one line in `appbuilder.module.ts`) first**, otherwise the web-app deployment ends `failed` (`health_gate_failed`: the real probe cannot resolve `.invalid`) and the leg fails by design. The console must also be rebuilt to include the SIMULATED banner and the cancel button (I do not rebuild consoles). I will run it myself only if the load average is below 12 and the console is already built.
 
 ## 14. Escalations
-none.
+Owner decisions (not blocking): developer self-confirmation of a production publish and rollback-without-approval (see §9). Master: CONTRACT-1, CONTRACT-2 (incl. the `ownership.yaml` migration range) are required before this branch can merge and before the E2E leg can pass.

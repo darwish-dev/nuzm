@@ -141,6 +141,8 @@ export class DeployService {
     userId: string,
     idempotencyKey: string,
     b: Record<string, unknown>,
+    /** who is calling: only a signed-in person (`session`) may CONFIRM a publish approval; an API key may ask for one but never decide it (DEFECT-4) */
+    actorKind: 'session' | 'api_key' = 'session',
   ): Promise<DeploymentDto> {
     if (!UUID.test(String(b.projectId)))
       throw new ProblemException('validation_failed', 'projectId must be a uuid');
@@ -244,6 +246,12 @@ export class DeployService {
     }
     if (typeof approvalId !== 'string' || !UUID.test(approvalId))
       throw new ProblemException('validation_failed', 'approvalId must be a uuid');
+    // the confirmation IS the human decision of the approval: a non-human actor (API key) must never make it, and the audit must not attribute it to a person
+    if (actorKind !== 'session')
+      throw new ProblemException(
+        'forbidden',
+        'a publish approval is confirmed by a signed-in person, not by an API key: ask a team member to confirm it in the console',
+      );
     const id = uuidv7();
     let row: Row;
     try {

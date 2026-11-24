@@ -305,4 +305,45 @@ describe('authorization and tenant isolation of the deployment routes', () => {
     ]);
     expect(other.map((r) => r.statusCode)).toEqual([404, 404, 404, 404]);
   });
+
+  it('DEFECT-4: an API key may ask for a publish approval but can never confirm it; a person confirms it and the audit says so', async () => {
+    const p = await mkProject('S06 Api Key');
+    const site = await mkSite(A(), 'alice', 's06-api-key');
+    const k = await e.call('alice', 'POST', '/v1/api-keys', {
+      name: 'deploy-bot',
+      scopes: ['deploy:write'],
+    });
+    expect(k.statusCode, k.body).toBe(201);
+    const bearer = j(k).key as string;
+    const asKey = (body: Row) =>
+      e.app.inject({
+        method: 'POST',
+        url: '/v1/deployments',
+        headers: { authorization: `Bearer ${bearer}`, 'idempotency-key': `k-${Math.random()}` },
+        payload: body,
+      });
+    const body = { projectId: p.id, target: site, environment: 'production' };
+    const ask = await asKey(body);
+    expect(ask.statusCode, ask.body).toBe(403);
+    expect(ask.json().code).toBe('approval_required');
+    const before = Number((await e.sql(`SELECT count(*) n FROM deploy.deployments`))[0]!.n);
+    const confirm = await asKey({ ...body, approvalId: ask.json().approvalId });
+    expect(confirm.statusCode, confirm.body).toBe(403);
+    expect(confirm.json().code).toBe('forbidden');
+    expect(Number((await e.sql(`SELECT count(*) n FROM deploy.deployments`))[0]!.n)).toBe(before);
+    expect(
+      (await e.sql(`SELECT state FROM ai.approvals WHERE id=$1`, [ask.json().approvalId]))[0]!
+        .state,
+    ).toBe('pending'); // nothing was decided
+    // a signed-in person confirms the very same approval
+    const ok = await req({ ...body, approvalId: ask.json().approvalId });
+    expect(ok.statusCode, ok.body).toBe(202);
+    expect(
+      (
+        await e.sql(`SELECT state, decided_by FROM ai.approvals WHERE id=$1`, [
+          ask.json().approvalId,
+        ])
+      )[0],
+    ).toMatchObject({ state: 'approved', decided_by: e.ids.alice });
+  });
 });

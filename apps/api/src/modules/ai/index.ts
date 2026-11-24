@@ -1,7 +1,7 @@
 // Public surface of the ai module (M09). Other modules import ONLY from here.
 export { AiModule } from './ai.module';
 export { GatewayService } from './internal/gateway.service';
-export { BudgetService, BudgetDenied } from './internal/budget.service';
+export { BudgetService, BudgetDenied, withDeadlockRetry } from './internal/budget.service';
 export { ModelProviderService } from './internal/provider.service';
 export { ProviderInsightsService } from './internal/provider-insights.service';
 export type {

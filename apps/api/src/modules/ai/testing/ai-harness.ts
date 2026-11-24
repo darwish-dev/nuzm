@@ -142,6 +142,10 @@ export async function setupAiEnv(
         'mock-disc',
         'mock-nodisc',
         'acme-reg',
+        // Phase 2 spending-cap suite
+        'mock-cap-ok',
+        'mock-cap-vendor',
+        'mock-conc',
       ]),
     ],
   );

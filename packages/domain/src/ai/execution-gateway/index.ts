@@ -8,3 +8,5 @@ export * from './port';
 export * from './mock-port';
 export * from './limits';
 export * from './quota';
+export * from './lifecycle';
+export * from './queue';

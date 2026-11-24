@@ -72,6 +72,31 @@ export class ContentAccessService {
     return this.get(orgId);
   }
 
+  /**
+   * Approvals (list, detail, decision answer) for the caller's role: a billing administrator under `deny` gets the free text removed (`redactApprovalFor`); everyone else gets the
+   * rows unchanged. Audited once per request when something was redacted.
+   */
+  async redactApprovals<
+    T extends { id: string; type: string; action: unknown; decisionNote: string | null },
+  >(orgId: string, actor: string, role: string, items: T[]): Promise<T[]> {
+    if (role !== 'billing_admin') return items;
+    const mode = await this.mode(orgId);
+    if (mode !== 'deny') return items;
+    const out = items.map((a) => P.redactApprovalFor(role, mode, a));
+    const n = out.filter((x, i) => x !== items[i]).length;
+    if (n > 0)
+      await this.audit.record({
+        action: 'builder.content.redacted',
+        actorUserId: actor,
+        actorType: 'user',
+        orgId,
+        resource: { type: 'organization', id: orgId },
+        outcome: 'success',
+        detail: { operation: 'approvals', role, redacted: n, setting: P.CONTENT_ACCESS_KEY },
+      });
+    return out;
+  }
+
   /** Throws 403 when this role may not read project content under the organization's setting. Every denial is audited. */
   async assert(
     orgId: string,

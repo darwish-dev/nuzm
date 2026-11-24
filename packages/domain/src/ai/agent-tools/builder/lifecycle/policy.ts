@@ -31,6 +31,8 @@ export const CONTENT_OPERATIONS = [
   // deployments (S06's `deploy` module uses the same guard): a deployment's detail and its logs, not the policy or the list
   'deployment',
   'deployment_logs',
+  // approvals: the free text of an approval (its action summary, a decision note) can quote customer data
+  'approvals',
 ] as const;
 export type ContentOperation = (typeof CONTENT_OPERATIONS)[number];
 
@@ -128,4 +130,20 @@ export function decideExecutionStart(p: ExecutionPurpose, f: StartFacts): StartD
     gates,
     mustMeter: k.execution ? [...EXECUTION_METERS] : [],
   };
+}
+
+// ---- approvals: ids, type, state and timestamps stay readable; free text does not --------------------------------------------------------------------------------------------------------
+/** approvals whose action is FINANCIAL (an amount, a resource, a budget): the billing administrator decides them and needs the action */
+export const FINANCIAL_APPROVAL_TYPES: readonly string[] = ['paid_resource', 'budget_increase'];
+
+/**
+ * Under `deny` a billing administrator gets an approval WITHOUT its free text (the action summary of a deployment, an export or a migration can quote customer data, and so can a
+ * decision note); everything else (id, type, state, subject, timestamps, hash) stays. Financial approvals are returned whole. Any other role, and `allow`, is untouched.
+ */
+export function redactApprovalFor<
+  T extends { type: string; action: unknown; decisionNote: string | null },
+>(role: string, mode: ContentAccessMode, a: T): T {
+  if (role !== 'billing_admin' || mode !== 'deny' || FINANCIAL_APPROVAL_TYPES.includes(a.type))
+    return a;
+  return { ...a, action: { redacted: true }, decisionNote: null };
 }

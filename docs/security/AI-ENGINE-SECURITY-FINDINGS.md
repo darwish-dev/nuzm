@@ -17,7 +17,7 @@ Living document. Last update: 2026-11-24 · baseline `f81872d5` · branch `featu
 ## 2. Observations (not defects; need an owner decision or are accepted design)
 | # | Observation | Owner / action |
 |---|---|---|
-| O-1 | `developer` role holds `deploy:write` and `ai:approve`-less approvals on the legacy publish path, but the M10 engine requires owner/admin for `production_deploy`: two approval systems, two rules | Owner decision (DEFECT-4 §2) |
+| O-1 | a `developer` can request and confirm a production publish alone on the legacy path, while the M10 engine lists owner/admin for `production_deploy`: two approval systems, two rules | Owner decision (DEFECT-4 §2) |
 | O-2 | `rollback` reuses the previous approval; M10 policy has `production_rollback` | Owner decision |
 | O-3 | 26 organization `POST` routes lack `@Idempotent()` (e.g. `POST /v1/billing/spend-approvals/{id}/decision`, `POST /v1/compliance/data-exports`, `POST /v1/organizations`, builder `changes`/`previews`); pinned as the baseline in `qa-route-inventory.int.spec.ts`; each owner should confirm idempotency by construction or add the decorator (CLAUDE.md §4). New ones fail the gate | each module owner |
 | O-4 | `LocalDevSandboxRuntime` is refused only when `NODE_ENV==='production'` and `SANDBOX_LOCAL_DEV!=='true'`; a staging environment with another `NODE_ENV` and that flag runs customer code **unisolated** as the API user. Recommend an explicit allow-list of environments (and refusing when any real tenant exists) | S04 |

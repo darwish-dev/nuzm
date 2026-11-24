@@ -159,7 +159,7 @@ describe('QA deploy: roles', () => {
 });
 
 describe('QA deploy: the human approval of a publish', () => {
-  it('OBSERVATION: a developer (deploy:write, no ai:approve) completes both steps for himself/herself: the publish confirmation is a self-confirmation', async () => {
+  it('OBSERVATION: a developer (holds deploy:write and ai:approve, but is not owner/admin as the M10 `production_deploy` policy requires) completes both steps alone: the publish confirmation is a self-confirmation', async () => {
     const p = await mkProject('QA Dev', 'dave');
     const site = await mkSite(A(), 'dave', 'qa-dev');
     const body = { projectId: p.id, target: site, environment: 'staging' };

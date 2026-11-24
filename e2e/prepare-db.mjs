@@ -8,7 +8,13 @@ import pg from 'pg';
 if (process.env.E2E_REUSE_SERVERS === '1') process.exit(0);
 const num = (v, d) => (v && Number.isInteger(Number(v)) ? Number(v) : d);
 const db = process.env.E2E_DB ?? 'nuzm_e2e';
-const admin = `postgres://nuzm_admin@127.0.0.1:${num(process.env.E2E_PG_PORT, 54329)}`;
+if (!num(process.env.E2E_PG_PORT, 0)) {
+  console.error(
+    'prepare-db: E2E_PG_PORT is mandatory (acquire an isolated test environment: node scripts/testenv/testenv.mjs acquire); there is no default database',
+  );
+  process.exit(2);
+}
+const admin = `postgres://nuzm_admin@127.0.0.1:${num(process.env.E2E_PG_PORT, 0)}`;
 
 const c = new pg.Client({ connectionString: `${admin}/postgres` });
 await c.connect();

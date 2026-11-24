@@ -23,7 +23,14 @@ export const IDP = `http://127.0.0.1:${IDP_PORT}`;
 export const STORE_DIR =
   process.env.E2E_STORE_DIR ??
   join(tmpdir(), `nuzm-e2e-knowledge-${process.env.E2E_DB ?? 'nuzm_e2e'}`);
-/** The throwaway Postgres cluster (`pnpm services:start`: 54329). Set E2E_PG_PORT to use this worktree's own cluster when another workspace already owns 54329. */
-export const PG_PORT = num(process.env.E2E_PG_PORT, 54329);
+/** The throwaway Postgres cluster (a leased test environment, scripts/testenv): E2E_PG_PORT is mandatory and is preflighted by e2e/preflight.mjs; the owner's development cluster is never a fallback. */
+export const PG_PORT = (() => {
+  const p = num(process.env.E2E_PG_PORT, 0);
+  if (!p)
+    throw new Error(
+      'E2E_PG_PORT is mandatory: acquire an isolated test environment first (node scripts/testenv/testenv.mjs acquire); there is no default database',
+    );
+  return p;
+})();
 export const PG_ADMIN = `postgres://nuzm_admin@127.0.0.1:${PG_PORT}`;
 export const DB_URL = `${PG_ADMIN}/${E2E_DB}`;

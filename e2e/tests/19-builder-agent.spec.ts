@@ -73,8 +73,8 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
   // ---- 0. DEFECT-20d: with the AI capability off the page says so (not "app builder not enabled") and shows no form; with it on the form is there
   await orgFlag(org, 'ai.enabled', null);
   await page.goto(`${WEB}/${L}/builder/projects/${project}/agent`);
-  await expect(page.getByText(T(info, 'bt.gate.ai.title'))).toBeVisible();
-  await expect(page.getByText(T(info, 'm10.notEnabled.title'))).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: T(info, 'bt.gate.ai.title') })).toBeVisible();
+  await expect(page.getByRole('heading', { name: T(info, 'm10.notEnabled.title') })).toHaveCount(0);
   await expect(page.getByLabel(T(info, 'bt.lc.start.prompt'), { exact: true })).toHaveCount(0);
   await audit(page, info, 'builder-agent-ai-off');
   await orgFlag(org, 'ai.enabled', true);

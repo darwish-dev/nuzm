@@ -6,13 +6,13 @@ import { Access, Org, RequirePermission, type AccessContext } from '../../common
 import { ProblemException } from '../../common/errors';
 import { ChangeToolsService } from './internal/changes/change-tools.service';
 import { ProjectsPort } from './internal/ports/m09';
-import { StudioProjectScoped } from './internal/studio/flag';
+import { BuilderToolsProjectScoped } from './internal/changes/builder-tools-flag';
 
 type B = Record<string, unknown>;
 
 /** Builder tools, priority 1 (S-05): change preview, version diff, rollback, revert of one change. Flag `builder_tools.enabled` (default OFF, 404 when off). */
 @Controller('v1/builder/projects/:projectId')
-export class ChangeToolsController extends StudioProjectScoped {
+export class ChangeToolsController extends BuilderToolsProjectScoped {
   constructor(
     projects: ProjectsPort,
     private readonly tools: ChangeToolsService,

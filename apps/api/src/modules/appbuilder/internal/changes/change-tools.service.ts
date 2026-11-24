@@ -1,4 +1,4 @@
-import { builderTools, type FileOp } from '@nuzm/domain';
+import { builderTools } from '@nuzm/domain';
 import type { AuditSink } from '../../../../common/audit';
 import { ProblemException } from '../../../../common/errors';
 import { isUuid } from '../core';
@@ -8,6 +8,7 @@ import type { ChangeResult, ChangeService } from './change.service';
 
 const { previewChangeSet, opsFromUnifiedDiff, planRestore, planRevert } = builderTools;
 type ChangePreview = builderTools.ChangePreview;
+type FileOp = builderTools.FileOp;
 
 /** What a preview or a diff returns: the domain preview without the in-memory `next` snapshot, plus where it was computed. */
 export type PreviewView = Omit<ChangePreview, 'next'> & {

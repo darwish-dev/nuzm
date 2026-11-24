@@ -1,0 +1,35 @@
+{
+  "schema": "nuzm.android-build-env/1",
+  "status": "DEFINITION ONLY. Never built, never run. Placeholders marked (V) are chosen and verified by the reviewer on the build host; the sha256 fields are empty on purpose until then, so `validateAndroidBuildEnv` REFUSES this file as it stands.",
+  "runtimeClass": "gvisor-runsc",
+  "limits": { "cpus": 4, "memoryMb": 6144, "pids": 1024, "diskMb": 12288, "wallSeconds": 1500, "outputKb": 1024, "swapMb": 0 },
+  "network": {
+    "class": "mirror-only",
+    "allowHosts": ["dl.google.com", "maven.google.com", "repo.maven.apache.org", "services.gradle.org", "pub.dev", "storage.googleapis.com"],
+    "offlineFirst": true,
+    "note": "(V) the reviewer replaces these with the mirror host(s) once the offline mirror exists; every host here is reached only through the egress proxy, never directly. `registry-only` (npm) is a different class."
+  },
+  "toolchain": {
+    "jdk": { "vendor": "(V) an OpenJDK 17 distribution", "version": "(V) 17.0.x", "sha256": "" },
+    "androidSdk": {
+      "cmdlineTools": "(V) a pinned commandlinetools release",
+      "sha256": "",
+      "platforms": ["(V) android-34"],
+      "buildTools": ["(V) 34.0.0"],
+      "licenseAcceptedBy": ""
+    },
+    "flutter": { "version": "3.35.7", "sha256": "" },
+    "gradle": { "wrapperVersion": "(V) the version the Flutter template pins", "distributionSha256": "" },
+    "caches": { "gradleReadOnly": "/gradle-cache", "pubReadOnly": "/pub-cache" }
+  },
+  "commands": [
+    { "id": "pub-get", "argv": ["flutter", "pub", "get", "--offline"] },
+    { "id": "analyze", "argv": ["flutter", "analyze", "--no-pub"] },
+    { "id": "test", "argv": ["flutter", "test", "--no-pub"] },
+    { "id": "build-debug", "argv": ["flutter", "build", "apk", "--debug", "--no-pub"] },
+    { "id": "build-release", "argv": ["flutter", "build", "apk", "--release", "--no-pub"] }
+  ],
+  "signing": { "mode": "debug-or-test-keystore", "keystoreOrigin": "generated-in-environment", "productionKeysAllowed": false, "storeSubmission": false },
+  "outputs": { "roots": ["build/app/outputs/flutter-apk"], "allowedExtensions": [".apk"], "maxFileBytes": 209715200, "hash": "sha256", "kinds": "regular-files-only" },
+  "emulator": { "insideEnvironment": false, "note": "an emulator needs KVM, which a gVisor systrap sandbox does not have. Install/launch evidence comes from a separate bare-metal host (or `apkanalyzer`/`aapt2` structural checks inside the environment). Decide with P3-S06 and the owner (B-Android)." }
+}

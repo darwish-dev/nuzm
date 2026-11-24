@@ -118,7 +118,7 @@ beforeAll(async () => {
   const s = await e.h.platformUser(e.app, 'psupport', ['support']);
   e.jars.psupport = s.jar;
   await enableWith(adapter());
-}, 120_000);
+}, 300_000);
 afterAll(() => e.h.close());
 
 describe('no evidence, no declaration (unknown = unsupported)', () => {

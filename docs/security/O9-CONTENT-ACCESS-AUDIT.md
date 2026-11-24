@@ -4,7 +4,7 @@ Session 07 (QA) · 2026-11-24 · evidence: `apps/api/src/qa/qa-o9-content-access
 
 ## Result in one paragraph
 
-The owner's O-9 intent is that a billing administrator must not read customer SOURCE CODE, FILES or AI CONVERSATIONS. The role seed gives `billing_admin` `ai:read` and `builder:read`, so it holds the permission for **136 organization GET routes**, and **77** of them answered 200 in the audit organization. **23 of them return customer content** (6 proven by planted text, 17 by design with an empty fixture). The switch `builder.billing_admin_content_access = deny` (built by Session 05) covers **11** of them (the five builder-tools reads). **12 content routes are NOT covered**: 12 on the builder side (Session 05) and 0 on the AI side (Session 02). The default stays `allow` = today's behaviour; only the coverage of the switch needs to grow.
+The owner's O-9 intent is that a billing administrator must not read customer SOURCE CODE, FILES or AI CONVERSATIONS. The role seed gives `billing_admin` `ai:read` and `builder:read`, so it holds the permission for **136 organization GET routes**, and **77** of them answered 200 in the audit organization. **23 of them return customer content** (6 proven by planted text, 17 by design with an empty fixture). The switch `builder.billing_admin_content_access = deny` (built by Session 05) covers **11** of them (the five builder-tools reads, plus the six AI routes since Session 02's fix `1ab896b9`). **12 content routes are NOT covered**: 12 on the builder side (Session 05) and 0 on the AI side (Session 02). The default stays `allow` = today's behaviour; only the coverage of the switch needs to grow.
 
 ## Method
 

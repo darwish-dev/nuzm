@@ -136,7 +136,12 @@ export function decideExec(req: ExecRequest, ctx: ExecContext): ExecDecision {
     if (!KNOWN_KEYS.has(k))
       reasons.push(`model_supplied_${/^[A-Za-z_]{1,20}$/.test(k) ? k : 'member'}`);
   if (req.orgId !== ctx.orgId || req.runId !== ctx.runId) reasons.push('another_tenant_or_run');
-  const profile = typeof req.profile === 'string' ? EXEC_PROFILES[req.profile] : undefined;
+  // own properties only: `__proto__`, `constructor` and `toString` are inherited names and must read as an UNKNOWN profile, not as an object
+  const profile =
+    typeof req.profile === 'string' &&
+    Object.prototype.hasOwnProperty.call(EXEC_PROFILES, req.profile)
+      ? EXEC_PROFILES[req.profile]
+      : undefined;
   if (!profile) reasons.push('unknown_profile');
   else if (!ctx.enabledProfiles.includes(profile.id)) reasons.push('profile_not_enabled');
   const p = req.params;

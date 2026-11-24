@@ -66,6 +66,12 @@ describe('the model never supplies a command line', () => {
   });
 });
 
+describe('prototype names are unknown profiles, not objects', () => {
+  it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf'])('%s', (name) => {
+    expect(ask({ profile: name })).toMatchObject({ allowed: false, reasons: ['unknown_profile'] });
+  });
+});
+
 describe('run-script: a script name, never a command', () => {
   const run = (script: unknown, extra: Record<string, unknown> = {}) =>
     ask({ profile: 'run-script', params: { script, ...extra } });

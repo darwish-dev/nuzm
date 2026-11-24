@@ -23,3 +23,6 @@ Detailed approval rows with references live in `docs/ai-intelligence/OWNER-APPRO
 | D-42 | Production rollout | after all above | — | flags | — | high | sign-off | all | yes |
 | HG-05/06 | Real hosting target for deployment verification | provide a sandbox target | stay simulated | deploy verification | hosting cost | medium | target and credentials by the owner | deployment | yes |
 Workers append newly found decisions to their report; the Master merges them here.
+| O-1 (from QA) | A `developer` can request and confirm a production publish alone on the legacy deploy path, while the M10 engine lists owner/admin for `production_deploy`: two approval systems, two rules | one rule: require a second person or an owner/admin for production publish | keep as is (documented) | deploy approval logic | none | privilege: self-approval of production publish | owner decision | deployment | yes |
+| O-2 (from QA) | Deploy `rollback` reuses the previous approval; the M10 policy has `production_rollback` | require its own approval | keep reuse | deploy approval logic | none | rollback without fresh consent | owner decision | deployment | yes |
+

@@ -18,7 +18,7 @@ import { decodeCursor, pageOf } from '../../../common/pagination';
 import { actionHash } from '../../ai';
 import type { CmsService } from '../../builder';
 import { DeployPolicyService } from './policy.service';
-import { BUILDER_PROJECT_TYPE_TO_PRODUCT, decideTarget, type TargetRule } from './targets';
+import { decideTarget, productTypeOfBuilderType, type TargetRule } from './targets';
 import {
   artifactHash,
   SitePublisherPort,
@@ -411,7 +411,7 @@ export class DeployService {
     const projectId = String(b.projectId).toLowerCase();
     const type = await this.projectType(orgId, projectId);
     if (!type) throw new ProblemException('not_found', 'project not found');
-    const product = BUILDER_PROJECT_TYPE_TO_PRODUCT[type] ?? null;
+    const product = productTypeOfBuilderType(type);
     const decision = product ? decideTarget(product) : null;
     const rule: TargetRule | null = decision?.rule ?? null;
     const pol = this.policy

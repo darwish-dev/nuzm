@@ -84,7 +84,7 @@ Why this shape: `HostingAdapter` (docs/09 §3) manages sites, domains, certifica
 
 ## 4. Preview URLs, temporary subdomains, ADR-060
 
-- A staging deployment is reachable at `https://<site>-<8 hex>.<PREVIEW_DOMAIN>/` (`temporarySubdomain`). The 8 hex characters are a hash of the deployment id: stable for one deployment, different for each, not reversible.
+- A staging deployment is reachable at `https://<site>-<16 hex>.<PREVIEW_DOMAIN>/` (`temporarySubdomain`). The 16 hex characters (64 bits) are a hash of the deployment id, or an HMAC of it under a vault-held server key when one is supplied: stable for one deployment, different for each, not guessable by enumeration (QA concern O-16). A real run must supply the key.
 - **ADR-060 is enforced in code** (`assertIsolatedPreviewDomain`): the preview domain must be a valid host name on a registrable domain **different** from every console, admin, API and marketing domain, and a parent or child relation counts as shared. The public-suffix check is an approximation (a short list of two-level suffixes); the owner confirms the final domain against the real public-suffix list.
 - No preview domain configured (the simulated target) → the host ends in `.staging.nuzm.invalid`, which can never resolve. A simulated URL cannot be mistaken for a live one.
 - Host matching is exact (`isTemporaryPreviewHost`): no suffix tricks, no extra labels.

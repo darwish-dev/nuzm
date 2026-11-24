@@ -143,8 +143,7 @@ export class DeployPolicyService {
         'expectedVersion must be a non-negative integer',
       );
 
-    const before = await this.get(orgId);
-    const after = await this.db.withOrg(orgId, async (c) => {
+    const { before, after } = await this.db.withOrg(orgId, async (c) => {
       const cur = (
         await c.query(`SELECT * FROM deploy.org_policies WHERE org_id=$1 FOR UPDATE`, [orgId])
       ).rows[0] as Row | undefined;
@@ -156,20 +155,29 @@ export class DeployPolicyService {
         );
       const nextRoles = roles ?? toPolicy(cur).productionPublishRoles;
       const nextRb = rb ?? toPolicy(cur).rollbackRequiresOwnApproval;
-      const row = cur
-        ? (
-            await c.query(
-              `UPDATE deploy.org_policies SET production_publish_roles=$2, rollback_requires_own_approval=$3, updated_by=$4, updated_at=now(), version=version+1 WHERE org_id=$1 RETURNING *`,
-              [orgId, nextRoles, nextRb, actor.userId],
-            )
-          ).rows[0]
-        : (
-            await c.query(
-              `INSERT INTO deploy.org_policies (org_id, production_publish_roles, rollback_requires_own_approval, updated_by) VALUES ($1,$2,$3,$4) RETURNING *`,
-              [orgId, nextRoles, nextRb, actor.userId],
-            )
-          ).rows[0];
-      return toPolicy(row as Row);
+      let row: Row | undefined;
+      if (cur) {
+        row = (
+          await c.query(
+            `UPDATE deploy.org_policies SET production_publish_roles=$2, rollback_requires_own_approval=$3, updated_by=$4, updated_at=now(), version=version+1 WHERE org_id=$1 RETURNING *`,
+            [orgId, nextRoles, nextRb, actor.userId],
+          )
+        ).rows[0] as Row;
+      } else {
+        // FOR UPDATE on a missing row locks nothing: two first-ever writers can both get here. The loser must see a conflict (409), never a primary-key error (500).
+        row = (
+          await c.query(
+            `INSERT INTO deploy.org_policies (org_id, production_publish_roles, rollback_requires_own_approval, updated_by) VALUES ($1,$2,$3,$4) ON CONFLICT (org_id) DO NOTHING RETURNING *`,
+            [orgId, nextRoles, nextRb, actor.userId],
+          )
+        ).rows[0] as Row | undefined;
+        if (!row)
+          throw new ProblemException(
+            'conflict',
+            'the policy was created concurrently: reload and try again',
+          );
+      }
+      return { before: toPolicy(cur), after: toPolicy(row) };
     });
     await this.audit.record({
       action: 'deploy.policy.updated',

@@ -100,7 +100,7 @@ describe('deploy service on the release-layout target (SIMULATED)', () => {
     const d = await drive(j(await publish(p.id as string, site)).id as string);
     expect(d.state, JSON.stringify(d.error)).toBe('succeeded');
     expect(d.simulated).toBe(true);
-    expect(d.url).toMatch(/^https:\/\/rel-one-[0-9a-f]{8}\.staging\.nuzm\.invalid\/$/);
+    expect(d.url).toMatch(/^https:\/\/rel-one-[0-9a-f]{16}\.staging\.nuzm\.invalid\/$/);
     expect((d.smoke as Row).ok).toBe(true);
     const target = {
       id: site,

@@ -7,6 +7,7 @@ import {
   TARGET_BY_PRODUCT_TYPE,
   assertStagingTargetUsable,
   decideTarget,
+  productTypeOfBuilderType,
   type StagingTarget,
 } from './targets';
 import {
@@ -62,6 +63,13 @@ describe('project type → target mapping', () => {
     expect(TARGET_BY_PRODUCT_TYPE.mobile.blockers).toEqual(['store-HG']);
     expect(TARGET_BY_PRODUCT_TYPE.flutter.readiness).toBe('not_yet');
   });
+  it('inherited object members are not product types (fails closed, no TypeError)', () => {
+    for (const t of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf'])
+      expect(decideTarget(t)).toBeNull();
+    expect(productTypeOfBuilderType('__proto__')).toBeNull();
+    expect(productTypeOfBuilderType('constructor')).toBeNull();
+    expect(productTypeOfBuilderType('webapp')).toBe('webapp');
+  });
   it('an unknown type is refused, not guessed; a refusal names its blockers', () => {
     expect(decideTarget('quantum')).toBeNull();
     expect(decideTarget('api')?.message).toMatch(/not deployable yet.*S04-runtime/);
@@ -84,6 +92,18 @@ describe('staging target gate', () => {
       /preview domain/,
     );
     expect(() => assertStagingTargetUsable(real(), 'website')).not.toThrow();
+  });
+  it('the approval reference must be well formed (any string no longer unlocks a real target); a real node cannot be labelled SIMULATED', () => {
+    for (const bad of ['yes', 'ok', 'HG-05', 'HG-05:', 'HG-07:2026-12-01', 'x'.repeat(70)])
+      expect(() => assertStagingTargetUsable(real({ approvalRef: bad }), 'website')).toThrow(
+        /approval reference/,
+      );
+    expect(() =>
+      assertStagingTargetUsable(real({ approvalRef: 'HG-06:2026-12-01' }), 'website'),
+    ).not.toThrow();
+    expect(() => assertStagingTargetUsable(real({ verification: 'SIMULATED' }), 'website')).toThrow(
+      /cannot be labelled SIMULATED/,
+    );
   });
   it('LIVE-VERIFIED needs evidence; a runtime target is refused while its project types are not deployable', () => {
     expect(() =>
@@ -117,7 +137,7 @@ describe('preview URLs and temporary subdomains (ADR-060)', () => {
       previewDomain: null,
     });
     expect(p.simulated).toBe(true);
-    expect(p.host).toMatch(/^acme-shop-[0-9a-f]{8}\.staging\.nuzm\.invalid$/);
+    expect(p.host).toMatch(/^acme-shop-[0-9a-f]{16}\.staging\.nuzm\.invalid$/);
   });
   it('is stable per deployment, different across deployments, within the 63-char label limit', () => {
     const a = temporarySubdomain({
@@ -140,6 +160,36 @@ describe('preview URLs and temporary subdomains (ADR-060)', () => {
     expect(a.label.length).toBeLessThanOrEqual(63);
     expect(isTemporaryPreviewHost(a.host, 'nuzm-staging.example')).toBe(true);
   });
+  it('the tag is 64 bits; with a server key the host cannot be derived from the deployment id alone', () => {
+    const a = temporarySubdomain({
+      siteName: 's',
+      deploymentId: 'd1',
+      previewDomain: 'nuzm-staging.example',
+    });
+    const k1 = temporarySubdomain({
+      siteName: 's',
+      deploymentId: 'd1',
+      previewDomain: 'nuzm-staging.example',
+      tagKey: 'key-one',
+    });
+    const k2 = temporarySubdomain({
+      siteName: 's',
+      deploymentId: 'd1',
+      previewDomain: 'nuzm-staging.example',
+      tagKey: 'key-two',
+    });
+    expect(a.label).toMatch(/^s-[0-9a-f]{16}$/);
+    expect(new Set([a.host, k1.host, k2.host]).size).toBe(3);
+    expect(k1).toEqual(
+      temporarySubdomain({
+        siteName: 's',
+        deploymentId: 'd1',
+        previewDomain: 'nuzm-staging.example',
+        tagKey: 'key-one',
+      }),
+    );
+    expect(isTemporaryPreviewHost(k1.host, 'nuzm-staging.example')).toBe(true);
+  });
   it('refuses a preview domain that shares a registrable domain with the console or API', () => {
     const prot = ['console.nuzm.sa', 'api.nuzm.sa'];
     expect(() => assertIsolatedPreviewDomain('preview.nuzm.sa', prot)).toThrow(
@@ -154,9 +204,9 @@ describe('preview URLs and temporary subdomains (ADR-060)', () => {
   it('host matching is exact: lookalike suffixes and extra labels are not preview hosts', () => {
     const d = 'nuzm-staging.example';
     expect(isTemporaryPreviewHost(`evil.${d}`, d)).toBe(false); // no 8-hex tag
-    expect(isTemporaryPreviewHost(`a-1234abcd.evil-${d}`, d)).toBe(false);
-    expect(isTemporaryPreviewHost(`x.a-1234abcd.${d}`, d)).toBe(false);
-    expect(isTemporaryPreviewHost(`a-1234abcd.${d}`, d)).toBe(true);
+    expect(isTemporaryPreviewHost(`a-1234abcd1234abcd.evil-${d}`, d)).toBe(false);
+    expect(isTemporaryPreviewHost(`x.a-1234abcd1234abcd.${d}`, d)).toBe(false);
+    expect(isTemporaryPreviewHost(`a-1234abcd1234abcd.${d}`, d)).toBe(true);
     expect(dnsLabel('  ../etc/passwd  ')).toBe('etc-passwd');
     expect(dnsLabel('!!!')).toBe('site');
   });

@@ -41,7 +41,7 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
     expect((await pub.smoke(site, 'staged', stagingRef, ['/', '/about/'])).ok).toBe(true);
     expect(await pub.activeHash(site)).toBeNull(); // staged, not live
     const { url } = await pub.activate(site, stagingRef);
-    expect(url).toMatch(/^https:\/\/acme-[0-9a-f]{8}\.staging\.nuzm\.invalid\/$/);
+    expect(url).toMatch(/^https:\/\/acme-[0-9a-f]{16}\.staging\.nuzm\.invalid\/$/);
     expect(await pub.activeHash(site)).toBe(a.hash);
     expect(
       (await pub.smoke(site, 'live', null, ['/', '/missing'])).results.map((r) => r.status),
@@ -140,7 +140,7 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
     const approved = new HostingTargetPublisher(
       new InMemoryHostingSiteOps(),
       new UnavailableArtifactTransport(),
-      { ...real, approvalRef: 'HG-05:x' },
+      { ...real, approvalRef: 'HG-05:2026-12-01' },
     );
     expect(approved.available()).toBe(true); // authorised in principle; the transport still refuses until SFTP exists
     await expect(approved.stage(site, art('v1'), 'd')).rejects.toThrow(/no artifact upload path/);

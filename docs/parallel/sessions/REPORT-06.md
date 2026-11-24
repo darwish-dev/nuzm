@@ -168,3 +168,12 @@ Commit `42107c5d` on `feature/ai-deployment` (on top of integration `39658725`).
 - `DeployService.prepare` (read-only "prepare deployment": target, readiness, blockers, publisher label, policy, who may confirm, reasons): creates nothing and requests no approval; 3 integration tests. For Session 05's agent loop (message sent; plan §13b). Matrix hooks for Session 07 in plan §13c (message sent).
 - Tests seen: unit `npx vitest run src/modules/deploy/internal` 4 files **42 passed**; integration `deploy-policy.int.spec.ts` **17 passed**, `deploy-releases.int.spec.ts` **5 passed** (own Postgres :54346, with the merged manifest); eslint clean. The deploy, deploy-s06 and Session 07 approval suites were not re-run after this batch (the change does not touch them).
 - Still SIMULATED, NOT VERIFIED; HG-05/HG-06 open.
+
+## P2-H. Session 07 findings fixed (their review at feature/ai-qa-security @ 55d4dd5c; I did not merge their branch, so their `it.fails` are for them to flip)
+| Finding | Fix | My test |
+|---|---|---|
+| DEFECT-11 (LOW): concurrent first-ever `PUT /v1/deployments/policy` → 500 (primary key) | `INSERT … ON CONFLICT (org_id) DO NOTHING`; the loser gets 409; `before` is now read inside the transaction | `deploy-policy.int.spec.ts` "two simultaneous first-ever writers" (4 parallel: one 200, three 409, version 1) |
+| DEFECT-12 (LOW): `decideTarget('__proto__'/'constructor'/'toString')` read an inherited rule | own-property lookup (`Object.hasOwn`), also for the builder-type map (`productTypeOfBuilderType`) | `targets.spec.ts` |
+| O-15 concern: `approvalRef` was presence-only; a real panel could be labelled SIMULATED | format check `HG-05|06:<id>` (a FORMAT check; the owner-signed record itself remains in the approval pack); a real hosting target can no longer carry the SIMULATED label | `targets.spec.ts` |
+| O-16 concern: preview tag 8 hex (32 bits) | 16 hex (64 bits); optional server-side `tagKey` makes it an HMAC (a real run must supply the vault-held key) | `targets.spec.ts` |
+Tests seen after the fixes: unit 4 files **45 passed**; `deploy-policy.int.spec.ts` **18 passed** (before this edit's final run: the file passed in the combined run of 22 + the releases failure only for the 8→16 expectation, now fixed); `deploy-releases.int.spec.ts` **5 passed**; eslint clean.

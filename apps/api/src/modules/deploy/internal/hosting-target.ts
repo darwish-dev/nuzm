@@ -182,6 +182,8 @@ export interface HostingTargetOptions {
   keepReleases?: number;
   /** the isolated preview domain for temporary staging hosts (ADR-060); null = simulated `.invalid` hosts */
   previewDomain?: string | null;
+  /** server-side key (vault-held) for the temporary-host tag; a real run supplies it (QA O-16) */
+  tagKey?: string;
   protectedDomains?: readonly string[];
 }
 
@@ -255,6 +257,7 @@ export class HostingTargetPublisher extends SitePublisherPort {
         deploymentId: stagingRef,
         previewDomain: this.opts.previewDomain ?? null,
         protectedDomains: this.opts.protectedDomains ?? [],
+        ...(this.opts.tagKey ? { tagKey: this.opts.tagKey } : {}),
       }).host;
     return { url: `https://${host}/` };
   }

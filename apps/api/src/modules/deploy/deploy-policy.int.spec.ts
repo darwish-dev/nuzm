@@ -253,6 +253,24 @@ describe('who may change the policy', () => {
     });
   });
 
+  it('two simultaneous first-ever writers: one wins, the other gets 409, never a 500 (DEFECT-11)', async () => {
+    await reset();
+    const results = await Promise.all(
+      [0, 1, 2, 3].map((i) =>
+        put(
+          '/v1/deployments/policy',
+          { rollbackRequiresOwnApproval: i % 2 === 0, expectedVersion: 0 },
+          i % 2 === 0 ? 'alice' : 'erin',
+        ),
+      ),
+    );
+    const codes = results.map((r) => r.statusCode).sort();
+    expect(codes.filter((c) => c === 200)).toHaveLength(1);
+    expect(codes.filter((c) => c === 409)).toHaveLength(3);
+    expect(Number((await e.sql(`SELECT version v FROM deploy.org_policies`))[0]!.v)).toBe(1);
+    expect(audits('deploy.policy.updated').length).toBeGreaterThan(0);
+  });
+
   it('an API key cannot change the policy even with the permission', async () => {
     await reset();
     await expect(deploysPolicyAsKey()).resolves.toBe(403);

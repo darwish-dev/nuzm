@@ -40,7 +40,8 @@ test('admin AI provider insights: health, registry, usage (exact integers, mixed
   page,
 }, info) => {
   const L = loc(info);
-  const staff = `staff-ins-${L}@example.test`;
+  // the staff user global setup seeds for each language (registered in the dev IdP in playwright.config.ts), as the other admin specs use
+  const staff = `staff-${L}@example.test`;
   await signIn(page, info, staff, ADMIN);
   await elevate(staff);
   const uid = (

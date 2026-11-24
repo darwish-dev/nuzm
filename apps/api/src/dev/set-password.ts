@@ -36,6 +36,13 @@ export async function setPassword(
 async function main() {
   const [email, given] = process.argv.slice(2);
   if (!email) throw new Error('usage: set-password <email> [password]');
+  if (
+    !process.env.DATABASE_ADMIN_URL &&
+    (process.env.NUZM_FORBID_DEFAULT_DB === '1' || process.env.NUZM_ALLOW_OWNER_DEV_DB !== '1')
+  )
+    throw new Error(
+      'DATABASE_ADMIN_URL is mandatory: the owner development database is a default ONLY with the owner own NUZM_ALLOW_OWNER_DEV_DB=1 opt-in (never in a session; use source scripts/session-env.sh <name>)',
+    );
   const url = process.env.DATABASE_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev';
   if (!['127.0.0.1', 'localhost', '::1'].includes(new URL(url).hostname))
     throw new Error('set-password only runs against a local database');

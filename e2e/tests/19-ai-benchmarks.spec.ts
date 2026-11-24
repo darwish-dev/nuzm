@@ -107,7 +107,7 @@ test('admin benchmarks: switched off, staged plan and scorecard, offline replay,
     await setFlag(false);
     await open();
     await expect(page.getByText(k('disabled'))).toBeVisible();
-    await expect(page.getByRole('button', { name: k('record') })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: k('record'), exact: true })).toHaveCount(0);
     await audit(page, info, 'ai-benchmarks-disabled');
 
     // ---- flag on: the dashboard, with nothing recorded yet
@@ -135,21 +135,21 @@ test('admin benchmarks: switched off, staged plan and scorecard, offline replay,
     await expect(gov.locator('form')).toBeVisible();
     await expect(gov.locator('#gov-action option')).toHaveCount(1); // only "propose" makes sense before a proposal
     await gov.locator('#gov-text').fill('recommended set (e2e)');
-    await gov.getByRole('button').click();
+    await gov.locator('button[type=submit]').click();
     await expect(gov.locator('#gov-action option')).toHaveCount(4); // proposed: review, accept, reject, propose
     expect(await thresholdStatus()).toBe('PROPOSED');
     await gov.locator('#gov-action').selectOption('accept');
-    await gov.getByRole('button').click();
+    await gov.locator('button[type=submit]').click();
     await expect(gov.getByText(k('failed'))).toBeVisible(); // no approving review yet
     await gov.locator('#gov-action').selectOption('review');
     await gov.locator('#gov-text').fill('my own proposal');
-    await gov.getByRole('button').click();
+    await gov.locator('button[type=submit]').click();
     await expect(gov.getByText(k('failed'))).toBeVisible(); // the proposer cannot review their own proposal
     expect(await thresholdStatus()).toBe('PROPOSED'); // nothing was accepted, on the server
     await audit(page, info, 'ai-benchmarks-governance-proposed');
 
     // ---- record an offline replay of the reference oracle (never a model)
-    await page.getByRole('button', { name: k('record') }).click();
+    await page.getByRole('button', { name: k('record'), exact: true }).click();
     await expect(page.getByText(k('recorded'))).toBeVisible();
     const runs = sectionOf(page, 'bench-runs');
     await expect(runs.getByText(k('evidenceLabel_OFFLINE_REFERENCE_ORACLE'))).toBeVisible();
@@ -178,7 +178,7 @@ test('admin benchmarks: switched off, staged plan and scorecard, offline replay,
     // ---- support: reads everything, records nothing
     await setRoles(['support']);
     await open();
-    await expect(page.getByRole('button', { name: k('record') })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: k('record'), exact: true })).toHaveCount(0);
     await expect(stages.getByRole('row')).toHaveCount(6); // the plan is read-only information
     await expect(gov.locator('form')).toHaveCount(0); // a reader has no governance form either
     // the API refuses the same session itself, not only the missing button: every mutating action is 403 for a read-only role (and nothing was recorded)

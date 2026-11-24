@@ -3,7 +3,8 @@
 #   scripts/heavy-slot.sh [--weight N] <command> [args...]
 # Why: the machine has 4 CPUs and 8 GB; eight parallel sessions drove the load average past 600 and swap to 5 of 6 GB, which made a regression time out.
 # Rules (all values overridable by environment):
-#   * at most HEAVY_SLOTS weighted units run at once machine-wide (default 2; a command's weight defaults to 1; builds/Playwright should pass --weight 2);
+#   * at most HEAVY_SLOTS weighted units run at once machine-wide (default 4; a command's weight defaults to 1: typecheck and single spec runs; builds, Playwright and Flutter pass --weight 2,
+#     so two builds, or one build plus two light jobs, run together; the memory gate below still holds everything back when the machine is short of RAM);
 #   * FIFO fairness: callers take a numbered ticket and run in ticket order;
 #   * admission also waits while the machine is under pressure: swap used > HEAVY_MAX_SWAP_PCT (default 95: macOS keeps stale swap pages for a long time, so the free+inactive memory test is the main gate) or free+inactive memory < HEAVY_MIN_FREE_MB (default 1200);
 #     it never waits forever for pressure caused by something else: after HEAVY_MAX_WAIT_S (default 5400) it runs anyway and says so;
@@ -11,7 +12,7 @@
 # State: /private/tmp/nuzm-sched (slot files "slot.<n>" hold "<pid> <weight>", tickets "q.<seq>.<pid>"). Inspect with scripts/resource-status.sh.
 set -uo pipefail
 DIR="${HEAVY_DIR:-/private/tmp/nuzm-sched}"
-SLOTS="${HEAVY_SLOTS:-2}"
+SLOTS="${HEAVY_SLOTS:-4}"
 MAX_SWAP="${HEAVY_MAX_SWAP_PCT:-95}"
 MIN_FREE="${HEAVY_MIN_FREE_MB:-1200}"
 MAX_WAIT="${HEAVY_MAX_WAIT_S:-5400}"

@@ -7,7 +7,13 @@ import { SAMPLE_SPEC } from './internal/fixtures/sample-spec';
 import { generateProject } from './internal/gen/project';
 import { materialize } from './internal/testing/materialize';
 
-const ADMIN = process.env.NUZM_TEST_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/postgres';
+const ADMIN =
+  process.env.NUZM_TEST_ADMIN_URL ??
+  (() => {
+    throw new Error(
+      'NUZM_TEST_ADMIN_URL is mandatory: acquire an isolated test environment first (node scripts/testenv/testenv.mjs acquire); there is no default database',
+    );
+  })();
 const TSC = join(__dirname, '../../../../../node_modules/typescript/bin/tsc');
 let dir = '';
 let cleanup = () => undefined as void;

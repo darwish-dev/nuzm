@@ -46,10 +46,12 @@ class ScriptPort implements builderTools.BuildPort {
       : { status: 'completed', logs: '', artifacts: [], durationMs: 1 };
   }
 }
-const use = (port: ScriptPort | null) => {
+function use(port: ScriptPort): ScriptPort;
+function use(port: null): null;
+function use(port: ScriptPort | null): ScriptPort | null {
   svc.buildPortOverride = () => port;
   return port;
-};
+}
 async function setFlag(key: string, value: unknown) {
   await q(`DELETE FROM platform.feature_flags WHERE key = $1 AND org_id = $2`, [key, A()]);
   if (value !== null)

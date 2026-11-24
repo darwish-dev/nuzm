@@ -3,7 +3,6 @@ import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
 import { ADMIN, WEB, DB_URL as DB } from './env';
 import { elevate, ensureOwnerOrg, enableMockModel } from './fixtures/templates';
-import { enableHosting, makeDeployable, seedHostingSite } from './fixtures/deploy';
 import { resetDatabase } from './reset';
 
 test.beforeAll(resetDatabase);
@@ -29,11 +28,8 @@ test.beforeAll(resetDatabase);
  *     build run ends `failed`: this spec then SKIPS every leg that needs a built app (spec, design, deploy) with an explicit reason, it never fakes one.
  *   - Fixtures written here: flags `ai.enabled` + `app_builder.enabled`, an enabled `mock-model` provider row, a funded wallet. Runs after 01-customer (it uses that
  *     test's owner organization).
- *   - The deployment target is SIMULATED and local (a real hosting site/instance needs HG-05/HG-06): `fixtures/deploy.ts` seeds a node, plan and ACTIVE site with SQL,
- *     `hosting.enabled` is on, and the API's in-memory publisher (`AI_LOCAL_REFERENCE=true`) stands in for the node (URLs end in `.invalid`). The e2e sandbox runtime
- *     starts no process, so the generated app is made deployable without a build step (`makeDeployable`: lockfile added, install/build commands dropped) through the
- *     product's own changes API. The deploy leg therefore proves the console + API + pipeline plumbing (approval, status sync, SIMULATED label, supersede, rollback);
- *     it is NOT evidence about a real node. The deploy leg is skipped only when the app build itself did not finish (explicit reason, never faked).
+ *   - Deployments are NOT part of this AI-build test any more: success, failure, cancellation, rollback, status sync, authorization and tenant isolation are their own
+ *     tests in `10-deploy-simulated.spec.ts` (SIMULATED local hosting target, projects created through the API, no AI build). This test only opens the deployments panel.
  *     The sandbox runtime is NEVER isolated (D-21/HG-10-02): every sandbox shown must carry the stand-in notice.
  */
 
@@ -225,65 +221,18 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
   ).toBeVisible();
   await audit(page, info, 'm10a-exports');
 
-  // ---- UI-M10-09: deployments (web app): a SIMULATED local hosting target; production asks for an approval
-  await enableHosting();
-  await seedHostingSite(org.id, org.user_id, L);
-  test.skip(
-    !built,
-    'the app build did not finish (no webapp fixtures in the mock model): nothing to deploy; the deploy and rollback legs are skipped, NOT faked',
-  );
-  await makeDeployable(page, org.id, projectId);
+  // ---- UI-M10-09: deployments (web app). The deploy, failure, cancel, rollback, authorization and tenant cases do NOT depend on this AI build: they are their own tests in
+  // `10-deploy-simulated.spec.ts` (SIMULATED local hosting target). Here only the panel itself is opened.
   await page.goto(`${project}/deployments`);
   await expect(page.getByRole('heading', { name: T(info, 'm10a.dep.new') })).toBeVisible();
-  expect((await page.getByLabel(T(info, 'm10a.dep.target')).locator('option').count()) > 1).toBe(
-    true,
-  ); // the seeded site (plus "another target")
   await audit(page, info, 'm10a-deployments');
-  // production needs a human approval bound to the exact release: nothing is deployed by the first call
-  await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('production');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
-  await expect(page.getByText(T(info, 'm10a.dep.approvalNeeded'))).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('table', { name: T(info, 'bld.dep.list') })).toHaveCount(0);
-  await audit(page, info, 'm10a-deploy-approval-needed');
-  // staging: queued -> live WITHOUT a reload (status synchronization by polling), labelled SIMULATED
-  const liveBadges = page
-    .getByRole('table', { name: T(info, 'bld.dep.list') })
-    .getByText(T(info, 'm10a.dep.state.live'), { exact: true });
-  await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('staging');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
-  await expect(page.getByRole('table', { name: T(info, 'bld.dep.list') })).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(liveBadges).toHaveCount(1, { timeout: 120_000 });
-  await expect(page.getByText(T(info, 'dep.simulated.title')).first()).toBeVisible();
-  await expect(page.getByText(/\.invalid/).first()).toBeVisible(); // the simulated node URL, never a real host
-  await audit(page, info, 'm10a-deploy-live-simulated');
-  // a second release supersedes the first (the first one becomes the rollback target)
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
-  await expect(
-    page
-      .getByRole('table', { name: T(info, 'bld.dep.list') })
-      .getByText(T(info, 'm10a.dep.state.superseded'), { exact: true }),
-  ).toBeVisible({ timeout: 120_000 });
-  await expect(liveBadges).toHaveCount(1);
-  // rollback behind a confirmation: the live release is rolled back to the earlier one
-  const rollback = page.getByRole('button', { name: T(info, 'bld.dep.rollback') });
-  await expect(rollback.first()).toBeVisible({ timeout: 120_000 });
-  await rollback.first().click();
-  await expect(page.getByRole('dialog').getByText(T(info, 'm10a.dep.rollbackTitle'))).toBeVisible();
-  await audit(page, info, 'm10a-rollback-confirm');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.rollbackConfirm') }).click();
-  await expect(
-    page
-      .getByRole('table', { name: T(info, 'bld.dep.list') })
-      .getByText(T(info, 'm10a.dep.state.rolled_back'), { exact: true }),
-  ).toBeVisible({ timeout: 120_000 });
-  await audit(page, info, 'm10a-rolled-back');
 
   // ---- versions (read-only for web apps)
   await page.goto(`${project}/versions`);
-  await expect(page.getByRole('table', { name: T(info, 'm10a.tab.versions') })).toBeVisible();
-  await audit(page, info, 'm10a-versions');
+  if (built) {
+    await expect(page.getByRole('table', { name: T(info, 'm10a.tab.versions') })).toBeVisible();
+    await audit(page, info, 'm10a-versions');
+  }
 
   // ---- the project list shows the type and can be filtered
   await page.goto(`${base}/builder/projects?type=webapp`);

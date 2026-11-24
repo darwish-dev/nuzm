@@ -123,3 +123,126 @@ export async function makeDeployable(page: Page, orgId: string, projectId: strin
   });
   expect(r.status(), (await r.text()).slice(0, 300)).toBe(200);
 }
+
+/** Flags the deploy screens need (all global, all written with SQL into the throw-away e2e database). */
+export async function enableDeployFlags() {
+  for (const key of ['ai.enabled', 'app_builder.enabled', 'hosting.enabled']) {
+    await sql(
+      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, NULL, 'true') ON CONFLICT DO NOTHING`,
+      [key],
+    );
+    await sql(
+      `UPDATE platform.feature_flags SET value = 'true' WHERE key = $1 AND org_id IS NULL`,
+      [key],
+    );
+  }
+}
+
+/** The headers of a signed-in console session calling the API through the console's own origin (cookie session + csrf + the organization). */
+export async function sessionHeaders(page: Page, orgId: string, idempotencyKey?: string) {
+  const csrf = (await page.context().cookies()).find((c) => c.name === 'nuzm_csrf')?.value;
+  expect(csrf, 'a signed-in session with a csrf cookie').toBeTruthy();
+  return {
+    'x-csrf-token': csrf!,
+    'x-nuzm-org': orgId,
+    ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
+  };
+}
+
+/**
+ * A web-app project that is deployable on the e2e stack WITHOUT an AI build: created through the product's own API (`POST /v1/builder/projects`, then the safe-diff
+ * `changes` API). The files are a static app (`public/index.html`), a manifest, and the lockfile the package mirror would have produced (the supply-chain gate refuses a
+ * deployment without one). `failingBuild` adds a `build` command the e2e sandbox runtime (`MockSandboxRuntime`) does not know: the build then ends with exit 127, which the
+ * pipeline must report as `build_failed`. Everything is SIMULATED: no process runs, no node is reached.
+ */
+export async function createDeployableWebapp(
+  page: Page,
+  orgId: string,
+  name: string,
+  opts: { failingBuild?: boolean } = {},
+): Promise<string> {
+  const created = await page.request.post(`/v1/builder/projects`, {
+    headers: await sessionHeaders(page, orgId, `e2e-webapp-${name}`),
+    data: { type: 'webapp', name },
+  });
+  expect(created.status(), (await created.text()).slice(0, 300)).toBeLessThan(300);
+  const projectId = ((await created.json()) as { id: string }).id;
+  const pkg: { name: string; version: string; private: boolean; dependencies?: object } = {
+    name: `e2e-${name}`.toLowerCase(),
+    version: '1.0.0',
+    private: true,
+  };
+  const manifest = {
+    name,
+    deploy: { healthPath: '/index.html' },
+    ...(opts.failingBuild ? { commands: { build: ['not-a-registered-build-tool'] } } : {}),
+  };
+  const r = await page.request.post(`/v1/builder/projects/${projectId}/changes`, {
+    headers: await sessionHeaders(page, orgId, `e2e-webapp-files-${name}`),
+    data: {
+      baseVersion: null,
+      message: 'e2e: a static app and the mirror lockfile (simulated, no build)',
+      patches: [
+        { op: 'add', path: 'package.json', content: JSON.stringify(pkg, null, 2) },
+        { op: 'add', path: 'package-lock.json', content: mirrorLockfile(pkg) },
+        { op: 'add', path: 'nuzm.app.json', content: JSON.stringify(manifest, null, 2) },
+        {
+          op: 'add',
+          path: 'public/index.html',
+          content: '<!doctype html><title>e2e</title><h1>e2e simulated app</h1>\n',
+        },
+      ],
+    },
+  });
+  expect(r.status(), (await r.text()).slice(0, 400)).toBe(200);
+  return projectId;
+}
+
+/** A website project the way the API creates it (`POST /v1/builder/projects`, no AI run); returns its id and head version. */
+export async function createWebsite(page: Page, orgId: string, name: string) {
+  const created = await page.request.post(`/v1/builder/projects`, {
+    headers: await sessionHeaders(page, orgId, `e2e-site-${name}`),
+    data: { type: 'website', name, locale: ['en'] },
+  });
+  expect(created.status(), (await created.text()).slice(0, 300)).toBeLessThan(300);
+  const p = (await created.json()) as { id: string; headVersionId: string | null };
+  expect(p.headVersionId, 'the new website project has a first version').toBeTruthy();
+  return { projectId: p.id, versionId: p.headVersionId! };
+}
+
+/**
+ * A website deployment that is QUEUED and stays queued: the row and its `deploy.run` operation are written with SQL, exactly as `DeployService.create` writes them, but
+ * the in-process kicker (which would start the job at once and finish it in milliseconds) is never called, and the e2e API runs no scheduler
+ * (`DEPLOY_SCHEDULER_INTERVAL_SECONDS` unset). The cancel button is then deterministic: the job cannot have finished before the click. The cancel itself goes through the
+ * real route (`POST /v1/deployments/:id/cancel`), which cancels the queued operation.
+ */
+export async function seedQueuedWebsiteDeployment(o: {
+  orgId: string;
+  userId: string;
+  projectId: string;
+  versionId: string;
+  siteId: string;
+  environment?: 'staging' | 'production';
+}): Promise<string> {
+  const id = crypto.randomUUID();
+  const op = crypto.randomUUID();
+  await sql(
+    `INSERT INTO deploy.deployments (id, org_id, project_id, version_id, target_ref, environment, operation_id, idempotency_key, data_region, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'sa-central',$9)`,
+    [
+      id,
+      o.orgId,
+      o.projectId,
+      o.versionId,
+      o.siteId,
+      o.environment ?? 'staging',
+      op,
+      `e2e-q-${id}`,
+      o.userId,
+    ],
+  );
+  await sql(
+    `INSERT INTO platform.operations (id, org_id, kind, input, resource_kind, resource_id, created_by, max_attempts) VALUES ($1,$2,'deploy.run',$3,'deployment',$4,$5,3)`,
+    [op, o.orgId, JSON.stringify({ deploymentId: id }), id, o.userId],
+  );
+  return id;
+}

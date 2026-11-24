@@ -3,3 +3,6 @@ export * from './workspace-runtime';
 export * from './dependency-policy';
 export * from './real-runtime';
 export * from './simulated-attestation';
+export * from './fixtures';
+export * from './conformance';
+export * from './attestation-draft';

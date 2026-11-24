@@ -131,8 +131,8 @@ interface Active {
   limitNote: string;
 }
 export const DEFAULT_MIN_SUITE_VERSION = '1.1.0';
-/** the count of XR-* (isolating-runtime) attempts of suite 1.1.0; the attestation must show at least this many, all blocked */
-export const DEFAULT_MIN_ISOLATING_ATTEMPTS = 21;
+/** the count of isolating-runtime attempts (every `requires: 'isolating-runtime'`, M10 and XR-*) in suite 1.1.0; the attestation must show at least this many, all blocked. A spec in apps/api keeps it equal to the suite. */
+export const DEFAULT_MIN_ISOLATING_ATTEMPTS = 65;
 
 const refusal = (
   why: string,

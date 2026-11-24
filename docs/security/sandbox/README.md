@@ -13,7 +13,7 @@ Status: **PREPARATION. Nothing here is implemented as a capability, decided, rev
 | [RUNBOOK-EXECUTION.md](RUNBOOK-EXECUTION.md) | operating the (future) execution path: kill switch, emergency termination, cleanup, incidents. Offline draft: nothing to operate yet |
 
 ## Ground rules that never change in this work
-- D-21, HG-10-02, ADR-067 (PROPOSED), D-42 and `ai.agent.exec_tools` (default off, `AiFlags.execTools` always false) stay as they are. `executionGate` stays closed.
+- D-21, HG-10-02, ADR-067 (PROPOSED), D-AG-ROLLOUT and `ai.agent.exec_tools` (default off, `AiFlags.execTools` always false) stay as they are. `executionGate` stays closed.
 - No customer code and no model-written code is executed, anywhere, by anything in this repository. The mock (`MockExecutionPort`, `MockSandboxRuntime`) starts no process. The local developer runner (isolation NONE) is refused by the execution port.
 - **A mock cannot prove isolation.** Every isolating-runtime attempt is `NOT_VERIFIED` until a runtime with `isolation: verified` is attacked by the suite and reviewed. Offline results are never labelled verified for the real thing.
 - Figures, prices and vendor capabilities in these documents are engineering knowledge, not live-verified, and no price is stated: costs are formulas over the owner's own numbers.

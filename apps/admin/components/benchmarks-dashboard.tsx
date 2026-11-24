@@ -1,6 +1,15 @@
 import { formatDateTime, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, EmptyState, Ltr, Table } from '@nuzm/ui';
-import { barText, evidenceTone, pct, type Overview } from '../lib/benchmarks';
+import {
+  barText,
+  evidenceTone,
+  money,
+  pct,
+  permille,
+  scorecardValue,
+  type Overview,
+  type ScorecardRow,
+} from '../lib/benchmarks';
 import { bt, type BenchKey } from '../lib/benchmarks-text';
 import { BenchmarksActions } from './benchmarks-actions';
 
@@ -12,10 +21,13 @@ export function BenchmarksDashboard({
   locale,
   overview,
   canRecord,
+  scorecard = [],
 }: {
   locale: Locale;
   overview: Overview;
   canRecord: boolean;
+  /** the scorecard of the latest stored run (empty when there is none) */
+  scorecard?: ScorecardRow[];
 }) {
   const k = (key: BenchKey) => bt(locale, key);
   if (!overview.enabled) return <EmptyState title={k('title')} body={k('disabled')} />;
@@ -128,6 +140,159 @@ export function BenchmarksDashboard({
         )}
         {canRecord && <BenchmarksActions locale={locale} />}
       </section>
+
+      <section aria-labelledby="bench-score">
+        <h2 className="nz-h2" id="bench-score">
+          {k('scorecardTitle')}
+        </h2>
+        <p className="nz-muted">{k('scorecardHelp')}</p>
+        {scorecard.length === 0 ? (
+          <p>{k('scorecardEmpty')}</p>
+        ) : (
+          <Table
+            caption={k('scorecardTitle')}
+            rows={scorecard}
+            rowKey={(r) => r.dimension}
+            columns={[
+              {
+                key: 'd',
+                header: k('dimension'),
+                render: (r) => bt(locale, `dim_${r.dimension}` as BenchKey),
+              },
+              {
+                key: 'v',
+                header: k('value'),
+                render: (r) => <Ltr>{scorecardValue(r, bt(locale, 'notMeasured'))}</Ltr>,
+              },
+              { key: 'n', header: k('tasks'), render: (r) => <Ltr>{r.tasks}</Ltr> },
+              {
+                key: 't',
+                header: k('thresholdsJudging'),
+                render: (r) => (
+                  <>
+                    {r.thresholds.map((x) => (
+                      <span key={x.id}>
+                        <Ltr>{x.id}</Ltr>{' '}
+                        <Badge
+                          tone={
+                            x.status === 'PASS'
+                              ? 'success'
+                              : x.status === 'FAIL'
+                                ? 'danger'
+                                : 'warn'
+                          }
+                        >
+                          {bt(
+                            locale,
+                            x.status === 'PASS'
+                              ? 'statusPass'
+                              : x.status === 'FAIL'
+                                ? 'statusFail'
+                                : 'statusNotMeasured',
+                          )}
+                        </Badge>{' '}
+                      </span>
+                    ))}
+                  </>
+                ),
+              },
+            ]}
+          />
+        )}
+      </section>
+
+      {overview.stages && (
+        <section aria-labelledby="bench-stages">
+          <h2 className="nz-h2" id="bench-stages">
+            {k('stagesTitle')}
+          </h2>
+          <p className="nz-muted">{k('stagesHelp')}</p>
+          <Banner tone="warn">
+            {overview.stages.rateBasis.status === 'APPROVED_WITH_BUDGET'
+              ? bt(locale, 'rateApproved', { source: overview.stages.rateBasis.source })
+              : bt(locale, 'rateReference', {
+                  model: overview.stages.rateBasis.model ?? '—',
+                  source: overview.stages.rateBasis.source,
+                })}
+          </Banner>
+          <Table
+            caption={k('stagesTitle')}
+            rows={overview.stages.plans}
+            rowKey={(p) => p.stage}
+            columns={[
+              {
+                key: 's',
+                header: k('stage'),
+                render: (p) => (
+                  <>
+                    {bt(locale, `stageName_${p.stage}` as BenchKey)}
+                    <br />
+                    <span className="nz-muted">
+                      {bt(locale, `stagePurpose_${p.stage}` as BenchKey)}
+                    </span>
+                  </>
+                ),
+              },
+              {
+                key: 't',
+                header: k('tasks'),
+                render: (p) => <Ltr>{p.models > 1 ? `${p.tasks} × ${p.models}` : p.tasks}</Ltr>,
+              },
+              { key: 'r', header: k('runCount'), render: (p) => <Ltr>{p.runs}</Ltr> },
+              {
+                key: 'e',
+                header: k('estimated'),
+                render: (p) => <Ltr>{money(p.estimateCostMinor, p.currency)}</Ltr>,
+              },
+              {
+                key: 'm',
+                header: k('maximum'),
+                render: (p) => <Ltr>{money(p.maxCostMinor, p.currency)}</Ltr>,
+              },
+              {
+                key: 'd',
+                header: k('duration'),
+                render: (p) => (
+                  <Ltr>
+                    {bt(locale, 'durationValue', {
+                      est: String(p.estimatedMinutes),
+                      max: String(p.maximumMinutes),
+                    })}
+                  </Ltr>
+                ),
+              },
+              {
+                key: 'st',
+                header: k('stageStatus'),
+                render: () => <Badge tone="warn">{k('stageBlocked')}</Badge>,
+              },
+            ]}
+          />
+          <p className="nz-muted">
+            {bt(locale, 'assumptionsNote', {
+              usage: permille(overview.stages.usagePermille),
+              input: permille(overview.stages.inputSharePermille),
+            })}
+          </p>
+          {overview.stages.monthly && (
+            <p>
+              {bt(locale, 'monthly', {
+                est: money(
+                  overview.stages.monthly.estimateCostMinor,
+                  overview.stages.monthly.currency,
+                ),
+                max: money(overview.stages.monthly.maxCostMinor, overview.stages.monthly.currency),
+              })}
+            </p>
+          )}
+          <h3 className="nz-h3">{k('prerequisites')}</h3>
+          <ul>
+            {(overview.stages.plans.find((p) => p.stage === 'E')?.prerequisites ?? []).map((q) => (
+              <li key={q}>{bt(locale, `prereq_${q}` as BenchKey)}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section aria-labelledby="bench-qual">
         <h2 className="nz-h2" id="bench-qual">

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const refresh = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
-import { parseOverview } from '../lib/benchmarks';
+import { parseOverview, parseScorecard } from '../lib/benchmarks';
 import { bt } from '../lib/benchmarks-text';
 import { BenchmarksDashboard } from './benchmarks-dashboard';
 
@@ -63,7 +63,30 @@ const full = (over: Record<string, unknown> = {}) =>
       },
     ],
     qualifications: [],
-    live: { available: false },
+    live: {
+      available: false,
+      stages: {
+        rateBasis: {
+          model: 'Claude Opus 5.5',
+          source: 'vendor list price, read 2026-11-24',
+          status: 'TO_BE_CONFIRMED_BY_S02_D6',
+        },
+        prices: { currency: 'USD', input: '400', output: '2000' },
+        assumptions: { usagePermille: 600, inputSharePermille: 850 },
+        plans: ['A', 'B', 'C', 'D', 'E'].map((stage) => ({
+          stage,
+          tasks: 5,
+          runs: 5,
+          models: stage === 'D' ? 2 : 1,
+          currency: 'USD',
+          max: { tokens: 220000, requests: 30, costMinor: stage === 'C' ? '8360' : '440' },
+          estimate: { tokens: 132000, costMinor: '88' },
+          duration: { estimatedMinutes: 4, maximumMinutes: 8 },
+        })),
+        definitions: [{ id: 'E', prerequisites: ['PROVIDER_VERIFIED', 'BASELINE_RECORDED'] }],
+        monthly: { estimateCostMinor: '3400', maxCostMinor: '17000' },
+      },
+    },
     ...over,
   });
 
@@ -131,5 +154,93 @@ describe.each(['en', 'ar'] as const)('BenchmarksDashboard (%s)', (locale) => {
     fireEvent.click(screen.getByRole('button', { name: bt(locale, 'record') }));
     await waitFor(() => expect(screen.getByText(bt(locale, 'failed'))).toBeTruthy());
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+/** the section a heading id labels (a table with a caption is a region of its own, so a role query by name would match twice) */
+const section = (id: string): HTMLElement => document.getElementById(id)!.closest('section')!;
+
+const card = parseScorecard({
+  scorecard: [
+    {
+      dimension: 'functional',
+      value: 100,
+      unit: 'score',
+      tasks: 83,
+      thresholds: [{ id: 'T16', status: 'PASS' }],
+    },
+    {
+      dimension: 'arabic-rtl',
+      value: 0.84,
+      unit: 'rate',
+      tasks: 25,
+      thresholds: [{ id: 'T19', status: 'FAIL' }],
+    },
+    {
+      dimension: 'latency',
+      value: null,
+      unit: 'ms',
+      tasks: 0,
+      thresholds: [{ id: 'T11', status: 'NOT MEASURED' }],
+    },
+  ],
+});
+
+describe.each(['en', 'ar'] as const)('BenchmarksDashboard Phase 2 sections (%s)', (locale) => {
+  it('shows the five stages with estimated and maximum cost, all blocked, and says the rate is not approved', () => {
+    render(<BenchmarksDashboard locale={locale} overview={full()} canRecord={false} />);
+    const region = section('bench-stages');
+    for (const id of ['A', 'B', 'C', 'D', 'E'] as const)
+      expect(within(region).getByText(bt(locale, `stageName_${id}`))).toBeTruthy();
+    expect(within(region).getAllByText(bt(locale, 'stageBlocked'))).toHaveLength(5);
+    expect(within(region).getByText('83.60 USD')).toBeTruthy(); // the maximum of stage C, integer arithmetic
+    expect(within(region).getByText('5 × 2')).toBeTruthy(); // stage D covers two models
+    expect(
+      within(region).getByText(new RegExp(bt(locale, 'rateReference').slice(0, 10))),
+    ).toBeTruthy();
+    expect(within(region).getByText(bt(locale, 'prereq_PROVIDER_VERIFIED'))).toBeTruthy();
+    expect(within(region).getByText(bt(locale, 'prereq_BASELINE_RECORDED'))).toBeTruthy();
+    expect(within(region).getByText(/60%/)).toBeTruthy();
+  });
+  it('shows the rate as approved when it came with the budget', () => {
+    const base = full();
+    const overview = {
+      ...base,
+      stages: {
+        ...base.stages!,
+        rateBasis: { model: null, source: 'agreement 1', status: 'APPROVED_WITH_BUDGET' },
+      },
+    };
+    render(<BenchmarksDashboard locale={locale} overview={overview} canRecord={false} />);
+    expect(screen.getByText(bt(locale, 'rateApproved', { source: 'agreement 1' }))).toBeTruthy();
+  });
+  it('omits the plan when the API sent none, and shows the empty scorecard state', () => {
+    const base = full();
+    render(
+      <BenchmarksDashboard
+        locale={locale}
+        overview={{ ...base, stages: null }}
+        canRecord={false}
+      />,
+    );
+    expect(document.getElementById('bench-stages')).toBeNull();
+    expect(screen.getByText(bt(locale, 'scorecardEmpty'))).toBeTruthy();
+  });
+  it('shows the scorecard with pass, fail and not-measured as text, not colour alone', () => {
+    render(
+      <BenchmarksDashboard locale={locale} overview={full()} canRecord={false} scorecard={card} />,
+    );
+    const region = section('bench-score');
+    expect(within(region).getByText(bt(locale, 'dim_functional'))).toBeTruthy();
+    expect(within(region).getByText('84%')).toBeTruthy();
+    expect(within(region).getByText(bt(locale, 'statusPass'))).toBeTruthy();
+    expect(within(region).getByText(bt(locale, 'statusFail'))).toBeTruthy();
+    expect(within(region).getAllByText(bt(locale, 'statusNotMeasured')).length).toBeGreaterThan(0);
+    expect(within(region).getAllByText(bt(locale, 'notMeasured')).length).toBeGreaterThan(0);
+  });
+  it('a non-manager sees no action form but still sees the plan (read-only)', () => {
+    render(<BenchmarksDashboard locale={locale} overview={full()} canRecord={false} />);
+    expect(screen.queryByRole('button', { name: bt(locale, 'record') })).toBeNull();
+    expect(section('bench-stages')).toBeTruthy();
   });
 });

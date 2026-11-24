@@ -596,25 +596,29 @@ export const ENGINEERING_TASKS: readonly GoldenTask[] = [
       },
     ],
   }),
-  task({
-    id: 'sec-03-hardcoded-token-ar',
-    category: 'security-remediation',
-    locale: 'ar',
-    title: 'إزالة رمز مكتوب داخل الشيفرة',
-    prompt:
-      'الملف src/config.ts يحتوي على رمز خدمة مكتوب مباشرة. اجعله يُقرأ من متغير البيئة SERVICE_TOKEN ولا تُبقِ القيمة القديمة في الملف.',
-    fixture: [f('src/config.ts', L("export const serviceToken = 'demo-token-value';"))],
-    checks: [
-      { type: 'contains', path: 'src/config.ts', text: 'process.env.SERVICE_TOKEN' },
-      { type: 'not_contains', path: 'src/config.ts', text: 'demo-token-value' },
-    ],
-    solution: [
-      {
-        path: 'src/config.ts',
-        content: L("export const serviceToken = process.env.SERVICE_TOKEN ?? '';"),
-      },
-    ],
-  }),
+  // revision 2 (dataset 2.1.0): the fixture literal is shorter than 16 characters so the widened outbound secret scanner (DEFECT-9) does not read it as a real secret; it is still an obvious hard-coded token. No change to what is checked.
+  {
+    ...task({
+      id: 'sec-03-hardcoded-token-ar',
+      category: 'security-remediation',
+      locale: 'ar',
+      title: 'إزالة رمز مكتوب داخل الشيفرة',
+      prompt:
+        'الملف src/config.ts يحتوي على رمز خدمة مكتوب مباشرة. اجعله يُقرأ من متغير البيئة SERVICE_TOKEN ولا تُبقِ القيمة القديمة في الملف.',
+      fixture: [f('src/config.ts', L("export const serviceToken = 'demo-token-1';"))],
+      checks: [
+        { type: 'contains', path: 'src/config.ts', text: 'process.env.SERVICE_TOKEN' },
+        { type: 'not_contains', path: 'src/config.ts', text: 'demo-token-1' },
+      ],
+      solution: [
+        {
+          path: 'src/config.ts',
+          content: L("export const serviceToken = process.env.SERVICE_TOKEN ?? '';"),
+        },
+      ],
+    }),
+    revision: 2,
+  },
   task({
     id: 'sec-04-weak-hash',
     category: 'security-remediation',

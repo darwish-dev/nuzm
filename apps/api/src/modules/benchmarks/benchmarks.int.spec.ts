@@ -105,5 +105,47 @@ describe('benchmark tables', () => {
     expect((full.report as bm.BenchmarkReport).tasks).toBe(bm.GOLDEN_TASKS.length);
     const live = await svc.attemptLiveRun(randomUUID(), { requestId: randomUUID() });
     expect(live.started).toBe(false);
+    expect(full).toHaveProperty('scorecard');
+    expect((full as { scorecard: unknown[] }).scorecard).toHaveLength(7);
+  });
+
+  it('a budget stored with its price card (jsonb round trip) makes the stage plan and the preflight use that price', async () => {
+    const svc = new BenchmarksService(
+      store,
+      { record: () => undefined },
+      new (class extends BenchmarkFlags {
+        enabled = () => Promise.resolve(true);
+      })(),
+    );
+    const who = randomUUID();
+    await svc.setBudget(who, {
+      ref: 'BUD-PG',
+      currency: 'USD',
+      maxCostMinor: '9000',
+      maxTokens: 4_200_000,
+      maxRequests: 500,
+      price: {
+        minorPerMillionInput: '400',
+        minorPerMillionOutput: '2000',
+        source: 'agreement ref',
+      },
+      requestId: randomUUID(),
+    });
+    const o = (await svc.overview()) as {
+      live: {
+        stages: {
+          rateBasis: { status: string };
+          plans: { stage: string; max: { costMinor: string } }[];
+        };
+      };
+    };
+    expect(o.live.stages.rateBasis.status).toBe('APPROVED_WITH_BUDGET');
+    expect(o.live.stages.plans.find((p) => p.stage === 'C')!.max.costMinor).toBe('8360');
+    const c = await svc.attemptLiveRun(who, { stage: 'C', requestId: randomUUID() });
+    const codes = c.refusals.map((x) => x.code);
+    expect(codes).not.toContain('PRICE_CARD_INVALID');
+    expect(codes).not.toContain('BUDGET_TOO_SMALL');
+    expect(codes).toContain('NO_CAPTURE_SOURCE');
+    expect(c.started).toBe(false);
   });
 });

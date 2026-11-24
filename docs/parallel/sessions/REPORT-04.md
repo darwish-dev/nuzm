@@ -210,3 +210,22 @@ Merged `integration/ai-engine` (4feb1d84) first. **Evidence label for all of it:
 Fixes made while verifying: `EndpointSandboxRuntime` and the EX-SPEC attempts now pass `egressAllow`. Final results this batch: domain `src/ai` 900 passed; `apps/api` sandbox + execution 7 files / **117 passed**; ESLint clean; `pnpm scan:secrets` OK (0 hits). Not run: integration specs, API typecheck (other packages' dists), anything live.
 
 - **ADR number (Master, 2026-11-24):** the hosting line took ADR-068, so the Execution Gateway ADR becomes **ADR-069** at the join (docs/parallel/RECONCILIATION-HOSTING.md §0). Nothing renamed here; the future-number text in RUNTIME-QUALIFICATION §8, the approval inputs and CONTRACT-04-3 now says ADR-069 (earlier text said ADR-068).
+
+## DB-backed closure run (2026-11-24, own PG on 54344, single files, one after the other)
+Setup: `NUZM_PGPORT=54344 pnpm services:start` (Postgres only; redis is not installed, the script exits 1 after starting Postgres), `pnpm exec turbo run build --filter='@nuzm/api^...' --concurrency=2` (dists), `NUZM_TEST_ADMIN_URL=postgres://nuzm_admin@127.0.0.1:54344/postgres pnpm exec vitest run --config vitest.integration.config.mts <file>` from `apps/api`. Load average was about 15. Postgres stopped afterwards.
+| Spec | Result seen |
+|---|---|
+| `appbuilder/sandbox.int.spec.ts` | 16 / 16 passed |
+| `appbuilder/m09-real.int.spec.ts` | 19 / 19 passed |
+| `appbuilder/appbuilder-http.int.spec.ts` | 5 / 5 passed |
+| `appbuilder/ai-studio.int.spec.ts` | 9 / 9 passed |
+| `appbuilder/builder-s47.int.spec.ts` | 16 / 16 passed |
+| `appbuilder/builder-lifecycle.int.spec.ts` | 15 / 15 passed |
+| `appbuilder/builder-lifecycle-engine.int.spec.ts` | 10 / 10 passed |
+| `appbuilder/webapp-pipeline.int.spec.ts` | 5 / 5 passed |
+| `appbuilder/generated-app.int.spec.ts` | 7 / 7 passed |
+| `qa/qa-exec-gateway.int.spec.ts` | 79 / 79 passed |
+| `qa/qa-exec-orchestrator.int.spec.ts` | 19 / 19 passed |
+| `qa/qa-local-dev-sandbox.int.spec.ts` | 6 / 6 passed |
+| `qa/qa-ssrf-egress.int.spec.ts` | 187 / 187 passed |
+Total: 13 files, 398 tests, 0 failures. These cover the `SandboxService` purpose/gate change (create path with the wallet), the escape suite's database-backed ticket cases (WS-*), the execution gateway and orchestrator QA suites (DEFECT-10 fix, `rolloutDecided`), local-dev sandbox confinement and the SSRF/egress suites. Not run: the full integration suite or E2E (Master's regression). Everything here is still SIMULATED for isolation: no runtime exists.

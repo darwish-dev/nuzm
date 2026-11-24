@@ -14,6 +14,7 @@
  *
  * Nothing here claims what a real node does: every result from the in-memory transport is SIMULATED.
  */
+import { deployTransport } from '@nuzm/domain';
 import {
   type Artifact,
   type SmokeResult,
@@ -35,39 +36,22 @@ export interface HostingSiteOps {
   ): Promise<{ notAfter: string; domains: string[] }>;
 }
 
-export interface ReleaseInfo {
-  releaseId: string;
-  hash: string;
-  files: number;
-  bytes: number;
-}
+/**
+ * The port itself lives in `@nuzm/domain` (`deployTransport`), so the hosting line can implement and test it without importing this module. Spec:
+ * `docs/parallel/HOST-TRANSPORT-SPEC.md`; shared test: `deployTransport.artifactTransportConformanceCases`.
+ */
+export type ArtifactTransport = deployTransport.ArtifactTransportPort;
+export type ReleaseInfo = deployTransport.ReleaseInfo;
+const { ArtifactTransportError, assertReleaseId, assertArtifactAcceptable } = deployTransport;
 
-export interface ArtifactTransport {
-  readonly simulated: boolean;
-  /** write the artifact into a NEW release directory; never touches `current` */
-  putRelease(site: TargetSite, releaseId: string, artifact: Artifact): Promise<ReleaseInfo>;
-  /** the manifest hash of what is on the node, read back (not the one we sent) */
-  readReleaseHash(site: TargetSite, releaseId: string): Promise<string | null>;
-  /** atomic switch of `current`; returns the release that was current */
-  switchCurrent(site: TargetSite, releaseId: string): Promise<{ previousReleaseId: string | null }>;
-  currentRelease(site: TargetSite): Promise<string | null>;
-  /** HTTP status of `path` served from a release (staged) or from `current` (live) */
-  probe(
-    site: TargetSite,
-    where: { release: string } | 'live',
-    path: string,
-  ): Promise<{ status: number }>;
-  hasRelease(site: TargetSite, releaseId: string): Promise<boolean>;
-  removeRelease(site: TargetSite, releaseId: string): Promise<void>;
-  /** release ids, oldest first */
-  listReleases(site: TargetSite): Promise<string[]>;
-}
-
-/** The live hosting node path is not built: this transport refuses every call (never silently succeeds). */
+/** The live hosting node path is not built: this transport refuses every call with `node_unavailable` (never silently succeeds). */
 export class UnavailableArtifactTransport implements ArtifactTransport {
   readonly simulated = false;
   private no(): never {
-    throw new Error('no artifact upload path to a hosting node exists yet (SFTP planned; HG-05)');
+    throw new ArtifactTransportError(
+      'node_unavailable',
+      'no artifact upload path to a hosting node exists yet (SFTP planned; HG-05)',
+    );
   }
   putRelease(): never {
     return this.no();
@@ -95,23 +79,51 @@ export class UnavailableArtifactTransport implements ArtifactTransport {
   }
 }
 
-/** In-memory node: per-site release directories and a `current` pointer, with fault injection. NOT a hosting node. */
+/** In-memory node: per-site release directories and a `current` pointer, with fault injection. NOT a hosting node. The executable reference of the contract. */
 export class InMemoryArtifactTransport implements ArtifactTransport {
   readonly simulated = true;
   private readonly releases = new Map<string, Map<string, Artifact>>();
   private readonly current = new Map<string, string>();
+  private known: Set<string> | null = null;
+  private readonly limits: deployTransport.TransportLimits;
   /** corrupt what is stored for the next `putRelease` (integrity check must catch it) */
   corruptNextPut = false;
+  /** the next `putRelease` fails part-way: nothing of it stays visible */
+  failNextPut = false;
   /** answer `status` for these paths from `current` or from a release */
   failPaths = new Map<string, number>();
   puts = 0;
+  constructor(limits: Partial<deployTransport.TransportLimits> = {}) {
+    this.limits = { ...deployTransport.DEFAULT_TRANSPORT_LIMITS, ...limits };
+  }
+  /** restrict the node to these site ids: any other site answers `site_not_found` (like another organization's site). Default: every site is known. */
+  onlySites(ids: string[]) {
+    this.known = new Set(ids);
+    return this;
+  }
   private dir(site: TargetSite) {
+    if (this.known && !this.known.has(site.id))
+      throw new ArtifactTransportError('site_not_found', 'site not found');
     let d = this.releases.get(site.id);
     if (!d) this.releases.set(site.id, (d = new Map()));
     return d;
   }
   async putRelease(site: TargetSite, releaseId: string, artifact: Artifact) {
+    const dir = this.dir(site);
+    assertReleaseId(releaseId);
+    const { files, bytes } = assertArtifactAcceptable(artifact, this.limits);
     this.puts++;
+    const existing = dir.get(releaseId);
+    if (existing) {
+      // idempotent for the same tree; a different tree under the same id is refused
+      if (artifactHash(existing.files) === artifact.hash)
+        return { releaseId, hash: artifact.hash, files, bytes };
+      throw new ArtifactTransportError('release_exists', 'a different tree already holds this id');
+    }
+    if (this.failNextPut) {
+      this.failNextPut = false;
+      throw new ArtifactTransportError('transfer_failed', 'the transfer was cut short');
+    }
     let stored = artifact;
     if (this.corruptNextPut) {
       this.corruptNextPut = false;
@@ -122,7 +134,7 @@ export class InMemoryArtifactTransport implements ArtifactTransport {
         ),
       };
     }
-    this.dir(site).set(releaseId, stored);
+    dir.set(releaseId, stored);
     return {
       releaseId,
       hash: artifactHash(stored.files),
@@ -135,19 +147,22 @@ export class InMemoryArtifactTransport implements ArtifactTransport {
     return a ? artifactHash(a.files) : null;
   }
   async switchCurrent(site: TargetSite, releaseId: string) {
-    if (!this.dir(site).has(releaseId)) throw new Error('release not found on the node');
+    if (!this.dir(site).has(releaseId))
+      throw new ArtifactTransportError('release_not_found', 'release not found on the node');
     const previousReleaseId = this.current.get(site.id) ?? null;
     this.current.set(site.id, releaseId);
     return { previousReleaseId };
   }
   async currentRelease(site: TargetSite) {
+    this.dir(site);
     return this.current.get(site.id) ?? null;
   }
   async probe(site: TargetSite, where: { release: string } | 'live', path: string) {
+    const dir = this.dir(site);
     const forced = this.failPaths.get(path);
     if (forced !== undefined) return { status: forced };
     const id = where === 'live' ? this.current.get(site.id) : where.release;
-    const a = id ? this.dir(site).get(id) : undefined;
+    const a = id ? dir.get(id) : undefined;
     if (!a) return { status: 404 };
     const file = path.endsWith('/')
       ? `${path.replace(/^\//, '')}index.html`
@@ -158,9 +173,13 @@ export class InMemoryArtifactTransport implements ArtifactTransport {
     return this.dir(site).has(releaseId);
   }
   async removeRelease(site: TargetSite, releaseId: string) {
+    const dir = this.dir(site);
     if (this.current.get(site.id) === releaseId)
-      throw new Error('the live release is never removed');
-    this.dir(site).delete(releaseId);
+      throw new ArtifactTransportError(
+        'live_release_protected',
+        'the live release is never removed',
+      );
+    dir.delete(releaseId);
   }
   async listReleases(site: TargetSite) {
     return [...this.dir(site).keys()];

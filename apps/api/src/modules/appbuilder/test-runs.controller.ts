@@ -4,6 +4,7 @@ import { Idempotent } from '../../common/idempotency';
 import { ProjectScoped } from './internal/project-scoped';
 import { ProjectsPort } from './internal/ports/m09';
 import { TestRunService } from './internal/tests/test-run.service';
+import { ContentRead } from '../builder';
 
 type Body_ = Record<string, unknown> | undefined;
 const b = (x: Body_) => x ?? {};
@@ -37,12 +38,14 @@ export class TestRunsController extends ProjectScoped {
     return run;
   }
   @RequirePermission('builder:read')
+  @ContentRead('test_runs')
   @Get()
   async list(@Org() orgId: string, @Param('projectId') pid: string) {
     await this.project(orgId, pid);
     return { items: await this.tests.list(orgId, pid.toLowerCase()) };
   }
   @RequirePermission('builder:read')
+  @ContentRead('test_runs')
   @Get(':testRunId')
   async get(@Org() orgId: string, @Param('projectId') pid: string, @Param('testRunId') id: string) {
     await this.project(orgId, pid);

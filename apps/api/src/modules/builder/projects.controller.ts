@@ -24,6 +24,7 @@ import { FormsService } from './internal/forms.service';
 import { PreviewService } from './internal/preview.service';
 import { ProjectDelegates } from './internal/delegates';
 import { ProjectService } from './internal/project.service';
+import { ContentRead } from './content-access';
 
 type B = Record<string, unknown> | undefined;
 const id = (s: string) => s.toLowerCase();
@@ -103,6 +104,7 @@ export class ProjectsController {
     return this.projects.files(orgId, id(pid), q.versionId ? id(q.versionId) : undefined);
   }
   @RequirePermission('builder:read')
+  @ContentRead('file_content', 'id')
   @Get(':id/files/content')
   fileContent(
     @Org() orgId: string,
@@ -196,6 +198,7 @@ export class ProjectsController {
     return this.previews.create(orgId, a.actor.userId, id(pid), body ?? {});
   }
   @RequirePermission('builder:read')
+  @ContentRead('previews', 'id')
   @Get(':id/previews')
   async listPreviews(@Org() orgId: string, @Param('id') pid: string) {
     await this.projects.assertWebsite(orgId, id(pid));
@@ -203,6 +206,7 @@ export class ProjectsController {
   }
 
   @RequirePermission('builder:read')
+  @ContentRead('forms', 'id')
   @Get(':id/forms')
   async listForms(@Org() orgId: string, @Param('id') pid: string) {
     await this.projects.assertWebsite(orgId, id(pid));
@@ -222,6 +226,7 @@ export class ProjectsController {
   }
   /** Personal data: masked for roles without `builder:submissions:read` (viewer). */
   @RequirePermission('builder:read')
+  @ContentRead('form_submissions', 'id')
   @Get(':id/form-submissions')
   async submissions(
     @Org() orgId: string,
@@ -242,6 +247,7 @@ export class ProjectsController {
     );
   }
   @RequirePermission('builder:read')
+  @ContentRead('cms', 'id')
   @Get(':id/cms-collections')
   async listCms(@Org() orgId: string, @Param('id') pid: string) {
     await this.projects.assertWebsite(orgId, id(pid));

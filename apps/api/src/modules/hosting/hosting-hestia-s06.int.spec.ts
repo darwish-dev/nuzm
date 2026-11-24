@@ -933,7 +933,7 @@ describe('monitoring and alerts', () => {
       expect.arrayContaining(['nz-shared', 'nz-wp']),
     );
     expect(r.packages.find((p: any) => p.name === 'nz-wp').file).toContain("BACKUPS='3'");
-    expect(r.accessProfile).toContain("COMMANDS='v-add-database,");
+    expect(r.accessProfile).toContain("COMMANDS='v-add-cron-job,v-add-database,");
   });
 });
 

@@ -15,7 +15,7 @@
 | Live preview of a web app | `appbuilder/live-preview.controller.ts`, `internal/preview/*` (Session 05) | out of my ownership; I only consume its contract in UI |
 | Hosting domains, SSL lifecycle (verify, managed cert, renew at notAfter−30d, CA rate limit backoff, custom cert in vault) | `hosting/*` + `hosting-domains-ssl.int.spec.ts` | implemented and tested (fake CA adapter); real CA/registrar = EXTERNAL-BLOCKED |
 | Customer UI | `apps/web/components/AppDeployments.tsx` (web apps), `BuilderDeployments.tsx` (websites), `apps/web/app/**/deployments/page.tsx` | implemented; no SIMULATED label |
-| E2E | `e2e/tests/10-app-builder.spec.ts` deploy leg | **skipped** (no hosting fixture: `hasSite` false) |
+| E2E | `e2e/tests/10-app-builder.spec.ts` deploy leg | was skipped (no hosting fixture); now a separate spec, see §8c |
 
 ### Gaps found (classification)
 | # | Gap | Class | Plan |
@@ -31,7 +31,7 @@
 
 ## 2. Completed (code written, committed; test status per §8)
 - G2 SIMULATED labelling: `SitePublisherPort.simulated` (in-memory = true), `simulated` field in the website `Deployment` DTO, banner in `AppDeployments.tsx` (reads `simulated` or a `.invalid` URL host) and `BuilderDeployments.tsx`, i18n `dep.simulated.*` (ar + en).
-- G1 E2E: `e2e/tests/fixtures/deploy.ts` (seeds node, plan, active site with SQL; `hosting.enabled`; `makeDeployable` adds a lockfile and drops install/build through the product's changes API), deploy leg of `10-app-builder.spec.ts` rewritten and un-skipped (skips only when the app build did not finish): approval needed for production → staging queued→live without reload → SIMULATED banner → second release supersedes → rollback → rolled_back. **NOT RUN** (see §13). Depends on CONTRACT-1.
+- G1 E2E: the deploy cases are their own spec `e2e/tests/10-deploy-simulated.spec.ts` (no AI build; projects created through the API, hosting node/plan/active site seeded with SQL in `e2e/tests/fixtures/deploy.ts`, AI wallet credited because a release build needs sandbox budget). The deploy leg of `10-app-builder.spec.ts` was removed (that test skipped it because the scripted mock model never finishes a web-app build). All SIMULATED. Result in §8c.
 - UI status-sync defect fixed: after a web-app rollback the list re-reads, so the rolled-back row no longer shows a stale "live".
 - `SimulatedHealthProbe` (deploy module, unit-tested, 2/2 pass) + CONTRACT-1 (one registration line in `appbuilder.module.ts`, Session 05's file).
 - G3 cancellation of website deployments: migration 1980 (`cancelled` terminal state), `POST /v1/deployments/{id}/cancel`, engine checkpoints (before build / stage / switch), `SitePublisherPort.discard`, UI cancel button + `cancelled` label, audit `deploy.deployment.cancelled`. CONTRACT-2.
@@ -39,7 +39,7 @@
 - G5 integration tests written: `apps/api/src/modules/deploy/deploy-s06.int.spec.ts` (status sync + simulated flag + log resume; cancel queued; cancel running at the checkpoint; too late after the switch; 401/403/404; orphan recovery ×2; dead worker re-claim; authorization and tenant matrix). passes (§8).
 
 ## 3. Remaining
-The one targeted E2E run (§13), after the Master applies CONTRACT-1 and rebuilds the consoles. Nothing else READY/MOCKABLE is left.
+Nothing READY/MOCKABLE is left. The E2E result is in §8c.
 
 ## 4. Blocked
 - G4 environment variables: DEPENDENT. A static website publish has no runtime to receive variables; the web-app pipeline (Session 05) only lists names in `nuzm.app.json` (`deploy.env`) and its target port has no environment channel. A store with no consumer would be dead code. Needs: a consumer in the app-builder deploy path (Session 05) or a node-agent environment command (HG-05-01/02).
@@ -69,9 +69,9 @@ Own Postgres: `NUZM_PGPORT=54346 pnpm services:start` (Postgres started; redis n
 | `npx vitest run` in `packages/i18n` | 9 passed |
 | `pnpm --filter @nuzm/api typecheck` | 1 error, pre-existing and not mine (`cloud/internal/adapter-registry.ts(69,33) TS2345`); none in deploy files |
 | `npx tsc --noEmit` (apps/web), `npx tsc -p e2e/tsconfig.json --noEmit`, `npx eslint` + `prettier` on touched files | clean |
-| E2E `10-app-builder` deploy leg | **NOT RUN** (heavy-run request, §13) |
+| E2E `10-deploy-simulated` | **PASS on the Master's isolated stack**, 8 passed (ar 4, en 4), see §8c |
 | Not run: `pnpm spec:drift` / `sdk:check` (they would flag the cancel route until CONTRACT-2 is applied), `compliance:*` checks (full-DB) |
-**Local-only, uncommitted change**: `spec/db/ownership.yaml` carries the migration-range patch of CONTRACT-2 in my worktree so the runner accepts migration 1980. It is Master-owned and must NOT be merged from my branch (I never `git add` it). If the Master applies it first, my working copy is identical.
+The `ownership.yaml` migration range for 1980-1999 is committed on integration (`S06-DEPLOY`; the Master removed my duplicate key). Nothing local is left uncommitted.
 Note: workspace package `dist` folders did not exist in the fresh worktree; `turbo run build --filter=@nuzm/api^...` restored them from the turbo cache before the typecheck.
 
 ### 8b. After the Master's authorization (merge of integration/ai-engine, CONTRACT-2 applied by me)
@@ -80,7 +80,17 @@ Note: workspace package `dist` folders did not exist in the fresh worktree; `tur
 - `pnpm spec:lint`: exit 0. `pnpm spec:drift`: exit 1, but ONLY three Session 03 routes (`GET/POST /v1/admin/ai/benchmarks`, `GET /v1/admin/ai/benchmarks/runs/{id}`); my cancel route is no longer reported.
 - `npx vitest run --config vitest.integration.config.mts src/modules/deploy` on the merged tree: 2 files, **22 passed**.
 - `pnpm --filter @nuzm/api typecheck`: 1 error, `cloud/internal/adapter-registry.ts(69,33)` (pre-existing, not mine).
-- E2E leg: still NOT RUN: load average 24 (limit 6 for this run) and CONTRACT-1 (delegated to Session 05) was not on the branch yet (`grep SimulatedHealthProbe appbuilder.module.ts` empty).
+- (at that time) E2E leg not run: load average 24 and CONTRACT-1 not yet on the branch. Superseded by §8c.
+
+### 8c. E2E of the deploy cases (run by the Master on the isolated integration stack; I did not run a browser myself)
+Spec: `e2e/tests/10-deploy-simulated.spec.ts` (+ `fixtures/deploy.ts`). Result after the fixes below: **ar 4 passed, en 4 passed (8 passed, 1.2 min)**:
+1. web app: SIMULATED deployment succeeds, status syncs without a reload, a second release supersedes the first, rollback restores it (production asks for an approval first; SIMULATED notice and `.invalid` URL shown);
+2. web app: a failing build ends FAILED (`build_failed`, log mentions the build) and nothing goes live;
+3. website: a queued SIMULATED deployment is cancelled from the console (operation `cancelled`, second cancel 409, nothing live);
+4. authorization and tenant isolation: a viewer is refused (403) deploy, rollback and cancel; the same person in their own organization gets 404 for the other organization's deployment, logs and list.
+Defects the first runs found, all in my files and fixed: (a) the spec did not credit the AI wallet, so every release build was refused with `budget_required` (the failing-build test then passed for the wrong reason; it now checks the reason); (b) the English "Deploy" button name is ambiguous with the workspace top bar (scoped to the form); (c) fixed site token violated `sites_token_key`; (d) UI defect: after a second release the older row kept showing "Live" because the list was not re-read when a deployment finished (`AppDeployments.tsx`); (e) wrong column name (`state`) in the spec SQL.
+Observation for Session 05 (no change made): a release build needs AI credit on the wallet, because the sandbox create checks the AI budget.
+**This proves the console + API + pipeline plumbing against the in-memory fake node. It is SIMULATED and NOT evidence about a real hosting node: HG-05/HG-06 are open and nothing real was deployed.**
 
 ## 9. Security findings
 - **DEFECT-4 (from Session 07, medium) FIXED**: confirming a publish approval (`POST /v1/deployments` with `approvalId`) now requires a signed-in person (`actor.kind === 'session'`); an API key may ask for the approval but its confirmation answers 403 `forbidden`, creates nothing and leaves the approval `pending`. Test: `deploy-s06.int.spec.ts` "DEFECT-4 …" (passes). Session 07's `it.fails` test in `qa-deploy-approval.int.spec.ts` should now turn red and lose `.fails`; their "CONFIRMED TODAY" control must be deleted. Not changed, **owner decision needed**: (a) a `developer` role holds `deploy:write` and can self-confirm a production publish, whereas the M10 engine requires owner/admin for `production_deploy`; (b) rollback reuses the earlier approval and needs no new one (M10 has a separate `production_rollback`).
@@ -91,13 +101,13 @@ Note: workspace package `dist` folders did not exist in the fresh worktree; `tur
 ## 10. Integration requirements
 Module registration unchanged (DeployModule already registered). Any new route needs the Master to apply the OpenAPI patch (see CONTRACT files).
 
-## 11. Delivery completion: ~85 % (all READY/MOCKABLE API/UI items implemented; API tests verified; E2E leg unrun) · Readiness: API side READY for merge after CONTRACT-1/2; E2E leg NOT VERIFIED
+## 11. Delivery completion: ~95 % (all READY/MOCKABLE API/UI items implemented; API tests and the SIMULATED E2E pass) · Readiness: READY for merge · NOT VERIFIED on real infrastructure (HG-05/HG-06 open)
 
 ## 12. Next available tasks
-Run and fix the integration specs; E2E heavy run; then (optional) a preview-lifecycle read-only status page is not in my ownership.
+None required of me. Optional (not in my ownership): a read-only preview-lifecycle status page.
 
 ## 13. Heavy-run requests
-- One targeted E2E run of `e2e/tests/10-app-builder.spec.ts` (projects `ar` and `en`, deploy leg) on the isolated stack: `scripts/e2e-stack.sh start` then `run`, free ports, own database. **Prerequisite: the Master applies CONTRACT-1 (one line in `appbuilder.module.ts`) first**, otherwise the web-app deployment ends `failed` (`health_gate_failed`: the real probe cannot resolve `.invalid`) and the leg fails by design. The console must also be rebuilt to include the SIMULATED banner and the cancel button (I do not rebuild consoles). I will run it myself only if the load average is below 12 and the console is already built.
+- None open. The targeted E2E run was done by the Master (§8c).
 
 ## 14. Escalations
 Owner decisions (not blocking): developer self-confirmation of a production publish and rollback-without-approval (see §9). Master: CONTRACT-1, CONTRACT-2 (incl. the `ownership.yaml` migration range) are required before this branch can merge and before the E2E leg can pass.

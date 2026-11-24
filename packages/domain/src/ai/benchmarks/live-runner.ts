@@ -1,4 +1,4 @@
-import { BudgetLedger, preflightBudget, type BenchmarkBudget, type PriceCard } from './budget';
+import { BudgetLedger, isBlank, preflightBudget, type BenchmarkBudget, type PriceCard } from './budget';
 import type { SecurityReviewRecord, ThresholdAcceptance } from './gate';
 import { DATASET_VERSION } from './registry';
 import { REVIEW_PROTOCOL, type Reviewer } from './review';
@@ -75,19 +75,19 @@ export function livePreflight(
   const add = (code: RefusalCode, detail: string) => r.push({ code, detail });
   if (!pre.flagEnabled) add('FLAG_OFF', 'BENCHMARK_LIVE_ENABLED is off (default)');
   if (!pre.liveProviderGateOpen) add('LIVE_GATE_CLOSED', 'the live-provider gate (D3) is closed');
-  if (!pre.environment || !pre.environment.name.trim() || pre.environment.production) add('ENVIRONMENT_NOT_ALLOWED', 'a named non-production environment is required');
+  if (!pre.environment || isBlank(pre.environment.name) || pre.environment.production) add('ENVIRONMENT_NOT_ALLOWED', 'a named non-production environment is required');
   const pv = pre.providerVerified;
-  if (!pv || !pv.providerId || !pv.model || !pv.evidenceRef.trim()) add('PROVIDER_NOT_VERIFIED', 'the provider is not verified (no evidence reference)');
+  if (!pv || isBlank(pv.providerId) || isBlank(pv.model) || isBlank(pv.evidenceRef)) add('PROVIDER_NOT_VERIFIED', 'the provider is not verified (no evidence reference)');
   else if (source && (source.adapterId !== pv.providerId || source.model !== pv.model)) add('SOURCE_MISMATCH', 'the capture source is not the verified provider and model');
   const ta = pre.thresholdsAccepted;
-  if (!ta || ta.version !== THRESHOLDS_VERSION || !ta.acceptedBy.trim() || !ta.acceptedAt.trim()) add('THRESHOLDS_NOT_ACCEPTED', `the owner has not accepted thresholds ${THRESHOLDS_VERSION}`);
+  if (!ta || ta.version !== THRESHOLDS_VERSION || isBlank(ta.acceptedBy) || isBlank(ta.acceptedAt)) add('THRESHOLDS_NOT_ACCEPTED', `the owner has not accepted thresholds ${THRESHOLDS_VERSION}`);
   if (tasks.length === 0) add('NO_TASKS', 'nothing to run');
   const pf = preflightBudget(tasks, pre.budget, price);
   if (!pf.ok) add(pre.budget ? 'BUDGET_TOO_SMALL' : 'BUDGET_NOT_APPROVED', pf.reasons.join('; '));
-  const named = pre.reviewers.filter((x) => x.name.trim().length > 1 && x.id.trim() !== '');
+  const named = pre.reviewers.filter((x) => typeof x.name === 'string' && x.name.trim().length > 1 && !isBlank(x.id));
   if (named.length < REVIEW_PROTOCOL.minReviewers) add('REVIEWERS_NOT_NAMED', `at least ${REVIEW_PROTOCOL.minReviewers} named reviewers are required`);
   const sr = pre.securityReview;
-  if (!sr || !sr.passed || !sr.ref.trim()) add('SECURITY_REVIEW_MISSING', 'the agent security review is not recorded as passed');
+  if (!sr || sr.passed !== true || isBlank(sr.ref)) add('SECURITY_REVIEW_MISSING', 'the agent security review is not recorded as passed');
   return { allowed: r.length === 0, refusals: r, ...('worstCase' in pf && pf.worstCase ? { worstCase: pf.worstCase } : {}) };
 }
 

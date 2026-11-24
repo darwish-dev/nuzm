@@ -1,6 +1,7 @@
 import { THRESHOLDS_VERSION } from './thresholds';
 import type { GateDecision, SecurityReviewRecord } from './gate';
 import type { HumanAcceptanceResult } from './review';
+import { isBlank } from './budget';
 import { DATASET_VERSION } from './registry';
 
 /**
@@ -70,7 +71,7 @@ const evidenceProblem = (r: QualificationRecord, e: QualificationEvidence): stri
 };
 export function stepQualification(r: QualificationRecord, ev: QualificationEvent): StepResult {
   const fail = (error: string): StepResult => ({ ok: false, error });
-  if (!ev.by.trim()) return fail('an event needs a named actor');
+  if (isBlank(ev.by)) return fail('an event needs a named actor');
   const next = (patch: Partial<QualificationRecord>, note?: string): StepResult => ({
     ok: true,
     record: { ...r, ...patch, history: [...r.history, { at: ev.at, event: ev.type, by: ev.by, ...(note ? { note } : {}) }] },
@@ -84,7 +85,7 @@ export function stepQualification(r: QualificationRecord, ev: QualificationEvent
     case 'record_reviews': {
       if (r.state !== 'EVIDENCE_ATTACHED') return fail(`cannot record reviews in state ${r.state}`);
       if (ev.humanReview.status !== 'MEASURED' || ev.humanReview.meets !== true) return fail('human acceptance is not measured or below the bar');
-      if (!ev.securityReview.passed || !ev.securityReview.ref.trim()) return fail('the agent security review did not pass');
+      if (ev.securityReview.passed !== true || isBlank(ev.securityReview.ref)) return fail('the agent security review did not pass');
       return next({ state: 'UNDER_REVIEW', humanReview: ev.humanReview, securityReview: ev.securityReview });
     }
     case 'approve': {
@@ -95,10 +96,10 @@ export function stepQualification(r: QualificationRecord, ev: QualificationEvent
     }
     case 'reject':
       if (r.state === 'REJECTED') return fail('already rejected');
-      return ev.reason.trim() ? next({ state: 'REJECTED' }, ev.reason) : fail('a rejection needs a reason');
+      return !isBlank(ev.reason) ? next({ state: 'REJECTED' }, ev.reason) : fail('a rejection needs a reason');
     case 'suspend':
       if (r.state !== 'QUALIFIED') return fail(`cannot suspend in state ${r.state}`);
-      return ev.reason.trim() ? next({ state: 'SUSPENDED', approvedBy: null, approvedAt: null }, ev.reason) : fail('a suspension needs a reason');
+      return !isBlank(ev.reason) ? next({ state: 'SUSPENDED', approvedBy: null, approvedAt: null }, ev.reason) : fail('a suspension needs a reason');
     case 'reinstate': {
       if (r.state !== 'SUSPENDED') return fail(`cannot reinstate in state ${r.state}`);
       const p = evidenceProblem(r, ev.evidence);

@@ -489,6 +489,21 @@ describe('the live benchmark runner refuses unless every approval exists', () =>
     expect((await run(pre(), s)).refusals.map((x) => x.code)).toContain('SOURCE_MISMATCH');
     expect(calls).toEqual([]);
   });
+  it('malformed stored records (missing fields) are refused, never thrown on', () => {
+    const bad = pre({
+      budget: { ref: 'B' } as unknown as BenchmarkBudget,
+      thresholdsAccepted: { version: THRESHOLDS_VERSION } as never,
+      securityReview: { passed: true } as never,
+      providerVerified: { providerId: 'claude', model: 'm1' } as never,
+      reviewers: [{ id: 'r1' }, { name: 'X Y' }] as never,
+      environment: {} as never,
+    });
+    const f = livePreflight(bad, tasks, price);
+    expect(f.allowed).toBe(false);
+    expect(f.refusals.map((x) => x.code)).toEqual(expect.arrayContaining(['BUDGET_TOO_SMALL', 'THRESHOLDS_NOT_ACCEPTED', 'SECURITY_REVIEW_MISSING', 'PROVIDER_NOT_VERIFIED', 'REVIEWERS_NOT_NAMED', 'ENVIRONMENT_NOT_ALLOWED']));
+    expect(evaluateRolloutGate(gateInput({ acceptance: { version: THRESHOLDS_VERSION } as never, securityReview: { passed: true } as never })).allowed).toBe(false);
+    expect(preflightBudget(tasks, { ref: 'B' } as unknown as BenchmarkBudget, price)).toMatchObject({ ok: false });
+  });
   it('with the default (empty) preconditions everything is refused', () => {
     const none: LivePreconditions = { flagEnabled: false, liveProviderGateOpen: false, environment: null, providerVerified: null, thresholdsAccepted: null, budget: null, reviewers: [], securityReview: null };
     const f = livePreflight(none, tasks, price);

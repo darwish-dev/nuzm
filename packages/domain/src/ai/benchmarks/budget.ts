@@ -23,13 +23,16 @@ export interface BenchmarkBudget {
 }
 export type BudgetCheck = { ok: true } | { ok: false; reasons: string[] };
 
+/** True for anything that is not a non-blank string (a malformed stored payload must refuse, never throw). */
+export const isBlank = (v: unknown): boolean => typeof v !== 'string' || v.trim() === '';
+
 export function validateBudget(b: BenchmarkBudget | null | undefined): BudgetCheck {
   const reasons: string[] = [];
   if (!b) return { ok: false, reasons: ['no approved budget'] };
-  if (!b.ref.trim()) reasons.push('budget approval reference missing');
-  if (!b.approvedBy.trim()) reasons.push('budget approver missing');
-  if (!/^[A-Z]{3}$/.test(b.currency)) reasons.push('budget currency must be an ISO code');
-  if (!/^[1-9]\d*$/.test(b.maxCostMinor)) reasons.push('maxCostMinor must be a positive integer string');
+  if (isBlank(b.ref)) reasons.push('budget approval reference missing');
+  if (isBlank(b.approvedBy)) reasons.push('budget approver missing');
+  if (typeof b.currency !== 'string' || !/^[A-Z]{3}$/.test(b.currency)) reasons.push('budget currency must be an ISO code');
+  if (typeof b.maxCostMinor !== 'string' || !/^[1-9]\d*$/.test(b.maxCostMinor)) reasons.push('maxCostMinor must be a positive integer string');
   if (!Number.isInteger(b.maxTokens) || b.maxTokens < 1) reasons.push('maxTokens must be a positive integer');
   if (!Number.isInteger(b.maxRequests) || b.maxRequests < 1) reasons.push('maxRequests must be a positive integer');
   return reasons.length === 0 ? { ok: true } : { ok: false, reasons };

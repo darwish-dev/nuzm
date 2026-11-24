@@ -56,7 +56,7 @@ export function createReviewPlan(input: {
   sampleSize?: number;
 }): { ok: true; plan: ReviewPlan } | { ok: false; errors: string[] } {
   const errors: string[] = [];
-  const named = input.reviewers.filter((r) => r.name.trim().length > 1 && r.id.trim().length > 0);
+  const named = input.reviewers.filter((r) => typeof r.name === 'string' && r.name.trim().length > 1 && typeof r.id === 'string' && r.id.trim().length > 0);
   if (new Set(named.map((r) => r.id)).size !== named.length) errors.push('reviewer ids must be unique');
   if (named.length !== input.reviewers.length) errors.push('every reviewer needs an id and a name');
   if (named.length < REVIEW_PROTOCOL.minReviewers) errors.push(`at least ${REVIEW_PROTOCOL.minReviewers} named reviewers are needed`);

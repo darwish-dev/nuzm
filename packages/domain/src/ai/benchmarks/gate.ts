@@ -1,6 +1,7 @@
 import { CATEGORY_PASS_FLOOR, THRESHOLDS_VERSION, detectRegressions, evaluateThresholds, PROPOSED_THRESHOLDS, type Regression, type Threshold, type ThresholdResult } from './thresholds';
 import { MIN_TASKS_PER_CATEGORY, type TaskCategory } from './categories';
 import type { BenchmarkReport } from './report';
+import { isBlank } from './budget';
 import { DATASET_VERSION } from './registry';
 import type { HumanAcceptanceResult } from './review';
 
@@ -54,7 +55,7 @@ export function evaluateRolloutGate(input: GateInput): GateDecision {
   const check = (id: string, ok: boolean, detail: string) => checks.push({ id, ok, detail: ok ? 'ok' : detail });
 
   const a = input.acceptance;
-  check('thresholds-accepted', !!a && a.version === THRESHOLDS_VERSION && a.acceptedBy.trim() !== '' && a.acceptedAt.trim() !== '', `thresholds ${THRESHOLDS_VERSION} are PROPOSED: no owner acceptance of exactly this version`);
+  check('thresholds-accepted', !!a && a.version === THRESHOLDS_VERSION && !isBlank(a.acceptedBy) && !isBlank(a.acceptedAt), `thresholds ${THRESHOLDS_VERSION} are PROPOSED: no owner acceptance of exactly this version`);
   check('evidence-recorded', report.evidence.label === 'OFFLINE_REPLAY_OF_RECORDED_RUN' && report.origins.length === 1 && report.origins[0] === 'RECORDED', `evidence is ${report.evidence.label}, not a replay of a recorded verified-provider run`);
   check('dataset-current', report.datasetVersion === dataset, `report is for dataset ${report.datasetVersion}, the current one is ${dataset}`);
   check('all-tasks-scored', report.missingRecordings.length === 0 && report.rejectedRecordings.length === 0 && report.tasks > 0, `${report.missingRecordings.length} task(s) without a recording, ${report.rejectedRecordings.length} rejected`);
@@ -71,7 +72,7 @@ export function evaluateRolloutGate(input: GateInput): GateDecision {
   const h = input.humanReview;
   check('human-acceptance', !!h && h.status === 'MEASURED' && h.meets === true, h ? `human acceptance is ${h.status}${h.rate !== null ? ` (${h.rate})` : ''}, bar ${h.bar}` : 'human acceptance not measured (no reviewers or no reviews)');
   const s = input.securityReview;
-  check('security-review', !!s && s.passed && s.ref.trim() !== '' && s.reviewedBy.trim() !== '', 'agent security review not recorded as passed');
+  check('security-review', !!s && s.passed === true && !isBlank(s.ref) && !isBlank(s.reviewedBy), 'agent security review not recorded as passed');
 
   const reasons = checks.filter((c) => !c.ok).map((c) => `${c.id}: ${c.detail}`);
   const allowed = reasons.length === 0;

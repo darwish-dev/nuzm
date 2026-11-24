@@ -41,7 +41,7 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
     expect((await pub.smoke(site, 'staged', stagingRef, ['/', '/about/'])).ok).toBe(true);
     expect(await pub.activeHash(site)).toBeNull(); // staged, not live
     const { url } = await pub.activate(site, stagingRef);
-    expect(url).toMatch(/^https:\/\/acme-[0-9a-f]{8}\.staging\.nuzm\.invalid\/$/);
+    expect(url).toMatch(/^https:\/\/acme-[0-9a-f]{16}\.staging\.nuzm\.invalid\/$/);
     expect(await pub.activeHash(site)).toBe(a.hash);
     expect(
       (await pub.smoke(site, 'live', null, ['/', '/missing'])).results.map((r) => r.status),
@@ -136,11 +136,11 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
     );
     expect(pub.available()).toBe(false);
     expect(pub.simulated).toBe(false);
-    await expect(pub.stage(site, art('v1'), 'd')).rejects.toThrow(/no artifact upload path/);
+    await expect(pub.stage(site, art('v1'), 'd')).rejects.toThrow(/HG-05/); // sealed before the transport is reached
     const approved = new HostingTargetPublisher(
       new InMemoryHostingSiteOps(),
       new UnavailableArtifactTransport(),
-      { ...real, approvalRef: 'HG-05:x' },
+      { ...real, approvalRef: 'HG-05:2026-12-01' },
     );
     expect(approved.available()).toBe(true); // authorised in principle; the transport still refuses until SFTP exists
     await expect(approved.stage(site, art('v1'), 'd')).rejects.toThrow(/no artifact upload path/);
@@ -167,5 +167,27 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
       (await pub.stage(site, art('v1'), 'd1')).stagingRef,
     );
     expect(url).toBe('https://shop.example.sa/');
+  });
+
+  it('the seal: an unapproved real target cannot stage, switch, restore or issue even when built directly', async () => {
+    const real: StagingTarget = {
+      id: 'hosting:n1',
+      kind: 'static_hosting',
+      provider: 'hosting_panel',
+      verification: 'NOT VERIFIED',
+      region: 'sa',
+      previewDomain: 'nuzm-staging.example',
+      approvalRef: null,
+      evidenceRef: null,
+    };
+    const transport = new InMemoryArtifactTransport();
+    const pub = new HostingTargetPublisher(new InMemoryHostingSiteOps(), transport, real);
+    await expect(pub.stage(site, art('v1'), 'd')).rejects.toThrow(/HG-05/);
+    await expect(pub.activate(site, 'd')).rejects.toThrow(/HG-05/);
+    await expect(pub.restore(site, art('v1'))).rejects.toThrow(/HG-05/);
+    await expect(
+      pub.applySsl(site, { kind: 'issue_managed', domains: ['x.example.sa'] }),
+    ).rejects.toThrow(/HG-05/);
+    expect(transport.puts).toBe(0);
   });
 });

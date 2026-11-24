@@ -182,11 +182,15 @@ export const TARGET_BY_PRODUCT_TYPE: Record<ProductType, TargetRule> = {
 };
 
 /** The builder project TYPES (`builder.projects.type`: website, webapp, mobile) that the deployments endpoint sees; a type with no rule is refused, never guessed. */
-export const BUILDER_PROJECT_TYPE_TO_PRODUCT: Record<string, ProductType> = {
+const BUILDER_TYPES: Record<string, ProductType> = {
   website: 'website',
   webapp: 'webapp',
   mobile: 'mobile',
 };
+
+/** The product type of a builder project type, or null (own properties only). */
+export const productTypeOfBuilderType = (t: string): ProductType | null =>
+  Object.hasOwn(BUILDER_TYPES, t) ? BUILDER_TYPES[t]! : null;
 
 export interface TargetDecision {
   allowed: boolean;
@@ -197,8 +201,9 @@ export interface TargetDecision {
 
 /** May a product type be deployed through the deployments endpoint? `simulated` types are allowed (and labelled SIMULATED unless a verified target is registered). */
 export function decideTarget(productType: string): TargetDecision | null {
-  const r = (TARGET_BY_PRODUCT_TYPE as Record<string, TargetRule | undefined>)[productType];
-  if (!r) return null;
+  // own properties only: `__proto__`, `constructor`, `toString` must read as unknown types, never as an inherited rule
+  if (!Object.hasOwn(TARGET_BY_PRODUCT_TYPE, productType)) return null;
+  const r = (TARGET_BY_PRODUCT_TYPE as Record<string, TargetRule>)[productType]!;
   if (r.readiness === 'simulated') return { allowed: true, rule: r, message: null };
   return {
     allowed: false,
@@ -228,10 +233,15 @@ export interface StagingTarget {
   evidenceRef: string | null;
 }
 
+/** The shape of an owner approval reference: `HG-05:<date or id>` or `HG-06:…`. A FORMAT check only: the owner-signed record itself is in OWNER-APPROVAL-PACK.md (Master); presence of any string is not enough. */
+export const APPROVAL_REF = /^HG-0[56]:[A-Za-z0-9][A-Za-z0-9._-]{3,63}$/;
+
 export class StagingTargetRefused extends Error {
   constructor(
     readonly reason:
       | 'approval_missing'
+      | 'approval_malformed'
+      | 'label_mismatch'
       | 'evidence_missing'
       | 'preview_domain_missing'
       | 'kind_mismatch'
@@ -266,7 +276,17 @@ export function assertStagingTargetUsable(target: StagingTarget, productType: st
       'not_implemented',
       'the isolated runtime target is Session 04 (Execution Gateway); it needs an isolation attestation and is not wired to deployments',
     );
-  // a real hosting node
+  // a real hosting node can never carry the SIMULATED label (that would hide a real node behind a stand-in's label)
+  if (target.verification === 'SIMULATED')
+    throw new StagingTargetRefused(
+      'label_mismatch',
+      'a real hosting target cannot be labelled SIMULATED: only the in-memory target is',
+    );
+  if (target.approvalRef && !APPROVAL_REF.test(target.approvalRef))
+    throw new StagingTargetRefused(
+      'approval_malformed',
+      'the approval reference must look like HG-05:<date or id> (the owner-recorded approval)',
+    );
   if (!target.approvalRef)
     throw new StagingTargetRefused(
       'approval_missing',

@@ -182,6 +182,8 @@ export interface HostingTargetOptions {
   keepReleases?: number;
   /** the isolated preview domain for temporary staging hosts (ADR-060); null = simulated `.invalid` hosts */
   previewDomain?: string | null;
+  /** server-side key (vault-held) for the temporary-host tag; a real run supplies it (QA O-16) */
+  tagKey?: string;
   protectedDomains?: readonly string[];
 }
 
@@ -208,7 +210,15 @@ export class HostingTargetPublisher extends SitePublisherPort {
       return false;
     }
   }
+  /**
+   * The seal: every operation that touches the node first re-checks the target gate. A real target without the owner's approval reference (or without a preview
+   * domain, or LIVE-VERIFIED without evidence) can therefore never place, switch or restore anything, even if something constructs this class by mistake.
+   */
+  private seal(): void {
+    assertStagingTargetUsable(this.target, 'website');
+  }
   async stage(site: TargetSite, artifact: Artifact, deploymentId: string) {
+    this.seal();
     const state = await this.ops.siteState(site);
     if (!state?.exists) throw new Error('the site does not exist on the node');
     if (state.suspended) throw new Error('the site is suspended on the node');
@@ -237,6 +247,7 @@ export class HostingTargetPublisher extends SitePublisherPort {
     return { ok: results.every((r) => r.status === 200), tls: true, results };
   }
   async activate(site: TargetSite, stagingRef: string) {
+    this.seal();
     await this.transport.switchCurrent(site, stagingRef);
     await this.prune(site);
     const host =
@@ -246,6 +257,7 @@ export class HostingTargetPublisher extends SitePublisherPort {
         deploymentId: stagingRef,
         previewDomain: this.opts.previewDomain ?? null,
         protectedDomains: this.opts.protectedDomains ?? [],
+        ...(this.opts.tagKey ? { tagKey: this.opts.tagKey } : {}),
       }).host;
     return { url: `https://${host}/` };
   }
@@ -255,6 +267,7 @@ export class HostingTargetPublisher extends SitePublisherPort {
   }
   /** Serve THIS artifact again: switch to the retained release when it is still on the node, otherwise upload it as a new release first. `null` = serve nothing. */
   async restore(site: TargetSite, artifact: Artifact | null) {
+    this.seal();
     if (!artifact) return; // removing content is not offered by a release layout: `current` keeps pointing at the last good release
     const releases = await this.transport.listReleases(site);
     for (const id of releases) {
@@ -284,6 +297,7 @@ export class HostingTargetPublisher extends SitePublisherPort {
   }
   /** Execute one SSL action chosen by `planSsl`. Only managed certificates exist; everything else is a no-op or refused by the planner. */
   async applySsl(site: TargetSite, action: SslAction) {
+    this.seal();
     if (action.kind === 'issue_managed' || action.kind === 'renew_managed')
       return this.ops.issueManagedCertificate(site, action.domains);
     return null;

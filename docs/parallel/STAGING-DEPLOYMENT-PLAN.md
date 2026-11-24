@@ -84,7 +84,7 @@ Why this shape: `HostingAdapter` (docs/09 §3) manages sites, domains, certifica
 
 ## 4. Preview URLs, temporary subdomains, ADR-060
 
-- A staging deployment is reachable at `https://<site>-<8 hex>.<PREVIEW_DOMAIN>/` (`temporarySubdomain`). The 8 hex characters are a hash of the deployment id: stable for one deployment, different for each, not reversible.
+- A staging deployment is reachable at `https://<site>-<16 hex>.<PREVIEW_DOMAIN>/` (`temporarySubdomain`). The 16 hex characters (64 bits) are a hash of the deployment id, or an HMAC of it under a vault-held server key when one is supplied: stable for one deployment, different for each, not guessable by enumeration (QA concern O-16). A real run must supply the key.
 - **ADR-060 is enforced in code** (`assertIsolatedPreviewDomain`): the preview domain must be a valid host name on a registrable domain **different** from every console, admin, API and marketing domain, and a parent or child relation counts as shared. The public-suffix check is an approximation (a short list of two-level suffixes); the owner confirms the final domain against the real public-suffix list.
 - No preview domain configured (the simulated target) → the host ends in `.staging.nuzm.invalid`, which can never resolve. A simulated URL cannot be mistaken for a live one.
 - Host matching is exact (`isTemporaryPreviewHost`): no suffix tricks, no extra labels.
@@ -200,6 +200,32 @@ npx tsx apps/api/src/modules/deploy/internal/rehearsal.cli.ts
 ```
 
 Real mode never falls back to simulated and never reports a pass unless every step passed; with no upload transport it ends `BLOCKED: no artifact upload path to a hosting node exists yet`. Exit codes: 0 PASS, 1 FAIL, 3 BLOCKED. The full API and console path (approval, job, UI, audit) is covered by `e2e/tests/10-deploy-simulated.spec.ts` against the in-memory node; against a real node the same spec would run with `DEPLOY_PUBLISHER` pointing at the real target once it exists.
+
+### 13a. Rehearsal evidence table (actual output of the simulated run, 2026-11-24)
+
+`STAGING_EVIDENCE_MD=<path> npx tsx apps/api/src/modules/deploy/internal/rehearsal.cli.ts` writes this table. Every row is `SIMULATED`. It proves the procedure and the code paths, nothing about a real node.
+
+| Step | What | Status | Evidence label |
+|---|---|---|---|
+| gate | target gate (HG-05/HG-06 approval, preview domain, upload path) | PASS | SIMULATED |
+| preview | temporary subdomain on an isolated preview origin (ADR-060) | PASS | SIMULATED |
+| ssl | SSL plan for the temporary host | PASS | SIMULATED |
+| env | variables are vault references; a pasted secret is refused unechoed | PASS | SIMULATED |
+| release1 | stage, integrity read-back, smoke, switch, smoke live | PASS | SIMULATED |
+| recovery | failed smoke: staged release discarded, release 1 keeps serving | PASS | SIMULATED |
+| cancel | cancellation after staging: upload discarded, live untouched | PASS | SIMULATED |
+| rollback | release 2 live, then rollback to release 1 | PASS | SIMULATED |
+| isolation | a second site on the node shares nothing with the first | PASS | SIMULATED |
+
+Real-mode seal (defence in depth): the gate runs in the CLI **and** inside `HostingTargetPublisher` itself (`stage`, `activate`, `restore` and SSL issuance each re-check it). A real target without the approval reference, without a preview domain, or `LIVE-VERIFIED` without evidence cannot place, switch or restore anything even if constructed directly. `STAGING_MODE=real` today ends `BLOCKED` (exit 3) because no upload transport exists; it never falls back to simulated.
+
+### 13b. "Prepare deployment": the step the agent loop and the console call (Session 05)
+
+`DeployService.prepare(orgId, { projectId, environment?, target? })` is read-only: it creates no deployment and requests no approval. It returns `DeploymentPlanDto`: the product type, the target kind and readiness (`simulated` / `not_yet`) with blockers, whether a publisher is available and its label (`SIMULATED` or `NOT VERIFIED`), the organization's policy, who may confirm the publish approval in that environment (an API key never may), and `ready` with human-readable `reasons`. The agent loop's "prepare deployment / request approval" step should call `prepare`, show or record the plan, and then call the existing `POST /v1/deployments` flow (`create`) for the approval. It must not re-implement the target mapping, the policy check or the approval. No new route exists (a route would need a spec change); an HTTP route can be proposed through a CONTRACT if the console needs it.
+
+### 13c. Matrix hooks for Session 07 (O-1/O-2)
+
+The policy API is theirs to drive: `PUT /v1/deployments/policy` (owner/admin, person only) sets `productionPublishRoles` and `rollbackRequiresOwnApproval`; `GET` reads them. Cases already covered by my tests, so the matrix need not repeat them: defaults equal today; developer self-publish under both settings; rollback with and without its own approval; viewer, API key and other-organization refusals; audit before/after. Suggested additions for the matrix: billing admin (no `deploy:write`), a second developer confirming the first developer's request, expiry of a rollback approval, concurrent confirmation of one approval, and the web-app path (own policy, not covered by these switches).
 
 ## 14. Rollback and teardown of the staging deployment itself
 

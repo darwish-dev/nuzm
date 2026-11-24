@@ -7,7 +7,7 @@
  *  - the label is unguessable enough not to be enumerated, and is never derived from a secret.
  * Without a configured preview domain (the simulated target) the URL ends in `.invalid` (RFC 6761: it can never resolve), so a simulated URL can never be mistaken for a live one.
  */
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 
 /** Second-level public suffixes this approximation knows. The real check is a public-suffix list reviewed by the owner (STAGING-DEPLOYMENT-PLAN §5); this errs towards refusing. */
 const TWO_LEVEL_SUFFIXES = new Set([
@@ -22,6 +22,8 @@ const TWO_LEVEL_SUFFIXES = new Set([
   'co.jp',
   'com.br',
 ]);
+/** hex characters of the tag in a temporary host name: 16 = 64 bits */
+export const TAG_HEX = 16;
 const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export class PreviewDomainRefused extends Error {
@@ -87,7 +89,7 @@ export interface TemporaryPreview {
 }
 
 /**
- * `<site>-<8 hex of sha256(deploymentId)>.<previewDomain>`: stable for one deployment (a retried segment gets the same URL), different for every deployment, and the
+ * `<site>-<16 hex of sha256 or HMAC(deploymentId)>.<previewDomain>`: stable for one deployment (a retried segment gets the same URL), different for every deployment, and the
  * identifier is not reversible to the id. Total label length stays within the 63-character DNS limit.
  */
 export function temporarySubdomain(input: {
@@ -95,8 +97,17 @@ export function temporarySubdomain(input: {
   deploymentId: string;
   previewDomain: string | null;
   protectedDomains?: readonly string[];
+  /**
+   * Server-side secret (a vault-held key, never logged): with it the tag is an HMAC, so the host cannot be derived from a deployment id by anyone who lacks it. Without it
+   * (simulated targets, tests) the tag is a plain hash. Either way it is 64 bits: a preview host that is not published must not be guessable by enumeration.
+   */
+  tagKey?: string;
 }): TemporaryPreview {
-  const tag = createHash('sha256').update(input.deploymentId).digest('hex').slice(0, 8);
+  const tag = (
+    input.tagKey
+      ? createHmac('sha256', input.tagKey).update(input.deploymentId).digest('hex')
+      : createHash('sha256').update(input.deploymentId).digest('hex')
+  ).slice(0, TAG_HEX);
   const label = `${dnsLabel(input.siteName, 40)}-${tag}`;
   if (input.previewDomain === null) {
     const host = `${label}.staging.nuzm.invalid`;
@@ -113,5 +124,5 @@ export function isTemporaryPreviewHost(host: string, previewDomain: string): boo
   const d = normaliseHost(previewDomain);
   if (!h.endsWith(`.${d}`)) return false;
   const label = h.slice(0, -(d.length + 1));
-  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?-[0-9a-f]{8}$/.test(label) && label.length <= 63;
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?-[0-9a-f]{16}$/.test(label) && label.length <= 63;
 }

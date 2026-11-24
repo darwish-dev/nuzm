@@ -1,6 +1,6 @@
 # DEFECT-18: the P3-S02 egress proxy accepts addresses the Phase 2 classifier refuses
 
-Found by: P3-S08 (independent review), 2026-11-24 · Component: `packages/runtime-agent/src/egress-proxy.ts` (`isPublicAddress`), P3-S02 branch `claude/p3-s02-runtime-999326` at `fe83787d` · Severity: **Low** (defence in depth) · Owner (fixer): P3-S02 · State: **OPEN**
+Found by: P3-S08 (independent review), 2026-11-24 · Component: `packages/runtime-agent/src/egress-proxy.ts` (`isPublicAddress`), P3-S02 branch `claude/p3-s02-runtime-999326` at `fe83787d` · Severity: **Low** (defence in depth) · Owner (fixer): P3-S02 · State: **FIXED+RETESTED** (P3-S02 `074ef411`; re-run by P3-S08: 5 passed against that source)
 
 ## What is wrong
 The proxy of the `registry-only` network class vets every address a resolver returns with its own function `isPublicAddress` before it connects. That function re-implements the address policy instead of reusing `isBlockedAddress` (`packages/domain/src/ai/ssrf.ts`), which already absorbed DEFECT-2 and DEFECT-3 in Phase 2. The two disagree on four spellings the proxy treats as public:

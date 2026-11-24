@@ -76,8 +76,8 @@ Defects found in the Phase 3 components keep the same vocabulary and the same pr
 
 | ID | Severity | Component | Owner (fixer) | Found at | Proving test | State |
 |---|---|---|---|---|---|---|
-| DEFECT-18 | Low | `packages/runtime-agent` egress proxy: `isPublicAddress` accepts `100::/64`, `::7f00:1`, `fec0::1`, which the Phase 2 classifier refuses (`docs/security/defects/DEFECT-18-p3-egress-proxy-address-policy.md`) | P3-S02 | `claude/p3-s02-runtime-999326` @ `fe83787d` | `qa-p3-egress-proxy.spec.ts::DEFECT-18` (`it.fails`; proving run: 4 passed + 1 expected fail) | **OPEN** |
+| DEFECT-18 | Low | `packages/runtime-agent` egress proxy: `isPublicAddress` accepts `100::/64`, `::7f00:1`, `fec0::1`, which the Phase 2 classifier refuses (`docs/security/defects/DEFECT-18-p3-egress-proxy-address-policy.md`) | P3-S02 | `claude/p3-s02-runtime-999326` @ `fe83787d` | `qa-p3-egress-proxy.spec.ts::DEFECT-18` (was `it.fails`: 4 passed + 1 expected fail; after the fix 5 passed) | **FIXED+RETESTED against `074ef411` on the S02 branch (not yet merged into the integration line)** |
 
-Observations not registered (not reproduced): O-17 (egress proxy tunnel slot held after the client left; see the DEFECT-18 file).
+O-17 (tunnel slot held after the client left): fixed by P3-S02 in the same commit with its own test; not re-verified independently by me (needs the package merged and an injected-connector test).
 
-Count (Phase 3, running): 1 found, 0 fixed, 1 open. The final count and the independent re-verification of all registered defects on the final Phase 3 revision are recorded in `docs/phase3/sessions/REPORT-P3-S08.md` (acceptance Q3).
+Count (Phase 3, running): 1 found, 1 fixed and re-tested on the S02 branch, 0 open. The final count and the independent re-verification of all registered defects on the final Phase 3 revision are recorded in `docs/phase3/sessions/REPORT-P3-S08.md` (acceptance Q3).

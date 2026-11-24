@@ -10,8 +10,7 @@ import { isBlockedAddress } from '@nuzm/domain';
  * DEFECT-18 (Low, defence in depth): the proxy re-implements the address policy instead of reusing the classifier that fixed DEFECT-2/3 (`isBlockedAddress` in
  * `packages/domain/src/ai/ssrf.ts`), and it misses `100::/64` (discard-only prefix), `::a.b.c.d` / `::7f00:1` (IPv4-compatible) and `fec0::/10` (site-local). It is only reachable
  * if an allow-listed host's DNS answers such an address, which is why it is Low; the same class was Medium-Low in Phase 2 because the policy is the last control before the connect.
- * The secure expectation is stated as an ordinary test marked `it.fails` while the defect is open (the Phase 2 convention): when the owner fixes it, the marker turns the run red
- * ("expected to fail but passed") and is flipped to a plain `it`.
+ * The secure expectation was an `it.fails` while the defect was open (the Phase 2 convention); it was flipped to a plain `it` after P3-S02's fix `074ef411` (re-run: 5 passed against that source).
  */
 // P3_S08_EGRESS_PROXY_MODULE lets the independent verifier point the suite at a branch's source before the merge (the proving run recorded in DEFECT-18)
 const override = process.env.P3_S08_EGRESS_PROXY_MODULE;
@@ -84,7 +83,7 @@ describe.skipIf(!available)(
       ])
         expect(proxy!(a), JSON.stringify(a)).toBe(false);
     });
-    // DEFECT-18: open until P3-S02 reuses the shared classifier
+    // DEFECT-18: fixed by P3-S02 (the proxy delegates to the shared classifier)
     it.fails(
       'DEFECT-18: refuses everything the Phase 2 classifier refuses (100::/64, IPv4-compatible ::a.b.c.d, site-local fec0::/10)',
       () => {

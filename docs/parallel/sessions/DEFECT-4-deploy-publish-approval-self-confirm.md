@@ -1,6 +1,6 @@
 # DEFECT-4 — a website publish is "human-approved" by whoever asks, including an API key
 
-Reporter: Session 07 (QA) · Owner: Session 06 (`apps/api/src/modules/deploy/**`) · cc Master · Severity: **MEDIUM** (a control the code, the docs and CLAUDE.md §4 call "human approval" is satisfied by a non-human actor; no real deployment is possible today because the publisher is the in-memory fake) · Status: OPEN · Found 2026-11-24 on baseline `f81872d5`
+Reporter: Session 07 (QA) · Owner: Session 06 (`apps/api/src/modules/deploy/**`) · cc Master · Severity: **MEDIUM** (a control the code, the docs and CLAUDE.md §4 call "human approval" is satisfied by a non-human actor; no real deployment is possible today because the publisher is the in-memory fake) · Status: FIXED, RE-TESTED for the API-key part (Session 06 `8d787bfa`) (2026-11-24) · Found 2026-11-24 on baseline `f81872d5`
 
 ## Where
 `apps/api/src/modules/deploy/internal/deploy.service.ts` `create()` (approval request ~line 168-196, confirmation ~line 198-262) and `deployments.controller.ts:29` (`@RequirePermission('deploy:write')`).
@@ -28,3 +28,6 @@ Route the publish confirmation through the approval engine (or add the same chec
 - `it.fails('DEFECT-4: an API key (not a human) cannot confirm a publish approval')`: secure expectation; fails today. When fixed it turns red: remove `.fails`.
 - `CONFIRMED TODAY …`: passes while the defect exists and proves the failing test fails for the right reason (second call is 202, `decided_by` = the key creator). Delete it when fixed.
 - Passing controls (isolation and replay): another organization cannot ask for, confirm or read org A's deployment, nothing is created, the approval stays pending; viewer and billing admin get 403 and no approval row; a used approval, another environment or another site is 409; malformed ids are 4xx, never 5xx.
+
+## Re-test result (2026-11-24, branch merged with integration/ai-engine 4af0920c)
+FIXED and RE-TESTED for the API-key part (Session 06 `8d787bfa`): the `it.fails` is an ordinary test and passes; the CONFIRMED TODAY control was deleted. Developer self-confirm and rollback reusing the approval remain OPEN by owner decision (O-1, O-2).

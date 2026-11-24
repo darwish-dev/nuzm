@@ -94,7 +94,7 @@ describe('QA run approvals: who may decide', () => {
     expect((await state(approvalId)).state).toBe('denied');
   });
 
-  it.fails('DEFECT-6: an API key (not a human) cannot decide a run approval', async () => {
+  it('DEFECT-6: an API key (not a human) cannot decide a run approval', async () => {
     const { runId, approvalId } = await waitingRun();
     const kr = await e.call(
       'alice',
@@ -108,20 +108,5 @@ describe('QA run approvals: who may decide', () => {
     // secure expectation: refused; a human member decides
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
     expect((await state(approvalId)).state).toBe('pending');
-  });
-  it('CONFIRMED TODAY (other half of DEFECT-6): the same API key approves and the decision is recorded under the key creator as a human', async () => {
-    const { runId, approvalId } = await waitingRun('publish');
-    const kr = await e.call(
-      'alice',
-      'POST',
-      '/v1/api-keys',
-      { name: 'qa-run-key2', scopes: ['ai:write'] },
-      A(),
-    );
-    const res = await viaKey(j(kr).key as string, runId, approvalId);
-    expect(res.statusCode, res.body).toBe(200);
-    const s = await state(approvalId);
-    expect(s.state).toBe('approved');
-    expect(s.decided_by).toBe(e.ids.alice);
   });
 });

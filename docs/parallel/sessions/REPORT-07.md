@@ -25,7 +25,8 @@ No live provider call, no real credential, no customer data, no real execution; 
 Packages were built once for the worktree: `npx turbo run build --filter='@nuzm/api^...' --concurrency=2` (turbo cache hit; `packages/*/dist` are gitignored).
 | Command (cwd `apps/api`) | Result seen |
 |---|---|
-| `npx vitest run --config vitest.integration.config.mts src/qa` (all nine QA files, final run) | **Test Files 9 passed; Tests 300 passed, 19 expected fail (319); 95.8 s** |
+| `npx vitest run --config vitest.integration.config.mts src/qa` (all nine QA files, checkpoint 2, baseline code) | Test Files 9 passed; Tests 300 passed, 19 expected fail (319); 95.8 s |
+| Checkpoint 3 (merged integration 4af0920c, one file at a time; DB files with the temporary manifest tweak): exec-gateway 79 · ssrf-egress 179 + 8 expected fail · local-dev-sandbox 6 · deploy-approval 7 · run-approval 5 · mobile-signing 6 · migration-roundtrip 9 (now includes 1900, 1920, 1921, 1980: identical schema after down+up) · route-inventory 8 · authz-matrix 10 | **309 passed, 8 expected fail (DEFECT-2 only), 0 failed** |
 | per file: `qa-exec-gateway` 74 + 5 expected fail · `qa-ssrf-egress` 177 + 10 · `qa-deploy-approval` 7 + 1 · `qa-run-approval` 5 + 1 · `qa-mobile-signing` 6 · `qa-migration-roundtrip` 9 · `qa-local-dev-sandbox` 4 + 2 · `qa-route-inventory` 8 · `qa-authz-matrix` 10 | passed (earlier individual runs; sums equal the final run) |
 | Gate sensitivity check: a temporary controller with a public route, a non-idempotent POST and no access declaration | route-inventory failed 5 tests as intended; the temporary file was deleted |
 | `pnpm --filter @nuzm/db exec tsx src/cli.ts migrate | check | classification | ropa-coverage | residency-hooks` (`DATABASE_ADMIN_URL=…54347/nuzm_dev`) | migrate applied all; `db check OK`; `classification coverage OK: 3368 columns in 268 tables`; `ropa coverage OK`; `residency hooks OK` |
@@ -50,8 +51,19 @@ DEFECT-4 (MEDIUM, S06 deploy: an API key can request and confirm a production pu
 3. After the merge batches: full `pnpm test:integration` (with the QA specs included), `pnpm verify:full:isolated`, `pnpm sdk:check`, `pnpm typecheck` on the integration branch (also answers O-7).
 4. Accessibility/RTL: covered by the existing axe-in-every-spec E2E; new UI screens of sessions 02-06 need their own ar/en E2E + screenshots (their rule); I audit them after the merge.
 
-## Defect status updates
-- DEFECT-4: Session 06 reports it FIXED in `8d787bfa` (`feature/ai-deployment`): the confirming call now answers 403 for a non-`session` actor, no deployment is created, the approval stays pending. I read the diff (`deploy.service.ts`, `deployments.controller.ts`): the check is placed before any state change and matches the expectation of `qa-deploy-approval.int.spec.ts`. **Not re-run**: their code is not in my branch. After the Master merges, I will remove `.fails` and the CONFIRMED TODAY control in that spec and re-run it. Still open by owner decision: developer self-confirm, rollback reusing the approval (O-1, O-2).
+## Defect status updates (checkpoint 3: merged `integration/ai-engine` 4af0920c, re-tested)
+| Defect | Result seen |
+|---|---|
+| DEFECT-1 | fixed and re-tested: `qa-exec-gateway` 79 passed (the 5 `it.fails` are ordinary tests; "never allowed" control made strict) |
+| DEFECT-3 | fixed and re-tested: `qa-ssrf-egress` 179 passed, 8 expected fail (all DEFECT-2) |
+| DEFECT-4 | API-key part fixed (S06 `8d787bfa`) and re-tested: `qa-deploy-approval` 7 passed (control deleted). Developer self-confirm and rollback approval: open owner decisions (O-1, O-2) |
+| DEFECT-5 | fixed and re-tested: `qa-local-dev-sandbox` 6 passed. The named read now refuses (`symlink_in_path`); I changed the test to accept a refusal (the property is "canary never disclosed") — not a weakening: it still fails if the canary is returned |
+| DEFECT-6 | fixed and re-tested: `qa-run-approval` 5 passed (control deleted) |
+| DEFECT-2 | still open: 8 `it.fails` still fail as expected |
+Fixed-but-failing: none.
+
+## NEW finding on the merged branch (for the Master)
+`spec/db/ownership.yaml` on integration 4af0920c has the `PROV` range (1900-1919) but not the benchmarks (1920-1939) or deployment (1980-1999) ranges. Result: every DB-backed test fails at harness start with `Invalid migrations: ai/1920…, ai/1921…, deploy/1980…: ordinal outside ranges allowed`. After adding the ranges (I used an UNCOMMITTED temporary tweak of `extended_by`/`migration_ranges`, reverted; not in my commits), `pnpm db check` still FAILS (`ai.benchmark_records`, `ai.benchmark_runs` not in the ownership manifest / not in `tenant_less`) and `compliance classification` FAILS (20 unclassified columns in those two tables). `ropa-coverage` and `residency-hooks` OK. Patches are in `CONTRACT-S03-2-benchmarks-db-ownership.md` and `CONTRACT-2-deployment-cancel.md`.
 
 ## Escalations
 None blocking. Material for the owner/Master: DEFECT-4 and DEFECT-6 both say "human approval" is satisfied by API keys; the product decision "may a developer self-confirm a production publish, and does rollback need its own approval" (O-1, O-2) is the owner's.

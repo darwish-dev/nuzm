@@ -1,6 +1,6 @@
 # DEFECT-5 — sandbox control plane follows symlinks left by sandboxed code (named read, directory write)
 
-Reporter: Session 07 (QA) · Owner: Session 04 (`apps/api/src/modules/appbuilder/internal/sandbox/**`) · cc Master · Severity: **LOW today** (the affected class `LocalDevSandboxRuntime` is dev-only, `isolation:'none'`, refuses to start in production; **HIGH as a design rule** for the real runtime port Session 04 is building: the control plane must never follow a path that sandboxed code can influence) · Status: OPEN · Found 2026-11-24, baseline `f81872d5`
+Reporter: Session 07 (QA) · Owner: Session 04 (`apps/api/src/modules/appbuilder/internal/sandbox/**`) · cc Master · Severity: **LOW today** (the affected class `LocalDevSandboxRuntime` is dev-only, `isolation:'none'`, refuses to start in production; **HIGH as a design rule** for the real runtime port Session 04 is building: the control plane must never follow a path that sandboxed code can influence) · Status: FIXED, RE-TESTED (2026-11-24) · Found 2026-11-24, baseline `f81872d5`
 
 ## Where
 `apps/api/src/modules/appbuilder/internal/sandbox/local-dev-runtime.ts`
@@ -24,3 +24,6 @@ Named reads and directory writes follow symlinks. In the dev runner this is a co
 
 ## Tests
 `qa-local-dev-sandbox.int.spec.ts` → `4 passed | 2 expected fail`: the two `it.fails('DEFECT-5: …')` state the secure expectation and fail today (remove the marker when fixed); passing controls: traversal/absolute/encoded paths refused, full-tree listing skips symlinks, ordinary round trip works, the runner refuses to start without `SANDBOX_LOCAL_DEV` or in production.
+
+## Re-test result (2026-11-24, branch merged with integration/ai-engine 4af0920c)
+FIXED and RE-TESTED: named read now refuses (`symlink_in_path`), directory write no longer lands outside; both tests are ordinary tests. Still recommended: SYM-READ/SYM-WRITE/hard-link attempts in the escape suite (not verified by me).

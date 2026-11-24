@@ -135,7 +135,7 @@ const V6_EMBEDDED_V4: [string, string][] = [
 // recognised; and the discard-only prefix 100::/64 (RFC 6666) is not listed. Both are unroutable on a normal host: LOW, defence in depth.
 const SANDBOX_GAPS = new Set(['::ffff:0:7f00:1', '100::1']);
 describe('QA: IPv4 embedded in an IPv6 address', () => {
-  it.fails.each(V6_EMBEDDED_V4.filter(([a]) => SANDBOX_GAPS.has(a)))(
+  it.each(V6_EMBEDDED_V4.filter(([a]) => SANDBOX_GAPS.has(a)))(
     'DEFECT-3: sandbox policy blocks %s (%s)',
     (a) => {
       const c = classifyIpLiteral(a);

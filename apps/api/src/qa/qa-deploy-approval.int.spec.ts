@@ -176,7 +176,7 @@ describe('QA deploy: the human approval of a publish', () => {
     expect(ap.requested_by).toBe(ap.decided_by);
   });
 
-  it.fails('DEFECT-4: an API key (not a human) cannot confirm a publish approval', async () => {
+  it('DEFECT-4: an API key (not a human) cannot confirm a publish approval', async () => {
     const p = await mkProject('QA Key');
     const site = await mkSite(A(), 'alice', 'qa-key');
     const body = { projectId: p.id, target: site, environment: 'production' };
@@ -189,23 +189,6 @@ describe('QA deploy: the human approval of a publish', () => {
     // secure expectation: a non-human actor never completes the approval; a human must decide it (e.g. through POST /v1/ai/approvals/{id}/decisions with ai:approve)
     expect(second.statusCode).toBeGreaterThanOrEqual(400);
     expect(await deployCount()).toBe(before);
-  });
-
-  it('CONFIRMED TODAY (the other half of DEFECT-4): the same API key creates the deployment in two calls and the approval records the key creator as the human decider', async () => {
-    const p = await mkProject('QA Key2');
-    const site = await mkSite(A(), 'alice', 'qa-key2');
-    const body = { projectId: p.id, target: site, environment: 'production' };
-    const key = await mkKey('alice', ['deploy:write']);
-    const first = await asKey(body, key);
-    const second = await asKey({ ...body, approvalId: first.json().approvalId }, key);
-    expect(second.statusCode, second.body).toBe(202);
-    const ap = (
-      await e.sql(`SELECT state, decided_by FROM ai.approvals WHERE id=$1`, [
-        first.json().approvalId,
-      ])
-    )[0]!;
-    expect(ap.state).toBe('approved');
-    expect(ap.decided_by).toBe(e.ids.alice);
   });
 
   it('a used approval is never reusable and an approval cannot be moved to another environment or site', async () => {

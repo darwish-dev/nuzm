@@ -1,6 +1,6 @@
 # DEFECT-2 — customer URL fetcher does not block IPv6 spellings of private IPv4 addresses
 
-Reporter: Session 07 (QA) · Owner: **Session 02** (`apps/api/src/modules/ai/**` consumes it) / the file is `packages/domain/src/ai/ssrf.ts` (domain; no session row owns it → route through the Master) · Severity: **LOW-MEDIUM** (defence in depth; exploit needs a route to the embedded IPv4, normally absent on Linux hosts) · Status: OPEN · Found 2026-11-24, baseline `f81872d5`
+Reporter: Session 07 (QA) · Owner: **Session 02** (`apps/api/src/modules/ai/**` consumes it) / the file is `packages/domain/src/ai/ssrf.ts` (domain; no session row owns it → route through the Master) · Severity: **LOW-MEDIUM** (defence in depth; exploit needs a route to the embedded IPv4, normally absent on Linux hosts) · Status: OPEN (2026-11-24) · Found 2026-11-24, baseline `f81872d5`
 
 ## Where
 `packages/domain/src/ai/ssrf.ts:13-55` `isBlockedAddress` (used by `safeFetch`, i.e. every customer-supplied URL an AI run fetches: `url-fetcher.ts`).
@@ -27,3 +27,6 @@ Reuse `classifyIpLiteral`/`blockedV6` from the sandbox egress module (move to `p
 
 ## Tests
 `apps/api/src/qa/qa-ssrf-egress.int.spec.ts` → `DEFECT-2: customer URL fetcher blocks …` (8 `it.fails` cases) plus a differential test over a 36-address corpus where both implementations agree (they do for every canonical address).
+
+## Re-test result (2026-11-24, branch merged with integration/ai-engine 4af0920c)
+STILL OPEN (Session 04 is fixing `packages/domain/src/ai/ssrf.ts`): the 8 `it.fails` cases still fail as expected on integration 4af0920c.

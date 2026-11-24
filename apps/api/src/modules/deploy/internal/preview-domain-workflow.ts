@@ -82,13 +82,13 @@ const matchesWildcard = (names: string[], previewDomain: string) =>
 export async function validatePreviewDomain(i: PreviewDomainInput): Promise<PreviewDomainReport> {
   const checks: DomainCheck[] = [];
   const add = (c: DomainCheck) => checks.push(c);
-  const pd = i.previewDomain ? normaliseHost(i.previewDomain) : null;
+  const pdOrNull = i.previewDomain ? normaliseHost(i.previewDomain) : null;
   const now = (i.now ?? (() => new Date()))();
   const min = i.minDaysLeft ?? 14;
 
   // 1 config
   let cfgOk = false;
-  if (!pd) {
+  if (!pdOrNull) {
     add({
       id: 'config',
       title: 'preview domain configured and separate from console/API (ADR-060)',
@@ -100,13 +100,13 @@ export async function validatePreviewDomain(i: PreviewDomainInput): Promise<Prev
     });
   } else {
     try {
-      assertIsolatedPreviewDomain(pd, i.protectedDomains);
+      assertIsolatedPreviewDomain(pdOrNull, i.protectedDomains);
       cfgOk = true;
       add({
         id: 'config',
         title: 'preview domain configured and separate from console/API (ADR-060)',
         status: 'PASS',
-        detail: `${pd} is on ${registrableDomain(pd)}, separate from ${i.protectedDomains.length} protected domain(s)`,
+        detail: `${pdOrNull} is on ${registrableDomain(pdOrNull)}, separate from ${i.protectedDomains.length} protected domain(s)`,
         needs: [],
       });
     } catch (e) {
@@ -119,6 +119,9 @@ export async function validatePreviewDomain(i: PreviewDomainInput): Promise<Prev
       });
     }
   }
+
+  // only read below when `cfgOk` (a valid preview domain); the empty fallback is never used otherwise
+  const pd = pdOrNull ?? '';
 
   const blocked = (
     id: DomainCheck['id'],
@@ -281,7 +284,7 @@ export async function validatePreviewDomain(i: PreviewDomainInput): Promise<Prev
 
   const next = checks.find((c) => c.status !== 'PASS')?.id ?? null;
   return {
-    previewDomain: pd,
+    previewDomain: pdOrNull,
     origin: i.origin,
     checks,
     allPass: checks.length > 0 && checks.every((c) => c.status === 'PASS'),

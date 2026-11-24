@@ -150,6 +150,7 @@ schemas:
     created_by: M09
     extended_by:
       - M10
+      - DEP
     tables:
       - app_deployment_logs
       - app_deployments
@@ -373,6 +374,8 @@ migration_ranges:
   K: "1860-1899"
   # AI providers (parallel AI engine effort, session 02): migrations 1900-1919
   PROV: "1900-1919"
+  # Preview, hosting and deployment (parallel AI engine effort, session 06): migrations 1980-1999
+  DEP: "1980-1999"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.

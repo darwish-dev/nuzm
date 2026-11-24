@@ -7,7 +7,10 @@ import { LINES } from './dev-cloud';
  * O-10 guard: the dev seed's simulator account must only use ids the mock-compute adapter lists, otherwise a customer creating a server from the seeded
  * dev catalog gets `region_not_listed`. @nuzm/db does not depend on the adapter package (module boundaries), so this reads the adapter's source text.
  */
-const SRC = readFileSync(join(__dirname, '../../adapters/mock-compute/src/mock-compute.ts'), 'utf8');
+const SRC = readFileSync(
+  join(__dirname, '../../adapters/mock-compute/src/mock-compute.ts'),
+  'utf8',
+);
 
 function block(name: string): string {
   const m = new RegExp(`export const ${name}[^=]*= \\[([\\s\\S]*?)\\n\\];`).exec(SRC);

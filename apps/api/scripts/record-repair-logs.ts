@@ -40,7 +40,12 @@ function project(files: Record<string, string>): string {
   return d;
 }
 const run = (cmd: string, args: string[], cwd: string) =>
-  spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout: 120_000, env: { ...globalThis.process.env, NO_COLOR: '1', FORCE_COLOR: '0' } });
+  spawnSync(cmd, args, {
+    cwd,
+    encoding: 'utf8',
+    timeout: 120_000,
+    env: { ...globalThis.process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
+  });
 /** the throw-away directory and the tool shims' own stack traces are not part of the tool's report */
 const sanitize = (t: string, dir: string): string =>
   t
@@ -59,10 +64,22 @@ const tscBin = require.resolve('typescript/bin/tsc');
 const tscVersion = `tsc ${version(globalThis.process.execPath, [tscBin, '--version']).replace(/^Version\s+/, '')}`;
 for (const c of A.CORPUS.filter((x) => x.verifier === 'ts')) {
   const d = project(c.files);
-  const r = run(globalThis.process.execPath, [tscBin, '-p', 'tsconfig.json', '--pretty', 'false'], d);
+  const r = run(
+    globalThis.process.execPath,
+    [tscBin, '-p', 'tsconfig.json', '--pretty', 'false'],
+    d,
+  );
   const log = `${r.stdout}${r.stderr}`.trim();
-  if (r.status === 0 || log === '') throw new Error(`${c.id}: the case compiles; it is not a failing case`);
-  out.push({ id: `tsc/${c.id}`, tool: 'tsc', version: tscVersion, command: 'tsc -p tsconfig.json --pretty false', log, expectClasses: [...c.expectClasses] });
+  if (r.status === 0 || log === '')
+    throw new Error(`${c.id}: the case compiles; it is not a failing case`);
+  out.push({
+    id: `tsc/${c.id}`,
+    tool: 'tsc',
+    version: tscVersion,
+    command: 'tsc -p tsconfig.json --pretty false',
+    log,
+    expectClasses: [...c.expectClasses],
+  });
 }
 
 // 2. vitest over the failing-test case
@@ -70,18 +87,44 @@ for (const c of A.CORPUS.filter((x) => x.verifier === 'ts')) {
   const c = A.CORPUS.find((x) => x.id === 'test-assertion')!;
   const d = project(c.files);
   const vitestBin = resolve(dirname(require.resolve('vitest/package.json')), 'vitest.mjs');
-  const r = run(globalThis.process.execPath, [vitestBin, 'run', '--globals', '--root', d, '--reporter', 'default'], d);
-  const log = sanitize(`${r.stdout}${r.stderr}`.replace(/\d+ms|\d+\.\d+s|Duration\s+.*|Start at\s+.*/g, ''), d);
+  const r = run(
+    globalThis.process.execPath,
+    [vitestBin, 'run', '--globals', '--root', d, '--reporter', 'default'],
+    d,
+  );
+  const log = sanitize(
+    `${r.stdout}${r.stderr}`.replace(/\d+ms|\d+\.\d+s|Duration\s+.*|Start at\s+.*/g, ''),
+    d,
+  );
   if (r.status === 0) throw new Error('the test case passes; it is not a failing case');
-  out.push({ id: 'vitest/test-assertion', tool: 'vitest', version: `vitest ${version(globalThis.process.execPath, [vitestBin, '--version']).replace(/^vitest\//, '')}`, command: 'vitest run --globals', log, expectClasses: ['test_assertion'] });
+  out.push({
+    id: 'vitest/test-assertion',
+    tool: 'vitest',
+    version: `vitest ${version(globalThis.process.execPath, [vitestBin, '--version']).replace(/^vitest\//, '')}`,
+    command: 'vitest run --globals',
+    log,
+    expectClasses: ['test_assertion'],
+  });
 }
 
 // 3. esbuild: an import that does not resolve
 {
   const d = project({ 'src/main.ts': "import { x } from './missing';\nconsole.log(x);\n" });
   const bin = require.resolve('esbuild/bin/esbuild');
-  const r = run(globalThis.process.execPath, [bin, 'src/main.ts', '--bundle', '--outfile=out.js', '--log-level=error', '--color=false'], d);
-  if (r.status !== 0) out.push({ id: 'esbuild/unresolved-import', tool: 'esbuild', version: `esbuild ${version(globalThis.process.execPath, [bin, '--version'])}`, command: 'esbuild src/main.ts --bundle', log: sanitize(`${r.stdout}${r.stderr}`, d), expectClasses: ['missing_module'] });
+  const r = run(
+    globalThis.process.execPath,
+    [bin, 'src/main.ts', '--bundle', '--outfile=out.js', '--log-level=error', '--color=false'],
+    d,
+  );
+  if (r.status !== 0)
+    out.push({
+      id: 'esbuild/unresolved-import',
+      tool: 'esbuild',
+      version: `esbuild ${version(globalThis.process.execPath, [bin, '--version'])}`,
+      command: 'esbuild src/main.ts --bundle',
+      log: sanitize(`${r.stdout}${r.stderr}`, d),
+      expectClasses: ['missing_module'],
+    });
 }
 
 // 4. dart analyze (only when the SDK is installed)
@@ -91,10 +134,24 @@ for (const c of A.CORPUS.filter((x) => x.verifier === 'ts')) {
     const d = project({
       'pubspec.yaml': 'name: fixture_app\nenvironment:\n  sdk: ">=3.0.0 <4.0.0"\n',
       'lib/util.dart': 'int helper(int a) => a;\n',
-      'lib/main.dart': "import 'package:missing_pkg/missing.dart';\nimport 'util.dart';\n\nint add(int a, int b) {\n  return a + b + undefinedThing;\n}\n\nvoid main() {\n  String s = add(1, 2);\n  print(s.nope);\n  print(helper(1, 2, 3));\n}\n",
+      'lib/main.dart':
+        "import 'package:missing_pkg/missing.dart';\nimport 'util.dart';\n\nint add(int a, int b) {\n  return a + b + undefinedThing;\n}\n\nvoid main() {\n  String s = add(1, 2);\n  print(s.nope);\n  print(helper(1, 2, 3));\n}\n",
     });
     const r = run('dart', ['analyze'], d);
-    out.push({ id: 'dart/analyze-multi', tool: 'dart analyze', version: `${probe.stdout}${probe.stderr}`.trim().split('\n')[0]!, command: 'dart analyze', log: `${r.stdout}${r.stderr}`.replace(/^Analyzing .*$/m, 'Analyzing fixture_app...').trim(), expectClasses: ['missing_module', 'undefined_name', 'type_mismatch', 'missing_property', 'call_signature'] });
+    out.push({
+      id: 'dart/analyze-multi',
+      tool: 'dart analyze',
+      version: `${probe.stdout}${probe.stderr}`.trim().split('\n')[0]!,
+      command: 'dart analyze',
+      log: `${r.stdout}${r.stderr}`.replace(/^Analyzing .*$/m, 'Analyzing fixture_app...').trim(),
+      expectClasses: [
+        'missing_module',
+        'undefined_name',
+        'type_mismatch',
+        'missing_property',
+        'call_signature',
+      ],
+    });
   }
 }
 for (const d of dirs) rmSync(d, { recursive: true, force: true });
@@ -112,7 +169,13 @@ export interface RecordedLog {
 export const RECORDED_LOGS: readonly RecordedLog[] = `;
 const text = `${header}${JSON.stringify(out, null, 2)};\n`;
 if (globalThis.process.argv.includes('--write')) {
-  writeFileSync(resolve(__dirname, '../../../packages/domain/src/ai/agent-tools/builder/autorepair/recorded.ts'), text);
+  writeFileSync(
+    resolve(
+      __dirname,
+      '../../../packages/domain/src/ai/agent-tools/builder/autorepair/recorded.ts',
+    ),
+    text,
+  );
   console.log(`wrote ${out.length} recorded logs`);
 } else {
   for (const r of out) console.log(`${r.id} (${r.version}): ${r.log.split('\n').length} lines`);

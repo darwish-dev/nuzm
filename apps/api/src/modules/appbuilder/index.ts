@@ -45,3 +45,6 @@ export { AppRunService } from './internal/run.service';
 export { generateProject } from './internal/gen/project';
 export { CRM_SPEC } from './internal/fixtures/crm-appspec';
 export { ATTEMPTS, runEscapeSuite } from './internal/sandbox/escape-suite';
+// the builder loop's plug-in point for the product tracks (website, full-stack, mobile): one generator per product type
+export { ProductGeneratorRegistry } from './internal/lifecycle/generator-registry';
+export type { FileGenerator } from './internal/lifecycle/lifecycle.types';

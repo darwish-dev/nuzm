@@ -291,3 +291,20 @@ export function entriesFromPlan(plan: ImplementationPlan, at: string): NewEntry[
     });
   return out;
 }
+
+/** What a repair round teaches the project: the CLASS of build error that occurred (never its text), so later generation and edits watch for it. Phrased as an observation, not a claim of success. */
+export function entriesFromRepair(
+  classes: readonly string[],
+  round: number,
+  at: string,
+): NewEntry[] {
+  return [...new Set(classes)]
+    .filter((c) => /^[a-z_]{3,40}$/.test(c) && c !== 'unknown')
+    .slice(0, 3)
+    .map((c) => ({
+      kind: 'issue' as const,
+      text: `Build error class "${c}" occurred during automatic repair (round ${round}); check for it when generating or editing code.`,
+      source: 'agent' as const,
+      at,
+    }));
+}

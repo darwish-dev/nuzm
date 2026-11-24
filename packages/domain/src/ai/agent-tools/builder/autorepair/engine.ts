@@ -32,6 +32,14 @@ export interface AutoRepairOptions {
   contextTokens?: number;
 }
 
+/** the static review findings a repair may act on (the others are about the plan, secrets or size and are not a build problem), with the class each belongs to */
+const STATIC_CLASS: Record<string, ErrorClass> = {
+  unbalanced_brackets: 'syntax_error',
+  invalid_json: 'config_error',
+  install_script: 'config_error',
+  remote_dependency: 'config_error',
+};
+
 const classesOf = (ds: readonly Diagnostic[]): ErrorClass[] => ds.map((d) => d.class ?? 'unknown');
 
 const EXCERPT_LINES = 10;
@@ -188,14 +196,22 @@ export function autoRepairMessage(
       message: d.message,
       ...(d.detail ? { detail: d.detail } : {}),
     })),
-    ...input.findings.map((x): Problem => ({
-      class: 'unknown',
-      kind: 'unknown',
-      path: x.path,
-      line: x.line,
-      code: x.code,
-      message: x.message,
-    })),
+    ...input.findings
+      .filter(
+        (x) =>
+          x.severity === 'error' &&
+          x.code in STATIC_CLASS &&
+          x.path !== null &&
+          input.files.has(x.path),
+      )
+      .map((x): Problem => ({
+        class: STATIC_CLASS[x.code]!,
+        kind: 'unknown',
+        path: x.path,
+        line: x.line,
+        code: x.code,
+        message: x.message,
+      })),
   ].slice(0, 30);
   const byPath = new Map<string, number[]>();
   for (const p of problems)
@@ -213,14 +229,12 @@ export function autoRepairMessage(
       nearbyPaths: extra.nearby,
       manifest: extra.manifest,
     },
-    earlierRounds: (input.history ?? [])
-      .slice(-4)
-      .map((h) => ({
-        round: h.round,
-        classes: h.classes,
-        strategy: h.strategy,
-        outcome: h.outcome,
-      })),
+    earlierRounds: (input.history ?? []).slice(-4).map((h) => ({
+      round: h.round,
+      classes: h.classes,
+      strategy: h.strategy,
+      outcome: h.outcome,
+    })),
     previousProposalRefusedFor: input.rejected.slice(0, 5).map((e) => `${e.code}: ${e.message}`),
   };
   // token budget: drop the least necessary data first
@@ -307,7 +321,13 @@ export class AutoRepairStrategy implements RepairStrategy {
             .map((u) => u.note)
             .join('; ')
             .slice(0, 200),
-          meta: { strategy, classes, asks: 0, refused },
+          meta: {
+            strategy,
+            classes,
+            targeted: [...new Set(fixed.used.map((u) => u.class))],
+            asks: 0,
+            refused,
+          },
         };
       }
       refused.push(...v.map((x) => x.code));

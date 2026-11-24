@@ -57,6 +57,7 @@ import {
   ReleaseBuildBudget,
 } from './internal/lifecycle/execution-budget.service';
 import { BuilderLifecycleService, mockBuildPortFor } from './internal/lifecycle/lifecycle.service';
+import { ProductGeneratorRegistry } from './internal/lifecycle/generator-registry';
 import { PolicyService } from '../access';
 import { QuotaService } from '../billing';
 import { WebappChangesDelegate, WebappDeployDelegateImpl } from './internal/delegates';
@@ -376,6 +377,7 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
       ) => new SandboxService(db, a, rt, res, new ReleaseBuildBudget(g), c, DEFAULT_SANDBOX_CONFIG),
       inject: [DB, AuditSink, SandboxRuntime, ResidencyService, ExecutionGate, CanaryRegistry],
     },
+    ProductGeneratorRegistry,
     {
       provide: BuilderLifecycleService,
       useFactory: (
@@ -388,6 +390,7 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
         b: ExecutionBudgetService,
         gw: GatewayService,
         cfg: AiConfig,
+        gens: ProductGeneratorRegistry,
       ) => {
         const policy = new PolicyService(db);
         return new BuilderLifecycleService({
@@ -401,6 +404,7 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
           permissions: (u, o) => policy.userPermissions(u, o),
           buildPort: mockBuildPortFor(cfg.localReference),
           gateway: gw,
+          generators: gens.asMap(),
         });
       },
       inject: [
@@ -413,6 +417,7 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
         ExecutionBudgetService,
         GatewayService,
         AI_CONFIG,
+        ProductGeneratorRegistry,
       ],
     },
     {
@@ -756,6 +761,7 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
     InstructionsService,
     GitHubService,
     STUDIO_GIT_HOST,
+    ProductGeneratorRegistry,
   ],
 })
 export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationShutdown {

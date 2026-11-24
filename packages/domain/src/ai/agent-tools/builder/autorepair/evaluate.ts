@@ -117,6 +117,7 @@ export async function runRepairCase(
       history,
     });
     const rec: RepairRoundRecord = {
+      ...(proposal?.meta?.targeted ? { targeted: proposal.meta.targeted as ErrorClass[] } : {}),
       round: n,
       before,
       strategy: proposal?.meta?.strategy ?? 'none',

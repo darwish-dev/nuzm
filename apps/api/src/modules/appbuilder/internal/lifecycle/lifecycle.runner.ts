@@ -88,7 +88,7 @@ export class LifecycleRunner {
       const est =
         (step === 'file_generation' && env.modelBacked.file_generation) ||
         (step === 'repair' && env.modelBacked.repair)
-          ? L.STEP_DEFS[step].estTokens
+          ? (env.stepEstimates?.[step] ?? L.STEP_DEFS[step].estTokens)
           : 0;
       const cap = Math.min(state.limits.maxTokens, host.budget.maxTokens ?? Infinity);
       if (est > 0 && state.tokensIn + state.tokensOut + est > cap) {

@@ -13,6 +13,10 @@ export interface RepairRoundRecord {
   round: number;
   /** what the round was about */
   before: ClassCounts;
+  /** the classes the round's strategy actually addressed (a mechanical fixer addresses its own class only); absent = all of `before` */
+  targeted?: ErrorClass[];
+  /** what triggered the round: a failing build/typecheck, or a failing test run */
+  trigger?: 'build' | 'tests';
   /** what still failed after the rebuild (undefined until it ran) */
   after?: ClassCounts;
   /** `deterministic:<fixer id>` (one or several, joined with `+`), `model`, or `none` when nothing was proposed */
@@ -96,6 +100,7 @@ export function summarizeRepairs(
     if (r.strategy.startsWith('deterministic')) det++;
     else if (r.strategy === 'model') model++;
     for (const c of Object.keys(r.before) as ErrorClass[]) {
+      if (r.targeted && !r.targeted.includes(c)) continue;
       const m = (byClass[c] ??= { attempted: 0, resolved: 0, rateBp: null, rounds: 0 });
       const was = r.before[c] ?? 0;
       m.attempted += was;

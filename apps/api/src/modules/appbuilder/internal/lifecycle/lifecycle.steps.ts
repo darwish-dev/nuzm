@@ -92,6 +92,17 @@ async function runProfiles(
       }),
     );
     runs.push({ profile, status: res.status, durationMs: res.durationMs });
+    c.art.builds = [
+      ...(c.art.builds ?? []),
+      {
+        phase,
+        round: c.state.repairRound,
+        profile,
+        status: res.status,
+        durationMs: res.durationMs,
+        origin: build.origin,
+      },
+    ].slice(-60);
     // every execution is metered, whatever its outcome (idempotent per run, phase, round and profile)
     await c.env.budget.meter(c.host.orgId, c.host.projectId, {
       eventKey: `${c.host.runId}:${phase}:${c.state.repairRound}:${profile}`,
@@ -118,10 +129,40 @@ async function runProfiles(
       ? []
       : T.diagnoseBuildLog(failedLogs).slice(0, T.REPAIR_LIMITS.maxDiagnosticsKept),
   };
+  await settleRepairRecord(c, phase, passed, c.art.lastBuild.diagnostics);
   return {
     passed,
     summary: `${runs.map((r) => `${r.profile}:${r.status}`).join(', ')}${build.origin === 'MOCK' ? ' (simulated)' : ''}`,
   };
+}
+
+const MAX_RECORDS = 12;
+const classesOfDiagnostics = (ds: readonly builderTools.Diagnostic[]) => ds.map((d) => d.class);
+
+/**
+ * The rebuild (or the test run) after a repair round shows what the round achieved: the round's record gets the classes that still fail and an outcome. A round that was triggered by
+ * a failing build is settled by the rebuild; one triggered by a failing test run is settled by the test run that follows its rebuild (a rebuild that fails again settles it as it is).
+ */
+async function settleRepairRecord(
+  c: StepCtx,
+  phase: 'build' | 'rebuild' | 'tests',
+  passed: boolean,
+  diagnostics: readonly builderTools.Diagnostic[],
+): Promise<void> {
+  const recs = c.art.repairRecords;
+  const last = recs?.[recs.length - 1];
+  if (!last || last.outcome !== 'pending') return;
+  const trigger = last.trigger ?? 'build';
+  const settles =
+    phase === 'rebuild' ? !passed || trigger === 'build' : phase === 'tests' && trigger === 'tests';
+  if (!settles) return;
+  last.after = passed ? {} : T.countClasses(classesOfDiagnostics(diagnostics));
+  last.outcome = T.outcomeOf(last.before, last.after);
+  await c.host.emit('lifecycle_repair', {
+    round: last.round,
+    outcome: last.outcome,
+    after: last.after,
+  });
 }
 
 function summarizeReview(
@@ -265,30 +306,51 @@ export const STEP_FNS: Record<StepId, StepFn> = {
       ? T.renderMemory(T.selectRelevant(mem.value, c.host.input.prompt), 600)
       : '';
     const produced = new Set<string>();
+    // the content of what earlier tasks of this run wrote: the NEXT task sees its contract (exports), so the files fit together
+    const producedContent = new Map<string, string>();
     const lists: FileOp[][] = [];
     const tasks = [...plan.tasks].sort((a, b) => a.wave - b.wave);
-    for (const task of tasks) {
+    // a product type may have a generator supplied by its own track (website, full-stack, mobile); every other type uses the default one
+    const generator = c.env.generators?.get(plan.productType) ?? c.env.generator;
+    for (const [index, task] of tasks.entries()) {
       if (await c.host.cancelled()) throw new StepFailure('cancelled');
       const todo = {
         ...task,
         files: task.files.filter((p) => !existing.has(p) && !produced.has(p)),
       };
       if (todo.files.length === 0) continue;
+      const ctx = T.buildGenerationContext({
+        task: todo,
+        existing: files,
+        produced: producedContent,
+        memory,
+        budgetTokens: c.env.generationContextTokens ?? 6000,
+      });
+      const later = new Set(
+        tasks
+          .slice(index + 1)
+          .flatMap((t) => t.files.filter((p) => !existing.has(p) && !produced.has(p))),
+      );
       const out = await c.invoke('propose_files', { tasks: [task.id] }, () =>
-        c.env.generator.generate(
+        generator.generate(
           {
             plan,
             task: todo,
-            existingPaths: [...existing],
-            excerpts: [],
-            memory,
+            existingPaths: [...existing, ...produced],
+            excerpts: ctx.excerpts,
+            memory: ctx.memory,
+            producedOutlines: ctx.producedOutlines,
+            plannedLater: [...later],
             requirement: c.host.input.prompt,
           },
           files,
           c.signal,
         ),
       );
-      for (const o of out.ops) produced.add(o.path);
+      for (const o of out.ops) {
+        produced.add(o.path);
+        if (o.content !== undefined) producedContent.set(o.path, o.content);
+      }
       lists.push(out.ops);
       if (produced.size > c.state.limits.maxGeneratedFiles)
         throw new StepFailure('too_many_files', `${produced.size}`);
@@ -301,11 +363,11 @@ export const STEP_FNS: Record<StepId, StepFn> = {
       if (r.ok) learned = r.value.memory;
     }
     const ops = T.lifecycle.mergeOps(...lists, T.memoryOps(files, learned));
-    c.art.generator = c.env.generator.kind;
+    c.art.generator = generator.kind;
     c.art.generatedFiles = ops.length;
     c.art.changeSetRef = await c.host.storeArtifact('change_set', ops);
     return {
-      summary: `${ops.length} files (${c.env.generator.kind === 'skeleton' ? 'placeholders, simulated' : 'model'})`,
+      summary: `${ops.length} files (${generator.kind === 'skeleton' ? 'placeholders, simulated' : 'model'})`,
     };
   },
 
@@ -379,16 +441,92 @@ export const STEP_FNS: Record<StepId, StepFn> = {
   async repair(c) {
     const head = await c.env.head();
     const b = need(c.art.lastBuild, 'the build result');
-    const proposal = await c.invoke('propose_repair', { diagnostics: b.diagnostics }, () =>
-      c.env.repair.propose({
-        iteration: c.state.repairRound,
-        files: head.files,
-        findings: c.art.review?.top ?? [],
-        diagnostics: b.diagnostics,
-        rejected: [],
-      }),
-    );
-    if (!proposal || proposal.ops.length === 0) throw new StepFailure('strategy_gave_up');
+    const records = c.art.repairRecords ?? [];
+    const history = records.slice(-4).map((r) => ({
+      round: r.round,
+      classes: Object.keys(r.before),
+      strategy: r.strategy,
+      note: r.note ?? '',
+      outcome: (r.outcome === 'resolved' ||
+      r.outcome === 'partial' ||
+      r.outcome === 'unchanged' ||
+      r.outcome === 'worse'
+        ? r.outcome
+        : r.outcome === 'pending'
+          ? 'pending'
+          : 'unchanged') as 'resolved' | 'partial' | 'unchanged' | 'worse' | 'pending',
+    }));
+    const before = T.countClasses(classesOfDiagnostics(b.diagnostics));
+    const record = (
+      extra: Pick<builderTools.RepairRoundRecord, 'strategy' | 'outcome' | 'asks' | 'refused'> &
+        Partial<builderTools.RepairRoundRecord>,
+    ) => {
+      const rec: builderTools.RepairRoundRecord = {
+        round: c.state.repairRound,
+        before,
+        trigger: b.phase === 'tests' ? 'tests' : 'build',
+        opsApplied: 0,
+        tokens: c.env.takeRepairTokens?.() ?? 0,
+        ...extra,
+      };
+      c.art.repairRecords = [...records.filter((r) => r.round !== rec.round), rec].slice(
+        -MAX_RECORDS,
+      );
+      return rec;
+    };
+    let proposal: builderTools.RepairProposal | null = null;
+    try {
+      proposal = await c.invoke('propose_repair', { diagnostics: b.diagnostics }, () =>
+        c.env.repair.propose({
+          iteration: c.state.repairRound,
+          files: head.files,
+          findings: c.art.review?.top ?? [],
+          diagnostics: b.diagnostics,
+          rejected: [],
+          history,
+        }),
+      );
+    } catch (e) {
+      // a crash signal must reach the run engine untouched; anything else is a failed round with its record
+      const rep = c.env.repairReport?.();
+      record({
+        strategy: rep?.strategy ?? 'none',
+        outcome: 'gave_up',
+        asks: rep?.asks ?? 0,
+        refused: [...(rep?.refused ?? [])],
+      });
+      throw e;
+    }
+    if (!proposal || proposal.ops.length === 0) {
+      const rep = c.env.repairReport?.();
+      record({
+        strategy: rep?.strategy ?? 'none',
+        outcome: 'gave_up',
+        asks: rep?.asks ?? 0,
+        refused: [...(rep?.refused ?? [])],
+      });
+      await c.host.emit('lifecycle_repair', { round: c.state.repairRound, outcome: 'gave_up' });
+      throw new StepFailure('strategy_gave_up');
+    }
+    const meta = proposal.meta;
+    const rec = record({
+      strategy: meta?.strategy ?? 'legacy',
+      outcome: 'pending',
+      asks: meta?.asks ?? 0,
+      refused: [...(meta?.refused ?? [])],
+      ...(meta?.targeted
+        ? { targeted: meta.targeted as builderTools.RepairRoundRecord['targeted'] }
+        : {}),
+    });
+    await c.host.emit('lifecycle_repair', {
+      round: rec.round,
+      classes: Object.keys(before),
+      strategy: rec.strategy,
+      asks: rec.asks,
+      tokens: rec.tokens,
+      refused: rec.refused,
+      outcome: 'pending',
+    });
     c.art.repairRef = await c.host.storeArtifact('change_set', proposal.ops);
     c.art.repairNote = proposal.note?.slice(0, 200);
     return { summary: `${proposal.ops.length} operations proposed` };
@@ -399,10 +537,28 @@ export const STEP_FNS: Record<StepId, StepFn> = {
     const ops = (await c.host.loadArtifact(ref)) as FileOp[] | null;
     if (!Array.isArray(ops)) throw new StepFailure('checkpoint_missing');
     const head = await c.env.head();
-    await c.invoke('preview_change', { ops }, () => gate(head.files, ops, true));
-    const v = await c.invoke('apply_change', { ops, label: 'repair' }, () =>
-      c.env.apply(ops, `Repair round ${c.state.repairRound} (${c.host.runId.slice(0, 8)})`),
+    // what the round was about is written to the project's memory (the CLASS of error, never its text), in the SAME validated change as the repair: it is built and tested with it
+    const rec = c.art.repairRecords?.[c.art.repairRecords.length - 1];
+    let applyOps = ops;
+    if (rec && rec.round === c.state.repairRound && !ops.some((o) => o.path === T.MEMORY_PATH)) {
+      const mem = T.memoryFromFiles(head.files);
+      if (mem.ok) {
+        let learned = mem.value;
+        for (const e of T.entriesFromRepair(Object.keys(rec.before), rec.round, c.host.now())) {
+          const r = T.addEntry(learned, e, () => `${uuidv7()}`);
+          if (r.ok) learned = r.value.memory;
+        }
+        applyOps = T.lifecycle.mergeOps(ops, T.memoryOps(head.files, learned));
+      }
+    }
+    await c.invoke('preview_change', { ops: applyOps }, () => gate(head.files, applyOps, true));
+    const v = await c.invoke('apply_change', { ops: applyOps, label: 'repair' }, () =>
+      c.env.apply(applyOps, `Repair round ${c.state.repairRound} (${c.host.runId.slice(0, 8)})`),
     );
+    if (rec && rec.round === c.state.repairRound) {
+      rec.opsApplied = ops.length;
+      rec.versionId = v.versionId;
+    }
     c.art.appliedVersionId = v.versionId;
     c.art.repairedVersions = [...(c.art.repairedVersions ?? []), v.versionId].slice(-5);
     // the findings the next round works from are those of the repaired project, not the old one

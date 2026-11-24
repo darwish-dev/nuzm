@@ -46,6 +46,8 @@ export interface RepairProposal {
   meta?: {
     strategy: string;
     classes: readonly string[];
+    /** the classes this proposal actually addresses (a deterministic fixer addresses its own class only); defaults to `classes` */
+    targeted?: readonly string[];
     /** model turns used (0 = deterministic) */
     asks: number;
     /** guard violations that refused earlier proposals of this round */

@@ -14,6 +14,7 @@ import {
 import {
   envelopeFileName,
   parseTracks,
+  reconcileEnvelopeInvoice,
   runExecutor,
   scanForLeaks,
   usdToNano,
@@ -363,5 +364,47 @@ describe('--execute (against the stand-in adapter: this proves the executor, nev
       expect(r.problems.join(' ')).toMatch(/discarded/);
       expect(r.problems.join(' ')).not.toContain(KEY);
     }
+  });
+});
+
+describe('invoice reconciliation of a saved envelope', () => {
+  const live = async () => {
+    const h = harness();
+    const r = await runExecutor(args(['A'], { execute: true }), h.deps(envFor(['A'])));
+    if (r.kind !== 'ran') throw new Error('setup');
+    return r.envelope;
+  };
+  it('a live envelope whose cost equals the invoice and whose vendor tokens price to it verifies both claims; a wrong amount fails; a mock envelope is refused', async () => {
+    const e = await live();
+    const usd = (Number(e.cap.spentNano) / 1e9).toFixed(9);
+    // the tokens the run reported, summed from its records
+    const tin = e.records.reduce((n, r) => n + r.totals.tokensIn, 0);
+    const tout = e.records.reduce((n, r) => n + r.totals.tokensOut, 0);
+    const ok = reconcileEnvelopeInvoice(e, {
+      amountUsd: usd,
+      currency: 'USD',
+      source: 'synthetic console',
+      vendorInputTokens: tin,
+      vendorOutputTokens: tout,
+    });
+    expect(ok.kind).toBe('reconciled');
+    if (ok.kind === 'reconciled')
+      expect(ok.claims.map((c) => c.label)).toEqual(['LIVE-VERIFIED', 'LIVE-VERIFIED']);
+    const wrong = reconcileEnvelopeInvoice(e, {
+      amountUsd: '9.000000000',
+      currency: 'USD',
+      source: 'synthetic console',
+    });
+    expect(wrong.kind === 'reconciled' && wrong.claims[0]!.label).toBe('FAIL');
+    expect(wrong.kind === 'reconciled' && wrong.claims[1]!.label).toBe('NOT VERIFIED');
+    const mock = reconcileEnvelopeInvoice(
+      { ...e, mode: 'mock' },
+      { amountUsd: usd, currency: 'USD', source: 'x' },
+    );
+    expect(mock.kind).toBe('refused');
+    expect(
+      reconcileEnvelopeInvoice(e, { amountUsd: 'lots', currency: 'USD', source: 'x' }).kind,
+    ).toBe('refused');
+    expect(reconcileEnvelopeInvoice({}, {}).kind).toBe('refused');
   });
 });

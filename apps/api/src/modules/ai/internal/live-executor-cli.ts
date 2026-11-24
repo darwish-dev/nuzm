@@ -1,7 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FileDevSecretStore } from '../../../common/secrets';
-import { parseTracks, runExecutor, type ExecutorArgs } from './live-executor';
+import {
+  parseTracks,
+  reconcileEnvelopeInvoice,
+  runExecutor,
+  type ExecutorArgs,
+} from './live-executor';
 
 /**
  * Operator command of the Phase 3 live executor (`pnpm --filter @nuzm/api qualify:p3`, once the Master adds the script line). NOT run by CI.
@@ -13,6 +18,7 @@ import { parseTracks, runExecutor, type ExecutorArgs } from './live-executor';
  *   --cap-usd 0.12                  a hard cap lower than (or equal to) the plan's worst case (default: the worst case)
  *   --vault-ref vault://dev/ai-claude --approval <file> --evidence <file>   (live modes; the files are the operator's, outside the repository)
  *   --out-dir <dir>                 where the evidence envelope is written (default: docs/phase3/EVIDENCE/provider)
+ *   --reconcile-invoice <envelope.json> --invoice <invoice.json> [--tolerance-usd 0.005]   arithmetic only: no key, no request. invoice.json = {amountUsd, currency, source, vendorInputTokens?, vendorOutputTokens?}
  * Exit codes: 0 every claim passed (SIMULATED or LIVE-VERIFIED), 1 a claim failed or is NOT VERIFIED, 2 refused (nothing sent), 3 unexpected failure.
  */
 const arg = (name: string): string | undefined => {
@@ -29,6 +35,20 @@ const json = (p: string | undefined): unknown => {
 };
 
 async function main(): Promise<void> {
+  if (arg('reconcile-invoice')) {
+    const r = reconcileEnvelopeInvoice(
+      json(arg('reconcile-invoice')),
+      json(arg('invoice')),
+      arg('tolerance-usd') ?? '0',
+    );
+    if (r.kind === 'refused') {
+      console.error('REFUSED. Problems:');
+      for (const p of r.problems) console.error(`  - ${p}`);
+      process.exit(2);
+    }
+    for (const c of r.claims) console.log(`${c.label.padEnd(13)} ${c.claim}: ${c.basis}`);
+    process.exit(r.result.verdict === 'LIVE-VERIFIED' ? 0 : 1);
+  }
   const tracks = parseTracks(arg('tracks'));
   if ('error' in tracks) {
     console.error(`REFUSED. Nothing was sent. ${tracks.error}`);

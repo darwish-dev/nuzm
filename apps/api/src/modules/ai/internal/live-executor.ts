@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import {
+  reconcileInvoice,
+  type InvoiceReconciliation,
   AnthropicModelAdapter,
   CLAUDE_MODEL_ID,
   CLAUDE_PROVIDER_ID,
@@ -92,6 +94,8 @@ export interface Envelope {
   components: { adapterPackage: string; harness: string; node: string };
   approvals: { ref: string; approvedBy: string; decisions: { decision: string; ref: string }[] };
   cap: { currency: string; hardMaxNano: string; spentNano: string; overran: boolean };
+  /** the adapter's list price the cost was computed at (for the invoice reconciliation) */
+  listPrice: { inputPerMillion: string; outputPerMillion: string; currency: string };
   inputsSha256: string;
   outputsSha256: string;
   tracks: {
@@ -576,6 +580,7 @@ function finish(
       spentNano: r.spent.toString(),
       overran: r.overran,
     },
+    listPrice: { ...adapter.pricing },
     inputsSha256: sha({
       tracks: r.tracksSelected,
       model: r.ctx.target.model,
@@ -611,4 +616,73 @@ function refOf(rows: unknown, decision: string): string {
 /** `<date>-<id>.json`: the name under `docs/phase3/EVIDENCE/provider/` (the operator chooses the directory). */
 export function envelopeFileName(e: Pick<Envelope, 'createdAt' | 'id' | 'mode'>): string {
   return `${e.createdAt.slice(0, 10)}-${e.mode === 'live' ? '' : 'sim-'}${e.id}.json`;
+}
+
+/**
+ * Reconciles the cost of a SAVED live envelope with the vendor's invoice (plan item 7): arithmetic on two files, no request, no key, no gate. A mock envelope is refused (there is no
+ * invoice for a mock run). Returns the reconciliation and the claims it adds.
+ */
+export function reconcileEnvelopeInvoice(
+  envelope: unknown,
+  invoice: unknown,
+  toleranceUsd = '0',
+):
+  | { kind: 'reconciled'; result: InvoiceReconciliation; claims: Claim[] }
+  | { kind: 'refused'; problems: string[] } {
+  const e = envelope as Partial<Envelope> | null;
+  const i = invoice as {
+    amountUsd?: unknown;
+    currency?: unknown;
+    source?: unknown;
+    vendorInputTokens?: unknown;
+    vendorOutputTokens?: unknown;
+  } | null;
+  const problems: string[] = [];
+  if (!e || e.schema !== 'nuzm.p3-provider-evidence' || !e.cap || !e.listPrice)
+    problems.push('the envelope file is not a nuzm.p3-provider-evidence file');
+  else if (e.mode !== 'live')
+    problems.push('only a LIVE envelope can be reconciled with an invoice');
+  if (!i || typeof i !== 'object') problems.push('the invoice file is missing');
+  const amount = typeof i?.amountUsd === 'string' ? usdToNano(i.amountUsd) : null;
+  if (i && amount === null)
+    problems.push('amountUsd must be a plain decimal string such as "0.12"');
+  const tol = usdToNano(toleranceUsd);
+  if (tol === null) problems.push('the tolerance must be a plain decimal USD figure');
+  const hasUsage = i && i.vendorInputTokens !== undefined && i.vendorOutputTokens !== undefined;
+  if (
+    hasUsage &&
+    (!Number.isInteger(i.vendorInputTokens) || !Number.isInteger(i.vendorOutputTokens))
+  )
+    problems.push('vendorInputTokens and vendorOutputTokens must be integers');
+  if (problems.length > 0 || !e || !i || amount === null || tol === null)
+    return { kind: 'refused', problems };
+  const result = reconcileInvoice(
+    e.cap!.spentNano!,
+    e.listPrice!,
+    {
+      amountNano: amount.toString(),
+      currency: typeof i.currency === 'string' ? i.currency : 'USD',
+      source: typeof i.source === 'string' ? i.source : '',
+      ...(hasUsage
+        ? {
+            vendorUsage: {
+              inputTokens: i.vendorInputTokens as number,
+              outputTokens: i.vendorOutputTokens as number,
+            },
+          }
+        : {}),
+    },
+    tol,
+  );
+  const label = (c: { ran: boolean; ok: boolean }): ClaimLabel =>
+    !c.ran ? 'NOT VERIFIED' : c.ok ? 'LIVE-VERIFIED' : 'FAIL';
+  const claims: Claim[] = result.checks.map((c) => ({
+    claim:
+      c.id === 'our_cost_vs_invoice'
+        ? 'our computed cost matches the vendor invoice'
+        : 'the list price (rate card input) matches the vendor invoice',
+    label: label(c),
+    basis: c.detail,
+  }));
+  return { kind: 'reconciled', result, claims };
 }

@@ -1,3 +1,4 @@
+import { executionGateway as eg } from '@nuzm/domain';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -65,6 +66,7 @@ describe.skipIf(!ON)(
             platform: 'android',
             profile: 'debug',
             files: generateFlutterProject(SAMPLE_MOBILE_SPEC),
+            origin: eg.templateOrigin('flutter-core'), // R5: deterministic template output
             verifyLock: async (lock) => {
               const r = await evaluatePubLock(lock, {
                 allowedHosts: ['pub.dev'],

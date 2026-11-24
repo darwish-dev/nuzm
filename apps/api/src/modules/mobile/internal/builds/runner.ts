@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { executionGateway as eg } from '@nuzm/domain';
 import { PINNED_TOOLCHAIN } from '../flutter/toolchain';
 
 export type Platform = 'android' | 'ios';
@@ -11,6 +12,11 @@ export interface BuildInput {
   platform: Platform;
   profile: Profile;
   files: Record<string, string>;
+  /**
+   * SERVER-SIDE ONLY (never from a request): `executionGateway.templateOrigin(id)` when the files are deterministic output of our own templates. The local host runner refuses
+   * anything else (host-exec-guard.ts); an isolated runner ignores it.
+   */
+  origin?: unknown;
   /** called with the text of pubspec.lock once resolved, BEFORE anything is compiled; throws to stop the build (supply-chain gate) */
   verifyLock(lockText: string): Promise<void>;
   signal?: AbortSignal;
@@ -209,6 +215,7 @@ export class LocalAndroidRunner extends BuildRunnerPort {
     return platform === 'android' && profile === 'debug';
   }
   async run(i: BuildInput, log: (l: string) => void): Promise<BuildOutput> {
+    eg.assertHostExecAllowed('mobile-local-build', i.origin); // R5: not isolated; template-origin only
     const flutter = this.o.flutter ?? 'flutter';
     const timeout = this.o.timeoutMs ?? 20 * 60_000;
     const env = buildEnv(this.o.env);

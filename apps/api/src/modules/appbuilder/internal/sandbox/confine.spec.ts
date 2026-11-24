@@ -1,3 +1,4 @@
+import { executionGateway as eg } from '@nuzm/domain';
 import {
   linkSync,
   mkdirSync,
@@ -75,6 +76,7 @@ describe('LocalDevSandboxRuntime uses the confinement (DEFECT-5)', () => {
   const prev = process.env.SANDBOX_LOCAL_DEV;
   beforeEach(() => {
     process.env.SANDBOX_LOCAL_DEV = 'true';
+    process.env.NUZM_LOCAL_DEV_EXEC = '1';
   });
   afterEach(() => {
     if (prev === undefined) delete process.env.SANDBOX_LOCAL_DEV;
@@ -86,6 +88,7 @@ describe('LocalDevSandboxRuntime uses the confinement (DEFECT-5)', () => {
     projectId: 'p',
     quota: { vcpu: 1, memoryMb: 512, diskGb: 1, pids: 32, buildTimeoutMinutes: 1 },
     egressProfile: 'none',
+    origin: eg.templateOrigin('confine-test-fixture'),
   };
   it('a named read through a symlink and a write through a symlinked directory are refused; an ordinary round trip works', async () => {
     const rt = new LocalDevSandboxRuntime();

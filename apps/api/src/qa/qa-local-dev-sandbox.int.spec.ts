@@ -1,3 +1,4 @@
+import { executionGateway as eg } from '@nuzm/domain';
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +21,7 @@ const dirOf = (h: string) => (rt as unknown as { dirs: Map<string, string> }).di
 
 beforeAll(() => {
   process.env.SANDBOX_LOCAL_DEV = 'true';
+  process.env.NUZM_LOCAL_DEV_EXEC = '1';
   writeFileSync(SECRET_FILE, CANARY);
   rt = new LocalDevSandboxRuntime();
 });
@@ -31,7 +33,7 @@ afterAll(() => {
   delete process.env.SANDBOX_LOCAL_DEV;
 });
 const fresh = async () => {
-  const h = await rt.create({} as never);
+  const h = await rt.create({ origin: eg.templateOrigin('qa-fixture') } as never);
   handles.push(h);
   return h;
 };

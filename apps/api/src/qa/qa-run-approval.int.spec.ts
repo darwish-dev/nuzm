@@ -16,7 +16,9 @@ const j = (r: { json(): unknown }) => r.json() as Row;
 
 const waitingRun = async (kind = 'plan') => {
   // the per-organization cap on active runs counts waiting ones: retire the earlier fixtures
-  await e.sql(`UPDATE ai.runs SET state='cancelled', finished_at=now() WHERE state='waiting_approval'`);
+  await e.sql(
+    `UPDATE ai.runs SET state='cancelled', finished_at=now() WHERE state='waiting_approval'`,
+  );
   const sid = j(await e.call('alice', 'POST', '/v1/ai/sessions', { title: 'QA' }, A()))
     .id as string;
   const run = await e.call(

@@ -68,6 +68,8 @@ export interface RemoteWorkspaceRuntimeOptions {
 export class RemoteWorkspaceRuntime implements WorkspaceRuntime {
   readonly isolation: 'simulated' | 'verified';
   readonly runtimeClass: string;
+  /** how this client reaches its node (`loopback` can never be a real node) */
+  readonly transportKind: NodeTransport['kind'];
   private readonly workspaceOrg = new Map<string, string>();
   private readonly runs = new Map<string, { orgId: string; workspaceId: string; gone: boolean }>();
   private readonly now: () => number;
@@ -76,6 +78,7 @@ export class RemoteWorkspaceRuntime implements WorkspaceRuntime {
     if (o.transport.kind === 'loopback' && o.isolation === 'verified')
       throw new Error('loopback_transport_cannot_be_verified');
     this.isolation = o.isolation;
+    this.transportKind = o.transport.kind;
     this.runtimeClass = o.runtimeClass;
     this.now = o.now ?? (() => Date.now());
   }

@@ -28,8 +28,11 @@ export type CaseStatus = 'PASS' | 'FAIL' | 'SKIPPED';
 export interface ConformanceTarget {
   name: string;
   origin: PortOrigin;
-  /** `LIVE-VERIFIED` only for a REAL target that started under a verified attestation; everything else is `SIMULATED` */
-  label: 'SIMULATED' | 'LIVE-VERIFIED';
+  /**
+   * `LIVE-VERIFIED` only for a REAL target that started under a verified attestation. `NOT VERIFIED`: the cases ran against a REAL node that has no reviewer-signed attestation
+   * yet (the qualification procedure's own conformance step, P3-S02): real execution, still unreviewed, never isolation evidence. Everything else is `SIMULATED`.
+   */
+  label: 'SIMULATED' | 'NOT VERIFIED' | 'LIVE-VERIFIED';
   supports(layer: FixtureLayer): true | string;
   /** a port for this run, with the stand-in scripted by the fixture (a real target ignores `fixture.simulate`) */
   portFor(ctx: ExecContext, fixture: SyntheticFixture): Promise<ExecutionPort>;
@@ -51,6 +54,8 @@ export interface CaseResult {
   needsRealNode: string | null;
 }
 /** printed in every report: a simulated run is evidence about policy logic, never about isolation */
+export const NOT_VERIFIED_STATEMENT =
+  'NOT VERIFIED: these cases ran against a real node that holds no reviewer-signed attestation yet. They are input to the HG-10-02 review, not a verdict and not isolation evidence until a named reviewer signs.';
 export const SIMULATED_STATEMENT =
   "SIMULATED: these results prove the control plane's policy, bookkeeping and refusals only. They do NOT prove isolation, resource enforcement, network segmentation or that hostile code is contained; only an attested real node can (see needsRealNode per case).";
 const REAL_NODE_BY_HAZARD: Record<string, string> = {
@@ -316,7 +321,12 @@ export async function runPortConformance(
   const fail = count('FAIL');
   return {
     conformanceVersion: CONFORMANCE_VERSION,
-    statement: target.label === 'LIVE-VERIFIED' ? 'LIVE-VERIFIED target' : SIMULATED_STATEMENT,
+    statement:
+      target.label === 'LIVE-VERIFIED'
+        ? 'LIVE-VERIFIED target'
+        : target.label === 'NOT VERIFIED'
+          ? NOT_VERIFIED_STATEMENT
+          : SIMULATED_STATEMENT,
     target: { name: target.name, origin: target.origin, label: target.label },
     total: results.length,
     pass: count('PASS'),

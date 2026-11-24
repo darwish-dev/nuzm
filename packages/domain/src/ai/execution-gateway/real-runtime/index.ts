@@ -7,3 +7,5 @@ export * from './fixtures';
 export * from './conformance';
 export * from './attestation-draft';
 export * from './handoff-conformance';
+export * from './attestation-sign';
+export * from './negative-tests';

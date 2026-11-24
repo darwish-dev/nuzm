@@ -365,15 +365,12 @@ describe('QA policy matrix: changing the policy', () => {
     expect(e.sink.events.filter((x) => x.action === 'deploy.policy.updated').length - n0).toBe(1);
   });
 
-  it.fails(
-    'DEFECT-11: eight simultaneous FIRST-EVER edits (no row yet, version 0): exactly one wins and the rest are 409, never a server error (today FOR UPDATE on a missing row locks nothing and the second INSERT hits the primary key: 500)',
-    async () => {
-      await setPolicy({});
-      const { res } = await race();
-      expect(res.filter((r) => r.statusCode >= 500).map((r) => r.statusCode)).toEqual([]);
-      expect(res.filter((r) => r.statusCode === 200)).toHaveLength(1);
-    },
-  );
+  it('eight simultaneous FIRST-EVER edits (no row yet, version 0): exactly one wins and the rest are 409, never a server error (DEFECT-11, fixed by Session 06)', async () => {
+    await setPolicy({});
+    const { res } = await race();
+    expect(res.filter((r) => r.statusCode >= 500).map((r) => r.statusCode)).toEqual([]);
+    expect(res.filter((r) => r.statusCode === 200)).toHaveLength(1);
+  });
 
   it('every role except owner/admin is refused, an API key too, and a refusal changes nothing and writes no audit event', async () => {
     await setPolicy({});

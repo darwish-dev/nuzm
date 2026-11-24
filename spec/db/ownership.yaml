@@ -2150,6 +2150,7 @@ classification:
       panel_port: internal
       panel_key_ref: credentials
       panel_tls_pin: internal
+      sftp_host_key_sha256: internal
       runtimes: internal
       overcommit_factor: internal
       overcommit_change_id: internal

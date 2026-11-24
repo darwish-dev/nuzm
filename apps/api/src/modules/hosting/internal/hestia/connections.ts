@@ -54,6 +54,15 @@ export class SealedVaultPort implements VaultPort {
       JSON.stringify({ v: Buffer.from(secret).toString('base64') }),
     );
   }
+  async get(ref: string): Promise<Buffer | undefined> {
+    try {
+      const raw = await this.store.get(`vault://dev/${this.id(ref)}`);
+      const v = (JSON.parse(raw) as { v?: string }).v;
+      return v === undefined ? undefined : Buffer.from(v, 'base64');
+    } catch {
+      return undefined;
+    }
+  }
   async exists(ref: string): Promise<boolean> {
     try {
       await this.store.get(`vault://dev/${this.id(ref)}`);

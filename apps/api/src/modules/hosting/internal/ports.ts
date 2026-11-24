@@ -57,6 +57,13 @@ export interface NodeState {
   capacity: { cpuMillicores: number; memoryMb: number; diskMb: number };
   usage: { loadAvg1: number; memoryUsedMb: number; diskUsedMb: number; sites: number };
   runtimes: string[];
+  /** Services the panel reports as installed (`v-list-sys-config`: FTP_SYSTEM, MAIL_SYSTEM, IMAP_SYSTEM, WEBMAIL_SYSTEM); a name, or null when absent. Absent = the panel did not say. */
+  services?: {
+    ftp: string | null;
+    mail: string | null;
+    imap: string | null;
+    webmail: string | null;
+  };
 }
 export interface SiteLimits {
   diskMb: number;
@@ -257,6 +264,8 @@ export const BACKUP_SINK = Symbol('BACKUP_SINK');
 
 /** The vault as the hosting module needs it (M05 S16 `VaultClient`, assumption A-03). Refs only: a secret never leaves the vault except to the agent. */
 export interface VaultPort {
+  /** Reads a secret back (the site-account password the file manager signs in with). Optional: a vault that cannot is a vault with no file manager. */
+  get?(ref: string): Promise<Buffer | undefined> | Buffer | undefined;
   put(ref: string, secret: Buffer | string): Promise<void>;
   exists(ref: string): Promise<boolean>;
   delete(ref: string): Promise<void>;

@@ -24,6 +24,16 @@ import { SiteBackupsController } from './site-backups.controller';
 import { SiteDatabasesController } from './site-databases.controller';
 import { SiteDomainsController } from './site-domains.controller';
 import { SiteSslController } from './site-ssl.controller';
+import { SiteToolsController } from './site-tools.controller';
+import { SiteFilesController } from './site-files.controller';
+import { SiteMailController } from './site-mail.controller';
+import { ToolContext } from './internal/tools/tool-context';
+import { SiteToolsService } from './internal/tools/site-tools.service';
+import { FilesService } from './internal/tools/files.service';
+import { MailService } from './internal/tools/mail.service';
+import { MAIL_DNS, SystemMailDns, type MailDns } from './internal/tools/dns';
+import { SFTP_CONNECTOR, Ssh2SftpConnector, type SftpConnector } from './internal/tools/sftp';
+import { TOOLS_CONFIG, loadToolsConfig, type ToolsConfig } from './internal/tools/tools-config';
 import { SitesController } from './sites.controller';
 import { SealedVault } from '../../common/sealed-vault';
 import { SecretStore } from '../../common/secrets';
@@ -70,6 +80,7 @@ import { SiteWorkflow } from './internal/site-workflow';
 import { KIND, SitesService } from './internal/sites.service';
 import { SslService } from './internal/ssl.service';
 import {
+  HESTIA_CLIENT,
   HOSTING_ADAPTER,
   HOSTING_CONFIG,
   HOSTING_KICK,
@@ -86,6 +97,9 @@ class BlockedVault implements VaultPort {
     this.no();
   }
   async exists(): Promise<boolean> {
+    return this.no();
+  }
+  async get(): Promise<Buffer | undefined> {
     return this.no();
   }
   async delete(): Promise<void> {
@@ -115,6 +129,9 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
     SiteDomainsController,
     SiteSslController,
     SiteDatabasesController,
+    SiteToolsController,
+    SiteFilesController,
+    SiteMailController,
     SiteBackupsController,
     BackupDownloadsController,
     AdminAbuseController,
@@ -129,27 +146,62 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
       }),
     },
     {
-      // the product adapter: HestiaCP's REST API, per node (host, port, pinned TLS and access key come from the node registry and the sealed store)
-      provide: HOSTING_ADAPTER,
-      useFactory: (db: Db, s: SecretStore, v: VaultPort, compute: ComputeProvisioningPort) =>
-        new HestiaHostingAdapter(
-          new HestiaClient(
-            new DbHestiaConnections(db),
-            new SealedHestiaKeys(new SealedVault(s)),
-            new HttpHestiaChannel(),
-          ),
-          {
-            vault: v,
-            evidenceKind: 'live',
-            capacityOf: async (node) => {
-              const i = await compute.describe(node.computeInstanceId);
-              return i
-                ? { cpuMillicores: i.vcpu * 1000, memoryMb: i.memoryMb, diskMb: i.diskGb * 1024 }
-                : null;
-            },
-          },
+      // the allow-listed client of each node's HestiaCP REST API (host, port, pinned TLS and access key come from the node registry and the sealed store)
+      provide: HESTIA_CLIENT,
+      useFactory: (db: Db, s: SecretStore) =>
+        new HestiaClient(
+          new DbHestiaConnections(db),
+          new SealedHestiaKeys(new SealedVault(s)),
+          new HttpHestiaChannel(),
         ),
-      inject: [DB, SecretStore, VAULT_PORT, COMPUTE_PROVISIONING],
+      inject: [DB, SecretStore],
+    },
+    {
+      // the product adapter: HestiaCP's REST API, per node
+      provide: HOSTING_ADAPTER,
+      useFactory: (client: HestiaClient, v: VaultPort, compute: ComputeProvisioningPort) =>
+        new HestiaHostingAdapter(client, {
+          vault: v,
+          evidenceKind: 'live',
+          capacityOf: async (node) => {
+            const i = await compute.describe(node.computeInstanceId);
+            return i
+              ? { cpuMillicores: i.vcpu * 1000, memoryMb: i.memoryMb, diskMb: i.diskGb * 1024 }
+              : null;
+          },
+        }),
+      inject: [HESTIA_CLIENT, VAULT_PORT, COMPUTE_PROVISIONING],
+    },
+    { provide: TOOLS_CONFIG, useFactory: () => loadToolsConfig() },
+    { provide: SFTP_CONNECTOR, useFactory: () => new Ssh2SftpConnector() },
+    { provide: MAIL_DNS, useFactory: () => new SystemMailDns() },
+    {
+      provide: ToolContext,
+      useFactory: (db: Db, s: SitesService, c: HestiaClient, cfg: ToolsConfig) =>
+        new ToolContext(db, s, c, cfg),
+      inject: [DB, SitesService, HESTIA_CLIENT, TOOLS_CONFIG],
+    },
+    {
+      provide: SiteToolsService,
+      useFactory: (c: ToolContext, a: AuditSink) => new SiteToolsService(c, a),
+      inject: [ToolContext, AuditSink],
+    },
+    {
+      provide: FilesService,
+      useFactory: (
+        c: ToolContext,
+        t: SiteToolsService,
+        a: AuditSink,
+        sftp: SftpConnector,
+        v: VaultPort,
+      ) => new FilesService(c, t, a, sftp, v),
+      inject: [ToolContext, SiteToolsService, AuditSink, SFTP_CONNECTOR, VAULT_PORT],
+    },
+    {
+      provide: MailService,
+      useFactory: (c: ToolContext, t: SiteToolsService, a: AuditSink, d: MailDns) =>
+        new MailService(c, t, a, d),
+      inject: [ToolContext, SiteToolsService, AuditSink, MAIL_DNS],
     },
     { provide: COMPUTE_PROVISIONING, useFactory: () => new InMemoryComputeProvisioning() },
     {
@@ -463,6 +515,7 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
     },
   ],
   exports: [
+    SiteToolsService,
     AbuseService,
     HostingMetering,
     DunningHook,

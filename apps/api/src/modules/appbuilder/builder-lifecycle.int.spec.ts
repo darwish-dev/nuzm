@@ -4,7 +4,7 @@ import { MockModelAdapter } from '@nuzm/adapter-model';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { RunService } from '../ai';
 import { setupAiEnv, type AiEnv, type Row } from '../ai/testing/ai-harness';
-import { ContentAccessService } from './internal/changes/content-access.service';
+import { ContentAccessService } from '../builder';
 import {
   BILLING_SEPARATION_FLAG,
   ExecutionBudgetService,

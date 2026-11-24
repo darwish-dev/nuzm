@@ -1,8 +1,13 @@
+import { applyDecorators, Inject, Injectable, SetMetadata, UseGuards } from '@nestjs/common';
+import type { CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import type { FastifyRequest } from 'fastify';
+import { v7 as newId } from 'uuid';
 import { builderTools } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
-import type { AuditSink } from '../../../../common/audit';
-import { ProblemException } from '../../../../common/errors';
-import { newId } from '../core';
+import { AuditSink } from '../../common/audit';
+import { ProblemException } from '../../common/errors';
+import { DB } from '../../common/tokens';
 
 const P = builderTools.lifecycle;
 
@@ -84,7 +89,9 @@ export class ContentAccessService {
       actorUserId: actor,
       actorType: 'user',
       orgId,
-      resource: { type: 'project', id: projectId },
+      resource: projectId
+        ? { type: 'project', id: projectId }
+        : { type: 'organization', id: orgId },
       outcome: 'failure',
       detail: { operation, role, setting: P.CONTENT_ACCESS_KEY },
     });
@@ -92,5 +99,53 @@ export class ContentAccessService {
       'forbidden',
       'billing administrators cannot read project content in this organization',
     );
+  }
+}
+
+// ---- ONE guard for every content-returning read (S07's O-9 audit, DEFECT-16) ----------------------------------------------------------------------------------------------------------
+const CONTENT_READ_KEY = 'nuzm:content-read';
+interface ContentReadMeta {
+  op: builderTools.lifecycle.ContentOperation;
+  /** the route parameter holding the project id (null when the route is not scoped by a project id) */
+  project: 'projectId' | 'id' | null;
+}
+
+/**
+ * `@ContentRead('file_content')` on a GET that returns customer SOURCE, FILES, run output or generated content. Under the organization's `builder.billing_admin_content_access =
+ * deny` the `billing_admin` role gets 403 (audited); every other role, and the default `allow`, is untouched. Metadata routes (project lists, versions, file path lists) do NOT carry
+ * it. The decision is `decideContentAccess` in the domain; this guard only reads the request's verified role and applies it.
+ */
+export const ContentRead = (
+  op: builderTools.lifecycle.ContentOperation,
+  project: ContentReadMeta['project'] = 'projectId',
+) =>
+  applyDecorators(
+    SetMetadata(CONTENT_READ_KEY, { op, project } satisfies ContentReadMeta),
+    UseGuards(ContentAccessGuard),
+  );
+
+@Injectable()
+export class ContentAccessGuard implements CanActivate {
+  private readonly svc: ContentAccessService;
+  constructor(
+    @Inject(DB) db: Db,
+    @Inject(AuditSink) audit: AuditSink,
+    private readonly reflector: Reflector,
+  ) {
+    this.svc = new ContentAccessService(db, audit);
+  }
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const meta = this.reflector.get<ContentReadMeta | undefined>(
+      CONTENT_READ_KEY,
+      ctx.getHandler(),
+    );
+    const req = ctx
+      .switchToHttp()
+      .getRequest<FastifyRequest & { params?: Record<string, string> }>();
+    const a = req.access;
+    if (!meta || !a) return true;
+    const pid = meta.project ? (req.params?.[meta.project] ?? '') : '';
+    await this.svc.assert(a.orgId, a.actor.userId, a.role, meta.op, pid);
+    return true;
   }
 }

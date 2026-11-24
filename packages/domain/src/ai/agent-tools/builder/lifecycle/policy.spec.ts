@@ -34,14 +34,32 @@ describe('O-9 billing_admin content access', () => {
     expect(parseContentAccess(['allow'])).toBe('deny');
     expect(parseContentAccess(true)).toBe('deny');
   });
-  it('covers the five content operations', () => {
-    expect([...CONTENT_OPERATIONS]).toEqual([
+  it('names the five builder-tools reads and the content routes of the S07 audit, each once', () => {
+    expect(new Set(CONTENT_OPERATIONS).size).toBe(CONTENT_OPERATIONS.length);
+    expect([...CONTENT_OPERATIONS].slice(0, 5)).toEqual([
       'review',
       'symbols',
       'imports',
       'components',
       'memory',
     ]);
+    for (const op of [
+      'version_diff',
+      'file_content',
+      'file_search',
+      'previews',
+      'forms',
+      'form_submissions',
+      'cms',
+      'instructions',
+      'test_runs',
+      'claude_code',
+      'template_workspace',
+      'generation_plan',
+      'deployment',
+      'deployment_logs',
+    ])
+      expect(CONTENT_OPERATIONS).toContain(op);
   });
 });
 

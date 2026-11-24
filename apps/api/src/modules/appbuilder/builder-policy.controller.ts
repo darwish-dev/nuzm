@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Put } from '@nestjs/common';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { ProblemException } from '../../common/errors';
-import { ContentAccessService } from './internal/changes/content-access.service';
+import { ContentAccessService } from '../builder';
 
 /**
  * O-9 (PROPOSED): the organization's own policy on whether a billing administrator may read project content through the builder tools. Default `allow` = today's behaviour.

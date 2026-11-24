@@ -65,6 +65,43 @@ export interface DiscoveryResult extends DiscoveryReconciliation {
   checkedAt: string;
 }
 
+export interface UsageReconciliationQuery {
+  providerCode: string;
+  from: Date;
+  to: Date;
+  /** the vendor's own figure for the same provider account and window (read by a human from the vendor console) */
+  vendor: { inputTokens: number | string; outputTokens: number | string; source: string };
+  /** relative tolerance in per mille of OUR figure: D-31 PROPOSES 10 (1%); NOT decided, the default is 0 */
+  tolerancePerMille?: number;
+  /** absolute tolerance in tokens, added to the relative one (default 0) */
+  toleranceTokens?: number;
+}
+export interface UsageReconciliation {
+  providerCode: string;
+  from: string;
+  to: string;
+  ours: {
+    inputTokens: string;
+    outputTokens: string;
+    calls: number;
+    estimatedCalls: number;
+    estimatedInputTokens: string;
+    estimatedOutputTokens: string;
+  };
+  /** failed or cancelled calls in the window: the vendor may have billed part of them although we hold no token count for them */
+  errorCalls: number;
+  vendor: { inputTokens: string; outputTokens: string; source: string };
+  /** vendor minus ours, signed integer strings */
+  difference: { inputTokens: string; outputTokens: string };
+  tolerance: {
+    perMille: number;
+    tokens: number;
+    allowedInputTokens: string;
+    allowedOutputTokens: string;
+  };
+  withinTolerance: boolean;
+}
+
 export class ProviderInsightsService {
   constructor(
     private readonly db: Db,
@@ -244,5 +281,95 @@ export class ProviderInsightsService {
       },
     });
     return { providerCode: p.code, live: true, checkedAt: new Date().toISOString(), ...rec };
+  }
+
+  /**
+   * Usage accounting reconciliation (D-31): our recorded usage of a provider in a window against the vendor's own figure. Integer (BigInt) arithmetic. The relative tolerance is applied to OUR
+   * figure and rounded UP; input and output are judged separately; a difference in either direction counts (a vendor figure below ours means we would charge for tokens that were not used).
+   * Calls whose tokens were ESTIMATED (the provider reported none) are counted and shown apart, so a reconciliation that leans on estimates is visible. READ-ONLY.
+   */
+  async reconcileUsage(q: UsageReconciliationQuery): Promise<UsageReconciliation> {
+    const perMille = q.tolerancePerMille ?? 0;
+    const absTol = q.toleranceTokens ?? 0;
+    if (!/^[a-z][a-z0-9-]{0,62}$/.test(q.providerCode))
+      throw new ProblemException('validation_failed', 'providerCode is malformed');
+    if (
+      !(q.from instanceof Date) ||
+      !(q.to instanceof Date) ||
+      Number.isNaN(+q.from) ||
+      Number.isNaN(+q.to) ||
+      q.to <= q.from
+    )
+      throw new ProblemException('validation_failed', 'from and to must be dates, to after from');
+    if (!Number.isInteger(perMille) || perMille < 0 || perMille > 1000)
+      throw new ProblemException(
+        'validation_failed',
+        'tolerancePerMille must be an integer from 0 to 1000',
+      );
+    if (!Number.isInteger(absTol) || absTol < 0)
+      throw new ProblemException(
+        'validation_failed',
+        'toleranceTokens must be a non-negative integer',
+      );
+    const big = (v: number | string, what: string): bigint => {
+      if (!/^\d{1,18}$/.test(String(v)))
+        throw new ProblemException('validation_failed', `${what} must be a non-negative integer`);
+      return BigInt(String(v));
+    };
+    const vIn = big(q.vendor.inputTokens, 'vendor inputTokens');
+    const vOut = big(q.vendor.outputTokens, 'vendor outputTokens');
+    if (typeof q.vendor.source !== 'string' || q.vendor.source.trim().length < 3)
+      throw new ProblemException('validation_failed', 'the vendor figure needs a source');
+    const r = (await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT coalesce(sum(tokens_in) FILTER (WHERE outcome='ok'),0)::text tin,
+                  coalesce(sum(tokens_out) FILTER (WHERE outcome='ok'),0)::text tout,
+                  (count(*) FILTER (WHERE outcome='ok'))::int calls,
+                  (count(*) FILTER (WHERE outcome='ok' AND estimated))::int est_calls,
+                  coalesce(sum(tokens_in) FILTER (WHERE outcome='ok' AND estimated),0)::text est_in,
+                  coalesce(sum(tokens_out) FILTER (WHERE outcome='ok' AND estimated),0)::text est_out,
+                  (count(*) FILTER (WHERE outcome<>'ok'))::int err_calls
+             FROM ai.model_usage WHERE provider_code=$1 AND created_at >= $2 AND created_at < $3`,
+            [q.providerCode, q.from.toISOString(), q.to.toISOString()],
+          )
+        ).rows[0],
+    )) as Row;
+    const oIn = BigInt(r.tin as string);
+    const oOut = BigInt(r.tout as string);
+    const up = (n: bigint) => (n * BigInt(perMille) + 999n) / 1000n; // ceil(n * perMille / 1000)
+    const allowIn = up(oIn) + BigInt(absTol);
+    const allowOut = up(oOut) + BigInt(absTol);
+    const dIn = vIn - oIn;
+    const dOut = vOut - oOut;
+    const abs = (n: bigint) => (n < 0n ? -n : n);
+    return {
+      providerCode: q.providerCode,
+      from: q.from.toISOString(),
+      to: q.to.toISOString(),
+      ours: {
+        inputTokens: oIn.toString(),
+        outputTokens: oOut.toString(),
+        calls: r.calls as number,
+        estimatedCalls: r.est_calls as number,
+        estimatedInputTokens: r.est_in as string,
+        estimatedOutputTokens: r.est_out as string,
+      },
+      errorCalls: r.err_calls as number,
+      vendor: {
+        inputTokens: vIn.toString(),
+        outputTokens: vOut.toString(),
+        source: q.vendor.source,
+      },
+      difference: { inputTokens: dIn.toString(), outputTokens: dOut.toString() },
+      tolerance: {
+        perMille,
+        tokens: absTol,
+        allowedInputTokens: allowIn.toString(),
+        allowedOutputTokens: allowOut.toString(),
+      },
+      withinTolerance: abs(dIn) <= allowIn && abs(dOut) <= allowOut,
+    };
   }
 }

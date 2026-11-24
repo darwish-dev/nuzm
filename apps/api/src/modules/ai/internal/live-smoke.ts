@@ -45,6 +45,8 @@ export interface SmokeArgs {
   vendorUsage?: unknown;
   /** tokens the vendor figure may differ by (default 0) */
   usageToleranceTokens?: number;
+  /** relative tolerance in per mille (D-31 PROPOSES 10 = 1%; not decided, default 0) */
+  usageTolerancePerMille?: number;
 }
 export interface SmokeDeps {
   env: NodeJS.ProcessEnv;
@@ -223,6 +225,9 @@ export async function runSmoke(a: SmokeArgs, d: SmokeDeps): Promise<SmokeResult>
     ...(a.usageToleranceTokens !== undefined
       ? { usageToleranceTokens: a.usageToleranceTokens }
       : {}),
+    ...(a.usageTolerancePerMille !== undefined
+      ? { usageTolerancePerMille: a.usageTolerancePerMille }
+      : {}),
     ...(d.now ? { now: d.now } : {}),
   });
   // the report is data about OUR run: it must never carry the key, and the run is discarded if it does
@@ -242,6 +247,7 @@ export function reconcileSavedReport(
   report: unknown,
   vendor: unknown,
   tolerance = 0,
+  perMille = 0,
 ): { kind: 'reconciled'; report: LiveReport } | { kind: 'refused'; problems: string[] } {
   const v = parseVendorUsage(vendor);
   const r = report as Partial<LiveReport> | null;
@@ -256,8 +262,13 @@ export function reconcileSavedReport(
     !isObj((r?.usage as LiveReport['usage']).unreportedCeiling)
   )
     problems.push('the report file is not a live-verification report');
+  if (!Number.isInteger(perMille) || perMille < 0 || perMille > 1000)
+    problems.push('the relative tolerance must be an integer from 0 to 1000 per mille');
   if (!Number.isInteger(tolerance) || tolerance < 0)
     problems.push('the tolerance must be a non-negative integer');
   if (problems.length > 0 || !v) return { kind: 'refused', problems };
-  return { kind: 'reconciled', report: reconcileLiveReport(r as LiveReport, v, tolerance) };
+  return {
+    kind: 'reconciled',
+    report: reconcileLiveReport(r as LiveReport, v, tolerance, perMille),
+  };
 }

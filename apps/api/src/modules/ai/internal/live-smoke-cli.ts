@@ -7,7 +7,7 @@ import { reconcileSavedReport, runSmoke, type SmokeArgs } from './live-smoke';
  *
  *   pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-smoke-cli.ts \
  *     --vault-ref vault://dev/ai-claude --approval ./approval.json --evidence ./evidence.json [--vendor-usage ./usage.json] [--report ./report.json] [--execute]
- *   pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-smoke-cli.ts --reconcile ./report.json --vendor-usage ./usage.json [--tolerance 0] [--report ./report-reconciled.json]
+ *   pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-smoke-cli.ts --reconcile ./report.json --vendor-usage ./usage.json [--tolerance 0] [--tolerance-permille 10] [--report ./report-reconciled.json]
  *
  * Without --execute it is a DRY RUN (nothing is sent). The key is read from the sealed dev vault (SESSION_SEAL_KEY seals it; the key file lives in ./.dev-vault) and is never an
  * argument or an environment variable. Files named here are the operator's, outside the repository: do not commit an approval, an evidence file or a report.
@@ -55,6 +55,9 @@ async function main(): Promise<number> {
     evidence: json(arg('evidence')),
     ...(arg('vendor-usage') ? { vendorUsage: json(arg('vendor-usage')) } : {}),
     ...(arg('tolerance') ? { usageToleranceTokens: Number(arg('tolerance')) } : {}),
+    ...(arg('tolerance-permille')
+      ? { usageTolerancePerMille: Number(arg('tolerance-permille')) }
+      : {}),
   };
   const result = await runSmoke(args, {
     env: process.env,

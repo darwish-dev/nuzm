@@ -120,6 +120,8 @@ export interface LiveRunOptions {
   now?: () => Date;
   /** how many tokens the vendor figure may differ from ours (default 0) */
   usageToleranceTokens?: number;
+  /** relative tolerance in per mille (D-31 proposes 10 = 1%; default 0) */
+  usageTolerancePerMille?: number;
   /** live runs: the providers the environment lists as approved for live calls (`AI_LIVE_PROVIDERS`) */
   liveProviders?: readonly string[];
   /** live runs: the evidence rows (D2, D3, D4, D5, D6, D9) */
@@ -187,6 +189,8 @@ export function decideUsageReconciliation(
   v: VendorUsage | null,
   tol: number,
   label: 'live' | 'simulated',
+  /** relative tolerance in per mille of our reported figure (D-31 PROPOSES 10 = 1%; not decided: the default is 0), added to the absolute `tol` */
+  perMille = 0,
 ): Pick<LiveCheckResult, 'id' | 'ok' | 'ran' | 'evidence' | 'detail'> {
   const id = 'usage_reconciliation' as const;
   if (
@@ -209,18 +213,29 @@ export function decideUsageReconciliation(
       evidence: 'none',
       detail: `not verified: no vendor figure was supplied (our reported total: ${l.reported.in} in / ${l.reported.out} out)`,
     };
+  if (!Number.isInteger(perMille) || perMille < 0 || perMille > 1000)
+    return {
+      id,
+      ok: false,
+      ran: false,
+      evidence: 'none',
+      detail: 'not verified: the relative tolerance must be 0 to 1000 per mille',
+    };
+  // integer arithmetic: the relative part is rounded UP, so a tolerance never rounds to less than asked
+  const tolIn = tol + Math.ceil((l.reported.in * perMille) / 1000);
+  const tolOut = tol + Math.ceil((l.reported.out * perMille) / 1000);
   const ok =
-    v.inputTokens >= l.reported.in - tol &&
-    v.inputTokens <= l.reported.in + l.unreportedCeiling.in + tol &&
-    v.outputTokens >= l.reported.out - tol &&
-    v.outputTokens <= l.reported.out + l.unreportedCeiling.out + tol;
+    v.inputTokens >= l.reported.in - tolIn &&
+    v.inputTokens <= l.reported.in + l.unreportedCeiling.in + tolIn &&
+    v.outputTokens >= l.reported.out - tolOut &&
+    v.outputTokens <= l.reported.out + l.unreportedCeiling.out + tolOut;
   return {
     id,
     ok,
     ran: true,
     evidence: label,
     detail: ok
-      ? `the vendor figure lies within our reported usage and the ceiling of the requests we hold no report for (tolerance ${tol} tokens; reported ${l.reported.in} in / ${l.reported.out} out; source: ${v.source})`
+      ? `the vendor figure lies within our reported usage and the ceiling of the requests we hold no report for (tolerance ${tol} tokens + ${perMille} per mille; reported ${l.reported.in} in / ${l.reported.out} out; source: ${v.source})`
       : `the vendor figure is outside what our reports can explain (reported ${l.reported.in} in / ${l.reported.out} out; unreported ceiling ${l.unreportedCeiling.in} in / ${l.unreportedCeiling.out} out; vendor ${v.inputTokens} in / ${v.outputTokens} out; source: ${v.source})`,
   };
 }
@@ -229,14 +244,19 @@ export function decideUsageReconciliation(
  * A live run cannot know the vendor's figure at the end (the console's usage report lags). The operator reads it later for the run's window and calls this with the saved report: no
  * request is made, no key is read. Returns a NEW report whose reconciliation check and overall verdict are recomputed; the rest is untouched.
  */
-export function reconcileLiveReport(r: LiveReport, v: VendorUsage, tol = 0): LiveReport {
+export function reconcileLiveReport(
+  r: LiveReport,
+  v: VendorUsage,
+  tol = 0,
+  perMille = 0,
+): LiveReport {
   const label = r.mode === 'live' ? 'live' : 'simulated';
   const prev = r.checks.find((c) => c.id === 'usage_reconciliation');
   const next: LiveCheckResult = {
     requests: 0,
     tokensIn: 0,
     tokensOut: 0,
-    ...decideUsageReconciliation(r.usage, v, tol, label),
+    ...decideUsageReconciliation(r.usage, v, tol, label, perMille),
   };
   const checks = r.checks.map((c) => (c.id === 'usage_reconciliation' ? next : c));
   void prev;
@@ -1072,6 +1092,7 @@ export async function runLiveVerification(
         v,
         opts.usageToleranceTokens ?? 0,
         realEvidence,
+        opts.usageTolerancePerMille ?? 0,
       ),
     });
   }

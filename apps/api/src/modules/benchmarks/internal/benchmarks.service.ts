@@ -44,7 +44,7 @@ const requestIdOf = (b: Record<string, unknown>): string => {
 const PROFILES = new Set<string>(bm.MOCK_PROFILES);
 const RATE: bm.RateCard = { creditsPerMillionInput: '3', creditsPerMillionOutput: '15' };
 
-interface RunSummary {
+export interface RunSummary {
   id: string;
   label: string;
   createdAt: string;

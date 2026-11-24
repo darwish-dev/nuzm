@@ -109,3 +109,20 @@ None blocking. Material for the owner/Master: DEFECT-4 and DEFECT-6 both say "hu
 2. Budget/credits concurrency probe with N parallel reservations on a tiny wallet (independent of the existing property test) — READY.
 3. Post-merge audits of sessions 02-06 (new routes, migrations, tools, egress code) — DEPENDENT on the Master's merge.
 4. Switch `it.fails` markers to normal tests as owners fix DEFECT-1..6 — DEPENDENT.
+
+
+## Phase 2 (started 2026-11-24, branch merged with `integration/ai-engine` `39658725`, fast-forward)
+Machine note: load average reached 117-403 during this batch (other sessions); only targeted single-file runs on my own Postgres :54347, no browser, no full suite. The two skipped API tests are `flutter-local.int.spec.ts` (2 tests, `MOBILE_FLUTTER_LOCAL=1`): Flutter 3.35.7 and the Android SDK are installed here, but the run needs minutes of CPU and `pub get` network access, so it is **a request for a heavy slot** (see below), not run yet. (The two `it.skipIf(!chrome)` PDF tests in `invoices.int.spec.ts` DO run on this machine: Chrome is installed.)
+
+### Batch 1 (this commit)
+| Item (Master's list) | State | Evidence |
+|---|---|---|
+| 3. Dynamic suites: duplicate-charge, concurrency, reconciliation, audit chain, tamper | **VERIFIED, SIMULATED model**: `qa-ai-integrity.int.spec.ts` = 17 passed + 2 expected-fail (DEFECT-7, DEFECT-8) on the REAL hash-chained audit sink (new optional `realAudit` flag in `ai-harness.ts`, default unchanged) | replayed id = one charge; 12 simultaneous duplicates = one usage row / one ledger tx / one debit; failed call closed, never charged later; double release never double-refunds; 10 reservations on a 100-credit wallet = exactly 3 succeed; per-call usage = ledger = wallet for a concurrent workload with provider failures, key creation and top-ups (calls of a run in sequence); every ledger transaction balances; 25 simultaneous mutations = contiguous audit sequence, time never goes backwards, chain verifies; no canary / key shape / prompt body in any audit row; edited, deleted-middle, deleted-tail and replaced-actor rows are each detected by `verify_chain` and the damage stays in its own chain; the app and worker roles cannot update, delete, truncate, read or rewrite the chain heads, disable triggers or skip them (`session_replication_role`) |
+| 5. Credential protection (prompt/file scan) | **VERIFIED + defect**: `qa-secret-scan.int.spec.ts` = 15 passed + 13 expected-fail (DEFECT-9) | catches 13 shapes; misses 13 (env prefixes, JSON, provider keys) |
+| 6. The two skipped integration tests | analysed; `flutter-local` needs a heavy slot | see above |
+| New defects | DEFECT-7 (HIGH), DEFECT-8, DEFECT-9 filed (`docs/parallel/sessions/DEFECT-7..9-*.md`) | |
+
+Heavy-slot requests: (a) `MOBILE_FLUTTER_LOCAL=1 pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts src/modules/mobile/flutter-local.int.spec.ts` (Flutter pub get/analyze/test + an unsigned debug APK, 15-25 min, network to pub.dev), only under `mkdir /private/tmp/nuzm-heavy.lock`; (b) E2E specs for builder tools / provider admin / benchmark admin once their owners land them.
+
+### Not yet done in Phase 2 (next batches)
+E2E ar+en for builder tools, provider admin, benchmark admin (review + negative cases); agent-loop integration scaffolds (waiting for S05's wiring); authz matrix extension and both-setting tests for O-1/O-2/O-9 (waiting for the switches); prompt injection against tool results and project files; runtime-isolation conformance against the mock; accessibility ar/en; independent review notes on S02/S04/S06 Phase 2 changes (nothing merged yet).

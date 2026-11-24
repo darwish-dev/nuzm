@@ -39,7 +39,7 @@ const TEST_KINDS = new Set(['backend', 'frontend', 'auth', 'integration', 'schem
  * their files, acceptance criteria and whether a person must approve their output; the final tasks (tests, documentation, review) are added to every plan.
  */
 export function buildPlan(analysis: RequirementAnalysis, rawText = ''): ImplementationPlan {
-  const profile = PROFILES[analysis.productType] ?? PROFILES.webapp!;
+  const profile = PROFILES[analysis.productType];
   const features = new Set([...analysis.features, ...analysis.impliedFeatures]);
   const mods = selectModules(profile, features);
   const { stack, reason } = pickStack(profile, analysis.requestedStack);
@@ -78,46 +78,61 @@ export function buildPlan(analysis: RequirementAnalysis, rawText = ''): Implemen
   const maxWave = tasks.reduce((x, t) => Math.max(x, t.wave), 0);
   const nextId = () => `T${String(tasks.length + 1).padStart(2, '0')}`;
   const buildTasks = tasks.filter((t) => t.kind !== 'docs');
-  const testFiles = [
-    ...new Set(
-      tasks
-        .filter((t) => TEST_KINDS.has(t.kind))
-        .map((t) => `tests/${t.moduleId}.spec.ts`),
-    ),
-  ];
-  const tid = nextId();
-  tasks.push({
-    id: tid,
-    moduleId: 'tests',
-    title: b('Automated tests', 'الاختبارات الآلية'),
-    kind: 'tests',
-    dependsOn: buildTasks.map((t) => t.id),
-    wave: maxWave + 1,
-    files: testFiles,
-    acceptance: [b('Each module has a test for success, validation failure and a forbidden caller', 'لكل وحدة اختبار للنجاح وفشل التحقق ومستخدم غير مصرح')],
-    size: 3,
-    approval: null,
-  });
-  const did = nextId();
-  tasks.push({
-    id: did,
-    moduleId: 'docs',
-    title: b('Documentation', 'التوثيق'),
-    kind: 'docs',
-    dependsOn: buildTasks.map((t) => t.id),
-    wave: maxWave + 1,
-    files: ['README.md', 'docs/architecture.md', 'docs/runbook.md'],
-    acceptance: [b('The README explains how to run, test and configure the project', 'يشرح الملف README كيفية التشغيل والاختبار والإعداد')],
-    size: 2,
-    approval: null,
-  });
+  const testPath = (moduleId: string): string | null => {
+    switch (stack.family) {
+      case 'node-web':
+      case 'node-api':
+        return `tests/${moduleId}.spec.ts`;
+      case 'flutter':
+        return `test/${moduleId.replace(/-/g, '_')}_test.dart`;
+      case 'sql':
+        return `db/tests/${moduleId}.test.sql`;
+      default:
+        return null; // static sites and documents have no automated tests to generate
+    }
+  };
+  const testFiles = [...new Set(tasks.filter((t) => TEST_KINDS.has(t.kind)).map((t) => testPath(t.moduleId)).filter((p): p is string => p !== null))];
+  let testsId: string | null = null;
+  if (testFiles.length) {
+    testsId = nextId();
+    tasks.push({
+      id: testsId,
+      moduleId: 'tests',
+      title: b('Automated tests', 'الاختبارات الآلية'),
+      kind: 'tests',
+      dependsOn: buildTasks.map((t) => t.id),
+      wave: maxWave + 1,
+      files: testFiles,
+      acceptance: [b('Each module has a test for success, validation failure and a forbidden caller', 'لكل وحدة اختبار للنجاح وفشل التحقق ومستخدم غير مصرح')],
+      size: 3,
+      approval: null,
+    });
+  }
+  // a documentation product IS its documents: it gets no second, generic documentation task
+  let docsId: string | null = null;
+  if (profile.type !== 'docs') {
+    docsId = nextId();
+    tasks.push({
+      id: docsId,
+      moduleId: 'docs',
+      title: b('Documentation', 'التوثيق'),
+      kind: 'docs',
+      dependsOn: buildTasks.map((t) => t.id),
+      wave: maxWave + 1,
+      files: ['README.md', 'docs/architecture.md', 'docs/runbook.md'],
+      acceptance: [b('The README explains how to run, test and configure the project', 'يشرح الملف README كيفية التشغيل والاختبار والإعداد')],
+      size: 2,
+      approval: null,
+    });
+  }
+  const reviewDeps = [testsId, docsId].filter((x): x is string => x !== null);
   tasks.push({
     id: nextId(),
     moduleId: 'review',
     title: b('Final review', 'المراجعة النهائية'),
     kind: 'review',
-    dependsOn: [tid, did],
-    wave: maxWave + 2,
+    dependsOn: reviewDeps.length ? reviewDeps : tasks.map((t) => t.id),
+    wave: maxWave + (reviewDeps.length ? 2 : 1),
     files: [],
     acceptance: [b('A review pass found no secrets, no unsafe paths and every acceptance item met', 'مراجعة لم تجد أسراراً ولا مسارات غير آمنة وكل بنود القبول متحققة')],
     size: 2,

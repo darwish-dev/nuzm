@@ -3,6 +3,7 @@ import type { FeatureDef } from './types';
 /** The capabilities the analysis recognises. Titles are fixed text; the keywords are the only thing matched against the customer's words. */
 export const FEATURES: readonly FeatureDef[] = [
   { id: 'auth', title: { en: 'Sign-in and accounts', ar: 'تسجيل الدخول والحسابات' }, en: ['login', 'log in', 'sign in', 'sign up', 'signup', 'register', 'accounts', 'authentication', 'password'], ar: ['تسجيل دخول', 'تسجيل الدخول', 'حساب', 'حسابات', 'مصادقه', 'كلمه مرور', 'كلمة المرور', 'تسجيل مستخدم'] },
+  { id: 'password-reset', title: { en: 'Password reset', ar: 'استعادة كلمة المرور' }, en: ['password reset', 'reset password', 'forgot password', 'account recovery'], ar: ['استعاده كلمه المرور', 'نسيت كلمه المرور', 'استرجاع كلمه المرور', 'استعادة الحساب'] },
   { id: 'roles', title: { en: 'Roles and permissions', ar: 'الأدوار والصلاحيات' }, en: ['roles', 'permissions', 'rbac', 'admin and user', 'access levels'], ar: ['صلاحيات', 'ادوار', 'دور المستخدم', 'مستويات الوصول'] },
   { id: 'catalog', title: { en: 'Product catalog', ar: 'كتالوج المنتجات' }, en: ['catalog', 'catalogue', 'products', 'product list', 'items', 'menu items'], ar: ['منتجات', 'منتج', 'كتالوج', 'قائمه الطعام', 'اصناف'] },
   { id: 'cart', title: { en: 'Cart and checkout', ar: 'السلة وإتمام الشراء' }, en: ['cart', 'checkout', 'basket', 'shopping'], ar: ['سله', 'سلة', 'اتمام الشراء', 'الدفع عند', 'تسوق'] },

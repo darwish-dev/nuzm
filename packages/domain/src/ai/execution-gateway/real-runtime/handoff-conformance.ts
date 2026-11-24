@@ -115,7 +115,7 @@ export function createMockHandoffRig(adapt: PortAdapter): HandoffRigFactory {
           void port.script(profile, ...b.map((x) => toScripted(x, wallOf(profile)))),
         ranArgv: () => port.calls.map((c) => [...c.decision.argv]),
         leftovers: async () => [],
-        sources: () => null,
+        sources: () => port.calls.map((c) => c.ctx.source ?? null),
         appliesArtifactPolicy: false,
       };
     },

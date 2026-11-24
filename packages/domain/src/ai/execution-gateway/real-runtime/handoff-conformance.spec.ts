@@ -115,5 +115,10 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
     );
     expect(ok.fail, JSON.stringify(ok.cases.filter((c) => c.status === 'FAIL'))).toBe(0);
     expect(ok.cases.find((c) => c.id === 'H-9')!.status).toBe('PASS');
+    const okMock = await runLifecycleHandoffConformance(createMockHandoffRig(withSource as never), {
+      expectSource: true,
+    });
+    expect(okMock.fail, JSON.stringify(okMock.cases.filter((c) => c.status === 'FAIL'))).toBe(0);
+    expect(okMock.cases.find((c) => c.id === 'H-9')!.status).toBe('PASS'); // the mock records ctx, so the version is observable there too
   });
 });

@@ -4,7 +4,7 @@ import { normalizeToolDir } from '../agent-tools/paths';
  * S-AG6 (OFFLINE PREPARATION): the policy core of the Execution Gateway (ADR-067, PROPOSED). Pure functions only: nothing here starts a process, touches a runtime or is wired
  * to any route, tool declaration or job. The model NEVER supplies a command line: it names a profile from a closed catalogue and gives typed parameters; this module maps
  * that to a fixed argv, a fixed environment, fixed limits and a network class, or refuses with reasons. Whether anything may run at all is decided by `executionGate`, which
- * stays closed until D-21 is decided, a runtime passed the escape suite and the owner approved (and, in production, D-42).
+ * stays closed until D-21 is decided, a runtime passed the escape suite and the owner approved (and, in production, D-AG-ROLLOUT).
  */
 export type NetworkClass = 'none' | 'registry-only';
 export interface ExecLimits {
@@ -194,8 +194,8 @@ export interface ExecGateState {
   ownerApproved: boolean;
   /** the process is production */
   production: boolean;
-  /** D-42 (production rollout) decided */
-  d42Decided: boolean;
+  /** D-AG-ROLLOUT (production rollout of executable capabilities) decided. Formerly called D-42, an id that docs/07 gives to the platform object store. */
+  rolloutDecided: boolean;
 }
 /** Execution is open only when every condition holds. Default state (all false) is closed: that is today's state. */
 export function executionGate(s: ExecGateState): { open: boolean; blockers: string[] } {
@@ -205,7 +205,7 @@ export function executionGate(s: ExecGateState): { open: boolean; blockers: stri
   if (!s.escapeSuitePassed) b.push('the escape suite has not passed on a verified runtime');
   if (!s.adrAccepted) b.push('the Execution Gateway ADR is not accepted');
   if (!s.ownerApproved) b.push('the owner has not approved execution');
-  if (s.production && !s.d42Decided) b.push('D-42 (production rollout) is not decided');
+  if (s.production && !s.rolloutDecided) b.push('D-AG-ROLLOUT (production rollout) is not decided');
   return { open: b.length === 0, blockers: b };
 }
 export const CLOSED_GATE: ExecGateState = {
@@ -215,5 +215,5 @@ export const CLOSED_GATE: ExecGateState = {
   adrAccepted: false,
   ownerApproved: false,
   production: false,
-  d42Decided: false,
+  rolloutDecided: false,
 };

@@ -92,6 +92,7 @@ Decision owner: the owner, with a security review (D-21, HG-10-02). This is a re
    - Its boundary (a user-space kernel answering the guest's syscalls, a filtered set reaching the host) is materially stronger than a `runc` container and its escape surface is smaller and in a memory-safe language, at the cost of CPU/I-O overhead and syscall compatibility gaps (V) that the compatibility run measures.
    - The `ExecutionRuntime`/`WorkspaceRuntime` boundary means a later switch to a microVM changes the node agent, not the gateway, the policy, the attestation or the conformance suite.
 2. **Production-target decision (D-21) after the first results:** a **Firecracker-class microVM per run** (or Kata with the Firecracker VMM if Kubernetes ergonomics are needed) on a **KVM-capable (bare-metal, or verified nested) dedicated pool**, if the reviewer judges hardware-virtualization isolation necessary for hostile multi-tenant code and the provider capability is confirmed. gVisor alone is accepted only if the reviewer records why its residual risk (shared host kernel behind the Sentry) is acceptable for the planned profiles.
+   **Practical shortcut when the owner has no Linux infrastructure:** rent **one bare-metal dedicated server** (not a virtual machine). Bare metal has `/dev/kvm`, so the same box can be qualified for gVisor first and, after a rebuild from the image, for Firecracker, without any nested-virtualization question. Costs, sources and the exact node checklist: [approval inputs §6](sessions/PHASE2-04-approval-inputs.md).
 3. **Never** `runc`-class for customer or model code. **Never** the developer Mac. **Never** a shared node.
 4. Rollout order after all gates: only `typecheck` and `unit-tests` with network `none` for one allow-listed organization; then `build`; then the approval-gated network profiles (`install-deps`, `run-script`).
 
@@ -120,7 +121,7 @@ Pass bar (restated from AC-AG-12): T1–T10 pass with zero ESCAPED; T11–T12 re
 
 ## 6. Evidence to record (never secrets; never customer data)
 
-Stored under `docs/security/sandbox/evidence/<node-id>/<yyyy-mm-dd>/` (or the owner's evidence store; D-42 in the parallel plan), referenced from the attestation and the gate review:
+Stored under `docs/security/sandbox/evidence/<node-id>/<yyyy-mm-dd>/` (or the owner's evidence store), referenced from the attestation and the gate review:
 1. **Node inventory**: provider and instance type (no account ids), region, kernel, distro, runtime and VMM versions, image digests, cgroup/disk-quota configuration, firewall rules (hash and text), kernel parameters, agent version. Labelled `LIVE-VERIFIED` only if captured from the node by the reviewer.
 2. **Qualification report** JSON from the runner and its sha256 (the value `evidence.escapeSuite.reportSha256` points at), plus the plain-text rendering.
 3. **Conformance report** JSON and sha256.
@@ -155,7 +156,7 @@ Rules: evidence is append-only; a repeated run adds a new dated directory; an at
 | **HG-10-02** | the named security reviewer's review of the node, the suite results and the attestation | a LIVE-VERIFIED attestation; `runtimeVerified` and `escapeSuitePassed` in the gate | opening the gate |
 | **Execution Gateway ADR acceptance** (numbered ADR-067 on this line; the hosting line also uses that number: the Master will renumber ours, ADR-068, when the lines are joined; nothing here was renamed) | the owner accepts the design | `adrAccepted` in the gate | opening the gate |
 | **LEGAL-EXEC** | terms and liability for executing customer code | customer-facing use | production; arguably also any customer-visible staging |
-| **D-42 (production rollout)** | the production go decision | `d42Decided` | production only. **Naming conflict:** `docs/07-open-decisions-and-blockers.md` defines D-42 as the platform object store (decided interim 2026-11-20) while `docs/parallel/OWNER-DECISIONS.md` and the gate code use "D-42" for production rollout; the higher source (docs/07) wins, so the production-rollout decision needs its own id (recorded in REPORT-04 and the approval inputs) |
+| **D-AG-ROLLOUT (production rollout)** | the production go decision (formerly mislabelled D-42, an id `docs/07` gives to the platform object store; resolved by the Master 2026-11-24) | `rolloutDecided` in `ExecGateState` | production only |
 | Owner approval to run staging qualification | a recorded reference the runner checks (`HG-10-02-…` or `D-21-…`, and `NUZM_QUALIFICATION_APPROVED` set to it) | the live runner modes | live tests |
 
 Sequence: D-21 + compute provider → node provisioned and hardened (owner/ops) → node agent built and installed → **qualify** (runner, T1–T12) → reviewer signs the attestation (HG-10-02) → ADR acceptance and `executionGate` inputs recorded → staging service starts (`live` mode, fail-closed) → owner approval for execution in staging (flag `ai.agent.exec_tools`, one org, `typecheck`/`unit-tests`/`none` network) → soak → LEGAL-EXEC and the production decision before any customer.

@@ -492,7 +492,7 @@ export const EXEC_ATTEMPTS: Attempt[] = [
           adrAccepted: true,
           ownerApproved: true,
           production: false,
-          d42Decided: false,
+          rolloutDecided: false,
         };
         return !eg.executionGate({ ...all, [k]: false }).open && eg.executionGate(all).open;
       },
@@ -501,8 +501,8 @@ export const EXEC_ATTEMPTS: Attempt[] = [
   cp(
     'EX-GATE-7',
     'exec_gate',
-    'production with every condition but D-42',
-    'executionGate: production needs D-42',
+    'production with every condition but D-AG-ROLLOUT',
+    'executionGate: production needs D-AG-ROLLOUT',
     async () => {
       const s = {
         d21Decided: true,
@@ -511,7 +511,7 @@ export const EXEC_ATTEMPTS: Attempt[] = [
         adrAccepted: true,
         ownerApproved: true,
         production: true,
-        d42Decided: false,
+        rolloutDecided: false,
       };
       return !eg.executionGate(s).open;
     },

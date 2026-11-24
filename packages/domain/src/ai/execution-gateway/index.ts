@@ -20,3 +20,4 @@ export * from './artifacts';
 export * from './cleanup';
 export * from './runtime-spec';
 export * from './orchestrator';
+export * from './workspace';

@@ -124,5 +124,17 @@ Machine note: load average reached 117-403 during this batch (other sessions); o
 
 Heavy-slot requests: (a) `MOBILE_FLUTTER_LOCAL=1 pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts src/modules/mobile/flutter-local.int.spec.ts` (Flutter pub get/analyze/test + an unsigned debug APK, 15-25 min, network to pub.dev), only under `mkdir /private/tmp/nuzm-heavy.lock`; (b) E2E specs for builder tools / provider admin / benchmark admin once their owners land them.
 
+### Batch 2
+| Item | State | Evidence |
+|---|---|---|
+| 5. Runtime isolation conformance against the mock (orchestrator + `MockExecutionPort`) | **VERIFIED, SIMULATED**: `qa-exec-orchestrator.int.spec.ts` = 15 passed + 2 expected-fail | ceiling under 12 concurrent workers, approval spent once, model/API-key/no-permission/other-org cannot approve, canary kill switch, emergency stop, 14 hostile artifact paths refused, throw path leaks nothing; DEFECT-10 (concurrent submit duplicates execution), CONCERN O-12 (forged decision), O-13 (artifact kind), O-11, O-14 |
+| 7. Independent review notes | started: findings doc section 6 (S04 + S02 money path) | `docs/security/AI-ENGINE-SECURITY-FINDINGS.md` |
+
+### Batch 3
+| Item | State | Evidence |
+|---|---|---|
+| 2. Agent-loop integration scaffold on the current run engine | **VERIFIED, SIMULATED model**: `qa-run-concurrency.int.spec.ts` = 10 passed, no defect | one run per session and per idempotency key under 12 concurrent creates (duplicates: `409 idempotency_in_progress`, then the same run), org ceiling holds under a 12-session burst, 4 workers on one run execute each step and pay each call once, finished/cancelled runs are inert, approve/deny/approve by three humans at once = one decision and one resume, approvals never move between runs, 5 simultaneous cancels end `cancelled` once with the in-flight call aborted and no held reservation, viewer/billing admin/other org cannot cancel. Retry/iteration limits and the agent-loop kind itself: DEPENDENT on S05's wiring (helpers are reusable) |
+| 5. Credential protection | **VERIFIED**: `qa-credential-custody.int.spec.ts` = 5 passed | a console-typed key (save, rotate, set, clear, bad values, wrong place, non-admin attempts) appears in no response, no stdout/stderr, and in NO row of ANY table of ANY schema (full-database scan, real audit chain, audit rows exist so the scan is not vacuous); the connection test (network) is never called |
+
 ### Not yet done in Phase 2 (next batches)
 E2E ar+en for builder tools, provider admin, benchmark admin (review + negative cases); agent-loop integration scaffolds (waiting for S05's wiring); authz matrix extension and both-setting tests for O-1/O-2/O-9 (waiting for the switches); prompt injection against tool results and project files; runtime-isolation conformance against the mock; accessibility ar/en; independent review notes on S02/S04/S06 Phase 2 changes (nothing merged yet).

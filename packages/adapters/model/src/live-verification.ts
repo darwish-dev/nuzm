@@ -272,13 +272,24 @@ export function liveSuiteCost(p: {
   };
 }
 
-/** Refuses unless the target and approval are in order. Pure: reads nothing, sends nothing. */
-export function assertLiveSuiteAllowed(
-  t: LiveTarget,
+/** What a run may use at most: requests and tokens (input and output apart, so the money bound can be computed at the adapter's price). */
+export interface WorstCase {
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+/**
+ * The gates every live run shares (the suite and the three qualification tracks): refuses unless the target and approval are in order and cover `w` in requests, tokens AND money, and
+ * (for a live target) the live gate and the D2/D3/D4/D5/D6/D9 evidence stand. Pure: reads nothing, sends nothing.
+ */
+export function assertRunAllowed(
+  t: Pick<LiveTarget, 'adapter' | 'model' | 'mode'>,
   approval: LiveSuiteApproval | undefined,
+  w: WorstCase,
   o: LiveRunOptions = {},
 ): void {
-  const w = liveSuiteWorstCase();
   if (process.env.NODE_ENV === 'production')
     refuse('a live verification never runs in a production process');
   if (!approval) refuse('a recorded approval is required (D9)');
@@ -311,6 +322,15 @@ export function assertLiveSuiteAllowed(
       throw e;
     }
   }
+}
+
+/** Refuses unless the target and approval are in order for the nine-check suite. Pure: reads nothing, sends nothing. */
+export function assertLiveSuiteAllowed(
+  t: LiveTarget,
+  approval: LiveSuiteApproval | undefined,
+  o: LiveRunOptions = {},
+): void {
+  assertRunAllowed(t, approval, liveSuiteWorstCase(), o);
 }
 
 // ───────────────────────────── fault injection (OUR side of the wire) ─────────────────────────────

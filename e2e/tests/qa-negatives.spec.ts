@@ -27,6 +27,17 @@ const csrfOf = async (p: Page, name = 'nuzm_csrf') =>
 // the SQL marker is case-sensitive and needs a FROM: the page's own stylesheet has `select {` selectors, which a case-insensitive `SELECT ` matched
 const LEAKS =
   /TypeError|ReferenceError|[Uu]nhandled|at Object\.|node_modules|[Ss]tack trace|SELECT [^<]*\bFROM\b|ECONNREFUSED/;
+/** Matched against what a visitor can read and against the markup with <style> and <script> removed, never against the raw document (inlined framework chunks and the stylesheet are not page content). */
+const noInternalError = async (p: Page, what: string) => {
+  expect(
+    await p.locator('body').innerText(),
+    `${what}: no internal error text visible`,
+  ).not.toMatch(LEAKS);
+  const markup = (await p.content())
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  expect(markup, `${what}: no internal error text in the markup`).not.toMatch(LEAKS);
+};
 
 test('builder agent screen: unauthenticated, viewer, another tenant, malformed ids (ar/en, axe)', async ({
   page,
@@ -93,7 +104,7 @@ test('builder agent screen: unauthenticated, viewer, another tenant, malformed i
     expect(html, `${what}: the marker must not be on the page`).not.toContain(MARKER);
     if (!ownProject)
       expect(html, `${what}: the project name must not be on the page`).not.toContain(name);
-    expect(html, `${what}: no internal error text`).not.toMatch(LEAKS);
+    await noInternalError(p, what);
   };
 
   // ---- 1. unauthenticated: sent to sign-in, nothing of the project or run is rendered
@@ -260,7 +271,7 @@ test('admin consoles: provider insights and benchmarks, unauthenticated, a custo
     for (const u of [bench, insights]) {
       await ap.goto(u);
       await expect(ap).toHaveURL(/\/login/);
-      expect(await ap.content()).not.toMatch(LEAKS);
+      await noInternalError(ap, `unauthenticated ${u}`);
       await expect(ap.getByTestId('ai-insights')).toHaveCount(0);
       await expect(ap.locator('#bench-stages')).toHaveCount(0);
     }
@@ -284,7 +295,7 @@ test('admin consoles: provider insights and benchmarks, unauthenticated, a custo
       await expect(cp.getByRole('button', { name: T(info, 'bench.record' as never) })).toHaveCount(
         0,
       );
-      expect(await cp.content()).not.toMatch(LEAKS);
+      await noInternalError(cp, `customer in the admin console ${u}`);
     }
     const r = await cp.request.get(`${ADMIN}/v1/admin/ai/benchmarks`);
     expect([401, 403, 404]).toContain(r.status());

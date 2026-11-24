@@ -18,6 +18,7 @@ import {
   type Usage,
 } from './types';
 import { allowedToolCalls, assertToolCalls, assertToolRequest } from './tools';
+import { parseRetryAfterMs } from './resilience';
 
 /**
  * Claude (Anthropic Messages API) behind the `ModelAdapter` contract (docs/09 §7), written from the provider's official documentation (docs/adapters/anthropic.md)
@@ -486,7 +487,12 @@ export class AnthropicModelAdapter implements ModelAdapter {
     if (e instanceof Anthropic.APIConnectionTimeoutError)
       return new ModelAdapterError('timeout', ERR.timeout);
     if (e instanceof Anthropic.RateLimitError)
-      return new ModelAdapterError('rate_limited', ERR.rate_limited);
+      return new ModelAdapterError(
+        'rate_limited',
+        ERR.rate_limited,
+        true,
+        parseRetryAfterMs((e as { headers?: unknown }).headers),
+      );
     if (e instanceof Anthropic.APIConnectionError)
       return new ModelAdapterError('unavailable', 'could not reach the model provider (network)');
     if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError)
@@ -500,6 +506,8 @@ export class AnthropicModelAdapter implements ModelAdapter {
         return new ModelAdapterError(
           'unavailable',
           `the model provider answered with an error (HTTP ${e.status})`,
+          true,
+          parseRetryAfterMs((e as { headers?: unknown }).headers),
         ); // includes 529 overloaded
       return new ModelAdapterError(
         'invalid_request',

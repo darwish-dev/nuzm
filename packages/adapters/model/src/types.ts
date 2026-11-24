@@ -155,6 +155,8 @@ export class ModelAdapterError extends Error {
     readonly retryable: boolean = code === 'timeout' ||
       code === 'rate_limited' ||
       code === 'unavailable',
+    /** the provider's own wait hint (Retry-After) in ms, when it sent one; the gateway's retry policy decides whether to honour it */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'ModelAdapterError';

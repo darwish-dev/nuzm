@@ -1,4 +1,11 @@
-import type { ArtifactRef, BuildPort, BuildRequest, BuildResult, BuildStatus } from './build-port';
+import type {
+  ArtifactRef,
+  BuildPort,
+  BuildRequest,
+  BuildResult,
+  BuildStatus,
+  Preflight,
+} from './build-port';
 
 /**
  * Adapter from Session 04's `ExecutionPort` (S-AG6, `executionGateway.ExecutionPort`) to the `BuildPort` the repair loop consumes. The port types are declared STRUCTURALLY here, so
@@ -36,6 +43,16 @@ export class ExecutionBuildPort implements BuildPort {
   ) {}
   get origin(): 'MOCK' | 'REAL' {
     return this.port.origin;
+  }
+
+  /** the gateway's own decision, without running anything */
+  async preflight(req: BuildRequest): Promise<Preflight> {
+    const d = await this.port.request({ orgId: req.orgId, runId: req.runId, profile: req.profile });
+    return {
+      allowed: d.allowed,
+      reasons: [...(d.reasons ?? [])],
+      requiresApproval: d.requiresApproval === true,
+    };
   }
 
   async build(req: BuildRequest): Promise<BuildResult> {

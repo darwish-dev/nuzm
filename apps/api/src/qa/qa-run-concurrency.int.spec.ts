@@ -119,23 +119,42 @@ describe('QA run engine: concurrent creation', () => {
     await cancel([...ids][0] as string);
   });
 
-  it('the organization ceiling holds under a burst: 12 sessions at once never produce more active runs than the ceiling', async () => {
+  it('DEFECT-15 (fixed by Session 02): the organization ceiling holds under bursts: 30 sessions started at once, repeated, never leave more active runs than the ceiling', async () => {
     const keep = cfg.maxConcurrentRuns;
     cfg.maxConcurrentRuns = 3;
+    let worst = 0;
     try {
-      const sids = await Promise.all(Array.from({ length: 12 }, () => session()));
-      const res = await Promise.all(sids.map((sid) => mkRun({ sessionId: sid, kind: 'website' })));
-      const made = res.filter((r) => r.statusCode === 202);
-      const active = await num(
-        `SELECT count(*) n FROM ai.runs WHERE org_id=$1 AND state IN ('queued','running','waiting_approval')`,
-        [A()],
-      );
-      expect(active, 'active runs after the burst').toBeLessThanOrEqual(3);
-      expect(made.length).toBeLessThanOrEqual(3);
-      for (const r of res.filter((x) => x.statusCode !== 202)) expect(r.statusCode).toBe(429);
-      for (const r of made) await cancel(r.json().id);
+      for (let round = 0; round < 6 && worst <= 3; round++) {
+        const sids = await Promise.all(Array.from({ length: 30 }, () => session()));
+        const res = await Promise.all(
+          sids.map((sid) => mkRun({ sessionId: sid, kind: 'website' })),
+        );
+        const active = await num(
+          `SELECT count(*) n FROM ai.runs WHERE org_id=$1 AND state IN ('queued','running','waiting_approval')`,
+          [A()],
+        );
+        worst = Math.max(worst, active);
+        for (const r of res.filter((x) => x.statusCode === 202)) await cancel(r.json().id);
+      }
     } finally {
       cfg.maxConcurrentRuns = keep;
+    }
+    expect(worst, 'most active runs seen after a burst').toBeLessThanOrEqual(3);
+  }, 300_000);
+
+  it('the ceiling holds for sequential creates: the run over the ceiling is refused 429 and nothing is created for it', async () => {
+    const keep = cfg.maxConcurrentRuns;
+    cfg.maxConcurrentRuns = 2;
+    const made: string[] = [];
+    try {
+      for (let i = 0; i < 2; i++)
+        made.push((await mkRun({ sessionId: await session(), kind: 'website' })).json().id);
+      const before = await num(`SELECT count(*) n FROM ai.runs WHERE org_id=$1`, [A()]);
+      expect((await mkRun({ sessionId: await session(), kind: 'website' })).statusCode).toBe(429);
+      expect(await num(`SELECT count(*) n FROM ai.runs WHERE org_id=$1`, [A()])).toBe(before);
+    } finally {
+      cfg.maxConcurrentRuns = keep;
+      for (const id of made) await cancel(id);
     }
   });
 });

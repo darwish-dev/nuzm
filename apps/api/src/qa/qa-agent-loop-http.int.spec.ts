@@ -248,20 +248,17 @@ describe('QA agent loop HTTP: who decides the deployment approval', () => {
     ).toBe(409);
   });
 
-  it.fails(
-    'DEFECT-13: a decision that LOST the race to a different decision is told so (409), not 200 with the winner\'s record (today the loser of `UPDATE … WHERE status = pending` is handed the winner\'s approval as success, although the comment says "identical decision")',
-    async () => {
-      const { approval } = await parkedRun('QA Approve Race 2');
-      const res = await Promise.all([
-        decide('alice', approval, 'approve'),
-        decide('erin', approval, 'reject'),
-      ]);
-      const ok200 = res.filter((r) => r.statusCode === 200);
-      // two requests with OPPOSITE decisions: at most one may succeed
-      expect(ok200).toHaveLength(1);
-      expect(res.filter((r) => r.statusCode === 409)).toHaveLength(1);
-    },
-  );
+  it("DEFECT-13 (fixed): a decision that LOST the race to a different decision is told so (409), not 200 with the winner's record", async () => {
+    const { approval } = await parkedRun('QA Approve Race 2');
+    const res = await Promise.all([
+      decide('alice', approval, 'approve'),
+      decide('erin', approval, 'reject'),
+    ]);
+    const ok200 = res.filter((r) => r.statusCode === 200);
+    // two requests with OPPOSITE decisions: at most one may succeed
+    expect(ok200).toHaveLength(1);
+    expect(res.filter((r) => r.statusCode === 409)).toHaveLength(1);
+  });
 
   it('an approval belongs to its run: it cannot be used for another run of the same organization', async () => {
     const a = await parkedRun('QA Approve Run A');
@@ -307,18 +304,15 @@ describe('QA agent loop HTTP: cancellation', () => {
     ).toBe(steps);
   });
 
-  it.fails(
-    'DEFECT-14: cancelling a run closes the deployment approval it is waiting on: it leaves the pending list and can no longer be approved (today it stays pending and an owner can approve a production deploy for a run that is cancelled)',
-    async () => {
-      const { run, approval } = await parkedRun('QA Cancel Closes Approval');
-      ok(await call('alice', 'POST', `/v1/ai/runs/${run.id}/cancellation`), 202);
-      const pending = ok<{ items: Row[] }>(
-        await call('alice', 'GET', '/v1/ai/approvals?status=pending'),
-      ).items.filter((a) => a.runId === run.id);
-      expect(pending).toHaveLength(0);
-      expect((await decide('alice', approval, 'approve')).statusCode).toBeGreaterThanOrEqual(400);
-    },
-  );
+  it('DEFECT-14 (fixed): cancelling a run closes the deployment approval it is waiting on: it leaves the pending list and can no longer be approved', async () => {
+    const { run, approval } = await parkedRun('QA Cancel Closes Approval');
+    ok(await call('alice', 'POST', `/v1/ai/runs/${run.id}/cancellation`), 202);
+    const pending = ok<{ items: Row[] }>(
+      await call('alice', 'GET', '/v1/ai/approvals?status=pending'),
+    ).items.filter((a) => a.runId === run.id);
+    expect(pending).toHaveLength(0);
+    expect((await decide('alice', approval, 'approve')).statusCode).toBeGreaterThanOrEqual(400);
+  });
 
   it('a viewer, a billing administrator and another organization cannot cancel; the run keeps going', async () => {
     const p = await project('QA Cancel Roles');

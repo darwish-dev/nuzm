@@ -15,3 +15,6 @@ export * from './live-evidence';
 export * from './live-verification';
 export * from './live-twin';
 export * from './qualification';
+export * from './http-transport';
+export * from './openai';
+export * from './gemini';

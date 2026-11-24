@@ -73,4 +73,12 @@ export class DeploymentsController {
       throw new ProblemException('idempotency_key_required', 'send an Idempotency-Key header');
     return this.deploys.rollback(orgId, a.actor.userId, id.toLowerCase(), key);
   }
+  /** Cancel a queued or running deployment (202; a running one stops at its next checkpoint, before the switch). 409 `invalid_state` once finished. */
+  @RequirePermission('deploy:write')
+  @Idempotent()
+  @Post(':id/cancel')
+  @HttpCode(202)
+  cancel(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string) {
+    return this.deploys.cancel(orgId, a.actor.userId, id.toLowerCase());
+  }
 }

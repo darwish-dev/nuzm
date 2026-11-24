@@ -19,7 +19,11 @@ export class SimulatedHealthProbe implements HealthProbeLike {
       /* not a URL: the real probe refuses it */
     }
     if (host.endsWith('.invalid'))
-      return { ok: true, status: 200, detail: 'SIMULATED: local stand-in answer, no request was made' };
+      return {
+        ok: true,
+        status: 200,
+        detail: 'SIMULATED: local stand-in answer, no request was made',
+      };
     return this.inner.check(url);
   }
 }

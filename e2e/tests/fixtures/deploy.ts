@@ -14,7 +14,9 @@ export async function enableHosting() {
   await sql(
     `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'hosting.enabled', NULL, 'true') ON CONFLICT DO NOTHING`,
   );
-  await sql(`UPDATE platform.feature_flags SET value = 'true' WHERE key = 'hosting.enabled' AND org_id IS NULL`);
+  await sql(
+    `UPDATE platform.feature_flags SET value = 'true' WHERE key = 'hosting.enabled' AND org_id IS NULL`,
+  );
 }
 
 /** A seeded node, plan and ACTIVE site of the organization; returns the site id. `domain` is optional (without one the simulated URL is `<name>.sites.nuzm.invalid`). */
@@ -97,8 +99,13 @@ export async function makeDeployable(page: Page, orgId: string, projectId: strin
   const project = await page.request.get(`/v1/builder/projects/${projectId}`, { headers });
   expect(project.status()).toBe(200);
   const head = ((await project.json()) as { headVersionId: string }).headVersionId;
-  const pkg = JSON.parse(await read('package.json')) as { dependencies?: object; devDependencies?: object };
-  const manifest = JSON.parse(await read('nuzm.app.json')) as { commands?: Record<string, unknown> };
+  const pkg = JSON.parse(await read('package.json')) as {
+    dependencies?: object;
+    devDependencies?: object;
+  };
+  const manifest = JSON.parse(await read('nuzm.app.json')) as {
+    commands?: Record<string, unknown>;
+  };
   if (manifest.commands) {
     delete manifest.commands.install;
     delete manifest.commands.build;

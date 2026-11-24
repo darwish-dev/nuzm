@@ -55,6 +55,8 @@ export abstract class SitePublisherPort {
     paths: string[],
   ): Promise<SmokeResult>;
   abstract activate(site: TargetSite, stagingRef: string): Promise<{ url: string }>;
+  /** drop an upload that was staged but never switched (cancellation); the live site is untouched */
+  abstract discard(site: TargetSite, stagingRef: string): Promise<void>;
   /** serve THIS artifact again (rollback); `null` removes the content */
   abstract restore(site: TargetSite, artifact: Artifact | null): Promise<void>;
   abstract activeHash(site: TargetSite): Promise<string | null>;
@@ -74,6 +76,9 @@ export class UnavailableSitePublisher extends SitePublisherPort {
     return this.no();
   }
   activate(): never {
+    return this.no();
+  }
+  discard(): never {
     return this.no();
   }
   restore(): never {
@@ -124,6 +129,9 @@ export class InMemorySitePublisher extends SitePublisherPort {
     this.live.set(s.id, this.staged.get(ref)!);
     this.staged.delete(ref);
     return { url: `https://${s.domain ?? `${s.name.toLowerCase()}.sites.nuzm.invalid`}/` };
+  }
+  async discard(_s: TargetSite, ref: string) {
+    this.staged.delete(ref);
   }
   async restore(s: TargetSite, a: Artifact | null) {
     if (a) this.live.set(s.id, a);

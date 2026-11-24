@@ -10,7 +10,6 @@
     "provider",
     "model",
     "usage",
-    "usageReconciled",
     "keyLeakScan"
   ],
   "properties": {
@@ -63,7 +62,8 @@
       }
     },
     "usageReconciled": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "true only when a LIVE-VERIFIED claim says the platform usage equals the vendor-reported usage"
     },
     "keyLeakScan": {
       "enum": [

@@ -110,7 +110,8 @@
       "properties": {
         "commit": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$"
+          "pattern": "^([0-9a-f]{7,40}|native:[0-9a-f]{12})$",
+          "description": "git commit of the code that produced the record; 'native:<12 hex>' for a record derived from a session's native evidence file (the hash prefix of that file)"
         },
         "branch": {
           "type": "string",

@@ -9,10 +9,8 @@
     "track",
     "model",
     "usage",
-    "toolsDeclared",
-    "roundTrips",
-    "supportsToolsFromEvidence",
-    "malformedToolCalls"
+    "passedChecks",
+    "keyLeakScan"
   ],
   "properties": {
     "track": {
@@ -46,25 +44,21 @@
         }
       }
     },
-    "toolsDeclared": {
+    "passedChecks": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1,
         "maxLength": 200
-      }
+      },
+      "description": "ids of the real checks that passed, including tool_calling"
     },
-    "roundTrips": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "supportsToolsFromEvidence": {
-      "type": "boolean"
-    },
-    "malformedToolCalls": {
-      "type": "integer",
-      "minimum": 0
+    "keyLeakScan": {
+      "enum": [
+        "clean"
+      ]
     }
   }
 }

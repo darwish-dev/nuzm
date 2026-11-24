@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { scanForSecrets } from '@nuzm/domain';
+import { loadApprovals, type ApprovalRegistry } from './approvals';
 import { SchemaSet, type Schema } from './json-schema';
+import { PROVIDER_NATIVE_SCHEMA, verifyProviderEnvelope } from './native-provider';
 
 /**
  * P3-S08 evidence verifier. One record = one JSON file under `docs/phase3/EVIDENCE/<track>/<YYYY-MM-DD>-<id>.json` (schema `nuzm.p3-evidence/1`, see
@@ -81,6 +83,8 @@ export interface Verified {
   ok: boolean;
   problems: Problem[];
   record: EvidenceRecord | null;
+  /** canonical records derived from a verified NATIVE session envelope (see native-provider.ts); the matrix counts these, never the native file itself */
+  derived?: EvidenceRecord[];
 }
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -126,6 +130,10 @@ export function loadSchemas(root = repoRoot()): SchemaSet {
     .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as Schema);
   return new SchemaSet(all);
 }
+const isNativeProvider = (raw: unknown): boolean =>
+  typeof raw === 'object' &&
+  raw !== null &&
+  (raw as { schema?: unknown }).schema === PROVIDER_NATIVE_SCHEMA;
 export const trackSchemaId = (track: string): string => `nuzm.p3-evidence/track/${track}/1`;
 
 /* ───────────────────────── label analysis ───────────────────────── */
@@ -425,8 +433,13 @@ export function listEvidenceFiles(
   return out;
 }
 /** `dir` overrides where the track directories are (the harness verifies what it wrote outside the repository); schemas always come from the repository */
-export function verifyAll(root = repoRoot(), dir?: string): VerifyAll {
+export function verifyAll(
+  root = repoRoot(),
+  dir?: string,
+  opts: { approvals?: ApprovalRegistry } = {},
+): VerifyAll {
   const schemas = loadSchemas(root);
+  const approvals = opts.approvals ?? loadApprovals(root);
   const results: Verified[] = [];
   for (const f of listEvidenceFiles(root, dir)) {
     let raw: unknown;
@@ -441,31 +454,61 @@ export function verifyAll(root = repoRoot(), dir?: string): VerifyAll {
       });
       continue;
     }
+    const file = `${f.trackDir}/${f.fileName}`;
+    if (isNativeProvider(raw)) {
+      // a native session envelope: verified by its own independent rules; the matrix counts only the canonical records derived from it
+      const text = readFileSync(f.abs, 'utf8');
+      const n =
+        f.trackDir === 'provider'
+          ? verifyProviderEnvelope(raw, { fileName: f.fileName, approvals, text })
+          : {
+              ok: false,
+              problems: [
+                {
+                  rule: 'placement',
+                  where: '/',
+                  message: `a ${PROVIDER_NATIVE_SCHEMA} file belongs under provider/`,
+                },
+              ],
+              derived: [] as EvidenceRecord[],
+            };
+      const problems = [...n.problems];
+      for (const d of n.derived) {
+        const v = verifyRecord(d, { schemas, dir: null, placement: null }, file);
+        for (const p of v.problems)
+          problems.push({ rule: p.rule, where: `derived ${d.id}${p.where}`, message: p.message });
+      }
+      results.push({ file, ok: problems.length === 0, problems, record: null, derived: n.derived });
+      continue;
+    }
     results.push(
       verifyRecord(
         raw,
         { schemas, dir: dirname(f.abs), placement: { trackDir: f.trackDir, fileName: f.fileName } },
-        `${f.trackDir}/${f.fileName}`,
+        file,
       ),
     );
   }
   const problems: Problem[] = [];
   const seen = new Map<string, string>();
   for (const v of results) {
-    if (!v.record) continue;
-    const prior = seen.get(v.record.id);
-    if (prior) {
-      v.ok = false;
-      v.problems.push({
-        rule: 'duplicate-id',
-        where: '/id',
-        message: `id ${v.record.id} is also used by ${prior}`,
-      });
-    } else seen.set(v.record.id, v.file);
+    for (const r of [...(v.record ? [v.record] : []), ...(v.derived ?? [])]) {
+      const prior = seen.get(r.id);
+      if (prior && prior !== v.file) {
+        v.ok = false;
+        v.problems.push({
+          rule: 'duplicate-id',
+          where: '/id',
+          message: `id ${r.id} is also used by ${prior}`,
+        });
+      } else seen.set(r.id, v.file);
+    }
   }
   return {
     results,
-    accepted: results.filter((v) => v.ok && v.record).map((v) => v.record!),
+    accepted: results.flatMap((v) =>
+      v.ok ? [...(v.record ? [v.record] : []), ...(v.derived ?? [])] : [],
+    ),
     rejected: results.filter((v) => !v.ok),
     problems,
   };

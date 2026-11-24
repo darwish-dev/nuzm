@@ -1,27 +1,11 @@
-// PENDING CONTRACT-2: copy to `apps/api/src/modules/appbuilder/builder-insight.controller.ts` (drop the `.pending` suffix) in the SAME batch that applies the OpenAPI patch of
-// docs/parallel/sessions/CONTRACT-2-builder-insight-and-memory.md, and add `BuilderInsightController` to the module's `controllers` array. Parked because `pnpm spec:drift`
-// fails on a route the spec does not declare yet.
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { BuilderInsightService } from './internal/changes/builder-insight.service';
-import { BuilderToolsEnabledGuard, BuilderToolsProjectScoped } from './internal/changes/builder-tools-flag';
+import { BuilderToolsProjectScoped } from './internal/changes/builder-tools-flag';
+import { Idempotent } from '../../common/idempotency';
 import { ProjectsPort } from './internal/ports/m09';
-import { UseGuards } from '@nestjs/common';
 
 type B = Record<string, unknown>;
-
-/** Requirement planning (no project needed). Flag `builder_tools.enabled`, default OFF. Pure and local: the text is never sent to a model or a vendor. */
-@UseGuards(BuilderToolsEnabledGuard)
-@Controller('v1/builder/plan-previews')
-export class BuilderPlanController {
-  constructor(private readonly svc: BuilderInsightService) {}
-  @RequirePermission('builder:read')
-  @Post()
-  @HttpCode(200)
-  plan(@Org() orgId: string, @Body() body: B) {
-    return this.svc.plan(orgId, body ?? {});
-  }
-}
 
 /** Review, code search and project memory of a web-app/mobile project. */
 @Controller('v1/builder/projects/:projectId')
@@ -39,7 +23,12 @@ export class BuilderInsightController extends BuilderToolsProjectScoped {
   }
   @RequirePermission('builder:read')
   @Get('symbols')
-  async symbols(@Org() orgId: string, @Param('projectId') pid: string, @Query('q') q?: string, @Query('kind') kind?: string) {
+  async symbols(
+    @Org() orgId: string,
+    @Param('projectId') pid: string,
+    @Query('q') q?: string,
+    @Query('kind') kind?: string,
+  ) {
     return this.svc.symbols(orgId, await this.project(orgId, pid), q ?? '', kind);
   }
   @RequirePermission('builder:read')
@@ -58,14 +47,25 @@ export class BuilderInsightController extends BuilderToolsProjectScoped {
     return this.svc.memory(orgId, await this.project(orgId, pid));
   }
   @RequirePermission('builder:write')
+  @Idempotent()
   @Post('memory')
   @HttpCode(201)
-  async addMemory(@Org() orgId: string, @Access() a: AccessContext, @Param('projectId') pid: string, @Body() body: B) {
+  async addMemory(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('projectId') pid: string,
+    @Body() body: B,
+  ) {
     return this.svc.addMemory(orgId, a.actor.userId, await this.project(orgId, pid), body ?? {});
   }
   @RequirePermission('builder:write')
   @Delete('memory/:entryId')
-  async forgetMemory(@Org() orgId: string, @Access() a: AccessContext, @Param('projectId') pid: string, @Param('entryId') entryId: string) {
+  async forgetMemory(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('projectId') pid: string,
+    @Param('entryId') entryId: string,
+  ) {
     return this.svc.forgetMemory(orgId, a.actor.userId, await this.project(orgId, pid), entryId);
   }
 }

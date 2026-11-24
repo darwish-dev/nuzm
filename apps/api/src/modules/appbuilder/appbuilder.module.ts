@@ -44,6 +44,9 @@ import { TestRunsController } from './test-runs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
 import { ChangeService } from './internal/changes/change.service';
+import { BuilderInsightController } from './builder-insight.controller';
+import { BuilderPlanController } from './builder-plan.controller';
+import { ChangeToolsController } from './change-tools.controller';
 import { ChangeToolsService } from './internal/changes/change-tools.service';
 import { BuilderInsightService } from './internal/changes/builder-insight.service';
 import { WebappChangesDelegate, WebappDeployDelegateImpl } from './internal/delegates';
@@ -52,10 +55,10 @@ import {
   DeployTargetPort,
   DevStaticTarget,
   HealthProbePort,
-  HttpHealthProbe,
   MemoryReleaseStore,
   ReleaseStorePort,
 } from './internal/deploy/ports';
+import { healthProbeFor } from './internal/deploy/health-probe-factory';
 import { SitePublisherDeployTarget } from './internal/deploy/site-target';
 import { EvaluationService } from './internal/eval/evaluation';
 import { ExportService } from './internal/export/export.service';
@@ -269,6 +272,9 @@ class LogSecurityAlerts extends SecurityAlertPort {
 @Module({
   imports: [IdentityModule, BuilderModule, KnowledgeModule],
   controllers: [
+    ChangeToolsController,
+    BuilderPlanController,
+    BuilderInsightController,
     SandboxesController,
     TestRunsController,
     ExportsController,
@@ -409,10 +415,8 @@ class LogSecurityAlerts extends SecurityAlertPort {
     },
     {
       provide: HealthProbePort,
-      useFactory: () =>
-        new HttpHealthProbe(async (h) =>
-          (await dns.lookup(h, { all: true })).map((x) => x.address),
-        ),
+      useFactory: (cfg: AiConfig) => healthProbeFor(cfg),
+      inject: [AI_CONFIG],
     },
     {
       provide: GitStore,

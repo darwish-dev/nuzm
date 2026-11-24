@@ -146,6 +146,8 @@ const WIRE_TOOL_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const ERR = {
   timeout: 'the model did not answer in time',
   rate_limited: 'the model provider is limiting requests',
+  spend_limit:
+    'the model provider spending limit is reached (raise it in the vendor console, or wait for the next billing month)',
   unavailable: 'the model provider is unavailable',
   content_filtered: 'the model provider declined the request',
   invalid_request: 'the model provider rejected the request',
@@ -526,6 +528,8 @@ export class AnthropicModelAdapter implements ModelAdapter {
       return new ModelAdapterError('aborted', ERR.aborted);
     if (e instanceof Anthropic.APIConnectionTimeoutError)
       return new ModelAdapterError('timeout', ERR.timeout);
+    // the vendor's SPENDING limit is not a rate limit: it lifts only at the next billing month or when the owner raises it, so retrying (or falling back and coming back) is pointless
+    if (isSpendLimitError(e)) return new ModelAdapterError('rate_limited', ERR.spend_limit, false);
     if (e instanceof Anthropic.RateLimitError)
       return new ModelAdapterError(
         'rate_limited',
@@ -560,4 +564,23 @@ export class AnthropicModelAdapter implements ModelAdapter {
       `unexpected error in the model adapter (${e instanceof Error ? e.name : 'unknown'})`,
     );
   }
+}
+
+/**
+ * The vendor documents two ways a spend limit shows up (read 2026-11-24, platform.claude.com/docs/en/api/rate-limits and manage-claude/workspaces): the tier cap answers HTTP 429
+ * `rate_limit_error` with `details.error_code = "enforced_spend_limit_reached"` and no retry-after; an owner-set organization or workspace limit answers HTTP 400
+ * `invalid_request_error` whose message starts "You have reached your specified". Only those documented shapes are recognised; anything else keeps its ordinary mapping.
+ */
+export function isSpendLimitError(e: unknown): boolean {
+  const x = e as { status?: unknown; error?: unknown };
+  const body = (x?.error ?? {}) as {
+    error?: { message?: unknown; details?: { error_code?: unknown } };
+  };
+  if (x?.status === 429) return body.error?.details?.error_code === 'enforced_spend_limit_reached';
+  if (x?.status === 400)
+    return (
+      typeof body.error?.message === 'string' &&
+      /^You have reached your specified (workspace )?API usage limits/.test(body.error.message)
+    );
+  return false;
 }

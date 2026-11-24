@@ -17,6 +17,7 @@ import { renderSiteCss } from '../../../common/site-css';
 import { decodeCursor, pageOf } from '../../../common/pagination';
 import { actionHash } from '../../ai';
 import type { CmsService } from '../../builder';
+import { DeployPolicyService } from './policy.service';
 import {
   artifactHash,
   SitePublisherPort,
@@ -105,6 +106,8 @@ export class DeployService {
     private readonly residency: ResidencyEvaluator,
     private readonly cms: CmsService,
     private readonly cfg: DeployConfig,
+    /** O-1/O-2 policy switches; absent = the defaults, which equal the behaviour before the switches existed */
+    private readonly policy: DeployPolicyService | null = null,
   ) {}
   setKicker(k: (orgId: string, opId: string) => void) {
     this.kicker = k;
@@ -143,6 +146,8 @@ export class DeployService {
     b: Record<string, unknown>,
     /** who is calling: only a signed-in person (`session`) may CONFIRM a publish approval; an API key may ask for one but never decide it (DEFECT-4) */
     actorKind: 'session' | 'api_key' = 'session',
+    /** the caller's role in the organization (O-1); `undefined` only for internal callers, which are then bound by the default policy only */
+    actorRole?: string,
   ): Promise<DeploymentDto> {
     if (!UUID.test(String(b.projectId)))
       throw new ProblemException('validation_failed', 'projectId must be a uuid');
@@ -252,6 +257,17 @@ export class DeployService {
         'forbidden',
         'a publish approval is confirmed by a signed-in person, not by an API key: ask a team member to confirm it in the console',
       );
+    // O-1 `deploy.production_publish_roles`: who may confirm a PRODUCTION publish (default: every role with deploy:write, i.e. the earlier behaviour)
+    if (environment === 'production' && this.policy && actorRole !== undefined) {
+      const pol = await this.policy.get(orgId);
+      if (!this.policy.canConfirmProductionPublish(pol, actorRole))
+        throw new ProblemException(
+          'forbidden',
+          `a production publish must be confirmed by one of: ${pol.productionPublishRoles.join(', ')} (organization deployment policy): ask one of them to confirm it`,
+          undefined,
+          { policy: 'deploy.production_publish_roles', allowedRoles: pol.productionPublishRoles },
+        );
+    }
     const id = uuidv7();
     let row: Row;
     try {
@@ -451,6 +467,8 @@ export class DeployService {
     userId: string,
     id: string,
     idempotencyKey: string,
+    /** O-2: `approvalId` confirms the rollback's OWN approval; `actorKind`/`actorRole` decide who may confirm it */
+    opts: { approvalId?: unknown; actorKind?: 'session' | 'api_key'; actorRole?: string } = {},
   ): Promise<DeploymentDto> {
     if (await this.webappOwns(orgId, id))
       return (await this.webapp!.rollback(orgId, userId, id)) as DeploymentDto;
@@ -464,6 +482,13 @@ export class DeployService {
       throw new ProblemException('invalid_state', 'there is no earlier deployment to roll back to');
     if (!this.publisher.available())
       throw new ProblemException('unsupported_capability', 'no hosting publish path is configured');
+    // O-2 `deploy.rollback_requires_own_approval` (default false = a rollback reuses the earlier approval): a PRODUCTION rollback then needs its own human approval
+    let rollbackApprovalId: string | null = null;
+    if (this.policy && d.environment === 'production') {
+      const pol = await this.policy.get(orgId);
+      if (pol.rollbackRequiresOwnApproval)
+        rollbackApprovalId = await this.rollbackApproval(orgId, userId, d, pol, opts);
+    }
     const nid = uuidv7();
     const row = await this.db
       .withOrg(orgId, async (c) => {
@@ -483,7 +508,7 @@ export class DeployService {
               d.id,
               d.id,
               prev.artifact_hash,
-              prev.approval_id,
+              rollbackApprovalId ?? prev.approval_id,
               `rollback:${idempotencyKey}`,
               this.cfg.dataRegion,
               userId,
@@ -517,6 +542,121 @@ export class DeployService {
     });
     this.kicker(orgId, op.id);
     return this.dto({ ...row, operation_id: op.id });
+  }
+
+  /**
+   * The rollback's OWN approval (O-2 switch on). First call: creates a pending approval bound to this exact rollback (deployment, target release, environment) and
+   * answers 403 `approval_required`. Second call with `approvalId`: a signed-in person in `productionPublishRoles` confirms it; the earlier release's approval is never reused.
+   */
+  private async rollbackApproval(
+    orgId: string,
+    userId: string,
+    d: DeploymentDto,
+    pol: Awaited<ReturnType<DeployPolicyService['get']>>,
+    opts: { approvalId?: unknown; actorKind?: 'session' | 'api_key'; actorRole?: string },
+  ): Promise<string> {
+    const payload = {
+      action: 'rollback',
+      deploymentId: d.id,
+      toDeploymentId: d.previousDeploymentId,
+      targetRef: d.target.hostingSiteId,
+      environment: d.environment,
+    };
+    const hash = actionHash(d.projectId, 'publish', payload);
+    if (opts.approvalId === undefined) {
+      const id = uuidv7();
+      await this.db.withOrg(orgId, (c) =>
+        c.query(
+          `INSERT INTO ai.approvals (id, org_id, project_id, kind, action_hash, summary, requested_by, expires_at) VALUES ($1,$2,$3,'publish',$4,$5,$6, now() + make_interval(hours => $7))`,
+          [
+            id,
+            orgId,
+            d.projectId,
+            hash,
+            JSON.stringify({
+              title: 'Roll back the site',
+              environment: d.environment,
+              fromDeploymentId: d.id,
+              toDeploymentId: d.previousDeploymentId,
+              costDisclosure: {
+                newHostingPlan: false,
+                note: 'a rollback serves the earlier release again; it adds no plan',
+              },
+              payload,
+            }),
+            userId,
+            this.cfg.approvalTtlHours,
+          ],
+        ),
+      );
+      throw new ProblemException(
+        'approval_required',
+        'a human must confirm this rollback (organization deployment policy): repeat the request with approvalId',
+        undefined,
+        {
+          approvalId: id,
+          kind: 'publish',
+          actionHash: hash,
+          policy: 'deploy.rollback_requires_own_approval',
+        },
+      );
+    }
+    if (typeof opts.approvalId !== 'string' || !UUID.test(opts.approvalId))
+      throw new ProblemException('validation_failed', 'approvalId must be a uuid');
+    if (opts.actorKind !== undefined && opts.actorKind !== 'session')
+      throw new ProblemException(
+        'forbidden',
+        'a rollback approval is confirmed by a signed-in person, not by an API key',
+      );
+    if (!this.policy!.canConfirmProductionPublish(pol, opts.actorRole))
+      throw new ProblemException(
+        'forbidden',
+        `a production rollback must be confirmed by one of: ${pol.productionPublishRoles.join(', ')} (organization deployment policy)`,
+        undefined,
+        { policy: 'deploy.production_publish_roles', allowedRoles: pol.productionPublishRoles },
+      );
+    const approvalId = opts.approvalId.toLowerCase();
+    await this.db.withOrg(orgId, async (c) => {
+      const a = (
+        await c.query(`SELECT * FROM ai.approvals WHERE id=$1 AND kind='publish' FOR UPDATE`, [
+          approvalId,
+        ])
+      ).rows[0] as Row | undefined;
+      if (!a) throw new ProblemException('not_found', 'approval not found');
+      if (a.action_hash !== hash)
+        throw new ProblemException(
+          'conflict',
+          'this approval was not requested for this rollback: request a new one',
+        );
+      if (a.state === 'approved') {
+        if (
+          (await c.query(`SELECT 1 FROM deploy.deployments WHERE approval_id=$1`, [a.id])).rows[0]
+        )
+          throw new ProblemException('conflict', 'this approval was already used');
+      } else if (a.state !== 'pending')
+        throw new ProblemException('invalid_state', `the approval is ${a.state}`);
+      if (new Date(a.expires_at as string).getTime() < Date.now()) {
+        await c.query(`UPDATE ai.approvals SET state='expired' WHERE id=$1 AND state='pending'`, [
+          a.id,
+        ]);
+        throw new ProblemException('approval_expired', 'the approval has expired');
+      }
+      if (a.state === 'pending')
+        await c.query(
+          `UPDATE ai.approvals SET state='approved', decided_by=$2, decided_at=now() WHERE id=$1`,
+          [a.id, userId],
+        );
+    });
+    await this.audit.record({
+      action: 'ai.approval.granted',
+      actorUserId: userId,
+      actorType: 'user',
+      orgId,
+      resource: { type: 'ai_approval', id: approvalId },
+      outcome: 'success',
+      detail: { kind: 'publish', projectId: d.projectId, purpose: 'rollback', deploymentId: d.id },
+    });
+    return approvalId;
   }
 
   /**
@@ -845,7 +985,8 @@ export class DeployService {
       { results: staged.results.filter((r) => r.status !== 200) },
     );
     if (!staged.ok) {
-      // nothing was switched: verify the previous artifact is still the one serving, then close as rolled back
+      // nothing was switched: drop the upload that failed its check (it must not linger on the node), verify the previous artifact is still the one serving, then close as rolled back
+      await this.publisher.discard(site, stagingRef).catch(() => undefined);
       const still = await this.publisher.activeHash(site);
       await this.log(orgId, id, 'warn', 'automatic rollback: the previous artifact keeps serving', {
         servingHash: still,

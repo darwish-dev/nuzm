@@ -18,6 +18,13 @@ import {
   loadDeployConfig,
   type DeployConfig,
 } from './internal/deploy.service';
+import { DeployPolicyService } from './internal/policy.service';
+import {
+  HostingTargetPublisher,
+  InMemoryArtifactTransport,
+  InMemoryHostingSiteOps,
+} from './internal/hosting-target';
+import { SIMULATED_STAGING_TARGET } from './internal/targets';
 import {
   InMemorySitePublisher,
   SitePublisherPort,
@@ -35,9 +42,24 @@ import {
     { provide: DEPLOY_CONFIG, useFactory: () => loadDeployConfig() },
     {
       provide: SitePublisherPort,
+      // `DEPLOY_PUBLISHER=releases` (local reference only) swaps in the release-layout target on the in-memory node: versioned releases, integrity read-back, atomic switch.
+      // Still SIMULATED. A real hosting node needs an artifact upload path that does not exist yet (HG-05); until then production has no publisher.
       useFactory: (cfg: AiConfig) =>
-        cfg.localReference ? new InMemorySitePublisher() : new UnavailableSitePublisher(),
+        !cfg.localReference
+          ? new UnavailableSitePublisher()
+          : process.env.DEPLOY_PUBLISHER === 'releases'
+            ? new HostingTargetPublisher(
+                new InMemoryHostingSiteOps(),
+                new InMemoryArtifactTransport(),
+                SIMULATED_STAGING_TARGET,
+              )
+            : new InMemorySitePublisher(),
       inject: [AI_CONFIG],
+    },
+    {
+      provide: DeployPolicyService,
+      useFactory: (db: Db, a: AuditSink) => new DeployPolicyService(db, a),
+      inject: [DB, AuditSink],
     },
     {
       provide: DeployService,
@@ -49,7 +71,8 @@ import {
         r: ResidencyService,
         c: CmsService,
         cfg: DeployConfig,
-      ) => new DeployService(db, a, o, p, r, c, cfg),
+        pol: DeployPolicyService,
+      ) => new DeployService(db, a, o, p, r, c, cfg, pol),
       inject: [
         DB,
         AuditSink,
@@ -58,10 +81,11 @@ import {
         ResidencyService,
         CmsService,
         DEPLOY_CONFIG,
+        DeployPolicyService,
       ],
     },
   ],
-  exports: [DeployService, SitePublisherPort],
+  exports: [DeployService, DeployPolicyService, SitePublisherPort],
 })
 export class DeployModule implements OnApplicationBootstrap, OnApplicationShutdown {
   private timer: NodeJS.Timeout | null = null;

@@ -111,3 +111,53 @@ None required of me. Optional (not in my ownership): a read-only preview-lifecyc
 
 ## 14. Escalations
 Owner decisions (not blocking): developer self-confirmation of a production publish and rollback-without-approval (see §9). Master: CONTRACT-1, CONTRACT-2 (incl. the `ownership.yaml` migration range) are required before this branch can merge and before the E2E leg can pass.
+
+---
+
+# Phase 2 — staging deployment preparation (2026-11-24)
+
+Everything below is **SIMULATED** (in-memory node) unless stated. **Nothing was verified on a real node. HG-05 and HG-06 are open. No paid resource, no live call, no production publish.** Plan: `docs/parallel/STAGING-DEPLOYMENT-PLAN.md`. Decision inputs: `docs/parallel/sessions/PHASE2-06-approval-inputs.md`. Contract: `docs/parallel/sessions/CONTRACT-5-deploy-policy-and-targets.md`. Migration used: **2180** (`deploy.org_policies`).
+
+## P2-A. Hosting line (read-only) and what it changed in the design
+Read with `git show`/`git diff` only, nothing merged, copied or cherry-picked: HestiaCP replaces CloudPanel (ADR-067 hosting, Proposed), allow-listed REST adapter NOT VERIFIED live, one Hestia account per site (`s-<hex>`), managed TLS via the panel, **no file upload in the REST API** (SFTP file manager listed as a later session), backups `unsupported`, isolation tests on a real node not built. Consequence: the target port needs only `findByToken` and `issueCertificate` from the hosting abstraction, plus a new `ArtifactTransport` for file placement. HestiaCP is shared hosting: static/PHP sites only, never arbitrary AI-generated server code (Session 04's isolated runtime). Per the Master's addendum, **no new dependency on `hosting/internal/agent/*` or the CloudPanel adapter paths**: the new code imports nothing from the hosting module.
+
+**Tests that touch hosting and must be re-derived after a join with the hosting line:** they seed `hosting.nodes`, `hosting.plan_definitions` and `hosting.sites` by raw SQL (the hosting line renames `cloudpanel_version` to `panel_version` and adds panel columns): `e2e/tests/fixtures/deploy.ts`, `deploy.int.spec.ts`, `deploy-s06.int.spec.ts`, `deploy-policy.int.spec.ts`, `deploy-releases.int.spec.ts`, and Session 07's `qa-deploy-approval.int.spec.ts`. None of mine opens a hosting node or agent screen. The hosting line also edits one comment in `deploy/internal/ports.ts` (a trivial conflict).
+
+## P2-B. Delivered
+| Item | Files | Status |
+|---|---|---|
+| Staging target model; project type → target for the 14 product types and the 3 builder types; evidence gates (a real target is refused without the approval reference, a preview domain and, when LIVE-VERIFIED, an evidence reference) | `internal/targets.ts` | unit-tested, SIMULATED |
+| Hosting-backed target composed from `HostingSiteOps` (subset of the hosting provider abstraction) + `ArtifactTransport`; release layout, integrity read-back, atomic switch, rollback by switching, retention (live never pruned); selectable with `DEPLOY_PUBLISHER=releases` (local reference only) | `internal/hosting-target.ts`, `deploy.module.ts` | SIMULATED |
+| Preview URLs, temporary subdomains, ADR-060 separation check | `internal/preview-url.ts` | unit-tested |
+| SSL configuration planner | `internal/ssl-flow.ts` | unit-tested; real issuance NOT BUILT/NOT VERIFIED |
+| Environment variables: vault references only, pasted secrets refused unechoed, log redaction | `internal/env-refs.ts` | unit-tested; **not wired into the request** (no consumer yet, G4 stays DEPENDENT) |
+| **O-1** `deploy.production_publish_roles`, **O-2** `deploy.rollback_requires_own_approval`: per-organization, owner/admin only, signed-in person only, audited (before/after), optimistic version; defaults = today's behaviour | `internal/policy.service.ts`, `deploy.service.ts`, controller `GET/PUT /v1/deployments/policy`, rollback body, migration `2180` | SIMULATED, 14 integration tests |
+| Failed staged smoke now **discards the staged upload** (found by the new release-target test: it lingered on the node) | `deploy.service.ts` | fixed, tested |
+| Synthetic-app staging rehearsal: script + test; `real` mode never degrades to simulated | `internal/rehearsal.ts`, `rehearsal.cli.ts` | SIMULATED PASS; real = BLOCKED (exit 3) |
+| Docs | staging plan, approval inputs, CONTRACT-5 | written |
+
+## P2-C. Which project types are deployable
+Deployable SIMULATED today (and NOT VERIFIED on a real node): website, landing, docs, webapp (static export). **Not deployable yet:** flutter (no web-export build recipe; device packages are store distribution), ecommerce, saas, erp, crm, fullstack, api, auth (all need Session 04's isolated runtime and M08 data), database (M08 managed database), mobile (store distribution, owner action). The endpoint's existing behaviour for non-website/webapp types is unchanged (422 `unsupported_capability`); the table is the design and is unit-tested against the planner's `PRODUCT_TYPES`.
+
+## P2-D. Tests run (actual)
+| Command | Result |
+|---|---|
+| `npx vitest run src/modules/deploy/internal` (apps/api) | 4 files, **40 passed** (targets/previews/SSL/env 22, hosting target 9, rehearsal 7, simulated health 2) |
+| `npx vitest run --config vitest.integration.config.mts src/modules/deploy src/qa/qa-deploy-approval.int.spec.ts` (own Postgres :54346) | 5 files, **48 passed** (deploy 12, deploy-s06 10, policy 14, releases 5, Session 07 approval 7), 503 s under machine load ~350 |
+| `npx eslint apps/api/src/modules/deploy`, `prettier --write` on my files | clean |
+| `npx tsx …/rehearsal.cli.ts` | PASS (SIMULATED), exit 0; `STAGING_MODE=real` → BLOCKED, exit 3 |
+| `npx tsc --noEmit` (apps/api) | see P2-F |
+These integration runs needed the migration range in `spec/db/ownership.yaml`; I applied it **locally and uncommitted** and reverted it (patch in CONTRACT-5). Not run: browser E2E (no new spec: the existing `10-deploy-simulated.spec.ts` covers the console path; an E2E for the O-1 refusal needs a developer login the dev IdP picker may not offer), repo-wide suites, `pnpm verify`.
+
+## P2-E. Blockers and what continues
+| Blocker | Dependency | Continues meanwhile |
+|---|---|---|
+| Real artifact upload path (SFTP) | owner decision: which line owns it (hosting line recommended) + HG-05/HG-06 | everything else is done |
+| Hestia `HostingSiteOps` mapping | hosting line accepted/merged | port and tests ready |
+| Real staging run (12 checks) | HG-05, HG-06, preview domain | rehearsal runs SIMULATED |
+| Spec/SDK/manifest for policy routes and the table | Master applies CONTRACT-5; `pnpm spec:drift` reports the two routes until then, the migration runner refuses 2180 without the range | none |
+| Server app types | Session 04 runtime, M08 | none |
+| UI for the policy switches and a refusal message naming the policy | not requested; the API returns `policy` and `allowedRoles` | optional follow-up |
+
+## P2-F. Head
+Commit `42107c5d` on `feature/ai-deployment` (on top of integration `39658725`). The `apps/api` typecheck shows only the known worktree-only error in `cloud/internal/adapter-registry.ts` (a missing nested `node_modules` in this clone, not my files); a type error in my policy spec was found and fixed, and that spec re-passed 14/14.

@@ -6,9 +6,9 @@ const mk = (cfg: Partial<QueueConfig> = {}) =>
   new ExecutionQueue<string>({ ...DEFAULT_QUEUE_CONFIG, ...cfg }, () => t);
 const add = (q: ExecutionQueue<string>, org: string, n: string) =>
   q.enqueue({ orgId: org, runId: `run-${n}`, idempotencyKey: `key-${org}-${n}`, payload: n });
-const must = <T>(r: { ok: boolean } & T) => {
+const must = (r: ReturnType<ExecutionQueue<string>['enqueue']>) => {
   if (!r.ok) throw new Error('expected ok');
-  return r as Extract<T, object>;
+  return r;
 };
 const allow = () => 5;
 

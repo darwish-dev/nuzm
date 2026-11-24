@@ -74,3 +74,6 @@ Schemas (`components/schemas`): `AiBenchmarksOverview` (object, `enabled: boolea
 
 ## Tests added
 `apps/api/src/modules/benchmarks/internal/benchmarks.service.spec.ts` (11), `benchmarks.int.spec.ts` (4, real Postgres, RLS and append-only), admin `lib/benchmarks.spec.ts` and `components/benchmarks-dashboard.spec.tsx`. After applying: `pnpm spec:lint`, `pnpm spec:drift`, `pnpm sdk:generate && pnpm sdk:check`. The admin page reads the overview through `apiDownload` today and can switch to the typed client afterwards (a one-line change, listed in REPORT-03).
+
+## Applied (Session 03, on the Master's temporary authorization, after merging integration/ai-engine)
+Applied on feature/ai-benchmarks; sdk was NOT regenerated (Master does that once). See REPORT-03 "Integration batch 2" for the checks seen.

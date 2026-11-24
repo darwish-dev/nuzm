@@ -6,7 +6,7 @@ export function AiAdminTabs({
   current,
 }: {
   locale: Locale;
-  current: 'model-providers' | 'runs' | 'quality' | 'skills';
+  current: 'model-providers' | 'runs' | 'quality' | 'skills' | 'benchmarks';
 }) {
   const base = `/${locale}/ai`;
   const tabs = [
@@ -14,6 +14,7 @@ export function AiAdminTabs({
     { key: 'runs', href: `${base}/runs` },
     { key: 'quality', href: `${base}/quality` },
     { key: 'skills', href: `${base}/skills` },
+    { key: 'benchmarks', href: `${base}/benchmarks` },
   ] as const;
   return (
     <nav aria-label={t(locale, 'aia.nav')} className="nz-row">

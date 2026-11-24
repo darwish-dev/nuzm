@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@nuzm/i18n';
 import { ForbiddenState, PageTitle } from '@nuzm/ui';
+import { AiAdminTabs } from '../../../../../components/AiAdminTabs';
 import { BenchmarksDashboard } from '../../../../../components/benchmarks-dashboard';
 import { parseOverview } from '../../../../../lib/benchmarks';
 import { bt } from '../../../../../lib/benchmarks-text';
@@ -41,6 +42,7 @@ export default async function AiBenchmarks({ params }: { params: Promise<{ local
   return (
     <>
       <PageTitle>{bt(locale, 'title')}</PageTitle>
+      <AiAdminTabs locale={locale} current="benchmarks" />
       {body}
     </>
   );

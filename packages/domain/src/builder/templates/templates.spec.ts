@@ -205,3 +205,20 @@ describe('template library', () => {
     expect(m.schemaVersion).toBe(1);
   });
 });
+
+describe('SEO titles name the business (P3-S04)', () => {
+  for (const t of TEMPLATES)
+    it(`${t.id}: inner pages are "<page> | <business>" within 70 characters, the home headline is untouched`, () => {
+      const m = t.build({ name: { ar: 'نظم', en: 'Nuzm' }, locales: ['ar', 'en'] });
+      for (const p of m.pages) {
+        for (const l of ['ar', 'en'] as const) {
+          const title = p.seo?.title?.[l] ?? '';
+          expect(title.length, `${p.id}.${l}`).toBeLessThanOrEqual(70);
+          if (p.slug === 'home') expect(title, `${p.id}.${l}`).not.toContain(' | ');
+          else expect(title, `${p.id}.${l}`).toContain(m.brand.name[l]!);
+        }
+      }
+      const titles = m.pages.map((p) => p.seo?.title?.en);
+      expect(new Set(titles).size).toBe(titles.length);
+    });
+});

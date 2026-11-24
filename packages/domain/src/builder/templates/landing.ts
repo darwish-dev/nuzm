@@ -6,7 +6,7 @@ import { L, defineTemplate } from './helpers';
  */
 export const landing = defineTemplate({
   id: 'landing',
-  version: 1,
+  version: 2,
   category: 'landing',
   name: L('صفحة هبوط', 'Landing page'),
   description: L(
@@ -42,7 +42,11 @@ export const landing = defineTemplate({
         L('لقطة ٢', 'Shot 2'),
         L('المنتج من زاوية مختلفة', 'The product from a different angle'),
       ),
-      k.img('ld-g3', L('لقطة ٣', 'Shot 3'), L('تفصيل من التصميم', 'A detail of the design')),
+      k.img(
+        'ld-g3',
+        L('لقطة ٣', 'Shot 3'),
+        L('صورة مقرّبة لتفصيل في تصميم المنتج', 'A detail of the design'),
+      ),
     ],
     forms: [k.form('general')],
     pages: [

@@ -434,11 +434,24 @@ export function defineTemplate(spec: TemplateSpec): SiteTemplate {
         ar: clip(given.ar || anyName, 80),
         en: clip(given.en || anyName, 80),
       };
+      // A search result and a browser tab need to say WHICH business a page belongs to: inner pages get `<page title> | <business name>` (unless the title already
+      // names it or the result would pass 70 characters, which search engines cut). The home page keeps its own headline, the renderer adds the site name there.
+      const withBrand = (title: Localized): Localized =>
+        Object.fromEntries(
+          Object.entries(title).map(([l, t]) => {
+            const brand = name[l as Locale] ?? '';
+            const full = `${t} | ${brand}`;
+            return [l, !brand || t.includes(brand) || full.length > 70 ? t : full];
+          }),
+        ) as Localized;
       const pages: Page[] = content.pages.map((p) => ({
         id: p.kind,
         slug: p.kind === 'home' ? 'home' : p.kind,
         title: p.title,
-        seo: { title: p.seoTitle, description: p.seoDescription },
+        seo: {
+          title: p.kind === 'home' ? p.seoTitle : withBrand(p.seoTitle),
+          description: p.seoDescription,
+        },
         sections: p.sections,
       }));
       const footerLinks = pages

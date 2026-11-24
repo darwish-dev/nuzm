@@ -3,7 +3,7 @@ import { L, defineTemplate } from './helpers';
 /** Generic professional-services business (also the fallback for 'other'): services, packages with SAMPLE amounts, FAQ, quote request. */
 export const services = defineTemplate({
   id: 'services',
-  version: 1,
+  version: 2,
   category: 'services',
   name: L('شركة خدمات', 'Services business'),
   description: L(

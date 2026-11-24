@@ -3,7 +3,7 @@ import { L, defineTemplate } from './helpers';
 /** Retail / shop showcase: product gallery, shipping and return FAQ. No prices, no stock or delivery-time promises. */
 export const retail = defineTemplate({
   id: 'retail',
-  version: 1,
+  version: 2,
   category: 'retail',
   name: L('متجر', 'Shop or store'),
   description: L(
@@ -220,7 +220,7 @@ export const retail = defineTemplate({
         [
           'الأسئلة الشائعة',
           'Frequently asked questions',
-          'إجابات عن أسئلة الطلب والتوصيل والدفع والاستبدال.',
+          'إجابات واضحة عن أسئلة الطلب والتوصيل وطرق الدفع وسياسة الاستبدال والإرجاع.',
           'Answers about ordering, delivery, payment and exchanges.',
         ],
         [

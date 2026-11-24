@@ -71,6 +71,14 @@ apply() {
 
 conf_dir_included() { nginx_dump | grep -qE 'include\s+/etc/nginx/conf\.d/\*\.conf'; }
 
+# how plain-HTTP requests to each name are answered (code + redirect target); compared before and after the cutover
+probe_http() {
+  local h
+  for h in www.nuzm.dev nuzm.dev; do
+    printf '%s %s\n' "$h" "$(curl -s -o /dev/null -m 5 -w '%{http_code} %{redirect_url}' --resolve "$h:80:127.0.0.1" "http://$h/x?y=1" || true)"
+  done
+}
+
 status_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$@" || true; }
 
 case "$MODE" in
@@ -125,7 +133,6 @@ server {
   ssl_certificate     /etc/letsencrypt/live/$ADMIN_HOST/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/$ADMIN_HOST/privkey.pem;
   ssl_protocols TLSv1.2 TLSv1.3;
-  add_header Strict-Transport-Security "max-age=31536000" always;
   client_max_body_size 25m;
   location / {
     proxy_pass http://127.0.0.1:3001;
@@ -157,6 +164,8 @@ www)
   [ -n "$CERT" ] && [ -r "$CERT" ] && [ -r "$KEY" ] || die "no readable certificate/key found in the old vhost; refusing to guess"
   echo "old vhost file(s):"; cut -d'|' -f1 <<<"$OLD" | sed 's/^/  /'
   echo "certificate kept: $CERT"
+  PRE="$(probe_http)"
+  echo "HTTP routing before:"; echo "$PRE" | sed 's/^/  /'
   backup_nginx
   mkdir -p "$STATE" "$WEBROOT"
   : > "$STATE/MANIFEST-$TS"
@@ -173,7 +182,7 @@ server {
   listen 80; listen [::]:80;
   server_name $WWW_NAMES;
   location /.well-known/acme-challenge/ { root $WEBROOT; }
-  location / { return 301 https://www.nuzm.dev\$request_uri; }
+  location / { return 301 https://\$host\$request_uri; }
 }
 server {
   listen 443 ssl http2; listen [::]:443 ssl http2;
@@ -181,7 +190,6 @@ server {
   ssl_certificate     $CERT;
   ssl_certificate_key $KEY;
   ssl_protocols TLSv1.2 TLSv1.3;
-  add_header Strict-Transport-Security "max-age=31536000" always;
   client_max_body_size 25m;
   location / {
     proxy_pass http://127.0.0.1:3000;
@@ -194,9 +202,16 @@ server {
 EOF
   UNDO="rm -f $F; while IFS='|' read -r o d; do mv \"\$d\" \"\$o\"; done < $STATE/MANIFEST-$TS"
   apply "$UNDO"
+  POST="$(probe_http)"
+  echo "HTTP routing after:"; echo "$POST" | sed 's/^/  /'
+  if [ "$PRE" != "$POST" ]; then
+    echo "routing differs from the old vhost: undoing the cutover" >&2
+    eval "$UNDO"; nginx -t >/dev/null 2>&1 && systemctl reload nginx
+    die "cutover undone; the old www/nuzm.dev vhost is back"
+  fi
   say "result"
   echo "https://www.nuzm.dev (via this server) -> $(status_code -k --resolve www.nuzm.dev:443:127.0.0.1 https://www.nuzm.dev/)"
-  certbot renew --dry-run 2>&1 | tail -3 || true
+  certbot renew --dry-run >/tmp/nuzm-certbot-dry-run.log 2>&1 && echo "certificate renewal dry run: OK" || echo "WARNING: certificate renewal dry run FAILED (see /tmp/nuzm-certbot-dry-run.log); the cutover itself is fine, but renewal of the existing certificate may need attention"
   echo "If anything looks wrong: bash $0 rollback"
   ;;
 

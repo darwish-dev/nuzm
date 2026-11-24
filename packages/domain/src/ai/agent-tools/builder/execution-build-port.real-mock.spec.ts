@@ -42,6 +42,15 @@ describe('ExecutionBuildPort over the real MockExecutionPort', () => {
     // the argv is the policy's fixed one, never anything the builder supplied
     expect(mock.calls[0]!.decision.argv).toEqual(['npx', '--no-install', 'tsc', '--noEmit']);
   });
+  it('preflight is the real policy decision and runs nothing', async () => {
+    const mock = createMockExecutionPort(ctx(['typecheck']));
+    const ok = await adapt(mock).preflight(req);
+    expect(ok).toEqual({ allowed: true, reasons: [], requiresApproval: false });
+    const no = await adapt(createMockExecutionPort(ctx([]))).preflight(req);
+    expect(no.allowed).toBe(false);
+    expect(no.reasons).toContain('profile_not_enabled');
+    expect(mock.calls).toEqual([]);
+  });
   it('a profile the organization has not enabled is refused by the real policy and nothing runs', async () => {
     const mock = createMockExecutionPort(ctx([]));
     const r = await adapt(mock).build(req);

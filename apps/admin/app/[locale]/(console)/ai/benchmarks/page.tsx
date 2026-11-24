@@ -3,7 +3,7 @@ import { isLocale } from '@nuzm/i18n';
 import { ForbiddenState, PageTitle } from '@nuzm/ui';
 import { AiAdminTabs } from '../../../../../components/AiAdminTabs';
 import { BenchmarksDashboard } from '../../../../../components/benchmarks-dashboard';
-import { parseOverview } from '../../../../../lib/benchmarks';
+import { parseOverview, parseScorecard, type ScorecardRow } from '../../../../../lib/benchmarks';
 import { bt } from '../../../../../lib/benchmarks-text';
 import { apiDownload, requireStaff } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
@@ -27,14 +27,26 @@ export default async function AiBenchmarks({ params }: { params: Promise<{ local
     locale,
     async () => {
       const r = await apiDownload('/v1/admin/ai/benchmarks');
-      if (r.status === 404) return parseOverview(null);
+      if (r.status === 404)
+        return { overview: parseOverview(null), scorecard: [] as ScorecardRow[] };
       if (!r.ok) throw new Error(`benchmarks overview: ${r.status}`);
-      return parseOverview(await r.json());
+      const overview = parseOverview(await r.json());
+      // the scorecard belongs to the latest stored run; its absence (or a failed read) leaves the rest of the page intact
+      let scorecard: ScorecardRow[] = [];
+      const latest = overview.runs[0];
+      if (latest) {
+        const d = await apiDownload(
+          `/v1/admin/ai/benchmarks/runs/${encodeURIComponent(latest.id)}`,
+        );
+        if (d.ok) scorecard = parseScorecard(await d.json());
+      }
+      return { overview, scorecard };
     },
-    (overview) => (
+    ({ overview, scorecard }) => (
       <BenchmarksDashboard
         locale={locale}
         overview={overview}
+        scorecard={scorecard}
         canRecord={s.can('admin:ai:manage')}
       />
     ),

@@ -15,7 +15,7 @@ import type { GoldenTask, TaskKind } from './types';
  * recording both name the dataset version they belong to, so results of different versions are never mixed. The version is semantic: a task added or a revision bumped is a
  * minor change, a task removed or a check relaxed is major (see `classifyChange`). Changing a task's content without raising its `revision` is refused by `diffManifests`.
  */
-export const DATASET_VERSION = '2.0.0';
+export const DATASET_VERSION = '2.1.0';
 
 export interface ManifestEntry {
   id: string;

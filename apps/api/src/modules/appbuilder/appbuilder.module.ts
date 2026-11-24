@@ -1,3 +1,4 @@
+import { BuilderPolicyController } from './builder-policy.controller';
 import {
   Module,
   type OnApplicationBootstrap,
@@ -49,6 +50,15 @@ import { BuilderPlanController } from './builder-plan.controller';
 import { ChangeToolsController } from './change-tools.controller';
 import { ChangeToolsService } from './internal/changes/change-tools.service';
 import { BuilderInsightService } from './internal/changes/builder-insight.service';
+import { ContentAccessService } from './internal/changes/content-access.service';
+import {
+  ExecutionBudgetService,
+  ExecutionGate,
+  ReleaseBuildBudget,
+} from './internal/lifecycle/execution-budget.service';
+import { BuilderLifecycleService, mockBuildPortFor } from './internal/lifecycle/lifecycle.service';
+import { PolicyService } from '../access';
+import { QuotaService } from '../billing';
 import { WebappChangesDelegate, WebappDeployDelegateImpl } from './internal/delegates';
 import { AppDeploymentService, DEFAULT_DEPLOY_CONFIG } from './internal/deploy/deployment.service';
 import {
@@ -269,9 +279,13 @@ class LogSecurityAlerts extends SecurityAlertPort {
  * Feature flag `app_builder.enabled` (default OFF); M09-owned routes are stand-ins behind `app_builder.m09_stubs` (dev only). No provider and no isolating runtime is chosen
  * (D-21 OPEN): production answers 404 (M09 not connected) / 503 (no sandbox capacity).
  */
+/** the sandbox that builds a release (see `ReleaseBuildBudget`) */
+const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
+
 @Module({
   imports: [IdentityModule, BuilderModule, KnowledgeModule],
   controllers: [
+    BuilderPolicyController,
     ChangeToolsController,
     BuilderPlanController,
     BuilderInsightController,
@@ -321,6 +335,85 @@ class LogSecurityAlerts extends SecurityAlertPort {
         s: SessionService,
       ) => new GenerationService(db, a, t, p, r, s),
       inject: [DB, AuditSink, CustomerTemplateService, ProjectsPort, RunService, SessionService],
+    },
+    // ---- S-05 Phase 2: execution budget separated from inference, O-9 content access, the builder lifecycle ------------------------------
+    {
+      provide: ExecutionGate,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        res: ResidencyService,
+        ob: OrgBudgetPort,
+        q: QuotaService,
+      ) =>
+        new ExecutionGate(db, a, res, ob, q, {
+          nodeRegion: DEFAULT_SANDBOX_CONFIG.nodeRegion,
+          concurrentPerOrg: DEFAULT_SANDBOX_CONFIG.concurrentPerOrg,
+        }),
+      inject: [DB, AuditSink, ResidencyService, OrgBudgetPort, QuotaService],
+    },
+    {
+      provide: ExecutionBudgetService,
+      useFactory: (db: Db, a: AuditSink, g: ExecutionGate) =>
+        new ExecutionBudgetService(g, db, a, DEFAULT_SANDBOX_CONFIG.nodeRegion),
+      inject: [DB, AuditSink, ExecutionGate],
+    },
+    {
+      provide: ContentAccessService,
+      useFactory: (db: Db, a: AuditSink) => new ContentAccessService(db, a),
+      inject: [DB, AuditSink],
+    },
+    {
+      // the sandbox that builds a RELEASE: the same runtime and database as `SandboxService`, a budget port that asks the build allowance instead of the AI wallet (switch `builder.billing_separation`, default off = today)
+      provide: RELEASE_BUILD_SANDBOX,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        rt: SandboxRuntime,
+        res: ResidencyService,
+        g: ExecutionGate,
+        c: CanaryRegistry,
+      ) => new SandboxService(db, a, rt, res, new ReleaseBuildBudget(g), c, DEFAULT_SANDBOX_CONFIG),
+      inject: [DB, AuditSink, SandboxRuntime, ResidencyService, ExecutionGate, CanaryRegistry],
+    },
+    {
+      provide: BuilderLifecycleService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        st: PgRunStore,
+        p: ProjectsPort,
+        ch: ChangeService,
+        ap: ApprovalService,
+        b: ExecutionBudgetService,
+        gw: GatewayService,
+        cfg: AiConfig,
+      ) => {
+        const policy = new PolicyService(db);
+        return new BuilderLifecycleService({
+          db,
+          audit: a,
+          store: st,
+          projects: p,
+          changes: ch,
+          approvals: ap,
+          budget: b,
+          permissions: (u, o) => policy.userPermissions(u, o),
+          buildPort: mockBuildPortFor(cfg.localReference),
+          gateway: gw,
+        });
+      },
+      inject: [
+        DB,
+        AuditSink,
+        PgRunStore,
+        ProjectsPort,
+        ChangeService,
+        ApprovalService,
+        ExecutionBudgetService,
+        GatewayService,
+        AI_CONFIG,
+      ],
     },
     {
       provide: AgentLoopRunner,
@@ -552,7 +645,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
         DeployTargetPort,
         ReleaseStorePort,
         HealthProbePort,
-        SandboxService,
+        RELEASE_BUILD_SANDBOX,
         ProjectsPort,
         CanaryRegistry,
         ResidencyService,
@@ -684,11 +777,19 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(AgentLoopRunner) private readonly agentLoop: AgentLoopRunner,
     @Inject(AgentWorkspaceRegistry) private readonly agentWorkspaces: AgentWorkspaceRegistry,
     @Inject(GenerationService) private readonly generation: GenerationService,
+    @Inject(BuilderLifecycleService) private readonly lifecycle: BuilderLifecycleService,
   ) {}
   onApplicationBootstrap() {
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
     this.registry.register(
-      new WebappRunHandler(this.store, this.projects, this.graph, this.adapt, this.agentLoop),
+      new WebappRunHandler(
+        this.store,
+        this.projects,
+        this.graph,
+        this.adapt,
+        this.agentLoop,
+        this.lifecycle,
+      ),
     );
     // S-AG2: the read-only agent tools read a web-app project through this provider (and nothing else)
     this.agentWorkspaces.register('webapp', new AgentProjectWorkspace(this.generation));

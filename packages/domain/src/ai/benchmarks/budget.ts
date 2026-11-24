@@ -41,6 +41,16 @@ export function validateBudget(b: BenchmarkBudget | null | undefined): BudgetChe
     reasons.push('maxRequests must be a positive integer');
   return reasons.length === 0 ? { ok: true } : { ok: false, reasons };
 }
+/** A price card with a zero, negative, fractional or missing price would make every cost cap meaningless (a worst case of 0 fits any budget): it is refused, never used. */
+export function priceCardProblem(p: PriceCard | null | undefined): string | null {
+  if (!p) return 'no price card';
+  if (typeof p.currency !== 'string' || !/^[A-Z]{3}$/.test(p.currency))
+    return 'the price card currency must be an ISO code';
+  for (const v of [p.minorPerMillionInput, p.minorPerMillionOutput])
+    if (typeof v !== 'string' || !/^[1-9]\d*$/.test(v))
+      return 'the price card prices must be positive integer strings (minor units per million tokens)';
+  return null;
+}
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
 /** Money for tokens, rounded up to a whole minor unit. */
 export function costMinor(tokensIn: number, tokensOut: number, p: PriceCard): bigint {
@@ -67,6 +77,8 @@ export function preflightBudget(
 ): BudgetCheck & { worstCase?: { tokens: number; requests: number; costMinor: string } } {
   const v = validateBudget(b);
   if (!v.ok) return v;
+  const priceProblem = priceCardProblem(p);
+  if (priceProblem) return { ok: false, reasons: [priceProblem] };
   const budget = b!;
   const reasons: string[] = [];
   if (p.currency !== budget.currency)
@@ -99,6 +111,8 @@ export class BudgetLedger {
   ) {
     const v = validateBudget(budget);
     if (!v.ok) throw new Error(`invalid benchmark budget: ${v.reasons.join('; ')}`);
+    const pp = priceCardProblem(price);
+    if (pp) throw new Error(`invalid price card: ${pp}`);
     if (price.currency !== budget.currency)
       throw new Error('price card and budget use different currencies');
   }

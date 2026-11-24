@@ -26,10 +26,20 @@ export interface BuildResult {
   artifacts: ArtifactRef[];
   durationMs: number;
 }
+export interface Preflight {
+  allowed: boolean;
+  reasons: string[];
+  requiresApproval: boolean;
+}
 export interface BuildPort {
   /** 'MOCK' results are plumbing evidence only: never evidence that code builds */
   readonly origin: 'MOCK' | 'REAL';
   build(req: BuildRequest): Promise<BuildResult>;
+  /**
+   * OPTIONAL dry decision: would the gateway's policy allow this profile for this organization, and would it need a person's approval? Nothing runs. The lifecycle's
+   * `execution_request` step uses it so a refusal shows up BEFORE the build step, not as a failed build. A port without it is treated as "no early answer".
+   */
+  preflight?(req: BuildRequest): Promise<Preflight>;
 }
 
 export type BuildScript =
@@ -58,6 +68,10 @@ export class ScriptedBuildPort implements BuildPort {
   scriptDefault(r: BuildScript | null): this {
     this.fallback = r;
     return this;
+  }
+  /** scripted ports allow everything: the policy is the real port's business */
+  async preflight(): Promise<Preflight> {
+    return { allowed: true, reasons: [], requiresApproval: false };
   }
   async build(req: BuildRequest): Promise<BuildResult> {
     this.calls.push(req);

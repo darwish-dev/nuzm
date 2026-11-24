@@ -8,6 +8,7 @@ import type { ProjectsPort } from './ports/m09';
 import type { TestFixService } from './tests/test-fix.service';
 import type { AgentLoopRunner } from './studio/agent-loop';
 import type { TemplateAdaptRunner } from './studio/template-adapt';
+import type { BuilderLifecycleService } from './lifecycle/lifecycle.service';
 
 /**
  * The run kinds `webapp` and `test-fix` as handlers of M09's `RunKindRegistry` (M09 contract §3: "M10 registers `webapp|mobile|test-fix` the same way"). M09's segment
@@ -59,10 +60,35 @@ export class WebappRunHandler extends AppRunHandler {
     private readonly adapt?: TemplateAdaptRunner,
     /** S-AG3: the agent loop (`input.agentic`); absent where the knowledge module is not wired */
     private readonly agentLoop?: AgentLoopRunner,
+    /** PHASE-2 S05: the builder agent loop (`input.builderLifecycle`); absent where it is not wired */
+    private readonly lifecycle?: BuilderLifecycleService,
   ) {
     super(store, projects);
   }
   protected validateKind(input: Record<string, unknown>): void {
+    if (input.builderLifecycle !== undefined) {
+      if (input.builderLifecycle !== true)
+        throw new ProblemException('validation_failed', 'input.builderLifecycle must be true');
+      for (const k of ['templatePlanId', 'agentic'])
+        if (input[k] !== undefined)
+          throw new ProblemException('validation_failed', `input.builderLifecycle excludes ${k}`);
+      const b = input.brief as { prompt?: unknown } | undefined;
+      if (
+        typeof b !== 'object' ||
+        b === null ||
+        typeof b.prompt !== 'string' ||
+        b.prompt.trim().length < 1 ||
+        b.prompt.length > 4000
+      )
+        throw new ProblemException(
+          'validation_failed',
+          'a builder lifecycle run needs input.brief.prompt of 1 to 4000 characters',
+        );
+      const r = input.maxRepairRounds;
+      if (r !== undefined && (!Number.isInteger(r) || (r as number) < 1 || (r as number) > 3))
+        throw new ProblemException('validation_failed', 'input.maxRepairRounds must be 1..3');
+      return;
+    }
     const plan = input.templatePlanId;
     if (plan !== undefined) {
       if (typeof plan !== 'string' || !/^[0-9a-f-]{36}$/i.test(plan))
@@ -89,6 +115,14 @@ export class WebappRunHandler extends AppRunHandler {
   }
   async execute(ctx: RunContext): Promise<void> {
     await this.webappProject(ctx);
+    if (ctx.run.input.builderLifecycle === true) {
+      if (!this.lifecycle)
+        throw new ProblemException(
+          'unsupported_capability',
+          'the builder lifecycle is not available',
+        );
+      return this.lifecycle.run(ctx);
+    }
     if (ctx.run.input.templatePlanId !== undefined) {
       if (!this.adapt)
         throw new ProblemException(

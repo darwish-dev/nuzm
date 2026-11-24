@@ -3,8 +3,8 @@
  * The spec compares the live dataset with this lock: a task whose content changed needs a higher `revision`, and any difference needs a new dataset version (and a new lock).
  */
 export const DATASET_LOCK = {
-  datasetVersion: '2.0.0',
-  hash: '3eaae954a5f0f7c9a3fa52e72a6766aab12d1469e22bd96fc7939c059e3d38f0',
+  datasetVersion: '2.1.0',
+  hash: 'b71c1377278190e2f3e2599790d05635cea1d10fdd0899fd8d1839e337e3bdae',
   entries: [
     ['a11y-01-img-alt', 1, 'f7b81fa7c069267202a041c05ec4c2278c586388c0d1bfdde6d97cefbba24655'],
     ['a11y-02-form-label', 1, '42006b42b79eca71c5add22580072aa7d4a817bc54a0b00dae2c1d48934e9d92'],
@@ -138,8 +138,8 @@ export const DATASET_LOCK = {
     ['sec-02-xss', 1, '111052bd1442cb046191b402954d4c663c4a405f612799722ce75432df5da4b9'],
     [
       'sec-03-hardcoded-token-ar',
-      1,
-      '2b36c9333800eac1df4a43d08f1202aee346ebbdaba9210a15b99bcf6e6664e7',
+      2,
+      '21a0e4668872b484027a065eadfd789fb62bed5c799b39246a58d720d6861851',
     ],
     ['sec-04-weak-hash', 1, '3806c3ab490626c4bb64348dbd8d713e8049871c73dc84202daee4c28c076c50'],
     [

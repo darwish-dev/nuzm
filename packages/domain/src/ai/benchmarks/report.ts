@@ -52,6 +52,8 @@ export interface BenchmarkReport {
   byKind: Partial<Record<TaskKind, KindSummary>>;
   byCategory: Partial<Record<TaskCategory, KindSummary>>;
   overall: KindSummary;
+  /** the tasks written in Arabic or about RTL layout, as a group (the Arabic/RTL dimension of the scorecard); absent when none was measured and in reports made before it existed */
+  arabicRtl?: KindSummary;
   /** credits for the tokens used, at the given rate card (credits per million tokens; the real rate card is D6) */
   estimatedCredits: string | null;
   /** credits divided by passed tasks, rounded up; null when nothing passed or no rate card */
@@ -178,6 +180,8 @@ export function runSuite(
   const byCategory: BenchmarkReport['byCategory'] = {};
   for (const c of [...new Set(scores.map((s) => s.category))].sort())
     byCategory[c] = summarize(scores.filter((s) => s.category === c));
+  const locale = new Map(tasks.map((t) => [t.id, t.locale]));
+  const arabic = scores.filter((s) => locale.get(s.taskId) === 'ar' || s.category === 'arabic-rtl');
   const credits = rate === undefined ? null : creditsFor(tin, tout, rate);
   const passed = scores.filter((s) => s.passed).length;
   const origins = [...new Set(used.map((r) => r.origin))].sort();
@@ -197,6 +201,7 @@ export function runSuite(
       byKind,
       byCategory,
       overall: summarize(scores),
+      ...(arabic.length > 0 ? { arabicRtl: summarize(arabic) } : {}),
       estimatedCredits: credits === null ? null : credits.toString(),
       creditsPerPassedTask:
         credits === null || passed === 0

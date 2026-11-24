@@ -6,6 +6,12 @@ import {
   type ProducedFile,
 } from '../artifacts';
 import { checkRunEnv, checkWorkspaceFiles } from '../env-guard';
+import {
+  DEFAULT_CLEANUP_POLICY,
+  planCleanup,
+  type CleanupPolicy,
+  type WorkspaceRecord,
+} from '../cleanup';
 import { ResourceMonitor } from '../monitor';
 import { decideExec, type ExecContext, type ExecDecision, type ExecRequest } from '../policy';
 import type { ExecutionOutcome, ExecutionPort, ExecutionRunContext, PortOrigin } from '../port';
@@ -311,6 +317,65 @@ export class RealRuntimeService {
     }
     if (best && best.free > 0) return best.s;
     return { refused: sawAny ? 'no_capacity' : 'no_attested_node' };
+  }
+
+  /**
+   * Restart recovery and orphan reaping: ask every node (quarantined ones too: that is where leftovers are most likely) which workspaces it holds, plan with the shared cleanup
+   * policy, and destroy the ones that no run of THIS process owns. A workspace of a live run is never touched. A node that cannot destroy one is quarantined.
+   */
+  async reapOrphans(
+    policy: CleanupPolicy = DEFAULT_CLEANUP_POLICY,
+  ): Promise<{ reaped: number; failed: number; unreachable: string[] }> {
+    const owned = new Set([...this.active.values()].map((a) => a.workspaceId));
+    let reaped = 0;
+    let failed = 0;
+    const unreachable: string[] = [];
+    for (const s of this.nodes) {
+      let held: Awaited<ReturnType<WorkspaceRuntime['listWorkspaces']>>;
+      try {
+        held = await s.node.runtime.listWorkspaces();
+      } catch {
+        unreachable.push(s.node.nodeId);
+        continue;
+      }
+      const records: WorkspaceRecord[] = held
+        .filter((w) => !owned.has(w.workspaceId))
+        .map((w) => ({
+          id: w.workspaceId,
+          orgId: w.orgId,
+          runId: w.runId,
+          state: 'ready',
+          createdAt: w.createdAt,
+          lastActivityAt: w.createdAt,
+          jobId: null,
+          jobState: null,
+          jobEndedAt: null,
+        }));
+      for (const a of planCleanup(records, this.cfg.now(), policy)) {
+        try {
+          await s.node.runtime.destroyWorkspace(a.workspaceId);
+          reaped++;
+          this.emit({
+            type: 'cleanup_ok',
+            nodeId: s.node.nodeId,
+            orgId: a.orgId,
+            runId: a.runId,
+            detail: { reason: a.reason },
+          });
+        } catch {
+          failed++;
+          this.emit({
+            type: 'cleanup_failed',
+            nodeId: s.node.nodeId,
+            orgId: a.orgId,
+            runId: a.runId,
+            detail: { reason: a.reason },
+          });
+          this.quarantine(s.node.nodeId, 'cleanup_failed');
+        }
+      }
+    }
+    return { reaped, failed, unreachable };
   }
 
   /** the runtime part of the emergency-termination ports (the rest - queue, approvals, marking - belongs to the orchestrator side) */

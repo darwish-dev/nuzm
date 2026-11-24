@@ -520,4 +520,39 @@ describe('RealRuntimePort.run (simulated node: nothing is executed)', () => {
     for (const m of ['OUTPUT-MARKER-1', 'CONTENT-MARKER-2', 'SEED-MARKER-3', '/usr/local/bin'])
       expect(blob).not.toContain(m);
   });
+  it('reapOrphans destroys workspaces no live run owns after the grace period, never a live run, and quarantines a node that cannot clean', async () => {
+    const n = mkNode();
+    n.runtime.setScript(() => ({ hang: true }));
+    const svc = await start([n]);
+    // an orphan left by a control-plane crash
+    await n.runtime.createWorkspace({
+      workspaceId: 'ws-crashed-run',
+      orgId: 'org-x',
+      runId: 'crashed-run',
+      diskMb: 10,
+    });
+    const live = (await runProfile(svc, 'typecheck')).run();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await svc.reapOrphans()).toEqual({ reaped: 0, failed: 0, unreachable: [] }); // inside the grace period
+    await vi.advanceTimersByTimeAsync(125_000);
+    expect(await svc.reapOrphans()).toEqual({ reaped: 1, failed: 0, unreachable: [] });
+    expect(n.runtime.liveWorkspaces()).toEqual([`ws-${RUN}`]); // the live run's workspace stays
+    const ports = svc.terminationPorts();
+    await ports.signal((await ports.listRunning())[0]!, 'hard');
+    await live;
+    expect(n.runtime.liveWorkspaces()).toEqual([]);
+    // a node that cannot destroy: quarantined
+    await n.runtime.createWorkspace({
+      workspaceId: 'ws-stuck',
+      orgId: 'org-x',
+      runId: 'stuck',
+      diskMb: 10,
+    });
+    n.runtime.destroyWorkspace = async () => {
+      throw new Error('busy');
+    };
+    await vi.advanceTimersByTimeAsync(125_000);
+    expect(await svc.reapOrphans()).toMatchObject({ reaped: 0, failed: 1 });
+    expect(svc.status()[0]!.quarantined).toBe('cleanup_failed');
+  });
 });

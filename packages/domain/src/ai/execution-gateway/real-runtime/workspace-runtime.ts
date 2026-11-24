@@ -41,6 +41,10 @@ export interface WorkspaceRuntime extends ExecutionRuntime {
   readProduced(workspaceId: string, path: string, maxBytes: number): Promise<string>;
   /** idempotent: removes the workspace and everything in it; throws only if it could not */
   destroyWorkspace(workspaceId: string): Promise<void>;
+  /** every workspace the node still holds (restart recovery and orphan reaping: after a control-plane crash the node is the only place that knows) */
+  listWorkspaces(): Promise<
+    { workspaceId: string; orgId: string; runId: string; createdAt: number }[]
+  >;
 }
 
 export interface SimulatedBehavior {
@@ -73,6 +77,7 @@ export type SimulatedScript = (
 
 interface SimWorkspace {
   spec: WorkspaceSpec;
+  createdAt: number;
   files: Map<string, string>;
   produced: ProducedFile[];
   content: Record<string, string>;
@@ -102,6 +107,7 @@ export class SimulatedWorkspaceRuntime implements WorkspaceRuntime {
   constructor(
     private readonly ident: RuntimeIdentity,
     private readonly maxSlots = 4,
+    private readonly clock: () => number = () => Date.now(),
   ) {
     this.runtimeClass = ident.runtimeClass;
   }
@@ -129,6 +135,7 @@ export class SimulatedWorkspaceRuntime implements WorkspaceRuntime {
     if (!(w.diskMb > 0)) throw new Error('disk_quota_missing');
     this.workspaces.set(w.workspaceId, {
       spec: w,
+      createdAt: this.clock(),
       files: new Map(),
       produced: [],
       content: {},
@@ -237,6 +244,14 @@ export class SimulatedWorkspaceRuntime implements WorkspaceRuntime {
     if (!ws) return;
     if (ws.destroyFails) throw new Error('destroy_failed');
     this.workspaces.delete(workspaceId);
+  }
+  async listWorkspaces() {
+    return [...this.workspaces.values()].map((w) => ({
+      workspaceId: w.spec.workspaceId,
+      orgId: w.spec.orgId,
+      runId: w.spec.runId,
+      createdAt: w.createdAt,
+    }));
   }
   private mustWorkspace(id: string): SimWorkspace {
     const w = this.workspaces.get(id);

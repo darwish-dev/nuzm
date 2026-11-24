@@ -184,6 +184,75 @@ describe('orchestrator: submit -> run for a profile without approval', () => {
     expect(r.port.calls).toHaveLength(1);
     expect(await r.o.runNext('w')).toBeNull();
   });
+  it('DEFECT-10: concurrent submits with one key create one job, run the port once for the request, and all return the same job', async () => {
+    const r = rig();
+    const results = await Promise.all(Array.from({ length: 10 }, () => submit(r)));
+    const ids = new Set(results.map((x) => (x.status === 'queued' ? x.jobId : 'other')));
+    expect(ids.size).toBe(1);
+    expect(results.filter((x) => x.status === 'queued' && !x.duplicate)).toHaveLength(1);
+    expect(results.every((x) => x.status === 'queued')).toBe(true);
+    await r.o.runNext('w');
+    expect(await r.o.runNext('w')).toBeNull();
+    expect(r.port.calls).toHaveLength(1);
+  });
+  it('concurrent duplicates of an approval-gated request all get the one pending approval', async () => {
+    const r = rig();
+    const rs = await Promise.all(
+      Array.from({ length: 5 }, () => submit(r, 'install-deps', 'idem-install-1')),
+    );
+    const ap = new Set(rs.map((x) => (x.status === 'awaiting_approval' ? x.approvalId : 'other')));
+    expect(ap.size).toBe(1);
+  });
+  it('O-11: the same key with another request or run is a conflict, not the first job', async () => {
+    const r = rig();
+    expect(await submit(r, 'typecheck', 'idem-conflict-1')).toMatchObject({ status: 'queued' });
+    expect(await submit(r, 'unit-tests', 'idem-conflict-1')).toEqual({
+      status: 'refused',
+      reasons: ['idempotency_key_conflict'],
+    });
+    expect(
+      await r.o.submit({
+        orgId: 'org-1',
+        runId: 'run-2',
+        idempotencyKey: 'idem-conflict-1',
+        request: { orgId: 'org-1', runId: 'run-2', profile: 'typecheck' },
+      }),
+    ).toEqual({ status: 'refused', reasons: ['idempotency_key_conflict'] });
+    // and while the first is still in flight
+    const r2 = rig();
+    const [a, b] = await Promise.all([
+      submit(r2, 'typecheck', 'idem-conflict-2'),
+      submit(r2, 'unit-tests', 'idem-conflict-2'),
+    ]);
+    expect(a.status).toBe('queued');
+    expect(b).toEqual({ status: 'refused', reasons: ['idempotency_key_conflict'] });
+  });
+  it('a refused first submit does not poison the key: a corrected retry with the same key but another request is a fresh submit only after the refusal', async () => {
+    const r = rig();
+    expect(await submit(r, 'definitely-not-a-profile', 'idem-refused-1')).toMatchObject({
+      status: 'refused',
+    });
+    expect(await submit(r, 'typecheck', 'idem-refused-1')).toMatchObject({ status: 'queued' });
+  });
+  it('O-13: the orchestrator refuses an artifact the port reports as a link or device', async () => {
+    const r = rig();
+    r.port.script('build', {
+      artifacts: [
+        { path: 'dist/ok.js', bytes: 3, sha256: 'a'.repeat(64) },
+        { path: 'dist/link', bytes: 3, sha256: 'b'.repeat(64), kind: 'symlink' },
+        { path: 'dist/dev', bytes: 0, sha256: 'c'.repeat(64), kind: 'device' },
+      ],
+    });
+    const s = await submit(r, 'build', 'idem-art-0001');
+    if (s.status !== 'queued') throw new Error('expected queued');
+    await r.o.runNext('w');
+    const v = r.o.status(s.jobId, 'org-1');
+    expect(v!.outcome!.artifacts.map((a) => a.path)).toEqual(['dist/ok.js']);
+    expect(v!.outcome!.artifactsRefused.map((a) => a.reason)).toEqual([
+      'not_a_regular_file_symlink',
+      'not_a_regular_file_device',
+    ]);
+  });
   it('rejects a malformed idempotency key', async () => {
     expect(await submit(rig(), 'typecheck', 'x')).toMatchObject({
       status: 'refused',

@@ -247,13 +247,37 @@ describe('RealRuntimePort.run (simulated node: nothing is executed)', () => {
     ac.abort();
     expect((await port.run(d, rctx({ signal: ac.signal }))).status).toBe('terminated');
   });
-  it('refuses an environment other than the constant', async () => {
-    const svc = await start();
+  it('refuses a decision it did not issue or that was edited after issue (hand-made argv, environment, limits)', async () => {
+    const n = mkNode();
+    const svc = await start([n]);
     const port = svc.portFor(ectx, { seedFiles: files(), canaries: () => [] });
     const d = await port.request({ orgId: ORG, runId: RUN, profile: 'typecheck' });
     if (!d.allowed) throw new Error('expected allowed');
-    const tampered = { ...d, env: { ...d.env, NODE_OPTIONS: '--require /x' } };
-    expect((await port.run(tampered, rctx())).stderr).toContain('environment_not_the_constant');
+    const handMade = {
+      allowed: true as const,
+      argv: ['sh', '-c', 'id'],
+      cwd: '',
+      env: { ...d.env },
+      limits: d.limits,
+      network: d.network,
+      requiresApproval: false,
+      profile: 'typecheck',
+    };
+    expect((await port.run(handMade, rctx())).stderr).toContain('decision_not_issued_by_gateway');
+    expect(
+      (await port.run({ ...d, env: { ...d.env, NODE_OPTIONS: '--require /x' } }, rctx())).stderr,
+    ).toContain('decision_not_issued_by_gateway');
+    expect(
+      (await port.run({ ...d, limits: { ...d.limits, memoryMb: 999999 } }, rctx())).stderr,
+    ).toContain('decision_not_issued_by_gateway');
+    expect(
+      (await port.run({ ...d, requiresApproval: false, network: 'registry-only' }, rctx())).stderr,
+    ).toContain('decision_not_issued_by_gateway');
+    // a decision another port issued is not this port's either
+    const other = svc.portFor(ectx, { seedFiles: files(), canaries: () => [] });
+    expect((await other.run(d, rctx())).stderr).toContain('decision_not_issued_by_gateway');
+    expect(n.runtime.accepted).toEqual([]);
+    expect((await port.run(d, rctx())).status).toBe('completed');
   });
   it('refuses secrets, a canary and secret-named files in the seed; nothing reaches the node', async () => {
     const n = mkNode();

@@ -14,7 +14,13 @@ import {
 } from '../cleanup';
 import { ResourceMonitor } from '../monitor';
 import { decideExec, type ExecContext, type ExecDecision, type ExecRequest } from '../policy';
-import type { ExecutionOutcome, ExecutionPort, ExecutionRunContext, PortOrigin } from '../port';
+import {
+  IssuedDecisions,
+  type ExecutionOutcome,
+  type ExecutionPort,
+  type ExecutionRunContext,
+  type PortOrigin,
+} from '../port';
 import { buildRuntimeSpec, validateRuntimeSpec } from '../runtime-spec';
 import { runTimeouts, type ExecUsage } from '../limits';
 import type { TerminationPorts } from '../termination';
@@ -754,13 +760,18 @@ class RealRuntimePort implements ExecutionPort {
   get origin(): PortOrigin {
     return this.svc.origin;
   }
+  private readonly issued = new IssuedDecisions();
   async request(req: ExecRequest): Promise<ExecDecision> {
-    return decideExec(req, this.ectx);
+    const d = decideExec(req, this.ectx);
+    this.issued.record(d, this.ectx.orgId, this.ectx.runId);
+    return d;
   }
   async run(decision: ExecDecision, ctx: ExecutionRunContext): Promise<ExecutionOutcome> {
     if (!decision.allowed) return refusal(`request refused: ${decision.reasons.join(',')}`);
     if (ctx.orgId !== this.ectx.orgId || ctx.runId !== this.ectx.runId)
       return refusal('another_tenant_or_run');
+    if (!this.issued.has(decision, this.ectx.orgId, this.ectx.runId))
+      return refusal('decision_not_issued_by_gateway');
     if (decision.requiresApproval && !ctx.approvalId) return refusal('approval_required');
     if (ctx.signal?.aborted) return refusal('terminated', 'terminated');
     const env = checkRunEnv(decision.env);

@@ -1,3 +1,4 @@
+import { decisionDigest } from './approval';
 import type { ExecContext, ExecDecision, ExecRequest } from './policy';
 
 /**
@@ -24,7 +25,13 @@ export interface ExecutionOutcome {
   truncated: boolean;
   durationMs: number;
   /** `sha256` is optional and additive to the 0.1 sketch: a runtime adapter that hashed the file reports it, otherwise the orchestrator refuses the artifact (`no_content_hash`) */
-  artifacts: { path: string; bytes: number; sha256?: string }[];
+  /** `kind` is what the runtime saw (default `file`): a link, device or directory is refused by the artifact policy, never accepted by omission */
+  artifacts: {
+    path: string;
+    bytes: number;
+    sha256?: string;
+    kind?: 'file' | 'symlink' | 'hardlink' | 'dir' | 'device';
+  }[];
 }
 /** What the caller (the agent loop or a builder task) asserts about one run. The organization and run id come from the verified auth context, never from a model. */
 export interface ExecutionRunContext {
@@ -72,6 +79,27 @@ const refusal = (why: string): ExecutionOutcome => ({
   artifacts: [],
 });
 
+/**
+ * An `ExecDecision` is a plain object: nothing about it proves the gateway made it. A port therefore runs only decisions IT issued through `request` (matched by content
+ * digest, bound to the organization and run), so a hand-made `{ allowed: true, argv: ['sh', '-c', ...] }` or a decision edited after issue is refused.
+ */
+export class IssuedDecisions {
+  private readonly seen = new Set<string>();
+  private key(d: Extract<ExecDecision, { allowed: true }>, orgId: string, runId: string): string {
+    return `${decisionDigest(d, orgId, runId)}:${d.requiresApproval ? 1 : 0}`;
+  }
+  record(d: ExecDecision, orgId: string, runId: string): void {
+    if (d.allowed) this.seen.add(this.key(d, orgId, runId));
+  }
+  has(d: Extract<ExecDecision, { allowed: true }>, orgId: string, runId: string): boolean {
+    try {
+      return this.seen.has(this.key(d, orgId, runId));
+    } catch {
+      return false; // a malformed object cannot even be digested
+    }
+  }
+}
+
 export type MockDecide = (req: ExecRequest, ctx: ExecContext) => ExecDecision;
 
 /**
@@ -88,6 +116,7 @@ export class MockExecutionPort implements ExecutionPort {
   private readonly attempts = new Map<string, number>();
   private fallback: OutcomeScript | null = null;
   private readonly terminated = new Set<string>();
+  private readonly issued = new IssuedDecisions();
 
   constructor(
     private readonly decide: MockDecide,
@@ -112,13 +141,17 @@ export class MockExecutionPort implements ExecutionPort {
   }
 
   async request(req: ExecRequest): Promise<ExecDecision> {
-    return this.decide(req, this.ctx);
+    const d = this.decide(req, this.ctx);
+    this.issued.record(d, this.ctx.orgId, this.ctx.runId);
+    return d;
   }
 
   async run(decision: ExecDecision, ctx: ExecutionRunContext): Promise<ExecutionOutcome> {
     if (!decision.allowed) return refusal(`the request was refused: ${decision.reasons.join(',')}`);
     if (ctx.orgId !== this.ctx.orgId || ctx.runId !== this.ctx.runId)
       return refusal('another_tenant_or_run');
+    if (!this.issued.has(decision, this.ctx.orgId, this.ctx.runId))
+      return refusal('decision_not_issued_by_gateway');
     if (decision.requiresApproval && !ctx.approvalId) return refusal('approval_required');
     if (this.terminated.has(ctx.runId) || ctx.signal?.aborted)
       return { ...refusal('terminated'), status: 'terminated' };

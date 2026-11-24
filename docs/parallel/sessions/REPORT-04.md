@@ -174,3 +174,13 @@ Not run: integration specs, repo-wide suites, the API typecheck (dists of other 
 
 ## Next available tasks (offline)
 Idle until D-21 except: a wire-protocol conformance test for the node agent contract (schema validation of the JSON messages) once the owner confirms the transport proposal; extending fixtures when profiles change.
+
+## QA findings from S07 (DEFECT-10, O-11..O-14) — fixed after the Phase 2 batch
+| Finding | Fix | Test (seen passing) |
+|---|---|---|
+| **DEFECT-10** (MEDIUM): concurrent submits with one idempotency key created several jobs (key registered only after an await) | `ExecutionOrchestrator.submit` now claims the key synchronously in an `inflight` map before any await; a concurrent duplicate awaits the first and returns the same job (`duplicate: true`); a refused first submit leaves no key | `orchestrator.spec.ts`: 10 concurrent submits → one job, one port run; 5 concurrent approval-gated duplicates → one approval |
+| **O-11**: same key + different request/run returned the first job | `fingerprint` (sha256 of run id + canonical request) stored on the job; mismatch → `refused: idempotency_key_conflict` (stored and in-flight) | `orchestrator.spec.ts` |
+| **O-12**: `ExecDecision` is an unsigned plain object, a hand-made `{allowed:true, argv:['sh','-c',…]}` was accepted by `MockExecutionPort.run` | new `IssuedDecisions` registry (content digest + `requiresApproval`, bound to org and run): `MockExecutionPort`, `RealRuntimePort` and `SandboxRuntimeExecutionPort` run only decisions their own `request` issued; hand-made, edited or other-port decisions → `decision_not_issued_by_gateway` | `port.spec.ts`, `real-runtime.spec.ts`, `execution-port.spec.ts` |
+| **O-13**: `ExecutionOutcome.artifacts` had no `kind`; the orchestrator hard-coded `file` | optional `kind` (additive to contract 0.1) carried to `collectArtifacts`; links/devices/dirs are refused | `port.spec.ts`, `orchestrator.spec.ts` |
+| **O-14**: canary screen is exact-match only | not changed; limitation recorded: acceptable while no runtime holds a platform secret (the attestation requires none on the node); encoded/split secrets in output are not detected by canaries | documented here |
+Results seen: `packages/domain` `src/ai` 41 files / **803 tests passed**; `execution-gateway` 20 files / 317 passed; `apps/api` sandbox + execution 5 files / 104 passed; ESLint clean; secret scan 0 hits. S07's `it.fails` for DEFECT-10 and CONCERN-1 can be flipped; S07 should re-test (their file `apps/api/src/qa/qa-exec-orchestrator.int.spec.ts` is on their branch, not run by me). `dist` of `packages/domain` was rebuilt for the API specs.

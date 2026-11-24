@@ -9,10 +9,12 @@ import { ExecutionBuildPort } from './index';
 const adapt = (port: never) => new ExecutionBuildPort(port, () => '2026-11-24T00:00:00Z');
 describe('lifecycle hand-off conformance with the real ExecutionBuildPort', () => {
   for (const make of [executionGateway.createMockHandoffRig, executionGateway.createSimulatedNodeHandoffRig]) {
-    it(`${make.name}: all cases pass, none skipped, H-9 included`, async () => {
+    it(`${make.name}: no case fails, H-9 passes; the only skip allowed is H-8 on the mock rig (it has no artifact policy)`, async () => {
       const report = await executionGateway.runLifecycleHandoffConformance(make(adapt as never), { expectSource: true });
       expect(report.fail, JSON.stringify(report.cases.filter((c) => c.status !== 'PASS'))).toBe(0);
-      expect(report.skipped).toBe(0);
+      expect(report.cases.filter((c) => c.status === 'SKIPPED').map((c) => c.id)).toEqual(
+        make === executionGateway.createMockHandoffRig ? ['H-8'] : [],
+      );
       expect(report.cases.find((c) => c.id === 'H-9')!.status).toBe('PASS');
     });
   }

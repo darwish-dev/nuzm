@@ -135,15 +135,15 @@ test('admin benchmarks: switched off, staged plan and scorecard, offline replay,
     await expect(gov.locator('form')).toBeVisible();
     await expect(gov.locator('#gov-action option')).toHaveCount(1); // only "propose" makes sense before a proposal
     await gov.locator('#gov-text').fill('recommended set (e2e)');
-    await gov.getByRole('button').click();
+    await gov.locator('button[type=submit]').click();
     await expect(gov.locator('#gov-action option')).toHaveCount(4); // proposed: review, accept, reject, propose
     expect(await thresholdStatus()).toBe('PROPOSED');
     await gov.locator('#gov-action').selectOption('accept');
-    await gov.getByRole('button').click();
+    await gov.locator('button[type=submit]').click();
     await expect(gov.getByText(k('failed'))).toBeVisible(); // no approving review yet
     await gov.locator('#gov-action').selectOption('review');
     await gov.locator('#gov-text').fill('my own proposal');
-    await gov.getByRole('button').click();
+    await gov.locator('button[type=submit]').click();
     await expect(gov.getByText(k('failed'))).toBeVisible(); // the proposer cannot review their own proposal
     expect(await thresholdStatus()).toBe('PROPOSED'); // nothing was accepted, on the server
     await audit(page, info, 'ai-benchmarks-governance-proposed');

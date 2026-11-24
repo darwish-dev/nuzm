@@ -39,6 +39,7 @@ E2E_REUSE_SERVERS=1
 EOT
     "$PGBIN/createdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin "$DB"
     DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$DB" pnpm --filter @nuzm/db exec tsx src/cli.ts migrate >/dev/null
+    DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$DB" pnpm --filter @nuzm/db exec tsx src/cli.ts dev-logins >/dev/null
     API_ORIGIN="http://127.0.0.1:$API" pnpm --filter @nuzm/web build >/dev/null
     API_ORIGIN="http://127.0.0.1:$API" pnpm --filter @nuzm/admin build >/dev/null
     set -a; . "$ENVF"; set +a
@@ -62,6 +63,7 @@ EOT
     "$PGBIN/dropdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin --if-exists --force "$E2E_DB" >/dev/null 2>&1 || true
     "$PGBIN/createdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin "$E2E_DB"
     DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$E2E_DB" pnpm --filter @nuzm/db exec tsx src/cli.ts migrate >/dev/null
+    DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$E2E_DB" pnpm --filter @nuzm/db exec tsx src/cli.ts dev-logins >/dev/null
     ( cd e2e && nohup pnpm exec tsx dev-stack.ts > "$STATE/stack.log" 2>&1 & echo $! > "$PIDF" )
     for _ in $(seq 1 600); do grep -q "all servers are up" "$STATE/stack.log" 2>/dev/null && break; sleep 1; done
     grep -q "all servers are up" "$STATE/stack.log" && echo "e2e-stack: restarted" || { echo "e2e-stack: did not come up; see $STATE/stack.log"; exit 1; }

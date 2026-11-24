@@ -35,6 +35,7 @@ trap cleanup EXIT
 echo "e2e-isolated: web :$WEB admin :$ADMIN api :$API idp :$IDP database $DB (Postgres :$PGPORT)"
 "$PGBIN/createdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin "$DB"
 DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$DB" pnpm --filter @nuzm/db exec tsx src/cli.ts migrate >/dev/null
+DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$DB" pnpm --filter @nuzm/db exec tsx src/cli.ts dev-logins >/dev/null
 
 if [ "${E2E_SKIP_BUILD:-0}" != "1" ]; then
   API_ORIGIN="http://127.0.0.1:$API" pnpm --filter @nuzm/web build >/dev/null

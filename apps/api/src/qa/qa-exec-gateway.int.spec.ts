@@ -216,7 +216,7 @@ describe('Execution Gateway gate: closed by default, every condition required', 
       adrAccepted: true,
       ownerApproved: true,
       production: false,
-      d42Decided: false,
+      rolloutDecided: false,
     };
     expect(gw.executionGate(open).open).toBe(true);
     for (const k of [
@@ -228,7 +228,7 @@ describe('Execution Gateway gate: closed by default, every condition required', 
     ] as const)
       expect(gw.executionGate({ ...open, [k]: false }).open, k).toBe(false);
     expect(gw.executionGate({ ...open, production: true }).open).toBe(false);
-    expect(gw.executionGate({ ...open, production: true, d42Decided: true }).open).toBe(true);
+    expect(gw.executionGate({ ...open, production: true, rolloutDecided: true }).open).toBe(true);
   });
   it('a truthy non-boolean cannot open the gate by accident only if the caller passes booleans: documented input contract', () => {
     // the gate trusts its typed input; the wiring (Session 04) must build it from verified evidence, not from request data

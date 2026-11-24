@@ -11,6 +11,8 @@ import {
   type ExecAuditRecord,
 } from './audit';
 import { collectArtifacts, DEFAULT_ARTIFACT_POLICY, type ArtifactPolicy } from './artifacts';
+import { createHash } from 'node:crypto';
+import { canonicalJson } from './real-runtime/attestation';
 import { checkRunEnv, screenOutput } from './env-guard';
 import { StateTrack, transitionJob, type JobState } from './lifecycle';
 import { executionGate, type ExecGateState, type ExecRequest } from './policy';
@@ -77,6 +79,7 @@ interface Job {
   orgId: string;
   runId: string;
   idempotencyKey: string;
+  fingerprint: string;
   decision: AllowedDecision;
   approvalId: string | null;
   track: StateTrack<JobState>;
@@ -86,9 +89,28 @@ interface Job {
   actorUserId?: string;
 }
 
+export interface SubmitInput {
+  orgId: string;
+  runId: string;
+  request: ExecRequest;
+  idempotencyKey: string;
+  actorUserId?: string;
+}
+/** a stable digest of what a submit asks for: the same key must always mean the same request in the same run */
+function fingerprintOf(i: SubmitInput): string {
+  return createHash('sha256')
+    .update(canonicalJson({ r: i.runId, q: i.request }))
+    .digest('hex');
+}
+
 export class ExecutionOrchestrator {
   private readonly jobs = new Map<string, Job>();
   private readonly keys = new Map<string, string>();
+  /** submits being processed, by idempotency key: registered BEFORE the first await so concurrent duplicates cannot both pass the key check (DEFECT-10) */
+  private readonly inflight = new Map<
+    string,
+    { fingerprint: string; result: Promise<SubmitResult> }
+  >();
   private seq = 0;
   constructor(private readonly d: OrchestratorDeps) {}
 
@@ -130,13 +152,37 @@ export class ExecutionOrchestrator {
     return r;
   }
 
-  async submit(i: {
-    orgId: string;
-    runId: string;
-    request: ExecRequest;
-    idempotencyKey: string;
-    actorUserId?: string;
-  }): Promise<SubmitResult> {
+  /**
+   * Idempotent per organization and key. The key is claimed synchronously, before any await: a concurrent duplicate waits for the first submit and gets the same job; the same key
+   * with a different run or request is a CONFLICT (`idempotency_key_conflict`), never the first job returned for a different request.
+   */
+  async submit(i: SubmitInput): Promise<SubmitResult> {
+    const k = `${i.orgId}\u0000${i.idempotencyKey}`;
+    const fp = fingerprintOf(i);
+    const flying = this.inflight.get(k);
+    if (flying) {
+      if (flying.fingerprint !== fp) return this.conflict(i);
+      const first = await flying.result;
+      return first.status === 'queued' ? { ...first, duplicate: true } : first;
+    }
+    const stored = this.keys.get(k);
+    if (stored && this.jobs.get(stored)!.fingerprint !== fp) return this.conflict(i);
+    const result = this.submitOnce(i);
+    this.inflight.set(k, { fingerprint: fp, result });
+    try {
+      return await result;
+    } finally {
+      this.inflight.delete(k);
+    }
+  }
+  private async conflict(i: SubmitInput): Promise<SubmitResult> {
+    await this.emit('ai.execution.refused', { orgId: i.orgId, runId: i.runId }, 'failure', {
+      reasons: ['idempotency_key_conflict'],
+    });
+    return { status: 'refused', reasons: ['idempotency_key_conflict'] };
+  }
+
+  private async submitOnce(i: SubmitInput): Promise<SubmitResult> {
     const base = { orgId: i.orgId, runId: i.runId };
     await this.emit(
       'ai.execution.requested',
@@ -192,6 +238,7 @@ export class ExecutionOrchestrator {
       orgId: i.orgId,
       runId: i.runId,
       idempotencyKey: i.idempotencyKey,
+      fingerprint: fingerprintOf(i),
       decision,
       approvalId: null,
       track: this.newTrack(),
@@ -376,7 +423,7 @@ export class ExecutionOrchestrator {
       raw.artifacts.map((a) => ({
         path: a.path,
         bytes: a.bytes,
-        kind: 'file' as const,
+        kind: a.kind ?? ('file' as const),
         sha256: a.sha256,
       })),
       this.d.artifactPolicy ?? DEFAULT_ARTIFACT_POLICY,

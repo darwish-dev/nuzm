@@ -411,9 +411,16 @@ export const STEP_FNS: Record<StepId, StepFn> = {
     const { files } = await c.env.head();
     const bytes = [...files.values()].reduce((n, t) => n + t.length, 0);
     const entry =
-      ['index.html', 'app/page.tsx', 'src/main.tsx', 'src/index.ts', 'lib/main.dart'].find((p) =>
-        files.has(p),
-      ) ?? null;
+      [
+        'index.html',
+        'app/page.tsx',
+        'app/layout.tsx',
+        'app/[locale]/page.tsx',
+        'src/main.tsx',
+        'src/index.ts',
+        'apps/api/src/main.ts',
+        'lib/main.dart',
+      ].find((p) => files.has(p)) ?? null;
     await c.invoke('preview_change', { ops: [] }, () => undefined);
     // a live preview URL needs the preview origin (ADR-060/063) and is requested from the deployments screen: this step only describes what there is to preview
     c.art.preview = { files: files.size, bytes, entry, previewUrl: null };

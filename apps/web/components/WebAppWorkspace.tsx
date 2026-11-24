@@ -28,6 +28,7 @@ import {
 } from './WebAppPanels';
 import { AppStudioPanel } from './WebAppAiStudio';
 import { AppCodePanel } from './WebAppCode';
+import { BuilderLifecycleScreen } from './BuilderLifecycleScreen';
 import { AppDataPane, type DataView } from './WebAppData';
 import { WebAppRunHistory } from './WebAppHistory';
 import { WebAppRunCard, type AppRunProgress } from './WebAppRun';
@@ -42,6 +43,7 @@ const TAB_ICON: Record<AppTab, IconName> = {
   deployments: 'cloud',
   exports: 'external',
   versions: 'refresh',
+  agent: 'workflow',
   studio: 'sparkle',
 };
 const TAB_LABEL: Record<AppTab, MessageKey> = {
@@ -53,6 +55,7 @@ const TAB_LABEL: Record<AppTab, MessageKey> = {
   deployments: 'mws.web.tab.deployments',
   exports: 'mws.web.tab.exports',
   versions: 'mws.web.tab.versions',
+  agent: 'bt.lc.tab',
   studio: 'mws.web.tab.studio',
 };
 
@@ -267,6 +270,14 @@ export function WebAppWorkspace({
           refresh={refresh}
           open={codeOpen}
         />
+      ) : tab === 'agent' ? (
+        <div className="mws-panel" data-panel="agent">
+          <BuilderLifecycleScreen
+            locale={locale}
+            projectId={project.id}
+            canRun={can('ai:write') && can('builder:write')}
+          />
+        </div>
       ) : tab === 'studio' ? (
         <AppStudioPanel
           locale={locale}

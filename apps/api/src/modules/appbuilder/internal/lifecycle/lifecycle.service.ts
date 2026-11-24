@@ -45,6 +45,9 @@ const BUDGET_CODES = new Set(['tokens_exceeded', 'credits_exceeded']);
  * from the verified context and hands it to the lifecycle runner; then maps the outcome back onto the run engine's signals. The lifecycle itself has no power beyond its tools.
  */
 export class BuilderLifecycleService {
+  /** test hook (like `AgentLoopRunner.limits`): replaces the build port of a run, e.g. a scripted one that fails, cancels or crashes; production never sets it */
+  buildPortOverride: ((orgId: string, runId: string) => builderTools.BuildPort | null) | null =
+    null;
   constructor(private readonly d: LifecycleDeps) {}
 
   async run(ctx: RunContext): Promise<void> {
@@ -204,7 +207,7 @@ export class BuilderLifecycleService {
         : new SkeletonGenerator(),
       repair,
       modelBacked: { file_generation: modelOn, repair: modelOn },
-      build: this.d.buildPort(orgId, ctx.run.id),
+      build: (this.buildPortOverride ?? this.d.buildPort)(orgId, ctx.run.id),
       budget: this.d.budget,
       requestDeployApproval: async (summary) => {
         const a = await this.d.approvals.request(orgId, {

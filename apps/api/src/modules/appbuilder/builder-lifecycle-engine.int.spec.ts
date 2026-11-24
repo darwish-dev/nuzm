@@ -176,7 +176,7 @@ describe('cancellation on the real engine', { timeout: 240_000 }, () => {
       (await q(`SELECT count(*)::int n FROM ai.approval_requests WHERE run_id = $1`, [id]))[0]!.n,
     ).toBe(0);
     const ev = (
-      await q(`SELECT type, data FROM ai.run_events WHERE run_id = $1 ORDER BY seq DESC LIMIT 3`, [
+      await q(`SELECT type, data FROM ai.run_events WHERE run_id = $1 ORDER BY seq DESC LIMIT 8`, [
         id,
       ])
     ).map((x) => x.type);

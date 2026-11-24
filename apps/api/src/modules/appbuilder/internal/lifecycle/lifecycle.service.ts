@@ -227,7 +227,14 @@ export class BuilderLifecycleService {
     }
   }
 
-  private async env(ctx: RunContext, port: builderTools.BuildPort | null): Promise<LifecycleEnv> {
+  private async env(
+    ctx: RunContext,
+    // optional: callers (and the Phase 2 engine specs that wrap `env`) pass only the context; the port is then resolved the same way `execute` does
+    port: builderTools.BuildPort | null = (this.buildPortOverride ?? this.d.buildPort)(
+      ctx.orgId,
+      ctx.run.id,
+    ),
+  ): Promise<LifecycleEnv> {
     const { orgId } = ctx;
     const projectId = ctx.run.projectId!;
     const usage = { in: 0, out: 0, credits: 0n };

@@ -18,6 +18,7 @@ import { decodeCursor, pageOf } from '../../../common/pagination';
 import { actionHash } from '../../ai';
 import type { CmsService } from '../../builder';
 import { DeployPolicyService } from './policy.service';
+import { BUILDER_PROJECT_TYPE_TO_PRODUCT, decideTarget, type TargetRule } from './targets';
 import {
   artifactHash,
   SitePublisherPort,
@@ -49,6 +50,31 @@ export function loadDeployConfig(env: NodeJS.ProcessEnv = process.env): DeployCo
   };
 }
 export const DEPLOY_CONFIG = Symbol('DEPLOY_CONFIG');
+
+/** The answer of `DeployService.prepare`: what a deployment of this project would need, decided without creating anything. */
+export interface DeploymentPlanDto {
+  projectId: string;
+  /** the planner's product type, or null when the builder type has no mapping */
+  productType: string | null;
+  environment: 'production' | 'staging';
+  target: {
+    kind: string | null;
+    readiness: 'simulated' | 'not_yet' | null;
+    blockers: readonly string[];
+    note: string | null;
+  };
+  publisher: { available: boolean; simulated: boolean; label: 'SIMULATED' | 'NOT VERIFIED' };
+  policy: {
+    productionPublishRoles: string[];
+    rollbackRequiresOwnApproval: boolean;
+    source: 'default' | 'organization';
+  };
+  /** the human approval the publish will need, and who may confirm it in this environment */
+  approval: { required: true; kind: 'publish'; confirmableBy: string[]; apiKeyMayConfirm: false };
+  /** true only when nothing blocks asking for the approval now */
+  ready: boolean;
+  reasons: string[];
+}
 
 export interface DeploymentDto {
   id: string;
@@ -367,6 +393,89 @@ export class DeployService {
     });
     this.kicker(orgId, op.id);
     return this.dto({ ...row, operation_id: op.id });
+  }
+
+  /**
+   * "Prepare deployment" (read-only): which target the project needs, whether it can be deployed now and as what (SIMULATED or not), who may confirm the approval, and what blocks it.
+   * It creates nothing, writes nothing and requests no approval: the agent loop and the console call it, show the answer, and only then call `create` (the real approval workflow).
+   */
+  async prepare(
+    orgId: string,
+    b: { projectId?: unknown; environment?: unknown; target?: unknown },
+  ): Promise<DeploymentPlanDto> {
+    if (!UUID.test(String(b.projectId)))
+      throw new ProblemException('validation_failed', 'projectId must be a uuid');
+    const environment = b.environment ?? 'production';
+    if (environment !== 'production' && environment !== 'staging')
+      throw new ProblemException('validation_failed', 'environment must be production or staging');
+    const projectId = String(b.projectId).toLowerCase();
+    const type = await this.projectType(orgId, projectId);
+    if (!type) throw new ProblemException('not_found', 'project not found');
+    const product = BUILDER_PROJECT_TYPE_TO_PRODUCT[type] ?? null;
+    const decision = product ? decideTarget(product) : null;
+    const rule: TargetRule | null = decision?.rule ?? null;
+    const pol = this.policy
+      ? await this.policy.get(orgId)
+      : {
+          productionPublishRoles: ['owner', 'admin', 'developer'] as string[],
+          rollbackRequiresOwnApproval: false,
+          source: 'default' as const,
+        };
+    const reasons: string[] = [];
+    if (!decision) reasons.push(`no deployment target is defined for projects of type ${type}`);
+    else if (!decision.allowed && decision.message) reasons.push(decision.message);
+    const available = this.publisher.available();
+    if (decision?.allowed && !available)
+      reasons.push(
+        'no hosting publish path is configured: live publish needs a real hosting node (HG-05/HG-06)',
+      );
+    if (product === 'webapp' && !this.webapp)
+      reasons.push('the web-app deployment path is not registered');
+    if (product === 'website' && b.target !== undefined) {
+      try {
+        const site = await this.site(
+          orgId,
+          typeof b.target === 'object' && b.target !== null
+            ? (b.target as { hostingSiteId?: unknown }).hostingSiteId
+            : b.target,
+        );
+        if (site.status !== 'active') reasons.push('the hosting site is not active');
+        if (!/^(static|php:\d)/.test(site.runtime))
+          reasons.push(`a static website cannot be published to a ${site.runtime} site`);
+      } catch (e) {
+        if (e instanceof ProblemException)
+          reasons.push(e.detail ?? 'the hosting site was not found');
+        else throw e;
+      }
+    }
+    return {
+      projectId,
+      productType: product,
+      environment,
+      target: {
+        kind: rule?.kind ?? null,
+        readiness: rule?.readiness ?? null,
+        blockers: rule?.blockers ?? [],
+        note: rule?.note ?? null,
+      },
+      publisher: {
+        available,
+        simulated: this.publisher.simulated,
+        label: this.publisher.simulated ? 'SIMULATED' : 'NOT VERIFIED',
+      },
+      policy: pol,
+      approval: {
+        required: true,
+        kind: 'publish',
+        confirmableBy:
+          environment === 'production'
+            ? pol.productionPublishRoles
+            : ['owner', 'admin', 'developer'],
+        apiKeyMayConfirm: false,
+      },
+      ready: reasons.length === 0,
+      reasons,
+    };
   }
 
   async log(

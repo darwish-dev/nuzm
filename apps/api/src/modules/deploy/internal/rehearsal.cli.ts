@@ -9,11 +9,12 @@
  *   STAGING_PROTECTED_DOMAINS comma list: console, admin, API and marketing domains the preview domain must not share a registrable domain with
  *   STAGING_REGION            real mode: data region of the node
  *   STAGING_EVIDENCE_OUT      optional path: write the JSON evidence record there instead of only printing it
+ *   STAGING_EVIDENCE_MD       optional path: write the evidence table (Markdown) there
  *
  * Exit codes: 0 PASS · 1 FAIL · 3 BLOCKED (a gate refused: nothing was deployed). Real mode ends BLOCKED today because no artifact upload path to a hosting node exists.
  */
 import { writeFileSync } from 'node:fs';
-import { runStagingRehearsal } from './rehearsal';
+import { renderEvidenceTable, runStagingRehearsal } from './rehearsal';
 import type { StagingTarget } from './targets';
 
 async function main(): Promise<number> {
@@ -44,6 +45,8 @@ async function main(): Promise<number> {
   const json = JSON.stringify(report, null, 2);
   if (process.env.STAGING_EVIDENCE_OUT)
     writeFileSync(process.env.STAGING_EVIDENCE_OUT, `${json}\n`);
+  if (process.env.STAGING_EVIDENCE_MD)
+    writeFileSync(process.env.STAGING_EVIDENCE_MD, renderEvidenceTable(report));
   process.stdout.write(`${json}\n`);
   return report.status === 'PASS' ? 0 : report.status === 'BLOCKED' ? 3 : 1;
 }

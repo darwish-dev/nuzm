@@ -37,3 +37,4 @@ export {
   UnavailableArtifactTransport,
 } from './internal/hosting-target';
 export type { ArtifactTransport, HostingSiteOps } from './internal/hosting-target';
+export type { DeploymentPlanDto } from './internal/deploy.service';

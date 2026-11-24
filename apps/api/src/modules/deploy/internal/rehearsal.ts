@@ -335,3 +335,18 @@ export async function runStagingRehearsal(opts: RehearsalOptions = {}): Promise<
         : 'PASS (NOT VERIFIED target): the run passed but the target has no recorded live verification.';
   return report('PASS', conclusion);
 }
+
+/**
+ * The evidence table of a rehearsal as Markdown, for a report. Every row carries its label; a simulated run says so in the heading and the footer, so the table can never be
+ * read as evidence about a real node.
+ */
+export function renderEvidenceTable(r: RehearsalReport): string {
+  const head = `Staging rehearsal of a synthetic app: mode \`${r.mode}\`, target \`${r.target.id}\` (${r.target.provider}, ${r.target.verification}), app hash \`${r.appHash.slice(0, 12)}\`, result **${r.status}**`;
+  const rows = r.steps
+    .map(
+      (s) =>
+        `| ${s.id} | ${s.title} | ${s.status} | ${s.label} | ${s.detail.replace(/\|/g, '/')} |`,
+    )
+    .join('\n');
+  return `${head}\n\n| Step | What | Status | Evidence label | Detail |\n|---|---|---|---|---|\n${rows}\n\n${r.conclusion}\n`;
+}

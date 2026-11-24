@@ -161,3 +161,10 @@ These integration runs needed the migration range in `spec/db/ownership.yaml`; I
 
 ## P2-F. Head
 Commit `42107c5d` on `feature/ai-deployment` (on top of integration `39658725`). The `apps/api` typecheck shows only the known worktree-only error in `cloud/internal/adapter-registry.ts` (a missing nested `node_modules` in this clone, not my files); a type error in my policy spec was found and fixed, and that spec re-passed 14/14.
+
+## P2-G. Batch 2 (after CONTRACT-5 was accepted and merged)
+- Seal: `HostingTargetPublisher` re-checks the target gate in `stage`, `activate`, `restore` and SSL issuance, so an unapproved real target cannot act even if constructed directly (unit test). Real-mode rehearsal still ends BLOCKED, exit 3.
+- Rehearsal evidence table (`renderEvidenceTable`, `STAGING_EVIDENCE_MD`): 9 rows, all SIMULATED, in plan §13a.
+- `DeployService.prepare` (read-only "prepare deployment": target, readiness, blockers, publisher label, policy, who may confirm, reasons): creates nothing and requests no approval; 3 integration tests. For Session 05's agent loop (message sent; plan §13b). Matrix hooks for Session 07 in plan §13c (message sent).
+- Tests seen: unit `npx vitest run src/modules/deploy/internal` 4 files **42 passed**; integration `deploy-policy.int.spec.ts` **17 passed**, `deploy-releases.int.spec.ts` **5 passed** (own Postgres :54346, with the merged manifest); eslint clean. The deploy, deploy-s06 and Session 07 approval suites were not re-run after this batch (the change does not touch them).
+- Still SIMULATED, NOT VERIFIED; HG-05/HG-06 open.

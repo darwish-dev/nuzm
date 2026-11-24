@@ -96,7 +96,8 @@ Delivery at-least-once; `eventId` unique per org; aggregator recomputes a bucket
 | Quote/order creation (`POST /v1/quotes`, typed create endpoints) | projected usage + spend limit | **hard** deny with `quota_exceeded` / `spend_approval_required` |
 | Resource creation worker | re-check at execution | hard |
 | Metering ingest (aggregation) | consumption vs soft/hard thresholds | **soft**: notify at 80%/100% (proposal), **hard**: flag org `restricted` for that meter group (blocks *new* consumption, never deletes) |
-| AI gateway/sandbox start | per-request budget check against `ai` budgets and credits | hard (M09/M10) |
+| AI gateway | per-request budget check against `ai` budgets and credits | hard (M09/M10) |
+| Sandbox / build start | build allowance (`builder.build_minutes`, included meter, quota group `builder`) and the platform ceilings; **inference stays on the AI wallet, execution is not paid from it** (switch `builder.billing_separation`, default OFF = a sandbox start still checks AI credit; do not enable before the allowance entitlement exists, HG-02-01) | hard (Phase 2, CONTRACT-S05-P2-3) |
 `GET /v1/quotas` returns consumption vs limits; thresholds emit `notifications` and audit.
 
 ## 8. Provider cost side and margin

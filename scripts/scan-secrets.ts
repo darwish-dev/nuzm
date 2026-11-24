@@ -26,6 +26,8 @@ const rules: Array<[string, RegExp]> = [
   ['Slack token', /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/],
   ['API key style (sk-)', /\bsk-[A-Za-z0-9]{32,}\b/],
   ['Google API key', /\bAIza[0-9A-Za-z_-]{35}\b/],
+  ['Anthropic API key', /\bsk-ant-[A-Za-z0-9_-]{20,}/],
+  ['OpenAI project or service key', /\bsk-(?:proj|svcacct)-[A-Za-z0-9_-]{20,}/],
   ['hardcoded password assignment', /\b(?:password|passwd|secret)\s*[:=]\s*['"][^'"\s]{8,}['"]/i],
 ];
 

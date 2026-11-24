@@ -1,6 +1,6 @@
 # CONTRACT-S05-P2-3 — inference cost and execution cost are separate gates
 
-- Requester: Session 05 (Phase 2) · Contracts touched: billing seed data (Master), the sandbox service (Session 04) · Status: PROPOSED · Default behaviour is UNCHANGED (switch off).
+- Requester: Session 05 (Phase 2) · Contracts touched: billing seed data (Master), the sandbox service (Session 04) · Status: PARTLY ACCEPTED 2026-11-24 (Master): item 3 (docs/12 wording) applied; item 1 (billing seed row and entitlements) DEFERRED: the limits are an owner price decision (HG-02-01), recorded as row BILL-SEP in `OWNER-APPROVAL-PACK.md`; the switch stays OFF; item 2 (S04 `purpose` parameter) assigned to S04. Default behaviour is UNCHANGED (switch off).
 - Finding, design and evidence: REPORT-05 "Phase 2" §"Release build needs AI wallet credit". Summary: `SandboxService.create` refuses with `budget_required` when the AI wallet is empty, so a release build of an app no model touched needed AI credit. Execution work is now gated by the plan's build allowance and the platform ceilings; inference stays gated by the wallet through the model gateway (ADR-061). Nothing becomes free: execution is still hard-gated and always metered.
 
 ## What I implemented (my paths, behind `builder.billing_separation`, default OFF = today)

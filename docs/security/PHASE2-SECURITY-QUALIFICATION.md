@@ -8,7 +8,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 
 ## 1. Method
 - Independent review of the existing code (gateway, budgets, secret scan, SSRF/egress, sandbox policy and local runtime, deploy, mobile signing, access guard), then a threat model of the new ports (`docs/security/AI-ENGINE-THREAT-MODEL.md`).
-- Adversarial and dynamic tests in `apps/api/src/qa/**` (own paths only), each run alone against its own PostgreSQL, real RLS and the real hash-chained audit sink where relevant. 15 defects were found; all 15 are fixed and re-tested by flipping the `it.fails` marker (`docs/security/DEFECT-REGISTER.md`).
+- Adversarial and dynamic tests in `apps/api/src/qa/**` (own paths only), each run alone against its own PostgreSQL, real RLS and the real hash-chained audit sink where relevant. 15 defects were found; 15 are fixed and re-tested by flipping the `it.fails` marker; DEFECT-16 and 17 (coverage gaps of the O-9 content-access switch) are fixed too (`docs/security/DEFECT-REGISTER.md`).
 - Browser E2E specs written by other sessions were reviewed read-only (`PHASE2-E2E-REVIEW.md`); a negatives spec was added (`e2e/tests/qa-negatives.spec.ts`). **No browser run has passed yet: UI evidence is NOT VERIFIED until the Master's isolated E2E has run.**
 
 ## 2. What was verified, and what could not be (by control area)
@@ -40,7 +40,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 7. **Operational controls**: alerting, on-call, backup and restore, key rotation, incident runbooks.
 8. **Legal and regulatory**: residency opinion, data-processing terms with the provider (D1/D2), ZATCA, retention. No compliance claim is made here.
 
-## 4. Residual risks (all 15 defects fixed)
+## 4. Residual risks (all 17 defects fixed)
 | # | Risk | Likelihood / impact | Where it is controlled or tracked |
 |---|---|---|---|
 | R1 | A runtime that does not isolate is wired behind the port | Low (fail-closed gate, attestation required, REAL port refused while the gate is closed) / critical | gate `executionGate`, attestation verifier, HG-10-02; section 5 |
@@ -48,6 +48,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 | R3 | The approval reference of a real target is only format-checked (O-15): a made-up reference unlocks a NOT VERIFIED real target | Low / medium | owner-signed record stays in the approval pack; the registry of targets is a platform action |
 | R4 | Encoded secrets (base64, hex, split) pass the output canary screen (O-14) | Low while the runtime holds no platform secret / medium | env guard; keep "no platform secret in the runtime" as a qualification criterion |
 | R5 | The local dev runtime (`isolation: none`) is enabled outside development by a misconfigured environment (O-4) | Low / high | refuses to start when `NODE_ENV=production`; make it refuse unless an explicit dev marker is present in every non-local environment |
+| R6a | The O-9 `deny` setting is only as complete as the audit: 25 content routes are covered and re-tested; a NEW route that returns customer content added later is readable to billing_admin until it carries the shared guard; the approvals list is treated as metadata (owner question) | Medium over time / medium | re-run `qa-o9-content-access.int.spec.ts` in CI (it enumerates the routes dynamically); owner decision on approvals |
 | R6 | Policy switches O-1/O-2/O-9 keep today's permissive defaults until the owner decides | Certain until decided / medium (developer can self-confirm production publish; billing admin can read project content) | switches exist and are tested in both settings; default change needs a recorded owner decision |
 | R7 | Concurrency fixes serialise per organization (DEFECT-7: the balance row; DEFECT-15: an advisory lock on run creation): possible latency under many parallel runs or creates of one organization | Medium at scale / low | load test needed before enabling for large tenants |
 | R8 | Idempotency error for duplicate in-flight call ids is the generic `conflict` code (nit) | Low / low | registry code recommended |

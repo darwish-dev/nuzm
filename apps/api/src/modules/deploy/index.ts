@@ -16,3 +16,24 @@ export type {
   SmokeResult,
   WebappDeployDelegate,
 } from './internal/ports';
+export {
+  DeployPolicyService,
+  DEFAULT_DEPLOY_POLICY,
+  PUBLISH_ROLES,
+} from './internal/policy.service';
+export type { DeployPolicy, PublishRole } from './internal/policy.service';
+export {
+  TARGET_BY_PRODUCT_TYPE,
+  SIMULATED_STAGING_TARGET,
+  decideTarget,
+  assertStagingTargetUsable,
+  StagingTargetRefused,
+} from './internal/targets';
+export type { StagingTarget, DeployTargetKind, TargetRule, ProductType } from './internal/targets';
+export {
+  HostingTargetPublisher,
+  InMemoryArtifactTransport,
+  InMemoryHostingSiteOps,
+  UnavailableArtifactTransport,
+} from './internal/hosting-target';
+export type { ArtifactTransport, HostingSiteOps } from './internal/hosting-target';

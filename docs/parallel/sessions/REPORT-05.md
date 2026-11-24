@@ -14,9 +14,9 @@ Pure domain code: `packages/domain/src/ai/agent-tools/builder/**` (exported as n
 ## Task status
 | # | Area | Class | State |
 |---|---|---|---|
-| 1 | patch/diff/preview/rollback | READY | in progress |
-| 2 | requirement analysis + planning | READY | pending |
-| 3 | review/repair loop on MockBuildPort | MOCKABLE | pending |
+| 1 | patch/diff/preview/rollback | READY | VERIFIED offline (domain 19 tests + API service 8 tests); endpoints parked behind CONTRACT-1 |
+| 2 | requirement analysis + planning | READY | VERIFIED offline (16 tests); 6 of 14 product profiles so far |
+| 3 | review/repair loop on MockBuildPort | MOCKABLE | VERIFIED offline against a scripted stand-in BuildPort (20 tests); wiring to the API run engine pending |
 | 4 | context compression + project memory | READY | pending |
 | 5 | generation planners per product type | READY | pending |
 | 6 | UI | READY | pending |

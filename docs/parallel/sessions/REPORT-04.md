@@ -1,6 +1,7 @@
 # REPORT-04: Session 04, Sandbox and Execution Gateway (S-AG6 offline)
 
 - **Session ID:** 04 · **Branch** `feature/ai-sandbox` · **Worktree** `/Users/elaf/Projects/nuzm/.claude/worktrees/ai-sandbox` · **Baseline** `f81872d5` (docs commit `9d16e7f3` on top) · **Current commit:** see `git log` (last: workspace registry, then this report).
+- **Post-merge update (2026-11-24):** `integration/ai-engine` (head 4af0920c) was merged into this branch (non-destructive merge commit); S04-F3..F6 fixed; test results re-run, see "Test commands" (post-merge table).
 - **Status:** all READY/MOCKABLE tasks of SESSION-04.md implemented, committed and covered by targeted tests (below). **The gate is closed. Nothing executes anything. No runtime exists.** S-AG6 is still **0 % as a capability**; the offline machinery, the escape-suite extension and the architecture documents are done.
 - **Delivery completion (offline scope):** about 95 %. Remaining offline items are in "Remaining" (durable stores and wiring are deliberately deferred: they depend on D-21).
 
@@ -65,13 +66,25 @@ None (ids 1940–1959 unused).
 | API `tsc` of the whole project | NOT run to completion: it needs the built `dist` of platform/telemetry packages that this worktree does not have; filtering the output for my files showed no errors (`modules/execution`, `sandbox/runtime`, `mock-runtime`) before the later files were added, and ESLint with type-aware rules was clean afterwards. Treat the API typecheck as NOT FULLY VERIFIED until the Master's heavy run. |
 Not run (by rule): any integration suite, E2E, `pnpm verify`, console builds.
 
+### Post-merge re-run (after merging integration/ai-engine 4af0920c; load average 24, i.e. not idle, results as seen)
+| Command | Result |
+|---|---|
+| `cd packages/domain && npx tsc -p tsconfig.json --noEmit` | no errors |
+| `cd packages/domain && npx vitest run src/ai` (before the final re-run) | 35 files, 704 tests passed |
+| `cd packages/domain && npx vitest run src/ai/execution-gateway src/ai/ssrf.spec.ts` | 16 files, 256 tests passed |
+| `cd apps/api && npx vitest run src/modules/appbuilder/internal/sandbox src/modules/execution` | 4 files, 95 tests passed |
+| `npx eslint` on `ssrf.ts`, `ssrf.spec.ts`, `execution-gateway`, `appbuilder/internal/sandbox`, `modules/execution` | clean |
+| `pnpm scan:secrets` | OK, 2825 files, 0 hits |
+Not re-run: integration specs, the whole domain package after the merge, API typecheck (heavy-run requests above still stand).
+
 ## Security findings (all offline, all fixed, each with a test)
 1. **S04-F1 (low, availability):** `decideExec` threw a TypeError for a model-chosen profile named `__proto__`, `constructor`, `toString`, `hasOwnProperty` or `valueOf` (the lookup returned an inherited object, then `profile.params.script` was dereferenced). Found by the new escape attempts EX-PROFILE-2..5. Fixed in `policy.ts` (own properties only; reads as `unknown_profile`); `exec-policy.spec.ts` covers it. No bypass: such a profile was never enabled.
 2. **S04-F2 (test robustness):** base escape attempts WS-2/3/4/6 reported ESCAPED instead of NOT_VERIFIED when the suite runs without a database (`!!c.tickets && …`). Now they throw "needs the database" like WS-1/5. With a database behaviour is unchanged.
 3. **S04-F3 (low, from Session 07 DEFECT-1):** same as F1; already fixed here before the report arrived.
 4. **S04-F4 (low, from Session 07 DEFECT-3):** `egress.ts` `blockedV6` missed the SIIT form `::ffff:0:a.b.c.d` and the discard-only prefix `100::/64`. Fixed; cases added to `egress.spec.ts` (a SIIT form of a public IPv4 stays public, like the other embedded forms).
 5. **S04-F5 (low today, high as a design rule; Session 07 DEFECT-5):** `LocalDevSandboxRuntime.readFiles(named)`, `writeFiles` and `exec` cwd followed symlinks planted by sandboxed code (confused deputy). New `confine.ts` (`lstat` on every existing component, `realpath` of the deepest ancestor under the real root, regular single-link file for reads, no hard-link write target); used by the runtime; escape attempts EX-SYM-1..4 (SYM-READ, SYM-WRITE, SYM-HARDLINK, SYM-CWD) added; `confine.spec.ts` covers it incl. the runtime. Residual: a check-then-open race while sandboxed code runs concurrently (documented in `confine.ts`; the dev runner is dev-only and a real runtime reads through its own agent, not the host path).
-6. Design observations (not defects): `AiFlags.execTools` is hard-wired false (good, untouched); the base suite's isolating attempts would pass on a *mock that lies about `isolation: verified`* (the mock answers 127 to unknown commands), so a mock must never be allowed to claim `verified`; the orchestrator and `executionGate` refuse a verified-looking runtime while the gate is closed (EX-GATE-8). Documented in `ESCAPE-SUITE-1.1.md`.
+6. **S04-F6 (low-medium, Session 07 DEFECT-2; authorized by the Master, file extended to this session for this fix):** `packages/domain/src/ai/ssrf.ts` `isBlockedAddress` did not treat IPv6 spellings of a private IPv4 as the embedded address (IPv4-compatible `::/96`, 6to4 `2002::/16`, SIIT, Teredo, `100::/64`; leading-zero spellings of the NAT64/documentation/site-local prefixes). Now the literal is expanded to 8 groups and judged by the embedded address; an unreadable literal fails closed. `ssrf.spec.ts` (new, 26 blocked + 7 public + fail-closed cases, no secret-looking fixtures). The sandbox `egress.ts` and this function now agree on the corpus in that spec.
+7. Design observations (not defects): `AiFlags.execTools` is hard-wired false (good, untouched); the base suite's isolating attempts would pass on a *mock that lies about `isolation: verified`* (the mock answers 127 to unknown commands), so a mock must never be allowed to claim `verified`; the orchestrator and `executionGate` refuse a verified-looking runtime while the gate is closed (EX-GATE-8). Documented in `ESCAPE-SUITE-1.1.md`.
 
 ## Ordinary engineering decisions recorded (no owner input needed)
 1. Policy core moved to `policy.ts` and `index.ts` became the re-export surface (API unchanged, `executionGateway.*`).

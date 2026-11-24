@@ -20,6 +20,7 @@ import { AiEnabledGuard } from './internal/ai-enabled.guard';
 import { AI_CONFIG, type AiConfig } from './internal/model';
 import { RunService } from './internal/run.service';
 import { Inject } from '@nestjs/common';
+import { AiContentAccess } from './internal/ai-content-access.service';
 
 const STOP_STATES = ['succeeded', 'failed', 'cancelled', 'budget_exceeded', 'waiting_approval'];
 
@@ -29,6 +30,7 @@ const STOP_STATES = ['succeeded', 'failed', 'cancelled', 'budget_exceeded', 'wai
 export class AiRunsController {
   constructor(
     private readonly runs: RunService,
+    private readonly access: AiContentAccess,
     @Inject(AI_CONFIG) private readonly cfg: AiConfig,
   ) {}
 
@@ -48,10 +50,12 @@ export class AiRunsController {
 
   @RequirePermission('ai:read')
   @Get()
-  list(
+  async list(
     @Org() orgId: string,
+    @Access() a: AccessContext,
     @Query() q: { limit?: string; cursor?: string; sessionId?: string; projectId?: string },
   ) {
+    await this.access.assert(orgId, a.actor.userId, a.role, 'ai_runs'); // O-9
     return this.runs.list(orgId, {
       limit: parseLimit(q.limit),
       cursor: q.cursor,
@@ -62,13 +66,26 @@ export class AiRunsController {
 
   @RequirePermission('ai:read')
   @Get(':id')
-  get(@Org() orgId: string, @Param('id') id: string) {
+  async get(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string) {
+    await this.access.assert(orgId, a.actor.userId, a.role, 'ai_run', {
+      type: 'ai_run',
+      id: id.toLowerCase(),
+    }); // O-9
     return this.runs.get(orgId, id.toLowerCase());
   }
 
   @RequirePermission('ai:read')
   @Get(':id/artifacts/:artifactId')
-  artifact(@Org() orgId: string, @Param('id') id: string, @Param('artifactId') aid: string) {
+  async artifact(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Param('id') id: string,
+    @Param('artifactId') aid: string,
+  ) {
+    await this.access.assert(orgId, a.actor.userId, a.role, 'ai_artifacts', {
+      type: 'ai_run',
+      id: id.toLowerCase(),
+    }); // O-9
     return this.runs.artifact(orgId, id.toLowerCase(), aid.toLowerCase());
   }
 
@@ -80,12 +97,17 @@ export class AiRunsController {
   @Get(':id/events')
   async events(
     @Org() orgId: string,
+    @Access() a: AccessContext,
     @Param('id') id: string,
     @Query('lastEventId') q: string | undefined,
     @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
   ) {
     const runId = id.toLowerCase();
+    await this.access.assert(orgId, a.actor.userId, a.role, 'ai_run_events', {
+      type: 'ai_run',
+      id: runId,
+    }); // O-9: 403 before the stream starts
     await this.runs.get(orgId, runId); // 404 before the stream starts
     const header = req.headers['last-event-id'];
     let last = Number(Array.isArray(header) ? header[0] : (header ?? q ?? 0));

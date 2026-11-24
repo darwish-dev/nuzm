@@ -62,7 +62,10 @@ DEFECT-4 (MEDIUM, S06 deploy: an API key can request and confirm a production pu
 | DEFECT-2 | still open: 8 `it.fails` still fail as expected |
 Fixed-but-failing: none.
 
-## NEW finding on the merged branch (for the Master)
+## Checkpoint 4 (merged integration with the manifest patch, `1fff67a4`): clean, no local tweak
+All nine QA files run one at a time on my Postgres: exec-gateway 79, ssrf-egress 179 + 8 expected fail (DEFECT-2), local-dev-sandbox 6, deploy-approval 7, run-approval 5, mobile-signing 6, migration-roundtrip 9, route-inventory 8, authz-matrix 10: **309 passed, 8 expected fail, 0 failed**. Gates on a freshly migrated database: `db check OK`, `classification coverage OK: 3396 columns in 271 tables`, `ropa coverage OK`, `residency hooks OK`; migrate applied 1900/1920/1921/1980. The harness failure below is RESOLVED.
+
+## (Resolved) finding on the merged branch (for the Master)
 `spec/db/ownership.yaml` on integration 4af0920c has the `PROV` range (1900-1919) but not the benchmarks (1920-1939) or deployment (1980-1999) ranges. Result: every DB-backed test fails at harness start with `Invalid migrations: ai/1920…, ai/1921…, deploy/1980…: ordinal outside ranges allowed`. After adding the ranges (I used an UNCOMMITTED temporary tweak of `extended_by`/`migration_ranges`, reverted; not in my commits), `pnpm db check` still FAILS (`ai.benchmark_records`, `ai.benchmark_runs` not in the ownership manifest / not in `tenant_less`) and `compliance classification` FAILS (20 unclassified columns in those two tables). `ropa-coverage` and `residency-hooks` OK. Patches are in `CONTRACT-S03-2-benchmarks-db-ownership.md` and `CONTRACT-2-deployment-cancel.md`.
 
 ## Escalations

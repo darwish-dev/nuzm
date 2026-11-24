@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ApprovalService } from './internal/approvals/approval.service';
 import { setupAiEnv, type AiEnv, type Row } from '../ai/testing/ai-harness';
 
 /**
@@ -228,5 +229,70 @@ describe('O-9 covers every content-returning read of the builder (S07 audit, DEF
       (await get('frank', `/v1/builder/projects/${webapp}/files/content?path=README.md`))
         .statusCode,
     ).toBe(200);
+  });
+});
+
+describe('O-9: approvals carry free text that can quote customer data', () => {
+  const NOTE = 'O9-APPROVAL-FREE-TEXT-77b1';
+  let ids: { deploy: string; paid: string } = { deploy: '', paid: '' };
+  const get = (who: string, url: string) => e.call(who, 'GET', url, undefined, A());
+
+  it('setup: one deployment approval and one paid-resource approval, both with free text', async () => {
+    const approvals = e.app.get(ApprovalService);
+    const project = (await q(`SELECT id FROM builder.projects WHERE org_id = $1 LIMIT 1`, [A()]))[0]
+      ?.id as string;
+    const mk = async (type: 'production_deploy' | 'paid_resource', n: number) =>
+      (
+        await approvals.request(A(), {
+          subject: { type: 'project', id: project },
+          type,
+          action: { summary: `${NOTE} ${type} ${n}`, amountMinor: 1000 },
+          requestedBy: { kind: 'user', userId: e.ids.alice! },
+          dataRegion: 'sa-central',
+        })
+      ).id;
+    ids = { deploy: await mk('production_deploy', 1), paid: await mk('paid_resource', 2) };
+    await e.call('alice', 'PUT', URL, { mode: 'allow' }, A());
+  });
+
+  it('default allow: a billing admin reads the free text, as today', async () => {
+    const list = await get('frank', '/v1/ai/approvals?status=pending');
+    expect(list.statusCode).toBe(200);
+    expect(list.body).toContain(NOTE);
+    expect((await get('frank', `/v1/ai/approvals/${ids.deploy}`)).body).toContain(NOTE);
+  });
+
+  it('deny: the billing admin gets ids, type, state and timestamps but NO free text of a non-financial approval; financial approvals stay whole; audited', async () => {
+    await e.call('alice', 'PUT', URL, { mode: 'deny' }, A());
+    const before = e.sink.events.filter((x) => x.action === 'builder.content.redacted').length;
+    const list = await get('frank', '/v1/ai/approvals?status=pending');
+    expect(list.statusCode).toBe(200);
+    const byId = new Map((list.json().items as Row[]).map((r) => [r.id as string, r]));
+    const d = byId.get(ids.deploy)!;
+    expect(d).toMatchObject({
+      id: ids.deploy,
+      type: 'production_deploy',
+      status: 'pending',
+      action: { redacted: true },
+      decisionNote: null,
+    });
+    expect(d.createdAt).toBeTruthy();
+    expect(JSON.stringify(d)).not.toContain(NOTE);
+    const paid = byId.get(ids.paid)!;
+    expect(paid.action.summary).toContain(NOTE); // the billing role decides these: the action is financial
+    const one = await get('frank', `/v1/ai/approvals/${ids.deploy}`);
+    expect(one.statusCode).toBe(200);
+    expect(one.body).not.toContain(NOTE);
+    expect((await get('frank', `/v1/ai/approvals/${ids.paid}`)).body).toContain(NOTE);
+    expect(
+      e.sink.events.filter((x) => x.action === 'builder.content.redacted').length,
+    ).toBeGreaterThan(before);
+  });
+
+  it('deny leaves every other role unredacted, and allow restores the billing admin', async () => {
+    for (const who of ['alice', 'dave', 'carol'])
+      expect((await get(who, `/v1/ai/approvals/${ids.deploy}`)).body, who).toContain(NOTE);
+    await e.call('alice', 'PUT', URL, { mode: 'allow' }, A());
+    expect((await get('frank', `/v1/ai/approvals/${ids.deploy}`)).body).toContain(NOTE);
   });
 });

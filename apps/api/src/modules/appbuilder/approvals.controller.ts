@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { Idempotent } from '../../common/idempotency';
+import { ContentAccessService } from '../builder';
 import { ApprovalService, type ApprovalDto } from './internal/approvals/approval.service';
 import { AppBuilderEnabledGuard } from './internal/flag.guard';
 
@@ -10,25 +11,30 @@ type Body_ = Record<string, unknown> | undefined;
 @UseGuards(AppBuilderEnabledGuard)
 @Controller('v1/ai/approvals')
 export class ApprovalsController {
-  constructor(private readonly approvals: ApprovalService) {}
+  constructor(
+    private readonly approvals: ApprovalService,
+    private readonly content: ContentAccessService,
+  ) {}
   @RequirePermission('ai:read')
   @Get()
   async list(
     @Org() orgId: string,
+    @Access() a: AccessContext,
     @Query('status') status?: string,
     @Query('subjectType') subjectType?: string,
   ) {
-    return {
-      items: (await this.approvals.list(orgId, {
-        ...(status ? { status } : {}),
-        ...(subjectType ? { subjectType } : {}),
-      })) satisfies ApprovalDto[],
-    };
+    const rows: ApprovalDto[] = await this.approvals.list(orgId, {
+      ...(status ? { status } : {}),
+      ...(subjectType ? { subjectType } : {}),
+    });
+    // O-9: a billing administrator under `deny` gets no free text (ids, type, state, timestamps stay)
+    return { items: await this.content.redactApprovals(orgId, a.actor.userId, a.role, rows) };
   }
   @RequirePermission('ai:read')
   @Get(':approvalId')
-  async get(@Org() orgId: string, @Param('approvalId') id: string) {
-    return this.approvals.get(orgId, id.toLowerCase());
+  async get(@Org() orgId: string, @Access() a: AccessContext, @Param('approvalId') id: string) {
+    const one = await this.approvals.get(orgId, id.toLowerCase());
+    return (await this.content.redactApprovals(orgId, a.actor.userId, a.role, [one]))[0]!;
   }
   @RequirePermission('ai:approve')
   @Idempotent()
@@ -40,11 +46,12 @@ export class ApprovalsController {
     @Param('approvalId') id: string,
     @Body() body: Body_,
   ) {
-    return this.approvals.decide(
+    const done = await this.approvals.decide(
       orgId,
       { userId: a.actor.userId, role: a.role, permissions: a.permissions },
       id.toLowerCase(),
       (body ?? {}) as never,
     );
+    return (await this.content.redactApprovals(orgId, a.actor.userId, a.role, [done]))[0]!;
   }
 }

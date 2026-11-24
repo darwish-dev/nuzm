@@ -45,7 +45,7 @@ describe('jobs', () => {
       for (const to of states) {
         if (from === to) continue;
         const id = randomUUID();
-        await env.sql(`INSERT INTO execution.jobs (id, org_id, run_id, idempotency_key, profile, decision_digest, state, origin, requires_approval, data_region) VALUES ($1,$2,'r',$1,'typecheck',$3,$4,'MOCK',false,'sa')`, [id, ORG_A, digest(), from]);
+        await env.sql(`INSERT INTO execution.jobs (id, org_id, run_id, idempotency_key, profile, decision_digest, state, origin, requires_approval, data_region) VALUES ($1,$2,'r',$5,'typecheck',$3,$4,'MOCK',false,'sa')`, [id, ORG_A, digest(), from, `pair-${id}`]);
         let dbOk = true;
         try {
           await env.sql(`UPDATE execution.jobs SET state = $2 WHERE id = $1`, [id, to]);
@@ -56,6 +56,7 @@ describe('jobs', () => {
         if (dbOk !== domOk) mismatches.push(`${from}->${to}: db=${dbOk} domain=${domOk}`);
       }
     }
+    await env.sql(`DELETE FROM execution.jobs WHERE idempotency_key LIKE 'pair-%'`); // the probe rows must not take part in later claim tests
     expect(mismatches).toEqual([]);
   }, 120_000);
 
@@ -80,6 +81,7 @@ describe('jobs', () => {
   }, 120_000);
 
   it('transition goes through the domain, is guarded by the state the caller saw, and logs append-only history', async () => {
+    await env.sql(`DELETE FROM execution.jobs WHERE state IN ('queued','running')`);
     const { job: j } = await store.enqueue(job(ORG_A, 'k-trans'));
     const bad = await store.transition(ORG_A, j.id, 'succeeded', 'skip');
     expect(bad).toEqual({ ok: false, reason: 'illegal_transition_queued_to_succeeded' });

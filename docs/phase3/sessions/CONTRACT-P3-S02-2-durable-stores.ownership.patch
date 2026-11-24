@@ -1,5 +1,40 @@
+diff --git a/spec/compliance/residency-hooks.yaml b/spec/compliance/residency-hooks.yaml
+index 7115408c..8fabfb50 100644
+--- a/spec/compliance/residency-hooks.yaml
++++ b/spec/compliance/residency-hooks.yaml
+@@ -233,6 +233,30 @@ tables:
+     owner: M10
+     hook: m10-agent-runs
+     note: redacted tool-call summaries inherit the region of their run
++  execution.jobs:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "a job carries the data_region of its run; WHICH NODE REGION a real run may use is a placement decision the orchestrator must evaluate through ResidencyPolicyService before createWorkspace: NOT WIRED yet (the orchestrator and the real port are behind the flag ai.agent.exec_tools, synthetic data only, D1); nodes have no region in the registry yet"
++  execution.job_transitions:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "inherits the region of its job"
++  execution.workspaces:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "one workspace per run on one node; the node region must equal the run region once nodes carry one (see jobs)"
++  execution.approvals:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "an approval names the region of the action it is bound to"
++  execution.quota_reservations:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "inherits the region of its job"
++  execution.usage_records:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "measured use inherits the region of its run"
+   ai.approval_requests:
+     owner: M10
+     hook: m10-agent-runs
 diff --git a/spec/db/ownership.yaml b/spec/db/ownership.yaml
-index cc1b8f2c..291b267c 100644
+index cc1b8f2c..047b2ba4 100644
 --- a/spec/db/ownership.yaml
 +++ b/spec/db/ownership.yaml
 @@ -114,6 +114,11 @@ schemas:
@@ -120,7 +155,7 @@ index cc1b8f2c..291b267c 100644
 +      org_id: internal
 +      job_id: internal
 +      currency: internal
-+      reserved_minor: internal
++      reserved_minor: financial
 +      concurrency_slots: internal
 +      state: internal
 +      at: internal
@@ -150,7 +185,7 @@ index cc1b8f2c..291b267c 100644
 +      disk_mb: internal
 +      output_bytes: internal
 +      status: internal
-+      estimated_minor: internal
++      estimated_minor: financial
 +      currency: internal
 +      billed: internal
 +      created_at: internal

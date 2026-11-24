@@ -22,3 +22,6 @@ Add a tab `benchmarks` (`/{locale}/ai/benchmarks`) to `apps/admin/components/AiA
 
 ## 5. E2E and screenshot (UI rule in CLAUDE.md §4) — for Session 07 / the heavy slot
 An e2e spec for the admin page (Arabic and English): open `/ai/benchmarks` as a platform admin with the flag on; expect the "not a model" banner, the PROPOSED thresholds, the empty runs state; click "Record" with source `reference`; expect a run row labelled "Reference oracle (not a model)". Plus a viewer-without-permission case (forbidden state). Screenshot per locale. Not written by Session 03 (e2e files are not in its ownership; nothing may be run in the parallel phase).
+
+## Applied (Session 03, on the Master's temporary authorization, after merging integration/ai-engine)
+Applied on feature/ai-benchmarks; sdk was NOT regenerated (Master does that once). See REPORT-03 "Integration batch 2" for the checks seen.

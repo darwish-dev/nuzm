@@ -28,6 +28,8 @@ import { MobileModule } from './modules/mobile';
 import { AiModule } from './modules/ai';
 import { BuilderModule } from './modules/builder';
 import { DeployModule } from './modules/deploy';
+// S-AG5 benchmarks (inert while the platform flag ai.benchmarks is off)
+import { BenchmarksModule } from './modules/benchmarks';
 // <<< M09 modules
 import { TenancyModule } from './modules/tenancy';
 // >>> M12
@@ -61,6 +63,7 @@ import { ProgramsModule } from './modules/programs';
     AiModule,
     BuilderModule,
     DeployModule,
+    BenchmarksModule,
     // <<< M09 modules
     IdentityModule,
     NotificationsModule,

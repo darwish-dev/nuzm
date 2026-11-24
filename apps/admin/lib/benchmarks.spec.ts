@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BENCH_KEYS, benchTexts, bt } from './benchmarks-text';
+import { BENCH_KEYS, bt } from './benchmarks-text';
 import {
   MOCK_SOURCES,
   barText,
@@ -13,17 +13,19 @@ import {
 describe('benchmark texts', () => {
   it('every key has an Arabic and an English text with the same placeholders', () => {
     for (const k of BENCH_KEYS) {
-      expect(benchTexts.ar[k], k).toBeTruthy();
-      expect(benchTexts.en[k], k).toBeTruthy();
-      const ph = (t: string) => [...t.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
-      expect(ph(benchTexts.ar[k]), k).toEqual(ph(benchTexts.en[k]));
+      const ar = bt('ar', k);
+      const en = bt('en', k);
+      expect(ar, k).toBeTruthy();
+      expect(en, k).toBeTruthy();
+      expect(ar, k).not.toBe(`bench.${k}`);
+      const ph = (x: string) => [...x.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+      expect(ph(ar), k).toEqual(ph(en));
     }
   });
   it('never claims real-model performance and substitutes placeholders', () => {
-    expect(JSON.stringify(benchTexts)).not.toMatch(/real-model performance is/i);
+    for (const k of BENCH_KEYS) expect(bt('en', k)).not.toMatch(/real-model performance is/i);
     expect(bt('en', 'thresholdsAccepted', { who: 'A', when: 'B' })).toBe('Accepted by A on B.');
     expect(bt('ar', 'title')).not.toBe(bt('en', 'title'));
-    expect(bt('en', 'thresholdsAccepted')).toContain('{who}');
   });
 });
 

@@ -52,3 +52,6 @@ Both tables are platform-scoped (no `org_id`, no customer data: every task is sy
 - `packages/db/migrations/ai/1921__ai__benchmark_records.sql` + `.down.sql`
 Reversal notes are in the `.down.sql` headers (dev/staging only; production is forward-fix; dropping withdraws evidence and every gate then fails closed).
 Ids 1922-1939 remain free.
+
+## Applied (Session 03, on the Master's temporary authorization, after merging integration/ai-engine)
+Applied on feature/ai-benchmarks; sdk was NOT regenerated (Master does that once). See REPORT-03 "Integration batch 2" for the checks seen.

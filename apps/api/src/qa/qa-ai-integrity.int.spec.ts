@@ -325,7 +325,7 @@ describe('QA integrity 2: reconciliation after a concurrent mixed workload', () 
     async () => {
       let mism = 0;
       let gap = 0n;
-      for (let round = 0; round < 5 && mism === 0 && gap === 0n; round++) {
+      for (let round = 0; round < 8 && mism === 0 && gap === 0n; round++) {
         const w = await workload({
           runs: 6,
           perRun: 10,

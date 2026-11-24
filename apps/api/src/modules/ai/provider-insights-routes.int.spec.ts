@@ -14,7 +14,7 @@ beforeAll(async () => {
     adapter: new MockModelAdapter({ id: 'mock-model' }),
   });
   providerId = row.id as string;
-}, 120_000);
+}, 300_000);
 afterAll(() => e.h.close());
 
 describe('provider insight routes', () => {

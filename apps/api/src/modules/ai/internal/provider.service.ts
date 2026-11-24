@@ -103,6 +103,9 @@ export interface ProviderDto {
 /** An API key as providers issue them: printable ASCII, no spaces, a sensible length. The value is never echoed in an error. */
 const CLAUDE_CODE = 'claude';
 const API_KEY = /^[\x21-\x7E]{20,400}$/;
+/** A field NAME that suggests a credential value: a value sent under such a name is refused (never stored, never echoed); only a `vaultRef` carries a credential reference. */
+const CREDENTIAL_FIELD =
+  /(secret|passw|passphrase|api[_-]?key|access[_-]?key|private|token|credential|bearer|authorization)|^(key|keys|auth)$/i;
 
 export class ModelProviderService {
   constructor(
@@ -360,7 +363,7 @@ export class ModelProviderService {
         'vaultRef must be a vault:// reference (credential values are never accepted)',
       );
     for (const k of Object.keys(b))
-      if (/(secret|password|api_?key|token|private)/i.test(k))
+      if (CREDENTIAL_FIELD.test(k))
         throw new ProblemException(
           'credential_value_rejected',
           `${k}: send a vault reference as vaultRef`,

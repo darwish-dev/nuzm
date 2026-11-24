@@ -1,6 +1,6 @@
 # CONTRACT-S03-4 — Phase 2 benchmark texts and (optional) schema documentation
 
-- **Requester:** Session 03 · **Status:** REQUESTED (nothing blocks on it; everything below works without it)
+- **Requester:** Session 03 · **Status:** DEFERRED by the Master 2026-11-24 (non-blocking: texts stay in `apps/admin/lib/benchmarks-text.ts`; OpenAPI documentation of the already-travelling fields is a later, additive change)
 - **Contract:** `packages/i18n/src/messages.ts` (new `bench.*` keys), `spec/openapi/openapi.yaml` (documentation only)
 - **Additive?** Yes. **Sessions affected:** 01 (Master), 07 (the E2E may then assert the new texts by catalogue key).
 

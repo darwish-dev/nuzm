@@ -97,6 +97,11 @@ function DeploymentDetail({
         <dt>{t(locale, 'bld.dep.finished')}</dt>
         <dd>{when(d.finishedAt, locale)}</dd>
       </dl>
+      {(d as { simulated?: boolean }).simulated === true && (
+        <Banner tone="warn">
+          <strong>{t(locale, 'dep.simulated.title')}</strong> {t(locale, 'dep.simulated.body')}
+        </Banner>
+      )}
       {d.state === 'failed' && d.error?.code && (
         <Banner tone="danger">{t(locale, 'bld.dep.failed', { code: d.error.code })}</Banner>
       )}

@@ -7876,6 +7876,11 @@ export const messages = {
       'يستكشف الوكيل ملفات مشروعك عبر أدوات للقراءة فقط ثم يقترح التغيير. لا يشغّل أي شيء، ويعود إلى النداء الواحد عند أي مشكلة.',
     // <<< Agent timeline (S-AG3)
     // <<< AI Intelligence Center
+    // >>> Deployment (S06)
+    'dep.simulated.title': 'نشر تجريبي (محاكاة)',
+    'dep.simulated.body':
+      'جرى هذا النشر على بيئة محاكاة محلية وليس على عقدة استضافة حقيقية، ولم يُنشر أي شيء على الإنترنت.',
+    // <<< Deployment (S06)
   },
   en: {
     'app.web.title': 'Nuzm — Customer Console',
@@ -15999,5 +16004,10 @@ export const messages = {
       'The agent explores your project files with read-only tools, then proposes the change. It runs nothing, and falls back to the single call on any problem.',
     // <<< Agent timeline (S-AG3)
     // <<< AI Intelligence Center
+    // >>> Deployment (S06)
+    'dep.simulated.title': 'Simulated deployment',
+    'dep.simulated.body':
+      'This deployment ran on a local stand-in, not on a real hosting node. Nothing was published to the internet.',
+    // <<< Deployment (S06)
   },
 } as const satisfies Record<Locale, Record<string, string>>;

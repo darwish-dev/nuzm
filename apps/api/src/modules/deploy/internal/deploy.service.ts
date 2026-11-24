@@ -62,10 +62,12 @@ export interface DeploymentDto {
   url: string | null;
   smoke: unknown;
   error: unknown;
+  /** true: published through the local in-memory stand-in (SIMULATED, nothing reached a hosting node); false is reserved for a live-verified real publisher */
+  simulated: boolean;
   createdAt: string;
   finishedAt: string | null;
 }
-const dto = (r: Row): DeploymentDto => ({
+const dto = (r: Row, simulated: boolean): DeploymentDto => ({
   id: r.id as string,
   projectId: r.project_id as string,
   versionId: r.version_id as string,
@@ -79,6 +81,7 @@ const dto = (r: Row): DeploymentDto => ({
   url: (r.url as string | null) ?? null,
   smoke: r.smoke ?? null,
   error: r.error ?? null,
+  simulated,
   createdAt: iso(r.created_at)!,
   finishedAt: iso(r.finished_at),
 });
@@ -104,6 +107,9 @@ export class DeployService {
   ) {}
   setKicker(k: (orgId: string, opId: string) => void) {
     this.kicker = k;
+  }
+  private dto(r: Row): DeploymentDto {
+    return dto(r, this.publisher.simulated);
   }
   private async site(orgId: string, id: unknown): Promise<TargetSite> {
     if (typeof id !== 'string' || !UUID.test(id))
@@ -335,7 +341,7 @@ export class DeployService {
       detail: { projectId: project.id, siteId: site.id, environment },
     });
     this.kicker(orgId, op.id);
-    return dto({ ...row, operation_id: op.id });
+    return this.dto({ ...row, operation_id: op.id });
   }
 
   async log(
@@ -385,7 +391,7 @@ export class DeployService {
       async (c) => (await c.query(`SELECT * FROM deploy.deployments WHERE id=$1`, [id])).rows[0],
     )) as Row | undefined;
     if (!r) throw new ProblemException('not_found');
-    return dto(r);
+    return this.dto(r);
   }
   async list(orgId: string, o: { limit: number; cursor?: string; projectId?: string }) {
     if (o.projectId && UUID.test(o.projectId) && this.webapp) {
@@ -404,7 +410,7 @@ export class DeployService {
         ).rows as Row[],
     );
     const p = pageOf(rows as (Row & { id: string })[], o.limit);
-    return { items: p.items.map(dto), nextCursor: p.nextCursor };
+    return { items: p.items.map((r) => this.dto(r)), nextCursor: p.nextCursor };
   }
   async logs(orgId: string, id: string, afterSeq = 0) {
     if (await this.webappOwns(orgId, id)) return (await this.webapp!.logs(orgId, id)) as never;
@@ -501,7 +507,7 @@ export class DeployService {
       to: d.previousDeploymentId,
     });
     this.kicker(orgId, op.id);
-    return dto({ ...row, operation_id: op.id });
+    return this.dto({ ...row, operation_id: op.id });
   }
 
   // ---- engine -------------------------------------------------------------------------------------------------------------------

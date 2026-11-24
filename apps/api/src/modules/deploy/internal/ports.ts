@@ -36,6 +36,11 @@ export const artifactHash = (files: { path: string; content: Uint8Array }[]): st
  */
 export abstract class SitePublisherPort {
   abstract available(): boolean;
+  /**
+   * True when this publisher is a local stand-in, not a hosting node: every deployment made through it is SIMULATED (nothing reaches a real node; HG-05/HG-06) and is
+   * labelled so in the API (`simulated`), the console and the reports. A future real publisher answers false only after its live verification (`LIVE-VERIFIED`).
+   */
+  abstract readonly simulated: boolean;
   /** upload the artifact next to the live site without switching */
   abstract stage(
     site: TargetSite,
@@ -55,6 +60,7 @@ export abstract class SitePublisherPort {
   abstract activeHash(site: TargetSite): Promise<string | null>;
 }
 export class UnavailableSitePublisher extends SitePublisherPort {
+  readonly simulated = false;
   available() {
     return false;
   }
@@ -79,6 +85,7 @@ export class UnavailableSitePublisher extends SitePublisherPort {
 }
 /** In-memory fake node: records what is live per site, with fault injection for the smoke checks. NOT a hosting node: nothing about a real one is verified. */
 export class InMemorySitePublisher extends SitePublisherPort {
+  readonly simulated = true;
   readonly live = new Map<string, Artifact>();
   readonly staged = new Map<string, Artifact>();
   failSmoke: 'staged' | 'live' | null = null;

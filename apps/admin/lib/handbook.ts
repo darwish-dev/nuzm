@@ -31,7 +31,6 @@ export const HANDBOOK_GROUPS = [
       'customer-accounts',
       'rotating-dev-secrets',
       'field-encryption',
-      'node-agent-threat-model',
     ],
   },
   {

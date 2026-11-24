@@ -1,47 +1,12 @@
 import { notFound } from 'next/navigation';
 import { unwrap } from '@nuzm/sdk';
-import { formatDateTime, isLocale, t, tDynamic, type Locale } from '@nuzm/i18n';
-import {
-  Badge,
-  Banner,
-  ForbiddenState,
-  Icon,
-  Ltr,
-  Meter,
-  PageTitle,
-  type IconName,
-} from '@nuzm/ui';
-import {
-  ActionLink,
-  ActionPanel,
-  ActionRow,
-  OverviewLayout,
-  Ring,
-  SidePanel,
-  SummaryCard,
-} from '../../../../../../components/Overview';
+import { formatDateTime, isLocale, t, tDynamic } from '@nuzm/i18n';
+import { Badge, Banner, ForbiddenState, Icon, Ltr, PageTitle, type IconName } from '@nuzm/ui';
+import { HostingInsights } from '../../../../../../components/HostingInsights';
+import { PLANNED_TOOLS } from '../../../../../../lib/hosting-tools';
 import { DeleteSiteForm } from '../../../../../../components/HostingControls';
 import { requireSession } from '../../../../../../lib/server';
 import { view } from '../../../../../../lib/view';
-
-/** The resource dimensions in the order a customer reads them, with their label and how to show the numbers. */
-const DIMS: { dim: string; label: Parameters<typeof t>[1]; unit: 'mb' | 'gb' | 'n' }[] = [
-  { dim: 'disk_mb', label: 'host.usage.disk', unit: 'mb' },
-  { dim: 'bandwidth_gb', label: 'host.usage.bandwidth', unit: 'gb' },
-  { dim: 'memory_mb', label: 'host.dim.memory', unit: 'mb' },
-  { dim: 'inodes', label: 'host.usage.inodes', unit: 'n' },
-  { dim: 'processes', label: 'host.dim.processes', unit: 'n' },
-  { dim: 'db_count', label: 'host.tab.databases', unit: 'n' },
-  { dim: 'backup_count', label: 'host.tab.backups', unit: 'n' },
-  { dim: 'backup_gb', label: 'host.usage.backup', unit: 'gb' },
-];
-const amount = (v: number, unit: 'mb' | 'gb' | 'n', locale: Locale) => {
-  const n = (x: number, d = 0) =>
-    x.toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US', { maximumFractionDigits: d });
-  if (unit === 'mb') return v >= 1024 ? `${n(v / 1024, 1)} GB` : `${n(v)} MB`;
-  if (unit === 'gb') return `${n(v)} GB`;
-  return n(v);
-};
 
 /** UI-M06-04: the website overview: a header with the key facts, resource cards, and cards that open every part of the site. */
 export default async function Site({
@@ -80,27 +45,13 @@ export default async function Site({
         disk_mb: site.usageSummary?.diskMb,
         inodes: site.usageSummary?.inodes,
       };
-      const diskQ = site.quotas.find((q) => q.dim === 'disk_mb');
-      const diskPct =
-        diskQ && used.disk_mb !== undefined && diskQ.limit
-          ? (used.disk_mb / diskQ.limit) * 100
-          : null;
-      const open = t(locale, 'host.ov.open');
+      const limit = (dim: string) => site.quotas.find((q) => q.dim === dim)?.limit ?? null;
       const parts: [string, IconName, Parameters<typeof t>[1], Parameters<typeof t>[1]][] = [
         ['domains', 'domains', 'host.tab.domains', 'host.card.domains'],
         ['ssl', 'shield', 'host.tab.ssl', 'host.card.ssl'],
-        ['databases', 'data', 'host.tab.databases', 'host.card.databases'],
         ['backups', 'cloud', 'host.tab.backups', 'host.card.backups'],
+        ['databases', 'data', 'host.tab.databases', 'host.card.databases'],
         ['usage', 'dashboard', 'host.tab.usage', 'host.card.usage'],
-      ];
-      // parts of a site the hosting API does not offer yet: listed so the customer knows they are planned, never faked
-      const soon: [IconName, Parameters<typeof t>[1], Parameters<typeof t>[1]][] = [
-        ['projects', 'host.card.files', 'host.card.files.desc'],
-        ['calendar', 'host.card.cron', 'host.card.cron.desc'],
-        ['panel', 'host.card.php', 'host.card.php.desc'],
-        ['list', 'host.card.logs', 'host.card.logs.desc'],
-        ['key', 'host.card.access', 'host.card.access.desc'],
-        ['shield', 'host.card.security', 'host.card.security.desc'],
       ];
       const tone =
         site.status === 'active' ? 'success' : site.status === 'failed' ? 'danger' : 'warn';
@@ -125,174 +76,105 @@ export default async function Site({
           {site.status === 'deleting' && (
             <Banner tone="warn">{t(locale, 'host.banner.deleting')}</Banner>
           )}
-          <OverviewLayout
-            sideLabel={t(locale, 'host.ov.summary')}
-            main={
-              <>
-                <ActionPanel
-                  id="site-manage"
-                  title={t(locale, 'host.ov.title', { name: site.name })}
-                  sub={t(locale, 'host.ov.sub')}
-                >
-                  {parts.map(([path, icon, title, desc], i) => (
-                    <ActionRow
-                      key={path}
-                      icon={icon}
-                      title={t(locale, title)}
-                      desc={t(locale, desc)}
-                      featured={i === 0}
-                      action={
-                        <ActionLink href={`${base}/${path}`} label={open} primary={i === 0} />
-                      }
-                    />
-                  ))}
-                </ActionPanel>
-                <ActionPanel id="site-soon" title={t(locale, 'host.ov.more')}>
-                  {soon.map(([icon, title, desc]) => (
-                    <ActionRow
-                      key={title}
-                      icon={icon}
-                      title={t(locale, title)}
-                      desc={t(locale, desc)}
-                      action={<Badge>{t(locale, 'host.soon')}</Badge>}
-                    />
-                  ))}
-                </ActionPanel>
-                {site.quotas.length > 0 && (
-                  <section aria-labelledby="site-res">
-                    <h2 className="nzc-section-title" id="site-res">
-                      {t(locale, 'host.resources')}
-                    </h2>
-                    <div className="nzc-quotas">
-                      {DIMS.map(({ dim, label, unit }) => {
-                        const q = site.quotas.find((x) => x.dim === dim);
-                        if (!q) return null;
-                        const u = used[dim];
-                        return (
-                          <div key={dim} className="nzc-quota">
-                            <span className="nzc-quota-label">{t(locale, label)}</span>
-                            <span className="nzc-quota-value">
-                              {u === undefined ? (
-                                amount(q.limit, unit, locale)
-                              ) : (
-                                <>
-                                  {amount(u, unit, locale)}{' '}
-                                  <small>/ {amount(q.limit, unit, locale)}</small>
-                                </>
-                              )}
-                            </span>
-                            {u !== undefined && (
-                              <Meter
-                                label={t(locale, 'host.usage.meter', { dim: t(locale, label) })}
-                                percent={q.limit ? (u / q.limit) * 100 : 0}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
-              </>
-            }
-            side={
-              <>
-                <SummaryCard
-                  name={site.name}
-                  link={
-                    site.primaryDomain && site.status === 'active'
-                      ? `https://${site.primaryDomain}`
-                      : undefined
-                  }
-                  linkLabel={t(locale, 'host.visit')}
-                  badges={
-                    <Badge tone={tone}>
-                      {tDynamic(locale, `host.status.${site.status}`, site.status)}
-                    </Badge>
-                  }
-                  gauge={
-                    <>
-                      <Ring
-                        percent={diskPct ?? 0}
-                        value={diskPct === null ? '—' : `${Math.round(diskPct)}%`}
-                        caption={t(locale, 'host.ov.disk')}
-                        label={
-                          diskPct === null
-                            ? t(locale, 'host.usage.disk')
-                            : t(locale, 'host.ov.diskLabel', { percent: Math.round(diskPct) })
-                        }
-                        tone={
-                          diskPct !== null && diskPct >= 90
-                            ? 'danger'
-                            : diskPct !== null && diskPct >= 75
-                              ? 'warn'
-                              : 'accent'
-                        }
-                      />
-                      <dl style={{ margin: 0 }}>
-                        <dt>{t(locale, 'host.col.plan')}</dt>
-                        <dd>{site.plan.name[locale]}</dd>
-                        <dt>{t(locale, 'host.col.runtime')}</dt>
-                        <dd style={{ fontSize: 15 }}>
-                          <Ltr>{site.runtime}</Ltr>
-                        </dd>
-                      </dl>
-                    </>
-                  }
-                  rows={[
-                    {
-                      icon: 'pin',
-                      label: t(locale, 'host.col.region'),
-                      value: <Ltr>{site.dataRegion}</Ltr>,
-                    },
-                    {
-                      icon: 'globe',
-                      label: t(locale, 'host.col.domain'),
-                      value: site.primaryDomain ? <Ltr>{site.primaryDomain}</Ltr> : '—',
-                    },
-                    {
-                      icon: 'calendar',
-                      label: t(locale, 'host.col.created'),
-                      value: formatDateTime(site.createdAt, locale),
-                    },
-                  ]}
-                />
-                <SidePanel
-                  title={t(locale, 'host.tab.domains')}
-                  link={`${base}/domains`}
-                  linkLabel={t(locale, 'action.manage')}
-                >
-                  {site.domains.length ? (
-                    <ul className="nzc-ns-list">
-                      {site.domains.map((d) => (
-                        <li key={d.id}>{d.domain}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="nz-muted" style={{ margin: 0 }}>
-                      {t(locale, 'host.none.domains')}
-                    </p>
-                  )}
-                </SidePanel>
-                <SidePanel
-                  title={t(locale, 'host.tab.backups')}
-                  link={`${base}/backups`}
-                  linkLabel={t(locale, 'host.ov.open')}
-                >
-                  <p className="nz-muted" style={{ margin: 0 }}>
-                    {t(locale, 'host.card.backups')}
-                  </p>
-                </SidePanel>
-              </>
-            }
+
+          <header className="nzc-site-hero">
+            <div className="nzc-site-hero-main">
+              <h2>{site.name}</h2>
+              <Badge tone={tone}>
+                {tDynamic(locale, `host.status.${site.status}`, site.status)}
+              </Badge>
+            </div>
+            <dl className="nzc-site-facts">
+              <div>
+                <dt>{t(locale, 'host.col.domain')}</dt>
+                <dd>{site.primaryDomain ? <Ltr>{site.primaryDomain}</Ltr> : '—'}</dd>
+              </div>
+              <div>
+                <dt>{t(locale, 'host.col.plan')}</dt>
+                <dd>
+                  {site.plan.name[locale]} · <Ltr>{site.runtime}</Ltr>
+                </dd>
+              </div>
+              <div>
+                <dt>{t(locale, 'host.col.region')}</dt>
+                <dd>
+                  <Ltr>{site.dataRegion}</Ltr>
+                </dd>
+              </div>
+              <div>
+                <dt>{t(locale, 'host.col.created')}</dt>
+                <dd>{formatDateTime(site.createdAt, locale)}</dd>
+              </div>
+            </dl>
+            {site.primaryDomain && site.status === 'active' && (
+              <a className="nz-btn" data-variant="secondary" href={`https://${site.primaryDomain}`}>
+                {t(locale, 'host.visit')}
+                <Icon name="arrow" size={15} />
+              </a>
+            )}
+          </header>
+
+          <HostingInsights
+            locale={locale}
+            site={{
+              runtime: site.runtime,
+              planName: site.plan.name[locale],
+              domains: site.domains,
+              limits: Object.fromEntries(site.quotas.map((q) => [q.dim, q.limit])),
+              used,
+              diskLimitMb: limit('disk_mb'),
+              diskUsedMb: used.disk_mb,
+            }}
           />
+
+          <section aria-labelledby="site-manage">
+            <h2 className="nzc-section-title" id="site-manage">
+              {t(locale, 'host.ov.title', { name: site.name })}
+            </h2>
+            <div className="nzc-site-tiles">
+              {parts.map(([path, icon, title, desc]) => (
+                <a key={path} className="nzc-site-tile" href={`${base}/${path}`}>
+                  <span className="nzc-site-tile-ico" aria-hidden="true">
+                    <Icon name={icon} size={22} />
+                  </span>
+                  <strong>{t(locale, title)}</strong>
+                  <span className="nz-muted">{t(locale, desc)}</span>
+                  <span className="nzc-site-tile-go">
+                    {t(locale, 'host.ov.open')} <Icon name="arrow" size={14} />
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+
+          <section aria-labelledby="site-tools">
+            <h2 className="nzc-section-title" id="site-tools">
+              {t(locale, 'host.ov.tools')}
+            </h2>
+            <div className="nzc-tool-tiles">
+              {PLANNED_TOOLS.map((tool) => (
+                <div key={tool.title} className="nzc-tool-tile">
+                  <span className="nzc-site-tile-ico" aria-hidden="true">
+                    <Icon name={tool.icon} size={20} />
+                  </span>
+                  <strong>{t(locale, tool.title)}</strong>
+                  <span className="nz-muted">{t(locale, tool.desc)}</span>
+                  <Badge>{t(locale, 'host.tool.soon')}</Badge>
+                </div>
+              ))}
+            </div>
+          </section>
+
           {s.can('hosting:site:delete') && site.status !== 'deleting' && (
-            <DeleteSiteForm
-              locale={locale}
-              siteId={id}
-              siteName={site.name}
-              mfaFactorId={s.me.mfaFactorId ?? null}
-            />
+            <details className="nzc-danger-zone">
+              <summary>{t(locale, 'host.ctl.del.open')}</summary>
+              <DeleteSiteForm
+                locale={locale}
+                siteId={id}
+                siteName={site.name}
+                mfaFactorId={s.me.mfaFactorId ?? null}
+              />
+            </details>
           )}
         </>
       );

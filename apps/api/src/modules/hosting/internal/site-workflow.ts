@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import type { Db, OperationsService } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
-import { tokenFor } from './cloudpanel-adapter';
+import { tokenFor } from './hosting-names';
 import type { CapacityService } from './capacity.service';
 import { planLimits, planRow } from './plans.service';
 import type { HostingAdapter, NodeRef, SiteInfo, VaultPort } from './ports';

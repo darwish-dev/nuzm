@@ -13,7 +13,6 @@ import { EntitlementService, PriceBookService } from '../billing';
 import { OrderService, QuotePricerRegistry } from '../commerce';
 import { ResidencyService } from '../compliance';
 import { IdentityModule } from '../identity';
-import { AdminAgentsController } from './admin-agents.controller';
 import { AdminNodesController } from './admin-nodes.controller';
 import { AdminSitesController } from './admin-sites.controller';
 import { HostingPlansController } from './hosting-plans.controller';
@@ -26,7 +25,15 @@ import { SiteDatabasesController } from './site-databases.controller';
 import { SiteDomainsController } from './site-domains.controller';
 import { SiteSslController } from './site-ssl.controller';
 import { SitesController } from './sites.controller';
-import { CloudPanelHostingAdapter } from './internal/cloudpanel-adapter';
+import { SealedVault } from '../../common/sealed-vault';
+import { SecretStore } from '../../common/secrets';
+import { HestiaHostingAdapter } from './internal/hestia/adapter';
+import { HestiaClient, HttpHestiaChannel } from './internal/hestia/client';
+import {
+  DbHestiaConnections,
+  SealedHestiaKeys,
+  SealedVaultPort,
+} from './internal/hestia/connections';
 import { loadHostingConfig, type HostingConfig } from './internal/config';
 import { BackupService } from './internal/backups.service';
 import { DomainsService } from './internal/domains.service';
@@ -41,7 +48,6 @@ import { HostingQuotePricer } from './internal/hosting-pricer';
 import {
   InMemoryComputeProvisioning,
   MemoryBackupSink,
-  MemoryVault,
   MockDomainOwnershipVerifier,
   NoBackupSink,
   NoDatabaseBindingProvider,
@@ -55,7 +61,6 @@ import {
   DOMAIN_VERIFIER,
   VAULT_PORT,
   type BackupSink,
-  type CloudPanelTransport,
   type ComputeProvisioningPort,
   type DomainOwnershipVerifier,
   type HostingAdapter,
@@ -71,18 +76,6 @@ import {
   HOSTING_WORKER_DB,
 } from './internal/tokens';
 
-/** Until a real node agent channel exists (HG-06-01) the transport refuses: nothing is simulated inside a running API. */
-class UnavailableTransport implements CloudPanelTransport {
-  readonly mode = 'node-agent' as const;
-  async send() {
-    return {
-      status: 'failed' as const,
-      reason: 'unsupported',
-      result: 'the node agent channel is not configured',
-      rawSummary: 'no agent channel',
-    };
-  }
-}
 const prod = () => process.env.NODE_ENV === 'production';
 /** Production has no secret store until D-12/HG-01-02 is decided (M05 S16 posture): the vault port refuses instead of keeping secrets in memory. */
 class BlockedVault implements VaultPort {
@@ -115,7 +108,6 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
   imports: [IdentityModule],
   controllers: [
     AdminNodesController,
-    AdminAgentsController,
     AdminSitesController,
     HostingPlansController,
     PublicPlansController,
@@ -137,11 +129,34 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
       }),
     },
     {
+      // the product adapter: HestiaCP's REST API, per node (host, port, pinned TLS and access key come from the node registry and the sealed store)
       provide: HOSTING_ADAPTER,
-      useFactory: () => new CloudPanelHostingAdapter(new UnavailableTransport()),
+      useFactory: (db: Db, s: SecretStore, v: VaultPort, compute: ComputeProvisioningPort) =>
+        new HestiaHostingAdapter(
+          new HestiaClient(
+            new DbHestiaConnections(db),
+            new SealedHestiaKeys(new SealedVault(s)),
+            new HttpHestiaChannel(),
+          ),
+          {
+            vault: v,
+            evidenceKind: 'live',
+            capacityOf: async (node) => {
+              const i = await compute.describe(node.computeInstanceId);
+              return i
+                ? { cpuMillicores: i.vcpu * 1000, memoryMb: i.memoryMb, diskMb: i.diskGb * 1024 }
+                : null;
+            },
+          },
+        ),
+      inject: [DB, SecretStore, VAULT_PORT, COMPUTE_PROVISIONING],
     },
     { provide: COMPUTE_PROVISIONING, useFactory: () => new InMemoryComputeProvisioning() },
-    { provide: VAULT_PORT, useFactory: () => (prod() ? new BlockedVault() : new MemoryVault()) },
+    {
+      provide: VAULT_PORT,
+      useFactory: (s: SecretStore) => (prod() ? new BlockedVault() : new SealedVaultPort(s)),
+      inject: [SecretStore],
+    },
     {
       provide: DOMAIN_VERIFIER,
       useFactory: () => (prod() ? new UnverifiedDomains() : new MockDomainOwnershipVerifier()),
@@ -164,8 +179,9 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
         ad: HostingAdapter,
         cp: ComputeProvisioningPort,
         cfg: HostingConfig,
-      ) => new NodesService(db, a, ad, cp, cfg),
-      inject: [DB, AuditSink, HOSTING_ADAPTER, COMPUTE_PROVISIONING, HOSTING_CONFIG],
+        s: SecretStore,
+      ) => new NodesService(db, a, ad, cp, cfg, undefined, new SealedVault(s)),
+      inject: [DB, AuditSink, HOSTING_ADAPTER, COMPUTE_PROVISIONING, HOSTING_CONFIG, SecretStore],
     },
     {
       provide: PlansService,

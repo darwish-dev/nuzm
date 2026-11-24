@@ -11,7 +11,7 @@ import type {
   DomainOwnershipVerifier,
   VaultPort,
 } from '../ports';
-import { sinkRefOf } from './mock-cloudpanel';
+import { sinkRefOf } from './sim/node';
 
 /** `node-local-segregated` backup sink for dev/staging/tests: one in-memory namespace per region. NEVER production-ready (D-07 / P-M06-1 OPEN). */
 export class MemoryBackupSink implements BackupSink {

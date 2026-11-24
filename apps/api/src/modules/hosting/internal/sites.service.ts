@@ -9,7 +9,7 @@ import type { EntitlementService } from '../../billing';
 import type { OrderService } from '../../commerce';
 import { CapacityService } from './capacity.service';
 import type { HostingConfig } from './config';
-import { siteNameFor, tokenFor } from './cloudpanel-adapter';
+import { siteNameFor, tokenFor } from './hosting-names';
 import {
   PlansService,
   planLimits,
@@ -97,7 +97,7 @@ export class SitesService {
   ctx(traceId: string): AccountContext {
     return {
       providerAccountId: 'platform-hosting',
-      credentialRef: 'vault://hosting/node-agent-signing',
+      credentialRef: 'vault://hosting/panel-access',
       traceId,
       deadlineMs: 60_000,
     };

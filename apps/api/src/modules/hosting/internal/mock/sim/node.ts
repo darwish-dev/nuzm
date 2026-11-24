@@ -1,12 +1,10 @@
 /**
- * In-memory simulation of a hardened CloudPanel node: Linux users/groups, file modes, symlinks, private /tmp, hidepid /proc, per-site PHP-FPM pool settings,
- * per-site database users, quotas, SFTP chroot, encrypted per-site backups. It implements CommandExecutor (what the node agent would drive) plus an
- * ATTACKER API (`actor(site)`) used by the isolation suite. It proves that the CONTROL-PLANE side asks for, and the agent contract encodes, the right
- * hardening; it proves NOTHING about a real kernel or a real CloudPanel (those rows stay NOT VERIFIED / BLOCKED until HG-06-01).
+ * TEST DOUBLE: an in-memory simulated hosting node (sites, users, quotas, usage, certificates, encrypted per-site backups). It implements CommandExecutor so the
+ * platform's own logic can be tested without a panel. It proves NOTHING about a real server or about HestiaCP (see `hestia/` for the product adapter and its tests).
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import type { AcmeClient, BackupSink } from '../ports';
-import type { CommandExecutor, ExecContext, ExecResult } from '../agent/executor';
+import type { AcmeClient, BackupSink } from '../../ports';
+import type { CommandExecutor, ExecContext, ExecResult } from './executor';
 
 type FsType = 'file' | 'dir' | 'symlink';
 interface FsNode {
@@ -85,8 +83,7 @@ export const DISABLED_FUNCTIONS = [
 export interface MockNodeOptions {
   nodeId: string;
   region?: string;
-  clpctlVersion?: string;
-  cloudpanelVersion?: string;
+  panelVersion?: string;
   runtimes?: string[];
   capacity?: { cpuMillicores: number; memoryMb: number; diskMb: number };
   /** secrets by vault ref (the agent resolves refs; the control plane never sees them) */
@@ -98,7 +95,7 @@ export interface MockNodeOptions {
   faults?: { failNextCreateAfterEffect?: boolean; hangNext?: string[] };
 }
 
-export class MockCloudPanelNode implements CommandExecutor {
+export class SimNode implements CommandExecutor {
   readonly sites = new Map<string, MockSite>();
   readonly fs = new Map<string, FsNode>();
   readonly users = new Map<string, number>(); // name → uid
@@ -300,9 +297,7 @@ export class MockCloudPanelNode implements CommandExecutor {
   private inventory() {
     const cap = this.opts.capacity ?? { cpuMillicores: 4000, memoryMb: 8192, diskMb: 200_000 };
     return {
-      cloudpanelVersion: this.opts.cloudpanelVersion ?? '2.5.4',
-      clpctlVersion: this.opts.clpctlVersion ?? '2.5.4',
-      agentVersion: '0.1.0-mock',
+      panelVersion: this.opts.panelVersion ?? '1.9.4',
       capacity: cap,
       loadAvg1: 0.1 * this.sites.size,
       memoryUsedMb: 512 + 64 * this.sites.size,
@@ -591,7 +586,7 @@ export const DEFAULT_RUNTIMES = ['php:8.3', 'php:8.4', 'nodejs:22', 'static'];
 /** Everything a hostile site owner can try. Every method enforces the node's permission model; a Denied error is the safe outcome. */
 export class SiteActor {
   constructor(
-    private readonly node: MockCloudPanelNode,
+    private readonly node: SimNode,
     private readonly site: MockSite,
   ) {}
   get user() {

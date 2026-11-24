@@ -2501,7 +2501,7 @@ export interface paths {
         };
         /**
          * List providers
-         * @description Registered providers (alibaba, huawei, contabo, cloudpanel, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.
+         * @description Registered providers (alibaba, huawei, contabo, hestia, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.
          */
         get: operations["adminListProviders"];
         put?: never;
@@ -3621,13 +3621,13 @@ export interface paths {
         };
         /**
          * List hosting nodes
-         * @description Platform-operated nodes (CloudPanel nodes managed through the node agent). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.
+         * @description Platform-operated hosting nodes (servers running HestiaCP, reached through its REST API). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.
          */
         get: operations["listHostingNodes"];
         put?: never;
         /**
          * Register a hosting node on a platform-owned compute instance
-         * @description Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with a pending agent and a single-use enrolment token (returned ONCE, stored hashed, 15 minutes). A replay with the same computeInstanceId returns the existing node (200) without a token. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).
+         * @description Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with no panel connection yet (set it with PUT …/panel). A replay with the same computeInstanceId returns the existing node (200). Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).
          */
         post: operations["createHostingNode"];
         delete?: never;
@@ -3655,7 +3655,7 @@ export interface paths {
         head?: never;
         /**
          * Change a node status or overcommit factor
-         * @description status is active|draining|maintenance|retired: a node becomes `active` only with an enrolled agent, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.
+         * @description status is active|draining|maintenance|retired: a node becomes `active` only with a panel connection, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.
          */
         patch: operations["patchHostingNode"];
         trace?: never;
@@ -3691,7 +3691,7 @@ export interface paths {
         put?: never;
         /**
          * Run the inventory job for a node now
-         * @description Probe + inventory through the node agent: versions, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The agent must be enrolled (409 otherwise). Permission admin:hosting:manage, MFA step-up.
+         * @description Probe + inventory through the node's HestiaCP panel (this is the connection test): version, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The panel connection must be set (409 otherwise). Permission admin:hosting:manage, MFA step-up.
          */
         post: operations["runHostingNodeInventory"];
         delete?: never;
@@ -3700,7 +3700,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/hosting/nodes/{id}/enrolment-tokens": {
+    "/v1/admin/hosting/nodes/{id}/panel": {
         parameters: {
             query?: never;
             header?: never;
@@ -3708,51 +3708,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
         /**
-         * Issue a single-use agent bootstrap token
-         * @description Invalidates any earlier unused token of the node. The token is returned once and stored hashed; it expires after 15 minutes and works exactly once. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.agent.enrolment_token.issued`).
+         * Set how a node's HestiaCP panel is reached
+         * @description Body {host (the panel's fully qualified domain name: no IP literal, no scheme), port? (default 8083), tlsPinSha256? (SHA-256 fingerprint of a self-signed panel certificate; unset = normal certificate-authority validation), and EITHER credentials {accessKey: "ACCESS_KEY_ID:SECRET_ACCESS_KEY"} OR vaultRef (vault://…)}. A typed key is write-only: accepted outside production only (the production vault is undecided, D-12), sealed on the server, and only the vault reference is stored; it is never returned, logged or audited. Any change clears the node's health and returns an active node to maintenance: run the inventory (the connection test) again before activating it. Needs admin:hosting:manage and a recent MFA check. Audited (hosting.node.panel_set).
          */
-        post: operations["issueHostingEnrolmentToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/hosting/nodes/{id}/command-log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The node agent command audit log
-         * @description Newest first. Every envelope decision the agent made (accepted, rejected with the reason, executed, failed), shipped hash-chained from the node.
-         */
-        get: operations["listHostingNodeCommandLog"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/hosting/agents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List node agents
-         * @description Agent state, version, last seen and certificate rotation time per node.
-         */
-        get: operations["listHostingAgents"];
-        put?: never;
+        put: operations["setHostingNodePanel"];
         post?: never;
         delete?: never;
         options?: never;
@@ -11452,13 +11412,14 @@ export interface components {
             dataRegion: string;
             /** @enum {string} */
             status: "active" | "draining" | "maintenance" | "retired";
-            /** Format: uuid */
-            agentId?: string | null;
-            /** @enum {string|null} */
-            agentState: "pending" | "enrolled" | "revoked" | null;
-            /** Format: date-time */
-            agentLastSeenAt?: string | null;
-            cloudpanelVersion?: string | null;
+            /** @enum {string} */
+            panelKind: "hestia";
+            panelVersion?: string | null;
+            panelHost?: string | null;
+            panelPort?: number | null;
+            /** @description A panel host and an access key are set. The key itself is never returned. */
+            panelConfigured: boolean;
+            panelTlsPinned?: boolean;
             /** @description Runtime ids reported by the node probe. */
             runtimes: string[];
             overcommitFactor: number;
@@ -11489,8 +11450,21 @@ export interface components {
         };
         CreateHostingNodeResult: {
             node: components["schemas"]["HostingNode"];
-            /** @description Shown once on creation; null on a replay. */
-            enrolmentToken: string | null;
+        };
+        SetHostingNodePanel: {
+            /** @description The panel's fully qualified domain name (no IP literal */
+            host: string;
+            /** @description Default 8083. */
+            port?: number;
+            /** @description SHA-256 fingerprint of a self-signed panel certificate (32 colon-separated hex pairs). */
+            tlsPinSha256?: string;
+            /** @description A vault:// reference of the access key. Not together with credentials. */
+            vaultRef?: string;
+            /** @description Write-only; accepted outside production only (D-12). */
+            credentials?: {
+                /** @description ACCESS_KEY_ID:SECRET_ACCESS_KEY of a HestiaCP access key. */
+                accessKey: string;
+            };
         };
         PatchHostingNode: {
             /** @enum {string} */
@@ -11528,40 +11502,6 @@ export interface components {
                 sites: number;
                 /** Format: date-time */
                 createdAt: string;
-            }[];
-        };
-        HostingEnrolmentToken: {
-            token: string;
-            expiresInMinutes: number;
-        };
-        HostingCommandLog: {
-            items: {
-                seq: number;
-                operationId?: string | null;
-                commandId?: string | null;
-                /** @enum {string} */
-                outcome: "accepted" | "rejected" | "executed" | "failed";
-                reason?: string | null;
-                /** Format: date-time */
-                occurredAt: string;
-            }[];
-        };
-        HostingAgentList: {
-            items: {
-                /** Format: uuid */
-                id: string;
-                /** Format: uuid */
-                nodeId: string;
-                nodeName: string;
-                /** @enum {string} */
-                state: "pending" | "enrolled" | "revoked";
-                version?: string | null;
-                /** Format: date-time */
-                enrolledAt?: string | null;
-                /** Format: date-time */
-                lastSeenAt?: string | null;
-                /** Format: date-time */
-                certRotatedAt?: string | null;
             }[];
         };
         HostingPlan: {
@@ -22275,48 +22215,20 @@ export interface operations {
             409: components["responses"]["Problem"];
         };
     };
-    issueHostingEnrolmentToken: {
+    setHostingNodePanel: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Issued */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HostingEnrolmentToken"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-            404: components["responses"]["Problem"];
-        };
-    };
-    listHostingNodeCommandLog: {
-        parameters: {
-            query?: {
-                /** @description Page size. */
-                limit?: components["parameters"]["Limit"];
-            };
             header?: never;
             path: {
                 id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingNodePanel"];
+            };
+        };
         responses: {
             /** @description Success */
             200: {
@@ -22324,34 +22236,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HostingCommandLog"];
+                    "application/json": components["schemas"]["HostingNode"];
                 };
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
-        };
-    };
-    listHostingAgents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HostingAgentList"];
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     listHostingPlans: {

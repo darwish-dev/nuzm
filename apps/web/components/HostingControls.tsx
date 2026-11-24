@@ -8,7 +8,7 @@ import { browserApi } from '../lib/client';
 import { NoticeText } from './Feedback';
 
 /**
- * Website controls in the customer console (the CloudPanel-style actions): add a domain, issue a certificate, create / restore / download a backup, delete the website.
+ * Website controls in the customer console (the actions a hosting panel offers): add a domain, issue a certificate, create / restore / download a backup, delete the website.
  * Every control calls the existing hosting API (which authorizes, meters, audits and reconciles); nothing here talks to a node. A node that is not connected answers
  * `unsupported_capability`, which these screens say in words instead of failing silently.
  */

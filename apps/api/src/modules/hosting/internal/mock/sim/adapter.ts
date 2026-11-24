@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { tokenFor } from '../../hosting-names';
+import type { SimTransport, SimTransportResponse as TransportResponse } from './transport';
 import {
   CONTRACT_VERSION,
   normalizedError,
@@ -8,12 +10,11 @@ import {
   type HealthReport,
   type OperationResult,
   type RawEvidence,
-} from './m05-contracts';
+} from '../../m05-contracts';
 import {
   HOSTING_CAPABILITIES,
   type BackupRef,
   type CertRef,
-  type CloudPanelTransport,
   type HostingAdapter,
   type HostingCapabilityId,
   type HostingCapabilityReport,
@@ -24,28 +25,20 @@ import {
   type SiteSpec,
   type SiteUsage,
   type SiteWipeReport,
-  type TransportResponse,
-} from './ports';
+} from '../../ports';
 
 type Tok = { idempotencyToken: string; operationId: string };
 
-/** `s-` + 20 hex of the idempotency token: the on-node site name IS the reconcile key (findByToken). */
-export const siteNameFor = (idempotencyToken: string): string =>
-  `s-${idempotencyToken.slice(0, 20)}`;
-export const tokenFor = (orgId: string, operationId: string, stepId: string): string =>
-  createHash('sha256').update(`${orgId}|${operationId}|${stepId}`).digest('hex');
-
 /**
- * HostingAdapter over a `CloudPanelTransport` (ADR-020: the node agent). It builds NO shell strings and knows no CloudPanel command: it speaks the agent's
- * allow-listed command ids. Capability states come only from the node's `probe`; unknown = unsupported. Evidence is labelled `mock` unless a human-granted
- * live validation sets `evidenceKind: 'live'` (CLAUDE.md §5).
+ * TEST DOUBLE: a HostingAdapter over a simulated node (`SimTransport`). It exists so the platform's own logic (capacity, reconcile-before-retry, quotas, suspension,
+ * abuse) can be tested without a panel. The product adapter is `hestia/adapter.ts` (HestiaCP's REST API). Evidence is always `mock`.
  */
-export class CloudPanelHostingAdapter implements HostingAdapter {
-  readonly id = 'cloudpanel-agent';
+export class SimHostingAdapter implements HostingAdapter {
+  readonly id = 'simulated-node';
   readonly kind = 'hosting' as const;
   readonly contractVersion = CONTRACT_VERSION;
   constructor(
-    private readonly transport: CloudPanelTransport,
+    private readonly transport: SimTransport,
     private readonly opts: { evidenceKind?: EvidenceKind; now?: () => Date } = {},
   ) {}
 
@@ -92,7 +85,7 @@ export class CloudPanelHostingAdapter implements HostingAdapter {
         error: normalizedError(
           cat,
           `agent_${r.reason ?? 'rejected'}`,
-          'the node agent rejected the command',
+          'the simulated node rejected the command',
         ),
         raw,
       };
@@ -173,9 +166,8 @@ export class CloudPanelHostingAdapter implements HostingAdapter {
       };
       return {
         observedAt: this.now().toISOString(),
-        cloudpanelVersion: typeof d.cloudpanelVersion === 'string' ? d.cloudpanelVersion : null,
-        clpctlVersion: typeof d.clpctlVersion === 'string' ? d.clpctlVersion : null,
-        agentVersion: String(d.agentVersion ?? 'unknown'),
+        panelVersion: typeof d.panelVersion === 'string' ? d.panelVersion : null,
+        panelKind: 'mock',
         health,
         capacity: {
           cpuMillicores: Number(d.capacity?.cpuMillicores ?? 0),

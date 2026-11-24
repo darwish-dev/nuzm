@@ -2,7 +2,7 @@ import { v7 as uuidv7 } from 'uuid';
 import type { Db, OperationsService } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
-import { tokenFor } from './cloudpanel-adapter';
+import { tokenFor } from './hosting-names';
 import type { BackupService } from './backups.service';
 import type { CapacityService } from './capacity.service';
 import { planLimits, planNeed, planRow } from './plans.service';

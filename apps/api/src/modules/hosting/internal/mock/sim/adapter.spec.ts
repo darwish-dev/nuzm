@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { LIMITS, mockStack } from './mock/fixtures';
-import { siteNameFor, tokenFor } from './cloudpanel-adapter';
-import { testCtx } from './mock/mocks';
-import { AdapterTimeoutError } from './m05-contracts';
+import { LIMITS, mockStack } from '../fixtures';
+import { siteNameFor, tokenFor } from '../../hosting-names';
+import { testCtx } from '../mocks';
+import { AdapterTimeoutError } from '../../m05-contracts';
 
 const node = (nodeId: string) => ({ nodeId, computeInstanceId: 'i-1' });
 const spec = (n: string) => {
@@ -42,7 +42,7 @@ describe('HostingAdapter conformance (mock agent; evidence kind is `mock`, resul
     const r = await s.adapter.inventory(testCtx(), node(s.nodeId));
     expect(r.status).toBe('succeeded');
     expect(r.data).toMatchObject({
-      cloudpanelVersion: '2.5.4',
+      panelVersion: '1.9.4',
       health: { state: 'healthy' },
       capacity: { cpuMillicores: 4000 },
     });

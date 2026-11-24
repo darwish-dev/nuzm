@@ -1,7 +1,7 @@
 /**
  * Ports of the hosting module. Everything the module needs from other milestones (M05 compute, M07 domains, M08 databases / object storage,
  * the vault) is a port here with an in-memory or mock implementation; the real implementations plug in later without changing the services
- * (docs/reports/M06-m05-interface-assumptions.md). Nothing in this file asserts what CloudPanel or a provider can do.
+ * (docs/reports/M06-m05-interface-assumptions.md). Nothing in this file asserts what a panel or a provider can do.
  */
 import type {
   AccountContext,
@@ -49,9 +49,10 @@ export interface NodeRef {
 }
 export interface NodeState {
   observedAt: string;
-  cloudpanelVersion: string | null;
-  clpctlVersion: string | null;
-  agentVersion: string;
+  /** the panel software's version (HestiaCP: `v-list-sys-info` HESTIA) */
+  panelVersion: string | null;
+  /** `hestia` for a real node, `mock` for the test double */
+  panelKind: string;
   health: HealthReport;
   capacity: { cpuMillicores: number; memoryMb: number; diskMb: number };
   usage: { loadAvg1: number; memoryUsedMb: number; diskUsedMb: number; sites: number };
@@ -193,27 +194,6 @@ export interface HostingAdapter {
     node: NodeRef,
     siteName: string,
   ): Promise<OperationResult<SiteWipeReport>>;
-}
-
-/* ───────────── CloudPanelTransport: how the adapter reaches a node (ADR-020: the node agent) ───────────── */
-export interface TransportRequest {
-  nodeId: string;
-  operationId: string;
-  idempotencyToken: string;
-  commandId: string;
-  args: Record<string, unknown>;
-  deadlineMs: number;
-}
-export interface TransportResponse {
-  /** `uncertain` when the channel timed out or dropped after the command was sent. */
-  status: 'ok' | 'rejected' | 'failed' | 'uncertain';
-  reason?: string;
-  result?: unknown;
-  rawSummary: string;
-}
-export interface CloudPanelTransport {
-  readonly mode: 'mock-agent' | 'node-agent';
-  send(req: TransportRequest): Promise<TransportResponse>;
 }
 
 /* ───────────── ports for other milestones (mocks now) ───────────── */

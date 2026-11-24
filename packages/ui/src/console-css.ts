@@ -3387,4 +3387,55 @@ html[dir='rtl'] .nzc-orgws-projects a > .nzc-icon { transform: scaleX(-1); }
 @media (min-width: 1101px) {
   .nzc-status[data-layout='row']:has(> .nzc-status-activity) > .nzc-status-group { grid-column: 1 / -1 !important; grid-row: 2 !important; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
 }
+
+/* ==========================================================================================================================================================
+ * WEBSITE PAGE: insights first (four facts + what needs attention), tools with the reason when one is unavailable, plan limits, and the delete form tucked away.
+ * ======================================================================================================================================================== */
+.nzc-insights { display: grid; gap: 14px; margin-block-end: 26px; }
+.nzc-insights-head { display: grid; gap: 4px; }
+.nzc-insights-head p { margin: 0; font-size: 14px; }
+.nzc-insight-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.nzc-insight { display: grid; align-content: start; gap: 8px; padding: 16px 18px; border-radius: 20px; background: var(--nzc-card); min-block-size: 112px; }
+.nzc-insight .nzc-quota-value { font-size: 20px; }
+.nzc-insight small { font-size: 12.5px; }
+.nzc-attn { padding: 14px 18px; border-radius: 20px; background: color-mix(in srgb, var(--nzc-fg) 4%, var(--nzc-card)); display: grid; gap: 6px; }
+.nzc-attn p { margin: 0; font-size: 13.5px; }
+.nzc-attn ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.nzc-attn li { display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; }
+.nzc-attn li[data-tone='warn'] .nzc-icon { color: var(--nzc-orange-text); }
+.nzc-attn li[data-tone='danger'] .nzc-icon { color: var(--nzc-danger); }
+.nzc-attn-ok { display: flex; align-items: center; gap: 8px; color: var(--nzc-success); }
+.nzc-danger-zone { margin-block-start: 26px; padding: 12px 16px; border-radius: 18px; background: color-mix(in srgb, var(--nzc-danger) 7%, transparent); }
+.nzc-danger-zone > summary { cursor: pointer; font-weight: 650; font-size: 14px; color: var(--nzc-danger); }
+.nzc-danger-zone[open] > summary { margin-block-end: 12px; }
+.nzc-danger-zone .nz-card { background: transparent; padding: 0; }
+.nzc-res-note { margin: -6px 0 12px; font-size: 13px; }
+
+/* WEBSITE PAGE, second design: a header, one Insights block (attention, key numbers, every limit), tile grids for what you can open and for tools, no side column. */
+.nzc-site-hero { display: grid; gap: 14px; padding: 22px 24px; margin-block-end: 22px; border-radius: 24px; background: var(--nzc-card); }
+.nzc-site-hero-main { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.nzc-site-hero-main h2 { margin: 0; font-size: clamp(22px, 2.4vw, 30px); letter-spacing: -0.02em; }
+.nzc-site-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 22px; }
+.nzc-site-facts dt { font-size: 12px; color: var(--nzc-muted); margin-block-end: 3px; }
+.nzc-site-facts dd { margin: 0; font-size: 14.5px; font-weight: 600; overflow-wrap: anywhere; }
+.nzc-site-hero > .nz-btn { justify-self: start; display: inline-flex; align-items: center; gap: 8px; }
+.nzc-insights { margin-block-end: 26px; }
+.nzc-insight .nzc-quota-label { display: flex; align-items: center; gap: 6px; }
+.nzc-limit-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.nzc-limit-chips li { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-radius: 999px; background: color-mix(in srgb, var(--nzc-fg) 5%, transparent); font-size: 13px; }
+.nzc-limit-chips span { color: var(--nzc-muted); }
+.nzc-site-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-block-end: 26px; }
+.nzc-site-tile { display: grid; align-content: start; gap: 8px; padding: 20px; border-radius: 22px; background: var(--nzc-card); color: var(--nzc-fg); text-decoration: none; transition: background 0.15s ease, transform 0.15s ease; }
+.nzc-site-tile:hover { background: color-mix(in srgb, var(--nzc-orange) 8%, var(--nzc-card)); transform: translateY(-2px); }
+.nzc-site-tile:focus-visible { outline: 2px solid var(--nzc-orange-text); outline-offset: 3px; }
+.nzc-site-tile strong { font-size: 16px; }
+.nzc-site-tile .nz-muted { font-size: 13.5px; line-height: 1.55; }
+.nzc-site-tile-ico { display: grid; place-items: center; inline-size: 44px; block-size: 44px; border-radius: 14px; background: color-mix(in srgb, var(--nzc-orange) 14%, var(--nzc-field)); color: var(--nzc-orange-text); }
+.nzc-site-tile-go { display: inline-flex; align-items: center; gap: 6px; margin-block-start: 4px; color: var(--nzc-orange-text); font-weight: 700; font-size: 13.5px; }
+html[dir='rtl'] .nzc-site-tile-go .nzc-icon { transform: scaleX(-1); }
+.nzc-tool-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.nzc-tool-tile { display: grid; align-content: start; justify-items: start; gap: 6px; padding: 16px 18px; border-radius: 18px; background: color-mix(in srgb, var(--nzc-fg) 3%, transparent); border: 1px dashed color-mix(in srgb, var(--nzc-fg) 16%, transparent); }
+.nzc-tool-tile .nzc-site-tile-ico { inline-size: 38px; block-size: 38px; background: color-mix(in srgb, var(--nzc-fg) 7%, transparent); color: var(--nzc-muted); }
+.nzc-tool-tile strong { font-size: 14.5px; }
+.nzc-tool-tile .nz-muted { font-size: 13px; line-height: 1.5; }
 `;

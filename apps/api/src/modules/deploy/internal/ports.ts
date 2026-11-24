@@ -31,8 +31,8 @@ export const artifactHash = (files: { path: string; content: Uint8Array }[]): st
 
 /**
  * What the deploy pipeline needs from a hosting node. The M06 `HostingAdapter` has NO deploy/upload method (it manages sites, domains, certificates, backups), so this
- * is a PORT: the fake below serves tests and the local reference; production has `UnavailableSitePublisher` (422 `unsupported_capability`) until M06 adds an artifact
- * command to the node-agent allow-list (HG-05-01/02, HG-06-01). Nothing here claims what a real node can do.
+ * is a PORT: the fake below serves tests and the local reference; production has `UnavailableSitePublisher` (422 `unsupported_capability`) until the hosting module gains an artifact
+ * upload path (SFTP into the site root, planned with the file manager). Nothing here claims what a real node can do.
  */
 export abstract class SitePublisherPort {
   abstract available(): boolean;

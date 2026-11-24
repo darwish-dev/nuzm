@@ -4,7 +4,7 @@ import type { Db, OperationsService } from '@nuzm/platform';
 import { assertResidency, ResidencyDenied, type ResidencyEvaluator, UUID } from '@nuzm/domain';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
-import { tokenFor } from './cloudpanel-adapter';
+import { tokenFor } from './hosting-names';
 import type { HostingConfig } from './config';
 import type { BackupRef, BackupSink, HostingAdapter } from './ports';
 import { KIND, type Caller, type SitesService } from './sites.service';

@@ -291,12 +291,6 @@ export const ADMIN_CATEGORIES: Category[] = [
             href: '/hosting/abuse',
             ...read('admin:hosting:read'),
           },
-          {
-            id: 'agents',
-            label: 'host.admin.agents',
-            href: '/hosting/agents',
-            ...read('admin:hosting:read'),
-          },
         ],
       },
       {

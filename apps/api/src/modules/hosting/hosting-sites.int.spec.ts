@@ -355,11 +355,11 @@ describe('reconcile-before-retry on the real create flow', () => {
     let creates = 0;
     hh.stack.channel.deliver = async (nodeId, env, d) => {
       const reply = await real(nodeId, env, d);
-      if (env.body.commandId === 'site.create') {
+      if (env.commandId === 'site.create') {
         creates++;
         throw new AdapterTimeoutError();
       }
-      if (creates === 1 && env.body.commandId === 'site.find') {
+      if (creates === 1 && env.commandId === 'site.find') {
         creates++;
         throw new AdapterTimeoutError();
       }

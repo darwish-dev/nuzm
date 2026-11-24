@@ -1,8 +1,8 @@
 /**
- * The allow-list of node-agent commands (threat model §3). A command that is not in COMMANDS does not exist. Arguments are validated against a small JSON-Schema
+ * The allow-list of the SIMULATED node's commands (a test double; the product allow-list is `hestia/commands.ts`). A command that is not in COMMANDS does not exist. Arguments are validated against a small JSON-Schema
  * subset with `additionalProperties:false`; there is NO free-form path, shell, flag or command member in any schema.
  */
-import { RUNTIME_ID } from '../ports';
+import { RUNTIME_ID } from '../../ports';
 
 export interface Schema {
   type: 'object' | 'string' | 'integer' | 'boolean' | 'array';
@@ -46,22 +46,19 @@ export interface CommandDef {
   mutating: boolean;
   timeoutMs: number;
   maxOutputBytes: number;
-  /** The documented clpctl command this uses, if any (ADR-020 findings table); `null` = system primitives only ("verify live"). */
-  clpctl: string | null;
 }
 
 const def = (
   id: string,
   schema: Schema,
   mutating: boolean,
-  clpctl: string | null = null,
   timeoutMs = 120_000,
-): CommandDef => ({ id, schema, mutating, timeoutMs, maxOutputBytes: 64 * 1024, clpctl });
+): CommandDef => ({ id, schema, mutating, timeoutMs, maxOutputBytes: 64 * 1024 });
 
 export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
   [
-    def('inventory', noArgs, false, null, 30_000),
-    def('probe', noArgs, false, null, 30_000),
+    def('inventory', noArgs, false, 30_000),
+    def('probe', noArgs, false, 30_000),
     def(
       'site.create',
       {
@@ -77,7 +74,6 @@ export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
         },
       },
       true,
-      'site:add:*',
     ),
     def('site.find', bySite, false),
     def(
@@ -95,7 +91,7 @@ export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
     ),
     def('site.suspend', bySite, true),
     def('site.resume', bySite, true),
-    def('site.delete', bySite, true, 'site:delete'),
+    def('site.delete', bySite, true),
     def('site.wipe.verify', bySite, false),
     def(
       'domain.bind',
@@ -115,7 +111,6 @@ export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
         properties: { site: siteName, domains: { type: 'array', items: domain, maxItems: 20 } },
       },
       true,
-      'lets-encrypt:install:certificate',
     ),
     def(
       'cert.install',
@@ -129,7 +124,6 @@ export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
         },
       },
       true,
-      'site:install:certificate',
     ),
     def(
       'backup.create',
@@ -209,103 +203,4 @@ export function validateArgs(schema: Schema, value: unknown, path = 'args'): str
   if (schema.type === 'boolean')
     return typeof value === 'boolean' ? null : `${path}: must be a boolean`;
   return `${path}: unsupported schema`;
-}
-
-/**
- * Builds the argv ARRAY for a documented clpctl command (never a shell string). Only commands documented on the official CloudPanel CLI pages
- * (docs/reports/evidence/M06/cloudpanel-spike-findings.md rows 4, 5, 14, 15) appear here. OPEN (verify live, HG-06-01): the documented CLI takes the site-user
- * password as a plain option value and the certificate key/cert as options whose exact form (path or content) the pages do not state. The password
- * is a one-time random value that the agent locks right after creation (SSH-key login only), `hidepid=2` hides argv from other site users, and the
- * argv is NEVER logged or returned (evidence carries `command` ids only). The certificate options are built as staged-file paths: unconfirmed.
- */
-export function clpctlArgv(
-  what:
-    | { op: 'site.add.php'; domain: string; phpVersion: string; siteUser: string; password: string }
-    | {
-        op: 'site.add.nodejs';
-        domain: string;
-        nodejsVersion: string;
-        appPort: number;
-        siteUser: string;
-        password: string;
-      }
-    | { op: 'site.add.static'; domain: string; siteUser: string; password: string }
-    | {
-        op: 'site.add.python';
-        domain: string;
-        pythonVersion: string;
-        appPort: number;
-        siteUser: string;
-        password: string;
-      }
-    | { op: 'site.delete'; domain: string }
-    | { op: 'cert.issue'; domain: string; sans: string[] }
-    | {
-        op: 'cert.install';
-        domain: string;
-        privateKeyFile: string;
-        certificateFile: string;
-        chainFile?: string;
-      },
-): string[] {
-  const DOM = new RegExp(DOMAIN_RE);
-  if (!DOM.test(what.domain)) throw new Error('refusing to build argv: invalid domain');
-  switch (what.op) {
-    case 'site.add.php':
-      return [
-        'clpctl',
-        'site:add:php',
-        `--domainName=${what.domain}`,
-        `--phpVersion=${what.phpVersion}`,
-        '--vhostTemplate=Generic',
-        `--siteUser=${what.siteUser}`,
-        `--siteUserPassword=${what.password}`,
-      ];
-    case 'site.add.nodejs':
-      return [
-        'clpctl',
-        'site:add:nodejs',
-        `--domainName=${what.domain}`,
-        `--nodejsVersion=${what.nodejsVersion}`,
-        `--appPort=${what.appPort}`,
-        `--siteUser=${what.siteUser}`,
-        `--siteUserPassword=${what.password}`,
-      ];
-    case 'site.add.static':
-      return [
-        'clpctl',
-        'site:add:static',
-        `--domainName=${what.domain}`,
-        `--siteUser=${what.siteUser}`,
-        `--siteUserPassword=${what.password}`,
-      ];
-    case 'site.add.python':
-      return [
-        'clpctl',
-        'site:add:python',
-        `--domainName=${what.domain}`,
-        `--pythonVersion=${what.pythonVersion}`,
-        `--appPort=${what.appPort}`,
-        `--siteUser=${what.siteUser}`,
-        `--siteUserPassword=${what.password}`,
-      ];
-    case 'site.delete':
-      return ['clpctl', 'site:delete', `--domainName=${what.domain}`, '--force'];
-    case 'cert.issue':
-      return [
-        'clpctl',
-        'lets-encrypt:install:certificate',
-        `--domainName=${what.domain}`,
-        ...(what.sans.length ? [`--subjectAlternativeName=${what.sans.join(',')}`] : []),
-      ];
-    case 'cert.install':
-      return [
-        'clpctl',
-        'site:install:certificate',
-        `--domainName=${what.domain}`,
-        `--privateKey=${what.privateKeyFile}`,
-        `--certificate=${what.certificateFile}`,
-        ...(what.chainFile ? [`--certificateChain=${what.chainFile}`] : []),
-      ];
-  }
 }

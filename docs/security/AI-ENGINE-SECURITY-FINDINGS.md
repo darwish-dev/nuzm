@@ -11,7 +11,7 @@ Living document. Last update: 2026-11-24 (re-test after merge) · baseline `f818
 | DEFECT-5 | **fixed and re-tested** (6 passed; the read now refuses with `symlink_in_path`) |
 | DEFECT-6 | **fixed and re-tested** (5 passed) |
 | DEFECT-2 | **still open** (8 `it.fails` still failing as expected; Session 04 is fixing it) |
-| NEW integration finding | the merged branch does not pass the DB harness or `pnpm db check`/`classification`: `spec/db/ownership.yaml` lacks ranges/tables/classification for 1920, 1921 (benchmarks) and 1980 (deploy). Reported to the Master. |
+| Integration finding (manifest ranges for 1920/1921/1980) | **resolved** by the Master's manifest patch; re-verified on `1fff67a4`: harness runs, `db check`, classification (3,396 columns / 271 tables), ROPA and residency hooks all OK |
 
 Table 1 below is the original report (history); the status above prevails.
 

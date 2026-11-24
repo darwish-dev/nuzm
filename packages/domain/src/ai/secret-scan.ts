@@ -19,9 +19,9 @@ const PATTERNS: { kind: string; re: RegExp }[] = [
   {
     // DEFECT-9: the key NAME may be prefixed (`STRIPE_SECRET_KEY`, `client_secret`, `JWT_SECRET`), carry a `_`/`-` suffix (`SECRET_KEY`, `token_id`) and be quoted
     // (`"apiKey": "..."`); `\s*` also spans a newline (YAML value on the next line). A value that is clearly a reference to configuration, not a literal
-    // (`process.env.X`, `${X}`, `os.environ`), is not a finding.
+    // (`process.env.X`, `${X}`, `os.environ`) or a call (`_password = TextEditingController()`: the value is followed by `(`, matched atomically through the lookahead capture) is not a finding.
     kind: 'api_key_assignment',
-    re: /(?:api[_-]?key|secret|passw(?:or)?d|token|private[_-]?key|credentials?)(?:[_-][A-Za-z0-9_-]*)?["']?\s*[:=]\s*["']?(?!process\.env|\$\{|os\.environ|env\()[A-Za-z0-9/+_=.-]{16,}/gi,
+    re: /(?:api[_-]?key|secret|passw(?:or)?d|token|private[_-]?key|credentials?)(?:[_-][A-Za-z0-9_-]*)?["']?\s*[:=]\s*["']?(?!process\.env|\$\{|os\.environ|env\()(?=([A-Za-z0-9/+_=.-]{16,}))\1(?!\()/gi,
   },
   // DEFECT-9: well-known provider key shapes that appear with no assignment (a pasted key, a comment, a header value)
   { kind: 'anthropic_api_key', re: /\bsk-ant-[A-Za-z0-9_-]{20,}/g },

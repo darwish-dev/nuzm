@@ -105,6 +105,8 @@ describe('QA secret scan: false-positive controls after the DEFECT-9 fix (ordina
     'password: ${DB_PASSWORD_FROM_COMPOSE_FILE}',
     'JWT_SECRET=${JWT_SECRET_FROM_VAULT_INJECTION}',
     'tokenizer = createTokenizer()',
+    'final _password = TextEditingController();',
+    'final _apiToken = SomeLongClassNameInstance.create(options);',
     'the secretary sends a password reset notice: see the docs',
     'export const apiKeyHeader = "x-api-key";',
     'if (!token) throw new Error("missing token");',

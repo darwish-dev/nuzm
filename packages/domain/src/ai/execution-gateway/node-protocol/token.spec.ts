@@ -73,7 +73,7 @@ describe('request token', () => {
     expect(tiny.claim('b'.repeat(16), Math.floor(NOW / 1000) + 30, NOW)).toBe(false);
   });
   it('a signer must hold an ed25519 key', () => {
-    const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const rsa = generateKeyPairSync('ec', { namedCurve: 'P-256' });
     expect(() => new Ed25519Signer('k', rsa.privateKey)).toThrow('signer_key_not_ed25519');
   });
 });

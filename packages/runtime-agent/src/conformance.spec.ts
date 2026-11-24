@@ -42,7 +42,7 @@ describe('the node agent passes the SAME conformance suites as the simulated nod
       return {
         status: o.status === 'completed' && o.exitCode !== 0 ? 'failed' : o.status,
         logs: o.stdout + o.stderr,
-        artifacts: o.artifacts.map((a) => ({ path: a.path, bytes: a.bytes, sha256: a.sha256 })),
+        artifacts: o.artifacts.map((a) => ({ path: a.path, bytes: a.bytes, sha256: a.sha256 ?? '' })),
         durationMs: o.durationMs,
       };
     },

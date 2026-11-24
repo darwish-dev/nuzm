@@ -22,6 +22,8 @@ export interface AgentRig {
   runtime: eg.RemoteWorkspaceRuntime;
   signer: eg.Ed25519Signer;
   trustedPem: string;
+  /** the control plane's PRIVATE test key as PEM: stands in for what a vault reference would resolve to (throw-away key, never persisted) */
+  signerPem: string;
   /** a second, UNTRUSTED signer: tokens from it must be refused */
   rogue: eg.Ed25519Signer;
   /** raw request through the handler (for tests that forge or tamper) */
@@ -105,6 +107,7 @@ export async function createAgentRig(o: RigOptions = {}): Promise<AgentRig> {
     runtime,
     signer,
     trustedPem,
+    signerPem: kp.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
     rogue,
     async rawCall(op, body, header, headers = {}) {
       const buf = Buffer.from(JSON.stringify(body));

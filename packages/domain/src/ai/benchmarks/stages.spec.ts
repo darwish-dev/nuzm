@@ -53,6 +53,9 @@ describe('stage task selection', () => {
     const b = selectStageTasks('B', GOLDEN_TASKS);
     expect(b).toHaveLength(23);
     expect(new Set(b.map((t) => t.category))).toEqual(new Set(TASK_CATEGORIES));
+    // both languages are represented (Arabic is the product default, D-32)
+    expect(b.filter((t) => t.locale === 'ar').length).toBeGreaterThanOrEqual(8);
+    expect(b.filter((t) => t.locale === 'en').length).toBeGreaterThanOrEqual(8);
   });
   it('C and D: every task; E: the 24 core tasks', () => {
     expect(selectStageTasks('C', GOLDEN_TASKS)).toHaveLength(GOLDEN_TASKS.length);

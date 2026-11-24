@@ -1,7 +1,7 @@
 import type { PriceCard } from './budget';
 import { costMinor, worstCaseTaskMinor, type BenchmarkBudget } from './budget';
 import { CORE_TASKS } from './dataset';
-import { TASK_KINDS } from './categories';
+import { TASK_CATEGORIES, TASK_KINDS } from './categories';
 import type { GoldenTask } from './types';
 
 /**
@@ -196,7 +196,8 @@ export const STAGES: readonly StageDefinition[] = [
     title: 'Representative subset',
     purpose:
       'first real signal in every one of the 23 categories, and the calibrated cost model for the expensive stages',
-    selectionRule: 'for each of the 23 categories the task with the lowest id: 23 tasks',
+    selectionRule:
+      'one task per category (23): categories at an odd position of the category list take their lowest-id Arabic task, the others their lowest-id English task (fallback: lowest id), so both languages are represented',
     runsPerTask: 1,
     models: { min: 1, max: 1 },
     prerequisites: [...ALL_LIVE, 'PREVIOUS_STAGE_EXITED'],
@@ -278,14 +279,16 @@ export function selectStageTasks(id: StageId, tasks: readonly GoldenTask[]): Gol
       return chosen.sort(byId);
     }
     case 'B': {
-      const seen = new Set<string>();
+      // one per category; categories at an odd position of TASK_CATEGORIES take their lowest-id Arabic task (when they have one), the others their lowest-id English task:
+      // the product's default locale is Arabic (D-32), so a subset of English-only tasks would not be representative
       const out: GoldenTask[] = [];
-      for (const t of sorted)
-        if (!seen.has(t.category)) {
-          seen.add(t.category);
-          out.push(t);
-        }
-      return out;
+      TASK_CATEGORIES.forEach((c, i) => {
+        const of = sorted.filter((t) => t.category === c);
+        const want = i % 2 === 1 ? 'ar' : 'en';
+        const pick = of.find((t) => t.locale === want) ?? of[0];
+        if (pick) out.push(pick);
+      });
+      return out.sort(byId);
     }
     case 'C':
     case 'D':

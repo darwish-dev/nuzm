@@ -105,3 +105,46 @@ Dataset proofs PASS · scorers deterministic PASS (tested twice-equal) · gates 
 After `git merge integration/ai-engine`: CONTRACT-S03-2 (manifest range `AG-S03 1920-1939`, `ai.extended_by`, tables, `tenant_less`, classification: `ai.benchmark_records.payload` = personal), CONTRACT-S03-1 (OpenAPI paths and two schemas; SDK NOT regenerated), CONTRACT-S03-3 (`BenchmarksModule` in `app.module.ts`, `bench.*` + `aia.tab.benchmarks` keys at the end of `messages.ts` for ar and en, admin tab; the dashboard now reads texts through `t()`; flag `ai.benchmarks` stays default OFF, the module refuses while off).
 Seen: `pnpm spec:lint` clean; `pnpm spec:drift` reports ONE item, not mine: `POST /v1/deployments/{id}/cancel` implemented in `deploy` but missing from openapi.yaml (Session 06 contract); migrations on a fresh database on :54343: all applied incl. 1900, 1920, 1921, `classification coverage OK: 3396 columns in 271 tables`, `ropa coverage OK`, `residency hooks OK`, `db check OK`; 1920/1921 down then up verified; admin tests (benchmarks lib + dashboard + AiPanels) 54 passed; i18n 9 passed; api benchmarks unit 11 passed; domain benchmarks 214 passed; `pnpm --filter @nuzm/api typecheck` in my worktree: 0 errors in benchmarks or app.module, 46 errors elsewhere caused by workspace packages not built or installed in this worktree (adapter-*, telemetry, `@anthropic-ai/sdk`): needs the integration checkout.
 Found on the integration branch, not mine: the migration runner rejects `deploy/1980__deploy__deployment_cancelled*.sql` ("ordinal 1980 outside ranges allowed for deploy"): Session 06's range is missing from `spec/db/ownership.yaml` (I moved the file aside only to run my checks and restored it).
+
+## Phase 2 — real qualification readiness (2026-11-24; branch `feature/ai-benchmarks`, merged `integration/ai-engine` @ 39658725 first)
+
+**Status: offline-complete; every live stage is BLOCKED.** Nothing was run live, no provider was called, no credential or agreement was touched, no screenshot or generated evidence was committed.
+
+### What exists now (all offline, VERIFIED = tests I ran and saw)
+| Area | Evidence |
+|---|---|
+| Staged strategy A-E: deterministic task selection (A 5 tasks, B 23 = one per category, 11 Arabic and 12 English, C/D 83, E 24 core), estimated AND maximum cost in integer minor units, duration, entry prerequisites, exit criteria, calibration from measured usage, monthly regression cost, programme exposure | `stages.ts`; `stages.spec.ts` 25 tests (maximum checked against an independent sum; each stage's proposed budget passes `preflightBudget`/`livePreflight`, one minor unit less is refused) |
+| Seven-dimension scorecard (functional, code quality, security, Arabic/RTL, tool-calling reliability, cost/token efficiency, latency), each with the thresholds that judge it; report gains an optional `arabicRtl` summary | `scorecard.ts`; `scorecard.spec.ts` 5 tests |
+| **Defect found and fixed:** the live preflight accepted a zero price card, so the worst-case cost was 0 and every cost cap was meaningless; a `''`/`1.5` price crashed `preflightBudget` with a BigInt `SyntaxError` | live preflight now refuses `PRICE_CARD_INVALID`; `preflightBudget`/`BudgetLedger` refuse an invalid card instead of throwing; regression test in `platform.spec.ts` |
+| API: the approved budget carries its price card and source (`set_budget`); `attempt_live_run` takes a `stage`, reports the stage plan and which prerequisites are missing, and still never starts; overview lists the five plans (list price labelled `TO_BE_CONFIRMED_BY_S02_D6`); run detail carries the scorecard; one malformed stored row no longer breaks the list | `benchmarks.service.spec.ts` 15 tests; `benchmarks.int.spec.ts` 5 tests on my own Postgres :54343 (jsonb round trip of the priced budget) |
+| Admin UI: staged plan (cost, duration, blocked status, prerequisites, unconfirmed-rate banner) and scorecard, ar/en, text and badges (never colour alone), read-only for non-managers, empty and switched-off states | `benchmarks.spec.ts` (lib) and `benchmarks-dashboard.spec.tsx`: admin benchmarks files, ar and en, 71 passed together with `AiPanels.spec.tsx`; admin `tsc --noEmit` exit 0 |
+| E2E | `e2e/tests/19-ai-benchmarks.spec.ts` written, **NOT RUN** (no heavy lock taken; browser E2E not run in this slot); lint and prettier clean; Session 07 to review |
+| Documents | `docs/ai-intelligence/S-AG5-STAGES.md` (strategy, arithmetic, prerequisites), `PHASE2-03-threshold-review.md`, `PHASE2-03-approval-inputs.md`, `CONTRACT-S03-4` |
+
+### Existing capabilities audited against the Phase 2 list (nothing to rebuild)
+Orchestration and provider qualification workflow (`qualification.ts`: PROPOSED to QUALIFIED with four-eyes, expiry on dataset or thresholds change; `live-runner.ts`: 8 preconditions, never calls the source when refused), model comparison (`compare.ts`: same dataset only, evidence labelled, sign tests), regression detection (`thresholds.ts`: blocking/warning, category tolerance), rollout eligibility (`gate.ts`: fails closed), reviewer workflow (`review.ts`: blind, kappa, adjudication), budget controls (`budget.ts`: preflight worst case, reserve/commit/stop). Existing tests for each were re-run green (domain benchmarks 245).
+
+### Findings the owner must see (details in the threshold review)
+1. **As proposed, the pass-rate thresholds are close to "never miss a task".** 17 of 23 categories have 3 tasks, so the 0.70 floor needs 3 of 3; T08 needs 6 of 6, T18 4 of 4, T19/T20 3 of 3. A model that solves 95 % of tasks passes every pass-rate bar together 4.6 % of the time (simulation, independent tasks, single run); with the recommended rules 59.6 %. Accepting `2-proposed` unchanged would mostly measure luck.
+2. Cost at the list price (USD, to be confirmed by S02/D6): Opus 5.5 stage maxima A $4.40, B $23.60, C $83.60, D (2 models) $167.20, E $170/month; estimates $0.88, $4.72, $16.72, $33.44, $34/month. Programme (A+B+C, D with 3 candidates, 3 months of E): estimate $174.48, maximum $872.40.
+3. T10, T11 and T17 cannot be calibrated offline; the recommendation is "provisional, one recorded recalibration after Stage B and before Stage C".
+4. The vendor pricing page (read 2026-11-24) prints no API model ids and no last-updated date.
+
+### Blockers (exact blocker, dependency, what continues)
+| Blocker | Dependency | Independent work that continued |
+|---|---|---|
+| Any live stage | Session 02: provider verified (D2-D6, D9) and a real `CaptureSource`; owner: AC-AG-10, BUD, REV, SEC-AG, D4 spend cap, D6 confirmed rates | everything above |
+| Real-model numbers | the same | offline tooling, plans and decision inputs |
+| E2E and screenshots | heavy slot (Master / Session 07) | spec written and linted |
+| Folding 55 texts into the catalogue, optional OpenAPI documentation | Master (`CONTRACT-S03-4`) | local dictionary in an owned path |
+| Full `pnpm test:integration`, `verify:full` | Master's heavy slot | targeted tests only |
+
+### Commands and ACTUAL results (all targeted)
+- `cd packages/domain && npx vitest run src/ai/benchmarks`: 6 files, 245 passed (after the last domain change).
+- `cd apps/api && npx vitest run src/modules/benchmarks/internal`: 15 passed. With `NUZM_TEST_ADMIN_URL=postgres://nuzm_admin@127.0.0.1:54343/postgres`, `npx vitest run -c vitest.integration.config.mts src/modules/benchmarks`: 5 passed.
+- `cd apps/admin && npx vitest run lib/benchmarks.spec.ts components/benchmarks-dashboard.spec.tsx components/AiPanels.spec.tsx`: 71 passed. `npx tsc --noEmit -p apps/admin`: exit 0. `npx tsc --noEmit -p apps/api`: no output (0 errors), run after the last API change.
+- `eslint` on the changed domain, api and admin files and the E2E spec: clean; `prettier --check`: clean; `pnpm scan:secrets`: OK (2845 files).
+- NOT run: `pnpm spec:lint`/`spec:drift` (no spec file changed), full integration, E2E, `verify:full`.
+
+### Next
+Report to the Master: the branch is mergeable (no spec, SDK, package.json, `app.module.ts` or migration change in this batch; no new migration). Optional: `CONTRACT-S03-4`.

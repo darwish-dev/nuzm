@@ -72,7 +72,9 @@ export interface RunSummary {
   modeViolations: number;
 }
 const summaryOf = (r: RunRow): RunSummary => {
-  const rep = r.report as bm.BenchmarkReport;
+  // a stored report is written only by this service, but one list must never fail because a single stored row is malformed: its numbers read as zero / not applicable
+  const rep = (r.report ?? {}) as Partial<bm.BenchmarkReport>;
+  const o = rep.overall;
   return {
     id: r.id,
     label: r.label,
@@ -80,11 +82,11 @@ const summaryOf = (r: RunRow): RunSummary => {
     datasetVersion: r.datasetVersion,
     evidence: r.evidenceLabel,
     adapters: r.adapters,
-    tasks: rep.tasks,
-    passRate: rep.overall.passRate,
-    meanQuality: rep.overall.meanQuality,
-    meanSecurity: rep.overall.meanSecurity,
-    modeViolations: rep.overall.modeViolations,
+    tasks: typeof rep.tasks === 'number' ? rep.tasks : 0,
+    passRate: o?.passRate ?? 0,
+    meanQuality: o?.meanQuality ?? 0,
+    meanSecurity: o?.meanSecurity ?? null,
+    modeViolations: o?.modeViolations ?? 0,
   };
 };
 

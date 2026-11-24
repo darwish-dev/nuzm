@@ -24,3 +24,4 @@ export * from './workspace';
 export * from './real-runtime';
 export * from './node-protocol';
 export * from './build-env';
+export * from './host-exec-guard';

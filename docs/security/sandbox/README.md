@@ -17,3 +17,5 @@ Status: **PREPARATION. Nothing here is implemented as a capability, decided, rev
 - No customer code and no model-written code is executed, anywhere, by anything in this repository. The mock (`MockExecutionPort`, `MockSandboxRuntime`) starts no process. The local developer runner (isolation NONE) is refused by the execution port.
 - **A mock cannot prove isolation.** Every isolating-runtime attempt is `NOT_VERIFIED` until a runtime with `isolation: verified` is attacked by the suite and reviewed. Offline results are never labelled verified for the real thing.
 - Figures, prices and vendor capabilities in these documents are engineering knowledge, not live-verified, and no price is stated: costs are formulas over the owner's own numbers.
+
+- Phase 3 (P3-S02): [RUNBOOK-REAL-RUNNER](RUNBOOK-REAL-RUNNER.md) · node agent `packages/runtime-agent` · recipes `infra/runtime/` · hand-off for the Android build environment `infra/runtime/profiles/android/README.md` · status table: docs/parallel/RUNTIME-QUALIFICATION.md §13.

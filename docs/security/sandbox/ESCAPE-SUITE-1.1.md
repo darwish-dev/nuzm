@@ -14,7 +14,7 @@ Code: `apps/api/src/modules/appbuilder/internal/sandbox/escape-suite.ts` (base c
 | `exec_workspace` | `.env`, keys, `.git`, `.aws`, AWS key and canary content | workspace guard before anything is copied in |
 | `exec_artifact` | traversal, absolute, outside output roots, sensitive, symlink/hardlink/device, flood; auto-apply | artifact policy; artifacts are candidates only |
 | `exec_output` | forged block terminator and instructions, secrets, canaries, output flood, audit as a covert channel | output framing and screening; content-free audit |
-| `exec_gate` | default gate, each missing condition, production without D-42, a real-looking runtime behind a closed gate, mock executes, local developer runner | `executionGate`; orchestrator; `MockExecutionPort`; execution port refuses `local-dev` |
+| `exec_gate` | default gate, each missing condition, production without D-AG-ROLLOUT, a real-looking runtime behind a closed gate, mock executes, local developer runner | `executionGate`; orchestrator; `MockExecutionPort`; execution port refuses `local-dev` |
 | `exec_runtime_spec` | 14 weakened runtime specifications (privileged, host namespaces, Docker socket, host root, writable root, kept capabilities, unconfined seccomp, root user, plain runc, shared netns, no pids limit, swap, another run's workspace) | `validateRuntimeSpec` |
 | `exec_quota` | no budget, queue flood, noisy neighbour, NaN usage, kill switch, SIGTERM-ignoring sandbox | quota ledger, queue, limits, kill switch, terminator |
 

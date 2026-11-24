@@ -22,7 +22,7 @@ The control plane never executes a model- or customer-written byte. It decides, 
 
 ## 2. The request path (ADR-067), as built offline in `ExecutionOrchestrator`
 1. **Flag and switches:** `ai.agent.exec_tools` (default off; `AiFlags.execTools` is hard-wired false), the platform AI kill switch, the execution kill switch (global and per organization). **[built]**
-2. **Gate:** a `REAL` port is refused unless `executionGate` is open (D-21 decided, runtime isolation verified, escape suite passed, ADR accepted, owner approval, and in production D-42). The mock port is labelled `MOCK` in every audit record and job view. **[built]**
+2. **Gate:** a `REAL` port is refused unless `executionGate` is open (D-21 decided, runtime isolation verified, escape suite passed, ADR accepted, owner approval, and in production D-AG-ROLLOUT). The mock port is labelled `MOCK` in every audit record and job view. **[built]**
 3. **Policy (`decideExec`):** the model names a profile and typed parameters; everything else (argv, env, cwd, network, image, mounts, limits, approval…) is refused by name. Fixed argv, constant environment, fixed limits, network class. **[built; inherited profile names such as `constructor` now read as unknown profiles]**
 4. **Quota (early check):** per-organization concurrency, runs per window, CPU-seconds per window, budget cap in integer minor units; the restrictive default (budget 0) admits nothing. **[built]**
 5. **Approval:** `install-deps` and `run-script` (network or install) wait for a human: a signed-in user of the same organization holding the permission; never a model, API key or system actor; bound by digest to the exact decision; single-use; expires; revocable. **[built]** UI copy and the `ApprovalKind` row in `ai.approvals` are **[designed]** (Session 05 owns the builder kinds; the execution kind is a CONTRACT request).
@@ -54,7 +54,7 @@ Default `none`: the sandbox has its own network namespace and no interface that 
 0. **Now:** offline machinery and mock only; gate closed.
 1. **Decide D-21**, name the HG-10-02 reviewer, provision a *non-production* dedicated node pool (owner-provided, HG-05-04), implement one `ExecutionRuntime` adapter behind the existing interface, run the full suite and the compatibility run, review.
 2. **Gate opens for one named non-production environment** by decision; `typecheck`/`unit-tests`, network `none`, one organization; cost and abuse monitoring on.
-3. `build`, then approval-gated `install-deps`/`run-script`; production only after D-42 and LEGAL-EXEC (terms and liability for executing customer code).
+3. `build`, then approval-gated `install-deps`/`run-script`; production only after D-AG-ROLLOUT and LEGAL-EXEC (terms and liability for executing customer code).
 
 ## 8. Decisions this design needs from the owner
-D-21 (technology), node pool and its budget (`N_peak`, price, currency), HG-10-02 reviewer, LEGAL-EXEC, ADR-067 acceptance, the approval permission model for execution, log retention (D-34), D-42.
+D-21 (technology), node pool and its budget (`N_peak`, price, currency), HG-10-02 reviewer, LEGAL-EXEC, ADR-067 acceptance, the approval permission model for execution, log retention (D-34), D-AG-ROLLOUT.

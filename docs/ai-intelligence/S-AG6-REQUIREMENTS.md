@@ -16,7 +16,7 @@ Status: **BLOCKED (D-21).** This page maps ADR-067 (proposed) to testable requir
 | Human approval | human approval for network or install profiles; approval per run | `requiresApproval` in the decision; the generic run-approval workflow exists | UI copy and the approval kind for execution |
 | Audit | request, decision, approval, start, finish, exit status, byte counts, no content | audit sink and event naming conventions exist | execution events (after wiring) |
 | Escape suite | catalogue extended for execution; isolating attempts run on a verified runtime | suite 1.0.0 (794 lines): control-plane attempts real, isolating attempts NOT_VERIFIED on mocks | the real runtime and a reviewer |
-| Gate | open only when D-21, verified runtime, escape suite, ADR accepted, owner approval (and D-42 in production) | `executionGate`, closed by default, tested | the decisions |
+| Gate | open only when D-21, verified runtime, escape suite, ADR accepted, owner approval (and D-AG-ROLLOUT in production) | `executionGate`, closed by default, tested | the decisions |
 Acceptance for S-AG6 (AC-AG-12): the gate open for a named environment by decision, the escape suite passing on the real runtime, ADR-067 accepted, tests including escape and cost, runbook, owner sign-off. None of these exists; S-AG6 is **0 % complete as a capability**, with the offline requirements and policy core done.
 
 ## Offline machinery added by Session 04 (all in `packages/domain/src/ai/execution-gateway/` unless noted; each has targeted tests; none runs a process)

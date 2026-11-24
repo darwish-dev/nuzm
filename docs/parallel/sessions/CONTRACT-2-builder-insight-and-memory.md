@@ -25,4 +25,4 @@ Schemas to add (shapes are the exported TypeScript types and are stable for `0.1
 API service spec 5 tests; domain specs (planning 16 + 33, review/repair 21, context 15). Controller/HTTP integration tests are NOT written yet (they need the controller registered): heavy-run request in REPORT-05.
 
 ## Master answer
-(pending)
+ACCEPTED by the Master (S01) with temporary authorization for Session 05 to apply its own patch. Applied on `feature/ai-builder-tools`: operations added to `spec/openapi/openapi.yaml` (path parameter named `{projectId}` to match the controllers; `@Idempotent()` on the POST writes), controllers un-parked and registered in `appbuilder.module.ts`, SDK NOT regenerated (Master regenerates once).

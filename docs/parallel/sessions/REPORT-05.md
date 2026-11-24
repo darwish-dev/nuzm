@@ -82,3 +82,9 @@ What the integration tests proved on the real pipeline: preview stores nothing; 
 
 ## Escalations
 None blocking. Decisions recorded: (a) pure SHA-256 instead of `node:crypto` because the agent-tools lint rule forbids Node modules; (b) project memory as a root file `nuzm.memory.json` instead of a new table (no migration, versioned and rollback-able, no new write path); (c) controllers parked as `.pending` files to keep `spec:drift` green until the Master applies the OpenAPI patch; (d) 14 planners are deterministic keyword-driven profiles, not model output.
+
+## Update after the merge into `integration/ai-engine` (Master authorization to apply own contracts)
+- Merged `integration/ai-engine` (fast-forward, no conflicts). CONTRACT-1 and CONTRACT-2 applied to `spec/openapi/openapi.yaml`; controllers un-parked (`change-tools.controller.ts`, `builder-insight.controller.ts`, `builder-plan.controller.ts`) and registered; `@Idempotent()` on the three POST writes; SDK not regenerated (Master does it). Flag `builder_tools.enabled` stays default OFF.
+- `SimulatedHealthProbe` wired through `healthProbeFor(cfg)` (`internal/deploy/health-probe-factory.ts`); test: production config never uses the simulated probe.
+- `ExecutionBuildPort` run against the REAL `MockExecutionPort` (`createMockExecutionPort`): `execution-build-port.real-mock.spec.ts` 4 passed, compiles without a cast.
+- Seen: `pnpm spec:lint` clean; `pnpm spec:drift` no drift for my routes (still fails on other sessions' routes: admin benchmarks, deployments cancel); domain `src/ai` 35 files / 674 passed; API `src/modules/appbuilder` 19 files / 194 passed; eslint + prettier clean on changed files; `turbo run typecheck --filter=@nuzm/api`: all dependencies built, then ONE error, in `modules/cloud/internal/adapter-registry.ts(69,33)` (a file this session never touched; unchanged since the baseline).

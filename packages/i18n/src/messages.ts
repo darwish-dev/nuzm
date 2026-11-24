@@ -8149,6 +8149,10 @@ export const messages = {
     'bt.lc.state.empty': 'لم تبدأ أي عملية بناء بعد.',
     'bt.lc.state.offline': 'تعذّر الاتصال. تحقّق من الشبكة وحاول مجدداً.',
     'bt.lc.state.retry': 'إعادة المحاولة',
+    'bt.gate.ai.title': 'ميزات الذكاء الاصطناعي غير مفعّلة',
+    'bt.gate.ai.body':
+      'ميزات الذكاء الاصطناعي غير مفعّلة لمؤسستك بعد، لذلك لا يمكن استخدام منشئ التطبيقات حالياً.',
+    'bt.lc.state.missing': 'لم يتم العثور على عملية البناء هذه، أو لا تملك صلاحية الوصول إليها.',
     'bt.lc.summary': '{done} من {total} خطوة',
     'bt.lc.current': 'الخطوة الحالية',
     'bt.lc.result.title': 'نتيجة العملية',
@@ -16639,6 +16643,10 @@ export const messages = {
     'bt.lc.state.empty': 'No build has been started yet.',
     'bt.lc.state.offline': 'Could not connect. Check your network and try again.',
     'bt.lc.state.retry': 'Try again',
+    'bt.gate.ai.title': 'AI features are not enabled',
+    'bt.gate.ai.body':
+      'AI features are not enabled for your organization yet, so the app builder cannot be used.',
+    'bt.lc.state.missing': 'This build was not found, or you do not have access to it.',
     'bt.lc.summary': '{done} of {total} steps',
     'bt.lc.current': 'Current step',
     'bt.lc.result.title': 'Run result',

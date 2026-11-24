@@ -169,6 +169,15 @@ describe.each(LOCALES)('LifecyclePanel (%s)', (locale) => {
     rerender(<LifecyclePanel locale={locale} state="forbidden" view={null} simulated />);
     expect(txt(screen.getByRole('alert'))).toContain(t(locale, 'bt.state.forbidden'));
   });
+  it('DEFECT-20c: a run that does not exist says so, never "check your network", and offers no retry', () => {
+    render(
+      <LifecyclePanel locale={locale} state="missing" view={null} simulated onRetry={vi.fn()} />,
+    );
+    const alert = screen.getByRole('alert');
+    expect(txt(alert)).toContain(t(locale, 'bt.lc.state.missing'));
+    expect(txt(alert)).not.toContain(t(locale, 'bt.lc.state.offline'));
+    expect(screen.queryByRole('button')).toBeNull();
+  });
   it('shows progress as a labelled progress element, the steps as an ordered list with a TEXT status each, and the simulated banner', () => {
     render(
       <LifecyclePanel

@@ -70,6 +70,15 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
     )
   )[0]!.id;
 
+  // ---- 0. DEFECT-20d: with the AI capability off the page says so (not "app builder not enabled") and shows no form; with it on the form is there
+  await orgFlag(org, 'ai.enabled', null);
+  await page.goto(`${WEB}/${L}/builder/projects/${project}/agent`);
+  await expect(page.getByText(T(info, 'bt.gate.ai.title'))).toBeVisible();
+  await expect(page.getByText(T(info, 'm10.notEnabled.title'))).toHaveCount(0);
+  await expect(page.getByLabel(T(info, 'bt.lc.start.prompt'), { exact: true })).toHaveCount(0);
+  await audit(page, info, 'builder-agent-ai-off');
+  await orgFlag(org, 'ai.enabled', true);
+
   // ---- 1. flags off: the form is there; starting says "not enabled" and creates nothing
   await page.goto(`${WEB}/${L}/builder/projects/${project}/agent`);
   await expect(page.getByRole('heading', { name: T(info, 'bt.lc.title') })).toBeVisible();
@@ -233,7 +242,15 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
     `${WEB}/${L}/builder/projects/${project}/agent?run=0198a3c0-aaaa-7000-8000-00000000dead`,
   );
   // (Next.js adds its own route announcer with role=alert outside <main>)
-  await expect(page.locator('main').getByRole('alert')).toBeVisible();
+  // DEFECT-20c: an unknown run is "not found" (no network wording, no retry)
+  await expect(
+    page
+      .locator('main')
+      .getByRole('alert')
+      .filter({ hasText: T(info, 'bt.lc.state.missing') }),
+  ).toBeVisible();
+  await expect(page.getByText(T(info, 'bt.lc.state.offline'))).toHaveCount(0);
+  await expect(page.getByRole('button', { name: T(info, 'bt.lc.state.retry') })).toHaveCount(0);
   await expect(
     page
       .locator('li[data-status]')

@@ -30,3 +30,14 @@ Reporter: Master (Phase 2 isolated E2E on the merged head, 8 failures = 4 specs 
 
 ## Evidence
 `scripts/e2e-stack.sh run tests/19-builder-agent.spec.ts tests/qa-negatives.spec.ts -g "builder agent screen"` on an isolated stack (own Postgres :54345): 4 passed (ar and en, both specs), axe included. The admin-consoles test of `qa-negatives` (S07's, needs the staff MFA enrolment of `02-admin`) was not run in this reduced set.
+
+## DEFECT-20c — an unknown or malformed run id said "Could not connect. Check your network…" with a retry button (FIXED)
+- Was: `useRunStream` (`apps/web/lib/builder-client.ts`) treated every non-2xx of the events stream as a network failure (`reconnecting`), so the screen showed the offline state and retried forever.
+- Now: `useRunStream(runId, { terminalNotFound: true })` (opt-in, so the other screens that share the hook are unchanged) ends on a 404 (`not_found`) or 403 (`forbidden`); a 5xx or a dropped connection is still a reconnect. `BuilderLifecycleScreen` maps them to the panel states `missing` (new, `role=alert`, no retry button, text `bt.lc.state.missing` ar/en: "not found, or you do not have access", the same words for both so it is no existence oracle) and `forbidden` (existing).
+- Tests below the browser: `apps/web/lib/builder-client.stream.spec.tsx` (404 → `not_found` and no further requests; 403 → `forbidden`; without the option a 404 is still `reconnecting`; a 503 is still `reconnecting`); `BuilderLifecycle.spec.tsx` › "DEFECT-20c" (ar and en: the missing text, never the offline text, no button).
+
+## DEFECT-20d — the builder gate blamed the wrong flag (FIXED)
+- Was: `bgate` looked only at `app_builder.enabled`; with `ai.enabled` off the API's 404 turned into "The app builder is not enabled" although the app builder was on.
+- Now: `bgate` (in `apps/web/lib/builder-gate.tsx`, the file S05 has a recorded exception for) asks the new pure `missingBuilderCapability(flags)` (`apps/web/lib/appbuilder.ts`): `'app_builder'` first, then `'ai'`, else `null`; `NotEnabledState` takes `capability` and, for `'ai'`, says "AI features are not enabled for your organization yet, so the app builder cannot be used" (`bt.gate.ai.title/body`, ar+en). No flag key is shown. `bview`'s 404 (an item that does not exist, or a server-side switch) keeps the generic message.
+- Edit outside S05's paths, as recorded: `apps/web/lib/builder-gate.tsx` (gate), `apps/web/components/BuilderParts.tsx` (`NotEnabledState` gains an optional prop, default unchanged), `apps/web/lib/appbuilder.ts` (the pure helper and the `AI_FLAG` constant, next to `APP_BUILDER_FLAG`), `packages/i18n/src/messages.ts` (three keys in S05's block).
+- Tests: `apps/web/lib/appbuilder.spec.ts` › "DEFECT-20d" (all four combinations of the two flags, null/undefined, the two stored shapes), `apps/web/components/BuilderGateState.spec.tsx` (ar and en: the default message, the AI message, no flag key shown, keys present in both languages).

@@ -48,7 +48,15 @@ export type StepStatus =
   | 'denied'
   | 'cancelled';
 export type RunStatus = 'running' | 'waiting_approval' | 'succeeded' | 'failed' | 'cancelled';
-export type PanelState = 'loading' | 'ready' | 'error' | 'forbidden' | 'offline' | 'empty';
+export type PanelState =
+  | 'loading'
+  | 'ready'
+  | 'error'
+  | 'forbidden'
+  | 'offline'
+  | 'empty'
+  /** the run does not exist or is not the caller's: an answer, so no retry */
+  | 'missing';
 
 export interface LifecycleStepView {
   id: LifecycleStepId;
@@ -351,6 +359,12 @@ export function LifecyclePanel({
     return (
       <p role="alert" className="nz-error-text">
         {t(locale, 'bt.state.forbidden')}
+      </p>
+    );
+  if (state === 'missing')
+    return (
+      <p role="alert" className="nz-error-text">
+        {t(locale, 'bt.lc.state.missing')}
       </p>
     );
   if (state === 'error' || state === 'offline')

@@ -37,7 +37,7 @@ export function BuilderLifecycleScreen({
   const [disabled, setDisabled] = useState(!canRun);
   const start = useBuilderCall();
   const cancel = useBuilderCall();
-  const stream = useRunStream(runId);
+  const stream = useRunStream(runId, { terminalNotFound: true });
   const keys = useRef({ session: newKey(), run: newKey() });
   const sessionId = useRef<string | null>(null);
 
@@ -46,11 +46,15 @@ export function BuilderLifecycleScreen({
   const deployment = (result?.deployment as DeploymentView | null | undefined) ?? null;
   const state: PanelState = !runId
     ? 'empty'
-    : stream.status === 'reconnecting' && !view
-      ? 'offline'
-      : !view
-        ? 'loading'
-        : 'ready';
+    : stream.status === 'not_found'
+      ? 'missing'
+      : stream.status === 'forbidden'
+        ? 'forbidden'
+        : stream.status === 'reconnecting' && !view
+          ? 'offline'
+          : !view
+            ? 'loading'
+            : 'ready';
 
   async function onStart(a: { prompt: string; maxRepairRounds: number }) {
     if (!sessionId.current) {

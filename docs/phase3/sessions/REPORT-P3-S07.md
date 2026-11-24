@@ -14,3 +14,14 @@ Not done: re-running the whole deploy suite on the feature branch after commit, 
 
 ## G. Gates still needed
 HG-05, HG-06, HOST-TRANSPORT decision incl. docroot-command allow-list, B-DOMAIN, hosting exports `FilesService`. H1-H4 stay NOT VERIFIED; H6 holds (real mode refuses, exit 3).
+
+## Verification after the quiet window (2026-11-24, all via `heavy-slot.sh`; no database was used by these checks)
+Feature branch `claude/p3-s07-hosting-5674e8`:
+- PASS: `packages/domain` `vitest run src/deploy-transport`: 2 files, 41 tests. `apps/api` `vitest run src/modules/deploy/internal`: 13 files, 146 tests.
+- PASS: `tsc --noEmit` in `packages/domain` (exit 0) and `apps/api` (exit 0). The first API run FAILED with 5 TS2345 errors in `preview-domain-workflow.ts` (nullable preview domain used as a string); fixed in `575936b2`, then exit 0.
+- PASS: eslint on `packages/domain/src/deploy-transport` and `apps/api/src/modules/deploy/internal` (exit 0).
+- PASS: `git merge-tree --write-tree p3-s07-hosting-join claude/p3-s07-hosting-5674e8` merges with no conflicts (tree `dbbefe6c`); nothing was committed onto the join.
+Join branch `p3-s07-hosting-join` (`d1bfc558`):
+- PASS: `turbo run typecheck` for web, admin, ui, i18n, domain: 8 tasks successful (4 cached), exit 0.
+- PASS: `pnpm docs:check`: "api docs are up to date (345 operations, 31 tags)".
+Not run: full repo `pnpm lint`, E2E, `scan:secrets`, integration specs on the feature branch (none of the feature code touches the database). Everything above is SIMULATED/unit-level; no live node, panel or DNS was contacted.

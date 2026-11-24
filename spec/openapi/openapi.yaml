@@ -8613,6 +8613,30 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+  /v1/deployments/{id}/cancel:
+    post:
+      operationId: cancelDeployment
+      tags: [deploy]
+      summary: 'Cancel a queued or running deployment'
+      description: 'A queued deployment is cancelled at once (state `cancelled`). A running one is flagged and stops at its next checkpoint (before the build, before staging, before the switch): the staged upload is discarded and the live site is never touched. Once the site has been switched the request is accepted but has no effect (the deployment ends `succeeded`; use rollback). 409 `invalid_state` for a finished deployment. 422 `unsupported_capability` for a web-app deployment (the app builder pipeline has no cancel yet). Audit: `deploy.deployment.cancelled`.'
+      x-nuzm-permission: deploy:write
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '202':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deployment' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /_preview/{token}/*:
     get:
       operationId: servePreviewFile
@@ -20488,7 +20512,17 @@ components:
         state:
           {
             type: string,
-            enum: [queued, building, deploying, smoke_checking, succeeded, failed, rolled_back],
+            enum:
+              [
+                queued,
+                building,
+                deploying,
+                smoke_checking,
+                succeeded,
+                failed,
+                rolled_back,
+                cancelled,
+              ],
           }
         operationId: { type: [string, 'null'] }
         artifactHash: { type: [string, 'null'] }
@@ -20497,6 +20531,11 @@ components:
         url: { type: [string, 'null'] }
         smoke: { type: [object, 'null'], additionalProperties: true }
         error: { type: [object, 'null'], additionalProperties: true }
+        simulated:
+          {
+            type: boolean,
+            description: 'true: published through the local in-memory stand-in (SIMULATED, nothing reached a hosting node); false is reserved for a live-verified real publisher',
+          }
         createdAt: { type: string, format: date-time }
         finishedAt: { type: [string, 'null'] }
     DeploymentPage:

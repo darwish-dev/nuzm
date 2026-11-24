@@ -2,6 +2,31 @@
 export { BuilderModule } from './builder.module';
 export { ProjectService } from './internal/project.service';
 export { PreviewService, newPreviewToken } from './internal/preview.service';
+export { VersionArtifactService } from './internal/artifact.service';
+export {
+  runWebsiteQa,
+  repairFindings,
+  repairText,
+  summarize as summarizeQa,
+} from './internal/qa/runner';
+export { buildWebsiteArtifact } from './internal/qa/static-build';
+export type { StaticBuildInput, StaticBuildResult } from './internal/qa/static-build';
+export {
+  artifactManifest,
+  verifyAgainstManifest,
+  verifyServedArtifact,
+  loadArtifactDir,
+  writeArtifactDir,
+} from './internal/qa/artifact';
+export type { ArtifactFile, ArtifactManifest, ManifestMismatch } from './internal/qa/artifact';
+export { measureEditDiff, assertMinimalEdit } from './internal/qa/edit-diff';
+export type { EditDiffStats } from './internal/qa/edit-diff';
+export type { QaReport, QaFinding, QaOptions, GateId } from './internal/qa/types';
+export {
+  validatePreviewDomainConfig,
+  renderEdgeConfig,
+  runPreviewDomainValidation,
+} from './internal/preview-domain';
 export { LivePreviewRegistry } from './internal/live-preview';
 export type { LivePreview } from './internal/live-preview';
 export { FormsService, FormNotifier } from './internal/forms.service';

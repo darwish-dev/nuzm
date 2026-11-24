@@ -40,6 +40,12 @@ export const DESIGN_RULES = [
   'Headings are at most 8 words and say a benefit; every description is at most two short sentences. No filler such as "welcome to our website".',
   'Use only facts from the requirements. Never invent awards, certifications, prices, client names or statistics: where such content is needed, write obviously generic sample copy, and for stats values use "00" so the owner fills in the real figures.',
   'Section ids are unique lowercase kebab-case ("home-hero"). Use each placeholder image id once.',
+  // P3-S04: what the automated website QA gates (axe ar/en, SEO, links, CSP, size) check, stated up front so the model does not have to be repaired into compliance
+  'Accessibility (WCAG 2.1 AA): every page has exactly ONE hero or top heading; sections follow in order and never skip a level; every placeholder image has a descriptive alt in each language (what it shows, not "image"); link and button labels say where they go ("Book a visit", never "click here"); every form field has a visible label.',
+  "SEO: each page gets its own title of 25 to 60 characters that names the page and the business, and its own description of 70 to 160 characters that says what the visitor finds there; never reuse one page's title or description on another.",
+  'Arabic first: write the ar text as natural Arabic (not a literal translation), keep numbers and the brand name as given, and never rely on left or right in an instruction or a label (use start and end).',
+  'A business site has at least five pages: home, about, services (or products or menu), one more content page (e.g. gallery, pricing or faq) and contact. The contact page has a contact_form. Every page is reachable from the navigation.',
+  'Images are placeholders only: never reference an external image URL, never include a script, a style attribute or an embed, and never link to a third-party tracker or widget.',
 ].join('\n');
 
 /**

@@ -12,6 +12,7 @@ import { FormNotifier, FormsService, NoopFormNotifier } from './internal/forms.s
 import { ProjectDelegates } from './internal/delegates';
 import { MobileProjectService } from './internal/mobile-project.service';
 import { PreviewService } from './internal/preview.service';
+import { VersionArtifactService } from './internal/artifact.service';
 import { LivePreviewRegistry } from './internal/live-preview';
 import { ProjectService } from './internal/project.service';
 import { WebsiteRunHandler } from './internal/website.handler';
@@ -55,6 +56,11 @@ import { PreviewServeController } from './public.controller';
       inject: [DB, AuditSink, BUILDER_CONFIG],
     },
     {
+      provide: VersionArtifactService,
+      useFactory: (db: Db, c: BuilderConfig) => new VersionArtifactService(db, c.formsBaseUrl),
+      inject: [DB, BUILDER_CONFIG],
+    },
+    {
       provide: FormsService,
       useFactory: (db: Db, a: AuditSink, ci: FieldCipher, n: FormNotifier, c: BuilderConfig) =>
         new FormsService(db, a, ci, n, c),
@@ -71,6 +77,7 @@ import { PreviewServeController } from './public.controller';
     ProjectService,
     MobileProjectService,
     PreviewService,
+    VersionArtifactService,
     FormsService,
     CmsService,
     BUILDER_CONFIG,
@@ -81,13 +88,14 @@ export class BuilderModule implements OnApplicationBootstrap {
   constructor(
     @Inject(RunKindRegistry) private readonly registry: RunKindRegistry,
     @Inject(ProjectService) private readonly projects: ProjectService,
+    @Inject(VersionArtifactService) private readonly artifacts: VersionArtifactService,
     @Inject(BudgetService) private readonly budgets: BudgetService,
     @Inject(FormsService) private readonly forms: FormsService,
     @Inject(AiJobs) private readonly jobs: AiJobs,
     @Inject(AI_CONFIG) private readonly cfg: AiConfig,
   ) {}
   onApplicationBootstrap() {
-    this.registry.register(new WebsiteRunHandler(this.projects));
+    this.registry.register(new WebsiteRunHandler(this.projects, this.artifacts));
     this.registry.register(new EditRunHandler(this.projects, this.budgets));
     this.jobs.addTask('formRetention', () => this.forms.purgeExpired());
     void this.cfg;

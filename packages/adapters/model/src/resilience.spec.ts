@@ -237,4 +237,11 @@ describe('health monitor', () => {
     expect(r.health.snapshot('k')).toMatchObject({ status: 'unhealthy', breaker: 'open' });
     expect(r.health.all().map((s) => s.key)).toEqual(['k']);
   });
+  it('a provider/model key reads the circuit of its PROVIDER', () => {
+    const r = createResilience({ breaker: { failureThreshold: 1, openMs: 10_000, halfOpenMaxProbes: 1 } });
+    for (let i = 0; i < 10; i++) r.health.recordSuccess('acme/m1', 1);
+    r.breaker.failure('acme', 'unavailable');
+    expect(r.health.snapshot('acme/m1')).toMatchObject({ status: 'unhealthy', breaker: 'open' });
+    expect(r.health.snapshot('other/m1').breaker).toBe('closed');
+  });
 });

@@ -141,7 +141,7 @@ interface BreakerRec {
 }
 
 /**
- * One breaker record per key (the gateway uses `provider/model`). State machine:
+ * One breaker record per key (the gateway uses the PROVIDER code: an outage affects every model of a provider, so one circuit stops the whole fan-out). State machine:
  * closed --N consecutive health failures--> open --openMs elapsed--> half_open --success--> closed
  *                                                                              --failure--> open
  * `acquire` must be paired with exactly one `success` or `failure` (or `release` when the attempt says nothing about health, e.g. a cancel).
@@ -287,7 +287,8 @@ export class HealthMonitor {
     const pct = (p: number): number | null =>
       lat.length === 0 ? null : lat[Math.min(lat.length - 1, Math.ceil((p / 100) * lat.length) - 1)]!;
     const rate = live.length === 0 ? null : Math.floor((ok.length * 1000) / live.length);
-    const breaker = this.breaker?.state(key) ?? 'closed';
+    // the circuit is per PROVIDER (a provider outage hits all its models): `provider/model` keys read their provider's state
+    const breaker = this.breaker?.state(key.split('/')[0]!) ?? 'closed';
     let status: HealthStatus;
     if (breaker === 'open') status = 'unhealthy';
     else if (live.length < this.cfg.minSamples || rate === null) status = 'unknown';

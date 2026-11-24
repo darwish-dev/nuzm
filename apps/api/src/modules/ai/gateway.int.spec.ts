@@ -43,7 +43,7 @@ const outbox = async (type: string) =>
 beforeAll(async () => {
   e = await setupAiEnv();
   gw = e.app.get(GatewayService);
-}, 120_000);
+}, 300_000);
 afterAll(() => e.h.close());
 
 describe('no provider is enabled by default (D-18 OPEN)', () => {

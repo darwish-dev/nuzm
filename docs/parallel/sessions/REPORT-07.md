@@ -50,6 +50,9 @@ DEFECT-4 (MEDIUM, S06 deploy: an API key can request and confirm a production pu
 3. After the merge batches: full `pnpm test:integration` (with the QA specs included), `pnpm verify:full:isolated`, `pnpm sdk:check`, `pnpm typecheck` on the integration branch (also answers O-7).
 4. Accessibility/RTL: covered by the existing axe-in-every-spec E2E; new UI screens of sessions 02-06 need their own ar/en E2E + screenshots (their rule); I audit them after the merge.
 
+## Defect status updates
+- DEFECT-4: Session 06 reports it FIXED in `8d787bfa` (`feature/ai-deployment`): the confirming call now answers 403 for a non-`session` actor, no deployment is created, the approval stays pending. I read the diff (`deploy.service.ts`, `deployments.controller.ts`): the check is placed before any state change and matches the expectation of `qa-deploy-approval.int.spec.ts`. **Not re-run**: their code is not in my branch. After the Master merges, I will remove `.fails` and the CONFIRMED TODAY control in that spec and re-run it. Still open by owner decision: developer self-confirm, rollback reusing the approval (O-1, O-2).
+
 ## Escalations
 None blocking. Material for the owner/Master: DEFECT-4 and DEFECT-6 both say "human approval" is satisfied by API keys; the product decision "may a developer self-confirm a production publish, and does rollback need its own approval" (O-1, O-2) is the owner's.
 

@@ -5,7 +5,7 @@
 - **Additive?** Yes. **Sessions affected:** 01 (Master), 07 (the E2E may then assert the new texts by catalogue key).
 
 ## 1. i18n: fold the Phase 2 texts into the catalogue
-The staged plan and the scorecard of `/ai/benchmarks` use 66 texts that live, for now, in `apps/admin/lib/benchmarks-text.ts` (`EXTRA_TEXTS`, Arabic and English, same placeholders, parity tested in `apps/admin/lib/benchmarks.spec.ts`). They are kept in an owned path because Phase 2 forbids editing `messages.ts` outside a recorded exception, and an app cannot be imported by the E2E (lint rule), so the new E2E spec asserts those sections by structure.
+The staged plan and the scorecard of `/ai/benchmarks` use 55 texts that live, for now, in `apps/admin/lib/benchmarks-text.ts` (`EXTRA_TEXTS`, Arabic and English, same placeholders, parity tested in `apps/admin/lib/benchmarks.spec.ts`). They are kept in an owned path because Phase 2 forbids editing `messages.ts` outside a recorded exception, and an app cannot be imported by the E2E (lint rule), so the new E2E spec asserts those sections by structure.
 
 When convenient: append the keys under `// >>> Benchmarks (S03)` as `bench.<key>` in `ar` and `en` (the object `EXTRA_TEXTS` is the source; both languages are complete), then in `benchmarks-text.ts` delete `EXTRA_*` and the `isExtra` branch of `bt`. Key names (55): `stagesTitle stagesHelp rateReference rateApproved stage runCount estimated maximum duration durationValue stageStatus stageBlocked assumptionsNote prerequisites monthly stageName_A..E stagePurpose_A..E prereq_<13 ids> scorecardTitle scorecardHelp scorecardEmpty dimension value thresholdsJudging dim_<7> statusPass statusFail statusNotMeasured`.
 

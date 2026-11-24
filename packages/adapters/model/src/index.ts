@@ -8,3 +8,4 @@ export * from './resilience';
 export * from './ratecard';
 export * from './context';
 export * from './registry';
+export * from './fallback';

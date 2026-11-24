@@ -5,6 +5,7 @@ import { Idempotent } from '../../common/idempotency';
 import { ChangeToolsService } from './internal/changes/change-tools.service';
 import { ProjectsPort } from './internal/ports/m09';
 import { BuilderToolsProjectScoped } from './internal/changes/builder-tools-flag';
+import { ContentRead } from '../builder';
 
 type B = Record<string, unknown>;
 
@@ -24,6 +25,7 @@ export class ChangeToolsController extends BuilderToolsProjectScoped {
     return this.tools.preview(orgId, await this.project(orgId, pid), body ?? {});
   }
   @RequirePermission('builder:read')
+  @ContentRead('version_diff')
   @Get('version-diff')
   async diff(
     @Org() orgId: string,

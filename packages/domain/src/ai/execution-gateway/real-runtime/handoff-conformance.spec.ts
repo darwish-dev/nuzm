@@ -43,14 +43,15 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
       'install-deps and run-script are never requested',
     );
   });
-  it('MockExecutionPort: every case passes (H-8 skipped: the mock has no artifact policy; H-9 skipped: not observable and the adapter does not pass source yet)', async () => {
+  it('MockExecutionPort: every case passes (H-8 skipped: the mock has no artifact policy; H-9 passes: the adapter passes ctx.source and the mock records it)', async () => {
     const r = await runLifecycleHandoffConformance(createMockHandoffRig(adapt as never));
     expect(r.fail, JSON.stringify(r.cases.filter((c) => c.status === 'FAIL'))).toBe(0);
     expect(r.origin).toBe('MOCK');
     expect(r.cases.find((c) => c.id === 'H-8')!.status).toBe('SKIPPED');
+    expect(r.cases.find((c) => c.id === 'H-9')!.status).toBe('PASS');
     expect(r.statement).toContain('does NOT prove isolation');
   });
-  it('the real-runtime port over the simulated node: every case passes except the source case, which is reported SKIPPED until the adapter passes ctx.source', async () => {
+  it("the real-runtime port over the simulated node: every case passes, including the source case (S05's adapter passes ctx.source)", async () => {
     const r = await runLifecycleHandoffConformance(
       createSimulatedNodeHandoffRig(adapt as never, async (ms) => {
         await vi.advanceTimersByTimeAsync(ms);
@@ -58,21 +59,20 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
     );
     expect(r.fail, JSON.stringify(r.cases.filter((c) => c.status === 'FAIL'))).toBe(0);
     const byId = new Map(r.cases.map((c) => [c.id, c]));
-    for (const id of ['H-1', 'H-2', 'H-3', 'H-4', 'H-5', 'H-6', 'H-7', 'H-8'])
+    for (const id of ['H-1', 'H-2', 'H-3', 'H-4', 'H-5', 'H-6', 'H-7', 'H-8', 'H-9'])
       expect(byId.get(id)!.status, id).toBe('PASS');
-    expect(byId.get('H-9')!.status).toBe('SKIPPED');
-    expect(byId.get('H-9')!.note).toContain('CONTRACT-04-4');
   });
-  it("with expectSource the case FAILS for today's adapter (it does not pass source) and PASSES for an adapter that does", async () => {
+  it("with expectSource the case PASSES for S05's adapter and for any adapter that names the version, and FAILS for an adapter that omits it", async () => {
     const strict = await runLifecycleHandoffConformance(
       createSimulatedNodeHandoffRig(adapt as never, async (ms) => {
         await vi.advanceTimersByTimeAsync(ms);
       }),
       { expectSource: true },
     );
-    expect(strict.cases.find((c) => c.id === 'H-9')!.status).toBe('FAIL');
-    // an adapter that names the version, as S05 must (exactly what CONTRACT-04-4 asks for)
-    const withSource = (port: PortLike) => {
+    expect(strict.fail, JSON.stringify(strict.cases.filter((c) => c.status === 'FAIL'))).toBe(0);
+    expect(strict.cases.find((c) => c.id === 'H-9')!.status).toBe('PASS');
+    // local adapters: one that names the version (what CONTRACT-04-4 asks for) and one that omits it (the old behaviour)
+    const mk = (includeSource: boolean) => (port: PortLike) => {
       const inner = new ExecutionBuildPort(port as never, () => '2026-11-24T00:00:00Z');
       return {
         origin: port.origin,
@@ -93,7 +93,9 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
           const out = await port.run(decision as never, {
             orgId: req.orgId,
             runId: req.runId,
-            source: { projectId: req.projectId, versionId: req.versionId },
+            ...(includeSource
+              ? { source: { projectId: req.projectId, versionId: req.versionId } }
+              : {}),
           });
           const status = out.status === 'completed' && out.exitCode !== 0 ? 'failed' : out.status;
           return {
@@ -107,6 +109,8 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
         },
       };
     };
+    const withSource = mk(true);
+    const withoutSource = mk(false);
     const ok = await runLifecycleHandoffConformance(
       createSimulatedNodeHandoffRig(withSource as never, async (ms) => {
         await vi.advanceTimersByTimeAsync(ms);
@@ -120,5 +124,17 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
     });
     expect(okMock.fail, JSON.stringify(okMock.cases.filter((c) => c.status === 'FAIL'))).toBe(0);
     expect(okMock.cases.find((c) => c.id === 'H-9')!.status).toBe('PASS'); // the mock records ctx, so the version is observable there too
+    for (const rig of [
+      createSimulatedNodeHandoffRig(withoutSource as never, async (ms) => {
+        await vi.advanceTimersByTimeAsync(ms);
+      }),
+      createMockHandoffRig(withoutSource as never),
+    ]) {
+      const bad = await runLifecycleHandoffConformance(rig, { expectSource: true });
+      expect(bad.cases.find((c) => c.id === 'H-9')!.status).toBe('FAIL');
+      // without expectSource the same omission is reported SKIPPED (never a pass)
+      const lenient = await runLifecycleHandoffConformance(rig);
+      expect(lenient.cases.find((c) => c.id === 'H-9')!.status).toBe('SKIPPED');
+    }
   });
 });

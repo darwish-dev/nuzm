@@ -50,7 +50,7 @@ import { BuilderPlanController } from './builder-plan.controller';
 import { ChangeToolsController } from './change-tools.controller';
 import { ChangeToolsService } from './internal/changes/change-tools.service';
 import { BuilderInsightService } from './internal/changes/builder-insight.service';
-import { ContentAccessService } from './internal/changes/content-access.service';
+import { ContentAccessService } from '../builder';
 import {
   ExecutionBudgetService,
   ExecutionGate,

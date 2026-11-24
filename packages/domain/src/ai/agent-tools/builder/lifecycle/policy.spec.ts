@@ -5,6 +5,7 @@ import {
   EXECUTION_METERS,
   costClassesOf,
   decideContentAccess,
+  redactApprovalFor,
   decideExecutionStart,
   parseContentAccess,
   type StartFacts,
@@ -34,14 +35,33 @@ describe('O-9 billing_admin content access', () => {
     expect(parseContentAccess(['allow'])).toBe('deny');
     expect(parseContentAccess(true)).toBe('deny');
   });
-  it('covers the five content operations', () => {
-    expect([...CONTENT_OPERATIONS]).toEqual([
+  it('names the five builder-tools reads and the content routes of the S07 audit, each once', () => {
+    expect(new Set(CONTENT_OPERATIONS).size).toBe(CONTENT_OPERATIONS.length);
+    expect([...CONTENT_OPERATIONS].slice(0, 5)).toEqual([
       'review',
       'symbols',
       'imports',
       'components',
       'memory',
     ]);
+    for (const op of [
+      'version_diff',
+      'file_content',
+      'file_search',
+      'previews',
+      'forms',
+      'form_submissions',
+      'cms',
+      'instructions',
+      'test_runs',
+      'claude_code',
+      'template_workspace',
+      'generation_plan',
+      'deployment',
+      'deployment_logs',
+      'approvals',
+    ])
+      expect(CONTENT_OPERATIONS).toContain(op);
   });
 });
 
@@ -123,5 +143,27 @@ describe('inference cost vs execution cost', () => {
         const d = decideExecutionStart(p, facts({ separationEnabled: sep, aiCreditMinor: 1 }));
         expect(d.allowed && d.mustMeter.length).toBeGreaterThan(0);
       }
+  });
+});
+
+describe('approval redaction (billing administrator under deny)', () => {
+  const a = {
+    id: 'x',
+    type: 'production_deploy',
+    status: 'pending',
+    action: { summary: 'CUSTOMER TEXT' },
+    decisionNote: 'note',
+  };
+  it('removes the free text of a non-financial approval for billing_admin under deny, and nothing else', () => {
+    const r = redactApprovalFor('billing_admin', 'deny', a);
+    expect(r).toEqual({ ...a, action: { redacted: true }, decisionNote: null });
+    expect(JSON.stringify(r)).not.toContain('CUSTOMER TEXT');
+  });
+  it('leaves financial approvals, other roles and the default allow untouched', () => {
+    const paid = { ...a, type: 'paid_resource' };
+    expect(redactApprovalFor('billing_admin', 'deny', paid)).toBe(paid);
+    expect(redactApprovalFor('billing_admin', 'allow', a)).toBe(a);
+    for (const role of ['owner', 'admin', 'developer', 'viewer'])
+      expect(redactApprovalFor(role, 'deny', a)).toBe(a);
   });
 });

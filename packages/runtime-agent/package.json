@@ -1,0 +1,23 @@
+{
+  "name": "@nuzm/runtime-agent",
+  "private": true,
+  "version": "0.0.0",
+  "type": "commonjs",
+  "description": "P3-S02 node agent: the process that runs on a dedicated, attested Linux node and implements the node protocol over gVisor (runsc). Nothing here executes on a developer machine.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": { "nuzm-runtime-agent": "./dist/main.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nuzm/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

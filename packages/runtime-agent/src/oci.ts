@@ -1,0 +1,138 @@
+import { executionGateway as eg } from '@nuzm/domain';
+
+/**
+ * Build the OCI runtime bundle (`config.json`) gVisor's `runsc run` consumes, from a `RuntimeSpec` the agent has ALREADY validated. This is a pure function: it writes nothing and
+ * starts nothing. Every field is derived from the spec or fixed here; the workload controls none of it.
+ *
+ * Intended containment (what the OCI document asks for; whether the runtime delivers it is exactly what the escape suite measures, so each item stays NOT VERIFIED until then):
+ *  - root file system read-only; `/work` rw, `/scratch` rw+noexec, `/toolchain` ro (all `nosuid,nodev`); `/tmp` a small tmpfs
+ *  - uid/gid unprivileged, NO capabilities in any set, `noNewPrivileges`
+ *  - new pid, ipc, uts, mount and network namespaces (the network one is a bare namespace for `none`, a pre-wired one for `registry-only`)
+ *  - cgroup v2 limits: memory (swap = limit, so none), cpu quota, pids; rlimits for cpu, file size, core, nofile
+ *  - a default-deny seccomp allow-list (Docker-default derived, minus everything that reaches kernel attack surface a build never needs) applied inside the sandbox
+ */
+export interface BundleInput {
+  spec: eg.RuntimeSpec;
+  rootfs: string;
+  workDir: string;
+  scratchDir: string;
+  toolchainDir: string;
+  /** `/var/run/netns/<name>` of a pre-wired namespace (class `registry-only`); omitted for `none` */
+  netnsPath?: string;
+  /** cgroup path under the node's delegated slice */
+  cgroupsPath: string;
+}
+const MIB = 1024 * 1024;
+const CPU_PERIOD = 100_000;
+
+/** syscalls a build/test workload (node, npm, tsc, git-less tooling) may use. Everything else returns EPERM. (V: the compatibility run measures gaps.) */
+export const SECCOMP_ALLOW: readonly string[] = [
+  'accept', 'accept4', 'access', 'adjtimex', 'alarm', 'arch_prctl', 'bind', 'brk', 'capget', 'chdir', 'chmod', 'chown', 'clock_getres', 'clock_gettime', 'clock_nanosleep', 'close',
+  'close_range', 'connect', 'copy_file_range', 'creat', 'dup', 'dup2', 'dup3', 'epoll_create', 'epoll_create1', 'epoll_ctl', 'epoll_pwait', 'epoll_pwait2', 'epoll_wait', 'eventfd',
+  'eventfd2', 'execve', 'execveat', 'exit', 'exit_group', 'faccessat', 'faccessat2', 'fadvise64', 'fallocate', 'fchdir', 'fchmod', 'fchmodat', 'fchown', 'fchownat', 'fcntl',
+  'fdatasync', 'fgetxattr', 'flistxattr', 'flock', 'fork', 'fstat', 'fstatfs', 'fsync', 'ftruncate', 'futex', 'futex_waitv', 'getcpu', 'getcwd', 'getdents', 'getdents64', 'getegid',
+  'geteuid', 'getgid', 'getgroups', 'getitimer', 'getpeername', 'getpgid', 'getpgrp', 'getpid', 'getppid', 'getpriority', 'getrandom', 'getresgid', 'getresuid', 'getrlimit',
+  'get_robust_list', 'getrusage', 'getsid', 'getsockname', 'getsockopt', 'get_thread_area', 'gettid', 'gettimeofday', 'getuid', 'getxattr', 'inotify_add_watch', 'inotify_init',
+  'inotify_init1', 'inotify_rm_watch', 'ioctl', 'kill', 'lchown', 'lgetxattr', 'link', 'linkat', 'listen', 'listxattr', 'llistxattr', 'lseek', 'lstat', 'madvise', 'membarrier',
+  'memfd_create', 'mincore', 'mkdir', 'mkdirat', 'mknod', 'mknodat', 'mlock', 'mlock2', 'mlockall', 'mmap', 'mprotect', 'mremap', 'msync', 'munlock', 'munlockall', 'munmap',
+  'nanosleep', 'newfstatat', 'open', 'openat', 'openat2', 'pause', 'pipe', 'pipe2', 'poll', 'ppoll', 'prctl', 'pread64', 'preadv', 'preadv2', 'prlimit64', 'pselect6', 'pwrite64',
+  'pwritev', 'pwritev2', 'read', 'readahead', 'readlink', 'readlinkat', 'readv', 'recv', 'recvfrom', 'recvmmsg', 'recvmsg', 'rename', 'renameat', 'renameat2', 'restart_syscall',
+  'rmdir', 'rseq', 'rt_sigaction', 'rt_sigpending', 'rt_sigprocmask', 'rt_sigqueueinfo', 'rt_sigreturn', 'rt_sigsuspend', 'rt_sigtimedwait', 'rt_tgsigqueueinfo', 'sched_getaffinity',
+  'sched_getattr', 'sched_getparam', 'sched_get_priority_max', 'sched_get_priority_min', 'sched_getscheduler', 'sched_setaffinity', 'sched_yield', 'select', 'sendfile', 'sendmmsg',
+  'sendmsg', 'sendto', 'setgid', 'setgroups', 'setitimer', 'setpgid', 'setpriority', 'setregid', 'setresgid', 'setresuid', 'setreuid', 'setrlimit', 'set_robust_list', 'setsid',
+  'setsockopt', 'set_thread_area', 'set_tid_address', 'setuid', 'shutdown', 'sigaltstack', 'socket', 'socketpair', 'splice', 'stat', 'statfs', 'statx', 'symlink', 'symlinkat', 'sync',
+  'sync_file_range', 'syncfs', 'sysinfo', 'tee', 'tgkill', 'time', 'timer_create', 'timer_delete', 'timer_getoverrun', 'timer_gettime', 'timer_settime', 'timerfd_create',
+  'timerfd_gettime', 'timerfd_settime', 'times', 'tkill', 'truncate', 'umask', 'uname', 'unlink', 'unlinkat', 'utime', 'utimensat', 'utimes', 'vfork', 'wait4', 'waitid', 'write',
+  'writev',
+];
+/** never allowed even if a future edit of the list above tried: asserted by a test */
+export const SECCOMP_NEVER: readonly string[] = [
+  'ptrace', 'mount', 'umount2', 'pivot_root', 'chroot', 'reboot', 'kexec_load', 'kexec_file_load', 'init_module', 'finit_module', 'delete_module', 'bpf', 'perf_event_open',
+  'userfaultfd', 'io_uring_setup', 'io_uring_enter', 'io_uring_register', 'unshare', 'setns', 'open_by_handle_at', 'name_to_handle_at', 'keyctl', 'add_key', 'request_key', 'acct',
+  'swapon', 'swapoff', 'sethostname', 'setdomainname', 'iopl', 'ioperm', 'settimeofday', 'clock_settime', 'syslog', 'process_vm_readv', 'process_vm_writev', 'kcmp', 'lookup_dcookie',
+  'move_pages', 'mbind', 'set_mempolicy', 'quotactl', 'nfsservctl', 'personality', 'modify_ldt', 'vm86', 'fanotify_init', 'mount_setattr', 'move_mount', 'open_tree', 'fsopen', 'fsmount',
+  'fspick', 'fsconfig', 'pidfd_getfd', 'landlock_create_ruleset',
+];
+// `clone` is allowed only without any namespace-creating flag (CLONE_NEWNS|NEWCGROUP|NEWUTS|NEWIPC|NEWUSER|NEWPID|NEWNET = 0x7E020000); `clone3` answers ENOSYS so libc falls back to `clone`.
+const CLONE_NS_MASK = 0x7e020000;
+
+export const MASKED_PATHS = [
+  '/proc/acpi', '/proc/asound', '/proc/kcore', '/proc/keys', '/proc/latency_stats', '/proc/timer_list', '/proc/timer_stats', '/proc/sched_debug', '/proc/scsi', '/sys/firmware',
+  '/sys/kernel/debug', '/sys/kernel/slab',
+];
+export const READONLY_PATHS = ['/proc/bus', '/proc/fs', '/proc/irq', '/proc/sys', '/proc/sysrq-trigger'];
+
+export function buildOciBundle(i: BundleInput): Record<string, unknown> {
+  const s = i.spec;
+  const memBytes = s.limits.memoryMb * MIB;
+  const cpus = Math.max(1, Math.min(4, Math.ceil(s.limits.cpuSeconds / Math.max(1, s.limits.wallSeconds)) || 1));
+  const bind = (source: string, target: string, ro: boolean, extra: string[] = []) => ({
+    destination: target,
+    type: 'bind',
+    source,
+    options: ['rbind', ro ? 'ro' : 'rw', 'nosuid', 'nodev', ...extra],
+  });
+  const mounts = [
+    { destination: '/proc', type: 'proc', source: 'proc', options: ['nosuid', 'noexec', 'nodev'] },
+    { destination: '/dev', type: 'tmpfs', source: 'tmpfs', options: ['nosuid', 'strictatime', 'mode=755', 'size=65536k'] },
+    { destination: '/tmp', type: 'tmpfs', source: 'tmpfs', options: ['nosuid', 'nodev', 'noexec', 'mode=1777', 'size=64m'] },
+    ...s.mounts.map((m) =>
+      m.source === 'workspace'
+        ? bind(i.workDir, m.target, m.readOnly)
+        : m.source === 'scratch'
+          ? bind(i.scratchDir, m.target, m.readOnly, ['noexec'])
+          : bind(i.toolchainDir, m.target, true),
+    ),
+  ];
+  const namespaces: { type: string; path?: string }[] = [
+    { type: 'pid' },
+    { type: 'ipc' },
+    { type: 'uts' },
+    { type: 'mount' },
+    i.netnsPath ? { type: 'network', path: i.netnsPath } : { type: 'network' },
+  ];
+  return {
+    ociVersion: '1.0.2',
+    process: {
+      terminal: false,
+      user: { uid: s.user.uid, gid: s.user.gid, additionalGids: [] },
+      args: [...s.argv],
+      env: Object.entries(s.env).map(([k, v]) => `${k}=${v}`),
+      cwd: s.cwd,
+      capabilities: { bounding: [], effective: [], inheritable: [], permitted: [], ambient: [] },
+      noNewPrivileges: true,
+      rlimits: [
+        { type: 'RLIMIT_CPU', hard: Math.ceil(s.limits.cpuSeconds), soft: Math.ceil(s.limits.cpuSeconds) },
+        { type: 'RLIMIT_FSIZE', hard: s.limits.diskMb * MIB, soft: s.limits.diskMb * MIB },
+        { type: 'RLIMIT_CORE', hard: 0, soft: 0 },
+        { type: 'RLIMIT_NOFILE', hard: 4096, soft: 4096 },
+        { type: 'RLIMIT_NPROC', hard: s.limits.pids, soft: s.limits.pids },
+      ],
+    },
+    root: { path: i.rootfs, readonly: true },
+    hostname: 'sandbox',
+    mounts,
+    linux: {
+      namespaces,
+      cgroupsPath: i.cgroupsPath,
+      resources: {
+        memory: { limit: memBytes, swap: memBytes, disableOOMKiller: false },
+        cpu: { quota: cpus * CPU_PERIOD, period: CPU_PERIOD },
+        pids: { limit: s.limits.pids },
+      },
+      maskedPaths: MASKED_PATHS,
+      readonlyPaths: READONLY_PATHS,
+      seccomp: {
+        defaultAction: 'SCMP_ACT_ERRNO',
+        defaultErrnoRet: 1,
+        architectures: ['SCMP_ARCH_X86_64', 'SCMP_ARCH_X86', 'SCMP_ARCH_AARCH64'],
+        syscalls: [
+          { names: SECCOMP_ALLOW, action: 'SCMP_ACT_ALLOW' },
+          { names: ['clone'], action: 'SCMP_ACT_ALLOW', args: [{ index: 0, value: 0, valueTwo: CLONE_NS_MASK, op: 'SCMP_CMP_MASKED_EQ' }] },
+          { names: ['clone3'], action: 'SCMP_ACT_ERRNO', errnoRet: 38 },
+        ],
+      },
+    },
+    annotations: { 'nuzm.run': s.runId, 'nuzm.org': s.orgId },
+  };
+}

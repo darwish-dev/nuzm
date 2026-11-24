@@ -22,3 +22,4 @@ export * from './runtime-spec';
 export * from './orchestrator';
 export * from './workspace';
 export * from './real-runtime';
+export * from './node-protocol';

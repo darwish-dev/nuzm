@@ -6,3 +6,4 @@ export * from './conformance';
 export * from './probe';
 export * from './resilience';
 export * from './ratecard';
+export * from './context';

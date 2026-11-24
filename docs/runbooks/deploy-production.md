@@ -23,7 +23,17 @@ Next.js bakes `ADMIN_ORIGIN`/`API_ORIGIN` into its routes at build time, so they
 
 **API/worker are off by default.** At the time of writing `apps/api/src/main.ts` is empty and the dev stack refuses `NODE_ENV=production`; a production API also needs a production vault, IdP, PSP and Postgres/Redis (D-42, D-15, HG items). Do not set `DEPLOY_API=true` before those exist. The `/health` path used by the API check is unverified.
 
-## One-time setup (owner; nothing here is done by the agent)
+## Fast path (what was actually done on 2026-11-25)
+
+The GitHub side (environment `production`, secrets `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS`, variables `DEPLOY_HOST`, `DEPLOY_USER`, `ADMIN_ORIGIN`) was set with `gh` and the private key was deleted locally. The server side is one command from your Mac; you type the server password at the ssh prompt:
+
+```bash
+ssh root@89.116.29.136 'bash -s' < infra/deploy/install-on-server.sh
+```
+
+Then do steps 7 and 8 below (nginx, DNS, first run). Confirm the host key fingerprint `SHA256:3CZNf9hsIe6mnDtGD7qWmt+D+1f/PT0t1EDHdH9twHQ` (ED25519) against your hosting panel before the first deploy; it is pinned in `DEPLOY_KNOWN_HOSTS`.
+
+## One-time setup (owner; manual version of the same steps)
 
 1. **Server packages** (Ubuntu/Debian assumed): Node 22 (`.nvmrc`) and `corepack enable` (pnpm 10 comes from `packageManager`), `rsync`, `nginx` (already present), `curl`.
 2. **Prepare the server**: copy `infra/deploy/` to it and run `sudo bash bootstrap-server.sh` (read it first). It creates the `deploy` user, `/srv/nuzm`, the systemd units and a sudo rule limited to restarting `nuzm-*`.

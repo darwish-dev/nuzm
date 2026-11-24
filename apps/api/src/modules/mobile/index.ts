@@ -24,3 +24,4 @@ export {
   requireDisposableEnvironment,
 } from './internal/builds/build-env-guard';
 export { inspectApk } from './internal/builds/apk-evidence';
+export { MacosIosRunner } from './internal/builds/ios-runner';

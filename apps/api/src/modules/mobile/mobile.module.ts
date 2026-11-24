@@ -23,6 +23,7 @@ import {
   UnavailableBuildRunner,
 } from './internal/builds/runner';
 import { DisposableAndroidRunner } from './internal/builds/disposable-runner';
+import { MacosIosRunner } from './internal/builds/ios-runner';
 import { MobileBuilderEnabledGuard } from './internal/flag.guard';
 import { MobileRunHandler } from './internal/mobile-run.handler';
 import { PubAdvisoryPort, StaticPubAdvisories } from './internal/policy/pub-policy';
@@ -43,6 +44,8 @@ export const makeBuildRunner = (env: NodeJS.ProcessEnv = process.env): BuildRunn
   if (env.MOBILE_BUILD_RUNNER === 'local-android') return new LocalAndroidRunner();
   // refuses to run anywhere but a declared disposable environment (internal/builds/build-env-guard.ts); `supports()` is false there, so the API answers 503 instead of queueing
   if (env.MOBILE_BUILD_RUNNER === 'disposable-android') return new DisposableAndroidRunner();
+  // iOS without code signing; only on a macOS host with full Xcode inside a declared dedicated build user (B-iOS); `supports()` is false anywhere else
+  if (env.MOBILE_BUILD_RUNNER === 'macos-ios') return new MacosIosRunner();
   if (env.MOBILE_BUILD_RUNNER === 'mock') return new MockBuildRunner();
   return new UnavailableBuildRunner();
 };

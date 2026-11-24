@@ -126,12 +126,12 @@ export const buildEnv = (src: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEn
   return out;
 };
 
-interface Run {
+export interface Run {
   code: number | null;
   timedOut: boolean;
   out: string;
 }
-function exec(
+export function exec(
   cmd: string,
   args: string[],
   cwd: string,

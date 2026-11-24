@@ -160,4 +160,4 @@ These integration runs needed the migration range in `spec/db/ownership.yaml`; I
 | UI for the policy switches and a refusal message naming the policy | not requested; the API returns `policy` and `allowedRoles` | optional follow-up |
 
 ## P2-F. Head
-See the final line below (written after the commit).
+Commit `42107c5d` on `feature/ai-deployment` (on top of integration `39658725`). The `apps/api` typecheck shows only the known worktree-only error in `cloud/internal/adapter-registry.ts` (a missing nested `node_modules` in this clone, not my files); a type error in my policy spec was found and fixed, and that spec re-passed 14/14.

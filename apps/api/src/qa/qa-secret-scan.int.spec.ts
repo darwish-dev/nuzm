@@ -91,9 +91,26 @@ describe('QA secret scan: what is caught today (must keep passing)', () => {
   });
 });
 
-describe('QA secret scan: gaps (DEFECT-9)', () => {
+describe('QA secret scan: former gaps (DEFECT-9, fixed by the Master)', () => {
   for (const [name, text] of MISSED_TODAY)
-    it.fails(`DEFECT-9: ${name} is detected`, () => {
+    it(`DEFECT-9 (fixed): ${name} is detected`, () => {
       expect(scanForSecrets(`context line\n${text}\nanother line`).length, name).toBeGreaterThan(0);
+    });
+});
+
+describe('QA secret scan: false-positive controls after the DEFECT-9 fix (ordinary code and prose are not findings)', () => {
+  const OK = [
+    'const token = getToken(session);',
+    'const secret = process.env.JWT_SECRET_VALUE_FROM_ENV;',
+    'password: ${DB_PASSWORD_FROM_COMPOSE_FILE}',
+    'JWT_SECRET=${JWT_SECRET_FROM_VAULT_INJECTION}',
+    'tokenizer = createTokenizer()',
+    'the secretary sends a password reset notice: see the docs',
+    'export const apiKeyHeader = "x-api-key";',
+    'if (!token) throw new Error("missing token");',
+  ];
+  for (const text of OK)
+    it(`no finding: ${text.slice(0, 50)}`, () => {
+      expect(scanForSecrets(text, []), text).toEqual([]);
     });
 });

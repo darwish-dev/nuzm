@@ -15,12 +15,16 @@ export const REPLAY_LIMITS = { maxFiles: 40, maxFileBytes: 200_000 } as const;
 export function replayTask(task: GoldenTask, rec: Recording): RunOutcome {
   const files = new Map(task.fixture.map((f) => [f.path, f.content]));
   let tokens = 0;
+  let tokensIn = 0;
+  let tokensOut = 0;
   let latencyMs = 0;
   let valid = 0;
   let rejected = 0;
   const called: string[] = [];
   for (const t of rec.turns) {
     tokens += t.tokensIn + t.tokensOut;
+    tokensIn += t.tokensIn;
+    tokensOut += t.tokensOut;
     latencyMs += t.latencyMs;
     const r = validateToolCalls(
       READ_TOOL_SPECS.map((s) => ({ name: s.name, inputSchema: s.inputSchema })),
@@ -67,11 +71,13 @@ export function replayTask(task: GoldenTask, rec: Recording): RunOutcome {
   if (rec.patch.length > REPLAY_LIMITS.maxFiles) errors.push('too many files');
   const refused = errors.length > 0 || rec.finishedWith !== 'proposal';
   let changed = 0;
+  const changedPaths: string[] = [];
   if (!refused) {
     for (const op of ops as PatchOp[]) {
       if (op.content === null) files.delete(op.path);
       else files.set(op.path, op.content);
       changed += 1;
+      changedPaths.push(op.path);
     }
   }
   return {
@@ -82,7 +88,10 @@ export function replayTask(task: GoldenTask, rec: Recording): RunOutcome {
     rejectedToolCalls: rejected,
     calledTools: called,
     tokens,
+    tokensIn,
+    tokensOut,
     latencyMs,
+    changedPaths,
     patchApplied: !refused,
     patchErrors: refused && errors.length === 0 ? ['the run did not end with a proposal'] : errors,
     modeViolations: violations,

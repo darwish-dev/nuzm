@@ -120,6 +120,7 @@ export function evaluateThresholds(
     const src = t.scope === 'all' ? report.overall : report.byKind[t.scope];
     if (!src || src.tasks === 0) return { ...t, actual: null, status: 'NOT MEASURED' };
     const actual = src[t.metric];
+    if (actual === null) return { ...t, actual: null, status: 'NOT MEASURED' };
     const ok =
       t.op === '>=' ? actual >= t.value : t.op === '<=' ? actual <= t.value : actual === t.value;
     return { ...t, actual, status: ok ? 'PASS' : 'FAIL' };

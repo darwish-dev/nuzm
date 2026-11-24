@@ -1,5 +1,5 @@
 export * from './types';
-export { GOLDEN_TASKS } from './dataset';
+export { GOLDEN_TASKS, CORE_TASKS } from './dataset';
 export { referenceRecording } from './reference';
 export { replayTask, REPLAY_LIMITS } from './replay';
 export { scoreRun, QUALITY_WEIGHTS } from './score';

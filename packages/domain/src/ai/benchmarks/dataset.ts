@@ -1,4 +1,8 @@
-import type { Check, FixtureFile, GoldenTask, PatchOp, TaskKind } from './types';
+import { APP_TASKS } from './dataset-apps';
+import { ENGINEERING_TASKS } from './dataset-engineering';
+import { WEB_TASKS } from './dataset-web';
+import { json, task } from './task-builder';
+import type { FixtureFile, GoldenTask } from './types';
 
 /**
  * The golden task suite (S-AG5, offline): 24 synthetic tasks, 6 per kind, Arabic and English prompts. Authored for this suite; no customer data, no template content,
@@ -29,35 +33,8 @@ const LIB: FixtureFile[] = [
   { path: 'src/unused.ts', content: 'export const legacy = () => 0;\n' },
 ];
 
-interface Spec {
-  id: string;
-  kind: TaskKind;
-  locale: 'ar' | 'en';
-  title: string;
-  prompt: string;
-  fixture: FixtureFile[];
-  checks: Check[];
-  solution: PatchOp[];
-  mustCall?: string[];
-  maxCalls?: number;
-}
-const task = (s: Spec): GoldenTask => ({
-  id: s.id,
-  kind: s.kind,
-  locale: s.locale,
-  title: s.title,
-  prompt: s.prompt,
-  fixture: s.fixture,
-  checks: [...s.checks, { type: 'max_files_changed', n: Math.max(2, s.solution.length + 1) }],
-  tools: { mustCall: s.mustCall ?? [], mustNotCall: [], maxCalls: s.maxCalls ?? 6 },
-  budget: { maxTurns: 6, maxTokens: s.kind === 'webapp' ? 60_000 : 40_000 },
-  solution: s.solution,
-  dataClass: 'public',
-  synthetic: true,
-});
-const json = (o: unknown) => `${JSON.stringify(o)}\n`;
-
-export const GOLDEN_TASKS: readonly GoldenTask[] = [
+/** The original 24 tasks (S-AG5 offline baseline). Their prompts, fixtures, checks and solutions are unchanged; they gained a category. */
+export const CORE_TASKS: readonly GoldenTask[] = [
   // ---- website (6)
   task({
     id: 'web-01-hero-en',
@@ -301,6 +278,7 @@ export const GOLDEN_TASKS: readonly GoldenTask[] = [
   task({
     id: 'code-01-off-by-one',
     kind: 'code-edit',
+    category: 'bug-fixing',
     locale: 'en',
     title: 'Fix an off-by-one',
     prompt: 'range(n) should return n numbers, 0 to n-1. Fix it.',
@@ -480,3 +458,6 @@ export const GOLDEN_TASKS: readonly GoldenTask[] = [
     }),
   ),
 ];
+
+/** The full suite: the 24 original tasks plus the extended tasks that cover every one of the 23 categories. */
+export const GOLDEN_TASKS: readonly GoldenTask[] = [...CORE_TASKS, ...WEB_TASKS, ...APP_TASKS, ...ENGINEERING_TASKS];

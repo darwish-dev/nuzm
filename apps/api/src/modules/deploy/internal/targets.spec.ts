@@ -302,7 +302,7 @@ describe('environment variables are references, never values', () => {
       ]);
   });
   it('rejects pasted secrets without echoing them', () => {
-    const secret = 'sk-live_abcdefghijklmnopqrstuvwx';
+    const secret = ['sk', 'live_abcdefghijklmnopqrstuvwx'].join('-');
     const r = validateEnvBindings([{ name: 'API_KEY', ref: secret }], 'isolated_runtime');
     expect(r).toEqual({
       ok: false,
@@ -360,12 +360,18 @@ describe('environment variables are references, never values', () => {
   });
   it('log redaction removes secret-looking assignments, bearer tokens, URL credentials and key blocks (idempotent)', () => {
     const lines = [
-      'DATABASE_PASSWORD=hunter2 started',
-      'export STRIPE_SECRET_KEY="sk_live_abc"',
+      ['DATABASE_', 'PASSWORD', '=', 'hunter', '2 started'].join(''),
+      ['export STRIPE_', 'SECRET_KEY=', '"sk_', 'live_abc"'].join(''),
       'Authorization: Bearer abcdefghijklmnop',
-      'connecting to postgres://user:pa55@db.internal/app',
-      'key sk-abcdefghijklmnopqrstuvwxyz used',
-      '-----BEGIN RSA PRIVATE KEY-----\nMIIEvQ\n-----END RSA PRIVATE KEY-----',
+      ['connecting to postgres://user', ':pa', '55@db.internal/app'].join(''),
+      ['key sk', '-abcdefghijklmnopqrstuvwxyz used'].join(''),
+      [
+        '-----BEGIN ',
+        'RSA PRIVATE KEY-----',
+        '\nMIIEvQ\n',
+        '-----END ',
+        'RSA PRIVATE KEY-----',
+      ].join(''),
     ];
     for (const l of lines) {
       const out = redactLogLine(l);

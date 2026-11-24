@@ -57,15 +57,24 @@ export class QuotaLedger {
     const cutoff = this.now() - windowMs;
     s.spent = s.spent.filter((x) => x.at > cutoff);
   }
-  /** Check every ceiling and, only when all hold, reserve. A refusal lists every reason (no partial reservation). */
-  admit(orgId: string, runId: string, limits: ExecLimits, c: OrgCeilings): AdmitResult {
+  /** Would this run be admitted? Reserves nothing. `ignoreConcurrency` is for the early check at submit time: queued jobs do not hold a concurrency slot. */
+  check(orgId: string, limits: ExecLimits, c: OrgCeilings, ignoreConcurrency = false): string[] {
+    return this.evaluate(orgId, '', limits, c, ignoreConcurrency).reasons;
+  }
+  private evaluate(
+    orgId: string,
+    runId: string,
+    limits: ExecLimits,
+    c: OrgCeilings,
+    ignoreConcurrency: boolean,
+  ) {
     const s = this.st(orgId);
     this.prune(s, c.windowMs);
     const reasons: string[] = [];
     const reservedCpu = [...s.active.values()].reduce((n, r) => n + r.reservedCpuSeconds, 0);
     const reservedCost = [...s.active.values()].reduce((n, r) => n + r.reservedCostMinor, 0);
     const usedCpu = s.spent.reduce((n, x) => n + x.cpuSeconds, 0);
-    if (s.active.size >= c.maxConcurrent) reasons.push('concurrency_ceiling');
+    if (!ignoreConcurrency && s.active.size >= c.maxConcurrent) reasons.push('concurrency_ceiling');
     if (s.spent.length + s.active.size >= c.maxRunsPerWindow)
       reasons.push('runs_per_window_ceiling');
     if (usedCpu + reservedCpu + limits.cpuSeconds > c.maxCpuSecondsPerWindow)
@@ -73,7 +82,13 @@ export class QuotaLedger {
     const cost = estimateCostMinor(limits.cpuSeconds, c.rates);
     if (s.totalCostMinor + reservedCost + cost > c.budgetCapMinor || c.budgetCapMinor <= 0)
       reasons.push('budget_cap');
-    if ([...s.active.values()].some((r) => r.runId === runId)) reasons.push('run_already_admitted');
+    if (runId !== '' && [...s.active.values()].some((r) => r.runId === runId))
+      reasons.push('run_already_admitted');
+    return { reasons, cost, s };
+  }
+  /** Check every ceiling and, only when all hold, reserve. A refusal lists every reason (no partial reservation). */
+  admit(orgId: string, runId: string, limits: ExecLimits, c: OrgCeilings): AdmitResult {
+    const { reasons, cost, s } = this.evaluate(orgId, runId, limits, c, false);
     if (reasons.length) return { ok: false, reasons };
     const reservation: Reservation = {
       id: `rsv-${++this.seq}`,

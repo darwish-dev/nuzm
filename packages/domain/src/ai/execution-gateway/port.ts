@@ -23,7 +23,8 @@ export interface ExecutionOutcome {
   stderr: string;
   truncated: boolean;
   durationMs: number;
-  artifacts: { path: string; bytes: number }[];
+  /** `sha256` is optional and additive to the 0.1 sketch: a runtime adapter that hashed the file reports it, otherwise the orchestrator refuses the artifact (`no_content_hash`) */
+  artifacts: { path: string; bytes: number; sha256?: string }[];
 }
 /** What the caller (the agent loop or a builder task) asserts about one run. The organization and run id come from the verified auth context, never from a model. */
 export interface ExecutionRunContext {

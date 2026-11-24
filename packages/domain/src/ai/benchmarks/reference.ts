@@ -1,4 +1,5 @@
 import type { RequestedCall } from '../tools';
+import { DATASET_VERSION } from './registry';
 import type { GoldenTask, Recording } from './types';
 
 const argsFor = (tool: string, task: GoldenTask): unknown => {
@@ -31,6 +32,7 @@ export function referenceRecording(task: GoldenTask): Recording {
     model: 'reference',
     contractVersion: '1.1.0',
     origin: 'REFERENCE',
+    datasetVersion: DATASET_VERSION,
     turns: [
       ...(calls.length > 0
         ? [{ toolCalls: calls, tokensIn: 900, tokensOut: 120, latencyMs: 1_500 }]

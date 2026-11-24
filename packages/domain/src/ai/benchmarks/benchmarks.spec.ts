@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CORE_TASKS,
   GOLDEN_TASKS,
   PROPOSED_THRESHOLDS,
   evaluateThresholds,
@@ -25,15 +26,24 @@ const withPatch = (
   patch,
   ...over,
 });
+const CAPTURE = {
+  runId: 'run-1',
+  approvalRef: 'approval-1',
+  providerEvidenceRef: 'evidence-1',
+  capturedAt: '2026-01-01T00:00:00Z',
+};
 const recorded = () =>
-  new Map([...refs()].map(([k, v]) => [k, { ...v, origin: 'RECORDED' as const }]));
+  new Map(
+    [...refs()].map(([k, v]) => [k, { ...v, origin: 'RECORDED' as const, capture: CAPTURE }]),
+  );
 
 describe('the golden dataset', () => {
-  it('has 24 unique synthetic public tasks, 6 per kind, in both languages', () => {
-    expect(GOLDEN_TASKS).toHaveLength(24);
-    expect(new Set(GOLDEN_TASKS.map((t) => t.id)).size).toBe(24);
+  it('keeps the 24 original tasks and has unique synthetic public tasks of every kind, in both languages', () => {
+    expect(CORE_TASKS).toHaveLength(24);
+    expect(GOLDEN_TASKS.length).toBeGreaterThan(24);
+    expect(new Set(GOLDEN_TASKS.map((t) => t.id)).size).toBe(GOLDEN_TASKS.length);
     for (const k of ['website', 'webapp', 'code-edit', 'tool-calling'] as const)
-      expect(GOLDEN_TASKS.filter((t) => t.kind === k)).toHaveLength(6);
+      expect(GOLDEN_TASKS.filter((t) => t.kind === k).length).toBeGreaterThanOrEqual(6);
     expect(GOLDEN_TASKS.some((t) => t.locale === 'ar')).toBe(true);
     expect(GOLDEN_TASKS.some((t) => t.locale === 'en')).toBe(true);
     expect(GOLDEN_TASKS.every((t) => t.synthetic && t.dataClass === 'public')).toBe(true);
@@ -97,7 +107,7 @@ describe('report, thresholds and the rollout gate', () => {
   it('the reference suite meets every proposed threshold, and is still NOT VERIFIED for rollout (it is not a model)', () => {
     const { report } = runSuite(GOLDEN_TASKS, refs(), rate);
     expect(report.overall).toMatchObject({
-      tasks: 24,
+      tasks: GOLDEN_TASKS.length,
       passRate: 1,
       validPatchRate: 1,
       modeViolations: 0,
@@ -108,7 +118,7 @@ describe('report, thresholds and the rollout gate', () => {
     expect(d.allowed).toBe(false);
     expect(d.status).toBe('NOT VERIFIED');
     expect(d.reasons.join(' ')).toMatch(/REFERENCE/);
-    expect(renderReport(report)).toContain('| ALL | 24 |');
+    expect(renderReport(report)).toContain(`| ALL | ${GOLDEN_TASKS.length} |`);
     expect(report.estimatedCredits).toMatch(/^\d+$/);
   });
   it('proposed thresholds are not accepted by default: even a perfect RECORDED run is not allowed until the owner accepts them', () => {
@@ -140,8 +150,25 @@ describe('report, thresholds and the rollout gate', () => {
     const { report } = runSuite(GOLDEN_TASKS, only);
     expect(evaluateThresholds(report).find((x) => x.id === 'T06')!.status).toBe('NOT MEASURED');
   });
-  it('proposes 11 thresholds with a reason each', () => {
-    expect(PROPOSED_THRESHOLDS).toHaveLength(11);
+  it('keeps the 11 original thresholds exactly as proposed and adds the Session 03 ones, every one with a reason', () => {
+    const original = PROPOSED_THRESHOLDS.slice(0, 11).map(
+      (x) => `${x.id} ${x.scope}.${x.metric} ${x.op} ${x.value}`,
+    );
+    expect(original).toEqual([
+      'T01 all.validPatchRate >= 0.95',
+      'T02 all.modeViolations == 0',
+      'T03 all.toolCallValidity >= 0.95',
+      'T04 all.budgetKeptRate >= 0.95',
+      'T05 website.passRate >= 0.85',
+      'T06 webapp.passRate >= 0.75',
+      'T07 code-edit.passRate >= 0.85',
+      'T08 tool-calling.passRate >= 0.9',
+      'T09 all.meanQuality >= 85',
+      'T10 all.meanTokens <= 30000',
+      'T11 all.p95LatencyMs <= 90000',
+    ]);
+    expect(PROPOSED_THRESHOLDS).toHaveLength(20);
+    expect(new Set(PROPOSED_THRESHOLDS.map((x) => x.id)).size).toBe(20);
     expect(PROPOSED_THRESHOLDS.every((x) => x.why.length > 10)).toBe(true);
   });
 });

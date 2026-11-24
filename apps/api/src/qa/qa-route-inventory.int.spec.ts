@@ -58,6 +58,9 @@ const PUBLIC_ROUTES: string[] = [
 ];
 /** POSTs on organization routes without `@Idempotent()` at the baseline: owners confirm each is idempotent by construction (state machine, version check) or add the decorator. */
 const POST_WITHOUT_IDEMPOTENCY_KEY: string[] = [
+  // builder tools (Session 05), Master decision 2026-11-24: pure dry-run computations, nothing stored, no model call, no ledger; PROVEN by qa-builder-tools.int.spec.ts (row counts unchanged)
+  'POST /v1/builder/plan-previews',
+  'POST /v1/builder/projects/:projectId/change-previews',
   'POST /v1/ai/runs/:id/cancellation',
   'POST /v1/auth/email/verification/resend',
   'POST /v1/auth/logout',

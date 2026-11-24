@@ -8,7 +8,27 @@ export const CONTENT_ACCESS_KEY = 'builder.billing_admin_content_access';
 export type ContentAccessMode = 'allow' | 'deny';
 /** today: `billing_admin` holds `builder:read`, so it reads all of these */
 export const CONTENT_ACCESS_DEFAULT: ContentAccessMode = 'allow';
-export const CONTENT_OPERATIONS = ['review', 'symbols', 'imports', 'components', 'memory'] as const;
+export const CONTENT_OPERATIONS = [
+  // the builder-tools reads (first batch)
+  'review',
+  'symbols',
+  'imports',
+  'components',
+  'memory',
+  // the rest of the content-returning reads of the builder, app-builder and studio routes (S07's O-9 audit, DEFECT-16)
+  'version_diff',
+  'file_content',
+  'file_search',
+  'template_workspace',
+  'generation_plan',
+  'claude_code',
+  'instructions',
+  'test_runs',
+  'previews',
+  'forms',
+  'form_submissions',
+  'cms',
+] as const;
 export type ContentOperation = (typeof CONTENT_OPERATIONS)[number];
 
 /**

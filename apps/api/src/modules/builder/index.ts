@@ -21,3 +21,4 @@ export type {
   MobileProjectView,
   MobileCommit,
 } from './internal/mobile-project.service';
+export { ContentAccessService, ContentAccessGuard, ContentRead } from './content-access';

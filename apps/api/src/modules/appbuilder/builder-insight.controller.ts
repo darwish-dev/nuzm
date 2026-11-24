@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { BuilderInsightService } from './internal/changes/builder-insight.service';
-import { ContentAccessService } from './internal/changes/content-access.service';
+import { ContentRead } from '../builder';
 import { BuilderToolsProjectScoped } from './internal/changes/builder-tools-flag';
 import { Idempotent } from '../../common/idempotency';
 import { ProjectsPort } from './internal/ports/m09';
@@ -14,53 +14,47 @@ export class BuilderInsightController extends BuilderToolsProjectScoped {
   constructor(
     projects: ProjectsPort,
     private readonly svc: BuilderInsightService,
-    private readonly access: ContentAccessService,
   ) {
     super(projects);
   }
   @RequirePermission('builder:read')
+  @ContentRead('review')
   @Get('review')
-  async review(@Org() orgId: string, @Access() a: AccessContext, @Param('projectId') pid: string) {
+  async review(@Org() orgId: string, @Param('projectId') pid: string) {
     const p = await this.project(orgId, pid);
-    await this.access.assert(orgId, a.actor.userId, a.role, 'review', p.id);
     return this.svc.review(orgId, p);
   }
   @RequirePermission('builder:read')
+  @ContentRead('symbols')
   @Get('symbols')
   async symbols(
     @Org() orgId: string,
-    @Access() a: AccessContext,
     @Param('projectId') pid: string,
     @Query('q') q?: string,
     @Query('kind') kind?: string,
   ) {
     const p = await this.project(orgId, pid);
-    await this.access.assert(orgId, a.actor.userId, a.role, 'symbols', p.id);
     return this.svc.symbols(orgId, p, q ?? '', kind);
   }
   @RequirePermission('builder:read')
+  @ContentRead('imports')
   @Get('import-analysis')
-  async imports(@Org() orgId: string, @Access() a: AccessContext, @Param('projectId') pid: string) {
+  async imports(@Org() orgId: string, @Param('projectId') pid: string) {
     const p = await this.project(orgId, pid);
-    await this.access.assert(orgId, a.actor.userId, a.role, 'imports', p.id);
     return this.svc.imports(orgId, p);
   }
   @RequirePermission('builder:read')
+  @ContentRead('components')
   @Get('components')
-  async components(
-    @Org() orgId: string,
-    @Access() a: AccessContext,
-    @Param('projectId') pid: string,
-  ) {
+  async components(@Org() orgId: string, @Param('projectId') pid: string) {
     const p = await this.project(orgId, pid);
-    await this.access.assert(orgId, a.actor.userId, a.role, 'components', p.id);
     return this.svc.components(orgId, p);
   }
   @RequirePermission('builder:read')
+  @ContentRead('memory')
   @Get('memory')
-  async memory(@Org() orgId: string, @Access() a: AccessContext, @Param('projectId') pid: string) {
+  async memory(@Org() orgId: string, @Param('projectId') pid: string) {
     const p = await this.project(orgId, pid);
-    await this.access.assert(orgId, a.actor.userId, a.role, 'memory', p.id);
     return this.svc.memory(orgId, p);
   }
   @RequirePermission('builder:write')

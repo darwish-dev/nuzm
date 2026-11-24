@@ -14,10 +14,17 @@ const q = async (sql: string, p: unknown[] = []): Promise<Row[]> => (await e.sql
 
 beforeAll(async () => {
   e = await setupAiEnv();
-  await q(
-    `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'builder_tools.enabled', $1, 'true'::jsonb)`,
-    [A()],
-  );
+  for (const k of [
+    'builder_tools.enabled',
+    'app_builder.enabled',
+    'ai_studio.enabled',
+    'knowledge.generation',
+    'knowledge.customer_templates',
+  ])
+    await q(
+      `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, $2, 'true'::jsonb)`,
+      [k, A()],
+    );
 }, 300_000);
 afterAll(() => e.h.close());
 
@@ -103,5 +110,123 @@ describe('content-access policy route', () => {
       (await e.call('frank', 'GET', `/v1/builder/projects/${p}/review`, undefined, A())).statusCode,
     ).toBe(403);
     await e.call('alice', 'PUT', URL, { mode: 'allow' }, A());
+  });
+});
+
+describe('O-9 covers every content-returning read of the builder (S07 audit, DEFECT-16)', () => {
+  const MARK = 'O9-PLANTED-MARKER-9f2c';
+  let webapp = '';
+  let website = '';
+  let v1 = '';
+  let v2 = '';
+  const U = '0198a3c0-aaaa-7000-8000-00000000abcd';
+
+  async function setup() {
+    for (const [type, name] of [
+      ['webapp', 'O9 families app'],
+      ['website', 'O9 families site'],
+    ] as const) {
+      const id = (await e.call('alice', 'POST', '/v1/builder/projects', { name, type }, A())).json()
+        .id as string;
+      if (type === 'webapp') webapp = id;
+      else website = id;
+    }
+    const put = (path: string, content: string, base: string | null) =>
+      e.call(
+        'alice',
+        'POST',
+        `/v1/builder/projects/${webapp}/changes`,
+        { baseVersion: base, source: 'user', patches: [{ op: 'add', path, content }] },
+        A(),
+      );
+    expect((await put('README.md', `# ${MARK}\n`, null)).statusCode).toBe(200);
+    const head = (
+      await q(`SELECT head_version_id h FROM builder.projects WHERE id = $1`, [webapp])
+    )[0]!.h as string;
+    expect((await put('src/more.ts', `export const x = '${MARK}';\n`, head)).statusCode).toBe(200);
+    const vs = await q(
+      `SELECT id FROM builder.project_versions WHERE project_id = $1 ORDER BY seq`,
+      [webapp],
+    );
+    v1 = vs[0]!.id as string;
+    v2 = vs[1]!.id as string;
+  }
+  /** [url, unused flag marker kept for readability] */
+  const routes = (): [string, boolean][] => [
+    [`/v1/builder/projects/${webapp}/version-diff?from=${v1}&to=${v2}`, false],
+    [`/v1/builder/projects/${webapp}/files/content?path=README.md`, false],
+    [`/v1/builder/projects/${webapp}/files/search?q=planted`, true],
+    [`/v1/builder/projects/${webapp}/template-workspace`, true],
+    [`/v1/builder/projects/${webapp}/claude-code`, true],
+    [`/v1/builder/projects/${webapp}/instructions`, true],
+    [`/v1/builder/projects/${webapp}/instructions/versions`, true],
+    [`/v1/builder/projects/${webapp}/test-runs`, true],
+    [`/v1/builder/projects/${webapp}/test-runs/${U}`, true],
+    [`/v1/builder/projects/${website}/previews`, false],
+    [`/v1/builder/projects/${website}/forms`, false],
+    [`/v1/builder/projects/${website}/form-submissions`, false],
+    [`/v1/builder/projects/${website}/cms-collections`, false],
+    [`/v1/builder/generation-plans/${U}`, true],
+    [`/v1/builder/generation-plans/${U}/context`, true],
+    [`/v1/builder/generation-plans/${U}/timeline`, true],
+  ];
+  const metadata = () => [
+    '/v1/builder/projects',
+    `/v1/builder/projects/${webapp}`,
+    `/v1/builder/projects/${webapp}/files`,
+    `/v1/builder/projects/${webapp}/versions`,
+    '/v1/ai/credits',
+  ];
+  const get = (who: string, url: string) => e.call(who, 'GET', url, undefined, A());
+
+  it('default allow: nobody is blocked by the policy (a billing admin reads the planted file text, as today)', async () => {
+    await setup();
+    await e.call('alice', 'PUT', URL, { mode: 'allow' }, A());
+    const r = await get('frank', `/v1/builder/projects/${webapp}/files/content?path=README.md`);
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.body).toContain(MARK);
+    const diff = await get(
+      'frank',
+      `/v1/builder/projects/${webapp}/version-diff?from=${v1}&to=${v2}`,
+    );
+    expect(diff.statusCode).toBe(200);
+    expect(diff.body).toContain(MARK);
+    for (const [url] of routes()) expect((await get('frank', url)).statusCode, url).not.toBe(403);
+  });
+
+  it('deny: every content route refuses the billing admin with 403 (flags of the studio and generation features are on), nothing planted leaks, and metadata stays readable', async () => {
+    expect((await e.call('alice', 'PUT', URL, { mode: 'deny' }, A())).statusCode).toBe(200);
+    const before = e.sink.events.filter((x) => x.action === 'builder.content.access_denied').length;
+    for (const [url] of routes()) {
+      const r = await get('frank', url);
+      expect(r.statusCode, url).toBe(403);
+      expect(r.body, url).not.toContain(MARK);
+    }
+    // the unflagged routes were refused BY THE POLICY and audited with their operation
+    const denied = e.sink.events
+      .filter((x) => x.action === 'builder.content.access_denied')
+      .slice(before);
+    expect(denied.length).toBeGreaterThanOrEqual(routes().length);
+    expect(new Set(denied.map((d) => d.detail.operation))).toEqual(
+      expect.objectContaining(
+        new Set(['version_diff', 'file_content', 'previews', 'forms', 'form_submissions', 'cms']),
+      ),
+    );
+    for (const url of metadata()) expect((await get('frank', url)).statusCode, url).toBe(200);
+  });
+
+  it('deny affects billing_admin ONLY: owner, developer and viewer still read the same routes', async () => {
+    for (const who of ['alice', 'dave', 'carol'])
+      for (const [url] of routes())
+        expect((await get(who, url)).statusCode, `${who} ${url}`).not.toBe(403);
+    const r = await get('alice', `/v1/builder/projects/${webapp}/files/content?path=README.md`);
+    expect(r.statusCode).toBe(200);
+    expect(r.body).toContain(MARK);
+    // allow restores the billing admin
+    await e.call('alice', 'PUT', URL, { mode: 'allow' }, A());
+    expect(
+      (await get('frank', `/v1/builder/projects/${webapp}/files/content?path=README.md`))
+        .statusCode,
+    ).toBe(200);
   });
 });

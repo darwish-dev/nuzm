@@ -1,6 +1,6 @@
 # CONTRACT-P3-S02-2 — durable execution stores: ownership manifest, migration range, classification (request to the Master, from P3-S02)
 
-Status: REQUEST. Migrations `2310`, `2311`, `2312` (schema `execution`, nine tables) are committed in `packages/db/migrations/execution/` with `.down.sql` files and documented reversal. They need these edits to shared files, which P3-S02 does not make:
+Status: REQUEST. Migrations `2310`, `2311`, `2312`, `2313` (schema `execution`, nine tables; 2313 adds `runtime_nodes.data_region`, classified `public`, registered under the residency hook) are committed in `packages/db/migrations/execution/` with `.down.sql` files and documented reversal. They need these edits to shared files, which P3-S02 does not make:
 
 1. `spec/db/ownership.yaml` and `spec/compliance/residency-hooks.yaml`: apply `CONTRACT-P3-S02-2-durable-stores.ownership.patch` (both files) (generated from the working copy that the integration tests ran against; `git apply` on a clean `integration/phase3` tree, or merge by hand). It adds:
    - schema `execution` (`owner_module: execution`, `created_by: P3-S02`) listing `approvals, attestations, job_transitions, jobs, kill_switch, quota_reservations, runtime_nodes, usage_records, workspaces`;

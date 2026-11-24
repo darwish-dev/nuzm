@@ -218,9 +218,9 @@ describe('kill switch, workspaces, usage, reservations, nodes, attestations', ()
     await expect(env.sql(`UPDATE execution.quota_reservations SET reserved_minor = 1 WHERE job_id = $1`, [j.id])).rejects.toThrow(/immutable|final/);
   });
   it('node registry and attestation records are platform-scoped public data; an attestation can only be revoked, once', async () => {
-    await store.upsertNode({ nodeId: 'node-1', endpointId: 'ep-1', environment: 'staging', runtimeClass: 'gvisor-runsc' });
+    await store.upsertNode({ nodeId: 'node-1', endpointId: 'ep-1', environment: 'staging', runtimeClass: 'gvisor-runsc', dataRegion: 'sa-central' });
     expect(await store.setNodeState('node-1', 'quarantined', 'cleanup_failed')).toBe(true);
-    expect(await store.listNodes()).toEqual([{ nodeId: 'node-1', state: 'quarantined', environment: 'staging' }]);
+    expect(await store.listNodes()).toEqual([{ nodeId: 'node-1', state: 'quarantined', environment: 'staging', dataRegion: 'sa-central' }]);
     const att = { attestationId: 'att-node-1-2026-12-01', nodeId: 'node-1', label: 'LIVE-VERIFIED', issuedAt: '2026-12-01T00:00:00Z', expiresAt: '2026-12-20T00:00:00Z', reportSha256: 'd'.repeat(64), reviewer: 'Test Reviewer', reviewRef: 'HG-10-02-test' };
     expect(await store.recordAttestation(att)).toBe(true);
     expect(await store.recordAttestation(att)).toBe(false);

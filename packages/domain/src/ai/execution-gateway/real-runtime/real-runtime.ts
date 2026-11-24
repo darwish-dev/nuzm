@@ -64,6 +64,19 @@ export interface RealRuntimeNode {
   runtime: WorkspaceRuntime;
   /** the attestation record (parsed JSON) held for this node; `null`/`undefined` means none and refuses the start */
   attestation: unknown;
+  /** the data region of the node pool (`execution.runtime_nodes.data_region`); `undefined` = unknown, which a residency-enforcing service treats as a refusal */
+  region?: string;
+}
+/**
+ * PLACEMENT RESIDENCY (CLAUDE.md §4: call ResidencyPolicyService before placing data). Behind a flag, default OFF (`enforce: false`). When on, a run is placed only if the node has a
+ * region AND the policy allows the project's `dataRegion` there. An unknown node region or an unknown data region is a refusal. The ONLY exemption is `syntheticOnly`, a property of
+ * the SERVICE CONFIGURATION (set by the platform: staging qualification with synthetic fixtures, D1), never of a run, a request or a caller.
+ */
+export interface PlacementResidency {
+  enforce: boolean;
+  /** the platform's residency decision (an adapter over `ResidencyPolicyService`); it must fail closed */
+  evaluate: (i: { orgId: string; runId: string; dataRegion: string; nodeRegion: string }) => Promise<{ allowed: boolean; reason: string }>;
+  syntheticOnly?: boolean;
 }
 export type RuntimeEventType =
   | 'node_admitted'
@@ -77,6 +90,7 @@ export type RuntimeEventType =
   | 'cleanup_failed'
   | 'artifact_refused'
   | 'dependency_refused'
+  | 'placement_refused'
   | 'spec_refused';
 /** content-free: ids, codes and counts only */
 export interface RuntimeEvent {
@@ -120,6 +134,7 @@ export interface RealRuntimeConfig {
   artifactPolicy?: ArtifactPolicy;
   dependencyPolicy?: DependencyPolicy;
   artifactSink?: ArtifactSink;
+  residency?: PlacementResidency;
   onEvent?: (e: RuntimeEvent) => void;
   onUsage?: (a: RunAccounting) => void;
   /** stats polling interval of a running job (ms) */
@@ -478,6 +493,8 @@ export class RealRuntimeService {
       }
     }
     if (ctx.signal?.aborted) return refusal('terminated', 'terminated');
+    const placement = await this.checkPlacement(s, ctx, run);
+    if (placement) return refusal(placement);
 
     s.inflight++;
     const workspaceId = spec.workspaceId;
@@ -687,6 +704,24 @@ export class RealRuntimeService {
     return outcome;
   }
 
+  /** null = placement allowed; otherwise the refusal reason. Evaluated BEFORE any workspace exists on the node. */
+  private async checkPlacement(s: NodeState, ctx: ExecutionRunContext, run: RunInputs): Promise<string | null> {
+    const r = this.cfg.residency;
+    if (!r || !r.enforce) return null;
+    const refuse = (why: string) => {
+      this.emit({ type: 'placement_refused', nodeId: s.node.nodeId, orgId: ctx.orgId, runId: ctx.runId, detail: { reason: why } });
+      return `placement_refused:${why}`;
+    };
+    const dataRegion = run.dataRegion;
+    if (!s.node.region || !dataRegion) return r.syntheticOnly === true ? null : refuse(!s.node.region ? 'node_region_unknown' : 'data_region_unknown');
+    try {
+      const d = await r.evaluate({ orgId: ctx.orgId, runId: ctx.runId, dataRegion, nodeRegion: s.node.region });
+      return d.allowed ? null : refuse(`residency_${d.reason}`.slice(0, 60));
+    } catch {
+      return refuse('residency_check_failed'); // fail closed
+    }
+  }
+
   /** read bounded content of each candidate, let the artifact policy judge and hash it, and hand accepted content to the sink; only verified metadata leaves */
   private async extractArtifacts(
     s: NodeState,
@@ -760,6 +795,8 @@ export interface RunInputs {
   seedFiles: (source?: ExecutionRunContext['source']) => ReadonlyMap<string, string>;
   canaries: () => readonly string[];
   artifactSink?: ArtifactSink;
+  /** the project's data region, from the platform's project record (never from the model or the request) */
+  dataRegion?: string;
 }
 
 class RealRuntimePort implements ExecutionPort {

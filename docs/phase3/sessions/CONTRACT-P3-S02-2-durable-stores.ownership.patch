@@ -1,8 +1,8 @@
 diff --git a/spec/compliance/residency-hooks.yaml b/spec/compliance/residency-hooks.yaml
-index 7115408c..8fabfb50 100644
+index 7115408c..0b673f3b 100644
 --- a/spec/compliance/residency-hooks.yaml
 +++ b/spec/compliance/residency-hooks.yaml
-@@ -233,6 +233,30 @@ tables:
+@@ -233,6 +233,34 @@ tables:
      owner: M10
      hook: m10-agent-runs
      note: redacted tool-call summaries inherit the region of their run
@@ -30,11 +30,15 @@ index 7115408c..8fabfb50 100644
 +    owner: P3-S02
 +    hook: m10-sandbox-builds
 +    note: "measured use inherits the region of its run"
++  execution.runtime_nodes:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "the region of a sandbox node pool; RealRuntimeService (flag residency enforcement, default off) refuses placement when it is unknown or the residency policy says no for the project's data_region"
    ai.approval_requests:
      owner: M10
      hook: m10-agent-runs
 diff --git a/spec/db/ownership.yaml b/spec/db/ownership.yaml
-index cc1b8f2c..047b2ba4 100644
+index cc1b8f2c..5896a0f4 100644
 --- a/spec/db/ownership.yaml
 +++ b/spec/db/ownership.yaml
 @@ -114,6 +114,11 @@ schemas:
@@ -76,7 +80,7 @@ index cc1b8f2c..047b2ba4 100644
      data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
      email.email_domains.ownership_token: the public DNS TXT value that proves ownership of a domain (published in DNS by design), not a secret
      email.mailboxes.password_setup: holds only the kind of password setup and a vault REFERENCE to the reset link or one-time secret, never the secret itself
-@@ -499,6 +508,127 @@ classification:
+@@ -499,6 +508,128 @@ classification:
      builder.sandboxes.ws_ticket_hash: hash
      # <<< M09 protection
    columns:
@@ -170,6 +174,7 @@ index cc1b8f2c..047b2ba4 100644
 +      quarantine_reason: internal
 +      admitted_at: internal
 +      updated_at: internal
++      data_region: public
 +    execution.usage_records:
 +      id: internal
 +      org_id: internal

@@ -351,12 +351,12 @@ export class PgExecutionStore {
   }
 
   // ------------------------------------------------------------------ node registry and attestation records (platform scope; public data only)
-  async upsertNode(n: { nodeId: string; endpointId: string; environment: 'staging' | 'production'; runtimeClass: string }): Promise<void> {
+  async upsertNode(n: { nodeId: string; endpointId: string; environment: 'staging' | 'production'; runtimeClass: string; dataRegion?: string }): Promise<void> {
     await this.db.withPlatformScope(async (c) => {
       await c.query(
-        `INSERT INTO execution.runtime_nodes (id, node_id, endpoint_id, environment, runtime_class) VALUES ($1,$2,$3,$4,$5)
-         ON CONFLICT (node_id) DO UPDATE SET endpoint_id = EXCLUDED.endpoint_id, updated_at = now()`,
-        [this.newId(), n.nodeId, n.endpointId, n.environment, n.runtimeClass],
+        `INSERT INTO execution.runtime_nodes (id, node_id, endpoint_id, environment, runtime_class, data_region) VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (node_id) DO UPDATE SET endpoint_id = EXCLUDED.endpoint_id, data_region = EXCLUDED.data_region, updated_at = now()`,
+        [this.newId(), n.nodeId, n.endpointId, n.environment, n.runtimeClass, n.dataRegion ?? null],
       );
     });
   }
@@ -366,10 +366,10 @@ export class PgExecutionStore {
       return r.rowCount === 1;
     });
   }
-  async listNodes(): Promise<{ nodeId: string; state: string; environment: string }[]> {
+  async listNodes(): Promise<{ nodeId: string; state: string; environment: string; dataRegion: string | null }[]> {
     return this.db.withPlatformScope(async (c) => {
-      const r = await c.query(`SELECT node_id, state, environment FROM execution.runtime_nodes ORDER BY node_id`);
-      return r.rows.map((x) => ({ nodeId: x.node_id as string, state: x.state as string, environment: x.environment as string }));
+      const r = await c.query(`SELECT node_id, state, environment, data_region FROM execution.runtime_nodes ORDER BY node_id`);
+      return r.rows.map((x) => ({ nodeId: x.node_id as string, state: x.state as string, environment: x.environment as string, dataRegion: (x.data_region as string | null) ?? null }));
     });
   }
   async recordAttestation(a: { attestationId: string; nodeId: string; label: string; issuedAt: string; expiresAt: string; reportSha256: string; reviewer: string; reviewRef: string; evidenceRef?: string }): Promise<boolean> {

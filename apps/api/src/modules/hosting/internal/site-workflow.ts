@@ -40,6 +40,12 @@ export class SiteWorkflow {
     private readonly ssl: SslService,
     private readonly cfg: HostingConfig,
     private readonly clock: () => Date = () => new Date(),
+    /** called once the site is `active` (the WordPress install is queued here for a WordPress plan); a failure here never undoes the activation */
+    private readonly onActive: (
+      orgId: string,
+      siteId: string,
+      appKind: string,
+    ) => Promise<void> = async () => undefined,
   ) {}
 
   private async load(siteId: string) {
@@ -76,7 +82,12 @@ export class SiteWorkflow {
   async create(o: OpCtx): Promise<Record<string, unknown>> {
     const siteId = o.input.siteId as string;
     const site = await this.load(siteId);
-    if (site.status === 'active') return { siteId, status: 'active', adopted: true };
+    if (site.status === 'active') {
+      // an earlier run activated the site and may have stopped before queueing the application: queueing is idempotent
+      if (site.app_kind !== 'none')
+        await this.onActive(o.orgId, siteId, site.app_kind as string).catch(() => undefined);
+      return { siteId, status: 'active', adopted: true };
+    }
     if (site.status !== 'creating')
       throw new PermanentError(`the site is ${site.status as string}`, 'bad_state');
     const ref = this.ref(site);
@@ -110,6 +121,7 @@ export class SiteWorkflow {
     if (!info) {
       const spec = {
         name: nodeName,
+        planKey: plan.key,
         runtime: site.runtime as string,
         domain: `${nodeName}.${this.cfg.defaultDomainSuffix}`,
         limits: planLimits(plan),
@@ -150,7 +162,7 @@ export class SiteWorkflow {
       this.ctx(o.operationId),
       ref,
       nodeName,
-      { limits: planLimits(plan), runtime: site.runtime as string },
+      { limits: planLimits(plan), runtime: site.runtime as string, planKey: plan.key },
       {
         idempotencyToken: tokenFor(site.org_id as string, siteId, 'configure'),
         operationId: o.operationId,
@@ -182,6 +194,12 @@ export class SiteWorkflow {
       resource: { type: 'hosting_site', id: siteId },
       outcome: 'success',
     });
+    if (site.app_kind !== 'none')
+      await this.onActive(o.orgId, siteId, site.app_kind as string).catch((e: Error) =>
+        this.step(o.orgId, o.operationId, 'application', 'failed', {
+          reason: e.message.slice(0, 150),
+        }),
+      );
     return { siteId, status: 'active' };
   }
 
@@ -361,6 +379,20 @@ export class SiteWorkflow {
         ).rows,
     );
     for (const c of certs) if (c.secret_ref) await this.vault.delete(c.secret_ref as string);
+    // WordPress secrets (admin access, database password) leave the vault with the site
+    const apps = await this.db.withOrg(
+      o.orgId,
+      async (c) =>
+        (
+          await c.query(
+            `SELECT admin_secret_ref, db_secret_ref FROM hosting.site_apps WHERE site_id = $1`,
+            [siteId],
+          )
+        ).rows,
+    );
+    for (const a of apps)
+      for (const r of [a.admin_secret_ref, a.db_secret_ref])
+        if (r) await this.vault.delete(r as string);
     await this.vault.delete(site.credentials_ref as string);
     const retained = await this.db.withOrg(o.orgId, async (c) =>
       Number(

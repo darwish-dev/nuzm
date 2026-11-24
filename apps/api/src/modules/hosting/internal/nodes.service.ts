@@ -23,6 +23,8 @@ export interface NodeDto {
   region: string;
   dataRegion: string;
   status: string;
+  /** `restore_drill` = an isolated node that only restores backups to prove them; it never takes customer sites */
+  purpose: 'customer' | 'restore_drill';
   panelKind: string;
   /** `shared` (Nuzm's hosting network) or `customer_vps` (a customer's own server: outside it, never receives shared sites) */
   networkClass: string;
@@ -54,6 +56,7 @@ const dto = (r: Row, pending: Row | undefined): NodeDto => ({
   region: r.region as string,
   dataRegion: r.data_region as string,
   status: r.status as string,
+  purpose: ((r.purpose as string | undefined) ?? 'customer') as 'customer' | 'restore_drill',
   panelKind: r.panel_kind as string,
   networkClass: (r.network_class as string | undefined) ?? 'shared',
   panelVersion: (r.panel_version as string | null) ?? null,
@@ -157,6 +160,9 @@ export class NodesService {
       );
     if (typeof instance !== 'string' || instance.length < 1 || instance.length > 200)
       throw new ProblemException('validation_failed', 'computeInstanceId is required');
+    const purpose = input.purpose ?? 'customer';
+    if (purpose !== 'customer' && purpose !== 'restore_drill')
+      throw new ProblemException('validation_failed', 'purpose must be customer or restore_drill');
     const info = await this.compute.describe(instance);
     if (!info)
       throw new ProblemException(
@@ -176,8 +182,8 @@ export class NodesService {
         };
       const id = uuidv7();
       await c.query(
-        `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, created_by) VALUES ($1,$2,$3,$4,$5,$6)`,
-        [id, name, instance, info.region, info.dataRegion, actor],
+        `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, created_by, purpose) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [id, name, instance, info.region, info.dataRegion, actor, purpose],
       );
       await this.audit.record({
         action: 'hosting.node.created',
@@ -434,6 +440,11 @@ export class NodesService {
     if (from === to) return;
     if (!ALLOWED[from]!.includes(to))
       throw new ProblemException('conflict', `a ${from} node cannot become ${to}`);
+    if (n.purpose === 'restore_drill' && (to === 'active' || to === 'draining'))
+      throw new ProblemException(
+        'conflict',
+        'a restore-drill node never takes customer sites: it stays in maintenance',
+      );
     if (to === 'active') {
       if (!n.panel_host || !n.panel_key_ref)
         throw new ProblemException('conflict', 'the node has no panel connection yet');

@@ -42,6 +42,24 @@ export class MemoryBackupSink implements BackupSink {
   async exists(ref: string) {
     return this.store.has(ref);
   }
+  async list(region: string, siteName: string) {
+    const prefix = `${region}/${siteName}/`;
+    return [...this.store]
+      .filter(([k]) => k.startsWith(prefix) && !k.slice(prefix.length).includes('/'))
+      .map(([k, v]) => ({ name: k.slice(prefix.length), sizeBytes: v.length }));
+  }
+  async stat(ref: string) {
+    const b = this.store.get(ref);
+    return b ? { sizeBytes: b.length, sha256: createHash('sha256').update(b).digest('hex') } : null;
+  }
+  refOf(region: string, siteName: string, archiveName: string) {
+    return `${region}/${siteName}/${archiveName}`;
+  }
+  async health() {
+    return { ok: this.healthy };
+  }
+  /** test control: the backup host stops answering */
+  healthy = true;
 }
 /** Production default until the owner decides D-07 / P-M06-1: there is no sink, backups answer 422 `no_backup_sink`. */
 export class NoBackupSink implements BackupSink {
@@ -68,6 +86,9 @@ export class MemoryVault implements VaultPort {
   }
   async exists(ref: string) {
     return this.secrets.has(ref);
+  }
+  async read(ref: string) {
+    return this.secrets.get(ref) ?? null;
   }
   async delete(ref: string) {
     this.secrets.delete(ref);

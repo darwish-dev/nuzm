@@ -25,6 +25,9 @@ import {
   type SiteWipeReport,
   type VaultPort,
   type BackupRef,
+  type BackupArchive,
+  type BackupRequest,
+  type BackupSink,
 } from '../ports';
 import type { HestiaClient, HestiaResult } from './client';
 import type { HestiaCommandId } from './commands';
@@ -37,19 +40,45 @@ import type { HestiaCommandId } from './commands';
  * after a timeout needs nothing else. Documented limits that are honoured, not hidden:
  *  - limits are Hestia PACKAGES: the node must already have the package (created at node setup); this adapter only assigns one (`packageFor`), so `quota.apply` is reported
  *    `unsupported` until a node proves its packages; no CPU/RAM guarantee is claimed;
- *  - backups, custom certificates, databases (M08), Node.js/Python runtimes and reverse proxies are `unsupported` here (later sprints; never faked);
+ *  - custom certificates, databases (M08), Node.js/Python runtimes and reverse proxies are `unsupported` here (never faked);
+ *  - BACKUPS (ADR-068): Hestia writes the archive and uploads it to the node's remote backup host (set at node setup with `v-add-backup-host`); the control plane never touches the node's disk, it
+ *    schedules (`v-schedule-user-backup`), then waits for the archive to appear in the off-server store of the node's region and measures it there (size, sha256). Hestia documents no encryption of its
+ *    archives and no return codes for the backup commands: the result is the archive in the store, not a code. Restores stage the archive on the node (an `ArchiveStager`, pending a live check of
+ *    whether `v-restore-user` fetches from the remote host itself) and run `v-restore-user`, then compare the account with the snapshot taken at backup time.
  *  - the certificate expiry comes from `v-list-web-domain-ssl` (whose answer also carries the private key: it is parsed for `NOT_AFTER` and dropped, never stored or logged).
  */
 type Tok = { idempotencyToken: string; operationId: string };
+
+/** Copies one archive from the off-server store to the node's `/backup` (live implementation: SFTP as the restricted `nuzm-restore` account of the node; pending, see the runbook). */
+export interface ArchiveStager {
+  stage(
+    node: NodeRef,
+    siteName: string,
+    archiveName: string,
+    sinkRef: string,
+  ): Promise<{ ok: boolean; detail?: string }>;
+}
 
 export interface HestiaAdapterOptions {
   vault: VaultPort;
   evidenceKind?: EvidenceKind;
   now?: () => Date;
   /** The Hestia package that carries a site's limits. The default is the package every Hestia installs. */
-  packageFor?: (limits: SiteLimits) => string;
+  packageFor?: (limits: SiteLimits, planKey?: string) => string;
   /** Account contact address (Hestia requires one); never a customer's. */
   contactEmailFor?: (account: string) => string;
+  /** Where the node's archives go OFF the server: the store of the node's data region. Without it backup/restore are `unsupported`. */
+  archives?: {
+    sink: BackupSink;
+    regionOf: (nodeId: string) => Promise<string | null>;
+    /** how long one backup waits for its archive to appear (default 5 min), and how often it looks (default 15 s; an archive must be seen at the same size twice) */
+    waitMs?: number;
+    pollMs?: number;
+  };
+  /** Puts an archive from the off-server store onto the node (`/backup`) so `v-restore-user` can read it. Without it only archives already on the node can be restored. */
+  stager?: ArchiveStager;
+  /** `v-restore-user` is synchronous and long: its own deadline (default 15 min) */
+  restoreDeadlineMs?: number;
   /** Physical capacity of the node's machine (from the compute provider): Hestia itself does not report it. */
   capacityOf?: (
     node: NodeRef,
@@ -146,6 +175,22 @@ export class HestiaHostingAdapter implements HostingAdapter {
         'hosting.usage.report',
       ] as const)
         all[c] = 'supported';
+      // backups are offered only when the node proves a remote backup host (`v-list-backup-host`) AND the control plane has the off-server store of the node's region
+      if (this.o.archives) {
+        let host = false;
+        for (const type of ['sftp', 'rclone', 'ftp'] as const) {
+          const h = await this.run(node, ctx, 'listBackupHost', { type });
+          evidence.push(this.ev(`probe.backup-host.${type}`, h.summary));
+          if (h.ok && Object.keys(obj(h.data)).length > 0) {
+            host = true;
+            break;
+          }
+        }
+        if (host) {
+          all['hosting.backup.create'] = 'supported';
+          if (this.o.stager) all['hosting.backup.restore'] = 'supported';
+        }
+      }
       for (const c of HOSTING_CAPABILITIES) if (all[c] === 'unknown') all[c] = 'unsupported';
       all['hosting.runtime.php'] = runtimes.some((r) => r.startsWith('php:'))
         ? 'supported'
@@ -158,8 +203,10 @@ export class HestiaHostingAdapter implements HostingAdapter {
   async health(ctx: AccountContext, node: NodeRef): Promise<HealthReport> {
     const t0 = Date.now();
     const r = await this.run(node, ctx, 'sysInfo', {});
+    // the panel answering is not enough: its web and database services must run too (`v-list-sys-services`)
+    const svc = r.ok ? await this.servicesHealth(node, ctx) : null;
     const state = r.ok
-      ? 'healthy'
+      ? (svc?.state ?? 'healthy')
       : r.error.category === 'auth'
         ? 'degraded'
         : r.uncertain || r.error.category === 'provider_outage'
@@ -169,7 +216,7 @@ export class HestiaHostingAdapter implements HostingAdapter {
       state,
       checkedAt: this.now().toISOString(),
       latencyMs: Date.now() - t0,
-      detail: r.ok ? undefined : r.error.providerCode,
+      detail: r.ok ? svc?.detail : r.error.providerCode,
       evidence: [this.ev('health', r.summary)],
     };
   }
@@ -205,7 +252,7 @@ export class HestiaHostingAdapter implements HostingAdapter {
         observedAt: this.now().toISOString(),
         panelVersion: str(si.HESTIA) || null,
         panelKind: 'hestia',
-        health: { state: 'healthy', checkedAt: this.now().toISOString() },
+        health: await this.servicesHealth(node, ctx),
         capacity: cap,
         usage: {
           loadAvg1: Number.isFinite(la) ? la : 0,
@@ -216,6 +263,35 @@ export class HestiaHostingAdapter implements HostingAdapter {
         runtimes: probe.runtimes,
       },
       raw: this.ev('inventory', info.summary),
+    };
+  }
+
+  /**
+   * Web and database services must run before a node takes orders (`v-list-sys-services`: `STATE` per service). A node whose web or database service is down is `degraded` with the reason;
+   * when the list cannot be read the result stays `healthy` (the sysinfo call already proved the panel answers) and the evidence says so.
+   */
+  private async servicesHealth(node: NodeRef, ctx: AccountContext): Promise<HealthReport> {
+    const checkedAt = this.now().toISOString();
+    const r = await this.run(node, ctx, 'listServices', {});
+    if (!r.ok)
+      return {
+        state: 'healthy',
+        checkedAt,
+        evidence: [this.ev('services', `unread: ${r.summary}`)],
+      };
+    const svc = obj(r.data);
+    const up = (n: string) => n in svc && str(obj(svc[n]).STATE) === 'running';
+    const web = up('nginx') || up('apache2');
+    const db = up('mariadb') || up('mysql');
+    const down = Object.keys(svc).filter(
+      (k) => /^php[0-9.]+-fpm$/.test(k) && str(obj(svc[k]).STATE) !== 'running',
+    );
+    const bad = [...(web ? [] : ['web']), ...(db ? [] : ['database']), ...down];
+    return {
+      state: bad.length ? 'degraded' : 'healthy',
+      checkedAt,
+      detail: bad.length ? `down: ${bad.join(',')}` : undefined,
+      evidence: [this.ev('services', 'v-list-sys-services')],
     };
   }
 
@@ -266,7 +342,7 @@ export class HestiaHostingAdapter implements HostingAdapter {
         user: spec.name,
         password,
         email: this.o.contactEmailFor?.(spec.name) ?? `${spec.name}@hosting.invalid`,
-        package: this.o.packageFor?.(spec.limits) ?? 'default',
+        package: this.o.packageFor?.(spec.limits, spec.planKey) ?? 'default',
       });
       if (!add.ok && add.error.providerCode !== 'E_EXISTS') return this.fail('createSite', add);
     }
@@ -334,7 +410,7 @@ export class HestiaHostingAdapter implements HostingAdapter {
     ctx: AccountContext,
     node: NodeRef,
     siteName: string,
-    patch: { limits?: SiteLimits; runtime?: string; domains?: string[] },
+    patch: { limits?: SiteLimits; runtime?: string; domains?: string[]; planKey?: string },
     _t: Tok,
   ): Promise<OperationResult<SiteInfo>> {
     for (const d of patch.domains ?? []) {
@@ -344,7 +420,7 @@ export class HestiaHostingAdapter implements HostingAdapter {
     if (patch.limits && this.o.packageFor) {
       const r = await this.run(node, ctx, 'changeUserPackage', {
         user: siteName,
-        package: this.o.packageFor(patch.limits),
+        package: this.o.packageFor(patch.limits, patch.planKey),
       });
       if (!r.ok) return this.fail('updateSite', r);
     }
@@ -483,28 +559,259 @@ export class HestiaHostingAdapter implements HostingAdapter {
     };
   }
 
-  // ---- backups: a later sprint (off-server backup host + restore tests) --------------------------------------------------------------
-  async backup(): Promise<OperationResult<BackupRef>> {
+  // ---- backups (ADR-068) ----------------------------------------------------------------------------------------------------------
+  private unsupported<T>(op: string, why: string): OperationResult<T> {
     return {
       status: 'failed',
-      error: normalizedError(
-        'unsupported',
-        'backup',
-        'backups are not supported by this adapter yet',
-      ),
-      raw: this.ev('backup', 'unsupported'),
+      error: normalizedError('unsupported', op, why),
+      raw: this.ev(op, 'unsupported'),
     };
   }
-  async restore(): Promise<OperationResult<{ verified: boolean; checksum: string }>> {
+  private sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+  /** Archives of the account: the node's own list (Hestia) joined with what the off-server store holds. The store is the one that counts (it proves the upload finished). */
+  async listBackups(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+  ): Promise<OperationResult<BackupArchive[]>> {
+    const a = this.o.archives;
+    if (!a) return this.unsupported('listBackups', 'no off-server backup store is configured');
+    const region = await a.regionOf(node.nodeId);
+    if (!region) return this.unsupported('listBackups', 'the node has no data region');
+    const onNode = await this.run(node, ctx, 'listBackups', { user: siteName });
+    // an account that does not exist yet has no archives on the node: that is an empty list, not an error
+    if (!onNode.ok && onNode.error.category !== 'not_found')
+      return this.fail('listBackups', onNode);
+    const out = new Map<string, BackupArchive>();
+    if (onNode.ok)
+      for (const [name, v] of Object.entries(obj(onNode.data)))
+        out.set(name, { name, sizeBytes: Math.round(num(obj(v).SIZE) * 1024 * 1024) || null }); // Hestia lists sizes in megabytes
+    for (const x of (await a.sink.list?.(region, siteName)) ?? [])
+      out.set(x.name, { name: x.name, sizeBytes: x.sizeBytes });
     return {
-      status: 'failed',
-      error: normalizedError(
-        'unsupported',
-        'restore',
-        'restore is not supported by this adapter yet',
-      ),
-      raw: this.ev('restore', 'unsupported'),
+      status: 'succeeded',
+      data: [...out.values()].sort((x, y) => x.name.localeCompare(y.name)),
+      raw: this.ev('listBackups', 'v-list-user-backups + the off-server store'),
     };
+  }
+
+  async deleteBackup(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+    archiveName: string,
+  ): Promise<OperationResult<void>> {
+    const r = await this.run(node, ctx, 'deleteUserBackup', {
+      user: siteName,
+      backup: archiveName,
+    });
+    if (!r.ok && r.error.providerCode !== 'E_NOTEXIST') return this.fail('deleteBackup', r);
+    return { status: 'succeeded', raw: this.ev('deleteBackup', 'v-delete-user-backup') };
+  }
+
+  async backup(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+    t: BackupRequest,
+  ): Promise<OperationResult<BackupRef>> {
+    const a = this.o.archives;
+    if (!a?.sink.stat || !a.sink.refOf)
+      return this.unsupported('backup', 'no off-server backup store is configured');
+    const region = await a.regionOf(node.nodeId);
+    if (!region) return this.unsupported('backup', 'the node has no data region');
+    const first = await this.listBackups(ctx, node, siteName);
+    if (first.status !== 'succeeded' || !first.data)
+      return first as unknown as OperationResult<BackupRef>;
+    const known = new Set(t.known ?? first.data.map((x) => x.name));
+    const fresh = () => first.data!.filter((x) => !known.has(x.name));
+    if (fresh().length === 0 && t.scheduleAllowed !== false) {
+      // the schedule is sent ONCE per backup row (the service records it before the call): a retry only waits
+      const r = await this.run(node, ctx, 'scheduleBackup', { user: siteName });
+      if (!r.ok) return this.fail('backup', r);
+    }
+    const deadline = Date.now() + (a.waitMs ?? 300_000);
+    const every = a.pollMs ?? 15_000;
+    let last: { name: string; size: number } | null = null;
+    for (;;) {
+      const l = await this.listBackups(ctx, node, siteName);
+      if (l.status !== 'succeeded' || !l.data) return l as unknown as OperationResult<BackupRef>;
+      const cands = l.data
+        .filter((x) => !known.has(x.name))
+        .sort((x, y) => y.name.localeCompare(x.name));
+      for (const c of cands) {
+        const ref = a.sink.refOf(region, siteName, c.name);
+        const st = await a.sink.stat(ref);
+        if (!st) continue; // still on the node, not uploaded yet
+        // stable size across two looks = the upload finished (an SFTP target shows a file while it is written)
+        if (last && last.name === c.name && last.size === st.sizeBytes)
+          return this.finishBackup(ctx, node, siteName, t, c.name, ref, st);
+        last = { name: c.name, size: st.sizeBytes };
+      }
+      if (Date.now() + every > deadline)
+        return {
+          status: 'failed',
+          error: normalizedError(
+            'provider_outage',
+            'archive_missing',
+            'the archive did not appear in the off-server store in time',
+          ),
+          raw: this.ev('backup', 'v-schedule-user-backup sent; no new archive in the store'),
+        };
+      await this.sleep(every);
+    }
+  }
+
+  private async finishBackup(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+    t: BackupRequest,
+    archiveName: string,
+    sinkRef: string,
+    st: { sizeBytes: number; sha256: string },
+  ): Promise<OperationResult<BackupRef>> {
+    // what the account holds NOW is the reference the restore is later compared with (domains and databases); a read failure only means there is no snapshot
+    const doms = await this.run(node, ctx, 'listWebDomains', { user: siteName });
+    const user = await this.lookup(node, ctx, siteName);
+    const snapshot =
+      doms.ok && user.ok && user.user
+        ? { domains: Object.keys(obj(doms.data)).sort(), databases: num(user.user.U_DATABASES) }
+        : undefined;
+    return {
+      status: 'succeeded',
+      providerRef: archiveName,
+      data: {
+        backupId: t.backupId ?? t.operationId,
+        sizeBytes: st.sizeBytes,
+        checksum: st.sha256,
+        sinkRef,
+        archiveName,
+        encrypted: false,
+        manifest: [{ path: archiveName, sha256: st.sha256, bytes: st.sizeBytes }],
+        ...(snapshot ? { snapshot } : {}),
+      },
+      raw: this.ev(
+        'backup',
+        'v-schedule-user-backup + archive found and measured in the off-server store',
+      ),
+    };
+  }
+
+  async restore(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+    backup: BackupRef,
+    _t: Tok,
+  ): Promise<OperationResult<{ verified: boolean; checksum: string }>> {
+    const a = this.o.archives;
+    if (!a?.sink.stat)
+      return this.unsupported('restore', 'no off-server backup store is configured');
+    if (!backup.archiveName || !backup.sinkRef)
+      return this.unsupported('restore', 'the backup has no panel archive to restore');
+    // 1. integrity BEFORE anything on the node is touched
+    const st = await a.sink.stat(backup.sinkRef);
+    if (!st)
+      return {
+        status: 'failed',
+        error: normalizedError(
+          'not_found',
+          'archive_gone',
+          'the archive is not in the off-server store',
+        ),
+        raw: this.ev('restore', 'absent in the store'),
+      };
+    if (st.sha256 !== backup.checksum)
+      return {
+        status: 'failed',
+        error: normalizedError(
+          'validation',
+          'checksum',
+          'the archive does not match its recorded checksum',
+        ),
+        raw: this.ev('restore', 'checksum mismatch: nothing was restored'),
+      };
+    // 2. the archive must be in the node's /backup (documented): already there, or staged
+    const onNode = await this.run(node, ctx, 'listBackups', { user: siteName });
+    const present = onNode.ok && backup.archiveName in obj(onNode.data);
+    if (!present) {
+      if (!this.o.stager)
+        return this.unsupported(
+          'restore',
+          'the archive is not on the node and no stager is configured to copy it there',
+        );
+      const s = await this.o.stager.stage(node, siteName, backup.archiveName, backup.sinkRef);
+      if (!s.ok)
+        return {
+          status: 'failed',
+          error: normalizedError(
+            'provider_outage',
+            'stage',
+            s.detail ?? 'the archive could not be staged on the node',
+          ),
+          raw: this.ev('restore', 'staging failed'),
+        };
+    }
+    // 3. v-restore-user answers when it is done; a lost answer is `uncertain` (the verification below, or the reconciler, settles it)
+    const r = await this.client.run(
+      node.nodeId,
+      'restoreUser',
+      {
+        user: siteName,
+        backup: backup.archiveName,
+        web: 'yes',
+        dns: 'no',
+        mail: 'yes',
+        db: 'yes',
+        cron: 'yes',
+        udir: 'yes',
+        notify: 'no',
+      },
+      this.o.restoreDeadlineMs ?? 900_000,
+    );
+    if (!r.ok) {
+      const settled = r.uncertain ? await this.compare(ctx, node, siteName, backup) : null;
+      if (!settled?.verified) return this.fail('restore', r);
+    }
+    // 4. the account is compared with the snapshot taken when the archive was made
+    const v = await this.compare(ctx, node, siteName, backup);
+    if (!v.verified)
+      return {
+        status: 'failed',
+        error: normalizedError('unknown', 'restore_unverified', v.reason),
+        raw: this.ev('restore', `v-restore-user ran but ${v.reason}`),
+      };
+    return {
+      status: 'succeeded',
+      data: { verified: true, checksum: st.sha256 },
+      raw: this.ev('restore', 'v-restore-user + account compared with the backup snapshot'),
+    };
+  }
+
+  private async compare(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+    backup: BackupRef,
+  ): Promise<{ verified: boolean; reason: string }> {
+    const u = await this.lookup(node, ctx, siteName);
+    if (!u.ok || !u.user)
+      return { verified: false, reason: 'the account is not on the node after the restore' };
+    const doms = await this.run(node, ctx, 'listWebDomains', { user: siteName });
+    if (!doms.ok)
+      return { verified: false, reason: "the account's domains cannot be read after the restore" };
+    const have = new Set(Object.keys(obj(doms.data)));
+    const missing = (backup.snapshot?.domains ?? []).filter((d) => !have.has(d));
+    if (missing.length)
+      return {
+        verified: false,
+        reason: `${missing.length} domain(s) of the backup are missing after the restore`,
+      };
+    if (backup.snapshot && num(u.user.U_DATABASES) < backup.snapshot.databases)
+      return { verified: false, reason: 'fewer databases than the backup held after the restore' };
+    return { verified: true, reason: 'ok' };
   }
 
   // ---- usage ----------------------------------------------------------------------------------------------------------------------

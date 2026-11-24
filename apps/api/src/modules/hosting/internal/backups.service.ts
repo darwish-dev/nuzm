@@ -23,11 +23,14 @@ export interface BackupDto {
   createdAt: string;
   expiresAt: string | null;
   failureReason: string | null;
+  /** false when the archive carries no encryption of its own (HestiaCP): it is protected by the region's off-server store instead (ADR-068) */
+  encrypted: boolean;
 }
 
 /**
  * Backups, restores and expiring download links (M06 §4 task 12).
- *  - every site has its OWN encryption key (vault ref on the site); the archive is encrypted on the node and stored in the `BackupSink` of the SITE'S region
+ *  - every site has its OWN encryption key (vault ref on the site) for adapters whose archives are encrypted on the node; HestiaCP's archives are NOT (nothing documents it: the row says
+ *    `encrypted: false` and the region's off-server store is the protection, ADR-068). The archive is stored OFF the node in the `BackupSink` of the SITE'S region
  *    (M04 hook m06-backup-sink); the row keeps the checksum and a manifest of (path, sha256, bytes), never content or keys;
  *  - `POST /restores` makes a PRE-RESTORE SAFETY BACKUP first, restores, and verifies the checksum; a corrupt archive is detected before anything is overwritten;
  *  - a download link is HMAC-signed, bound to organization + site + backup, and expires; another organization's link or backup id is 404.
@@ -61,6 +64,8 @@ export class BackupService {
       createdAt: iso(r.created_at)!,
       expiresAt: iso(r.expires_at),
       failureReason: (r.failure_reason as string | null) ?? null,
+      encrypted:
+        ((r.provider_state as { encrypted?: boolean } | null)?.encrypted ?? true) !== false,
     };
   }
 
@@ -257,14 +262,49 @@ export class BackupService {
     await this.db.withOrg(o.orgId, (c) =>
       recordStep(c, o.orgId, o.operationId, 'archive', 'running'),
     );
+    const ref = {
+      nodeId: site.node_id as string,
+      computeInstanceId: site.compute_instance_id as string,
+    };
+    // idempotency across retries and restarts: what existed BEFORE the schedule and whether the schedule was sent are persisted first (a retry only waits, never schedules twice)
+    const st = { ...((b.provider_state as Record<string, unknown> | null) ?? {}) } as {
+      known?: string[];
+      scheduledAt?: string;
+    };
+    const save = (extra: Record<string, unknown> = {}) =>
+      this.db.withOrg(o.orgId, (c) =>
+        c.query(
+          `UPDATE hosting.site_backups SET provider_state = provider_state || $2::jsonb WHERE id = $1`,
+          [backupId, JSON.stringify({ ...st, ...extra })],
+        ),
+      );
+    if (this.adapter.listBackups && !st.known) {
+      const l = await this.adapter.listBackups(
+        this.sites.ctx(o.operationId),
+        ref,
+        site.node_name as string,
+      );
+      if (l.status !== 'succeeded' || !l.data)
+        throw new Error(
+          `the archive list could not be read: ${l.error?.message ?? 'unknown'}`.slice(0, 200),
+        );
+      st.known = l.data.map((x) => x.name);
+      await save();
+    }
+    const scheduleAllowed = !st.scheduledAt;
+    if (scheduleAllowed) {
+      st.scheduledAt = this.clock().toISOString();
+      await save();
+    }
     const r = await this.adapter.backup(
       this.sites.ctx(o.operationId),
-      { nodeId: site.node_id as string, computeInstanceId: site.compute_instance_id as string },
+      ref,
       site.node_name as string,
       {
         idempotencyToken: tokenFor(o.orgId, backupId, 'backup'),
         operationId: o.operationId,
         backupId,
+        ...(st.known ? { known: st.known, scheduleAllowed } : {}),
       },
     );
     if (r.status === 'uncertain')
@@ -290,7 +330,8 @@ export class BackupService {
     const d: BackupRef = r.data;
     await this.db.withOrg(o.orgId, (c) =>
       c.query(
-        `UPDATE hosting.site_backups SET status = 'available', size_bytes = $2, checksum = $3, manifest = $4, sink_ref = $5 WHERE id = $1`,
+        `UPDATE hosting.site_backups SET status = 'available', size_bytes = $2, checksum = $3, manifest = $4, sink_ref = $5, archive_name = $6,
+           provider_state = provider_state || $7::jsonb WHERE id = $1`,
         [
           backupId,
           d.sizeBytes,
@@ -299,6 +340,11 @@ export class BackupService {
             d.manifest.map((m) => ({ path: m.path, sha256: m.sha256, bytes: m.bytes })),
           ),
           d.sinkRef ?? null,
+          d.archiveName ?? null,
+          JSON.stringify({
+            ...(d.encrypted === false ? { encrypted: false } : {}),
+            ...(d.snapshot ? { snapshot: d.snapshot } : {}),
+          }),
         ],
       ),
     );
@@ -480,6 +526,8 @@ export class BackupService {
         checksum: b.checksum as string,
         sinkRef: (b.sink_ref as string | null) ?? undefined,
         manifest: (b.manifest as BackupRef['manifest']) ?? [],
+        archiveName: (b.archive_name as string | null) ?? undefined,
+        snapshot: (b.provider_state as { snapshot?: BackupRef['snapshot'] } | null)?.snapshot,
       };
       const r = await this.adapter.restore(
         this.sites.ctx(o.operationId),
@@ -598,6 +646,67 @@ export class BackupService {
     return { data, checksum: b.checksum as string, id: p.b };
   }
 
+  /* ───────────── scheduled backups ───────────── */
+  /**
+   * The platform's own backup schedule: every active site whose plan includes backups gets one `scheduled` backup per day (Hestia's own nightly job is switched off at node setup so
+   * there is ONE schedule, ours, with a row, a checksum, a quota and a region check for every archive). A site at its backup-count limit first expires its oldest SCHEDULED backup
+   * (the retention sweep deletes it); a quota filled by the customer's own on-demand backups is never touched, and the missing backup raises the `backup_missing` alert.
+   */
+  async scheduleDue(now = this.clock()): Promise<{ queued: number; skipped: number }> {
+    const out = { queued: 0, skipped: 0 };
+    if (this.sink.kind === 'none') return out;
+    const sites = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT s.*, q.limit_value AS backup_limit FROM hosting.sites s
+               JOIN hosting.site_quotas q ON q.site_id = s.id AND q.dim = 'backup_count' AND q.limit_value > 0
+              WHERE s.status = 'active' AND s.node_id IS NOT NULL AND s.backup_key_ref IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM hosting.site_backups b WHERE b.site_id = s.id AND b.kind = 'scheduled'
+                                   AND ((b.status IN ('creating','available') AND b.created_at > $1::timestamptz - interval '24 hours')
+                                     OR (b.status = 'failed' AND b.created_at > $1::timestamptz - interval '3 hours')))
+              ORDER BY s.created_at LIMIT 100`,
+            [now],
+          )
+        ).rows,
+    );
+    for (const site of sites) {
+      const orgId = site.org_id as string;
+      try {
+        await this.requireResidency(orgId, site.data_region as string);
+        const live = await this.db.withOrg(
+          orgId,
+          async (c) =>
+            (
+              await c.query(
+                `SELECT id, kind FROM hosting.site_backups WHERE site_id = $1 AND status IN ('creating','available') AND kind IN ('on_demand','scheduled') AND (expires_at IS NULL OR expires_at > $2) ORDER BY created_at`,
+                [site.id, now],
+              )
+            ).rows,
+        );
+        const room = Number(site.backup_limit) - live.length;
+        if (room < 1) {
+          const oldest = live.find((x) => x.kind === 'scheduled');
+          if (!oldest) {
+            out.skipped++;
+            continue;
+          }
+          await this.db.withOrg(orgId, (c) =>
+            c.query(`UPDATE hosting.site_backups SET expires_at = $2 WHERE id = $1`, [
+              oldest.id,
+              now,
+            ]),
+          );
+        }
+        await this.insertAndQueue(orgId, null, site, 'scheduled', null);
+        out.queued++;
+      } catch {
+        out.skipped++; // residency denied, no room: the monitor reports a site without a recent backup
+      }
+    }
+    return out;
+  }
+
   /* ───────────── retention ───────────── */
   /** Removes expired backups from the sink (retention, M04 proposal defaults); a site under legal hold keeps its backups. */
   async sweepRetention(now = this.clock()): Promise<{ deleted: number; heldBack: number }> {
@@ -605,7 +714,9 @@ export class BackupService {
       async (c) =>
         (
           await c.query(
-            `SELECT id, org_id, sink_ref FROM hosting.site_backups WHERE status IN ('available','corrupt','failed') AND expires_at IS NOT NULL AND expires_at <= $1 ORDER BY expires_at LIMIT 200`,
+            `SELECT b.id, b.org_id, b.sink_ref, b.archive_name, s.node_id, s.node_name, n.compute_instance_id
+               FROM hosting.site_backups b JOIN hosting.sites s ON s.id = b.site_id LEFT JOIN hosting.nodes n ON n.id = s.node_id
+              WHERE b.status IN ('available','corrupt','failed') AND b.expires_at IS NOT NULL AND b.expires_at <= $1 ORDER BY b.expires_at LIMIT 200`,
             [now],
           )
         ).rows,
@@ -626,6 +737,16 @@ export class BackupService {
         continue;
       }
       if (b.sink_ref) await this.sink.delete(b.sink_ref as string);
+      // the copy still on the node (Hestia keeps its own until its package limit drops it): best effort, the sink copy is the one that counts
+      if (b.archive_name && b.node_id && this.adapter.deleteBackup)
+        await this.adapter
+          .deleteBackup(
+            this.sites.ctx(`retention-${b.id as string}`),
+            { nodeId: b.node_id as string, computeInstanceId: b.compute_instance_id as string },
+            b.node_name as string,
+            b.archive_name as string,
+          )
+          .catch(() => undefined);
       await this.db.withPlatformScope((c) =>
         c.query(
           `UPDATE hosting.site_backups SET status = 'deleted', deleted_at = now(), sink_ref = NULL WHERE id = $1`,

@@ -4163,7 +4163,7 @@ export interface paths {
         put?: never;
         /**
          * Create a backup of a site
-         * @description Encrypted on the node with the PER-SITE key and stored in the backup sink of the site region (residency checked, 403 residency_denied). 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.
+         * @description HestiaCP schedules the archive and uploads it to the node's remote backup host; the platform then finds it OFF the node in the store of the site's region and records its size and sha256 (residency checked, 403 residency_denied). Hestia documents no encryption of its archives: the `encrypted` flag of the backup says so. 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.
          */
         post: operations["createHostingSiteBackup"];
         delete?: never;
@@ -4201,7 +4201,7 @@ export interface paths {
         };
         /**
          * Download a backup archive
-         * @description Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the encrypted per-site archive.
+         * @description Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the panel archive as stored (see `encrypted` on the backup).
          */
         get: operations["downloadHostingBackup"];
         put?: never;
@@ -4226,6 +4226,86 @@ export interface paths {
          * @description Makes a PRE-RESTORE SAFETY BACKUP first, restores, then verifies the checksum; the site is `restoring` meanwhile (409 restore_in_progress for a second request). A corrupt backup is detected before anything is overwritten and marked corrupt. 202 + operation. Needs Idempotency-Key.
          */
         post: operations["restoreHostingSiteBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/wordpress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Installation state of a site's Managed WordPress
+         * @description The state is `ready` only after the site was LOOKED AT over HTTP: it answers, no installer redirect, and `wp-login.php` is served. 404 for a site without a managed application and for another organization's site. Never contains a password.
+         */
+        get: operations["getHostingSiteWordPress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/wordpress/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed WordPress installation
+         * @description Only a `failed` installation (409 otherwise). The retry resumes from what the site shows: an existing download, configuration, database or installation is kept, WP-CLI never overwrites them. 202 + operation. Needs Idempotency-Key.
+         */
+        post: operations["retryHostingSiteWordPress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/wordpress/admin-resets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new WordPress admin password
+         * @description Runs `wp user update` as the site user with a generated password and opens a NEW one-time handover (the old password may be lost or already used). Only a `ready` installation set up by the platform. 202 + operation. Needs Idempotency-Key.
+         */
+        post: operations["resetHostingSiteWordPressAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/wordpress/handover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read the WordPress admin access ONCE
+         * @description The one-time secure handover: the first successful call returns the admin username and the generated password and consumes them (the secret is deleted from the vault); a second call, parallel or later, is 409 (already used) and an unread handover expires after 7 days (410). The response is `Cache-Control: no-store`. Deliberately takes NO Idempotency-Key: an idempotency replay would keep the password. Audited.
+         */
+        post: operations["handoverHostingSiteWordPress"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4270,6 +4350,110 @@ export interface paths {
          * @description Drain/maintenance: backup, create on the target (same data region), restore, verify the checksum, switch, then remove from the source. The source serves until verified; a failure leaves it untouched. Needs Idempotency-Key, admin:hosting:manage, MFA step-up.
          */
         post: operations["migrateHostingSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hosting alerts (capacity, activation, certificates, backups, panel link)
+         * @description One open alert per (kind, scope); the monitoring sweep opens it once, refreshes it while the condition holds and resolves it when it is gone. Filter state (open by default, resolved, all). Admin-realm session; customers never see alerts. Thresholds are proposals (HOSTING_ALERT_* settings).
+         */
+        get: operations["listHostingAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/monitor-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the monitoring sweep now
+         * @description The sweep also runs on the hosting scheduler. A probe that fails leaves its alerts as they were (nothing is resolved on a guess). Needs Idempotency-Key and permission admin:hosting:manage.
+         */
+        post: operations["runHostingMonitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/restore-drills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Restore drills with their duration and result
+         * @description Newest first. A drill restores a real backup onto an isolated drill node and records what was checked.
+         */
+        get: operations["listHostingRestoreDrills"];
+        put?: never;
+        /**
+         * Restore a backup into an isolated node to prove it
+         * @description Body {backupId, nodeId}. The node must have purpose `restore_drill` (409 otherwise), be in `maintenance`, and be in the backup's own data region (403 residency_denied: customer data never leaves its region). The archive checksum is verified before anything is touched; the restored account is compared with the snapshot taken at backup time (and a WordPress site must answer with its admin page); the account is then wiped from the drill node, and a wipe that leaves anything fails the drill. 202 + operation; the verdict is the drill record (state passed|failed, checks, durationMs). Needs Idempotency-Key, admin:hosting:manage and a recent MFA check. Audited.
+         */
+        post: operations["startHostingRestoreDrill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/restore-drills/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One restore drill
+         * @description State, per-check result, error and duration.
+         */
+        get: operations["getHostingRestoreDrill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/node-packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Hestia packages and access profile a node is set up with
+         * @description One `.pkg` file per non-retired plan (named `nz-<plan key>`; created on each node with `v-add-user-package`) and the REST access-key profile that equals the adapter's command allow-list. Used by the node setup script (docs/runbooks/node-onboarding.md). Nothing here is a secret.
+         */
+        get: operations["listHostingNodePackages"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11724,6 +11908,11 @@ export interface components {
             dataRegion: string;
             /** @enum {string} */
             status: "active" | "draining" | "maintenance" | "retired";
+            /**
+             * @description A `restore_drill` node is an isolated machine that only restores backups to prove them; it never takes customer sites and stays in maintenance.
+             * @enum {string}
+             */
+            purpose?: "customer" | "restore_drill";
             /** @enum {string} */
             panelKind: "hestia";
             /**
@@ -11764,6 +11953,11 @@ export interface components {
         CreateHostingNode: {
             name: string;
             computeInstanceId: string;
+            /**
+             * @default customer
+             * @enum {string}
+             */
+            purpose?: "customer" | "restore_drill";
         };
         CreateHostingNodeResult: {
             node: components["schemas"]["HostingNode"];
@@ -11843,6 +12037,11 @@ export interface components {
                 placeholder?: boolean;
             } | null;
             runtimes: string[];
+            /**
+             * @description The application installed with the site (wordpress = Managed WordPress).
+             * @enum {string}
+             */
+            app?: "none" | "wordpress";
             regions: string[];
             country?: string | null;
         };
@@ -11918,6 +12117,11 @@ export interface components {
             };
             dataRegion: string;
             runtime: string;
+            /**
+             * @description wordpress = Managed WordPress; its state is GET /v1/hosting/sites/{id}/wordpress.
+             * @enum {string}
+             */
+            app?: "none" | "wordpress";
             primaryDomain?: string | null;
             domains: {
                 /** Format: uuid */
@@ -12072,6 +12276,132 @@ export interface components {
             status: "suspended" | "active";
             reason: string;
         };
+        HostingWordPress: {
+            /** @enum {string} */
+            app: "wordpress";
+            /** @enum {string} */
+            state: "pending" | "installing" | "ready" | "failed";
+            /**
+             * @description What the site showed at the last look (the install is driven by this, not by memory).
+             * @enum {string|null}
+             */
+            phase?: "none" | "unconfigured" | "uninstalled" | "installed" | null;
+            siteUrl?: string | null;
+            /** @description Set once the state is ready. */
+            loginUrl?: string | null;
+            adminUser?: string | null;
+            handover: {
+                /** @enum {string} */
+                state: "none" | "pending" | "consumed" | "expired";
+                /** Format: date-time */
+                expiresAt?: string | null;
+            };
+            verification: {
+                answers?: boolean;
+                adminPage?: boolean;
+                /** Format: date-time */
+                checkedAt?: string;
+            };
+            attempts: number;
+            lastError?: string | null;
+            /** Format: date-time */
+            installedAt?: string | null;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+        };
+        HostingWordPressRetryResult: {
+            /** Format: uuid */
+            operationId: string;
+            wordpress: components["schemas"]["HostingWordPress"];
+        };
+        HostingWordPressResetResult: {
+            /** Format: uuid */
+            operationId: string;
+        };
+        HostingWordPressHandover: {
+            username: string;
+            /** @description Generated, shown once, never stored in a table. */
+            password: string;
+            loginUrl: string;
+        };
+        HostingAlert: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "capacity_low" | "activation_failed" | "activation_stuck" | "certificate_expiring" | "certificate_failed" | "backup_failed" | "backup_missing" | "backup_host_unreachable" | "panel_unreachable" | "wordpress_failed" | "restore_drill_failed";
+            /** @enum {string} */
+            severity: "info" | "warning" | "critical";
+            summary: string;
+            /** Format: uuid */
+            nodeId?: string | null;
+            /** Format: uuid */
+            siteId?: string | null;
+            detail?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            state: "open" | "resolved";
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+        };
+        HostingAlertList: {
+            items: components["schemas"]["HostingAlert"][];
+        };
+        HostingMonitorRun: {
+            open: number;
+            opened: number;
+            resolved: number;
+        };
+        HostingRestoreDrill: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            backupId: string;
+            /** Format: uuid */
+            siteId: string;
+            /** Format: uuid */
+            nodeId: string;
+            /** @enum {string} */
+            state: "running" | "passed" | "failed";
+            /** @description restore, account, wordpress (WordPress sites) and wipe: `passed` or `failed: <reason>`. */
+            checks: {
+                [key: string]: unknown;
+            };
+            error?: string | null;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            durationMs?: number | null;
+        };
+        HostingRestoreDrillList: {
+            items: components["schemas"]["HostingRestoreDrill"][];
+        };
+        StartHostingRestoreDrill: {
+            /** Format: uuid */
+            backupId: string;
+            /** Format: uuid */
+            nodeId: string;
+        };
+        StartHostingRestoreDrillResult: {
+            drill: components["schemas"]["HostingRestoreDrill"];
+            /** Format: uuid */
+            operationId: string;
+        };
+        HostingNodePackages: {
+            packages: {
+                plan: string;
+                name: string;
+                /** @description The content of the `.pkg` file for `v-add-user-package`. */
+                file: string;
+            }[];
+            /** @description The Hestia access-key profile (`ROLE` and `COMMANDS`) equal to the adapter's allow-list. */
+            accessProfile: string;
+        };
         HostingBackup: {
             /** Format: uuid */
             id: string;
@@ -12081,8 +12411,10 @@ export interface components {
             /** @enum {string} */
             status: "creating" | "available" | "failed" | "corrupt" | "deleted";
             sizeBytes?: number | null;
-            /** @description SHA-256 of the encrypted archive. */
+            /** @description SHA-256 of the archive as measured in the off-server store. */
             checksum?: string | null;
+            /** @description false = the archive carries no encryption of its own (HestiaCP documents none); the region's off-server store protects it. */
+            encrypted?: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -23522,6 +23854,126 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
+    getHostingSiteWordPress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPress"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    retryHostingSiteWordPress: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPressRetryResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    resetHostingSiteWordPressAdmin: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPressResetResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    handoverHostingSiteWordPress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The access, once */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPressHandover"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+        };
+    };
     getHostingSiteUsage: {
         parameters: {
             query?: never;
@@ -23608,6 +24060,164 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    listHostingAlerts: {
+        parameters: {
+            query?: {
+                state?: "open" | "resolved" | "all";
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAlertList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    runHostingMonitor: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMonitorRun"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listHostingRestoreDrills: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingRestoreDrillList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    startHostingRestoreDrill: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartHostingRestoreDrill"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartHostingRestoreDrillResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getHostingRestoreDrill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingRestoreDrill"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listHostingNodePackages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingNodePackages"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
     listHostingAbuseCases: {

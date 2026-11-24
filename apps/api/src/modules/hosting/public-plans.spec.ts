@@ -5,6 +5,7 @@ const row = (over: Partial<PlanRow> = {}): PlanRow => ({
   id: '0190c0de-0000-7000-8000-000000000001',
   key: 'web-start',
   status: 'active',
+  appKind: 'none',
   quotas: {
     diskMb: 20480,
     inodes: 400000,

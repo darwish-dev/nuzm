@@ -12,7 +12,7 @@ Shared hosting ran on a design built around CloudPanel: its CLI has no remote su
 2. The **site is a Hestia account** whose name is the token-derived `s-<hex>` of the hosting contract: `findByToken` is `v-list-user`, so reconcile-before-retry needs nothing else (a lost answer on a mutating command is `uncertain`).
 3. The panel connection (FQDN, port, optional pinned TLS fingerprint, vault reference of the access key) lives on `hosting.nodes`; the key is typed once in the admin console (write-only, sealed; production waits on D-12) or supplied as a vault reference.
 4. Limits are Hestia **packages** assigned by the platform; the node setup creates them. No CPU/RAM guarantee is claimed until a measurement and enforcement mechanism is proven on a real node.
-5. Not in this decision (later sprints, each its own session): VPS with an auto-installed Hestia (Alibaba SCCC Riyadh, Contabo EU), WordPress, SFTP file manager, cron/logs/FTP/HTTP-auth/PHP tools, business email, off-server backups, per-site isolation tests on a real node.
+5. Not in this decision (later sprints, each its own session): VPS with an auto-installed Hestia (Alibaba SCCC Riyadh, Contabo EU), SFTP file manager, cron/logs/FTP/HTTP-auth/PHP tools, business email, per-site isolation tests on a real node. WordPress, off-server backups, restore drills, monitoring, packages and the node setup script are [ADR-068](ADR-068-hestia-backups-wordpress-monitoring.md).
 6. The previous simulation is kept only as test doubles under `hosting/internal/mock/sim/` (platform logic tests: capacity, reconcile, quotas, abuse); it is not a product path.
 
 ## Consequences

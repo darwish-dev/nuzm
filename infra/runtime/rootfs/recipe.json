@@ -6,16 +6,50 @@
     "variant": "minbase",
     "suite": "(V) a Debian stable suite, e.g. bookworm",
     "snapshotTimestamp": "(V) a snapshot.debian.org timestamp, so the same recipe yields the same packages (reproducible)",
-    "packages": ["libc6", "libstdc++6", "libgcc-s1", "ca-certificates", "dash", "coreutils", "tzdata"],
-    "forbidden": ["bash-completion", "curl", "wget", "git", "ssh", "openssh-client", "python3", "perl", "gcc", "make", "sudo", "apt", "dpkg-dev"],
+    "packages": [
+      "libc6",
+      "libstdc++6",
+      "libgcc-s1",
+      "ca-certificates",
+      "dash",
+      "coreutils",
+      "tzdata"
+    ],
+    "forbidden": [
+      "bash-completion",
+      "curl",
+      "wget",
+      "git",
+      "ssh",
+      "openssh-client",
+      "python3",
+      "perl",
+      "gcc",
+      "make",
+      "sudo",
+      "apt",
+      "dpkg-dev"
+    ],
     "note": "no package manager, no compiler, no network client, no git: a sandbox cannot install or fetch anything inside the rootfs"
   },
   "toolchain": {
     "mount": "/toolchain (read-only bind mount from the node's toolchain directory)",
-    "node": { "version": "(V) a Node 22 LTS release", "tarball": "node-v<version>-linux-<arch>.tar.xz", "sha256": "(V) from the reviewer's own verification of the release's SHASUMS256.txt signature" },
+    "node": {
+      "version": "(V) a Node 22 LTS release",
+      "tarball": "node-v<version>-linux-<arch>.tar.xz",
+      "sha256": "(V) from the reviewer's own verification of the release's SHASUMS256.txt signature"
+    },
     "npm": "the npm that ships with that Node release (never self-updated)",
-    "globalPackages": { "typescript": "(V) 5.9.x", "lockfile": "infra/runtime/rootfs/toolchain/package-lock.json (generated on the build host with `npm install --package-lock-only`, reviewed, committed; the build refuses without it)" },
-    "links": { "/usr/local/bin/node": "/toolchain/node/bin/node", "/usr/local/bin/npm": "/toolchain/node/bin/npm", "/usr/local/bin/npx": "/toolchain/node/bin/npx", "/usr/local/bin/tsc": "/toolchain/lib/node_modules/typescript/bin/tsc" }
+    "globalPackages": {
+      "typescript": "(V) 5.9.x",
+      "lockfile": "infra/runtime/rootfs/toolchain/package-lock.json (generated on the build host with `npm install --package-lock-only`, reviewed, committed; the build refuses without it)"
+    },
+    "links": {
+      "/usr/local/bin/node": "/toolchain/node/bin/node",
+      "/usr/local/bin/npm": "/toolchain/node/bin/npm",
+      "/usr/local/bin/npx": "/toolchain/node/bin/npx",
+      "/usr/local/bin/tsc": "/toolchain/lib/node_modules/typescript/bin/tsc"
+    }
   },
   "files": {
     "/usr/local/etc/npmrc": "infra/runtime/rootfs/npmrc (global npm config: registry, proxy, ignore-scripts=true, no update notifier; the constant environment cannot override it)",

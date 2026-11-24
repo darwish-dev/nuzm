@@ -39,7 +39,8 @@ export class HttpsTransport implements NodeTransport {
     if (this.url.username || this.url.password || this.url.search || this.url.hash)
       throw new Error('transport_url_has_credentials_or_query');
     if (this.url.protocol === 'https:') this.kind = 'https-mtls';
-    else if (this.url.protocol === 'http:' && LOOPBACK.has(this.url.hostname)) this.kind = 'loopback';
+    else if (this.url.protocol === 'http:' && LOOPBACK.has(this.url.hostname))
+      this.kind = 'loopback';
     else throw new Error('transport_requires_https');
     if (o.pinnedLeafSha256 !== undefined && !/^[0-9a-f]{64}$/.test(o.pinnedLeafSha256))
       throw new Error('transport_pin_invalid');

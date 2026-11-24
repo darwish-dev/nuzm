@@ -20,7 +20,8 @@ export interface QuotaDriver {
   release(workspaceId: string): Promise<void>;
 }
 /** one inode per ~4 KiB of quota, at least 10 000: a million tiny files cannot defeat a block quota */
-export const inodeCapFor = (diskMb: number): number => Math.max(10_000, Math.floor((diskMb * 1024) / 4));
+export const inodeCapFor = (diskMb: number): number =>
+  Math.max(10_000, Math.floor((diskMb * 1024) / 4));
 
 export class XfsProjectQuotaDriver implements QuotaDriver {
   readonly enforcing = true;
@@ -44,7 +45,9 @@ export class XfsProjectQuotaDriver implements QuotaDriver {
     await rename(tmp, this.stateFile);
   }
   private async x(...cmd: string[]): Promise<void> {
-    const r = await this.run.run([this.xfsQuota, '-x', '-c', cmd.join(' '), this.mountPoint], { timeoutMs: 30_000 });
+    const r = await this.run.run([this.xfsQuota, '-x', '-c', cmd.join(' '), this.mountPoint], {
+      timeoutMs: 30_000,
+    });
     if (r.code !== 0) throw new Error('quota_command_failed');
   }
   async apply(workspaceId: string, dir: string, diskMb: number): Promise<void> {
@@ -59,13 +62,23 @@ export class XfsProjectQuotaDriver implements QuotaDriver {
     }
     // -s: set up the project for the directory tree; new files inherit the project id
     await this.x('project', '-s', '-p', shq(dir), String(id));
-    await this.x('limit', '-p', `bhard=${diskMb}m`, `bsoft=${diskMb}m`, `ihard=${inodeCapFor(diskMb)}`, String(id));
+    await this.x(
+      'limit',
+      '-p',
+      `bhard=${diskMb}m`,
+      `bsoft=${diskMb}m`,
+      `ihard=${inodeCapFor(diskMb)}`,
+      String(id),
+    );
   }
   async usage(workspaceId: string, dir: string): Promise<{ diskMb: number; inodes: number }> {
     const m = await this.load();
     const id = m[workspaceId];
     if (id === undefined) return { diskMb: 0, inodes: 0 };
-    const r = await this.run.run([this.xfsQuota, '-x', '-c', `report -p -b -i -N`, this.mountPoint], { timeoutMs: 30_000 });
+    const r = await this.run.run(
+      [this.xfsQuota, '-x', '-c', `report -p -b -i -N`, this.mountPoint],
+      { timeoutMs: 30_000 },
+    );
     if (r.code === 0) {
       for (const line of r.stdout.split('\n')) {
         const f = line.trim().split(/\s+/);
@@ -73,7 +86,8 @@ export class XfsProjectQuotaDriver implements QuotaDriver {
         if (f[0] === `#${id}` && f.length >= 6) {
           const kib = Number(f[1]);
           const inodes = Number(f[5]);
-          if (Number.isFinite(kib) && Number.isFinite(inodes)) return { diskMb: Math.ceil(kib / 1024), inodes };
+          if (Number.isFinite(kib) && Number.isFinite(inodes))
+            return { diskMb: Math.ceil(kib / 1024), inodes };
         }
       }
     }

@@ -79,7 +79,8 @@ export class NodeService {
     m.gauge('nuzm_agent_max_slots', () => this.cfg.maxSlots);
     m.gauge('nuzm_agent_oldest_run_age_seconds', () => {
       let oldest = 0;
-      for (const r of this.runs.values()) oldest = Math.max(oldest, (this.now() - r.startedAt) / 1000);
+      for (const r of this.runs.values())
+        oldest = Math.max(oldest, (this.now() - r.startedAt) / 1000);
       return Math.floor(oldest);
     });
   }
@@ -94,7 +95,9 @@ export class NodeService {
   /** an operator removes the node-local flag by hand (or the runbook's command) after an incident review; nothing in the agent clears it */
   private async disable(): Promise<void> {
     await mkdir(this.cfg.stateDir, { recursive: true, mode: 0o700 });
-    await writeFile(this.disabledPath(), `disabled ${new Date(this.now()).toISOString()}\n`, { mode: 0o600 });
+    await writeFile(this.disabledPath(), `disabled ${new Date(this.now()).toISOString()}\n`, {
+      mode: 0o600,
+    });
   }
   activeCount(): number {
     return this.runs.size;
@@ -123,11 +126,23 @@ export class NodeService {
   }
   /** a run that has NOT ended: the workspace is in use and its files are in flux (a finished, not yet destroyed run leaves its files readable for artifact extraction) */
   private runningIn(workspaceId: string): Run | undefined {
-    for (const r of this.runs.values()) if (r.workspaceId === workspaceId && r.result === null) return r;
+    for (const r of this.runs.values())
+      if (r.workspaceId === workspaceId && r.result === null) return r;
     return undefined;
   }
-  private event(type: Parameters<AuditSink['write']>[0]['type'], r?: Partial<Run> & { orgId?: string }, detail?: Record<string, string | number | boolean>) {
-    void this.o.audit.write({ type, orgId: r?.orgId, runId: r?.runId, workspaceId: r?.workspaceId, handle: r?.handle, detail });
+  private event(
+    type: Parameters<AuditSink['write']>[0]['type'],
+    r?: Partial<Run> & { orgId?: string },
+    detail?: Record<string, string | number | boolean>,
+  ) {
+    void this.o.audit.write({
+      type,
+      orgId: r?.orgId,
+      runId: r?.runId,
+      workspaceId: r?.workspaceId,
+      handle: r?.handle,
+      detail,
+    });
   }
 
   // ---------------------------------------------------------------- operations
@@ -180,7 +195,11 @@ export class NodeService {
     this.o.metrics.inc('nuzm_agent_workspaces_created_total');
     this.event('workspace_created', { orgId: w.orgId, runId: w.runId, workspaceId: w.workspaceId });
   }
-  async putFiles(id: string, files: readonly (readonly [string, string])[], caller: Caller): Promise<void> {
+  async putFiles(
+    id: string,
+    files: readonly (readonly [string, string])[],
+    caller: Caller,
+  ): Promise<void> {
     await this.requireWorkspace(id, caller);
     if (this.activeIn(id)) throw new NodeError('conflict');
     try {
@@ -203,16 +222,37 @@ export class NodeService {
     const v = eg.validateRuntimeSpec(spec);
     if (spec.runtimeClass !== this.cfg.runtimeClass) v.push('runtime_class_not_this_node');
     if (!eg.checkRunEnv(spec.env).ok) v.push('environment_not_the_constant');
-    if (spec.user.uid !== this.cfg.sandboxUid || spec.user.gid !== this.cfg.sandboxGid) v.push('sandbox_user_mismatch');
-    for (const k of ['cpuSeconds', 'wallSeconds', 'memoryMb', 'pids', 'outputKb', 'diskMb'] as const)
+    if (spec.user.uid !== this.cfg.sandboxUid || spec.user.gid !== this.cfg.sandboxGid)
+      v.push('sandbox_user_mismatch');
+    for (const k of [
+      'cpuSeconds',
+      'wallSeconds',
+      'memoryMb',
+      'pids',
+      'outputKb',
+      'diskMb',
+    ] as const)
       if (spec.limits[k] > this.cfg.ceilings[k]) v.push(`limit_over_node_ceiling_${k}`);
     if (spec.limits.diskMb > wsDiskMb) v.push('limit_disk_over_workspace_quota');
-    if (!(spec.cwd === '/work' || spec.cwd.startsWith('/work/')) || spec.cwd.split('/').includes('..')) v.push('cwd_invalid');
+    if (
+      !(spec.cwd === '/work' || spec.cwd.startsWith('/work/')) ||
+      spec.cwd.split('/').includes('..')
+    )
+      v.push('cwd_invalid');
     const allow = new Set(this.cfg.egress.allowHosts);
-    for (const e of spec.egressAllow) if (!allow.has(e.host)) v.push('egress_not_on_node_allowlist');
-    if (spec.mounts.length !== 3 || !['workspace', 'scratch', 'toolchain'].every((s) => spec.mounts.some((m) => m.source === s)))
+    for (const e of spec.egressAllow)
+      if (!allow.has(e.host)) v.push('egress_not_on_node_allowlist');
+    if (
+      spec.mounts.length !== 3 ||
+      !['workspace', 'scratch', 'toolchain'].every((s) => spec.mounts.some((m) => m.source === s))
+    )
       v.push('mounts_not_the_standard_three');
-    if (spec.argv[0] === undefined || spec.argv[0] === '' || spec.argv.some((a) => a.includes('\0'))) v.push('argv_invalid');
+    if (
+      spec.argv[0] === undefined ||
+      spec.argv[0] === '' ||
+      spec.argv.some((a) => a.includes('\0'))
+    )
+      v.push('argv_invalid');
     return [...new Set(v)];
   }
 
@@ -221,14 +261,21 @@ export class NodeService {
     this.authorize(caller, spec.orgId);
     const ws = await this.o.store.meta(spec.workspaceId);
     if (!ws) throw new NodeError('unknown_workspace');
-    if (ws.orgId !== spec.orgId || ws.runId !== spec.runId) throw new NodeError('workspace_tenant_mismatch');
+    if (ws.orgId !== spec.orgId || ws.runId !== spec.runId)
+      throw new NodeError('workspace_tenant_mismatch');
     const violations = this.specViolations(spec, ws.diskMb);
     if (violations.length > 0) {
       this.o.metrics.inc('nuzm_agent_spec_refused_total');
-      this.event('spec_refused', { orgId: spec.orgId, runId: spec.runId, workspaceId: spec.workspaceId }, { count: violations.length });
+      this.event(
+        'spec_refused',
+        { orgId: spec.orgId, runId: spec.runId, workspaceId: spec.workspaceId },
+        { count: violations.length },
+      );
       throw new NodeError('spec_refused', violations.join(','));
     }
-    const rootfs = Object.prototype.hasOwnProperty.call(this.o.images, spec.image) ? this.o.images[spec.image] : undefined;
+    const rootfs = Object.prototype.hasOwnProperty.call(this.o.images, spec.image)
+      ? this.o.images[spec.image]
+      : undefined;
     if (!rootfs) throw new NodeError('image_not_attested');
     if (this.activeIn(spec.workspaceId)) throw new NodeError('conflict');
     if (this.runs.size >= this.cfg.maxSlots) throw new NodeError('no_capacity');
@@ -289,7 +336,12 @@ export class NodeService {
     // wall-clock BACKSTOP: the control plane kills at the wall limit; the agent kills a little later on its own (soft, then hard)
     const wallMs = spec.limits.wallSeconds * 1000 + this.cfg.killGraceMs;
     run.timers.push(setTimeout(() => this.killInternal(run, 'soft', 'wall_backstop'), wallMs));
-    run.timers.push(setTimeout(() => this.killInternal(run, 'hard', 'wall_backstop'), wallMs + this.cfg.killGraceMs));
+    run.timers.push(
+      setTimeout(
+        () => this.killInternal(run, 'hard', 'wall_backstop'),
+        wallMs + this.cfg.killGraceMs,
+      ),
+    );
     // resource monitor: sample, and kill what crosses a limit or cannot be observed
     let blind = 0;
     run.monitor = setInterval(() => {
@@ -297,10 +349,14 @@ export class NodeService {
         if (run.result) return;
         try {
           const s = await launched.stats();
-          const disk = await this.o.store.usage(spec.workspaceId).catch(() => ({ diskMb: 0, inodes: 0 }));
+          const disk = await this.o.store
+            .usage(spec.workspaceId)
+            .catch(() => ({ diskMb: 0, inodes: 0 }));
           run.lastStats = { ...s, diskMb: Math.max(s.diskMb, disk.diskMb) };
           blind = 0;
-          const viol = eg.evaluateUsage(spec.limits, { ...run.lastStats, wallMs: 0 }).filter((x) => x.action === 'kill');
+          const viol = eg
+            .evaluateUsage(spec.limits, { ...run.lastStats, wallMs: 0 })
+            .filter((x) => x.action === 'kill');
           if (viol.length > 0) {
             this.o.metrics.inc('nuzm_agent_runs_killed_total', 1, `limit_${viol[0]!.resource}`);
             this.event('run_limit_kill', run, { resource: viol[0]!.resource });
@@ -323,7 +379,11 @@ export class NodeService {
     void run.launched.kill(how).catch(() => undefined);
   }
 
-  async wait(handle: string, maxWaitMs: number, caller: Caller): Promise<eg.NodeResponseMap['wait']> {
+  async wait(
+    handle: string,
+    maxWaitMs: number,
+    caller: Caller,
+  ): Promise<eg.NodeResponseMap['wait']> {
     const run = this.runOf(handle, caller);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const slice = new Promise<'slice'>((resolve) => {
@@ -334,7 +394,14 @@ export class NodeService {
       if (r === 'slice') return { done: false };
       return {
         done: true,
-        result: { exitCode: r.exitCode, signal: r.signal, stdout: r.stdout, stderr: r.stderr, truncated: r.truncated, durationMs: r.durationMs },
+        result: {
+          exitCode: r.exitCode,
+          signal: r.signal,
+          stdout: r.stdout,
+          stderr: r.stderr,
+          truncated: r.truncated,
+          durationMs: r.durationMs,
+        },
       };
     } finally {
       if (timer) clearTimeout(timer);
@@ -345,7 +412,9 @@ export class NodeService {
     if (run.finalStats) return run.finalStats;
     try {
       const s = await run.launched.stats();
-      const disk = await this.o.store.usage(run.workspaceId).catch(() => ({ diskMb: 0, inodes: 0 }));
+      const disk = await this.o.store
+        .usage(run.workspaceId)
+        .catch(() => ({ diskMb: 0, inodes: 0 }));
       run.lastStats = { ...s, diskMb: Math.max(s.diskMb, disk.diskMb) };
     } catch {
       /* the last known sample stands */
@@ -368,7 +437,10 @@ export class NodeService {
   /** hard-kill if needed, wait for the end (bounded), remove everything the launcher made. On failure the run is KEPT as leaked (node unhealthy until `reap` clears it). */
   private async teardownRun(run: Run): Promise<void> {
     this.killInternal(run, 'hard', 'destroy');
-    await Promise.race([run.resultP.catch(() => undefined), new Promise((r) => setTimeout(r, 10_000).unref?.())]);
+    await Promise.race([
+      run.resultP.catch(() => undefined),
+      new Promise((r) => setTimeout(r, 10_000).unref?.()),
+    ]);
     for (const t of run.timers) clearTimeout(t);
     if (run.monitor) clearInterval(run.monitor);
     try {
@@ -388,7 +460,11 @@ export class NodeService {
     await this.requireWorkspace(id, caller);
     if (this.runningIn(id)) throw new NodeError('conflict');
     try {
-      return (await this.o.store.listProduced(id)).map((f) => ({ path: f.path, bytes: f.bytes, kind: f.kind }));
+      return (await this.o.store.listProduced(id)).map((f) => ({
+        path: f.path,
+        bytes: f.bytes,
+        kind: f.kind,
+      }));
     } catch (e) {
       throw this.mapStoreError(e);
     }
@@ -416,14 +492,23 @@ export class NodeService {
       await this.o.store.destroy(id);
     } catch {
       this.o.metrics.inc('nuzm_agent_cleanup_failed_total');
-      this.event('workspace_destroy_failed', { orgId: meta?.orgId, workspaceId: id }, { stage: 'workspace' });
+      this.event(
+        'workspace_destroy_failed',
+        { orgId: meta?.orgId, workspaceId: id },
+        { stage: 'workspace' },
+      );
       throw new NodeError('destroy_failed');
     }
     this.o.metrics.inc('nuzm_agent_workspaces_destroyed_total');
     this.event('workspace_destroyed', { orgId: meta?.orgId, runId: meta?.runId, workspaceId: id });
   }
   async listWorkspaces(): Promise<eg.NodeResponseMap['listWorkspaces']['workspaces']> {
-    return (await this.o.store.list()).map((m) => ({ workspaceId: m.workspaceId, orgId: m.orgId, runId: m.runId, createdAt: m.createdAt }));
+    return (await this.o.store.list()).map((m) => ({
+      workspaceId: m.workspaceId,
+      orgId: m.orgId,
+      runId: m.runId,
+      createdAt: m.createdAt,
+    }));
   }
 
   // ---------------------------------------------------------------- operator paths (admin-scoped tokens)
@@ -478,7 +563,11 @@ export class NodeService {
       await this.o.store.destroy(m.workspaceId).then(
         () => {
           reaped++;
-          this.event('reaped', { orgId: m.orgId, runId: m.runId, workspaceId: m.workspaceId }, { reason: 'aged' });
+          this.event(
+            'reaped',
+            { orgId: m.orgId, runId: m.runId, workspaceId: m.workspaceId },
+            { reason: 'aged' },
+          );
         },
         () => failed++,
       );

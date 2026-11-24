@@ -16,17 +16,29 @@ export async function main(argv: string[]): Promise<number> {
     console.error('usage: nuzm-egress-proxy --config <file>');
     return 2;
   }
-  const c = JSON.parse(await readFile(file, 'utf8')) as { listen?: { host?: string; port?: number }; metrics?: { port?: number }; allowHosts?: string[] };
+  const c = JSON.parse(await readFile(file, 'utf8')) as {
+    listen?: { host?: string; port?: number };
+    metrics?: { port?: number };
+    allowHosts?: string[];
+  };
   if (!c.listen?.host || ['0.0.0.0', '::', '*'].includes(c.listen.host) || !c.listen.port) {
     console.error('REFUSED: listen address missing or a wildcard');
     return 2;
   }
-  if (!Array.isArray(c.allowHosts) || c.allowHosts.length === 0 || !c.allowHosts.every((h) => eg.isAllowableEgressHost(h))) {
+  if (
+    !Array.isArray(c.allowHosts) ||
+    c.allowHosts.length === 0 ||
+    !c.allowHosts.every((h) => eg.isAllowableEgressHost(h))
+  ) {
     console.error('REFUSED: allowHosts missing or invalid');
     return 2;
   }
   const metrics = new Metrics();
-  const proxy = createEgressProxy({ allowHosts: c.allowHosts, metrics, onEvent: (e) => console.log(JSON.stringify({ ts: new Date().toISOString(), ...e })) });
+  const proxy = createEgressProxy({
+    allowHosts: c.allowHosts,
+    metrics,
+    onEvent: (e) => console.log(JSON.stringify({ ts: new Date().toISOString(), ...e })),
+  });
   await new Promise<void>((r) => proxy.listen(c.listen!.port!, c.listen!.host!, r));
   const ms = createMetricsServer(metrics);
   await new Promise<void>((r) => ms.listen(c.metrics?.port ?? 9101, '127.0.0.1', r));

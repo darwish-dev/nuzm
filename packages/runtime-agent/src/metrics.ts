@@ -6,7 +6,9 @@ export class Metrics {
   private readonly c = new Map<string, number>();
   private readonly g = new Map<string, () => number>();
   inc(name: string, by = 1, label?: string): void {
-    const k = label ? `${name}{reason="${label.replace(/[^a-z0-9_.-]/gi, '_').slice(0, 40)}"}` : name;
+    const k = label
+      ? `${name}{reason="${label.replace(/[^a-z0-9_.-]/gi, '_').slice(0, 40)}"}`
+      : name;
     this.c.set(k, (this.c.get(k) ?? 0) + by);
   }
   gauge(name: string, f: () => number): void {

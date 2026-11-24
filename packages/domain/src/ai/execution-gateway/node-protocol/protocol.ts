@@ -83,13 +83,21 @@ export type NodeResponseMap = {
   listProduced: { files: ProducedFile[] };
   readProduced: { content: string };
   destroyWorkspace: Record<string, never>;
-  listWorkspaces: { workspaces: { workspaceId: string; orgId: string; runId: string; createdAt: number }[] };
+  listWorkspaces: {
+    workspaces: { workspaceId: string; orgId: string; runId: string; createdAt: number }[];
+  };
   emergencyStop: { killed: number; destroyed: number; failed: number };
   reap: { reaped: number; failed: number };
 };
 export type NodeResponse<O extends NodeOp> =
   | { ok: true; result: NodeResponseMap[O] }
-  | { ok: false; error: { code: string; /** content-free: violation codes only (for `spec_refused`) */ detail?: string } };
+  | {
+      ok: false;
+      error: {
+        code: string;
+        /** content-free: violation codes only (for `spec_refused`) */ detail?: string;
+      };
+    };
 
 /** the codes an agent may answer with; the client turns each into `Error(code)` so the existing control plane (`real-runtime.ts`) keeps matching on them */
 export const NODE_ERROR_CODES = [
@@ -135,7 +143,8 @@ const strArr = (v: unknown, maxLen: number, maxItems: number): v is string[] =>
   v.length <= maxItems &&
   v.every((x) => typeof x === 'string' && x.length <= maxLen);
 
-export type ParseResult<T> = { ok: true; value: T } | { ok: false; code: 'bad_request' | 'too_large' };
+export type ParseResult<T> =
+  { ok: true; value: T } | { ok: false; code: 'bad_request' | 'too_large' };
 const bad = <T>(): ParseResult<T> => ({ ok: false, code: 'bad_request' });
 
 /** a relative, normalised path inside a workspace: no absolute path, no `..`, no empty or `.` segment, no NUL or backslash */
@@ -184,7 +193,14 @@ export function parseRuntimeSpec(v: unknown): RuntimeSpec | null {
   if (!Object.values(s.env).every((x) => typeof x === 'string' && x.length <= 2_000)) return null;
   const u = s.user;
   if (!isObj(u) || !onlyKeys(u, ['uid', 'gid']) || !num(u.uid) || !num(u.gid)) return null;
-  for (const k of ['privileged', 'hostNetwork', 'hostPid', 'hostIpc', 'readOnlyRootFs', 'noNewPrivileges'])
+  for (const k of [
+    'privileged',
+    'hostNetwork',
+    'hostPid',
+    'hostIpc',
+    'readOnlyRootFs',
+    'noNewPrivileges',
+  ])
     if (!bool(s[k])) return null;
   if (!strArr(s.capabilitiesDrop, 40, 64)) return null;
   if (!['default-deny', 'runtime-default', 'unconfined'].includes(s.seccomp as string)) return null;
@@ -196,17 +212,37 @@ export function parseRuntimeSpec(v: unknown): RuntimeSpec | null {
   }
   const n = s.network;
   if (!isObj(n) || !onlyKeys(n, ['class', 'ownNamespace', 'egressProxyOnly'])) return null;
-  if (!NETWORK_CLASSES.includes(n.class as NetworkClass) || !bool(n.ownNamespace) || !bool(n.egressProxyOnly))
+  if (
+    !NETWORK_CLASSES.includes(n.class as NetworkClass) ||
+    !bool(n.ownNamespace) ||
+    !bool(n.egressProxyOnly)
+  )
     return null;
   if (!Array.isArray(s.egressAllow) || s.egressAllow.length > 64) return null;
   for (const e of s.egressAllow)
-    if (!isObj(e) || !onlyKeys(e, ['host', 'port']) || typeof e.host !== 'string' || e.host.length > 260 || !num(e.port))
+    if (
+      !isObj(e) ||
+      !onlyKeys(e, ['host', 'port']) ||
+      typeof e.host !== 'string' ||
+      e.host.length > 260 ||
+      !num(e.port)
+    )
       return null;
   const l = s.limits;
   if (
     !isObj(l) ||
-    !onlyKeys(l, ['cpuSeconds', 'wallSeconds', 'memoryMb', 'pids', 'outputKb', 'diskMb', 'swapMb']) ||
-    !['cpuSeconds', 'wallSeconds', 'memoryMb', 'pids', 'outputKb', 'diskMb', 'swapMb'].every((k) => num(l[k]))
+    !onlyKeys(l, [
+      'cpuSeconds',
+      'wallSeconds',
+      'memoryMb',
+      'pids',
+      'outputKb',
+      'diskMb',
+      'swapMb',
+    ]) ||
+    !['cpuSeconds', 'wallSeconds', 'memoryMb', 'pids', 'outputKb', 'diskMb', 'swapMb'].every((k) =>
+      num(l[k]),
+    )
   )
     return null;
   if (!id(s.workspaceId) || !id(s.orgId) || !id(s.runId)) return null;
@@ -249,7 +285,8 @@ export function parseNodeRequest<O extends NodeOp>(
         if (!Array.isArray(f) || f.length !== 2) return bad();
         const [p, c] = f as [unknown, unknown];
         if (!isWorkspaceRelativePath(p) || typeof c !== 'string') return bad();
-        if (Buffer.byteLength(c) > NODE_LIMITS.maxFileBytes) return { ok: false, code: 'too_large' };
+        if (Buffer.byteLength(c) > NODE_LIMITS.maxFileBytes)
+          return { ok: false, code: 'too_large' };
         if (seen.has(p)) return bad();
         seen.add(p);
         files.push([p, c]);
@@ -280,8 +317,10 @@ export function parseNodeRequest<O extends NodeOp>(
         ? ok({ workspaceId: body.workspaceId })
         : bad();
     case 'readProduced':
-      if (!onlyKeys(body, ['workspaceId', 'path', 'maxBytes']) || !id(body.workspaceId)) return bad();
-      if (!isWorkspaceRelativePath(body.path) || !posInt(body.maxBytes, NODE_LIMITS.maxReadBytes)) return bad();
+      if (!onlyKeys(body, ['workspaceId', 'path', 'maxBytes']) || !id(body.workspaceId))
+        return bad();
+      if (!isWorkspaceRelativePath(body.path) || !posInt(body.maxBytes, NODE_LIMITS.maxReadBytes))
+        return bad();
       return ok({ workspaceId: body.workspaceId, path: body.path, maxBytes: body.maxBytes });
     default:
       return bad();

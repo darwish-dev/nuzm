@@ -12,7 +12,10 @@ import type { Metrics } from './metrics';
  * be one of the pinned control-plane fingerprints: a CA alone is not enough). It binds to the management-interface address from the config and never to a wildcard. The metrics
  * listener is plain text on 127.0.0.1 only. Request bodies are read with a hard cap and a deadline; a slow or oversize client is cut off before the handler sees it.
  */
-const readBody = (req: import('node:http').IncomingMessage, cap: number): Promise<Buffer | 'too_large'> =>
+const readBody = (
+  req: import('node:http').IncomingMessage,
+  cap: number,
+): Promise<Buffer | 'too_large'> =>
   new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let n = 0;
@@ -61,16 +64,36 @@ function attach(server: HttpServer | HttpsServer, o: NodeListenerOptions): void 
       const headers: Record<string, string> = {};
       for (const k of ['content-type', 'authorization', 'x-nuzm-protocol'])
         if (typeof req.headers[k] === 'string') headers[k] = req.headers[k] as string;
-      const out = await o.handler({ method: req.method ?? 'GET', path: (req.url ?? '').split('?')[0]!, headers, body }).catch(() => ({
-        status: 500,
-        body: Buffer.from('{"ok":false,"error":{"code":"internal"}}'),
-      }));
-      res.writeHead(out.status, { 'content-type': 'application/json', 'content-length': String(out.body.length), connection: 'close' }).end(out.body);
+      const out = await o
+        .handler({
+          method: req.method ?? 'GET',
+          path: (req.url ?? '').split('?')[0]!,
+          headers,
+          body,
+        })
+        .catch(() => ({
+          status: 500,
+          body: Buffer.from('{"ok":false,"error":{"code":"internal"}}'),
+        }));
+      res
+        .writeHead(out.status, {
+          'content-type': 'application/json',
+          'content-length': String(out.body.length),
+          connection: 'close',
+        })
+        .end(out.body);
     })();
   });
 }
-export async function createNodeHttpsServer(cfg: AgentConfig, o: NodeListenerOptions): Promise<HttpsServer> {
-  const [key, cert, ca] = await Promise.all([readFile(cfg.tls.keyFile), readFile(cfg.tls.certFile), readFile(cfg.tls.caFile)]);
+export async function createNodeHttpsServer(
+  cfg: AgentConfig,
+  o: NodeListenerOptions,
+): Promise<HttpsServer> {
+  const [key, cert, ca] = await Promise.all([
+    readFile(cfg.tls.keyFile),
+    readFile(cfg.tls.certFile),
+    readFile(cfg.tls.caFile),
+  ]);
   const server = createHttpsServer({
     key,
     cert,
@@ -83,14 +106,17 @@ export async function createNodeHttpsServer(cfg: AgentConfig, o: NodeListenerOpt
   return server;
 }
 /** plain http on loopback: ONLY for the simulated launcher's tests of the real HTTP path (`parseAgentConfig` refuses it with the real launcher) */
-export function createLoopbackHttpServer(o: Omit<NodeListenerOptions, 'clientFingerprints'>): HttpServer {
+export function createLoopbackHttpServer(
+  o: Omit<NodeListenerOptions, 'clientFingerprints'>,
+): HttpServer {
   const server = createHttpServer();
   attach(server, { ...o, clientFingerprints: [] });
   return server;
 }
 export function createMetricsServer(metrics: Metrics): HttpServer {
   const s = createHttpServer((req, res) => {
-    if (req.method === 'GET' && req.url === '/metrics') res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' }).end(metrics.render());
+    if (req.method === 'GET' && req.url === '/metrics')
+      res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' }).end(metrics.render());
     else res.writeHead(404).end();
   });
   return s;

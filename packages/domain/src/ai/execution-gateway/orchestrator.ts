@@ -14,7 +14,8 @@ import { collectArtifacts, DEFAULT_ARTIFACT_POLICY, type ArtifactPolicy } from '
 import { createHash } from 'node:crypto';
 import { canonicalJson } from './real-runtime/attestation';
 import { checkRunEnv, screenOutput } from './env-guard';
-import { StateTrack, transitionJob, type JobState } from './lifecycle';
+import { StateTrack, transitionJob, type JobState, type TransitionRecord } from './lifecycle';
+import type { JournalDeps, JournalPatch } from './journal';
 import { executionGate, type ExecGateState, type ExecRequest } from './policy';
 import { type ExecutionOutcome, type ExecutionPort } from './port';
 import { ExecutionQueue, type QueueConfig } from './queue';
@@ -49,6 +50,8 @@ export interface OrchestratorDeps {
   canaries: () => readonly string[];
   now: () => number;
   artifactPolicy?: ArtifactPolicy;
+  /** P3-S02 durable journal (default: none). With it, every job and state change is also recorded durably; creation is fail-closed (see `journal.ts`). */
+  journal?: JournalDeps;
 }
 export type SubmitResult =
   | { status: 'refused'; reasons: string[] }
@@ -135,8 +138,31 @@ export class ExecutionOrchestrator {
       }),
     );
   }
-  private newTrack() {
-    return new StateTrack<JobState>('requested', transitionJob, () => new Date(this.d.now()));
+  /** ids of jobs whose durable record exists: only these are journaled (a move for an unrecorded job would be an orphan row) */
+  private readonly journaled = new Set<string>();
+  /** the outcome numbers of a job's terminal move, set just before it */
+  private readonly patches = new Map<string, JournalPatch>();
+  private newTrack(id: string, orgId: string) {
+    return new StateTrack<JobState>(
+      'requested',
+      transitionJob,
+      () => new Date(this.d.now()),
+      (m: TransitionRecord<JobState>) => {
+        const sink = this.d.journal?.sink;
+        if (!sink || !this.journaled.has(id)) return;
+        const patch = this.patches.get(id);
+        this.patches.delete(id);
+        sink.moved({
+          jobId: id,
+          orgId,
+          from: m.from,
+          to: m.to,
+          cause: m.cause,
+          at: m.at,
+          ...(patch ? { patch } : {}),
+        });
+      },
+    );
   }
   /** common pre-run checks; returns the refusal reasons */
   private preflight(orgId: string): string[] {
@@ -233,20 +259,43 @@ export class ExecutionOrchestrator {
       });
       return { status: 'refused', reasons: quota };
     }
+    const jobId = `ej-${++this.seq}`;
     const job: Job = {
-      id: `ej-${++this.seq}`,
+      id: jobId,
       orgId: i.orgId,
       runId: i.runId,
       idempotencyKey: i.idempotencyKey,
       fingerprint: fingerprintOf(i),
       decision,
       approvalId: null,
-      track: this.newTrack(),
+      track: this.newTrack(jobId, i.orgId),
       outcome: null,
       reservation: null,
       queueId: null,
       actorUserId: i.actorUserId,
     };
+    const jr = this.d.journal;
+    if (jr) {
+      // FAIL CLOSED: the durable record is written BEFORE the job exists in memory; if it cannot be written (store down, key reused after a restart), nothing runs
+      const rec = await jr.sink
+        .created({
+          jobId,
+          orgId: i.orgId,
+          runId: i.runId,
+          idempotencyKey: i.idempotencyKey,
+          profile: decision.profile,
+          decisionDigest: createHash('sha256').update(canonicalJson(decision)).digest('hex'),
+          origin: this.d.port.origin === 'REAL' ? 'REAL' : 'MOCK',
+          requiresApproval: decision.requiresApproval,
+          dataRegion: jr.dataRegion(i.orgId),
+        })
+        .catch((): { ok: false; reason: string } => ({ ok: false, reason: 'journal_unavailable' }));
+      if (!rec.ok) {
+        await this.emit('ai.execution.refused', base, 'failure', { reasons: [rec.reason] });
+        return { status: 'refused', reasons: [rec.reason] };
+      }
+      this.journaled.add(jobId);
+    }
     this.jobs.set(job.id, job);
     this.keys.set(`${i.orgId}\u0000${i.idempotencyKey}`, job.id);
     if (decision.requiresApproval) {
@@ -474,7 +523,15 @@ export class ExecutionOrchestrator {
             ? 'terminated'
             : 'failed';
     this.d.queue.complete(queueId, lease, final === 'terminated' ? 'terminated' : final);
+    this.patches.set(job.id, {
+      outcomeStatus: raw.status.slice(0, 40),
+      exitCode: raw.exitCode ?? null,
+      durationMs: Math.max(0, Math.floor(raw.durationMs)),
+      truncated: raw.truncated,
+      artifactCount: art.accepted.length,
+    });
     job.track.move(final, `port_${raw.status}`);
+    this.patches.delete(job.id);
     if (job.reservation) {
       // settle on the CPU the runtime measured when it reports it (a real port does); otherwise on wall time, the conservative upper bound for a single-process run. The ledger
       // caps either at the reservation, so a runtime that over-reports cannot bill beyond what was admitted.

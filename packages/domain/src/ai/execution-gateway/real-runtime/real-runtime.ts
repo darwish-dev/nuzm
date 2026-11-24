@@ -75,7 +75,12 @@ export interface RealRuntimeNode {
 export interface PlacementResidency {
   enforce: boolean;
   /** the platform's residency decision (an adapter over `ResidencyPolicyService`); it must fail closed */
-  evaluate: (i: { orgId: string; runId: string; dataRegion: string; nodeRegion: string }) => Promise<{ allowed: boolean; reason: string }>;
+  evaluate: (i: {
+    orgId: string;
+    runId: string;
+    dataRegion: string;
+    nodeRegion: string;
+  }) => Promise<{ allowed: boolean; reason: string }>;
   syntheticOnly?: boolean;
 }
 export type RuntimeEventType =
@@ -705,17 +710,35 @@ export class RealRuntimeService {
   }
 
   /** null = placement allowed; otherwise the refusal reason. Evaluated BEFORE any workspace exists on the node. */
-  private async checkPlacement(s: NodeState, ctx: ExecutionRunContext, run: RunInputs): Promise<string | null> {
+  private async checkPlacement(
+    s: NodeState,
+    ctx: ExecutionRunContext,
+    run: RunInputs,
+  ): Promise<string | null> {
     const r = this.cfg.residency;
     if (!r || !r.enforce) return null;
     const refuse = (why: string) => {
-      this.emit({ type: 'placement_refused', nodeId: s.node.nodeId, orgId: ctx.orgId, runId: ctx.runId, detail: { reason: why } });
+      this.emit({
+        type: 'placement_refused',
+        nodeId: s.node.nodeId,
+        orgId: ctx.orgId,
+        runId: ctx.runId,
+        detail: { reason: why },
+      });
       return `placement_refused:${why}`;
     };
     const dataRegion = run.dataRegion;
-    if (!s.node.region || !dataRegion) return r.syntheticOnly === true ? null : refuse(!s.node.region ? 'node_region_unknown' : 'data_region_unknown');
+    if (!s.node.region || !dataRegion)
+      return r.syntheticOnly === true
+        ? null
+        : refuse(!s.node.region ? 'node_region_unknown' : 'data_region_unknown');
     try {
-      const d = await r.evaluate({ orgId: ctx.orgId, runId: ctx.runId, dataRegion, nodeRegion: s.node.region });
+      const d = await r.evaluate({
+        orgId: ctx.orgId,
+        runId: ctx.runId,
+        dataRegion,
+        nodeRegion: s.node.region,
+      });
       return d.allowed ? null : refuse(`residency_${d.reason}`.slice(0, 60));
     } catch {
       return refuse('residency_check_failed'); // fail closed

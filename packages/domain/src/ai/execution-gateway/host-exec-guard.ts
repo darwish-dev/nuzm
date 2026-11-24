@@ -10,7 +10,8 @@
  * Every decision (allowed or refused) is reported to the installed auditor (`setHostExecAuditor`, wired by the application to the audit sink; a no-op by default). A refusal throws
  * `HostExecRefused` with content-free reason codes.
  */
-export type HostExecPath = 'local-dev-sandbox' | 'live-preview' | 'mobile-local-build' | 'git-store';
+export type HostExecPath =
+  'local-dev-sandbox' | 'live-preview' | 'mobile-local-build' | 'git-store';
 export class TemplateOriginProof {
   private constructor(readonly templateId: string) {}
   /** @internal minted only through `templateOrigin` */

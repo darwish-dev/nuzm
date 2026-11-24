@@ -42,7 +42,11 @@ export class FileAuditSink implements AuditSink {
   ) {}
   async write(e: AgentEvent): Promise<void> {
     try {
-      await appendFile(this.file, `${JSON.stringify({ ts: new Date(this.now()).toISOString(), node: this.nodeId, ...e })}\n`, { mode: 0o640 });
+      await appendFile(
+        this.file,
+        `${JSON.stringify({ ts: new Date(this.now()).toISOString(), node: this.nodeId, ...e })}\n`,
+        { mode: 0o640 },
+      );
     } catch {
       this.failures++;
     }

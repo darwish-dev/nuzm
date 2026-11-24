@@ -21,13 +21,19 @@ async function start(over: Partial<Parameters<typeof createEgressProxy>[0]> = {}
       connectorCalls.push(ip);
       const up = new PassThrough();
       // an echo "upstream"
-      const sock = Object.assign(up, { setTimeout: () => up, setNoDelay: () => up, destroyed: false }) as unknown as Socket;
+      const sock = Object.assign(up, {
+        setTimeout: () => up,
+        setNoDelay: () => up,
+        destroyed: false,
+      }) as unknown as Socket;
       return sock;
     },
     onEvent: (e) => events.push(e),
     ...over,
   });
-  const port = await new Promise<number>((r) => server!.listen(0, '127.0.0.1', () => r((server!.address() as AddressInfo).port)));
+  const port = await new Promise<number>((r) =>
+    server!.listen(0, '127.0.0.1', () => r((server!.address() as AddressInfo).port)),
+  );
   return { port, metrics, events, connectorCalls };
 }
 const send = (port: number, text: string) =>
@@ -49,9 +55,48 @@ const connectLine = (t: string) => `CONNECT ${t} HTTP/1.1\r\nhost: ${t}\r\n\r\n`
 
 describe('public address test', () => {
   it('refuses every private, loopback, link-local, CGNAT, documentation, multicast and embedded form', () => {
-    for (const ip of ['0.0.0.0', '10.1.2.3', '127.0.0.1', '169.254.169.254', '172.16.0.1', '172.31.255.255', '192.168.1.1', '100.64.0.1', '198.18.0.1', '192.0.2.1', '198.51.100.9', '203.0.113.5', '224.0.0.1', '255.255.255.255', '::', '::1', 'fe80::1', 'fd00:ec2::254', 'fc00::1', 'ff02::1', '2001:db8::1', '::ffff:10.0.0.1', '::ffff:7f00:1', '2002:c0a8:0101::1', '64:ff9b::a00:1', '100::1', '::7f00:1', 'fec0::1', 'not-an-ip', ''])
+    for (const ip of [
+      '0.0.0.0',
+      '10.1.2.3',
+      '127.0.0.1',
+      '169.254.169.254',
+      '172.16.0.1',
+      '172.31.255.255',
+      '192.168.1.1',
+      '100.64.0.1',
+      '198.18.0.1',
+      '192.0.2.1',
+      '198.51.100.9',
+      '203.0.113.5',
+      '224.0.0.1',
+      '255.255.255.255',
+      '::',
+      '::1',
+      'fe80::1',
+      'fd00:ec2::254',
+      'fc00::1',
+      'ff02::1',
+      '2001:db8::1',
+      '::ffff:10.0.0.1',
+      '::ffff:7f00:1',
+      '2002:c0a8:0101::1',
+      '64:ff9b::a00:1',
+      '100::1',
+      '::7f00:1',
+      'fec0::1',
+      'not-an-ip',
+      '',
+    ])
       expect(isPublicAddress(ip), ip).toBe(false);
-    for (const ip of ['104.16.1.1', '151.101.1.1', '8.8.8.8', '172.32.0.1', '100.63.0.1', '2606:4700::1111']) expect(isPublicAddress(ip), ip).toBe(true);
+    for (const ip of [
+      '104.16.1.1',
+      '151.101.1.1',
+      '8.8.8.8',
+      '172.32.0.1',
+      '100.63.0.1',
+      '2606:4700::1111',
+    ])
+      expect(isPublicAddress(ip), ip).toBe(true);
   });
   it('a client that disconnects while the upstream connect is in flight frees its tunnel slot immediately (O-17)', async () => {
     let release!: () => void;
@@ -63,7 +108,10 @@ describe('public address test', () => {
         await gate;
         const up = new PassThrough();
         up.on('close', () => (upstreamDestroyed = true));
-        return Object.assign(up, { setTimeout: () => up, setNoDelay: () => up }) as unknown as Socket;
+        return Object.assign(up, {
+          setTimeout: () => up,
+          setNoDelay: () => up,
+        }) as unknown as Socket;
       },
     });
     const c = connect(p.port, '127.0.0.1');
@@ -79,8 +127,18 @@ describe('public address test', () => {
     expect(await send(p.port, connectLine('registry.npmjs.org:443'))).toMatch(/^HTTP\/1\.1 200 /);
   });
   it('parses only host:port authority forms', () => {
-    expect(parseConnectTarget('registry.npmjs.org:443')).toEqual({ host: 'registry.npmjs.org', port: 443 });
-    for (const bad of ['registry.npmjs.org', 'a@b.com:443', 'REGISTRY.npmjs.org:443', '[::1]:443', 'x:99999999']) expect(parseConnectTarget(bad), bad).toBeNull();
+    expect(parseConnectTarget('registry.npmjs.org:443')).toEqual({
+      host: 'registry.npmjs.org',
+      port: 443,
+    });
+    for (const bad of [
+      'registry.npmjs.org',
+      'a@b.com:443',
+      'REGISTRY.npmjs.org:443',
+      '[::1]:443',
+      'x:99999999',
+    ])
+      expect(parseConnectTarget(bad), bad).toBeNull();
   });
 });
 
@@ -100,7 +158,11 @@ describe('egress proxy', () => {
     [connectLine('sub.registry.npmjs.org:443'), 403, 'host_not_allowed'],
     [connectLine('169.254.169.254:443'), 403, 'host_not_allowed'],
     [connectLine('93.184.216.34:443'), 403, 'host_not_allowed'],
-    ['CONNECT registry.npmjs.org:443 HTTP/1.1\r\n\r\nGET / HTTP/1.1\r\n\r\n', 400, 'unexpected_pipelined_data'],
+    [
+      'CONNECT registry.npmjs.org:443 HTTP/1.1\r\n\r\nGET / HTTP/1.1\r\n\r\n',
+      400,
+      'unexpected_pipelined_data',
+    ],
     ['garbage\r\n\r\n', 400, 'bad_request'],
   ])('refuses %j', async (req, code, why) => {
     const p = await start();
@@ -110,21 +172,41 @@ describe('egress proxy', () => {
     expect(p.connectorCalls).toEqual([]);
   });
   it('refuses a name that resolves to the metadata service, a private address, or ANY non-public answer (rebinding)', async () => {
-    for (const answers of [['169.254.169.254'], ['10.0.0.5'], ['104.16.1.1', '127.0.0.1'], ['::ffff:10.0.0.1'], []]) {
+    for (const answers of [
+      ['169.254.169.254'],
+      ['10.0.0.5'],
+      ['104.16.1.1', '127.0.0.1'],
+      ['::ffff:10.0.0.1'],
+      [],
+    ]) {
       const p = await start({ resolver: async () => answers });
-      expect(await send(p.port, connectLine('registry.npmjs.org:443'))).toMatch(/^HTTP\/1\.1 403 resolved_to_non_public_address/);
+      expect(await send(p.port, connectLine('registry.npmjs.org:443'))).toMatch(
+        /^HTTP\/1\.1 403 resolved_to_non_public_address/,
+      );
       expect(p.connectorCalls).toEqual([]);
       await new Promise<void>((r) => server!.close(() => r()));
       server = null;
     }
   });
   it('a resolver or connector failure is a 502 and frees the slot; the tunnel cap is enforced', async () => {
-    const p1 = await start({ resolver: async () => { throw new Error('NXDOMAIN'); } });
-    expect(await send(p1.port, connectLine('registry.npmjs.org:443'))).toMatch(/^HTTP\/1\.1 502 resolve_failed/);
+    const p1 = await start({
+      resolver: async () => {
+        throw new Error('NXDOMAIN');
+      },
+    });
+    expect(await send(p1.port, connectLine('registry.npmjs.org:443'))).toMatch(
+      /^HTTP\/1\.1 502 resolve_failed/,
+    );
     await new Promise<void>((r) => server!.close(() => r()));
     server = null;
-    const p2 = await start({ connector: async () => { throw new Error('ECONNREFUSED'); } });
-    expect(await send(p2.port, connectLine('registry.npmjs.org:443'))).toMatch(/^HTTP\/1\.1 502 connect_failed/);
+    const p2 = await start({
+      connector: async () => {
+        throw new Error('ECONNREFUSED');
+      },
+    });
+    expect(await send(p2.port, connectLine('registry.npmjs.org:443'))).toMatch(
+      /^HTTP\/1\.1 502 connect_failed/,
+    );
     await new Promise<void>((r) => server!.close(() => r()));
     server = null;
     const p3 = await start({ maxTunnels: 1 });
@@ -133,11 +215,21 @@ describe('egress proxy', () => {
       first.once('data', () => r());
       first.write(connectLine('registry.npmjs.org:443'));
     });
-    expect(await send(p3.port, connectLine('registry.npmjs.org:443'))).toMatch(/^HTTP\/1\.1 503 too_many_tunnels/);
+    expect(await send(p3.port, connectLine('registry.npmjs.org:443'))).toMatch(
+      /^HTTP\/1\.1 503 too_many_tunnels/,
+    );
     first.destroy();
   });
   it('an invalid allow-list entry (IP, wildcard, uppercase, internal suffix) is a construction error', () => {
-    for (const h of ['169.254.169.254', '*.npmjs.org', 'Registry.NPMJS.org', 'registry.internal', 'localhost'])
-      expect(() => createEgressProxy({ allowHosts: [h], metrics: new Metrics() })).toThrow('proxy_allow_host_invalid');
+    for (const h of [
+      '169.254.169.254',
+      '*.npmjs.org',
+      'Registry.NPMJS.org',
+      'registry.internal',
+      'localhost',
+    ])
+      expect(() => createEgressProxy({ allowHosts: [h], metrics: new Metrics() })).toThrow(
+        'proxy_allow_host_invalid',
+      );
   });
 });

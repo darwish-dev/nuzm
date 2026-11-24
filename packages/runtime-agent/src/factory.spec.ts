@@ -37,7 +37,11 @@ function productionTarget(): eg.ConformanceTarget & { dispose(): Promise<void> }
               endpointId: rig.cfg.endpointId,
               baseUrl: 'http://127.0.0.1:1',
               signer: { keyId: 'cp-test', keyRef: 'vault://exec/cp-signer' },
-              tls: { caRef: 'vault://exec/ca', certRef: 'vault://exec/cert', keyRef: 'vault://exec/key' },
+              tls: {
+                caRef: 'vault://exec/ca',
+                certRef: 'vault://exec/cert',
+                keyRef: 'vault://exec/key',
+              },
             },
           ],
         },
@@ -47,12 +51,16 @@ function productionTarget(): eg.ConformanceTarget & { dispose(): Promise<void> }
             if (ref !== 'vault://exec/cp-signer') throw new Error('unexpected secret');
             return rig.signerPem;
           },
-          loadAttestation: async (nodeId) => kit.attestation({ nodeId, endpointId: rig.cfg.endpointId }, { now: new Date() }),
+          loadAttestation: async (nodeId) =>
+            kit.attestation({ nodeId, endpointId: rig.cfg.endpointId }, { now: new Date() }),
           transportFor: () => new eg.LoopbackTransport(rig.agent.handler),
           artifactSink: { put: async () => undefined },
         },
       );
-      return svc.portFor(ctx, { seedFiles: () => new Map(Object.entries(f.files())), canaries: () => [] });
+      return svc.portFor(ctx, {
+        seedFiles: () => new Map(Object.entries(f.files())),
+        canaries: () => [],
+      });
     },
     async leftovers() {
       return last ? (await last.agent.service.listWorkspaces()).map((w) => w.workspaceId) : [];
@@ -66,7 +74,9 @@ function productionTarget(): eg.ConformanceTarget & { dispose(): Promise<void> }
 describe('production wiring: startRealExecution -> RealRuntimeService -> node client -> agent', () => {
   describe('conformance (fake clock)', () => {
     beforeEach(() => {
-      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+      vi.useFakeTimers({
+        toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+      });
       vi.setSystemTime(new Date('2026-11-24T12:00:00.000Z'));
     });
     afterEach(() => vi.useRealTimers());
@@ -83,27 +93,62 @@ describe('production wiring: startRealExecution -> RealRuntimeService -> node cl
   it('works over a real socket too (real clock): the service starts on a verifying attestation and runs a typecheck end to end', async () => {
     const kit = eg.createSimulatedKit();
     const rig = await createAgentRig({ script: () => ({ exitCode: 0, stdout: 'clean\n' }) });
-    const server = createLoopbackHttpServer({ handler: rig.agent.handler, metrics: rig.agent.metrics });
-    const port = await new Promise<number>((r) => server.listen(0, '127.0.0.1', () => r((server.address() as AddressInfo).port)));
+    const server = createLoopbackHttpServer({
+      handler: rig.agent.handler,
+      metrics: rig.agent.metrics,
+    });
+    const port = await new Promise<number>((r) =>
+      server.listen(0, '127.0.0.1', () => r((server.address() as AddressInfo).port)),
+    );
     try {
       const svc = await eg.startRealExecution(
         {
           mode: 'simulated',
           environments: ['staging'],
           trustedAttestationKeys: kit.trusted,
-          nodes: [{ nodeId: rig.cfg.nodeId, endpointId: rig.cfg.endpointId, baseUrl: `http://127.0.0.1:${port}`, signer: { keyId: 'cp-test', keyRef: 'vault://exec/cp-signer' }, tls: { caRef: 'vault://exec/ca', certRef: 'vault://exec/cert', keyRef: 'vault://exec/key' } }],
+          nodes: [
+            {
+              nodeId: rig.cfg.nodeId,
+              endpointId: rig.cfg.endpointId,
+              baseUrl: `http://127.0.0.1:${port}`,
+              signer: { keyId: 'cp-test', keyRef: 'vault://exec/cp-signer' },
+              tls: {
+                caRef: 'vault://exec/ca',
+                certRef: 'vault://exec/cert',
+                keyRef: 'vault://exec/key',
+              },
+            },
+          ],
         },
-        { resolve: async () => rig.signerPem, loadAttestation: async (nodeId) => kit.attestation({ nodeId, endpointId: rig.cfg.endpointId }), artifactSink: { put: async () => undefined } },
+        {
+          resolve: async () => rig.signerPem,
+          loadAttestation: async (nodeId) =>
+            kit.attestation({ nodeId, endpointId: rig.cfg.endpointId }),
+          artifactSink: { put: async () => undefined },
+        },
       );
       expect(svc.origin).toBe('MOCK');
       expect(svc.status()[0]).toMatchObject({ nodeId: 'sim-node', quarantined: null });
-      const ctx = { orgId: 'org-x', runId: 'run-x', enabledProfiles: Object.keys(eg.EXEC_PROFILES), projectScripts: [] };
-      const port_ = svc.portFor(ctx, { seedFiles: () => new Map([['package.json', '{}']]), canaries: () => [] });
+      const ctx = {
+        orgId: 'org-x',
+        runId: 'run-x',
+        enabledProfiles: Object.keys(eg.EXEC_PROFILES),
+        projectScripts: [],
+      };
+      const port_ = svc.portFor(ctx, {
+        seedFiles: () => new Map([['package.json', '{}']]),
+        canaries: () => [],
+      });
       const d = await port_.request({ orgId: 'org-x', runId: 'run-x', profile: 'typecheck' });
       const o = await port_.run(d, { orgId: 'org-x', runId: 'run-x' });
       expect(o).toMatchObject({ status: 'completed', exitCode: 0, stdout: 'clean\n' });
       expect(await rig.agent.service.listWorkspaces()).toEqual([]); // cleaned up
-      expect(rig.launcher.launched[0]!.spec.argv).toEqual(['npx', '--no-install', 'tsc', '--noEmit']);
+      expect(rig.launcher.launched[0]!.spec.argv).toEqual([
+        'npx',
+        '--no-install',
+        'tsc',
+        '--noEmit',
+      ]);
     } finally {
       await new Promise<void>((r) => server.close(() => r()));
       await rig.dispose();
@@ -115,8 +160,25 @@ describe('production wiring: startRealExecution -> RealRuntimeService -> node cl
     const rig = await createAgentRig();
     await expect(
       eg.startRealExecution(
-        { mode: 'simulated', environments: ['staging'], trustedAttestationKeys: kit.trusted, nodes: [{ nodeId: 'sim-node', endpointId: 'sim-endpoint', baseUrl: 'http://127.0.0.1:1', signer: { keyId: 'cp-test', keyRef: 'vault://exec/cp-signer' }, tls: { caRef: 'vault://a/b', certRef: 'vault://a/c', keyRef: 'vault://a/d' } }] },
-        { resolve: async () => rig.signerPem, loadAttestation: async (nodeId) => kit.attestation({ nodeId, endpointId: 'sim-endpoint' }) },
+        {
+          mode: 'simulated',
+          environments: ['staging'],
+          trustedAttestationKeys: kit.trusted,
+          nodes: [
+            {
+              nodeId: 'sim-node',
+              endpointId: 'sim-endpoint',
+              baseUrl: 'http://127.0.0.1:1',
+              signer: { keyId: 'cp-test', keyRef: 'vault://exec/cp-signer' },
+              tls: { caRef: 'vault://a/b', certRef: 'vault://a/c', keyRef: 'vault://a/d' },
+            },
+          ],
+        },
+        {
+          resolve: async () => rig.signerPem,
+          loadAttestation: async (nodeId) =>
+            kit.attestation({ nodeId, endpointId: 'sim-endpoint' }),
+        },
       ),
     ).rejects.toThrow(/node_unreachable/);
     await rig.dispose();

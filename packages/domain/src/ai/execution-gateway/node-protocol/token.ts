@@ -1,4 +1,12 @@
-import { createHash, createPrivateKey, createPublicKey, randomBytes, sign as edSign, verify as edVerify, type KeyObject } from 'node:crypto';
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  randomBytes,
+  sign as edSign,
+  verify as edVerify,
+  type KeyObject,
+} from 'node:crypto';
 import { ADMIN_OPS, type NodeOp } from './protocol';
 
 /**
@@ -38,7 +46,8 @@ export interface TokenSigner {
 export type TrustedControlKeys = Readonly<Record<string, string>>;
 
 const b64u = (b: Buffer | string): string => Buffer.from(b).toString('base64url');
-export const sha256Hex = (b: Buffer | string): string => createHash('sha256').update(b).digest('hex');
+export const sha256Hex = (b: Buffer | string): string =>
+  createHash('sha256').update(b).digest('hex');
 
 /** a signer over a private key supplied by the deployment (from the vault). It is only a convenience wrapper: the key bytes are not retained anywhere else. */
 export class Ed25519Signer implements TokenSigner {
@@ -130,7 +139,9 @@ export interface VerifyInput {
   now: number;
 }
 export function verifyRequestToken(i: VerifyInput): TokenVerdict {
-  const m = i.header ? new RegExp(`^${TOKEN_SCHEME} ([A-Za-z0-9_-]+)\\.([A-Za-z0-9_-]+)$`).exec(i.header) : null;
+  const m = i.header
+    ? new RegExp(`^${TOKEN_SCHEME} ([A-Za-z0-9_-]+)\\.([A-Za-z0-9_-]+)$`).exec(i.header)
+    : null;
   if (!m) return { ok: false, reason: 'token_malformed' };
   let payload: TokenPayload;
   try {
@@ -153,11 +164,18 @@ export function verifyRequestToken(i: VerifyInput): TokenVerdict {
     (payload.scope !== 'run' && payload.scope !== 'admin')
   )
     return { ok: false, reason: 'token_malformed' };
-  const pem = Object.prototype.hasOwnProperty.call(i.trusted, payload.kid) ? i.trusted[payload.kid] : undefined;
+  const pem = Object.prototype.hasOwnProperty.call(i.trusted, payload.kid)
+    ? i.trusted[payload.kid]
+    : undefined;
   if (!pem) return { ok: false, reason: 'token_key_unknown' };
   const sigOk = ((): boolean => {
     try {
-      return edVerify(null, Buffer.from(m[1]!, 'utf8'), createPublicKey(pem), Buffer.from(m[2]!, 'base64url'));
+      return edVerify(
+        null,
+        Buffer.from(m[1]!, 'utf8'),
+        createPublicKey(pem),
+        Buffer.from(m[2]!, 'base64url'),
+      );
     } catch {
       return false;
     }
@@ -168,11 +186,13 @@ export function verifyRequestToken(i: VerifyInput): TokenVerdict {
   if (payload.scope !== (ADMIN_OPS.has(i.op) ? 'admin' : 'run'))
     return { ok: false, reason: 'token_scope_mismatch' };
   const nowS = Math.floor(i.now / 1000);
-  if (payload.exp - payload.iat > MAX_TOKEN_TTL_S) return { ok: false, reason: 'token_ttl_too_long' };
+  if (payload.exp - payload.iat > MAX_TOKEN_TTL_S)
+    return { ok: false, reason: 'token_ttl_too_long' };
   if (nowS > payload.exp) return { ok: false, reason: 'token_expired' };
   if (nowS < payload.iat - MAX_CLOCK_SKEW_S) return { ok: false, reason: 'token_not_yet_valid' };
   if (payload.bodySha256 !== sha256Hex(i.body)) return { ok: false, reason: 'token_body_mismatch' };
   // claim the one-time id LAST: a request refused for any other reason does not burn it, and an accepted one can never be replayed
-  if (!i.replay.claim(payload.jti, payload.exp, i.now)) return { ok: false, reason: 'token_replayed' };
+  if (!i.replay.claim(payload.jti, payload.exp, i.now))
+    return { ok: false, reason: 'token_replayed' };
   return { ok: true, payload };
 }

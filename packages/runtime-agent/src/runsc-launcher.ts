@@ -3,7 +3,13 @@ import { join } from 'node:path';
 import { executionGateway as eg } from '@nuzm/domain';
 import type { BinaryAllowList, CommandRunner, SpawnedProcess } from './command-runner';
 import { forceRemoveTree } from './fs-safe';
-import { LaunchRefused, type Launched, type Launcher, type LaunchRequest, type LaunchResult } from './launcher';
+import {
+  LaunchRefused,
+  type Launched,
+  type Launcher,
+  type LaunchRequest,
+  type LaunchResult,
+} from './launcher';
 import { planNetwork } from './network';
 import { buildOciBundle } from './oci';
 
@@ -31,7 +37,11 @@ export interface RunscLauncherOptions {
 const CONTAINER_PREFIX = 'nz-';
 
 /** the global `runsc` flags: V = verify each against the pinned release's `runsc --help` at qualification */
-export function runscGlobalFlags(o: { root: string; platform: string; network: 'none' | 'sandbox' }): string[] {
+export function runscGlobalFlags(o: {
+  root: string;
+  platform: string;
+  network: 'none' | 'sandbox';
+}): string[] {
   return [
     '--root',
     o.root,
@@ -46,7 +56,11 @@ export function runscGlobalFlags(o: { root: string; platform: string; network: '
 }
 
 /** `runsc events --stats <id>` JSON → NodeStats. The shape is OCI-runtime-events (cgroup stats); (V) on the pinned release. Unparseable → null (the caller treats it as a missed sample). */
-export function parseRunscStats(stdout: string, outputBytes: number, diskMb: number): eg.NodeStats | null {
+export function parseRunscStats(
+  stdout: string,
+  outputBytes: number,
+  diskMb: number,
+): eg.NodeStats | null {
   try {
     const j = JSON.parse(stdout) as {
       data?: {
@@ -61,7 +75,13 @@ export function parseRunscStats(stdout: string, outputBytes: number, diskMb: num
     const mem = Number(d.memory?.usage?.max ?? d.memory?.usage?.usage ?? 0);
     const pids = Number(d.pids?.current ?? 0);
     if (![cpuNs, mem, pids].every(Number.isFinite)) return null;
-    return { cpuSeconds: cpuNs / 1e9, memoryMb: Math.ceil(mem / (1024 * 1024)), pids, diskMb, outputBytes };
+    return {
+      cpuSeconds: cpuNs / 1e9,
+      memoryMb: Math.ceil(mem / (1024 * 1024)),
+      pids,
+      diskMb,
+      outputBytes,
+    };
   } catch {
     return null;
   }
@@ -71,7 +91,9 @@ export function parseRunscList(stdout: string): string[] {
   try {
     const j = JSON.parse(stdout) as unknown;
     if (!Array.isArray(j)) return [];
-    return j.map((x) => (x as { id?: unknown }).id).filter((id): id is string => typeof id === 'string' && id.startsWith(CONTAINER_PREFIX));
+    return j
+      .map((x) => (x as { id?: unknown }).id)
+      .filter((id): id is string => typeof id === 'string' && id.startsWith(CONTAINER_PREFIX));
   } catch {
     return [];
   }
@@ -106,7 +128,8 @@ export class RunscLauncher implements Launcher {
       for (const cmd of net.teardown) {
         const r = await this.o.runner.run(cmd, { timeoutMs: 15_000 }).catch(() => null);
         // deleting something that is already gone is fine; anything else is a leak
-        if (netUp && r && r.code !== 0 && !/(Cannot find|No such|does not exist)/i.test(r.stderr)) ok = false;
+        if (netUp && r && r.code !== 0 && !/(Cannot find|No such|does not exist)/i.test(r.stderr))
+          ok = false;
       }
       return ok;
     };
@@ -161,7 +184,11 @@ export class RunscLauncher implements Launcher {
       proc = this.o.runner.spawn(
         [
           this.o.binaries.runsc,
-          ...runscGlobalFlags({ root: this.o.runscRoot, platform: this.o.platform, network: net.runscNetwork }),
+          ...runscGlobalFlags({
+            root: this.o.runscRoot,
+            platform: this.o.platform,
+            network: net.runscNetwork,
+          }),
           'run',
           '--bundle',
           bundle,
@@ -193,7 +220,11 @@ export class RunscLauncher implements Launcher {
         if (how === 'hard') proc.kill('SIGKILL');
       },
       stats: async () => {
-        const r = await this.o.runner.run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'events', '--stats', id], { timeoutMs: 10_000 }).catch(() => null);
+        const r = await this.o.runner
+          .run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'events', '--stats', id], {
+            timeoutMs: 10_000,
+          })
+          .catch(() => null);
         const parsed = r && r.code === 0 ? parseRunscStats(r.stdout, seen, 0) : null;
         if (!parsed) throw new Error('stats_unavailable');
         return parsed;
@@ -205,8 +236,13 @@ export class RunscLauncher implements Launcher {
           await this.signal(id, 'SIGKILL', true);
           proc.kill('SIGKILL');
           await Promise.race([proc.wait(), new Promise((r) => setTimeout(r, 10_000))]);
-          const del = await this.o.runner.run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'delete', '--force', id], { timeoutMs: 20_000 }).catch(() => null);
-          if (!del || (del.code !== 0 && !/(does not exist|not found)/i.test(del.stderr))) throw new Error('destroy_failed');
+          const del = await this.o.runner
+            .run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'delete', '--force', id], {
+              timeoutMs: 20_000,
+            })
+            .catch(() => null);
+          if (!del || (del.code !== 0 && !/(does not exist|not found)/i.test(del.stderr)))
+            throw new Error('destroy_failed');
         }
         // 2. the network, then the bundle
         if (!(await teardown())) throw new Error('destroy_failed');
@@ -219,11 +255,26 @@ export class RunscLauncher implements Launcher {
   }
   private async signal(id: string, sig: 'SIGTERM' | 'SIGKILL', all: boolean): Promise<void> {
     await this.o.runner
-      .run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'kill', ...(all ? ['--all'] : []), id, sig], { timeoutMs: 10_000 })
+      .run(
+        [
+          this.o.binaries.runsc,
+          '--root',
+          this.o.runscRoot,
+          'kill',
+          ...(all ? ['--all'] : []),
+          id,
+          sig,
+        ],
+        { timeoutMs: 10_000 },
+      )
       .catch(() => undefined);
   }
   async listStray(owned: ReadonlySet<string>): Promise<string[]> {
-    const r = await this.o.runner.run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'list', '--format', 'json'], { timeoutMs: 15_000 }).catch(() => null);
+    const r = await this.o.runner
+      .run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'list', '--format', 'json'], {
+        timeoutMs: 15_000,
+      })
+      .catch(() => null);
     if (!r || r.code !== 0) return [];
     return parseRunscList(r.stdout).filter((id) => !owned.has(id.slice(CONTAINER_PREFIX.length)));
   }
@@ -232,13 +283,21 @@ export class RunscLauncher implements Launcher {
     for (const id of ids) {
       if (!id.startsWith(CONTAINER_PREFIX)) continue;
       await this.signal(id, 'SIGKILL', true);
-      const d = await this.o.runner.run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'delete', '--force', id], { timeoutMs: 20_000 }).catch(() => null);
+      const d = await this.o.runner
+        .run([this.o.binaries.runsc, '--root', this.o.runscRoot, 'delete', '--force', id], {
+          timeoutMs: 20_000,
+        })
+        .catch(() => null);
       if (d && d.code === 0) n++;
     }
     return n;
   }
   async health(): Promise<{ ok: boolean; note?: string }> {
-    const r = await this.o.runner.run([this.o.binaries.runsc, '--version'], { timeoutMs: 5_000 }).catch(() => null);
-    return r && r.code === 0 ? { ok: true, note: r.stdout.split('\n')[0]?.slice(0, 80) } : { ok: false, note: 'runsc_unavailable' };
+    const r = await this.o.runner
+      .run([this.o.binaries.runsc, '--version'], { timeoutMs: 5_000 })
+      .catch(() => null);
+    return r && r.code === 0
+      ? { ok: true, note: r.stdout.split('\n')[0]?.slice(0, 80) }
+      : { ok: false, note: 'runsc_unavailable' };
   }
 }

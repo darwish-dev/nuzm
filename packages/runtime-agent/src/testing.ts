@@ -27,7 +27,12 @@ export interface AgentRig {
   /** a second, UNTRUSTED signer: tokens from it must be refused */
   rogue: eg.Ed25519Signer;
   /** raw request through the handler (for tests that forge or tamper) */
-  rawCall(op: string, body: unknown, header?: string, headers?: Record<string, string>): Promise<{ status: number; json: unknown }>;
+  rawCall(
+    op: string,
+    body: unknown,
+    header?: string,
+    headers?: Record<string, string>,
+  ): Promise<{ status: number; json: unknown }>;
   dispose(): Promise<void>;
 }
 export interface RigOptions {
@@ -58,7 +63,12 @@ export async function createAgentRig(o: RigOptions = {}): Promise<AgentRig> {
     runtimeClass: 'gvisor-runsc',
     listen: { host: '127.0.0.1', port: 18443 },
     metrics: { host: '127.0.0.1', port: 19100 },
-    tls: { keyFile: '/etc/nuzm/tls/key.pem', certFile: '/etc/nuzm/tls/cert.pem', caFile: '/etc/nuzm/tls/ca.pem', clientFingerprints: ['a'.repeat(64)] },
+    tls: {
+      keyFile: '/etc/nuzm/tls/key.pem',
+      certFile: '/etc/nuzm/tls/cert.pem',
+      caFile: '/etc/nuzm/tls/ca.pem',
+      clientFingerprints: ['a'.repeat(64)],
+    },
     trustedControlKeys: { 'cp-test': trustedPem },
     workspaceRoot: join(dir, 'workspaces'),
     stateDir: join(dir, 'state'),
@@ -114,7 +124,11 @@ export async function createAgentRig(o: RigOptions = {}): Promise<AgentRig> {
       const res = await agent.handler({
         method: 'POST',
         path: `/v1/${op}`,
-        headers: { 'content-type': 'application/json', ...(header !== undefined ? { authorization: header } : {}), ...headers },
+        headers: {
+          'content-type': 'application/json',
+          ...(header !== undefined ? { authorization: header } : {}),
+          ...headers,
+        },
         body: buf,
       });
       return { status: res.status, json: JSON.parse(res.body.toString('utf8')) as unknown };
@@ -139,7 +153,9 @@ export async function tokenHeader(
 }
 
 /** the real-runtime port over a REAL agent (simulated launcher, loopback), started through the full fail-closed attestation path with a throw-away test key */
-export function createAgentNodeTarget(opts: { pump?: (ms: number) => Promise<void>; now?: () => number } = {}): eg.ConformanceTarget & { dispose(): Promise<void> } {
+export function createAgentNodeTarget(
+  opts: { pump?: (ms: number) => Promise<void>; now?: () => number } = {},
+): eg.ConformanceTarget & { dispose(): Promise<void> } {
   const kit = eg.createSimulatedKit();
   const now = opts.now ?? (() => Date.now());
   const rigs: AgentRig[] = [];
@@ -157,7 +173,13 @@ export function createAgentNodeTarget(opts: { pump?: (ms: number) => Promise<voi
       const node = { nodeId: rig.cfg.nodeId, endpointId: rig.cfg.endpointId };
       const svc = await eg.RealRuntimeService.start({
         mode: 'simulated',
-        nodes: [{ ...node, runtime: rig.runtime, attestation: kit.attestation(node, { now: new Date(now()) }) }],
+        nodes: [
+          {
+            ...node,
+            runtime: rig.runtime,
+            attestation: kit.attestation(node, { now: new Date(now()) }),
+          },
+        ],
         trust: kit.trusted,
         environments: ['staging'],
         now,
@@ -165,11 +187,18 @@ export function createAgentNodeTarget(opts: { pump?: (ms: number) => Promise<voi
         graceMs: 2000,
         artifactSink: { put: async () => undefined },
       });
-      return svc.portFor(ctx, { seedFiles: () => new Map(Object.entries(f.files())), canaries: () => [] });
+      return svc.portFor(ctx, {
+        seedFiles: () => new Map(Object.entries(f.files())),
+        canaries: () => [],
+      });
     },
     async leftovers() {
       if (!last) return [];
-      return [...(await last.agent.service.listWorkspaces()).map((w) => w.workspaceId), ...Array.from({ length: last.agent.service.activeCount() }, (_, i) => `run-${i}`), ...Array.from({ length: last.launcher.liveCount() }, (_, i) => `launched-${i}`)];
+      return [
+        ...(await last.agent.service.listWorkspaces()).map((w) => w.workspaceId),
+        ...Array.from({ length: last.agent.service.activeCount() }, (_, i) => `run-${i}`),
+        ...Array.from({ length: last.launcher.liveCount() }, (_, i) => `launched-${i}`),
+      ];
     },
     async dispose() {
       for (const r of rigs) await r.dispose();
@@ -178,7 +207,11 @@ export function createAgentNodeTarget(opts: { pump?: (ms: number) => Promise<voi
 }
 
 /** the hand-off rig over a real agent */
-export function createAgentHandoffRig(adapt: eg.PortAdapter, pump?: (ms: number) => Promise<void>, now: () => number = () => Date.now()): eg.HandoffRigFactory & { dispose(): Promise<void> } {
+export function createAgentHandoffRig(
+  adapt: eg.PortAdapter,
+  pump?: (ms: number) => Promise<void>,
+  now: () => number = () => Date.now(),
+): eg.HandoffRigFactory & { dispose(): Promise<void> } {
   const kit = eg.createSimulatedKit();
   const rigs: AgentRig[] = [];
   const PROJECT = () =>
@@ -196,7 +229,10 @@ export function createAgentHandoffRig(adapt: eg.PortAdapter, pump?: (ms: number)
         now,
         monitorMs: 1000,
         script: (spec) => {
-          const profile = Object.entries(eg.EXEC_PROFILES).find(([, p]) => p.argv.join(' ') === spec.argv.join(' '))?.[0] ?? '';
+          const profile =
+            Object.entries(eg.EXEC_PROFILES).find(
+              ([, p]) => p.argv.join(' ') === spec.argv.join(' '),
+            )?.[0] ?? '';
           return queues.get(profile)?.shift() ?? {};
         },
       });
@@ -204,7 +240,13 @@ export function createAgentHandoffRig(adapt: eg.PortAdapter, pump?: (ms: number)
       const node = { nodeId: rig.cfg.nodeId, endpointId: rig.cfg.endpointId };
       const svc = await eg.RealRuntimeService.start({
         mode: 'simulated',
-        nodes: [{ ...node, runtime: rig.runtime, attestation: kit.attestation(node, { now: new Date(now()) }) }],
+        nodes: [
+          {
+            ...node,
+            runtime: rig.runtime,
+            attestation: kit.attestation(node, { now: new Date(now()) }),
+          },
+        ],
         trust: kit.trusted,
         environments: ['staging'],
         now,
@@ -214,7 +256,12 @@ export function createAgentHandoffRig(adapt: eg.PortAdapter, pump?: (ms: number)
       });
       const sources: unknown[] = [];
       const port = svc.portFor(
-        { orgId: 'org-handoff', runId: 'run-handoff', enabledProfiles: o.enabledProfiles, projectScripts: [] },
+        {
+          orgId: 'org-handoff',
+          runId: 'run-handoff',
+          enabledProfiles: o.enabledProfiles,
+          projectScripts: [],
+        },
         {
           seedFiles: (src) => {
             sources.push(src ?? null);
@@ -228,7 +275,10 @@ export function createAgentHandoffRig(adapt: eg.PortAdapter, pump?: (ms: number)
         buildPort: adapt(port),
         script: (profile, ...b) => void queues.set(profile, [...(queues.get(profile) ?? []), ...b]),
         ranArgv: () => rig.launcher.launched.map((l) => [...l.spec.argv]),
-        leftovers: async () => [...(await rig.agent.service.listWorkspaces()).map((w) => w.workspaceId), ...Array.from({ length: rig.launcher.liveCount() }, (_, i) => `launched-${i}`)],
+        leftovers: async () => [
+          ...(await rig.agent.service.listWorkspaces()).map((w) => w.workspaceId),
+          ...Array.from({ length: rig.launcher.liveCount() }, (_, i) => `launched-${i}`),
+        ],
         sources: () => sources,
         appliesArtifactPolicy: true,
         pump,

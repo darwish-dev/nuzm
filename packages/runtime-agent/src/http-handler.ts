@@ -59,7 +59,8 @@ export function createRequestHandler(o: HandlerOptions): eg.NodeRequestHandler {
     if (req.method !== 'POST' || !m) return fail('not_found');
     const op = m[1] as eg.NodeOp;
     if (!(eg.NODE_OPS as readonly string[]).includes(op)) return fail('not_found');
-    if (!/^application\/json(\s*;.*)?$/i.test(req.headers['content-type'] ?? '')) return fail('bad_request');
+    if (!/^application\/json(\s*;.*)?$/i.test(req.headers['content-type'] ?? ''))
+      return fail('bad_request');
     if (req.body.length > eg.NODE_LIMITS.maxBodyBytes) return fail('too_large');
 
     const verdict = eg.verifyRequestToken({
@@ -90,7 +91,8 @@ export function createRequestHandler(o: HandlerOptions): eg.NodeRequestHandler {
 
     // the token must address exactly what the body addresses
     const bind = eg.requestBinding(op, body);
-    if (bind.workspaceId !== undefined && tok.workspaceId !== bind.workspaceId) return fail('forbidden');
+    if (bind.workspaceId !== undefined && tok.workspaceId !== bind.workspaceId)
+      return fail('forbidden');
     if (bind.handle !== undefined && tok.handle !== bind.handle) return fail('forbidden');
     if (bind.orgId !== undefined && tok.orgId !== bind.orgId) return fail('forbidden');
     const caller: Caller = { orgId: tok.orgId };
@@ -133,7 +135,12 @@ export function createRequestHandler(o: HandlerOptions): eg.NodeRequestHandler {
           await svc.destroy((body as eg.NodeRequestMap['destroy']).handle, caller);
           break;
         case 'listProduced':
-          result = { files: await svc.listProduced((body as eg.NodeRequestMap['listProduced']).workspaceId, caller) };
+          result = {
+            files: await svc.listProduced(
+              (body as eg.NodeRequestMap['listProduced']).workspaceId,
+              caller,
+            ),
+          };
           break;
         case 'readProduced': {
           const b = body as eg.NodeRequestMap['readProduced'];
@@ -141,7 +148,10 @@ export function createRequestHandler(o: HandlerOptions): eg.NodeRequestHandler {
           break;
         }
         case 'destroyWorkspace':
-          await svc.destroyWorkspace((body as eg.NodeRequestMap['destroyWorkspace']).workspaceId, caller);
+          await svc.destroyWorkspace(
+            (body as eg.NodeRequestMap['destroyWorkspace']).workspaceId,
+            caller,
+          );
           break;
         case 'listWorkspaces':
           result = { workspaces: await svc.listWorkspaces() };
@@ -155,7 +165,8 @@ export function createRequestHandler(o: HandlerOptions): eg.NodeRequestHandler {
       }
       return json(200, { ok: true, result });
     } catch (e) {
-      if (e instanceof NodeError) return fail(e.code, e.code === 'spec_refused' ? e.detail : undefined);
+      if (e instanceof NodeError)
+        return fail(e.code, e.code === 'spec_refused' ? e.detail : undefined);
       o.metrics.inc('nuzm_agent_internal_errors_total');
       return fail('internal');
     }

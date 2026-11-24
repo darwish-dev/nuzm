@@ -9,14 +9,36 @@ const pump = async (ms: number) => {
 };
 let rig: AgentRig;
 const decl = (): eg.NodeDeclaration => ({
-  node: { nodeId: 'sim-node', endpointId: 'sim-endpoint', environment: 'staging', os: 'linux', kernel: '0.0-sim', arch: 'x86_64' },
+  node: {
+    nodeId: 'sim-node',
+    endpointId: 'sim-endpoint',
+    environment: 'staging',
+    os: 'linux',
+    kernel: '0.0-sim',
+    arch: 'x86_64',
+  },
   runtime: { class: 'gvisor-runsc', version: '0', imageDigests: [RIG_IMAGE] },
-  host: { cgroupsV2: true, dedicatedNode: true, virtualization: 'n/a', swapDisabled: true, containerRuntimeSocketNotExposed: true, egress: 'default-deny-proxy-only', diskQuota: 'project-quota', metadataServiceBlocked: true },
+  host: {
+    cgroupsV2: true,
+    dedicatedNode: true,
+    virtualization: 'n/a',
+    swapDisabled: true,
+    containerRuntimeSocketNotExposed: true,
+    egress: 'default-deny-proxy-only',
+    diskQuota: 'project-quota',
+    metadataServiceBlocked: true,
+  },
 });
 const conn = (): eg.NodeEndpointConfig => ({
-  nodeId: 'sim-node', endpointId: 'sim-endpoint', baseUrl: 'https://sim-node.example:8443',
+  nodeId: 'sim-node',
+  endpointId: 'sim-endpoint',
+  baseUrl: 'https://sim-node.example:8443',
   signer: { keyId: 'cp-test', keyRef: 'vault://qualification/cp-signer' },
-  tls: { caRef: 'vault://qualification/ca', certRef: 'vault://qualification/cert', keyRef: 'vault://qualification/key' },
+  tls: {
+    caRef: 'vault://qualification/ca',
+    certRef: 'vault://qualification/cert',
+    keyRef: 'vault://qualification/key',
+  },
 });
 const input = (over: Partial<eg.LiveRunInput> = {}): eg.LiveRunInput => ({
   connection: conn(),
@@ -36,18 +58,57 @@ describe('qualification-time connection (S8/S10 harness)', () => {
 
   it('refuses without an approval reference confirmed in the environment, for a production declaration, another node, a runc class and a non-https endpoint', async () => {
     const reasons = async (i: eg.LiveRunInput) => eg.liveRunRefusals(i);
-    expect(await reasons(input({ approvalRef: undefined }))).toContain('approval_reference_missing');
-    expect(await reasons(input({ approvalRef: 'whatever' }))).toContain('approval_reference_missing');
+    expect(await reasons(input({ approvalRef: undefined }))).toContain(
+      'approval_reference_missing',
+    );
+    expect(await reasons(input({ approvalRef: 'whatever' }))).toContain(
+      'approval_reference_missing',
+    );
     expect(await reasons(input({ env: {} }))).toContain('approval_not_confirmed_in_environment');
-    expect(await reasons(input({ declaration: { ...decl(), node: { ...decl().node, environment: 'production' } } }))).toContain('node_not_staging');
-    expect(await reasons(input({ connection: { ...conn(), nodeId: 'other-node' } }))).toContain('connection_node_mismatch');
-    expect(await reasons(input({ declaration: { ...decl(), runtime: { ...decl().runtime, class: 'runc' } } }))).toContain('runtime_class_not_isolating');
-    expect(await reasons(input({ transport: undefined, connection: { ...conn(), baseUrl: 'http://203.0.113.9:8443' } }))).toContain('live_requires_https_mtls');
-    await expect(eg.createQualificationTarget(input({ approvalRef: undefined }))).rejects.toThrow(eg.LiveRunRefused);
+    expect(
+      await reasons(
+        input({ declaration: { ...decl(), node: { ...decl().node, environment: 'production' } } }),
+      ),
+    ).toContain('node_not_staging');
+    expect(await reasons(input({ connection: { ...conn(), nodeId: 'other-node' } }))).toContain(
+      'connection_node_mismatch',
+    );
+    expect(
+      await reasons(
+        input({ declaration: { ...decl(), runtime: { ...decl().runtime, class: 'runc' } } }),
+      ),
+    ).toContain('runtime_class_not_isolating');
+    expect(
+      await reasons(
+        input({
+          transport: undefined,
+          connection: { ...conn(), baseUrl: 'http://203.0.113.9:8443' },
+        }),
+      ),
+    ).toContain('live_requires_https_mtls');
+    await expect(eg.createQualificationTarget(input({ approvalRef: undefined }))).rejects.toThrow(
+      eg.LiveRunRefused,
+    );
   });
   it('refuses a node that does not answer as the declared node or serves an undeclared image', async () => {
-    await expect(eg.createQualificationTarget(input({ declaration: { ...decl(), runtime: { ...decl().runtime, imageDigests: [`sha256:${'1'.repeat(64)}`] } } }))).rejects.toThrow(/node_image_not_declared/);
-    await expect(eg.createQualificationTarget(input({ connection: { ...conn(), nodeId: 'sim-node' }, declaration: { ...decl(), node: { ...decl().node, endpointId: 'another' } } }))).rejects.toThrow(/connection_endpoint_mismatch/);
+    await expect(
+      eg.createQualificationTarget(
+        input({
+          declaration: {
+            ...decl(),
+            runtime: { ...decl().runtime, imageDigests: [`sha256:${'1'.repeat(64)}`] },
+          },
+        }),
+      ),
+    ).rejects.toThrow(/node_image_not_declared/);
+    await expect(
+      eg.createQualificationTarget(
+        input({
+          connection: { ...conn(), nodeId: 'sim-node' },
+          declaration: { ...decl(), node: { ...decl().node, endpointId: 'another' } },
+        }),
+      ),
+    ).rejects.toThrow(/connection_endpoint_mismatch/);
   });
   it('a loopback transport is always labelled SIMULATED, never NOT VERIFIED or LIVE-VERIFIED', async () => {
     const t = await eg.createQualificationTarget(input());
@@ -58,7 +119,9 @@ describe('qualification-time connection (S8/S10 harness)', () => {
 
 describe('the live conformance harness runs the same suite through the agent', () => {
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
     vi.setSystemTime(new Date('2026-11-24T12:00:00.000Z'));
   });
   afterEach(() => vi.useRealTimers());
@@ -83,7 +146,8 @@ describe('the live conformance harness runs the same suite through the agent', (
       pump,
       supports: () => true,
       portFor: async (ctx, f) => (await base(f)).portFor(ctx, f),
-      leftovers: async () => (await current.agent.service.listWorkspaces()).map((w) => w.workspaceId),
+      leftovers: async () =>
+        (await current.agent.service.listWorkspaces()).map((w) => w.workspaceId),
     };
     const r = await eg.runPortConformance(target, fixtures);
     expect(r.fail, JSON.stringify(r.results.filter((x) => x.status === 'FAIL'))).toBe(0);

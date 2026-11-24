@@ -54,5 +54,11 @@ export function planNetwork(
     [ip, 'link', 'del', host],
     [ip, 'netns', 'del', ns],
   ];
-  return { setup, teardown, netnsName: ns, netnsPath: `/var/run/netns/${ns}`, runscNetwork: 'sandbox' };
+  return {
+    setup,
+    teardown,
+    netnsName: ns,
+    netnsPath: `/var/run/netns/${ns}`,
+    runscNetwork: 'sandbox',
+  };
 }

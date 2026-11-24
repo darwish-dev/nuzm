@@ -51,7 +51,12 @@ export class WorkspaceStore {
 
   dirs(id: string) {
     const base = join(this.o.root, id);
-    return { base, work: join(base, 'work'), scratch: join(base, 'scratch'), meta: join(base, 'meta.json') };
+    return {
+      base,
+      work: join(base, 'work'),
+      scratch: join(base, 'scratch'),
+      meta: join(base, 'meta.json'),
+    };
   }
   async meta(id: string): Promise<WorkspaceMeta | null> {
     try {
@@ -63,9 +68,11 @@ export class WorkspaceStore {
   }
   async create(w: eg.WorkspaceSpec): Promise<void> {
     if (!w.workspaceId.includes(w.runId)) throw new WorkspaceError('workspace_not_bound_to_run');
-    if (!(w.diskMb > 0) || w.diskMb > this.o.maxWorkspaceDiskMb) throw new WorkspaceError('disk_quota_missing');
+    if (!(w.diskMb > 0) || w.diskMb > this.o.maxWorkspaceDiskMb)
+      throw new WorkspaceError('disk_quota_missing');
     const d = this.dirs(w.workspaceId);
-    if ((await lstat(d.base).catch(() => null)) !== null) throw new WorkspaceError('workspace_exists');
+    if ((await lstat(d.base).catch(() => null)) !== null)
+      throw new WorkspaceError('workspace_exists');
     await mkdir(d.base, { mode: 0o700 });
     try {
       // 0777 + sticky-free dirs are safe only because `base` is 0700 and the sandbox sees nothing above its own mount
@@ -113,7 +120,14 @@ export class WorkspaceStore {
     try {
       return await readFileConfined(this.dirs(id).work, path, maxBytes);
     } catch (e) {
-      if (e instanceof UnsafePath) throw new WorkspaceError(e.code === 'path_escapes_workspace' ? 'path_escapes_workspace' : e.code === 'too_large' ? 'too_large' : 'not_a_regular_file');
+      if (e instanceof UnsafePath)
+        throw new WorkspaceError(
+          e.code === 'path_escapes_workspace'
+            ? 'path_escapes_workspace'
+            : e.code === 'too_large'
+              ? 'too_large'
+              : 'not_a_regular_file',
+        );
       throw e;
     }
   }

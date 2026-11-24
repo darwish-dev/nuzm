@@ -4,17 +4,32 @@ import { describe, expect, it } from 'vitest';
 
 // R5 (structural): no code path of the agent or the node client can start a process on the machine it runs on, except through `NodeCommandRunner`, which refuses off the attested node.
 const here = __dirname;
-const production = (dir: string) => readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.spec.ts')).map((f) => ({ f: join(dir, f), text: readFileSync(join(dir, f), 'utf8') }));
-const roots = [here, join(here, '../../domain/src/ai/execution-gateway/node-protocol'), join(here, '../../../apps/api/src/modules/execution'), join(here, '../../../apps/api/src/modules/execution/internal')];
+const production = (dir: string) =>
+  readdirSync(dir)
+    .filter((f) => f.endsWith('.ts') && !f.endsWith('.spec.ts'))
+    .map((f) => ({ f: join(dir, f), text: readFileSync(join(dir, f), 'utf8') }));
+const roots = [
+  here,
+  join(here, '../../domain/src/ai/execution-gateway/node-protocol'),
+  join(here, '../../../apps/api/src/modules/execution'),
+  join(here, '../../../apps/api/src/modules/execution/internal'),
+];
 // importing a process-starting or code-evaluating facility is what matters (`RegExp#exec` and the CommandRunner's own `spawn` method are not): child_process, vm, worker_threads, cluster, eval, new Function
-const PROCESS_API = /(?:from\s+|require\()\s*['"](?:node:)?(?:child_process|vm|worker_threads|cluster)['"]|\beval\(|new Function\(/;
+const PROCESS_API =
+  /(?:from\s+|require\()\s*['"](?:node:)?(?:child_process|vm|worker_threads|cluster)['"]|\beval\(|new Function\(/;
 
 describe('no host execution (R5)', () => {
   it('only command-runner.ts touches child_process, and only through the allow-listed, node-guarded runner', () => {
     const offenders: string[] = [];
     for (const r of roots)
       for (const { f, text } of production(r)) {
-        const code = text.split('\n').filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*')).join('\n');
+        const code = text
+          .split('\n')
+          .filter(
+            (l) =>
+              !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*'),
+          )
+          .join('\n');
         if (PROCESS_API.test(code) && !f.endsWith('command-runner.ts')) offenders.push(f);
       }
     expect(offenders).toEqual([]);

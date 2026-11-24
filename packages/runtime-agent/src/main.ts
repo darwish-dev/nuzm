@@ -39,12 +39,18 @@ async function main(argv: string[]): Promise<number> {
     }
     throw e;
   }
-  const server = await createNodeHttpsServer(cfg, { handler: a.handler, metrics: a.metrics, clientFingerprints: cfg.tls.clientFingerprints });
+  const server = await createNodeHttpsServer(cfg, {
+    handler: a.handler,
+    metrics: a.metrics,
+    clientFingerprints: cfg.tls.clientFingerprints,
+  });
   const metricsServer = createMetricsServer(a.metrics);
   await new Promise<void>((r) => server.listen(cfg.listen.port, cfg.listen.host, r));
   await new Promise<void>((r) => metricsServer.listen(cfg.metrics.port, cfg.metrics.host, r));
   const reaper = setInterval(() => void a.service.reap().catch(() => undefined), 60_000);
-  console.log(`nuzm-runtime-agent ${cfg.nodeId} listening on ${cfg.listen.host}:${cfg.listen.port} (launcher=${cfg.launcher})`);
+  console.log(
+    `nuzm-runtime-agent ${cfg.nodeId} listening on ${cfg.listen.host}:${cfg.listen.port} (launcher=${cfg.launcher})`,
+  );
   return new Promise<number>((resolve) => {
     const stop = () => {
       clearInterval(reaper);

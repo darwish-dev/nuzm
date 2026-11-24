@@ -7,30 +7,57 @@ import { LocalDevSandboxRuntime } from './local-dev-runtime';
  * covers the sandbox runner (the Android runner is covered in mobile/internal/builds/host-runner-guard.spec.ts; live preview uses the same guard at its single call site in `start`).
  * Nothing here executes anything: each case is refused before any process, directory or file is created.
  */
-const spec = (origin: unknown) => ({ sandboxId: 's', orgId: 'o', projectId: 'p', quota: { vcpu: 1, memoryMb: 512, diskGb: 1, pids: 32, buildTimeoutMinutes: 1 }, egressProfile: 'none', origin });
+const spec = (origin: unknown) => ({
+  sandboxId: 's',
+  orgId: 'o',
+  projectId: 'p',
+  quota: { vcpu: 1, memoryMb: 512, diskGb: 1, pids: 32, buildTimeoutMinutes: 1 },
+  egressProfile: 'none',
+  origin,
+});
 const saved = { a: process.env.SANDBOX_LOCAL_DEV, b: process.env.NUZM_LOCAL_DEV_EXEC };
 beforeEach(() => {
   process.env.SANDBOX_LOCAL_DEV = 'true';
   process.env.NUZM_LOCAL_DEV_EXEC = '1';
 });
 afterEach(() => {
-  for (const [k, v] of [['SANDBOX_LOCAL_DEV', saved.a], ['NUZM_LOCAL_DEV_EXEC', saved.b]] as const) {
+  for (const [k, v] of [
+    ['SANDBOX_LOCAL_DEV', saved.a],
+    ['NUZM_LOCAL_DEV_EXEC', saved.b],
+  ] as const) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
 });
-const BAD: [string, unknown][] = [['no origin', undefined], ['model', 'model'], ['customer', 'customer'], ['"template" as text', 'template'], ['a JSON body claiming template', { kind: 'template', templateId: 'x1' }]];
+const BAD: [string, unknown][] = [
+  ['no origin', undefined],
+  ['model', 'model'],
+  ['customer', 'customer'],
+  ['"template" as text', 'template'],
+  ['a JSON body claiming template', { kind: 'template', templateId: 'x1' }],
+];
 
 describe('LocalDevSandboxRuntime (host runner)', () => {
   it.each(BAD)('refuses %s', async (_n, origin) => {
-    await expect(new LocalDevSandboxRuntime().create(spec(origin) as never)).rejects.toBeInstanceOf(eg.HostExecRefused);
+    await expect(new LocalDevSandboxRuntime().create(spec(origin) as never)).rejects.toBeInstanceOf(
+      eg.HostExecRefused,
+    );
   });
   it('refuses without the opt-in env even for a template origin, and is audited', async () => {
     delete process.env.NUZM_LOCAL_DEV_EXEC;
     const seen: eg.HostExecDecision[] = [];
     eg.setHostExecAuditor((d) => seen.push(d));
-    await expect(new LocalDevSandboxRuntime().create(spec(eg.templateOrigin('t-fixture')) as never)).rejects.toMatchObject({ reasons: ['opt_in_missing'] });
-    expect(seen).toEqual([{ path: 'local-dev-sandbox', allowed: false, reasons: ['opt_in_missing'], templateId: 't-fixture' }]);
+    await expect(
+      new LocalDevSandboxRuntime().create(spec(eg.templateOrigin('t-fixture')) as never),
+    ).rejects.toMatchObject({ reasons: ['opt_in_missing'] });
+    expect(seen).toEqual([
+      {
+        path: 'local-dev-sandbox',
+        allowed: false,
+        reasons: ['opt_in_missing'],
+        templateId: 't-fixture',
+      },
+    ]);
     eg.setHostExecAuditor(() => undefined);
   });
   it('allows a template origin with the opt-in (and creates only an empty temp directory)', async () => {

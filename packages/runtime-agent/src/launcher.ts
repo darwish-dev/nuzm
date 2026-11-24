@@ -78,8 +78,10 @@ export class SimulatedLauncher implements Launcher {
     for (const p of b.produced ?? []) {
       const abs = join(req.workDir, p.path);
       await mkdir(dirname(abs), { recursive: true });
-      if (p.kind === 'file') await writeFile(abs, b.producedContent?.[p.path] ?? 'x'.repeat(Math.max(0, p.bytes)));
-      else if (p.kind === 'symlink') await symlink('/nonexistent-target', abs).catch(() => undefined);
+      if (p.kind === 'file')
+        await writeFile(abs, b.producedContent?.[p.path] ?? 'x'.repeat(Math.max(0, p.bytes)));
+      else if (p.kind === 'symlink')
+        await symlink('/nonexistent-target', abs).catch(() => undefined);
       else if (p.kind === 'hardlink') {
         const base = join(req.workDir, `${p.path}.base`);
         await writeFile(base, 'x');

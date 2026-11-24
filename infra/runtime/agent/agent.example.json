@@ -11,7 +11,9 @@
     "caFile": "/etc/nuzm/tls/control-plane-ca.pem",
     "clientFingerprints": ["<sha256 hex of the control plane's client certificate: pinned>"]
   },
-  "trustedControlKeys": { "cp-2026-12": "<PEM of the control plane's PUBLIC Ed25519 token-verification key>" },
+  "trustedControlKeys": {
+    "cp-2026-12": "<PEM of the control plane's PUBLIC Ed25519 token-verification key>"
+  },
   "workspaceRoot": "/var/lib/nuzm/workspaces",
   "stateDir": "/var/lib/nuzm/state",
   "auditFile": "/var/log/nuzm/agent-audit.jsonl",

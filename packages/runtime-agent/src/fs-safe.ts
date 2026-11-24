@@ -13,7 +13,9 @@ import { executionGateway as eg } from '@nuzm/domain';
  * These are control-plane-of-the-node defences; the workload's own isolation (gVisor) is what actually contains it, and nothing here claims otherwise.
  */
 export class UnsafePath extends Error {
-  constructor(readonly code: 'path_escapes_workspace' | 'not_a_regular_file' | 'too_large' | 'not_found') {
+  constructor(
+    readonly code: 'path_escapes_workspace' | 'not_a_regular_file' | 'too_large' | 'not_found',
+  ) {
     super(code);
     this.name = 'UnsafePath';
   }
@@ -70,7 +72,11 @@ export async function writeFileConfined(
 }
 
 /** a bounded read of one regular, singly-linked file; the checks run on the opened descriptor */
-export async function readFileConfined(root: string, rel: string, maxBytes: number): Promise<string> {
+export async function readFileConfined(
+  root: string,
+  rel: string,
+  maxBytes: number,
+): Promise<string> {
   const segs = assertRelative(rel);
   let cur = root;
   for (const seg of segs.slice(0, -1)) {
@@ -80,10 +86,12 @@ export async function readFileConfined(root: string, rel: string, maxBytes: numb
     if (st.isSymbolicLink() || !st.isDirectory()) throw new UnsafePath('path_escapes_workspace');
   }
   const target = join(cur, segs[segs.length - 1]!);
-  const fh = await open(target, C.O_RDONLY | NOFOLLOW | C.O_NONBLOCK).catch((e: NodeJS.ErrnoException) => {
-    if (e.code === 'ENOENT') throw new UnsafePath('not_found');
-    throw new UnsafePath('not_a_regular_file'); // ELOOP (symlink), EACCES, ENXIO (FIFO without writer)...
-  });
+  const fh = await open(target, C.O_RDONLY | NOFOLLOW | C.O_NONBLOCK).catch(
+    (e: NodeJS.ErrnoException) => {
+      if (e.code === 'ENOENT') throw new UnsafePath('not_found');
+      throw new UnsafePath('not_a_regular_file'); // ELOOP (symlink), EACCES, ENXIO (FIFO without writer)...
+    },
+  );
   try {
     const st = await fh.stat();
     if (!st.isFile() || st.nlink !== 1) throw new UnsafePath('not_a_regular_file');
@@ -145,7 +153,10 @@ export async function listOutputs(
 }
 
 /** total bytes and entry count under a directory, without following links (used for accounting, never for security decisions) */
-export async function treeUsage(dir: string, maxEntries = 500_000): Promise<{ bytes: number; entries: number }> {
+export async function treeUsage(
+  dir: string,
+  maxEntries = 500_000,
+): Promise<{ bytes: number; entries: number }> {
   let bytes = 0;
   let entries = 0;
   const walk = async (d: string): Promise<void> => {

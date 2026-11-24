@@ -1,5 +1,11 @@
 import { createPublicKey, sign as edSign, type KeyObject } from 'node:crypto';
-import { ATTESTATION_SCHEMA, attestationSigningBytes, verifyAttestation, type AttestationExpectation, type IsolationAttestation } from './attestation';
+import {
+  ATTESTATION_SCHEMA,
+  attestationSigningBytes,
+  verifyAttestation,
+  type AttestationExpectation,
+  type IsolationAttestation,
+} from './attestation';
 import type { DraftAttestation } from './attestation-draft';
 import { DEFAULT_MIN_ISOLATING_ATTEMPTS, DEFAULT_MIN_SUITE_VERSION } from './real-runtime';
 
@@ -26,25 +32,46 @@ export function completeAndSignAttestation(
   draft: DraftAttestation,
   c: ReviewerCompletion,
   privateKey: KeyObject,
-  verifyWith: Omit<AttestationExpectation, 'mode' | 'nodeId' | 'endpointId' | 'minSuiteVersion' | 'minIsolatingAttempts' | 'maxValidityDays'> & Partial<Pick<AttestationExpectation, 'minSuiteVersion' | 'minIsolatingAttempts' | 'maxValidityDays'>>,
+  verifyWith: Omit<
+    AttestationExpectation,
+    | 'mode'
+    | 'nodeId'
+    | 'endpointId'
+    | 'minSuiteVersion'
+    | 'minIsolatingAttempts'
+    | 'maxValidityDays'
+  > &
+    Partial<
+      Pick<AttestationExpectation, 'minSuiteVersion' | 'minIsolatingAttempts' | 'maxValidityDays'>
+    >,
 ): { attestation: IsolationAttestation; verdict: ReturnType<typeof verifyAttestation> } {
   const why: string[] = [];
   const s = draft.evidence.escapeSuite;
   if (draft.schema !== ATTESTATION_SCHEMA) why.push('draft_schema_unknown');
   if (s.escaped !== 0) why.push('draft_has_escaped_attempts');
   if (s.notVerified !== 0) why.push('draft_has_unverified_attempts');
-  if (s.isolatingAttempts < (verifyWith.minIsolatingAttempts ?? DEFAULT_MIN_ISOLATING_ATTEMPTS)) why.push('draft_isolating_set_incomplete');
+  if (s.isolatingAttempts < (verifyWith.minIsolatingAttempts ?? DEFAULT_MIN_ISOLATING_ATTEMPTS))
+    why.push('draft_isolating_set_incomplete');
   if (s.blocked !== s.isolatingAttempts) why.push('draft_not_all_blocked');
   if (privateKey.asymmetricKeyType !== 'ed25519') why.push('reviewer_key_not_ed25519');
-  if (!c.keyId || !c.securityReview.ref || !c.securityReview.reviewer || !c.d21) why.push('reviewer_completion_incomplete');
+  if (!c.keyId || !c.securityReview.ref || !c.securityReview.reviewer || !c.d21)
+    why.push('reviewer_completion_incomplete');
   if (why.length > 0) throw new SignRefused(why);
   const body: Omit<IsolationAttestation, 'signature'> = {
     ...draft,
     attestationId: c.attestationId ?? draft.attestationId.replace(/^draft-/, 'att-'),
-    evidence: { ...draft.evidence, label: 'LIVE-VERIFIED', securityReview: { ...c.securityReview }, decisionRefs: { d21: c.d21 } },
+    evidence: {
+      ...draft.evidence,
+      label: 'LIVE-VERIFIED',
+      securityReview: { ...c.securityReview },
+      decisionRefs: { d21: c.d21 },
+    },
     signer: { keyId: c.keyId },
   };
-  const attestation: IsolationAttestation = { ...body, signature: edSign(null, attestationSigningBytes(body), privateKey).toString('base64') };
+  const attestation: IsolationAttestation = {
+    ...body,
+    signature: edSign(null, attestationSigningBytes(body), privateKey).toString('base64'),
+  };
   const pem = createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString();
   const verdict = verifyAttestation(
     attestation,

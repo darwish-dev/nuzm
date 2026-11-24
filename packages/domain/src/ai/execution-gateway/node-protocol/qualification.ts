@@ -34,29 +34,51 @@ export interface LiveRunInput {
 }
 export function liveRunRefusals(i: LiveRunInput): string[] {
   const r: string[] = [];
-  if (!i.approvalRef || !/^(HG-10-02|D-21)/.test(i.approvalRef)) r.push('approval_reference_missing');
-  else if (i.env.NUZM_QUALIFICATION_APPROVED !== i.approvalRef) r.push('approval_not_confirmed_in_environment');
+  if (!i.approvalRef || !/^(HG-10-02|D-21)/.test(i.approvalRef))
+    r.push('approval_reference_missing');
+  else if (i.env.NUZM_QUALIFICATION_APPROVED !== i.approvalRef)
+    r.push('approval_not_confirmed_in_environment');
   if (i.declaration.node.environment !== 'staging') r.push('node_not_staging');
   if (i.connection.nodeId !== i.declaration.node.nodeId) r.push('connection_node_mismatch');
-  if (i.connection.endpointId !== i.declaration.node.endpointId) r.push('connection_endpoint_mismatch');
-  if (!(ACCEPTABLE_RUNTIME_CLASSES as readonly string[]).includes(i.declaration.runtime.class)) r.push('runtime_class_not_isolating');
+  if (i.connection.endpointId !== i.declaration.node.endpointId)
+    r.push('connection_endpoint_mismatch');
+  if (!(ACCEPTABLE_RUNTIME_CLASSES as readonly string[]).includes(i.declaration.runtime.class))
+    r.push('runtime_class_not_isolating');
   if (!i.transport && !/^https:\/\//.test(i.connection.baseUrl)) r.push('live_requires_https_mtls');
   return r;
 }
-export async function connectForQualification(i: LiveRunInput): Promise<{ node: RemoteWorkspaceRuntime; label: 'NOT VERIFIED' | 'SIMULATED'; imageDigests: string[] }> {
+export async function connectForQualification(i: LiveRunInput): Promise<{
+  node: RemoteWorkspaceRuntime;
+  label: 'NOT VERIFIED' | 'SIMULATED';
+  imageDigests: string[];
+}> {
   const why = liveRunRefusals(i);
   if (why.length > 0) throw new LiveRunRefused(why);
-  const node = connectNode({ ...i.connection, runtimeClass: i.declaration.runtime.class }, i.resolve, { mode: 'simulated', now: i.now, transport: i.transport });
+  const node = connectNode(
+    { ...i.connection, runtimeClass: i.declaration.runtime.class },
+    i.resolve,
+    { mode: 'simulated', now: i.now, transport: i.transport },
+  );
   let ident;
   try {
     ident = await node.identity();
   } catch {
     throw new LiveRunRefused(['node_unreachable']);
   }
-  if (ident.nodeId !== i.declaration.node.nodeId || ident.endpointId !== i.declaration.node.endpointId) throw new LiveRunRefused(['node_identity_mismatch']);
-  if (ident.runtimeClass !== i.declaration.runtime.class) throw new LiveRunRefused(['node_runtime_class_mismatch']);
-  if (!ident.imageDigests.every((d) => i.declaration.runtime.imageDigests.includes(d))) throw new LiveRunRefused(['node_image_not_declared']);
-  return { node, label: node.transportKind === 'https-mtls' ? 'NOT VERIFIED' : 'SIMULATED', imageDigests: [...ident.imageDigests] };
+  if (
+    ident.nodeId !== i.declaration.node.nodeId ||
+    ident.endpointId !== i.declaration.node.endpointId
+  )
+    throw new LiveRunRefused(['node_identity_mismatch']);
+  if (ident.runtimeClass !== i.declaration.runtime.class)
+    throw new LiveRunRefused(['node_runtime_class_mismatch']);
+  if (!ident.imageDigests.every((d) => i.declaration.runtime.imageDigests.includes(d)))
+    throw new LiveRunRefused(['node_image_not_declared']);
+  return {
+    node,
+    label: node.transportKind === 'https-mtls' ? 'NOT VERIFIED' : 'SIMULATED',
+    imageDigests: [...ident.imageDigests],
+  };
 }
 
 /** a conformance target over the real node: the SAME fixtures, run with the real files (`fixture.simulate` is ignored by a real node) */
@@ -73,13 +95,22 @@ export async function createQualificationTarget(i: LiveRunInput): Promise<Confor
     async portFor(ctx, f) {
       const svc = await RealRuntimeService.start({
         mode: 'simulated',
-        nodes: [{ ...id, runtime: node, attestation: kit.attestation(id, { now: new Date(now()), imageDigests }) }],
+        nodes: [
+          {
+            ...id,
+            runtime: node,
+            attestation: kit.attestation(id, { now: new Date(now()), imageDigests }),
+          },
+        ],
         trust: kit.trusted,
         environments: ['staging'],
         now,
         artifactSink: { put: async () => undefined },
       });
-      return svc.portFor(ctx, { seedFiles: () => new Map(Object.entries(f.files())), canaries: () => [] });
+      return svc.portFor(ctx, {
+        seedFiles: () => new Map(Object.entries(f.files())),
+        canaries: () => [],
+      });
     },
     async leftovers() {
       return (await node.listWorkspaces()).map((w) => w.workspaceId);

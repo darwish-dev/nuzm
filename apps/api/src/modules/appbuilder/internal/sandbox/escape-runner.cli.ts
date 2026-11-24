@@ -36,11 +36,14 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
     if (connectionFile && secretsDir && /^https:\/\//.test(endpoint)) {
       const conn = read(connectionFile) as eg.NodeEndpointConfig;
       if (conn.baseUrl !== endpoint) {
-        console.error('REFUSED: --endpoint must equal the connection file\'s baseUrl');
+        console.error("REFUSED: --endpoint must equal the connection file's baseUrl");
         return 2;
       }
       // the runner re-checks approval, staging, node identity and presents the node as verified to the suite only in a live qualification
-      connect = async () => eg.connectNode(conn, fileSecretResolver(secretsDir, { repoRoot: process.cwd() }), { mode: 'simulated' });
+      connect = async () =>
+        eg.connectNode(conn, fileSecretResolver(secretsDir, { repoRoot: process.cwd() }), {
+          mode: 'simulated',
+        });
     }
     const report = await runQualification({
       connect,

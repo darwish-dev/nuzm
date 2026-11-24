@@ -53,7 +53,8 @@ export interface ApprovalRow {
   revokedAt: string | null;
   revokeReason: string | null;
 }
-const iso = (v: unknown): string | null => (v === null || v === undefined ? null : new Date(v as string).toISOString());
+const iso = (v: unknown): string | null =>
+  v === null || v === undefined ? null : new Date(v as string).toISOString();
 const toJob = (r: Record<string, unknown>): JobRow => ({
   id: r.id as string,
   orgId: r.org_id as string,
@@ -101,31 +102,49 @@ export class PgExecutionStore {
 
   // ------------------------------------------------------------------ jobs
   /** idempotent per (org, idempotencyKey): a replay returns the stored job (`created: false`) */
-  async enqueue(j: NewJob, initial: Extract<eg.JobState, 'requested' | 'queued' | 'awaiting_approval'> = 'queued'): Promise<{ job: JobRow; created: boolean }> {
+  async enqueue(
+    j: NewJob,
+    initial: Extract<eg.JobState, 'requested' | 'queued' | 'awaiting_approval'> = 'queued',
+  ): Promise<{ job: JobRow; created: boolean }> {
     return this.db.withOrg(j.orgId, async (c) => {
       const ins = await c.query(
         `INSERT INTO execution.jobs (id, org_id, run_id, idempotency_key, profile, decision_digest, state, origin, requires_approval, data_region)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (org_id, idempotency_key) DO NOTHING RETURNING *`,
-        [this.newId(), j.orgId, j.runId, j.idempotencyKey, j.profile, j.decisionDigest, initial, j.origin, j.requiresApproval, j.dataRegion],
+        [
+          this.newId(),
+          j.orgId,
+          j.runId,
+          j.idempotencyKey,
+          j.profile,
+          j.decisionDigest,
+          initial,
+          j.origin,
+          j.requiresApproval,
+          j.dataRegion,
+        ],
       );
       if (ins.rows[0]) {
         await this.log(c, ins.rows[0] as Record<string, unknown>, 'requested', initial, 'enqueued');
         return { job: toJob(ins.rows[0]), created: true };
       }
-      const old = await c.query(`SELECT * FROM execution.jobs WHERE org_id = $1 AND idempotency_key = $2`, [j.orgId, j.idempotencyKey]);
+      const old = await c.query(
+        `SELECT * FROM execution.jobs WHERE org_id = $1 AND idempotency_key = $2`,
+        [j.orgId, j.idempotencyKey],
+      );
       return { job: toJob(old.rows[0]), created: false };
     });
   }
-  private async log(c: PoolClient, job: Record<string, unknown>, from: string, to: string, cause: string): Promise<void> {
-    await c.query(`INSERT INTO execution.job_transitions (id, job_id, org_id, from_state, to_state, cause, data_region) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [
-      this.newId(),
-      job.id,
-      job.org_id,
-      from,
-      to,
-      cause,
-      job.data_region,
-    ]);
+  private async log(
+    c: PoolClient,
+    job: Record<string, unknown>,
+    from: string,
+    to: string,
+    cause: string,
+  ): Promise<void> {
+    await c.query(
+      `INSERT INTO execution.job_transitions (id, job_id, org_id, from_state, to_state, cause, data_region) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [this.newId(), job.id, job.org_id, from, to, cause, job.data_region],
+    );
   }
   async get(orgId: string, jobId: string): Promise<JobRow | null> {
     return this.db.withOrg(orgId, async (c) => {
@@ -142,7 +161,14 @@ export class PgExecutionStore {
     jobId: string,
     to: eg.JobState,
     cause: string,
-    patch: { outcomeStatus?: string; exitCode?: number | null; durationMs?: number; truncated?: boolean; artifactCount?: number; approvalId?: string } = {},
+    patch: {
+      outcomeStatus?: string;
+      exitCode?: number | null;
+      durationMs?: number;
+      truncated?: boolean;
+      artifactCount?: number;
+      approvalId?: string;
+    } = {},
   ): Promise<TransitionOutcome> {
     return this.db.withOrg(orgId, async (c) => {
       const cur = await c.query(`SELECT * FROM execution.jobs WHERE id = $1 FOR UPDATE`, [jobId]);
@@ -158,9 +184,22 @@ export class PgExecutionStore {
            lease_expires_at = CASE WHEN $3 = 'running' THEN lease_expires_at ELSE NULL END,
            ended_at = CASE WHEN $4 THEN now() ELSE ended_at END,
            outcome_status = coalesce($5, outcome_status), exit_code = coalesce($6, exit_code), duration_ms = coalesce($7, duration_ms),
-           truncated = coalesce($8, truncated), artifact_count = coalesce($9, artifact_count), approval_id = coalesce($10, approval_id), updated_at = now()
+           truncated = coalesce($8, truncated), artifact_count = coalesce($9, artifact_count), approval_id = coalesce($10, approval_id),
+           started_at = CASE WHEN $3 = 'running' THEN now() ELSE started_at END,
+           attempts = CASE WHEN $3 = 'running' THEN attempts + 1 ELSE attempts END, updated_at = now()
          WHERE id = $1 AND state = $2 RETURNING *`,
-        [jobId, from, to, terminal, patch.outcomeStatus ?? null, patch.exitCode ?? null, patch.durationMs ?? null, patch.truncated ?? null, patch.artifactCount ?? null, patch.approvalId ?? null],
+        [
+          jobId,
+          from,
+          to,
+          terminal,
+          patch.outcomeStatus ?? null,
+          patch.exitCode ?? null,
+          patch.durationMs ?? null,
+          patch.truncated ?? null,
+          patch.artifactCount ?? null,
+          patch.approvalId ?? null,
+        ],
       );
       if (!upd.rows[0]) return { ok: false as const, reason: 'state_changed_concurrently' };
       await this.log(c, upd.rows[0] as Record<string, unknown>, from, to, cause);
@@ -172,7 +211,11 @@ export class PgExecutionStore {
    * platform scope; the claim itself is one atomic UPDATE inside the job's own organization, so two workers can never both get it (the loser tries the next candidate).
    * `nodeId` is recorded; a node the caller names as quarantined/dropped must be excluded by the caller (the registry is read with `listNodes`).
    */
-  async claim(opts: { leaseMs: number; nodeId: string; maxCandidates?: number }): Promise<JobRow | null> {
+  async claim(opts: {
+    leaseMs: number;
+    nodeId: string;
+    maxCandidates?: number;
+  }): Promise<JobRow | null> {
     const cands = await this.db.withPlatformScope(async (c) => {
       const r = await c.query(
         `SELECT q.id, q.org_id FROM execution.jobs q
@@ -191,7 +234,8 @@ export class PgExecutionStore {
            WHERE id = $1 AND state = 'queued' RETURNING *`,
           [cand.id, lease, String(opts.leaseMs), opts.nodeId],
         );
-        if (r.rows[0]) await this.log(c, r.rows[0] as Record<string, unknown>, 'queued', 'running', 'claimed');
+        if (r.rows[0])
+          await this.log(c, r.rows[0] as Record<string, unknown>, 'queued', 'running', 'claimed');
         return r.rows[0] ? toJob(r.rows[0]) : null;
       });
       if (got) return got;
@@ -199,7 +243,12 @@ export class PgExecutionStore {
     return null;
   }
   /** extend a lease; false if the caller no longer holds it (it expired and was swept, or another worker owns it) */
-  async heartbeat(orgId: string, jobId: string, leaseToken: string, leaseMs: number): Promise<boolean> {
+  async heartbeat(
+    orgId: string,
+    jobId: string,
+    leaseToken: string,
+    leaseMs: number,
+  ): Promise<boolean> {
     return this.db.withOrg(orgId, async (c) => {
       const r = await c.query(
         `UPDATE execution.jobs SET lease_expires_at = now() + ($4 || ' milliseconds')::interval, updated_at = now()
@@ -215,20 +264,34 @@ export class PgExecutionStore {
    */
   async sweepExpiredLeases(maxAttempts: number): Promise<{ requeued: string[]; failed: string[] }> {
     const expired = await this.db.withPlatformScope(async (c) => {
-      const r = await c.query(`SELECT id, org_id, attempts FROM execution.jobs WHERE state = 'running' AND lease_expires_at < now() LIMIT 200`);
+      const r = await c.query(
+        `SELECT id, org_id, attempts FROM execution.jobs WHERE state = 'running' AND lease_expires_at < now() LIMIT 200`,
+      );
       return r.rows as { id: string; org_id: string; attempts: number }[];
     });
     const out = { requeued: [] as string[], failed: [] as string[] };
     for (const e of expired) {
       const to: eg.JobState = e.attempts < maxAttempts ? 'queued' : 'failed';
-      const res = await this.transition(e.org_id, e.id, to, to === 'queued' ? 'lease_expired_requeued' : 'lease_expired_attempts_exhausted', to === 'failed' ? { outcomeStatus: 'failed' } : {});
+      const res = await this.transition(
+        e.org_id,
+        e.id,
+        to,
+        to === 'queued' ? 'lease_expired_requeued' : 'lease_expired_attempts_exhausted',
+        to === 'failed' ? { outcomeStatus: 'failed' } : {},
+      );
       if (res.ok) (to === 'queued' ? out.requeued : out.failed).push(e.id);
     }
     return out;
   }
 
   // ------------------------------------------------------------------ approvals
-  async requestApproval(orgId: string, jobId: string, decisionDigest: string, ttlMs: number, dataRegion: string): Promise<ApprovalRow> {
+  async requestApproval(
+    orgId: string,
+    jobId: string,
+    decisionDigest: string,
+    ttlMs: number,
+    dataRegion: string,
+  ): Promise<ApprovalRow> {
     return this.db.withOrg(orgId, async (c) => {
       const r = await c.query(
         `INSERT INTO execution.approvals (id, org_id, job_id, decision_digest, expires_at, data_region) VALUES ($1,$2,$3,$4, now() + ($5 || ' milliseconds')::interval, $6) RETURNING *`,
@@ -238,7 +301,11 @@ export class PgExecutionStore {
     });
   }
   /** a HUMAN decides (the caller has already verified the user, the organization and the permission; a service account has no code path here) */
-  async approve(orgId: string, approvalId: string, humanUserId: string): Promise<ApprovalRow | null> {
+  async approve(
+    orgId: string,
+    approvalId: string,
+    humanUserId: string,
+  ): Promise<ApprovalRow | null> {
     return this.db.withOrg(orgId, async (c) => {
       const r = await c.query(
         `UPDATE execution.approvals SET decided_by = $3, decider_kind = 'human', decided_at = now()
@@ -249,7 +316,11 @@ export class PgExecutionStore {
     });
   }
   /** SINGLE USE: one atomic statement. Returns the approval only if it was decided, bound to this exact decision, unexpired, unrevoked and not yet consumed; otherwise null. */
-  async consumeApproval(orgId: string, approvalId: string, decisionDigest: string): Promise<ApprovalRow | null> {
+  async consumeApproval(
+    orgId: string,
+    approvalId: string,
+    decisionDigest: string,
+  ): Promise<ApprovalRow | null> {
     return this.db.withOrg(orgId, async (c) => {
       const r = await c.query(
         `UPDATE execution.approvals SET consumed_at = now()
@@ -261,23 +332,37 @@ export class PgExecutionStore {
   }
   async revokeApproval(orgId: string, approvalId: string, reason: string): Promise<boolean> {
     return this.db.withOrg(orgId, async (c) => {
-      const r = await c.query(`UPDATE execution.approvals SET revoked_at = now(), revoke_reason = $3 WHERE id = $1 AND org_id = $2 AND consumed_at IS NULL AND revoked_at IS NULL RETURNING id`, [approvalId, orgId, reason.slice(0, 80)]);
+      const r = await c.query(
+        `UPDATE execution.approvals SET revoked_at = now(), revoke_reason = $3 WHERE id = $1 AND org_id = $2 AND consumed_at IS NULL AND revoked_at IS NULL RETURNING id`,
+        [approvalId, orgId, reason.slice(0, 80)],
+      );
       return r.rowCount === 1;
     });
   }
 
   // ------------------------------------------------------------------ kill switch (append-only history; latest row per scope wins)
-  async setKillSwitch(scope: { kind: 'global' } | { kind: 'org'; orgId: string }, engaged: boolean, byUserId: string, reasonCode: string): Promise<void> {
-    const run = scope.kind === 'global' ? (f: (c: PoolClient) => Promise<void>) => this.db.withPlatformScope(f) : (f: (c: PoolClient) => Promise<void>) => this.db.withOrg(scope.orgId, f);
+  async setKillSwitch(
+    scope: { kind: 'global' } | { kind: 'org'; orgId: string },
+    engaged: boolean,
+    byUserId: string | null,
+    reasonCode: string,
+  ): Promise<void> {
+    const run =
+      scope.kind === 'global'
+        ? (f: (c: PoolClient) => Promise<void>) => this.db.withPlatformScope(f)
+        : (f: (c: PoolClient) => Promise<void>) => this.db.withOrg(scope.orgId, f);
     await run(async (c) => {
-      await c.query(`INSERT INTO execution.kill_switch (id, scope, org_id, engaged, by_user_id, reason_code) VALUES ($1,$2,$3,$4,$5,$6)`, [
-        this.newId(),
-        scope.kind,
-        scope.kind === 'org' ? scope.orgId : null,
-        engaged,
-        byUserId,
-        reasonCode.slice(0, 60),
-      ]);
+      await c.query(
+        `INSERT INTO execution.kill_switch (id, scope, org_id, engaged, by_user_id, reason_code) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          this.newId(),
+          scope.kind,
+          scope.kind === 'org' ? scope.orgId : null,
+          engaged,
+          byUserId,
+          reasonCode.slice(0, 60),
+        ],
+      );
     });
   }
   /** engaged if the LATEST global row is engaged or the latest row of this organization is. Read on every submit and before every run. Fails closed: an error is "engaged". */
@@ -295,8 +380,44 @@ export class PgExecutionStore {
     }
   }
 
+  /** the scopes whose LATEST kill-switch row is engaged (restored at start so a restart never releases a kill switch). Platform scope is read-only here; an error propagates (the caller fails closed). */
+  async engagedScopes(): Promise<{ global: boolean; orgs: string[] }> {
+    return this.db.withPlatformScope(async (c) => {
+      const r = await c.query(
+        `SELECT scope, org_id, engaged FROM (
+           SELECT DISTINCT ON (scope, org_id) scope, org_id, engaged FROM execution.kill_switch ORDER BY scope, org_id, at DESC, id DESC) latest WHERE engaged`,
+      );
+      const rows = r.rows as { scope: string; org_id: string | null }[];
+      return {
+        global: rows.some((x) => x.scope === 'global'),
+        orgs: rows.filter((x) => x.scope === 'org' && x.org_id).map((x) => x.org_id as string),
+      };
+    });
+  }
+  /** every non-terminal job (platform scope, read-only): input of the restart recovery, which then terminates each inside its own organization's scope */
+  async openJobs(limit = 1000): Promise<{ id: string; orgId: string; state: eg.JobState }[]> {
+    return this.db.withPlatformScope(async (c) => {
+      const r = await c.query(
+        `SELECT id, org_id, state FROM execution.jobs WHERE state NOT IN ('refused','rejected','succeeded','failed','timed_out','terminated','cancelled','expired') ORDER BY queued_at LIMIT $1`,
+        [limit],
+      );
+      return (r.rows as { id: string; org_id: string; state: eg.JobState }[]).map((x) => ({
+        id: x.id,
+        orgId: x.org_id,
+        state: x.state,
+      }));
+    });
+  }
+
   // ------------------------------------------------------------------ workspaces
-  async recordWorkspace(w: { id: string; orgId: string; runId: string; jobId: string | null; nodeId: string; dataRegion: string }): Promise<void> {
+  async recordWorkspace(w: {
+    id: string;
+    orgId: string;
+    runId: string;
+    jobId: string | null;
+    nodeId: string;
+    dataRegion: string;
+  }): Promise<void> {
     await this.db.withOrg(w.orgId, async (c) => {
       await c.query(
         `INSERT INTO execution.workspaces (id, org_id, run_id, job_id, node_id, state, data_region) VALUES ($1,$2,$3,$4,$5,'creating',$6) ON CONFLICT (id) DO NOTHING`,
@@ -304,54 +425,136 @@ export class PgExecutionStore {
       );
     });
   }
-  async transitionWorkspace(orgId: string, id: string, to: eg.WorkspaceState): Promise<{ ok: true } | { ok: false; reason: string }> {
+  async transitionWorkspace(
+    orgId: string,
+    id: string,
+    to: eg.WorkspaceState,
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
     return this.db.withOrg(orgId, async (c) => {
-      const cur = await c.query(`SELECT state FROM execution.workspaces WHERE id = $1 FOR UPDATE`, [id]);
+      const cur = await c.query(`SELECT state FROM execution.workspaces WHERE id = $1 FOR UPDATE`, [
+        id,
+      ]);
       if (!cur.rows[0]) return { ok: false as const, reason: 'workspace_not_found' };
       const t = eg.transitionWorkspace(cur.rows[0].state as eg.WorkspaceState, to);
       if (!t.ok) return { ok: false as const, reason: t.reason };
-      await c.query(`UPDATE execution.workspaces SET state = $2, last_activity_at = now(), destroyed_at = CASE WHEN $2 = 'destroyed' THEN now() ELSE NULL END WHERE id = $1`, [id, to]);
+      await c.query(
+        `UPDATE execution.workspaces SET state = $2, last_activity_at = now(), destroyed_at = CASE WHEN $2 = 'destroyed' THEN now() ELSE NULL END WHERE id = $1`,
+        [id, to],
+      );
       return { ok: true as const };
     });
   }
   /** workspaces the control plane believes exist on a node (not destroyed): reconciled against the node's `listWorkspaces` after a restart */
-  async liveWorkspaces(nodeId: string): Promise<{ id: string; orgId: string; runId: string; state: string }[]> {
+  async liveWorkspaces(
+    nodeId: string,
+  ): Promise<{ id: string; orgId: string; runId: string; state: string }[]> {
     return this.db.withPlatformScope(async (c) => {
-      const r = await c.query(`SELECT id, org_id, run_id, state FROM execution.workspaces WHERE node_id = $1 AND state <> 'destroyed' ORDER BY created_at`, [nodeId]);
-      return r.rows.map((x) => ({ id: x.id as string, orgId: x.org_id as string, runId: x.run_id as string, state: x.state as string }));
+      const r = await c.query(
+        `SELECT id, org_id, run_id, state FROM execution.workspaces WHERE node_id = $1 AND state <> 'destroyed' ORDER BY created_at`,
+        [nodeId],
+      );
+      return r.rows.map((x) => ({
+        id: x.id as string,
+        orgId: x.org_id as string,
+        runId: x.run_id as string,
+        state: x.state as string,
+      }));
     });
   }
 
   // ------------------------------------------------------------------ reservations and usage
-  async holdReservation(r: { orgId: string; jobId: string; currency: string; reservedMinor: number; concurrencySlots: number; dataRegion: string }): Promise<boolean> {
+  async holdReservation(r: {
+    orgId: string;
+    jobId: string;
+    currency: string;
+    reservedMinor: number;
+    concurrencySlots: number;
+    dataRegion: string;
+  }): Promise<boolean> {
     return this.db.withOrg(r.orgId, async (c) => {
       const x = await c.query(
         `INSERT INTO execution.quota_reservations (id, org_id, job_id, currency, reserved_minor, concurrency_slots, data_region) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (org_id, job_id) DO NOTHING RETURNING id`,
-        [this.newId(), r.orgId, r.jobId, r.currency, r.reservedMinor, r.concurrencySlots, r.dataRegion],
+        [
+          this.newId(),
+          r.orgId,
+          r.jobId,
+          r.currency,
+          r.reservedMinor,
+          r.concurrencySlots,
+          r.dataRegion,
+        ],
       );
       return x.rowCount === 1;
     });
   }
-  async closeReservation(orgId: string, jobId: string, to: 'released' | 'settled'): Promise<boolean> {
+  async closeReservation(
+    orgId: string,
+    jobId: string,
+    to: 'released' | 'settled',
+  ): Promise<boolean> {
     return this.db.withOrg(orgId, async (c) => {
-      const x = await c.query(`UPDATE execution.quota_reservations SET state = $3 WHERE org_id = $1 AND job_id = $2 AND state = 'held' RETURNING id`, [orgId, jobId, to]);
+      const x = await c.query(
+        `UPDATE execution.quota_reservations SET state = $3 WHERE org_id = $1 AND job_id = $2 AND state = 'held' RETURNING id`,
+        [orgId, jobId, to],
+      );
       return x.rowCount === 1;
     });
   }
   /** the measured-use fact for the metering pipeline (idempotent per run and job); this store never writes a ledger row */
-  async recordUsage(u: { orgId: string; runId: string; jobId: string | null; nodeId: string; runtimeClass: string; profile: string; cpuSeconds: number; wallMs: number; peakMemoryMb: number; peakPids: number; diskMb: number; outputBytes: number; status: string; estimatedMinor: number; currency: string; dataRegion: string }): Promise<boolean> {
+  async recordUsage(u: {
+    orgId: string;
+    runId: string;
+    jobId: string | null;
+    nodeId: string;
+    runtimeClass: string;
+    profile: string;
+    cpuSeconds: number;
+    wallMs: number;
+    peakMemoryMb: number;
+    peakPids: number;
+    diskMb: number;
+    outputBytes: number;
+    status: string;
+    estimatedMinor: number;
+    currency: string;
+    dataRegion: string;
+  }): Promise<boolean> {
     return this.db.withOrg(u.orgId, async (c) => {
       const x = await c.query(
         `INSERT INTO execution.usage_records (id, org_id, run_id, job_id, node_id, runtime_class, profile, cpu_seconds, wall_ms, peak_memory_mb, peak_pids, disk_mb, output_bytes, status, estimated_minor, currency, data_region)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) ON CONFLICT (org_id, run_id, job_id) DO NOTHING RETURNING id`,
-        [this.newId(), u.orgId, u.runId, u.jobId, u.nodeId, u.runtimeClass, u.profile, u.cpuSeconds, u.wallMs, u.peakMemoryMb, u.peakPids, u.diskMb, u.outputBytes, u.status, u.estimatedMinor, u.currency, u.dataRegion],
+        [
+          this.newId(),
+          u.orgId,
+          u.runId,
+          u.jobId,
+          u.nodeId,
+          u.runtimeClass,
+          u.profile,
+          u.cpuSeconds,
+          u.wallMs,
+          u.peakMemoryMb,
+          u.peakPids,
+          u.diskMb,
+          u.outputBytes,
+          u.status,
+          u.estimatedMinor,
+          u.currency,
+          u.dataRegion,
+        ],
       );
       return x.rowCount === 1;
     });
   }
 
   // ------------------------------------------------------------------ node registry and attestation records (platform scope; public data only)
-  async upsertNode(n: { nodeId: string; endpointId: string; environment: 'staging' | 'production'; runtimeClass: string; dataRegion?: string }): Promise<void> {
+  async upsertNode(n: {
+    nodeId: string;
+    endpointId: string;
+    environment: 'staging' | 'production';
+    runtimeClass: string;
+    dataRegion?: string;
+  }): Promise<void> {
     await this.db.withPlatformScope(async (c) => {
       await c.query(
         `INSERT INTO execution.runtime_nodes (id, node_id, endpoint_id, environment, runtime_class, data_region) VALUES ($1,$2,$3,$4,$5,$6)
@@ -360,38 +563,80 @@ export class PgExecutionStore {
       );
     });
   }
-  async setNodeState(nodeId: string, state: 'admitted' | 'quarantined' | 'dropped' | 'retired', reason: string | null): Promise<boolean> {
+  async setNodeState(
+    nodeId: string,
+    state: 'admitted' | 'quarantined' | 'dropped' | 'retired',
+    reason: string | null,
+  ): Promise<boolean> {
     return this.db.withPlatformScope(async (c) => {
-      const r = await c.query(`UPDATE execution.runtime_nodes SET state = $2, quarantine_reason = $3, updated_at = now() WHERE node_id = $1 RETURNING id`, [nodeId, state, reason?.slice(0, 80) ?? null]);
+      const r = await c.query(
+        `UPDATE execution.runtime_nodes SET state = $2, quarantine_reason = $3, updated_at = now() WHERE node_id = $1 RETURNING id`,
+        [nodeId, state, reason?.slice(0, 80) ?? null],
+      );
       return r.rowCount === 1;
     });
   }
-  async listNodes(): Promise<{ nodeId: string; state: string; environment: string; dataRegion: string | null }[]> {
+  async listNodes(): Promise<
+    { nodeId: string; state: string; environment: string; dataRegion: string | null }[]
+  > {
     return this.db.withPlatformScope(async (c) => {
-      const r = await c.query(`SELECT node_id, state, environment, data_region FROM execution.runtime_nodes ORDER BY node_id`);
-      return r.rows.map((x) => ({ nodeId: x.node_id as string, state: x.state as string, environment: x.environment as string, dataRegion: (x.data_region as string | null) ?? null }));
+      const r = await c.query(
+        `SELECT node_id, state, environment, data_region FROM execution.runtime_nodes ORDER BY node_id`,
+      );
+      return r.rows.map((x) => ({
+        nodeId: x.node_id as string,
+        state: x.state as string,
+        environment: x.environment as string,
+        dataRegion: (x.data_region as string | null) ?? null,
+      }));
     });
   }
-  async recordAttestation(a: { attestationId: string; nodeId: string; label: string; issuedAt: string; expiresAt: string; reportSha256: string; reviewer: string; reviewRef: string; evidenceRef?: string }): Promise<boolean> {
+  async recordAttestation(a: {
+    attestationId: string;
+    nodeId: string;
+    label: string;
+    issuedAt: string;
+    expiresAt: string;
+    reportSha256: string;
+    reviewer: string;
+    reviewRef: string;
+    evidenceRef?: string;
+  }): Promise<boolean> {
     return this.db.withPlatformScope(async (c) => {
       const r = await c.query(
         `INSERT INTO execution.attestations (id, attestation_id, node_id, label, issued_at, expires_at, report_sha256, reviewer, review_ref, evidence_ref) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          ON CONFLICT (attestation_id) DO NOTHING RETURNING id`,
-        [this.newId(), a.attestationId, a.nodeId, a.label, a.issuedAt, a.expiresAt, a.reportSha256, a.reviewer, a.reviewRef, a.evidenceRef ?? null],
+        [
+          this.newId(),
+          a.attestationId,
+          a.nodeId,
+          a.label,
+          a.issuedAt,
+          a.expiresAt,
+          a.reportSha256,
+          a.reviewer,
+          a.reviewRef,
+          a.evidenceRef ?? null,
+        ],
       );
       return r.rowCount === 1;
     });
   }
   async revokeAttestation(attestationId: string, reason: string): Promise<boolean> {
     return this.db.withPlatformScope(async (c) => {
-      const r = await c.query(`UPDATE execution.attestations SET revoked_at = now(), revoke_reason = $2 WHERE attestation_id = $1 AND revoked_at IS NULL RETURNING id`, [attestationId, reason.slice(0, 80)]);
+      const r = await c.query(
+        `UPDATE execution.attestations SET revoked_at = now(), revoke_reason = $2 WHERE attestation_id = $1 AND revoked_at IS NULL RETURNING id`,
+        [attestationId, reason.slice(0, 80)],
+      );
       return r.rowCount === 1;
     });
   }
   /** the revocation set the control plane hands to `RealRuntimeService` (`isRevoked`): fail closed callers treat a read error as "everything revoked" */
   async revokedAttestationIds(): Promise<Set<string>> {
     return this.db.withPlatformScope(async (c) => {
-      const r = await c.query(`SELECT attestation_id FROM execution.attestations WHERE revoked_at IS NOT NULL`);
+      const r = await c.query(
+        `SELECT attestation_id FROM execution.attestations WHERE revoked_at IS NOT NULL`,
+      );
       return new Set(r.rows.map((x) => x.attestation_id as string));
     });
   }

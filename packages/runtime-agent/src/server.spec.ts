@@ -15,8 +15,24 @@ const listen = (s: import('node:http').Server | import('node:https').Server) =>
 const close = (s: import('node:http').Server) => new Promise<void>((r) => s.close(() => r()));
 const spec = (): eg.RuntimeSpec =>
   eg.buildRuntimeSpec({
-    decision: { argv: ['npm', 'test', '--silent'], cwd: '', env: { ...eg.EXEC_ENV }, limits: { cpuSeconds: 60, wallSeconds: 60, memoryMb: 256, pids: 64, outputKb: 64, diskMb: 64 }, network: 'none' },
-    orgId: 'org-a', runId: 'run-1', runtimeClass: 'gvisor-runsc', image: RIG_IMAGE,
+    decision: {
+      argv: ['npm', 'test', '--silent'],
+      cwd: '',
+      env: { ...eg.EXEC_ENV },
+      limits: {
+        cpuSeconds: 60,
+        wallSeconds: 60,
+        memoryMb: 256,
+        pids: 64,
+        outputKb: 64,
+        diskMb: 64,
+      },
+      network: 'none',
+    },
+    orgId: 'org-a',
+    runId: 'run-1',
+    runtimeClass: 'gvisor-runsc',
+    image: RIG_IMAGE,
   });
 
 describe('the agent over a real HTTP socket (loopback, simulated launcher)', () => {
@@ -24,7 +40,14 @@ describe('the agent over a real HTTP socket (loopback, simulated launcher)', () 
   let server: ReturnType<typeof createLoopbackHttpServer>;
   let port = 0;
   beforeAll(async () => {
-    rig = await createAgentRig({ script: () => ({ exitCode: 0, stdout: 'ok\n', produced: [{ path: 'dist/a.js', bytes: 2, kind: 'file' }], producedContent: { 'dist/a.js': 'hi' } }) });
+    rig = await createAgentRig({
+      script: () => ({
+        exitCode: 0,
+        stdout: 'ok\n',
+        produced: [{ path: 'dist/a.js', bytes: 2, kind: 'file' }],
+        producedContent: { 'dist/a.js': 'hi' },
+      }),
+    });
     server = createLoopbackHttpServer({ handler: rig.agent.handler, metrics: rig.agent.metrics });
     port = await listen(server);
   });
@@ -35,7 +58,12 @@ describe('the agent over a real HTTP socket (loopback, simulated launcher)', () 
   const client = () =>
     new eg.RemoteWorkspaceRuntime({
       nodeId: 'sim-node',
-      transport: new eg.HttpsTransport({ baseUrl: `http://127.0.0.1:${port}`, credentials: async () => { throw new Error('no tls'); } }),
+      transport: new eg.HttpsTransport({
+        baseUrl: `http://127.0.0.1:${port}`,
+        credentials: async () => {
+          throw new Error('no tls');
+        },
+      }),
       signer: rig.signer,
       runtimeClass: 'gvisor-runsc',
       isolation: 'simulated',
@@ -43,7 +71,12 @@ describe('the agent over a real HTTP socket (loopback, simulated launcher)', () 
   it('runs the full lifecycle over HTTP: identity, create, put, start, wait, list, read, destroy', async () => {
     const c = client();
     expect((await c.identity()).nodeId).toBe('sim-node');
-    await c.createWorkspace({ workspaceId: 'ws-run-1', orgId: 'org-a', runId: 'run-1', diskMb: 64 });
+    await c.createWorkspace({
+      workspaceId: 'ws-run-1',
+      orgId: 'org-a',
+      runId: 'run-1',
+      diskMb: 64,
+    });
     await c.putFiles('ws-run-1', new Map([['package.json', '{}']]));
     const { handle } = await c.start(spec());
     const w = await c.wait(handle);
@@ -55,22 +88,64 @@ describe('the agent over a real HTTP socket (loopback, simulated launcher)', () 
     expect(await c.listWorkspaces()).toEqual([]);
   });
   it('a plain-http transport reports kind loopback (so it can never be "verified"); a non-loopback http URL and credentials in a URL are construction errors', () => {
-    const t = new eg.HttpsTransport({ baseUrl: `http://127.0.0.1:${port}`, credentials: async () => { throw new Error('x'); } });
+    const t = new eg.HttpsTransport({
+      baseUrl: `http://127.0.0.1:${port}`,
+      credentials: async () => {
+        throw new Error('x');
+      },
+    });
     expect(t.kind).toBe('loopback');
-    expect(() => new eg.RemoteWorkspaceRuntime({ nodeId: 'n', transport: t, signer: rig.signer, runtimeClass: 'gvisor-runsc', isolation: 'verified' })).toThrow('loopback_transport_cannot_be_verified');
-    const mk = (u: string) => () => new eg.HttpsTransport({ baseUrl: u, credentials: async () => { throw new Error('x'); } });
+    expect(
+      () =>
+        new eg.RemoteWorkspaceRuntime({
+          nodeId: 'n',
+          transport: t,
+          signer: rig.signer,
+          runtimeClass: 'gvisor-runsc',
+          isolation: 'verified',
+        }),
+    ).toThrow('loopback_transport_cannot_be_verified');
+    const mk = (u: string) => () =>
+      new eg.HttpsTransport({
+        baseUrl: u,
+        credentials: async () => {
+          throw new Error('x');
+        },
+      });
     expect(mk('http://10.0.0.5:8443')).toThrow('transport_requires_https');
-    expect(mk('https://user:pw@node.example:8443')).toThrow('transport_url_has_credentials_or_query');
-    expect(mk('https://node.example:8443/?token=abc')).toThrow('transport_url_has_credentials_or_query');
-    expect(() => new eg.HttpsTransport({ baseUrl: 'https://node.example:8443', credentials: async () => { throw new Error('x'); }, pinnedLeafSha256: 'xyz' })).toThrow('transport_pin_invalid');
+    expect(mk('https://user:pw@node.example:8443')).toThrow(
+      'transport_url_has_credentials_or_query',
+    );
+    expect(mk('https://node.example:8443/?token=abc')).toThrow(
+      'transport_url_has_credentials_or_query',
+    );
+    expect(
+      () =>
+        new eg.HttpsTransport({
+          baseUrl: 'https://node.example:8443',
+          credentials: async () => {
+            throw new Error('x');
+          },
+          pinnedLeafSha256: 'xyz',
+        }),
+    ).toThrow('transport_pin_invalid');
   });
   it('rejects an oversize body (413) and a GET (404) at the socket', async () => {
     const post = (path: string, body: Buffer, method = 'POST') =>
       new Promise<number>((resolve) => {
-        const r = httpRequest({ host: '127.0.0.1', port, path, method, headers: { 'content-type': 'application/json', 'content-length': String(body.length) } }, (res) => {
-          res.resume();
-          resolve(res.statusCode ?? 0);
-        });
+        const r = httpRequest(
+          {
+            host: '127.0.0.1',
+            port,
+            path,
+            method,
+            headers: { 'content-type': 'application/json', 'content-length': String(body.length) },
+          },
+          (res) => {
+            res.resume();
+            resolve(res.statusCode ?? 0);
+          },
+        );
         r.on('error', () => resolve(-1));
         r.end(body);
       });
@@ -110,17 +185,58 @@ describe.skipIf(!haveOpenssl)('mutual TLS (real handshakes against a throw-away 
   let server: import('node:https').Server;
   let port = 0;
   const o = (...a: string[]) => execFileSync('openssl', a, { cwd: tdir, stdio: 'ignore' });
-  const mkLeaf = async (name: string, ca: string, san: string | null, eku: 'serverAuth' | 'clientAuth') => {
+  const mkLeaf = async (
+    name: string,
+    ca: string,
+    san: string | null,
+    eku: 'serverAuth' | 'clientAuth',
+  ) => {
     o('genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', `${name}.key`);
     o('req', '-new', '-key', `${name}.key`, '-subj', `/CN=${name}`, '-out', `${name}.csr`);
-    await writeFile(join(tdir, `${name}.ext`), `extendedKeyUsage=${eku}\n${san ? `subjectAltName=${san}\n` : ''}`);
-    o('x509', '-req', '-in', `${name}.csr`, '-CA', `${ca}.pem`, '-CAkey', `${ca}.key`, '-CAcreateserial', '-days', '2', '-sha256', '-extfile', `${name}.ext`, '-out', `${name}.pem`);
+    await writeFile(
+      join(tdir, `${name}.ext`),
+      `extendedKeyUsage=${eku}\n${san ? `subjectAltName=${san}\n` : ''}`,
+    );
+    o(
+      'x509',
+      '-req',
+      '-in',
+      `${name}.csr`,
+      '-CA',
+      `${ca}.pem`,
+      '-CAkey',
+      `${ca}.key`,
+      '-CAcreateserial',
+      '-days',
+      '2',
+      '-sha256',
+      '-extfile',
+      `${name}.ext`,
+      '-out',
+      `${name}.pem`,
+    );
   };
   const mkCa = (name: string) => {
     o('genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', `${name}.key`);
-    o('req', '-x509', '-new', '-key', `${name}.key`, '-subj', `/CN=${name}`, '-days', '2', '-sha256', '-out', `${name}.pem`);
+    o(
+      'req',
+      '-x509',
+      '-new',
+      '-key',
+      `${name}.key`,
+      '-subj',
+      `/CN=${name}`,
+      '-days',
+      '2',
+      '-sha256',
+      '-out',
+      `${name}.pem`,
+    );
   };
-  const fp = async (f: string) => createHash('sha256').update(new X509Certificate(await readFile(join(tdir, f))).raw).digest('hex');
+  const fp = async (f: string) =>
+    createHash('sha256')
+      .update(new X509Certificate(await readFile(join(tdir, f))).raw)
+      .digest('hex');
   beforeAll(async () => {
     tdir = await mkdtemp(join(tmpdir(), 'nuzm-mtls-'));
     mkCa('ca');
@@ -130,8 +246,20 @@ describe.skipIf(!haveOpenssl)('mutual TLS (real handshakes against a throw-away 
     await mkLeaf('other', 'ca', null, 'clientAuth'); // valid CA, NOT pinned
     await mkLeaf('rogue', 'evilca', null, 'clientAuth'); // wrong CA
     rig = await createAgentRig();
-    const cfg = { ...rig.cfg, tls: { keyFile: join(tdir, 'server.key'), certFile: join(tdir, 'server.pem'), caFile: join(tdir, 'ca.pem'), clientFingerprints: [await fp('cp.pem')] } };
-    server = await createNodeHttpsServer(cfg, { handler: rig.agent.handler, metrics: rig.agent.metrics, clientFingerprints: cfg.tls.clientFingerprints });
+    const cfg = {
+      ...rig.cfg,
+      tls: {
+        keyFile: join(tdir, 'server.key'),
+        certFile: join(tdir, 'server.pem'),
+        caFile: join(tdir, 'ca.pem'),
+        clientFingerprints: [await fp('cp.pem')],
+      },
+    };
+    server = await createNodeHttpsServer(cfg, {
+      handler: rig.agent.handler,
+      metrics: rig.agent.metrics,
+      clientFingerprints: cfg.tls.clientFingerprints,
+    });
     port = await listen(server);
   });
   afterAll(async () => {
@@ -139,11 +267,22 @@ describe.skipIf(!haveOpenssl)('mutual TLS (real handshakes against a throw-away 
     await rig.dispose();
     await rm(tdir, { recursive: true, force: true });
   });
-  const cred = (leaf: string, caName = 'ca') => async () => ({ ca: await readFile(join(tdir, `${caName}.pem`), 'utf8'), cert: await readFile(join(tdir, `${leaf}.pem`), 'utf8'), key: await readFile(join(tdir, `${leaf}.key`), 'utf8') });
+  const cred =
+    (leaf: string, caName = 'ca') =>
+    async () => ({
+      ca: await readFile(join(tdir, `${caName}.pem`), 'utf8'),
+      cert: await readFile(join(tdir, `${leaf}.pem`), 'utf8'),
+      key: await readFile(join(tdir, `${leaf}.key`), 'utf8'),
+    });
   const clientWith = (c: ReturnType<typeof cred>, pin?: string) =>
     new eg.RemoteWorkspaceRuntime({
       nodeId: 'sim-node',
-      transport: new eg.HttpsTransport({ baseUrl: `https://localhost:${port}`, credentials: c, pinnedLeafSha256: pin, maxResponseBytes: 1_000_000 }),
+      transport: new eg.HttpsTransport({
+        baseUrl: `https://localhost:${port}`,
+        credentials: c,
+        pinnedLeafSha256: pin,
+        maxResponseBytes: 1_000_000,
+      }),
       signer: rig.signer,
       runtimeClass: 'gvisor-runsc',
       isolation: 'simulated',
@@ -154,14 +293,29 @@ describe.skipIf(!haveOpenssl)('mutual TLS (real handshakes against a throw-away 
     expect((await c.health()).ok).toBe(true);
   });
   it('a certificate from the right CA that is not pinned is refused (403), and one from another CA never completes the handshake', async () => {
-    await expect(clientWith(cred('other')).identity()).rejects.toThrow(/forbidden|node_bad_response|node_unreachable/);
+    await expect(clientWith(cred('other')).identity()).rejects.toThrow(
+      /forbidden|node_bad_response|node_unreachable/,
+    );
     await expect(clientWith(cred('rogue', 'ca')).identity()).rejects.toThrow('node_unreachable');
     expect(rig.agent.metrics.get('nuzm_agent_client_cert_refused_total')).toBeGreaterThanOrEqual(1);
   });
   it('a client that trusts a different CA refuses the node; a wrong leaf pin refuses the node; a client with no certificate cannot connect', async () => {
-    await expect(clientWith(async () => ({ ...(await cred('cp')()), ca: await readFile(join(tdir, 'evilca.pem'), 'utf8') })).identity()).rejects.toThrow('node_unreachable');
-    await expect(clientWith(cred('cp'), '0'.repeat(64)).identity()).rejects.toThrow('node_unreachable');
+    await expect(
+      clientWith(async () => ({
+        ...(await cred('cp')()),
+        ca: await readFile(join(tdir, 'evilca.pem'), 'utf8'),
+      })).identity(),
+    ).rejects.toThrow('node_unreachable');
+    await expect(clientWith(cred('cp'), '0'.repeat(64)).identity()).rejects.toThrow(
+      'node_unreachable',
+    );
     await expect(clientWith(cred('cp'), await fp('server.pem')).identity()).resolves.toBeDefined(); // the right pin works
-    await expect(clientWith(async () => ({ ca: await readFile(join(tdir, 'ca.pem'), 'utf8'), cert: '', key: '' })).identity()).rejects.toThrow();
+    await expect(
+      clientWith(async () => ({
+        ca: await readFile(join(tdir, 'ca.pem'), 'utf8'),
+        cert: '',
+        key: '',
+      })).identity(),
+    ).rejects.toThrow();
   });
 });

@@ -40,7 +40,8 @@ export function isPublicAddress(ip: string): boolean {
   return !(/^64:ff9b:/.test(s) || /^2002:/.test(s));
 }
 
-const defaultResolver = async (host: string): Promise<string[]> => (await lookup(host, { all: true, verbatim: true })).map((r) => r.address);
+const defaultResolver = async (host: string): Promise<string[]> =>
+  (await lookup(host, { all: true, verbatim: true })).map((r) => r.address);
 const defaultConnector = (ip: string, port: number, timeoutMs: number): Promise<Socket> =>
   new Promise((resolve, reject) => {
     const s = netConnect({ host: ip, port });
@@ -64,7 +65,8 @@ export function parseConnectTarget(authority: string): { host: string; port: num
 
 export function createEgressProxy(o: ProxyOptions): Server {
   const allow = new Set(o.allowHosts);
-  for (const h of allow) if (!eg.isAllowableEgressHost(h)) throw new Error('proxy_allow_host_invalid');
+  for (const h of allow)
+    if (!eg.isAllowableEgressHost(h)) throw new Error('proxy_allow_host_invalid');
   const resolver = o.resolver ?? defaultResolver;
   const connector = o.connector ?? defaultConnector;
   let tunnels = 0;
@@ -104,7 +106,8 @@ export function createEgressProxy(o: ProxyOptions): Server {
       } catch {
         return refuse(502, 'resolve_failed', t.host);
       }
-      if (addrs.length === 0 || !addrs.every(isPublicAddress)) return refuse(403, 'resolved_to_non_public_address', t.host);
+      if (addrs.length === 0 || !addrs.every(isPublicAddress))
+        return refuse(403, 'resolved_to_non_public_address', t.host);
       tunnels++;
       let upstream: Socket;
       try {

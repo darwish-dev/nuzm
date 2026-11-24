@@ -65,9 +65,16 @@ export class RefusedCommandRunner implements CommandRunner {
 export class RecordingCommandRunner implements CommandRunner {
   readonly kind = 'recording' as const;
   readonly calls: { argv: string[]; spawned: boolean }[] = [];
-  private readonly spawned: { argv: string[]; emit: (o: 'out' | 'err', s: string) => void; exit: (code: number | null, signal?: string | null) => void }[] = [];
+  private readonly spawned: {
+    argv: string[];
+    emit: (o: 'out' | 'err', s: string) => void;
+    exit: (code: number | null, signal?: string | null) => void;
+  }[] = [];
   /** scripted answers: the first matcher whose predicate matches the argv decides the result (default: exit 0, no output) */
-  private readonly script: { match: (argv: readonly string[]) => boolean; result: Partial<CommandResult> }[] = [];
+  private readonly script: {
+    match: (argv: readonly string[]) => boolean;
+    result: Partial<CommandResult>;
+  }[] = [];
   on(match: (argv: readonly string[]) => boolean, result: Partial<CommandResult>): this {
     this.script.push({ match, result });
     return this;
@@ -86,7 +93,8 @@ export class RecordingCommandRunner implements CommandRunner {
     let finished = false;
     const rec = {
       argv: [...argv],
-      emit: (o: 'out' | 'err', s: string) => (o === 'out' ? opts.onStdout : opts.onStderr)(Buffer.from(s)),
+      emit: (o: 'out' | 'err', s: string) =>
+        (o === 'out' ? opts.onStdout : opts.onStderr)(Buffer.from(s)),
       exit: (code: number | null, signal: string | null = null) => {
         if (finished) return;
         finished = true;
@@ -133,7 +141,10 @@ export interface NodeProof {
   readFile?: (path: string) => Promise<string>;
 }
 /** the exact environment a started command gets: no inherited variables (no cloud credentials, no proxy settings, no LD_*) */
-const SCRUBBED_ENV: Readonly<Record<string, string>> = { PATH: '/usr/sbin:/usr/bin:/sbin:/bin', LANG: 'C' };
+const SCRUBBED_ENV: Readonly<Record<string, string>> = {
+  PATH: '/usr/sbin:/usr/bin:/sbin:/bin',
+  LANG: 'C',
+};
 
 export class NodeCommandRunner implements CommandRunner {
   readonly kind = 'node' as const;
@@ -172,13 +183,18 @@ export class NodeCommandRunner implements CommandRunner {
     if (this.platform !== 'linux') throw new CommandRefused('not_linux');
     const bin = argv[0];
     if (bin === undefined || !this.allowed.has(bin)) throw new CommandRefused('binary_not_allowed');
-    if (argv.some((a) => typeof a !== 'string' || a.includes('\0'))) throw new CommandRefused('argv_invalid');
+    if (argv.some((a) => typeof a !== 'string' || a.includes('\0')))
+      throw new CommandRefused('argv_invalid');
   }
   async run(argv: readonly string[], opts: RunOptions = {}): Promise<CommandResult> {
     this.check(argv);
     const cap = opts.maxOutputBytes ?? 1024 * 1024;
     return new Promise<CommandResult>((resolve, reject) => {
-      const o: SpawnOptions = { shell: false, env: { ...SCRUBBED_ENV }, stdio: ['pipe', 'pipe', 'pipe'] };
+      const o: SpawnOptions = {
+        shell: false,
+        env: { ...SCRUBBED_ENV },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      };
       const child = this.spawnImpl(argv[0]!, argv.slice(1), o);
       let out = '';
       let err = '';

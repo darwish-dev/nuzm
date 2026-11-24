@@ -6,7 +6,7 @@ storage: /var/lib/verdaccio/storage
 auth:
   htpasswd:
     file: /etc/verdaccio/htpasswd
-    max_users: -1            # nobody can register; the file is empty and root-owned
+    max_users: -1 # nobody can register; the file is empty and root-owned
 uplinks:
   npmjs:
     url: https://registry.npmjs.org/
@@ -15,8 +15,8 @@ uplinks:
     cache: true
 packages:
   '**':
-    access: $anonymous       # reachable only from the proxy's address (firewalled); read access needs no identity
-    publish: $none           # nobody can publish
+    access: $anonymous # reachable only from the proxy's address (firewalled); read access needs no identity
+    publish: $none # nobody can publish
     unpublish: $none
     proxy: npmjs
 server:
@@ -26,7 +26,7 @@ security:
     jwt:
       sign: { expiresIn: 1h }
 middlewares:
-  audit: { enabled: false }  # no `npm audit` traffic to the upstream
+  audit: { enabled: false } # no `npm audit` traffic to the upstream
 log: { type: file, path: /var/log/verdaccio/verdaccio.log, level: warn, format: pretty }
 max_body_size: 10mb
 # (V) listen on the node pool's private address only: `listen: <addr>:4873`, TLS terminated by the pool's reverse proxy; the proxy allow-list then names that host.

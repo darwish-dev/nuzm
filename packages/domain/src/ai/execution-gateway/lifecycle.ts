@@ -94,6 +94,8 @@ export class StateTrack<S extends string> {
     private current: S,
     private readonly next: (from: S, to: S) => TransitionResult<S>,
     private readonly now: () => Date = () => new Date(),
+    /** called after every ACCEPTED move (P3-S02 durable journal); it must not throw, and a throw is swallowed so it can never change the state machine's result */
+    private readonly onMove?: (m: TransitionRecord<S>) => void,
   ) {}
   get state(): S {
     return this.current;
@@ -101,8 +103,14 @@ export class StateTrack<S extends string> {
   move(to: S, cause: string): TransitionResult<S> {
     const r = this.next(this.current, to);
     if (!r.ok) return r;
-    this.history.push({ from: this.current, to, at: this.now().toISOString(), cause });
+    const rec = { from: this.current, to, at: this.now().toISOString(), cause };
+    this.history.push(rec);
     this.current = to;
+    try {
+      this.onMove?.(rec);
+    } catch {
+      /* observation only */
+    }
     return r;
   }
 }

@@ -1,6 +1,12 @@
 import { createPrivateKey, sign as edSign, type KeyObject } from 'node:crypto';
 import type { TrustedKeys } from '../real-runtime/attestation';
-import { RealRuntimeService, type ArtifactSink, type RealRuntimeNode, type RunAccounting, type RuntimeEvent } from '../real-runtime/real-runtime';
+import {
+  RealRuntimeService,
+  type ArtifactSink,
+  type RealRuntimeNode,
+  type RunAccounting,
+  type RuntimeEvent,
+} from '../real-runtime/real-runtime';
 import type { NodeEnvironment } from '../real-runtime/attestation';
 import { HttpsTransport, type TlsCredentials } from './https-transport';
 import { RemoteWorkspaceRuntime, type NodeTransport } from './remote-runtime';
@@ -56,7 +62,8 @@ export class VaultTokenSigner implements TokenSigner {
   async sign(bytes: Buffer): Promise<Buffer> {
     if (!this.cached || this.cached.until < this.now()) {
       const key = createPrivateKey(await this.resolve(this.keyRef));
-      if (key.asymmetricKeyType !== 'ed25519') throw new ConnectionRefused(['signer_key_not_ed25519']);
+      if (key.asymmetricKeyType !== 'ed25519')
+        throw new ConnectionRefused(['signer_key_not_ed25519']);
       this.cached = { key, until: this.now() + this.cacheMs };
     }
     return edSign(null, bytes, this.cached.key);
@@ -66,24 +73,41 @@ export class VaultTokenSigner implements TokenSigner {
 export function connectNode(
   cfg: NodeEndpointConfig,
   resolve: SecretResolver,
-  opts: { mode: 'live' | 'simulated'; now?: () => number; /** offline suites only: an in-process transport instead of the network (refused in live mode) */ transport?: NodeTransport },
+  opts: {
+    mode: 'live' | 'simulated';
+    now?: () => number;
+    /** offline suites only: an in-process transport instead of the network (refused in live mode) */ transport?: NodeTransport;
+  },
 ): RemoteWorkspaceRuntime {
   const reasons: string[] = [];
-  for (const r of [cfg.signer.keyRef, cfg.tls.caRef, cfg.tls.certRef, cfg.tls.keyRef]) if (!isVaultRef(r)) reasons.push('secret_reference_invalid');
+  for (const r of [cfg.signer.keyRef, cfg.tls.caRef, cfg.tls.certRef, cfg.tls.keyRef])
+    if (!isVaultRef(r)) reasons.push('secret_reference_invalid');
   if (!/^[a-z0-9-]{3,40}$/.test(cfg.nodeId)) reasons.push('node_id_invalid');
   if (reasons.length > 0) throw new ConnectionRefused([...new Set(reasons)]);
   let cache: { c: TlsCredentials; until: number } | null = null;
   const now = opts.now ?? (() => Date.now());
   const credentials = async (): Promise<TlsCredentials> => {
     if (cache && cache.until > now()) return cache.c;
-    const [ca, cert, key] = await Promise.all([resolve(cfg.tls.caRef), resolve(cfg.tls.certRef), resolve(cfg.tls.keyRef)]);
+    const [ca, cert, key] = await Promise.all([
+      resolve(cfg.tls.caRef),
+      resolve(cfg.tls.certRef),
+      resolve(cfg.tls.keyRef),
+    ]);
     cache = { c: { ca, cert, key }, until: now() + 30_000 };
     return cache.c;
   };
-  if (opts.transport && opts.mode === 'live') throw new ConnectionRefused(['live_requires_https_mtls']);
-  const transport = opts.transport ?? new HttpsTransport({ baseUrl: cfg.baseUrl, credentials, pinnedLeafSha256: cfg.pinnedLeafSha256 });
+  if (opts.transport && opts.mode === 'live')
+    throw new ConnectionRefused(['live_requires_https_mtls']);
+  const transport =
+    opts.transport ??
+    new HttpsTransport({
+      baseUrl: cfg.baseUrl,
+      credentials,
+      pinnedLeafSha256: cfg.pinnedLeafSha256,
+    });
   // a live service accepts only an authenticated network transport; the offline suites may use loopback (which can never claim "verified")
-  if (opts.mode === 'live' && transport.kind !== 'https-mtls') throw new ConnectionRefused(['live_requires_https_mtls']);
+  if (opts.mode === 'live' && transport.kind !== 'https-mtls')
+    throw new ConnectionRefused(['live_requires_https_mtls']);
   return new RemoteWorkspaceRuntime({
     nodeId: cfg.nodeId,
     transport,
@@ -113,12 +137,24 @@ export interface RealExecutionDeps {
   onEvent?: (e: RuntimeEvent) => void;
   onUsage?: (a: RunAccounting) => void;
 }
-export async function startRealExecution(cfg: RealExecutionConfig, deps: RealExecutionDeps): Promise<RealRuntimeService> {
+export async function startRealExecution(
+  cfg: RealExecutionConfig,
+  deps: RealExecutionDeps,
+): Promise<RealRuntimeService> {
   const now = deps.now ?? (() => Date.now());
   const nodes: RealRuntimeNode[] = [];
   for (const n of cfg.nodes) {
-    const runtime = connectNode(n, deps.resolve, { mode: cfg.mode, now, transport: deps.transportFor?.(n.nodeId) });
-    nodes.push({ nodeId: n.nodeId, endpointId: n.endpointId, runtime, attestation: await deps.loadAttestation(n.nodeId) });
+    const runtime = connectNode(n, deps.resolve, {
+      mode: cfg.mode,
+      now,
+      transport: deps.transportFor?.(n.nodeId),
+    });
+    nodes.push({
+      nodeId: n.nodeId,
+      endpointId: n.endpointId,
+      runtime,
+      attestation: await deps.loadAttestation(n.nodeId),
+    });
   }
   // `RealRuntimeService.start` is the only door: no node, no attestation, a bad one, or a node that does not answer as attested => AttestationRefused
   return RealRuntimeService.start({

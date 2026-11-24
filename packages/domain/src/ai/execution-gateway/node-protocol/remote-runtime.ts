@@ -126,8 +126,10 @@ export class RemoteWorkspaceRuntime implements WorkspaceRuntime {
     if (typeof parsed !== 'object' || parsed === null || typeof parsed.ok !== 'boolean')
       throw new Error('node_bad_response');
     if (!parsed.ok) {
-      const code = typeof parsed.error?.code === 'string' ? parsed.error.code.slice(0, 60) : 'internal';
-      const detail = typeof parsed.error?.detail === 'string' ? parsed.error.detail.slice(0, 300) : '';
+      const code =
+        typeof parsed.error?.code === 'string' ? parsed.error.code.slice(0, 60) : 'internal';
+      const detail =
+        typeof parsed.error?.detail === 'string' ? parsed.error.detail.slice(0, 300) : '';
       throw new Error(detail ? `${code}:${detail}` : code);
     }
     return parsed.result;
@@ -161,7 +163,11 @@ export class RemoteWorkspaceRuntime implements WorkspaceRuntime {
     );
   }
   async start(spec: RuntimeSpec): Promise<{ handle: string }> {
-    const r = await this.call('start', { spec }, { orgId: spec.orgId, workspaceId: spec.workspaceId });
+    const r = await this.call(
+      'start',
+      { spec },
+      { orgId: spec.orgId, workspaceId: spec.workspaceId },
+    );
     this.runs.set(r.handle, { orgId: spec.orgId, workspaceId: spec.workspaceId, gone: false });
     return { handle: r.handle };
   }

@@ -1,14 +1,24 @@
 import { chown, mkdir } from 'node:fs/promises';
 import { executionGateway as eg } from '@nuzm/domain';
 import { FileAuditSink, type AuditSink } from './audit';
-import { DEFAULT_BINARIES, NodeCommandRunner, RefusedCommandRunner, type CommandRunner } from './command-runner';
+import {
+  DEFAULT_BINARIES,
+  NodeCommandRunner,
+  RefusedCommandRunner,
+  type CommandRunner,
+} from './command-runner';
 import type { AgentConfig } from './config';
 import { createRequestHandler } from './http-handler';
 import { verifyImages } from './image';
 import { SimulatedLauncher, type Launcher } from './launcher';
 import { Metrics } from './metrics';
 import { NodeService } from './node-service';
-import { AccountingQuotaDriver, quotaStateFile, XfsProjectQuotaDriver, type QuotaDriver } from './quota';
+import {
+  AccountingQuotaDriver,
+  quotaStateFile,
+  XfsProjectQuotaDriver,
+  type QuotaDriver,
+} from './quota';
 import { RunscLauncher } from './runsc-launcher';
 import { WorkspaceStore } from './workspace-store';
 
@@ -46,7 +56,10 @@ export interface AssembleOptions {
   /** skip the (slow) rootfs tree hashing in tests that use a synthetic image map */
   verifiedImages?: Record<string, string>;
 }
-export async function assembleAgent(cfg: AgentConfig, opts: AssembleOptions = {}): Promise<AssembledAgent> {
+export async function assembleAgent(
+  cfg: AgentConfig,
+  opts: AssembleOptions = {},
+): Promise<AssembledAgent> {
   const audit = opts.audit ?? new FileAuditSink(cfg.auditFile, cfg.nodeId, opts.now);
   const metrics = new Metrics();
   let images: Record<string, string>;
@@ -54,24 +67,38 @@ export async function assembleAgent(cfg: AgentConfig, opts: AssembleOptions = {}
   else {
     const chk = await verifyImages(cfg.images);
     if (chk.mismatched.length > 0) {
-      for (const d of chk.mismatched) await audit.write({ type: 'image_mismatch', detail: { digest: d } });
+      for (const d of chk.mismatched)
+        await audit.write({ type: 'image_mismatch', detail: { digest: d } });
       throw new AgentStartRefused(chk.mismatched.map((d) => `image_mismatch:${d.slice(0, 19)}`));
     }
     images = chk.verified;
   }
 
-  let runner: CommandRunner = opts.runner ?? new RefusedCommandRunner('simulated_launcher_has_no_runner');
+  let runner: CommandRunner =
+    opts.runner ?? new RefusedCommandRunner('simulated_launcher_has_no_runner');
   let launcher: Launcher;
   let quota: QuotaDriver;
   if (cfg.launcher === 'runsc') {
     if (!opts.runner) {
       try {
-        runner = await NodeCommandRunner.create({ platform: opts.platform ?? process.platform, nodeId: cfg.nodeId });
+        runner = await NodeCommandRunner.create({
+          platform: opts.platform ?? process.platform,
+          nodeId: cfg.nodeId,
+        });
       } catch (e) {
-        throw new AgentStartRefused([`not_the_attested_node:${(e as { code?: string }).code ?? 'unknown'}`]);
+        throw new AgentStartRefused([
+          `not_the_attested_node:${(e as { code?: string }).code ?? 'unknown'}`,
+        ]);
       }
     }
-    quota = opts.quota ?? new XfsProjectQuotaDriver(runner, DEFAULT_BINARIES.xfsQuota, cfg.workspaceRoot, quotaStateFile(cfg.stateDir));
+    quota =
+      opts.quota ??
+      new XfsProjectQuotaDriver(
+        runner,
+        DEFAULT_BINARIES.xfsQuota,
+        cfg.workspaceRoot,
+        quotaStateFile(cfg.stateDir),
+      );
     launcher =
       opts.launcher ??
       new RunscLauncher({
@@ -100,10 +127,31 @@ export async function assembleAgent(cfg: AgentConfig, opts: AssembleOptions = {}
     now: opts.now ?? (() => Date.now()),
     chown: cfg.launcher === 'runsc' && asRoot ? (p, u, g) => chown(p, u, g) : undefined,
   });
-  const service = new NodeService({ config: cfg, store, launcher, images, audit, metrics, now: opts.now, monitorMs: opts.monitorMs, freeDiskMb: opts.freeDiskMb });
+  const service = new NodeService({
+    config: cfg,
+    store,
+    launcher,
+    images,
+    audit,
+    metrics,
+    now: opts.now,
+    monitorMs: opts.monitorMs,
+    freeDiskMb: opts.freeDiskMb,
+  });
   await service.recoverOnStart();
-  await audit.write({ type: 'agent_started', detail: { launcher: cfg.launcher, images: Object.keys(images).length } });
+  await audit.write({
+    type: 'agent_started',
+    detail: { launcher: cfg.launcher, images: Object.keys(images).length },
+  });
   const replay = new eg.ReplayCache();
-  const handler = createRequestHandler({ service, nodeId: cfg.nodeId, trusted: cfg.trustedControlKeys, replay, metrics, audit, now: opts.now });
+  const handler = createRequestHandler({
+    service,
+    nodeId: cfg.nodeId,
+    trusted: cfg.trustedControlKeys,
+    replay,
+    metrics,
+    audit,
+    now: opts.now,
+  });
   return { service, handler, metrics, audit, launcher, replay };
 }

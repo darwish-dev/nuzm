@@ -50,7 +50,14 @@ export interface AgentConfig {
 
 export const AGENT_CONFIG_DEFAULTS = {
   maxSlots: 4,
-  ceilings: { cpuSeconds: 600, wallSeconds: 900, memoryMb: 2048, pids: 256, outputKb: 512, diskMb: 2048 },
+  ceilings: {
+    cpuSeconds: 600,
+    wallSeconds: 900,
+    memoryMb: 2048,
+    pids: 256,
+    outputKb: 512,
+    diskMb: 2048,
+  },
   maxWorkspaceDiskMb: 4096,
   workspaceMaxAgeMs: 30 * 60 * 1000,
   outputRoots: ['dist', 'build', 'out', 'coverage', 'reports'],
@@ -104,26 +111,32 @@ export function parseAgentConfig(
   const d = AGENT_CONFIG_DEFAULTS;
   const get = <T>(k: string, dflt: T): unknown => (raw[k] === undefined ? dflt : raw[k]);
 
-  if (typeof raw.nodeId !== 'string' || !/^[a-z0-9-]{3,40}$/.test(raw.nodeId)) e.push('nodeId_invalid');
-  if (typeof raw.endpointId !== 'string' || !/^[a-z0-9-]{3,60}$/.test(raw.endpointId)) e.push('endpointId_invalid');
+  if (typeof raw.nodeId !== 'string' || !/^[a-z0-9-]{3,40}$/.test(raw.nodeId))
+    e.push('nodeId_invalid');
+  if (typeof raw.endpointId !== 'string' || !/^[a-z0-9-]{3,60}$/.test(raw.endpointId))
+    e.push('endpointId_invalid');
   if (raw.runtimeClass !== 'gvisor-runsc') e.push('runtimeClass_not_gvisor_runsc');
   const launcher = raw.launcher;
   if (launcher !== 'runsc' && launcher !== 'simulated') e.push('launcher_invalid');
   const quota = get('quota', launcher === 'runsc' ? 'xfs-project' : 'accounting');
   if (quota !== 'xfs-project' && quota !== 'accounting') e.push('quota_invalid');
-  if (launcher === 'runsc' && quota !== 'xfs-project') e.push('real_launcher_requires_xfs_project_quota');
+  if (launcher === 'runsc' && quota !== 'xfs-project')
+    e.push('real_launcher_requires_xfs_project_quota');
 
   const l = raw.listen;
   if (!isObj(l) || typeof l.host !== 'string' || !num(l.port, 1, 65535)) e.push('listen_invalid');
   else {
     if (['0.0.0.0', '::', '', '*'].includes(l.host)) e.push('listen_wildcard_refused');
-    if (launcher === 'simulated' && !LOOPBACK.has(l.host)) e.push('simulated_launcher_requires_loopback_listener');
+    if (launcher === 'simulated' && !LOOPBACK.has(l.host))
+      e.push('simulated_launcher_requires_loopback_listener');
   }
   const m = raw.metrics;
-  if (!isObj(m) || m.host !== '127.0.0.1' || !num(m.port, 1, 65535)) e.push('metrics_must_be_loopback');
+  if (!isObj(m) || m.host !== '127.0.0.1' || !num(m.port, 1, 65535))
+    e.push('metrics_must_be_loopback');
 
   const t = raw.tls;
-  if (!isObj(t) || !absPath(t.keyFile) || !absPath(t.certFile) || !absPath(t.caFile)) e.push('tls_paths_invalid');
+  if (!isObj(t) || !absPath(t.keyFile) || !absPath(t.certFile) || !absPath(t.caFile))
+    e.push('tls_paths_invalid');
   else if (
     !Array.isArray(t.clientFingerprints) ||
     t.clientFingerprints.length === 0 ||
@@ -135,7 +148,12 @@ export function parseAgentConfig(
   if (!isObj(k) || Object.keys(k).length === 0) e.push('trusted_control_keys_required');
   else
     for (const [id, pem] of Object.entries(k))
-      if (!/^[A-Za-z0-9._-]{1,60}$/.test(id) || typeof pem !== 'string' || !/^-----BEGIN PUBLIC KEY-----/.test(pem.trim()) || /PRIVATE/.test(pem))
+      if (
+        !/^[A-Za-z0-9._-]{1,60}$/.test(id) ||
+        typeof pem !== 'string' ||
+        !/^-----BEGIN PUBLIC KEY-----/.test(pem.trim()) ||
+        /PRIVATE/.test(pem)
+      )
         e.push(`trusted_control_key_invalid:${id.slice(0, 20)}`);
 
   for (const p of ['workspaceRoot', 'stateDir', 'auditFile', 'toolchainDir'] as const)
@@ -148,24 +166,48 @@ export function parseAgentConfig(
 
   if (!num(get('maxSlots', d.maxSlots), 1, 64)) e.push('maxSlots_invalid');
   const c = get('ceilings', d.ceilings);
-  if (!isObj(c) || !['cpuSeconds', 'wallSeconds', 'memoryMb', 'pids', 'outputKb', 'diskMb'].every((x) => num(c[x], 1, 10_000_000)) || Object.keys(c).length !== 6)
+  if (
+    !isObj(c) ||
+    !['cpuSeconds', 'wallSeconds', 'memoryMb', 'pids', 'outputKb', 'diskMb'].every((x) =>
+      num(c[x], 1, 10_000_000),
+    ) ||
+    Object.keys(c).length !== 6
+  )
     e.push('ceilings_invalid');
-  if (!num(get('maxWorkspaceDiskMb', d.maxWorkspaceDiskMb), 1, 1_000_000)) e.push('maxWorkspaceDiskMb_invalid');
-  if (!num(get('workspaceMaxAgeMs', d.workspaceMaxAgeMs), 60_000, 24 * 3600_000)) e.push('workspaceMaxAgeMs_invalid');
+  if (!num(get('maxWorkspaceDiskMb', d.maxWorkspaceDiskMb), 1, 1_000_000))
+    e.push('maxWorkspaceDiskMb_invalid');
+  if (!num(get('workspaceMaxAgeMs', d.workspaceMaxAgeMs), 60_000, 24 * 3600_000))
+    e.push('workspaceMaxAgeMs_invalid');
   const roots = get('outputRoots', [...d.outputRoots]);
-  if (!Array.isArray(roots) || roots.length === 0 || !roots.every((r) => eg.isWorkspaceRelativePath(r) && !String(r).includes('/')))
+  if (
+    !Array.isArray(roots) ||
+    roots.length === 0 ||
+    !roots.every((r) => eg.isWorkspaceRelativePath(r) && !String(r).includes('/'))
+  )
     e.push('outputRoots_invalid');
-  if (!num(get('sandboxUid', d.sandboxUid), 10_000, 60_000) || !num(get('sandboxGid', d.sandboxGid), 10_000, 60_000))
+  if (
+    !num(get('sandboxUid', d.sandboxUid), 10_000, 60_000) ||
+    !num(get('sandboxGid', d.sandboxGid), 10_000, 60_000)
+  )
     e.push('sandbox_ids_invalid');
   if (!num(get('killGraceMs', d.killGraceMs), 100, 60_000)) e.push('killGraceMs_invalid');
   if (!num(get('minFreeDiskMb', d.minFreeDiskMb), 0, 10_000_000)) e.push('minFreeDiskMb_invalid');
 
   const eo = raw.egress;
-  if (!isObj(eo) || typeof eo.proxyAddr !== 'string' || !/^\d{1,3}(\.\d{1,3}){3}:\d{2,5}$/.test(eo.proxyAddr)) e.push('egress_proxyAddr_invalid');
-  else if (!Array.isArray(eo.allowHosts) || !eo.allowHosts.every((h) => eg.isAllowableEgressHost(h)))
+  if (
+    !isObj(eo) ||
+    typeof eo.proxyAddr !== 'string' ||
+    !/^\d{1,3}(\.\d{1,3}){3}:\d{2,5}$/.test(eo.proxyAddr)
+  )
+    e.push('egress_proxyAddr_invalid');
+  else if (
+    !Array.isArray(eo.allowHosts) ||
+    !eo.allowHosts.every((h) => eg.isAllowableEgressHost(h))
+  )
     e.push('egress_allowHosts_invalid');
   const r = raw.runsc;
-  if (!isObj(r) || !absPath(r.path) || !absPath(r.rootDir) || r.platform !== 'systrap') e.push('runsc_invalid');
+  if (!isObj(r) || !absPath(r.path) || !absPath(r.rootDir) || r.platform !== 'systrap')
+    e.push('runsc_invalid');
 
   if (e.length > 0) return { ok: false, errors: e };
   const out = {

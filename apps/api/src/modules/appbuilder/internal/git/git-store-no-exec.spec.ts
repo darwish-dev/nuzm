@@ -1,4 +1,12 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  appendFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -36,19 +44,49 @@ describe('git.store never executes anything a repository could plant', () => {
     writeFileSync(evil, `#!/bin/sh\necho ran > '${marker}'\n`);
     chmodSync(evil, 0o755);
     mkdirSync(join(dir, 'hooks'), { recursive: true });
-    for (const h of ['pre-commit', 'post-commit', 'reference-transaction', 'update', 'post-update', 'pre-receive', 'post-receive', 'commit-msg']) {
+    for (const h of [
+      'pre-commit',
+      'post-commit',
+      'reference-transaction',
+      'update',
+      'post-update',
+      'pre-receive',
+      'post-receive',
+      'commit-msg',
+    ]) {
       writeFileSync(join(dir, 'hooks', h), `#!/bin/sh\necho ran > '${marker}'\n`);
       chmodSync(join(dir, 'hooks', h), 0o755);
     }
-    appendFileSync(join(dir, 'config'), `[core]\n\thooksPath = ${join(dir, 'hooks')}\n\tfsmonitor = ${evil}\n\tpager = ${evil}\n\teditor = ${evil}\n[filter "evil"]\n\tclean = ${evil}\n\tsmudge = ${evil}\n\tprocess = ${evil}\n[diff "evil"]\n\ttextconv = ${evil}\n\tcommand = ${evil}\n[gc]\n\tauto = 1\n\tautoDetach = false\n\tpruneExpire = now\n`);
+    appendFileSync(
+      join(dir, 'config'),
+      `[core]\n\thooksPath = ${join(dir, 'hooks')}\n\tfsmonitor = ${evil}\n\tpager = ${evil}\n\teditor = ${evil}\n[filter "evil"]\n\tclean = ${evil}\n\tsmudge = ${evil}\n\tprocess = ${evil}\n[diff "evil"]\n\ttextconv = ${evil}\n\tcommand = ${evil}\n[gc]\n\tauto = 1\n\tautoDetach = false\n\tpruneExpire = now\n`,
+    );
     mkdirSync(join(dir, 'info'), { recursive: true });
     writeFileSync(join(dir, 'info', 'attributes'), '* filter=evil diff=evil text eol=crlf\n');
     // the project also ships its own attributes file: it is a blob in a tree here, never a working-tree file git would read
     const evilAttrs = '* filter=evil diff=evil\n';
     // a path under `.git/` is refused by the store's own path rules; the project's own .gitattributes is only a blob in a tree here, never a file git reads
-    await expect(store.commit(ref, 'main', new Map([['.git/hooks/post-commit', 'x']]), 'x')).rejects.toBeDefined();
-    await store.commit(ref, 'main', new Map([['src/index.ts', 'export const a = 1;\n'], ['.gitattributes', evilAttrs]]), 'first');
-    await store.commit(ref, 'main', new Map([['src/index.ts', 'export const a = 2;\n'], ['.gitattributes', evilAttrs]]), 'second');
+    await expect(
+      store.commit(ref, 'main', new Map([['.git/hooks/post-commit', 'x']]), 'x'),
+    ).rejects.toBeDefined();
+    await store.commit(
+      ref,
+      'main',
+      new Map([
+        ['src/index.ts', 'export const a = 1;\n'],
+        ['.gitattributes', evilAttrs],
+      ]),
+      'first',
+    );
+    await store.commit(
+      ref,
+      'main',
+      new Map([
+        ['src/index.ts', 'export const a = 2;\n'],
+        ['.gitattributes', evilAttrs],
+      ]),
+      'second',
+    );
     const log = await store.log(ref, 'main');
     expect(log.length).toBeGreaterThanOrEqual(2);
     await store.diff(ref, log[1]!.sha, log[0]!.sha);
@@ -74,7 +112,11 @@ describe('git.store host-process guard', () => {
       process.env.NODE_ENV = was;
     }
     await expect(store.init(ref)).resolves.toBeUndefined();
-    expect(seen.map((d) => [d.path, d.allowed])).toEqual([['git-store', false], ['git-store', false], ['git-store', true]]);
+    expect(seen.map((d) => [d.path, d.allowed])).toEqual([
+      ['git-store', false],
+      ['git-store', false],
+      ['git-store', true],
+    ]);
     eg.setHostExecAuditor(() => undefined);
   });
 });

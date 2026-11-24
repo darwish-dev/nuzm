@@ -6,3 +6,5 @@
 export * from './audit-adapter';
 export * from './qualification-tools';
 export * from './runtime-metrics';
+export * from './durable-journal';
+export { PgExecutionStore } from './internal/store';

@@ -46,8 +46,12 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
         resolve: fileSecretResolver(secretsDir, { repoRoot: process.cwd() }),
       });
       const report = await eg.runPortConformance(target);
-      console.log(`conformance ${report.conformanceVersion} | ${report.target.name} | label=${report.target.label}`);
-      console.log(`cases=${report.total} PASS=${report.pass} FAIL=${report.fail} SKIPPED=${report.skipped} reportSha256=${report.reportSha256}`);
+      console.log(
+        `conformance ${report.conformanceVersion} | ${report.target.name} | label=${report.target.label}`,
+      );
+      console.log(
+        `cases=${report.total} PASS=${report.pass} FAIL=${report.fail} SKIPPED=${report.skipped} reportSha256=${report.reportSha256}`,
+      );
       console.log(report.statement);
       const out = arg(rest, 'out');
       if (out) writeFileSync(out, JSON.stringify(report, null, 2), { flag: 'wx' });
@@ -55,7 +59,10 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
     }
     if (cmd === 'sign') {
       const keyFile = arg(rest, 'key');
-      if (!keyFile) throw new Error('--key is required (the reviewer\'s private key file, outside the repository)');
+      if (!keyFile)
+        throw new Error(
+          "--key is required (the reviewer's private key file, outside the repository)",
+        );
       const bad = keyFileOk(keyFile);
       if (bad) {
         console.error(`REFUSED: ${bad}`);
@@ -67,7 +74,11 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
         draft,
         {
           keyId: arg(rest, 'key-id') ?? '',
-          securityReview: { ref: arg(rest, 'review-ref') ?? '', reviewer: arg(rest, 'reviewer') ?? '', decidedAt: arg(rest, 'decided-at') ?? now.toISOString().replace(/\.\d{3}Z$/, 'Z') },
+          securityReview: {
+            ref: arg(rest, 'review-ref') ?? '',
+            reviewer: arg(rest, 'reviewer') ?? '',
+            decidedAt: arg(rest, 'decided-at') ?? now.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+          },
           d21: arg(rest, 'd21') ?? '',
         },
         createPrivateKey(readFileSync(keyFile, 'utf8')),
@@ -75,7 +86,11 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
       );
       const out = arg(rest, 'out');
       if (out) writeFileSync(out, JSON.stringify(attestation, null, 2), { flag: 'wx' });
-      console.log(verdict.ok ? 'signed; verifies in LIVE mode against the reviewer key' : `signed, but the verifier REFUSES it: ${verdict.reasons.join(', ')}`);
+      console.log(
+        verdict.ok
+          ? 'signed; verifies in LIVE mode against the reviewer key'
+          : `signed, but the verifier REFUSES it: ${verdict.reasons.join(', ')}`,
+      );
       return verdict.ok ? 0 : 1;
     }
     if (cmd === 'negative') {
@@ -85,7 +100,13 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
       const decl = readJson<eg.NodeDeclaration>(arg(rest, 'declaration'));
       const att = readJson<unknown>(arg(rest, 'attestation'));
       const trusted = readJson<eg.TrustedKeys>(arg(rest, 'trusted-keys'));
-      const { node } = await eg.connectForQualification({ connection: conn, declaration: decl, approvalRef: arg(rest, 'approval'), env, resolve: fileSecretResolver(secretsDir, { repoRoot: process.cwd() }) });
+      const { node } = await eg.connectForQualification({
+        connection: conn,
+        declaration: decl,
+        approvalRef: arg(rest, 'approval'),
+        env,
+        resolve: fileSecretResolver(secretsDir, { repoRoot: process.cwd() }),
+      });
       // the node is presented as verified here only to exercise the SERVICE's refusals; no run is started
       const verified = Object.assign(Object.create(node), { isolation: 'verified' as const });
       const kit = eg.createSimulatedKit();
@@ -97,7 +118,8 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
         now: () => Date.now(),
         simulatedAttestation: kit.attestation({ nodeId: conn.nodeId, endpointId: conn.endpointId }),
       });
-      for (const r of res) console.log(`${r.status} ${r.id} ${r.title} (expected ${r.expected}; got ${r.note})`);
+      for (const r of res)
+        console.log(`${r.status} ${r.id} ${r.title} (expected ${r.expected}; got ${r.note})`);
       return res.some((r) => r.status === 'FAIL') ? 1 : 0;
     }
     if (cmd === 'evidence') {
@@ -118,11 +140,15 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
       const idx = buildEvidenceIndex(files, new Date());
       const target = join(dir, 'INDEX.json');
       if (existsSync(target)) {
-        console.error('REFUSED: INDEX.json already exists (evidence is append-only: create a new dated directory)');
+        console.error(
+          'REFUSED: INDEX.json already exists (evidence is append-only: create a new dated directory)',
+        );
         return 2;
       }
       writeFileSync(target, JSON.stringify(idx, null, 2), { flag: 'wx' });
-      console.log(`files=${idx.entries.length} missing=${idx.missing.length} problems=${idx.problems.length} complete=${idx.complete}`);
+      console.log(
+        `files=${idx.entries.length} missing=${idx.missing.length} problems=${idx.problems.length} complete=${idx.complete}`,
+      );
       for (const m of idx.missing) console.log(`MISSING ${m}`);
       for (const p of idx.problems) console.log(`PROBLEM ${p}`);
       return idx.complete ? 0 : 1;

@@ -4,3 +4,4 @@
  * boundary lives next to the runtime, in `appbuilder/internal/sandbox/execution-port.ts` (module boundary lint).
  */
 export * from './audit-adapter';
+export * from './qualification-tools';

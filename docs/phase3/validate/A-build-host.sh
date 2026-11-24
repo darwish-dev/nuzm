@@ -41,15 +41,20 @@ fi
 # A4 CocoaPods
 if have pod && PV="$(pod --version 2>/dev/null)"; then pass A4 "CocoaPods $PV"; else fail A4 "CocoaPods is not installed" "brew install cocoapods  (or: sudo gem install cocoapods)"; fi
 # A5 Flutter
+LIC_BAD=0
 if have flutter; then
   FV="$(flutter --no-version-check --version 2>/dev/null | head -1)"
   [ -n "$FV" ] && pass A5 "$FV" || fail A5 "flutter does not run" "reinstall Flutter"
   DOC="$(bounded 180 flutter --no-version-check doctor 2>&1 || true)"
-  if printf '%s' "$DOC" | grep -E '^\[(✗|!)\].*(Xcode|Android)' >/dev/null; then
-    printf '%s\n' "$DOC" | grep -E '^\[(✗|!)\].*(Xcode|Android)' | while IFS= read -r l; do printf 'FAIL   %-8s %s  -> %s\n' A6 "flutter doctor: $l" "fix with: flutter doctor -v"; done
+  printf '%s' "$DOC" | grep -qi 'licenses not accepted' && LIC_BAD=1
+  if ! printf '%s' "$DOC" | grep -Eq '^\[(✓|!|✗)\]'; then
+    # no report at all (timeout, startup lock held by another flutter command): an empty answer is never a PASS
+    fail A6 "flutter doctor produced no report (timed out, or another flutter command holds its lock)" "run: flutter doctor -v   and re-run this script when nothing else uses flutter"
+  elif printf '%s' "$DOC" | grep -Eq '^\[(✗|!)\].*(Xcode|Android toolchain)'; then
+    printf '%s\n' "$DOC" | grep -E '^\[(✗|!)\].*(Xcode|Android toolchain)' | while IFS= read -r l; do printf 'FAIL   %-8s %s  -> %s\n' A6 "flutter doctor: $l" "fix with: flutter doctor -v"; done
     P3_FAIL=$((P3_FAIL+1))
   else
-    pass A6 "flutter doctor shows no red or warning mark for Xcode or Android"
+    pass A6 "flutter doctor shows no red or warning mark for Xcode or the Android toolchain"
   fi
 else
   fail A5 "flutter is not on PATH" "install Flutter (stable channel) and add it to PATH"
@@ -59,7 +64,9 @@ if have java && JV="$(java -version 2>&1 | head -1)" && ! printf '%s' "$JV" | gr
 # A8 Android SDK location, licences, an emulator system image
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 if [ -d "$SDK" ]; then pass A8 "Android SDK at $SDK"; else fail A8 "Android SDK not found at $SDK" "install the Android SDK or set ANDROID_HOME"; fi
-if [ -s "$SDK/licenses/android-sdk-license" ]; then pass A9 "Android SDK licences are accepted (licences file present)"; else fail A9 "Android SDK licences are not accepted" "you accept them yourself: flutter doctor --android-licenses"; fi
+if [ "$LIC_BAD" -eq 1 ]; then fail A9 "flutter doctor reports that some Android SDK licences are not accepted" "you accept them yourself: flutter doctor --android-licenses"
+elif [ -s "$SDK/licenses/android-sdk-license" ]; then pass A9 "no 'licences not accepted' in flutter doctor and the licence file is present"
+else fail A9 "Android SDK licences are not accepted" "you accept them yourself: flutter doctor --android-licenses"; fi
 if ls "$SDK"/system-images/*/*/x86_64 >/dev/null 2>&1; then pass A10 "an x86_64 emulator system image is installed ($(ls -d "$SDK"/system-images/* | head -1 | xargs basename))"; else fail A10 "no x86_64 emulator system image under $SDK/system-images" "sdkmanager \"system-images;android-34;google_apis;x86_64\" (check the name with sdkmanager --list)"; fi
 # A11 no production signing material in the repository checkout (tracked or untracked, not ignored)
 if have git && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1 && git -C "$REPO_ROOT" ls-files -co --exclude-standard | grep -Eqi '\.(keystore|jks|p12|mobileprovision)$'; then

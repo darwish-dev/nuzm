@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { isBlockedAddress } from '@nuzm/domain';
 
 /**
@@ -12,11 +14,20 @@ import { isBlockedAddress } from '@nuzm/domain';
  * ("expected to fail but passed") and is flipped to a plain `it`.
  */
 // P3_S08_EGRESS_PROXY_MODULE lets the independent verifier point the suite at a branch's source before the merge (the proving run recorded in DEFECT-18)
-const spec = process.env.P3_S08_EGRESS_PROXY_MODULE ?? '@nuzm/runtime-agent';
-const mod: { isPublicAddress?: (ip: string) => boolean } | null = await import(
-  /* @vite-ignore */ spec
-).catch(() => null);
-const proxy = mod?.isPublicAddress;
+const override = process.env.P3_S08_EGRESS_PROXY_MODULE;
+const spec = override ?? '@nuzm/runtime-agent';
+// available = the override file exists, or the package is in this tree (no top-level await: this file is a CommonJS module)
+const available = override
+  ? existsSync(override)
+  : existsSync(join(process.cwd(), '../../packages/runtime-agent/package.json'));
+let proxy: ((ip: string) => boolean) | undefined;
+beforeAll(async () => {
+  if (!available) return;
+  const mod = (await import(/* @vite-ignore */ spec)) as {
+    isPublicAddress: (ip: string) => boolean;
+  };
+  proxy = mod.isPublicAddress;
+});
 
 /** addresses the Phase 2 classifier refuses and the proxy MUST therefore refuse */
 const MUST_REFUSE = [
@@ -47,7 +58,7 @@ const MUST_REFUSE = [
 const OPEN_DEFECT_18 = ['100::1', '100::ffff', '::7f00:1', 'fec0::1'];
 const MUST_ALLOW = ['8.8.8.8', '1.1.1.1', '104.16.0.1', '2606:4700::1111', '2a00:1450:4001::1'];
 
-describe.skipIf(!proxy)(
+describe.skipIf(!available)(
   'P3-S02 egress proxy: address policy (skipped until the package is merged)',
   () => {
     it('the corpus is sane: the Phase 2 classifier refuses every MUST_REFUSE and DEFECT-18 address, and allows every MUST_ALLOW', () => {

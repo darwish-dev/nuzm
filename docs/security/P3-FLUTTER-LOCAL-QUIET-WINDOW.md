@@ -9,7 +9,7 @@ Status: PLAN. **Nothing was started.** The Master announces the window; I do not
 | Prerequisite the wrapper needs | State on the owner's Mac | Consequence |
 |---|---|---|
 | a JDK 17 (`JAVA_HOME` or `flutter config --jdk-dir`) | **FAIL: `java -version` answers "Unable to locate a Java Runtime"** (`/usr/bin/java` is only the macOS stub; the Master's checklist table says "Java present": it is not) | the wrapper exits 2 ("no JDK") |
-| Android SDK licences accepted | the licence files exist; the checklist says not all are accepted; the wrapper prints a NOTE and the build fails with `gradle_licence_not_accepted` until the owner accepts (B-Android) | the APK test fails |
+| Android SDK licences accepted | `flutter doctor` says "Some Android licenses not accepted" (confirmed 2026-11-24); the wrapper prints a NOTE and the build fails with `gradle_licence_not_accepted` until the owner accepts (B-Android) | the APK test fails |
 | Flutter at the pinned version (`infra/mobile/android/toolchain.env`) | Flutter 3.35.7 on an unnamed `user-branch` channel; the pin is checked by exact version | to be compared with the pin by the wrapper |
 | B-Android approval recorded | not recorded | per CLAUDE.md the generated-code build stays refused; this template-only run does not need it, but the owner must know the Mac is the runner |
 The owner action is therefore: install a JDK 17 (and accept the Android licences yourself) **before** the window. `docs/phase3/validate/A-build-host.sh` re-checks both read-only (A7, A9); the Master's checklist table should be corrected for Java.

@@ -15,6 +15,8 @@ const walk = (d: string): string[] =>
   });
 const sources = walk(root).map((p) => ({ f: p.slice(root.length + 1), src: readFileSync(p, 'utf8') }));
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+/** code with string literals blanked: a NAME inside a string (a list of module names, a message) is data, not a capability */
+const code = (s: string) => strip(s).replace(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"/g, "''");
 
 describe('the builder tools are pure and execute nothing', () => {
   it('there are sources to check', () => {
@@ -35,10 +37,10 @@ describe('the builder tools are pure and execute nothing', () => {
       [/\bnew\s+Function\b|\bFunction\s*\(/, 'Function constructor'],
       [/\bfetch\s*\(|XMLHttpRequest|WebSocket|\bnavigator\b|\bglobalThis\b|\bwindow\b/, 'a network or global capability'],
       [/\bsetTimeout\b|\bsetInterval\b|\bDate\.now\b|\bMath\.random\b|\bnew Date\b|\bperformance\b|\brandomUUID\b|\brandomBytes\b/, 'clock or randomness'],
-      [/\bexec(Sync)?\s*\(|\bspawn(Sync)?\s*\(|\bfork\s*\(/, 'process creation'],
+      [/(?<![.\w$])exec(Sync)?\s*\(|\bspawn(Sync)?\s*\(|\bfork\s*\(/, 'process creation (RegExp.exec is a method call and is allowed)'],
     ];
     for (const { f, src } of sources)
-      for (const [re, what] of forbidden) expect(re.test(strip(src)), `${f} must not use ${what}`).toBe(false);
+      for (const [re, what] of forbidden) expect(re.test(code(src)), `${f} must not use ${what}`).toBe(false);
   });
   it('the only `child_process` text is data: the validator DETECTING it in build configuration and the list of Node module names', () => {
     const hits = sources.filter((s) => /child_process/.test(strip(s.src))).map((s) => s.f);

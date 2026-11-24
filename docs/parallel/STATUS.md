@@ -34,3 +34,7 @@ All six worker branches merged; SDK regenerated; manifest conflicts resolved (on
 | `test:integration` (concurrency 2) | 2525 passed, 11 failed: 2 fixed by the Master (cross-tenant matrix), 9 left to Session 07 (8 `it.fails` markers for the now-fixed DEFECT-2, 1 pinned-exception list), then Session 07 reported 336 QA tests passed on its branch (merged). **Full suite not re-run since.** |
 | Isolated E2E ar / en | each 43 passed, 1 skipped, 3 failed → 2 failures fixed and re-verified (10-ai-admin, 11 workflow, both locales); `08-compute` mock-catalog failure with Session 07; `10-app-builder` deploy leg STILL SKIPPED (no finished web-app build from the scripted model) with Session 06 |
 Open: O-1, O-2, O-9 owner decisions; all D-items unchanged. No live capability enabled.
+
+## Known issues recorded (Master)
+- O-10 (QA): `packages/db/src/dev-cloud.ts` seeds simulator ids (dev-sa-1, spark-*, dev-ubuntu-*) that the mock-compute adapter rejects, so a customer creating a server from the seeded DEV catalog gets a failed instance (dev-only; the E2E fixture publishes the mock catalog explicitly). Not fixed here: dev seed only, no production impact; owner of the file: Master (scheduled after the heavy runs).
+- Batch 3 (head f8bbf902): `08-compute-customer` (Session 07's fix) passes in ar and en on the integration stack (3 + 3); Session 06's new `10-deploy-simulated.spec.ts` ran in a browser for the first time: 1 of 4 passes per locale, the rest fail (deployment never reaches LIVE in the e2e stack, duplicate seeded site token); Session 06 is fixing.

@@ -71,7 +71,31 @@ Why this shape: `HostingAdapter` (docs/09 §3) manages sites, domains, certifica
 
 **Release layout on the node** (same for any transport): `<siteRoot>/releases/<deploymentId>/…` for each deployment, `<siteRoot>/current` switched atomically. Steps: upload to a **new** release directory → read the hash back from the node and compare (a mismatch removes the upload and fails the deployment) → smoke the staged URL → switch `current` → smoke live. Rollback switches `current` back to a retained release (no re-upload); if the release was pruned it is uploaded again, verified and switched. The newest `keepReleases` (default 5) are kept; the live release is never pruned.
 
-**Open question for the live probe (NOT VERIFIED):** HestiaCP serves a domain from `…/web/<domain>/public_html`. Making `public_html` a symlink to `current` is the plan, but whether Hestia's web templates, permission fixes or rebuild commands preserve a symlinked document root is not established. If they do not, the fallback is `rsync --delete` into `public_html` from the release directory (atomic enough for static files, loses the cheap rollback). The probe in §5 step 6 decides.
+**What the hosting line now has (HESTIA-S5, read-only, NOT VERIFIED live):** an SFTP file manager that signs in as the site account (`ssh2`, host key pinned on first use), uploads raw bytes with a per-plan limit (proposed 25 MB per file, ceiling 60 MB), writes through a temporary file and a rename, and **refuses a symbolic link anywhere on the path**. It is a customer tool, not a deploy transport, and it is unavailable in production until the vault decision (D-12). Consequences for this design:
+
+1. A `current -> releases/<id>` **symlink switch cannot be used** on a Hestia node through that layer. The Hestia-compatible switch is a **directory rename swap** inside the site's `web/<domain>` folder (`public_html -> public_html.prev`, `releases/<id> -> public_html`): two SFTP renames, with a window of well under a second in which a request can see no document root. That is a weaker guarantee than an atomic symlink switch and it is **NOT VERIFIED**: whether Hestia's rebuild commands preserve a replaced `public_html`, and whether the file manager's path guard allows the rename, are open questions (asked of the hosting file-manager session, answered below; no change requested of it).
+2. `ArtifactTransport.switchCurrent` therefore has two implementations to choose between at the live probe: symlink (if a node allows it) or rename swap. The release layout, the integrity read-back, the staged smoke and the retention rules do not change.
+3. Fallback if neither works: `rsync`-style sync into `public_html` from the release directory (loses the cheap rollback; rollback then re-uploads the previous artifact, which `restore` already supports).
+
+
+### 3a. Answer from the hosting file-manager session (HESTIA-S5, its commit `0497405b`; their words summarised) and the contract it implies
+
+- `FilesService` is **internal** to hosting (not exported), handles **one file per call** (a whole buffer, capped at the plan's upload limit, at most 60 MB, plus a per-file disk-quota check) and its root is hard-wired to `<home>/web/<domain>/public_html`. A sibling `releases/` directory is outside what its guard allows. It cannot write a tree and has no per-deployment limit.
+- Its guard would refuse the swap as written: the root is resolved by realpath and must be a real directory, renaming or deleting the root itself is refused, and any symlink on a path is refused. A rename swap needs a **new method rooted at `<home>/web/<domain>`** that reuses the guard and the SFTP session. It is not atomic (two renames, a window with no `public_html`).
+- Not known to them: whether `v-rebuild-web-domain` and similar commands preserve a replaced `public_html`, Hestia's ownership/permissions on that folder, and the SFTP jail layout. All three go on the live probe list (§11 row 6).
+- Their recommendation, which this plan adopts: **the deploy-facing method lives in the hosting module** (it needs org-scoped site resolution, the vault `get` for the site password, the path guard, the SFTP connector, audit, quota and the node-connected gate, all internal to hosting). The deploy side defines the narrow `ArtifactTransport` port and its semantics; the hosting side implements it on top of its guard. **Nobody has committed to that hosting work: the owner of the hosting line has to schedule it.**
+
+**The `ArtifactTransport` contract for the hosting side** (what the deploy module needs, nothing more; the in-memory implementation in `hosting-target.ts` is the executable reference and `hosting-target.spec.ts` is the conformance test to port):
+
+| Operation | Semantics required |
+|---|---|
+| `putRelease(site, releaseId, artifact)` | write the whole tree under a NEW directory `releases/<releaseId>` (a sibling of the document root, so the root of this method is `<home>/web/<domain>`); never touch the live document root; tree bounds per deployment (proposed: 2000 files, 60 MB, the plan's disk quota checked before the first byte); temp-file-then-rename per file; a release id that already exists is refused (idempotent retry reads it back instead) |
+| `readReleaseHash(site, releaseId)` | recompute the manifest hash (`artifactHash`: sorted path + sha256 of content) FROM THE NODE, never from what was sent |
+| `switchCurrent(site, releaseId)` | make the release the served document root and return the previous release id; atomic if the node allows a symlink, otherwise the two-rename swap (record which in the evidence); the previous root is kept as a release |
+| `currentRelease(site)` | which release is served, read from the node |
+| `probe(site, where, path)` | plain HTTPS from the platform (outside the node), against the staged temporary host or the live host; the status code only |
+| `hasRelease`, `listReleases`, `removeRelease` | enumerate and delete releases; `removeRelease` of the live release is refused |
+| Common | org-scoped site resolution (another organization's site is indistinguishable from a missing one); audit of every call with path and size, never content; the site password read from the vault at call time; unavailable in production until D-12; every call refuses when the node is not connected |
 
 ### Hestia plug-in mapping (design, not code)
 
@@ -170,13 +194,13 @@ Each row is a recorded event with the approval reference, date and the log excer
 
 ## 12. Collision with the hosting line (record, nothing executed)
 
-The hosting line (`claude/merge-branches-run-import-295c4d`, head `3460525c`) was read-only. Facts that matter to this work:
+The hosting line (`claude/merge-branches-run-import-295c4d`; head `3460525c` when first read, `f8d88fd5` at the last read, now with HESTIA-S1, S2 backups/WordPress/monitoring, S4 VPS with auto-installed Hestia and S5 file manager/site tools) was read-only. Facts that matter to this work:
 
 - Its commit changes one comment in `apps/api/src/modules/deploy/internal/ports.ts` (the `SitePublisherPort` doc: "until the hosting module gains an artifact upload path (SFTP into the site root…)"). That is the same file this branch edits. A merge will conflict on that comment only; the sentence is already consistent with this design.
 - **ADR-067 number**: the hosting line uses `ADR-067-hestiacp-hosting-panel`; this branch uses `ADR-067-execution-gateway`. The Master's reconciliation plan renames ours to ADR-068.
-- **Migration numbers**: the hosting line uses `hosting/1980` and `cloud/1985`; Phase 1 here used `deploy/1980`. Phase 2 uses 2180, which collides with neither.
+- **Migration numbers**: the hosting line uses `hosting/1980`, `1981` (S4), `1982` (S2) and `1983` (S5) and `cloud/1985`; Phase 1 here used `deploy/1980`. Phase 2 uses 2180, which collides with none. The Master's reconciliation plan owns the renumbering.
 - Its CloudPanel node agent is removed; nothing in this module referenced it.
-- Decision needed from the owner before the real upload path can be built (see approval inputs): **which line owns the artifact upload path** (the hosting line's SFTP file manager, or a deploy-owned transport behind `ArtifactTransport`). This session recommends the hosting line owns it and deploy consumes it through `ArtifactTransport`.
+- Decision needed from the owner before the real upload path can be built (see approval inputs): **which line owns the artifact upload path**. The hosting file-manager session says the method belongs in the hosting module (§3a) and cannot commit to building it; this session agrees. The hosting line's owner has to schedule it against the contract in §3a.
 
 ## 13. Synthetic-app staging rehearsal
 
@@ -252,3 +276,124 @@ Estimated test duration: the checklist in §11 is one working session once the n
 3. Public-suffix list check for the preview domain (§4).
 4. A `developer` confirming a production publish (O-1) and a rollback needing its own approval (O-2) are owner decisions; the defaults are unchanged.
 5. Web-app (Session 05) deployments: the release build needs AI credit on the wallet because the sandbox create checks the AI budget; Session 05 is already investigating it in Phase 2.
+
+## 17. Tracks F and G: real application preview and real staging deployment
+
+One runner, `internal/live-track.ts`, with a CLI, `internal/live-track.cli.ts`. Both tracks run SIMULATED today and **refuse in real mode** (BLOCKED, exit 3, nothing deployed) unless there is (a) a staging target record file, (b) both owner approval references `HG-05:<id>` and `HG-06:<id>`, (c) a preview domain separate from the console and API (ADR-060) and (d) an artifact transport that can reach the node. (d) does not exist yet, so a real run ends BLOCKED with that reason, whatever the other inputs.
+
+| Track | Command | What it does | Live site |
+|---|---|---|---|
+| F real application preview | `live-track.cli.ts preview` | stage the application build as a release (integrity read-back), smoke it at its temporary subdomain, discard it | never switched |
+| G real staging deployment | `live-track.cli.ts deploy` | release 1 → staged smoke → switch → live smoke → release 2 → switch → rollback to release 1 → smoke | switched, then rolled back |
+| evidence check | `live-track.cli.ts validate <file>` | is the evidence record valid, and may it be recorded as LIVE-VERIFIED | none |
+
+`STAGING_APP_DIR=<dir>` runs either track on a real built static application (symlink-free, no `.env` or `.git`, at most 2000 files and 60 MB, hash-bound) instead of the synthetic one. The staging target record is a JSON file with exactly these keys (anything else, such as a credential, is refused and never echoed): `id`, `kind`, `provider`, `verification`, `region`, `previewDomain`, `approvalRef`, `evidenceRef`.
+
+### The evidence record for a live run (`nuzm.staging-evidence/1`)
+
+| Field | Content |
+|---|---|
+| `track`, `mode`, `label`, `status` | F or G; `simulated` or `real`; SIMULATED / NOT VERIFIED / LIVE-VERIFIED; PASS / FAIL / BLOCKED |
+| `target` | id, provider, region, preview domain, the `HG-05` and `HG-06` references |
+| `app` | artifact hash and file count |
+| `release` | release id (the deployment id given to the node) and the previous release |
+| `url` | the URL served (a real `https` URL for a live record, never `.invalid`) |
+| `health` | per-path HTTP status, overall ok, TLS result |
+| `ssl` | state (`not_required` for the wildcard host, `active` for a custom domain), action, label |
+| `rollback` | performed, hash served afterwards, ok (track G) |
+| `steps` | each step with status, detail and its own ISO-8601 UTC timestamp |
+| `timestamps` | `startedAt`, `finishedAt` |
+
+A record is **LIVE-eligible** only if it is valid and: mode `real`; status PASS; both references well formed; a release id; an `https` URL that is not `.invalid`; every health path 200 over TLS; SSL `not_required` or `active` and not labelled SIMULATED; for G a performed, successful rollback; every step PASS; no simulated marker in any step or the conclusion; timestamps ordered. A run on a stand-in transport is valid but never eligible (tested). Only after the owner reads the record does the target get its `evidenceRef` and the label LIVE-VERIFIED.
+
+## 18. Activation runbook (what the owner provides, exact commands, expected output)
+
+Nothing below has been run against a real node. Every expected output marked "today" is what the code does now; the rest is the intended result once the upload transport exists. **Nothing was purchased.**
+
+### 18.1 The decision to make first: which target for which project
+
+| | Hestia-backed static/PHP target (option B) | Isolated-runtime target (option C) |
+|---|---|---|
+| For | website, landing, docs, web-app static export, PHP sites | server applications: ecommerce, saas, erp, crm, fullstack, api, auth |
+| Isolation | per-site Unix account on a SHARED node (NOT VERIFIED); acceptable for synthetic or low-risk static content only | a sandbox with an isolation attestation (Session 04); the only acceptable place for AI-generated server code |
+| State | adapter and SFTP layer built on the hosting line, NOT VERIFIED; the upload transport for deployments is not built | Session 04 is preparing it; refuses to start without an attestation; not wired to deployments |
+| Cost shape | one small VPS can host many static sites | per-runtime resources; higher |
+| Recommendation | **start here**, with synthetic content, one throw-away node | **separate, later** staging effort owned by Session 04; never route a server app to option B |
+
+Choose B for the first staging run. Server apps are not deployable until C is qualified (plan §2).
+
+### 18.2 What the owner provides
+
+1. **HG-05**: a cloud account and ONE throw-away Linux node in the approved region; a hard spend cap; an end date. Record the reference `HG-05:<id>`.
+2. **HG-06**: HestiaCP installed on it (the hosting line's installer, or by hand); the panel FQDN and port; an access key limited to the allow-listed command profile. **The key is typed once in the admin console** (Hosting → Servers → connect panel: write-only, sealed in the vault, only a reference is stored). It is never put in chat, a file, a command line or this repository. Record `HG-06:<id>`.
+3. **DNS and wildcard**: a preview domain that is NOT under the console or API domain; a wildcard record `*.<preview domain>` pointing at the node; a wildcard certificate for it (DNS-01 needs API access to that domain's DNS, given to the node's ACME client, never to the platform code).
+4. **A decision on the upload path** (see §3 and §12): which code puts files on the node. Until this exists the real run cannot start.
+5. The staging target record file (outside the repository, for example `~/nuzm-staging-target.json`):
+
+```json
+{"id":"hosting:staging-1","kind":"static_hosting","provider":"hosting_panel","verification":"NOT VERIFIED","region":"<approved region>","previewDomain":"<preview domain>","approvalRef":null,"evidenceRef":null}
+```
+
+### 18.3 Commands and expected output
+
+```bash
+# 0. SIMULATED dry run (works today, no services, no credentials)
+npx tsx apps/api/src/modules/deploy/internal/live-track.cli.ts preview
+npx tsx apps/api/src/modules/deploy/internal/live-track.cli.ts deploy
+# expected: JSON with "mode":"simulated","label":"SIMULATED","status":"PASS"; exit 0
+```
+
+```bash
+# 1. REAL preview (track F) on a real built application
+STAGING_MODE=real STAGING_TARGET_FILE=~/nuzm-staging-target.json STAGING_HG05_REF=HG-05:<id> STAGING_HG06_REF=HG-06:<id> STAGING_PROTECTED_DOMAINS=<console domain>,<api domain>,<site domain> STAGING_APP_DIR=<built app dir> STAGING_EVIDENCE_OUT=~/preview-evidence.json npx tsx apps/api/src/modules/deploy/internal/live-track.cli.ts preview
+# today: "status":"BLOCKED", conclusion "no artifact upload path to a hosting node exists yet", exit 3, nothing deployed
+# once the transport exists: "status":"PASS", url https://<site>-<16 hex>.<preview domain>/, every health path 200, exit 0
+```
+
+```bash
+# 2. REAL staging deployment (track G): same variables, command `deploy`, STAGING_EVIDENCE_OUT=~/deploy-evidence.json
+# expected once the transport exists: steps gate, preview, ssl, release1, release2, rollback all PASS; rollback.servedHash == app.hash
+
+# 3. Is the evidence enough to call it LIVE-VERIFIED?
+npx tsx apps/api/src/modules/deploy/internal/live-track.cli.ts validate ~/deploy-evidence.json
+# expected: "valid": true and "liveEligible": true, exit 0. Any problem is listed ("not live-eligible: …")
+```
+
+Exit codes: 0 PASS or valid; 1 FAIL or invalid evidence; 3 BLOCKED. The panel probe, site creation, isolation check between two sites and teardown are the manual checks of §11 rows 1, 2, 11 and 12 (the CLI covers rows 3 to 10).
+
+### 18.4 Rollback
+
+Per release: track G performs one and records it. On the node: switch back to the previous release (retained, no re-upload) or re-upload it. If the whole staging effort must stop: unset `approvalRef` on the target record (the target then refuses), set `hosting.enabled` off, and tear down (18.5). Nothing here touches production data or a customer site.
+
+### 18.5 Teardown
+
+Delete the staging site through the hosting adapter, run `verifyWipe` (nothing left: files, user, vhost, certificates, cron), delete the node at the provider, delete the wildcard record, confirm the provider shows no running resource and the bill is at or under the cap. Record the date next to the evidence.
+
+### 18.6 Cost range, with sources (nothing purchased; every figure to be re-read from the provider before spending)
+
+| Item | Range found | Source and caveat |
+|---|---|---|
+| Smallest Contabo VPS (candidate from D-52) | about EUR 4.40 to 4.50 per month at a **12-month** term for roughly 4 vCPU / 8 GB | Contabo's [US pricing pages](https://contabo.com/en-us/vps-usa/) list a plan at EUR 4.40/month; a Contabo [blog post](https://contabo.com/blog/migrate-from-digitalocean-cheaper-vps/) quotes EUR 4.50/month for a plan whose name does not appear on the pricing pages. The names conflict: **confirm the exact plan and the month-to-month price (not found, and a 12-month term is not wanted for a throw-away node)** |
+| Alibaba Cloud ECS in Riyadh (candidate from D-52) | **no Riyadh price found** | Alibaba's [ECS billing documentation](https://www.alibabacloud.com/help/en/ecs/instance-types) says pay-as-you-go is postpaid and billed per second with a one-hour billing cycle; its example rate is not region-labelled. Read the Riyadh rate in Alibaba's pricing calculator |
+| Preview domain | owner's choice; none if an existing domain is reused | registrar price list |
+| Wildcard certificate | free with Let's Encrypt | DNS API access needed |
+| Traffic of the test | normally inside the node's allowance | provider terms |
+
+Indicative total for a one-week window on the smallest Contabo plan, if the month-to-month price is near the 12-month one: **a few euros**, plus any setup fee. This is an estimate from two public pages that disagree, not a quote. The owner sets the cap; the code never spends.
+
+## 19. Verification matrix (offline, SIMULATED, labelled)
+
+| Concern | Evidence (test) | Result seen |
+|---|---|---|
+| Target selection per project type (14 types, 3 builder types, inherited names refused) | `targets.spec.ts`; `deploy-policy.int.spec.ts` "prepare deployment" | pass |
+| Artifact handling, hash-bound | `hosting-target.spec.ts` (hash mismatch never reaches the node, read-back corruption refused and removed); `deploy-releases.int.spec.ts` (corrupt put → failed, nothing live); `live-track.spec.ts` (directory loader hash, symlink/secret refusal) | pass |
+| Preview URLs and ADR-060 isolation | `targets.spec.ts` (shared registrable domain refused, exact host matching, 64-bit tag, HMAC key); `live-track.spec.ts` (shared domain fails the run) | pass |
+| SSL planning | `targets.spec.ts` (temporary wildcard, DNS proof, issue, retry back-off, renewal, expiry, customer certificate refused, `canSwitchLive`) | pass |
+| Health checks | `hosting-target.spec.ts`, `deploy-releases.int.spec.ts` (staged and live smoke, forced 503) | pass |
+| Release management (versioned releases, retention, live never pruned) | `hosting-target.spec.ts`, `deploy-releases.int.spec.ts` | pass |
+| Rollback, O-2 off and on | `deploy-policy.int.spec.ts` (default reuse; own approval; spent approval; combined with O-1; staging unaffected), `deploy-releases.int.spec.ts` (switch back without upload), `live-track.spec.ts` (track G) | pass |
+| Failure recovery | staged smoke failure discards the upload, live smoke failure restores, integrity failure, orphan recovery (`deploy-s06.int.spec.ts`), `live-track.spec.ts` | pass |
+| Tenant isolation | `deploy.int.spec.ts` matrix, `deploy-releases.int.spec.ts` (foreign org 404, no releases), Session 07's `qa-deploy-*` suites | pass |
+| Real mode seal | `hosting-target.spec.ts`, `rehearsal.spec.ts`, `live-track.spec.ts`: BLOCKED without both references, target record, preview domain or transport | pass |
+
+All of it is SIMULATED. None of it is evidence about a real node.

@@ -25,3 +25,5 @@ Parallel sessions once collided on database ports and one ran `db:*` against the
 - `testenv.mjs status | renew <id> | release <id> | gc | check-url [URL]`. Release stops only a cluster whose `postmaster.pid` matches the lease and deletes only directories inside the allocator root. The number of concurrent leases is capped by CPU count and available memory (`NUZM_TESTENV_MAX_LEASES` overrides).
 - CI exception (explicit): `CI=true` with `NUZM_TEST_DB_POLICY=ci` accepts a non-protected loopback service port without a lease.
 - Tests of the allocator (collisions, cross-session access, missing/unsafe URLs, capacity, safe cleanup, a real cluster whose password keeps another session out): `pnpm testenv:test` (part of `pnpm verify`).
+
+Notes on leased E2E stacks: `e2e-stack.sh start` and `e2e-isolated.sh` run `db dev-logins` after the migration because a fresh leased cluster has no LOGIN for the runtime roles `nuzm_app`/`nuzm_worker` (cluster-wide, idempotent). Do not pipe `e2e-stack.sh start` into `tail`/`head`: the background dev stack keeps the pipe open and the command never returns; redirect to a file instead (`e2e-stack.sh start > /tmp/stack.log 2>&1`).

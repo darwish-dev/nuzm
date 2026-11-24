@@ -15,7 +15,7 @@ import { has, key, routes, type Route } from './qa-route-scan';
  * carries `@RequirePermission(p)` where the billing_admin role HOLDS p, call it as billing_admin and as the owner with real ids, and classify the answer by whether the marker came back.
  * Then set the policy to `deny` and call again. The default (`allow`, today's behaviour) is never changed by this suite beyond the test organization's own row.
  * Writes `O9_AUDIT_OUT` (JSON) when set; the human table is `docs/security/O9-CONTENT-ACCESS-AUDIT.md`. SIMULATED model; own Postgres; nothing leaves the process.
- * `it.fails` marks the gaps owned by Session 05 (builder / mobile / deployments routes) and Session 02 (AI sessions, runs, approvals routes): the test states the SECURE expectation.
+ * History: the gaps (Session 05: builder routes; Session 02: AI routes; Session 06: deployment routes) were `it.fails` until their owners extended the switch; all are ordinary tests now.
  */
 let e: AiEnv;
 let runs: RunService;
@@ -72,7 +72,7 @@ const urlFor = (path: string): string => {
       (_m, _p, tail) => `/v1/builder/projects/${ids.website}/${tail}`,
     )
     .replace(/\/v1\/builder\/projects\/:(id|projectId)/, `/v1/builder/projects/${ids.project}`)
-    .replace(/\/v1\/deployments\/:id/, `/v1/deployments/${randomUUID()}`)
+    .replace(/\/v1\/deployments\/:id/, `/v1/deployments/${ids.deployment ?? randomUUID()}`)
     .replace(/:[A-Za-z]+/g, () => randomUUID());
   const extra = QUERY.find(([re]) => re.test(path));
   return p + (extra ? extra[1]() : '');
@@ -229,6 +229,34 @@ beforeAll(async () => {
     (await call('alice', 'GET', '/v1/ai/approvals?status=pending')).json().items as Row[]
   ).find((a) => a.runId === ids.run);
   ids.approval = (ap?.id as string | undefined) ?? '';
+  // a deployment of the website to an in-memory hosting site (SIMULATED publisher): the deployment record and its logs
+  const planId = randomUUID();
+  await q(
+    `INSERT INTO hosting.plan_definitions (id, key, name_ar, name_en, status, quotas, runtimes, reservation) VALUES ($1, 'o9-plan', 'خطة', 'Plan', 'active', '{"diskMb":1,"inodes":1000,"bandwidthGb":1,"dbCount":1,"sitesCount":1}', '["php"]', '{"cpu_millicores":1,"memory_mb":1,"disk_mb":1}')`,
+    [planId],
+  );
+  const siteId = randomUUID();
+  await q(
+    `INSERT INTO hosting.sites (id, org_id, name, token, node_name, plan_id, runtime, status, data_region, created_by, credentials_ref, backup_key_ref, domain_primary)
+     VALUES ($1,$2,'o9-site',$3,$4,$5,'static','active','sa-central',$6,'vault://t/c','vault://t/b',NULL)`,
+    [
+      siteId,
+      A(),
+      randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
+      `s-${randomUUID().replace(/-/g, '').slice(0, 14)}`,
+      planId,
+      e.ids.alice,
+    ],
+  );
+  const dBody = { projectId: ids.website, target: siteId, environment: 'staging' };
+  const dAsk = await call('alice', 'POST', '/v1/deployments', dBody);
+  if (dAsk.statusCode === 403 && dAsk.json().approvalId) {
+    const dGo = await call('alice', 'POST', '/v1/deployments', {
+      ...dBody,
+      approvalId: dAsk.json().approvalId,
+    });
+    if (dGo.statusCode === 202) ids.deployment = (dGo.json() as Row).id as string;
+  }
   // exports (a project archive)
   const ex = await call('alice', 'POST', `/v1/builder/projects/${ids.project}/exports`, {});
   if ([200, 201, 202].includes(ex.statusCode)) ids.export = (ex.json() as Row).id as string;
@@ -280,7 +308,7 @@ describe('O-9 audit: every GET route a billing administrator can reach, answered
     // routes whose payload is customer content by its TYPE (a customer's instructions, form submissions from their site visitors, CMS entries, test and deploy logs, generated files,
     // run results and events); where the fixture is empty the marker cannot prove it, so they are reported as `by-design`
     const BY_DESIGN =
-      /^GET \/v1\/(builder\/projects\/:(id|projectId)\/(review|symbols|import-analysis|components|memory|instructions|instructions\/versions|form-submissions|forms|cms-collections|previews|test-runs|template-workspace|claude-code|github\/pulls)|builder\/generation-plans\/|ai\/runs$|ai\/runs\/:id$|ai\/runs\/:id\/events$)/;
+      /^GET \/v1\/(builder\/projects\/:(id|projectId)\/(review|symbols|import-analysis|components|memory|instructions|instructions\/versions|form-submissions|forms|cms-collections|previews|test-runs|template-workspace|claude-code|github\/pulls)|deployments\/:id|deployments\/:id\/logs|builder\/generation-plans\/|ai\/runs$|ai\/runs\/:id$|ai\/runs\/:id\/events$)/;
     for (const x of audit)
       if (x.basis === null && x.billingAdmin === 200 && BY_DESIGN.test(x.route))
         x.basis = 'by-design';
@@ -349,14 +377,18 @@ describe('O-9 deny: the switch must stop a billing administrator from reading cu
     return bad;
   };
 
-  it.fails(
-    'O-9 (Session 05 scope): under deny, the builder / mobile / deployment routes that return project files, versions, diffs, exports, previews, test runs, logs and the like answer 403 to a billing administrator',
-    async () => {
-      expect(builderSide().length, 'content routes found on the builder side').toBeGreaterThan(0);
-      expect(await violations(builderSide())).toEqual([]);
-    },
-    300_000,
-  );
+  it('O-9 (Sessions 05 and 06 scope, fixed): under deny, the builder and deployment routes that return project files, versions, diffs, previews, forms, submissions, test runs, instructions and deployment records and logs answer 403 to a billing administrator, and allow restores them', async () => {
+    expect(builderSide().length, 'content routes found on the builder side').toBeGreaterThanOrEqual(
+      18,
+    );
+    expect(await violations(builderSide())).toEqual([]);
+    await setPolicy('allow');
+    for (const c of builderSide())
+      expect(
+        (await call('frank', 'GET', urlFor(c.route.replace('GET ', '')))).statusCode,
+        `allow restores ${c.route}`,
+      ).toBe(200);
+  }, 300_000);
 
   it('O-9 (Session 02 scope, fixed): under deny, the AI conversation routes (sessions, messages, runs, run, run events, artifacts) answer 403 to a billing administrator, and allow restores them', async () => {
     expect(aiSide().length, 'content routes found on the AI side').toBeGreaterThanOrEqual(6);

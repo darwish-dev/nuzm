@@ -4,7 +4,7 @@ Session 07 (QA) · 2026-11-24 · evidence: `apps/api/src/qa/qa-o9-content-access
 
 ## Result in one paragraph
 
-The owner's O-9 intent is that a billing administrator must not read customer SOURCE CODE, FILES or AI CONVERSATIONS. The role seed gives `billing_admin` `ai:read` and `builder:read`, so it holds the permission for **136 organization GET routes**, and **77** of them answered 200 in the audit organization. **23 of them return customer content** (6 proven by planted text, 17 by design with an empty fixture). The switch `builder.billing_admin_content_access = deny` (built by Session 05) covers **11** of them (the five builder-tools reads, plus the six AI routes since Session 02's fix `1ab896b9`). **12 content routes are NOT covered**: 12 on the builder side (Session 05) and 0 on the AI side (Session 02). The default stays `allow` = today's behaviour; only the coverage of the switch needs to grow.
+The owner's O-9 intent is that a billing administrator must not read customer SOURCE CODE, FILES or AI CONVERSATIONS. The role seed gives `billing_admin` `ai:read` and `builder:read`, so it holds the permission for **136 organization GET routes**, and **79** of them answered 200 in the audit organization. **25 of them return customer content** (6 proven by planted text, 19 by design with an empty fixture). The switch `builder.billing_admin_content_access = deny` now covers **all 25 content routes the audit exercises**: the 5 builder-tools reads and (Session 05, `b3887609`) version-diff, file content and search, template workspace, Claude-code, instructions (+versions), test runs, previews, forms, form submissions and CMS collections; (Session 02, `1ab896b9`) the six AI conversation, run, event and artifact routes; (Session 06, `da94e933`) deployment records and logs. **No content route answers 200 under `deny`.** Each fix was re-tested by this audit. The default stays `allow` = today's behaviour and the flag value shape `{mode}` is unchanged.
 
 ## Method
 
@@ -34,66 +34,56 @@ The owner's O-9 intent is that a billing administrator must not read customer SO
 | `GET /v1/builder/projects/:projectId/components` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
 | `GET /v1/builder/projects/:projectId/memory` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
 | `GET /v1/builder/policies/content-access` | `org:read` | 200 metadata only | 200 | 200 |
-| `GET /v1/builder/projects/:projectId/version-diff` | `builder:read` | 200 content (planted text returned) | 200 | **200 (GAP)** |
-| `GET /v1/builder/projects/:id/template-workspace` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/builder/generation-plans/:id/context` | `builder:read` | not exercised (needs a record or a feature) | 404 | 404 |
-| `GET /v1/builder/generation-plans/:id/timeline` | `builder:read` | not exercised (needs a record or a feature) | 404 | 404 |
-| `GET /v1/builder/projects/:projectId/claude-code` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/builder/projects/:projectId/files/search` | `builder:read` | 200 content (planted text returned) | 200 | **200 (GAP)** |
+| `GET /v1/builder/projects/:projectId/version-diff` | `builder:read` | 200 content (planted text returned) | 200 | **403** |
+| `GET /v1/builder/projects/:id/template-workspace` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/builder/generation-plans/:id/context` | `builder:read` | not exercised (needs a record or a feature) | 404 | **403** |
+| `GET /v1/builder/generation-plans/:id/timeline` | `builder:read` | not exercised (needs a record or a feature) | 404 | **403** |
+| `GET /v1/builder/projects/:projectId/claude-code` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/builder/projects/:projectId/files/search` | `builder:read` | 200 content (planted text returned) | 200 | **403** |
 | `GET /v1/builder/github` | `builder:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/github/repositories` | `builder:read` | 409 | 409 | 409 |
-| `GET /v1/builder/projects/:projectId/instructions` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/builder/projects/:projectId/instructions/versions` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
+| `GET /v1/builder/projects/:projectId/instructions` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/builder/projects/:projectId/instructions/versions` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
 | `GET /v1/builder/projects/:projectId/github` | `builder:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/projects/:projectId/github/pulls` | `builder:read` | 409 | 409 | 409 |
 | `GET /v1/builder/projects/:projectId/skills` | `builder:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/projects/:projectId/skills/recommendations` | `builder:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/ai-studio/settings` | `org:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/skills` | `builder:read` | 200 metadata only | 200 | 200 |
-| `GET /v1/builder/generation-plans/:id` | `builder:read` | not exercised (needs a record or a feature) | 404 | 404 |
-| `GET /v1/builder/projects/:projectId/test-runs` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/builder/projects/:projectId/test-runs/:testRunId` | `builder:read` | not exercised (needs a record or a feature) | 404 | 404 |
+| `GET /v1/builder/generation-plans/:id` | `builder:read` | not exercised (needs a record or a feature) | 404 | **403** |
+| `GET /v1/builder/projects/:projectId/test-runs` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/builder/projects/:projectId/test-runs/:testRunId` | `builder:read` | not exercised (needs a record or a feature) | 404 | **403** |
 | `GET /v1/builder/projects` | `builder:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/projects/:id` | `builder:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/projects/:id/files` | `builder:read` | 200 metadata only | 200 | 200 |
-| `GET /v1/builder/projects/:id/files/content` | `builder:read` | 200 content (planted text returned) | 200 | **200 (GAP)** |
+| `GET /v1/builder/projects/:id/files/content` | `builder:read` | 200 content (planted text returned) | 200 | **403** |
 | `GET /v1/builder/projects/:id/versions` | `builder:read` | 200 metadata only | 200 | 200 |
-| `GET /v1/builder/projects/:id/previews` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/builder/projects/:id/forms` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/builder/projects/:id/form-submissions` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/builder/projects/:id/cms-collections` | `builder:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
+| `GET /v1/builder/projects/:id/previews` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/builder/projects/:id/forms` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/builder/projects/:id/form-submissions` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/builder/projects/:id/cms-collections` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
 | `GET /v1/deployments/policy` | `deploy:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/deployments` | `deploy:read` | 200 metadata only | 200 | 200 |
-| `GET /v1/deployments/:id` | `deploy:read` | not exercised (needs a record or a feature) | 404 | 404 |
-| `GET /v1/deployments/:id/logs` | `deploy:read` | not exercised (needs a record or a feature) | 404 | 404 |
+| `GET /v1/deployments/:id` | `deploy:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/deployments/:id/logs` | `deploy:read` | 200 content by design (fixture empty) | 200 | **403** |
 | `GET /v1/builder/templates` | `builder:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/templates/:id` | `builder:read` | not exercised (needs a record or a feature) | 404 | 404 |
 
 The other 85 routes the role can reach (billing, usage, invoices, payments, email, hosting, domains, storage, databases, compliance, marketplace, workflows, organization and members) are listed in the JSON the spec writes; none returned the planted content, and the billing and usage routes are the role's purpose and must stay readable under `deny` (the spec asserts `/v1/ai/credits`, `/v1/ai/budgets`, `/v1/ai/models` stay 200). Routes under `/v1/mobile/*` (builds, releases, signing) need `mobile:*` permissions the role does not hold (403 by permission, not by policy).
 
-## Gaps (content routes still readable under `deny`)
+## Gaps (content routes still readable under `deny`): none
 
 ### Session 05: builder, app-builder, studio, deployments routes
 
-- `GET /v1/builder/projects/:projectId/version-diff` (200 content (planted text returned))
-- `GET /v1/builder/projects/:id/template-workspace` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:projectId/claude-code` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:projectId/files/search` (200 content (planted text returned))
-- `GET /v1/builder/projects/:projectId/instructions` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:projectId/instructions/versions` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:projectId/test-runs` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:id/files/content` (200 content (planted text returned))
-- `GET /v1/builder/projects/:id/previews` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:id/forms` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:id/form-submissions` (200 content by design (fixture empty))
-- `GET /v1/builder/projects/:id/cms-collections` (200 content by design (fixture empty))
 
 ### Session 02: AI conversation routes
 
 
-### Needs a record to exercise (static read; add to the same switch)
+### Not exercised by this audit (need a record the fixture cannot create)
+- `GET /v1/builder/projects/:projectId/test-runs/:testRunId`, `GET /v1/builder/generation-plans/:id` (+ `/context`, `/timeline`): Session 05's own test (`builder-policy-route.int.spec.ts`) proves them 403 under `deny` with a planted marker absent; they answered 404 here because no record exists in this fixture. Deployment detail and logs are now exercised (a SIMULATED deployment was created) and are 403 under `deny`.
 
-- `GET /v1/builder/projects/:projectId/test-runs/:testRunId` (test output and logs), `GET /v1/builder/generation-plans/:id`, `/context`, `/timeline` (the customer's generation prompts and context), `GET /v1/deployments/:id` and `/logs` (build and deployment logs): these answered 404 for everybody because no record exists in the audit fixture. They return customer content when a record exists and must be inside the switch; add a fixture when the owners wire them.
+## Open owner question (not a defect)
+Do the approvals list (`GET /v1/ai/approvals`, `/approvals/:id`) and the run's pending-approval summary text count as customer content? This audit treats them as **metadata** (the action summary carries readiness, target, blockers and version ids, no source text) and leaves them readable to billing administrators under `deny`. If the owner decides they are content, they need the same guard; the approvals routes live in the app-builder module (Session 05).
 
 ## What the switch must cover (proposal for Sessions 05 and 02)
 
@@ -103,4 +93,4 @@ The other 85 routes the role can reach (billing, usage, invoices, payments, emai
 
 ## Tests
 
-`qa-o9-content-access.int.spec.ts`: 6 passed + 1 expected-fail (after Session 02's fix `1ab896b9`; was 5 + 2). Passing: the audit itself (no 5xx, the fixture is not vacuous), the baseline (default allow: billing admin reads exactly what the owner reads on every reachable route), the five covered routes are 403 under deny, the control (other roles unaffected under deny, billing metadata still readable), and the table writer. Expected-fail (the secure expectation, fails today): `O-9 (Session 05 scope)`: under deny every builder content route answers 403 to a billing administrator. The Session 02 scope test is an ordinary test now (DEFECT-17 fixed: six AI routes 403 under deny, `allow` restores them, three runs). Flip the Session 05 test when its owner has extended the switch, and re-run to refresh this table.
+`qa-o9-content-access.int.spec.ts`: 7 passed, 0 expected-fail, three consecutive runs. Passing: the audit itself (no 5xx, the fixture is not vacuous), the baseline (default allow: billing admin reads exactly what the owner reads on every reachable route), the five covered routes are 403 under deny, the control (other roles unaffected under deny, billing metadata still readable), and the table writer. The two former expected-fail tests (Session 05 and Session 06 scope; Session 02 scope) are ordinary tests: under `deny` every content route answers 403 to a billing administrator, and `allow` restores each of them (asserted). Before each flip the unflipped `it.fails` failed with "Expect test to fail".

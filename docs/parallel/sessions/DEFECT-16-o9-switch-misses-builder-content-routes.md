@@ -1,6 +1,6 @@
 # DEFECT-16 — the O-9 switch does not cover the builder routes that return project files, diffs, instructions, submissions and test results
 
-Reporter: Session 07 (QA) · Owner: Session 05 (`apps/api/src/modules/appbuilder/**`) · cc Master · Severity: **MEDIUM** (a billing administrator can read customer SOURCE CODE and project content although the owner can switch that role's content access to `deny`; default stays allow) · Status: OPEN · Found 2026-11-24 (Master request: O-9 scope audit)
+Reporter: Session 07 (QA) · Owner: Session 05 (`apps/api/src/modules/appbuilder/**`) · cc Master · Severity: **MEDIUM** (a billing administrator can read customer SOURCE CODE and project content although the owner can switch that role's content access to `deny`; default stays allow) · Status: FIXED, RE-TESTED (2026-11-24, feature/ai-builder-tools b3887609 and feature/ai-deployment da94e933 merged into feature/ai-qa-security) · Found 2026-11-24 (Master request: O-9 scope audit)
 
 `builder.billing_admin_content_access = deny` is enforced by `ContentAccessService.assert` only in `builder-insight.controller.ts` (review, symbols, import-analysis, components, memory). The role seed gives `billing_admin` `builder:read`, so the routes below stay readable to it under `deny`. Evidence: `docs/security/O9-CONTENT-ACCESS-AUDIT.md`; test `qa-o9-content-access.int.spec.ts` (`it.fails('O-9 (Session 05 scope) …')`).
 
@@ -20,3 +20,6 @@ Routes (all `GET`, permission `builder:read`):
 Not exercisable without a record (static read, also needed inside the switch): `GET /v1/builder/projects/:projectId/test-runs/:testRunId`, `/v1/builder/generation-plans/:id` (+ `/context`, `/timeline`), `/v1/deployments/:id` and `/v1/deployments/:id/logs`.
 Expected: under `deny`, 403 for billing_admin only (audited, as today); every other role unchanged; metadata lists (project list, versions, file path list) stay readable.
 Fix: call `ContentAccessService.assert` (extend the operation names) in each handler or in one guard keyed on a route decorator (`@ContentRoute('file_content')`).
+
+## Re-test result
+FIXED and RE-TESTED: under `deny` all 25 content routes the audit exercises answer 403 to billing_admin (builder routes by Session 05's `@ContentRead` guard, deployment record and logs by Session 06), `allow` restores them, metadata lists stay 200, default allow unchanged. `qa-o9-content-access.int.spec.ts` 7 passed, 0 expected-fail, three runs in a row; before flipping, the unflipped `it.fails` failed with "Expect test to fail". Not exercised for lack of a record (proved by S05's own test): test-runs/:testRunId, generation-plans/:id (+context, timeline).

@@ -7880,6 +7880,8 @@ export const messages = {
     'dep.simulated.title': 'نشر تجريبي (محاكاة)',
     'dep.simulated.body':
       'جرى هذا النشر على بيئة محاكاة محلية وليس على عقدة استضافة حقيقية، ولم يُنشر أي شيء على الإنترنت.',
+    'dep.cancel': 'إلغاء النشر',
+    'bld.dep.state.cancelled': 'أُلغي',
     // <<< Deployment (S06)
   },
   en: {
@@ -16008,6 +16010,8 @@ export const messages = {
     'dep.simulated.title': 'Simulated deployment',
     'dep.simulated.body':
       'This deployment ran on a local stand-in, not on a real hosting node. Nothing was published to the internet.',
+    'dep.cancel': 'Cancel deployment',
+    'bld.dep.state.cancelled': 'Cancelled',
     // <<< Deployment (S06)
   },
 } as const satisfies Record<Locale, Record<string, string>>;

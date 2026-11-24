@@ -186,6 +186,8 @@ export function DeploymentsPanel({
   const call = useBuilderCall();
   const confirmCall = useBuilderCall();
   const rollbackCall = useBuilderCall();
+  const cancelCall = useBuilderCall();
+  const cancelKeys = useRef<Record<string, string>>({});
   const [items, setItems] = useState(initial);
   const [siteId, setSiteId] = useState(
     sites.find((s) => s.status === 'active')?.id ?? sites[0]?.id ?? '',
@@ -298,6 +300,21 @@ export function DeploymentsPanel({
         delete rollbackKeys.current[d.id];
         upsert(nd);
         setSelected(nd.id);
+      },
+    );
+  }
+
+  /** Cancel a queued or running deployment (stops before the switch; the live site is never touched). The answer is the deployment as it is now. */
+  function cancel(d: Deployment) {
+    cancelKeys.current[d.id] ??= newKey();
+    void cancelCall.run(
+      () =>
+        bapi.post<Deployment>(`/v1/deployments/${d.id}/cancel`, {
+          idempotencyKey: cancelKeys.current[d.id],
+        }),
+      (nd) => {
+        delete cancelKeys.current[d.id];
+        upsert(nd);
       },
     );
   }
@@ -417,6 +434,7 @@ export function DeploymentsPanel({
 
       <h2 className="nz-h2">{t(locale, 'bld.dep.list')}</h2>
       {rollbackCall.problem && <ProblemNote locale={locale} problem={rollbackCall.problem} />}
+      {cancelCall.problem && <ProblemNote locale={locale} problem={cancelCall.problem} />}
       {items.length === 0 ? (
         <EmptyState
           title={t(locale, 'bld.dep.empty.title')}
@@ -460,6 +478,15 @@ export function DeploymentsPanel({
                   >
                     {t(locale, 'bld.dep.details')}
                   </Button>
+                  {canWrite && isDeployActive(d.state) && (
+                    <Button
+                      variant="secondary"
+                      disabled={cancelCall.busy}
+                      onClick={() => cancel(d)}
+                    >
+                      {t(locale, 'dep.cancel')}
+                    </Button>
+                  )}
                   {canWrite && canRollback(d) && (
                     <Button
                       variant="danger"

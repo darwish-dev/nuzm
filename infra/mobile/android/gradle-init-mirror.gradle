@@ -1,0 +1,28 @@
+// Gradle init script for the disposable Android build environment (P3-S06). Installed as $GRADLE_USER_HOME/init.d/mirror.gradle by the image recipe / dedicated-user setup.
+// Purpose: with NUZM_MAVEN_MIRROR set, every Maven/Gradle-plugin repository except the mirror (and file: repositories, and Flutter's engine storage URL) is REMOVED, so a build cannot
+// reach Maven Central, Google or the plugin portal directly, whatever a plugin's build script declares. Without NUZM_MAVEN_MIRROR the script does nothing (pre-approval template runs).
+// NOT VERIFIED: written from Gradle's documented repository API; it has not run against a real mirror (no mirror exists yet).
+def mirror = System.getenv('NUZM_MAVEN_MIRROR')
+if (mirror) {
+    def flutterStorage = System.getenv('FLUTTER_STORAGE_BASE_URL') ?: ''
+    def allowed = { String url ->
+        url.startsWith(mirror) || url.startsWith('file:') || (flutterStorage && url.startsWith(flutterStorage))
+    }
+    def lockDown = { RepositoryHandler repos ->
+        repos.all { ArtifactRepository repo ->
+            if (repo instanceof MavenArtifactRepository && !allowed(repo.url.toString())) {
+                repos.remove(repo)
+            }
+        }
+        repos.maven { url mirror; allowInsecureProtocol = mirror.startsWith('http://') }
+    }
+    settingsEvaluated { settings ->
+        lockDown(settings.pluginManagement.repositories)
+        // dependencyResolutionManagement repositories (settings-level) get the same treatment
+        lockDown(settings.dependencyResolutionManagement.repositories)
+    }
+    allprojects {
+        buildscript { lockDown(repositories) }
+        lockDown(repositories)
+    }
+}

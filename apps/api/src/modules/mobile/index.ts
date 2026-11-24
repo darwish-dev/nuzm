@@ -10,3 +10,17 @@ export { validateMobileSpec } from './internal/flutter/spec';
 export type { MobileSpec } from './internal/flutter/spec';
 export { PINNED_TOOLCHAIN } from './internal/flutter/toolchain';
 export { PUB_ALLOWLIST } from './internal/policy/pub-policy';
+export { parseBuildOutput, failureFromStage, repairAction } from './internal/builds/errors';
+export type {
+  ParsedBuildError,
+  ParseResult,
+  BuildErrorClass,
+  FixKind,
+  RepairAction,
+  BuildStage,
+} from './internal/builds/errors';
+export {
+  assessBuildEnvironment,
+  requireDisposableEnvironment,
+} from './internal/builds/build-env-guard';
+export { inspectApk } from './internal/builds/apk-evidence';

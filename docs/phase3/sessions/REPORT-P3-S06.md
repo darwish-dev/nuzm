@@ -1,0 +1,60 @@
+# REPORT — P3-S06 Flutter, Android and iOS Build Engine
+
+Branch `claude/p3-s06-mobile-e5a3e5` (worktree), cut from `integration/ai-engine` @ `ce16599d`. Batch 1 (pre-approval work). Nothing pushed or merged. Labels: **LIVE-VERIFIED** (observed on this Mac, with the output seen) · **SIMULATED** (fixtures/fakes) · **NOT VERIFIED**.
+
+## A. Repository findings and assumptions
+- `apps/api/src/modules/mobile` already had: spec → Dart renderer, pinned toolchain (Flutter 3.35.7 / Dart 3.9.2), pub allow-list + lockfile gate, static analysis gate, `BuildRunnerPort` with `UnavailableBuildRunner`, `MockBuildRunner`, `LocalAndroidRunner` (labelled non-isolated), signing **references** only. The two Flutter local tests exist (`flutter-local.int.spec.ts`, 345 s at M10B).
+- **Environment facts re-checked 2026-11-24 (LIVE-VERIFIED, `flutter doctor -v` + `infra/mobile/ios/check-prerequisites.sh`):** macOS 13.7.8 x86_64; Flutter 3.35.7 (channel "unknown", framework adc9010625); Dart 3.9.2; **JDK: Temurin 17.0.20.1 under `~/.jdks`, set with `flutter config --jdk-dir` (`/usr/bin/java` is only a stub, no `JAVA_HOME`)**; Android SDK at `~/Library/Android/sdk` with platforms 28/30/31/33–36, build-tools 33.0.1/34.0.0/35.0.0, cmdline-tools (`apkanalyzer`, `sdkmanager`, `avdmanager`), platform-tools, emulator 32.1.14; **Android SDK licences NOT all accepted** (a human action: B-Android); **no `system-images`** (no emulator image); Android Studio not installed; **Xcode NOT installed** (CLT only); **CocoaPods NOT installed** (new fact, required for iOS); 64 GB free disk (tight for Xcode).
+- Assumptions: (1) a dedicated build user on the owner's Mac is recorded `isolation: none` (the DB CHECK allows only none/container/vm and a dedicated user is not sandbox-class); no migration needed. (2) AI-written Gradle/Podfile/Xcode files are never accepted; Gradle/Xcode mismatches are repaired by regenerating the platform folder or by bounded numbers in `tool/nuzm-mobile.json`. (3) Models may patch `lib/**` and `test/**` Dart and the manifest numbers; `lib/generated/**` is changed only through the spec.
+- Machine load during this session was 300–450 (load average; other sessions): only targeted tests were run; **no Flutter/Gradle build was run**, so none of the build pipeline claims below is LIVE-VERIFIED.
+
+## B. Plan and changed files (all inside my ownership)
+| Area | Files |
+|---|---|
+| iOS prerequisite checker (read-only) | `infra/mobile/ios/check-prerequisites.sh`, evidence `docs/mobile/evidence/2026-11-24-ios-prereq-check.json`, plan/policy/recipe `docs/mobile/ios-build-host.md` |
+| Android environment | `infra/mobile/android/{README.md,toolchain.env,Dockerfile,gradle-init-mirror.gradle,verify-apk.sh,test-sign.sh,run-flutter-local-tests.sh}` |
+| Refusal guard + runner | `internal/builds/build-env-guard.ts`, `disposable-runner.ts` (`MOBILE_BUILD_RUNNER=disposable-android`), `apk-evidence.ts`; `runner.ts` (stage-tagged failures with parsed errors, declarative settings, platform policy), `build.service.ts` (parsed errors into the failed build's `toolchain.failure`), `mobile.module.ts`, `index.ts` |
+| Platform config | `internal/flutter/platform-config.ts` (bounded `android.minSdk/compileSdk`, `ios.deploymentTarget`, Info.plist usage strings, cleartext/permission checks) |
+| Analysis gate hardening | `internal/flutter/analysis.ts`: platform folders, Gradle/Podfile/Xcode/shell/hook/`pubspec_overrides`/`build.yaml` files, TLS-validation overrides, `tool/nuzm-mobile.json` schema |
+| Build-error parsers (T5/M3) | `internal/builds/errors/{types,common,dart,pub,gradle,xcode,index}.ts`, 28 fixtures + README |
+| Tests | `errors/errors.spec.ts` (31), `builds/build-env.spec.ts` (16), `flutter/platform-config.spec.ts` (8), `flutter/analysis-hardening.spec.ts` (≈20), live capture `flutter-capture.int.spec.ts` (skipped by default) |
+No shared file (spec, OpenAPI, SDK, ownership, `app.module.ts`, root files) was touched; no migration. No CONTRACT request needed yet (see I).
+
+## C. Implemented features
+1. **Refusal guard (M5 / B-Android).** The disposable runner refuses (`build_env_refused`) before writing any file unless the process declares `NUZM_BUILD_ENV=disposable`, `NUZM_BUILD_ISOLATION`, `NUZM_BUILD_USER` = current user, is not the owner account, carries no secret-looking variable (by name; values never read into messages), and its home has no `.ssh/.aws/.config/gh/.netrc/.npmrc/.gnupg`/browser/Mail profiles; a dedicated user must be named `nuzm-build*`. A refused runner reports `supports() = false` (API 503 instead of queueing). Network egress and wipe are not observable by the process and are recorded as warnings. Never selectable in production. **SIMULATED** (unit tests with injected probes) — no real disposable environment exists.
+2. **Pipeline** (`DisposableAndroidRunner` wrapping the existing local pipeline): pinned-version check → `flutter create` → permissions, bounded SDK settings, platform policy check → `pub get` → lockfile gate → `analyze` → `test` → `build apk --debug` → SHA-256 + zip-structure inspection → toolchain record (Flutter, Dart, JDK, installed platforms/build-tools, guard declaration + warnings). `signed` stays false; signing is the AGP throwaway debug key, recorded as "not a release signature".
+3. **Test signing (B-SIGN):** `test-sign.sh` — one-run throwaway keystore, random password in a process variable, destroyed on exit, **no option to pass an existing keystore/alias/password**, refuses outside a declared environment. Not run (needs the Android build-tools in an approved environment).
+4. **`verify-apk.sh`:** hash, `unzip -t`, `apkanalyzer` manifest/permissions/debuggable, `apksigner verify`, optional emulator install + launch + screenshot; without an emulator it prints `structural check only: NOT claimed installable`. Not run (no APK exists yet).
+5. **Error parsers (M3/T5):** Dart analyzer (both formats), front-end compiler, `flutter test` (failure + load failure), pub (missing package, conflict, SDK constraint, network), Gradle (compileSdk, minSdk, wrapper/AGP/JDK skew, JDK, licence, missing SDK, network, OOM, Kotlin/javac, unknown), Xcode/Swift/CocoaPods (not installed, licence, signing, deployment target, missing module, pods, no destination, unknown). Each error carries `errorClass`, `fix` kind (`edit_source | edit_pubspec | edit_android_config | edit_ios_config | regenerate_platform | environment | retry | none`), project-relative `file:line:col`, `targetFiles` (never Gradle/Podfile/generated), a hint, and a redacted excerpt (host paths → `<host-path>`, secrets/URL credentials removed). `repairAction()` tells S03 what to do: `stop_environment` (never "repaired"), `retry`, `regenerate_platform`, `model_patch`, `stop_unknown`; `failureFromStage` turns an unrecognised failing stage into `unknown` (never a silent clean). The failing build stores `toolchain.failure.errors` (class, fix, file, line, message) for the repair loop. Exported from the module `index.ts` (`parseBuildOutput`, `failureFromStage`, `repairAction`).
+6. **Gradle/Xcode version mismatch is repairable without AI-written build files:** minSdk/compileSdk → `android.minSdk/compileSdk` in `tool/nuzm-mobile.json` (bounded 21–34 / 34–36, applied by anchored edits; throws instead of appending to a script if the anchor is missing); iOS deployment target 12–17; wrapper/AGP/JDK skew → regenerate the platform folder.
+7. **Engine hardening:** analysis gate rejects platform folders, build scripts, hooks, overrides, TLS overrides, an invalid manifest; generated files are deterministic (sorted, LF, byte-identical, tested).
+8. **iOS (independent work done):** prerequisite checker (read-only; runs, LIVE-VERIFIED); Info.plist usage strings, ATS check, deployment target; Xcode/Swift/Pods parser; host policy and recipe (`docs/mobile/ios-build-host.md`).
+
+## D. Migrations and rollback
+None. (Considered a migration to add `dedicated_user` to `mobile.builds.isolation`; not needed: recorded as `none` with `toolchain.buildEnvironment.declared`.)
+
+## E. Tests run with actual results
+- `pnpm exec vitest run src/modules/mobile/internal` (apps/api): **8 files, 111 tests PASS** (before the last prettier pass; re-run recorded in the handover message).
+- iOS checker: `infra/mobile/ios/check-prerequisites.sh` → exit 1, `NOT READY: xcode-select xcode-app xcodebuild xcode-license-first-launch cocoapods build-host-policy` (LIVE-VERIFIED for this Mac); `--json` → `t4Status: "NOT VERIFIED (B-iOS)"`.
+- `bash -n` on all five scripts: PASS. Typecheck/eslint/prettier: see the handover message (run at very high machine load).
+- **Not run (and why):** `MOBILE_FLUTTER_LOCAL=1` tests (wait for the quiet window; script `run-flutter-local-tests.sh` ready), `MOBILE_CAPTURE_FIXTURES=1` capture test (same), `verify-apk.sh`, `test-sign.sh`, the Dockerfile, any real build.
+
+## F. Security, isolation
+Generated code never ran on the host in this batch. Guard rules in C1. No production/store key, Apple/Google credential or secret appears in any file; the keystore tooling cannot accept an external key. Fixtures are labelled SIMULATED (hand-written from documented formats) vs `captured-*`; the capture test scrubs host paths before writing. Licence acceptance and emulator image installs are documented as human actions and never performed.
+
+## G. Human gates and live checks still needed
+B-Android (approve the environment kind; accept Android SDK licences; confirm JDK/SDK location and disk) · B-iOS (create `nuzm-build`, install Xcode 15.x, accept licence, CocoaPods; free disk) · B-SIGN (policy approval for the throwaway test keystore) · an emulator system image (owner download) for install/launch evidence · a quiet window for the Flutter local and capture tests · real model (S01) + loop (S03) for T3's "from a synthetic brief" and for M3.
+
+## H. Acceptance checklist
+| ID | Status | Evidence / blocker |
+|---|---|---|
+| M1 T3 (brief → real model → APK in isolated env) | **NOT VERIFIED** | environment recipe, guard, pipeline, APK evidence, verify script done; no disposable env approved (B-Android), no licences, no real model run |
+| M2 T4 (iOS no-codesign + simulator) | **NOT VERIFIED (B-iOS)** | checker output is the deliverable: `docs/mobile/evidence/2026-11-24-ios-prereq-check.json` (LIVE-VERIFIED) |
+| M3 auto-repair on mobile errors via S03 | **PARTIAL / NOT VERIFIED** | parsers + fix kinds + `repairAction` + persisted `toolchain.failure` done (SIMULATED fixtures, 31 tests); live capture test ready; S03 integration and real model repair pending |
+| M4 two Flutter local tests green or precise blocker | **NOT VERIFIED (not run)** | script ready; precise pre-run blocker: Android licences not accepted on this Mac (`flutter doctor`), host under load |
+| M5 no production key / store submission / account credential anywhere | **PASS (this batch)** | scripts cannot accept external keys; `scan:secrets` result in handover message |
+
+## I. Handover and open items
+- **For S03:** consume `parseBuildOutput/failureFromStage/repairAction` from `apps/api/src/modules/mobile/index.ts`; `BuildFailure.parsed` / `toolchain.failure.errors` carry the classes. Repair targets only `targetFiles`; `lib/generated/**` via the spec; `environment` is final.
+- **For the Master:** no CONTRACT yet. Possible later: a feature flag/`MOBILE_BUILD_RUNNER` documentation line in a shared env doc; if the owner wants dedicated-user runs recorded as their own isolation value, a migration `2350` (CHECK) plus `ownership.yaml`.
+- **Next batch (S06):** run capture + local tests in the quiet window and commit `captured-*` fixtures; iOS runner (`flutter build ios --no-codesign`, `xcodebuild`, `simctl`) once Xcode exists; T3/T4 evidence files for S08.

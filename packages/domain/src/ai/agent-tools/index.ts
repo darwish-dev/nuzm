@@ -16,3 +16,4 @@ export {
   type ReadToolResult,
   type ReadToolSpec,
 } from './tools';
+export * as builderTools from './builder';

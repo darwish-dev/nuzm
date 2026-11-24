@@ -457,6 +457,28 @@ describe('previews on the isolated origin (S39.4, AC-M09-04)', () => {
     expect(withCookie.statusCode).toBe(200);
     expect(withCookie.headers['set-cookie']).toBeUndefined();
   });
+  it('DEFECT-18: malformed percent escapes never produce a 500: double-encoded ones are the same plain 404, raw ones are refused by the framework identically for any token', async () => {
+    const reference = await previewGet(url, 'nope.html');
+    expect(reference.statusCode).toBe(404);
+    // `%25` is decoded once by the HTTP layer and arrives at the service as a lone `%`, which used to throw URIError (a 500)
+    for (const bad of ['%25', '%2525', 'ar/%25', '%25zz', '%25E0%25A4%25A']) {
+      const r = await previewGet(url, bad);
+      expect(r.statusCode, bad).toBe(404);
+      expect(r.body, bad).toBe(reference.body); // no oracle: the ordinary 404, byte for byte
+      expect(r.headers['content-type'], bad).toBe(reference.headers['content-type']);
+      expect(r.headers['set-cookie'], bad).toBeUndefined();
+    }
+    // a raw malformed escape is refused by Fastify before routing (4xx, never 5xx); the answer does not depend on whether the token is valid
+    const unknown = `${'a'.repeat(32)}.preview.nuzm-preview.test`;
+    for (const bad of ['%', '%zz', 'ar/%', '%E0%A4%A']) {
+      const known = await previewGet(url, bad);
+      const wrongToken = await previewGet(url, bad, unknown);
+      expect(known.statusCode, bad).toBeGreaterThanOrEqual(400);
+      expect(known.statusCode, bad).toBeLessThan(500);
+      expect(wrongToken.statusCode, bad).toBe(known.statusCode);
+      expect(known.headers['set-cookie'], bad).toBeUndefined();
+    }
+  });
   it('the preview host reaches nothing of the API, and the API host never serves previews', async () => {
     const host = new URL(url).host;
     for (const path of [

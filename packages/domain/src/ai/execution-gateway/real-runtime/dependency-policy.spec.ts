@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkDependencyInstall } from './dependency-policy';
+import { checkDependencyInstall, registryHosts } from './dependency-policy';
 
 const INTEG = 'sha512-' + 'A'.repeat(86) + '==';
 const lock = (pk: Record<string, unknown> = {}, v: number = 3) =>
@@ -145,5 +145,23 @@ describe('dependency-install policy (S-AG6 phase 2)', () => {
     );
     expect(v.stats.withInstallScript).toBe(1);
     expect(JSON.stringify(v.reasons)).not.toContain('secret-pkg-name');
+  });
+});
+
+describe('registry egress hosts (default-deny allowlist for the registry-only class)', () => {
+  it('are exactly the hosts of the allowed registries', () => {
+    expect(registryHosts()).toEqual(['registry.npmjs.org']);
+    expect(
+      registryHosts({
+        registries: [
+          'https://npm-mirror.example.org/repo/',
+          'https://Registry.Example.org/',
+          'http://insecure.example.org/',
+          'https://npm-mirror.example.org/',
+        ],
+        maxPackages: 1,
+        maxLockfileBytes: 1,
+      }),
+    ).toEqual(['npm-mirror.example.org', 'registry.example.org']);
   });
 });

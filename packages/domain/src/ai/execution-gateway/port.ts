@@ -24,6 +24,11 @@ export interface ExecutionOutcome {
   stderr: string;
   truncated: boolean;
   durationMs: number;
+  /**
+   * ADDITIVE to contract 0.1: what the runtime MEASURED (a real port fills it from the node's stats; a mock leaves it out). The orchestrator settles quota on measured CPU when
+   * present, otherwise on wall time as the conservative bound. Never trusted beyond the reservation (`QuotaLedger.release` caps it).
+   */
+  usage?: { cpuSeconds: number; peakMemoryMb: number; peakPids: number; diskMb: number };
   /** `sha256` is optional and additive to the 0.1 sketch: a runtime adapter that hashed the file reports it, otherwise the orchestrator refuses the artifact (`no_content_hash`) */
   /** `kind` is what the runtime saw (default `file`): a link, device or directory is refused by the artifact policy, never accepted by omission */
   artifacts: {
@@ -41,6 +46,11 @@ export interface ExecutionRunContext {
   approvalId?: string;
   /** emergency termination or caller cancel */
   signal?: AbortSignal;
+  /**
+   * ADDITIVE to contract 0.1 (CONTRACT-04-4): which project and version this run is for. A real port seeds the workspace from it (the repair loop builds a new version each
+   * round, and the port is not told otherwise); a mock ignores it. From the verified run context, never from a model.
+   */
+  source?: { projectId: string; versionId: string };
 }
 /** Whether an implementation can isolate anything. A mock is `simulated`; nothing in this repository sets `verified`. */
 export type PortOrigin = 'MOCK' | 'REAL';

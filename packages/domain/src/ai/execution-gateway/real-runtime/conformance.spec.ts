@@ -42,6 +42,44 @@ describe('port conformance suite (S-AG6 phase 2): the same assertions, simulated
     expect(r.isolationEvidence).toBe(false);
     expect(r.total).toBe(6 + SYNTHETIC_FIXTURES.length);
   });
+  it('every report says it proves policy logic, not isolation, and labels what only a real node can show', async () => {
+    const r = await runPortConformance(
+      createSimulatedNodeTarget({
+        pump: async (ms) => {
+          await vi.advanceTimersByTimeAsync(ms);
+        },
+      }),
+    );
+    expect(r.statement).toContain('do NOT prove isolation');
+    const byId = new Map(r.results.map((x) => [x.id, x]));
+    for (const id of [
+      'FX-MEMORY-BALLOON',
+      'FX-PID-SPAWNER',
+      'FX-DISK-FILLER',
+      'FX-CPU-SPIN',
+      'FX-NETWORK-PROBE',
+      'FX-ARTIFACT-LINKS',
+      'FX-ENV-PROBE',
+      'FX-OUTPUT-FLOOD',
+    ])
+      expect(byId.get(id)!.needsRealNode, id).toMatch(/real node/);
+    for (const id of [
+      'FX-UNKNOWN-PROFILE',
+      'FX-SECRET-FILE-IN-SEED',
+      'FX-GIT-DEPENDENCY',
+      'FX-INSTALL-NO-APPROVAL',
+      'CP-1',
+    ])
+      expect(byId.get(id)!.needsRealNode, id).toBeNull();
+    const m = await runPortConformance(createMockTarget());
+    expect(
+      m.results
+        .filter((x) => x.status === 'SKIPPED')
+        .every(
+          (x) => x.needsRealNode !== null || x.layer === 'workspace' || x.layer === 'dependency',
+        ),
+    ).toBe(true);
+  });
   it('the report digest is deterministic for the same results', async () => {
     const a = await runPortConformance(createMockTarget());
     const b = await runPortConformance(createMockTarget());

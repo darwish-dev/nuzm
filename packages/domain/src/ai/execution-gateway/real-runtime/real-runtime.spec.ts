@@ -579,4 +579,47 @@ describe('RealRuntimePort.run (simulated node: nothing is executed)', () => {
     expect(await svc.reapOrphans()).toMatchObject({ reaped: 0, failed: 1 });
     expect(svc.status()[0]!.quarantined).toBe('cleanup_failed');
   });
+  it('the outcome carries the measured usage, and the run context names the project version the workspace is seeded from', async () => {
+    const n = mkNode();
+    n.runtime.setScript(() => ({ stats: { cpuSeconds: 4, memoryMb: 128, pids: 6, diskMb: 20 } }));
+    const svc = await start([n]);
+    const asked: unknown[] = [];
+    const port = svc.portFor(ectx, {
+      seedFiles: (src) => {
+        asked.push(src);
+        return files()();
+      },
+      canaries: () => [],
+    });
+    const d = await port.request({ orgId: ORG, runId: RUN, profile: 'typecheck' });
+    const out = await port.run(d, rctx({ source: { projectId: 'p1', versionId: 'v7' } }));
+    expect(asked).toEqual([{ projectId: 'p1', versionId: 'v7' }]);
+    expect(out.usage).toEqual({ cpuSeconds: 4, peakMemoryMb: 128, peakPids: 6, diskMb: 20 });
+  });
+  it('registry-only runs carry the default-deny allowlist built from the dependency policy (class none carries none)', async () => {
+    const n = mkNode();
+    const lock = JSON.stringify({ lockfileVersion: 3, packages: { '': {} } });
+    const svc = await start([n], {
+      dependencyPolicy: {
+        registries: ['https://npm-mirror.example.org/'],
+        maxPackages: 10,
+        maxLockfileBytes: 1e6,
+      },
+    });
+    const ok = await (
+      await runProfile(
+        svc,
+        'install-deps',
+        undefined,
+        rctx({ approvalId: 'a' }),
+        files({ 'package-lock.json': lock }),
+      )
+    ).run();
+    expect(ok.status).toBe('completed');
+    expect(n.runtime.accepted[0]!.egressAllow).toEqual([
+      { host: 'npm-mirror.example.org', port: 443 },
+    ]);
+    await (await runProfile(svc, 'typecheck')).run();
+    expect(n.runtime.accepted[1]!.egressAllow).toEqual([]);
+  });
 });

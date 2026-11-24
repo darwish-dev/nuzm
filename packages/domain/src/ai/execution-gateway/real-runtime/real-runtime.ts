@@ -33,6 +33,7 @@ import {
 } from './attestation';
 import {
   checkDependencyInstall,
+  registryHosts,
   type DependencyPolicy,
   DEFAULT_DEPENDENCY_POLICY,
 } from './dependency-policy';
@@ -440,6 +441,7 @@ export class RealRuntimeService {
       runId: ctx.runId,
       runtimeClass: s.attestation.runtime.class,
       image,
+      egressAllow: registryHosts(this.cfg.dependencyPolicy ?? DEFAULT_DEPENDENCY_POLICY),
     });
     const violations = validateRuntimeSpec(spec);
     if (violations.length > 0) {
@@ -452,7 +454,7 @@ export class RealRuntimeService {
       });
       return refusal(`runtime_spec_invalid:${violations.join(',')}`);
     }
-    const files = run.seedFiles();
+    const files = run.seedFiles(ctx.source);
     const screened = checkWorkspaceFiles(
       [...files].map(([path, content]) => ({ path, content })),
       run.canaries(),
@@ -613,6 +615,12 @@ export class RealRuntimeService {
           durationMs: waited.durationMs,
           artifacts: [],
         };
+        outcome.usage = {
+          cpuSeconds: finalUsage.cpuSeconds,
+          peakMemoryMb: finalUsage.memoryMb,
+          peakPids: finalUsage.pids,
+          diskMb: finalUsage.diskMb,
+        };
         if (status === 'completed' || status === 'failed')
           outcome.artifacts = await this.extractArtifacts(s, workspaceId, ctx, run);
       }
@@ -745,8 +753,11 @@ export class RealRuntimeService {
 }
 
 export interface RunInputs {
-  /** a snapshot of the project at one version; screened for secrets before it leaves the control plane */
-  seedFiles: () => ReadonlyMap<string, string>;
+  /**
+   * a snapshot of the project at the version the caller names in `ctx.source` (the repair loop builds a NEW version each round); screened for secrets before it leaves the
+   * control plane. Called once per run, never cached across runs.
+   */
+  seedFiles: (source?: ExecutionRunContext['source']) => ReadonlyMap<string, string>;
   canaries: () => readonly string[];
   artifactSink?: ArtifactSink;
 }

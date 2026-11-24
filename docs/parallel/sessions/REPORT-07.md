@@ -109,3 +109,44 @@ None blocking. Material for the owner/Master: DEFECT-4 and DEFECT-6 both say "hu
 2. Budget/credits concurrency probe with N parallel reservations on a tiny wallet (independent of the existing property test) — READY.
 3. Post-merge audits of sessions 02-06 (new routes, migrations, tools, egress code) — DEPENDENT on the Master's merge.
 4. Switch `it.fails` markers to normal tests as owners fix DEFECT-1..6 — DEPENDENT.
+
+
+## Phase 2 (started 2026-11-24, branch merged with `integration/ai-engine` `39658725`, fast-forward)
+Machine note: load average reached 117-403 during this batch (other sessions); only targeted single-file runs on my own Postgres :54347, no browser, no full suite. The two skipped API tests are `flutter-local.int.spec.ts` (2 tests, `MOBILE_FLUTTER_LOCAL=1`): Flutter 3.35.7 and the Android SDK are installed here, but the run needs minutes of CPU and `pub get` network access, so it is **a request for a heavy slot** (see below), not run yet. (The two `it.skipIf(!chrome)` PDF tests in `invoices.int.spec.ts` DO run on this machine: Chrome is installed.)
+
+### Batch 1 (this commit)
+| Item (Master's list) | State | Evidence |
+|---|---|---|
+| 3. Dynamic suites: duplicate-charge, concurrency, reconciliation, audit chain, tamper | **VERIFIED, SIMULATED model**: `qa-ai-integrity.int.spec.ts` = 17 passed + 2 expected-fail (DEFECT-7, DEFECT-8) on the REAL hash-chained audit sink (new optional `realAudit` flag in `ai-harness.ts`, default unchanged) | replayed id = one charge; 12 simultaneous duplicates = one usage row / one ledger tx / one debit; failed call closed, never charged later; double release never double-refunds; 10 reservations on a 100-credit wallet = exactly 3 succeed; per-call usage = ledger = wallet for a concurrent workload with provider failures, key creation and top-ups (calls of a run in sequence); every ledger transaction balances; 25 simultaneous mutations = contiguous audit sequence, time never goes backwards, chain verifies; no canary / key shape / prompt body in any audit row; edited, deleted-middle, deleted-tail and replaced-actor rows are each detected by `verify_chain` and the damage stays in its own chain; the app and worker roles cannot update, delete, truncate, read or rewrite the chain heads, disable triggers or skip them (`session_replication_role`) |
+| 5. Credential protection (prompt/file scan) | **VERIFIED + defect**: `qa-secret-scan.int.spec.ts` = 15 passed + 13 expected-fail (DEFECT-9) | catches 13 shapes; misses 13 (env prefixes, JSON, provider keys) |
+| 6. The two skipped integration tests | analysed; `flutter-local` needs a heavy slot | see above |
+| New defects | DEFECT-7 (HIGH), DEFECT-8, DEFECT-9 filed (`docs/parallel/sessions/DEFECT-7..9-*.md`) | |
+
+Heavy-slot requests: (a) `MOBILE_FLUTTER_LOCAL=1 pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts src/modules/mobile/flutter-local.int.spec.ts` (Flutter pub get/analyze/test + an unsigned debug APK, 15-25 min, network to pub.dev), only under `mkdir /private/tmp/nuzm-heavy.lock`; (b) E2E specs for builder tools / provider admin / benchmark admin once their owners land them.
+
+### Batch 2
+| Item | State | Evidence |
+|---|---|---|
+| 5. Runtime isolation conformance against the mock (orchestrator + `MockExecutionPort`) | **VERIFIED, SIMULATED**: `qa-exec-orchestrator.int.spec.ts` = 15 passed + 2 expected-fail | ceiling under 12 concurrent workers, approval spent once, model/API-key/no-permission/other-org cannot approve, canary kill switch, emergency stop, 14 hostile artifact paths refused, throw path leaks nothing; DEFECT-10 (concurrent submit duplicates execution), CONCERN O-12 (forged decision), O-13 (artifact kind), O-11, O-14 |
+| 7. Independent review notes | started: findings doc section 6 (S04 + S02 money path) | `docs/security/AI-ENGINE-SECURITY-FINDINGS.md` |
+
+### Batch 3
+| Item | State | Evidence |
+|---|---|---|
+| 2. Agent-loop integration scaffold on the current run engine | **VERIFIED, SIMULATED model**: `qa-run-concurrency.int.spec.ts` = 10 passed, no defect | one run per session and per idempotency key under 12 concurrent creates (duplicates: `409 idempotency_in_progress`, then the same run), org ceiling holds under a 12-session burst, 4 workers on one run execute each step and pay each call once, finished/cancelled runs are inert, approve/deny/approve by three humans at once = one decision and one resume, approvals never move between runs, 5 simultaneous cancels end `cancelled` once with the in-flight call aborted and no held reservation, viewer/billing admin/other org cannot cancel. Retry/iteration limits and the agent-loop kind itself: DEPENDENT on S05's wiring (helpers are reusable) |
+| 5. Credential protection | **VERIFIED**: `qa-credential-custody.int.spec.ts` = 5 passed | a console-typed key (save, rotate, set, clear, bad values, wrong place, non-admin attempts) appears in no response, no stdout/stderr, and in NO row of ANY table of ANY schema (full-database scan, real audit chain, audit rows exist so the scan is not vacuous); the connection test (network) is never called |
+
+### Batch 4 (merged integration b9d05e6f first; DEFECT-9 fix picked up)
+| Item | State | Evidence |
+|---|---|---|
+| 4. O-1/O-2 both-setting matrix (viewer, developer, billing admin, owner, admin, second developer, deploy, rollback, API key, cross-tenant) | **VERIFIED, SIMULATED publisher**: `qa-deploy-policy-matrix.int.spec.ts` = 26 passed + 1 expected-fail (DEFECT-11) | policy applies at confirm time; expiry, double confirm, interchangeability, org isolation |
+| 7. Review of S06 target model and preview URLs | `qa-deploy-targets.int.spec.ts` = 10 passed + 1 expected-fail (DEFECT-12); concerns O-15, O-16 | findings doc section 6 |
+
+### Batch 5: re-test of Session 04's fixes (feature/ai-sandbox c9c7c557, merged locally into this branch)
+`qa-exec-orchestrator.int.spec.ts` 19 passed, 0 expected-fail: DEFECT-10, O-11, O-12, O-13 FIXED and RE-TESTED (stale domain `dist` rebuilt first; before the rebuild the old tests still failed as expected, which proved the rebuild was needed). `qa-exec-gateway` and `qa-secret-scan` also pass on the merged tree (94 + 36). O-14 (exact-match canary) unchanged by design.
+
+### Batch 6: re-test of Session 06's fixes (feature/ai-deployment 03380df9, merged locally)
+qa-deploy-targets + qa-deploy-policy-matrix + qa-deploy-approval = 45 passed, 0 expected-fail, seen in one run: DEFECT-11, DEFECT-12, O-15, O-16 FIXED and RE-TESTED (new negatives: 12 malformed approval references, SIMULATED label refused, HMAC tag behaviour). Remaining concern: the approval reference format is checked but its existence is not provable in code.
+
+### Not yet done in Phase 2 (next batches)
+E2E ar+en for builder tools, provider admin, benchmark admin (review + negative cases); agent-loop integration scaffolds (waiting for S05's wiring); authz matrix extension and both-setting tests for O-1/O-2/O-9 (waiting for the switches); prompt injection against tool results and project files; runtime-isolation conformance against the mock; accessibility ar/en; independent review notes on S02/S04/S06 Phase 2 changes (nothing merged yet).

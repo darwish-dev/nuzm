@@ -11,4 +11,4 @@ When convenient, move the table into the shared message table under a `aia.ins.`
 ## Also changed outside this workstream's folders (recorded)
 `e2e/tests/10-ai-admin.spec.ts`: the four row selectors for the providers list are scoped to the providers table (`providersTable()`), because the insight tables list provider codes too (`mock-model`, `acme-e2e`) and an unscoped `getByRole('row').filter(...)` would match more than one. No assertion changed.
 
-**Master answer:** ______
+**Master answer:** DEFERRED, non-blocking (2026-11-24): the table stays in `apps/admin/lib/ai-insights.ts` with its parity test; moving it into `messages.ts` is a mechanical follow-up scheduled when the admin UI is finalized.

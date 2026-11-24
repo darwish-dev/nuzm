@@ -1,7 +1,7 @@
 # ADR-067: Execution Gateway for agent execution tools (S-AG6)
 
 - Status: **PROPOSED — not accepted, not implemented as a capability.** Depends on D-21 (OPEN) and ADR-015 (Proposed, OPEN). Nothing in this ADR enables execution; the policy core in `packages/domain/src/ai/execution-gateway/` is pure, unused and gated closed.
-- Related: ADR-066 (items 6–8), D-21, D-42, HG-10-02 (sandbox isolation security review), the existing M10 sandbox service and escape-attempt suite (`apps/api/src/modules/appbuilder/internal/sandbox/`, suite version 1.0.0).
+- Related: ADR-066 (items 6–8), D-21, D-AG-ROLLOUT, HG-10-02 (sandbox isolation security review), the existing M10 sandbox service and escape-attempt suite (`apps/api/src/modules/appbuilder/internal/sandbox/`, suite version 1.0.0).
 - Date: 2026-11-24. Owner decision needed: accept, change or reject.
 
 ## Context
@@ -16,7 +16,7 @@ ADR-066 forbids any build, test, shell or executable tool until D-21's isolation
 6. **Tenant isolation.** One sandbox per run, never shared across runs or organizations; the request must carry the run's own org and run id (checked); no cross-sandbox network; the runtime's handle is not exposed to the model.
 7. **Audit.** Every request, decision (allowed or refused, with reasons), approval, start, finish, exit status and byte counts is audited without content; refusals count toward abuse signals.
 8. **Kill switch and flags.** Feature flag `ai.agent.exec_tools` default off, the existing AI kill switch applies, and a separate execution kill switch stops running sandboxes.
-9. **The gate.** `executionGate(state)` is open only when D-21 is decided, a runtime is `isolation: verified`, the escape suite passed on it (every isolating attempt BLOCKED, none ESCAPED), this ADR is accepted, the owner approved, and, in production, D-42 is decided. Today every condition is false.
+9. **The gate.** `executionGate(state)` is open only when D-21 is decided, a runtime is `isolation: verified`, the escape suite passed on it (every isolating attempt BLOCKED, none ESCAPED), this ADR is accepted, the owner approved, and, in production, D-AG-ROLLOUT is decided. Today every condition is false.
 10. **Escape suite.** The existing catalogue (control-plane attempts run today; isolating-runtime attempts are NOT_VERIFIED on the mock) is extended for execution: model-supplied argv and env smuggling, script-name injection, lifecycle-script abuse, output-injection back into the prompt, symlink and mount escapes, fork and memory bombs, metadata-service and lateral-network access, DNS exfiltration, runtime-socket access. The policy-level subset is already covered by `exec-policy.spec.ts`; the runtime-level subset needs a verified runtime.
 
 ## Alternatives considered

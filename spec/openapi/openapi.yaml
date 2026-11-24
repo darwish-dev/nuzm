@@ -7994,7 +7994,7 @@ paths:
       operationId: createAiRun
       tags: [ai]
       summary: 'Start an AI run'
-      description: 'Body {sessionId, kind: website|edit|chat|webapp|test-fix|mobile, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. `webapp` (the 7-agent graph; `input: {brief: {prompt}, maxMinutes?, specRef?}`, needs a web-app project, served only while the org flag `app_builder.enabled` is on) and `test-fix` (bounded debugging loop) are registered by the app-builder module (M10A). `mobile` (M10B, flag `mobile_builder.enabled`) needs a project of type mobile and input {description: 3..600 characters}: the design agent returns a structured mobile spec, a human approves it (approval kind `plan`), then the Flutter project is written as a new project version. Model quality is NOT VERIFIED. A webapp run that needs a human (destructive migration, dependency outside the policy, ...) waits in `waiting_approval` and is decided in the approvals inbox (`/v1/ai/approvals`; `pendingApproval.scopeHash` is the hash to quote), not through `POST /v1/ai/runs/{id}/approvals`. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).'
+      description: 'Body {sessionId, kind: website|edit|chat|webapp|test-fix|mobile, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. `webapp` (the 7-agent graph; `input: {brief: {prompt}, maxMinutes?, specRef?}`, needs a web-app project, served only while the org flag `app_builder.enabled` is on) and `test-fix` (bounded debugging loop) are registered by the app-builder module (M10A). `mobile` (M10B, flag `mobile_builder.enabled`) needs a project of type mobile and input {description: 3..600 characters}: the design agent returns a structured mobile spec, a human approves it (approval kind `plan`), then the Flutter project is written as a new project version. Model quality is NOT VERIFIED. A webapp run that needs a human (destructive migration, dependency outside the policy, ...) waits in `waiting_approval` and is decided in the approvals inbox (`/v1/ai/approvals`; `pendingApproval.scopeHash` is the hash to quote), not through `POST /v1/ai/runs/{id}/approvals`. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`). A webapp run with input {builderLifecycle: true, brief: {prompt: 1..4000 characters}, maxRepairRounds?: 1..3, maxMinutes?: 1..60} runs the builder agent loop: it analyses the brief, plans, writes the plan''s files as ONE validated change (AI branch only), reviews, builds and tests through the Execution Gateway, repairs failures within hard limits (3 repair rounds, 2 attempts per step on a transient error, 60 steps, the run''s token and credit budget) and ends by asking for a deployment approval (approval type production_deploy, decided by an owner or admin in the approvals inbox). It deploys nothing. Served only while the organization flags builder_tools.enabled and builder_lifecycle.enabled are on (otherwise the run ends unsupported_capability). Build and test results are SIMULATED (a mock execution port) until the sandbox runtime is approved (D-21, HG-10-02, the Execution Gateway ADR); the result says so (simulated: true). 422 validation_failed for a malformed input; the usual 402/403/422/429/503 of run creation.'
       x-nuzm-permission: ai:write
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8187,6 +8187,39 @@ paths:
               schema: { $ref: '#/components/schemas/AiAdminRunPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+  /v1/builder/policies/content-access:
+    get:
+      operationId: getBuilderContentAccessPolicy
+      tags: [builder]
+      summary: 'Whether a billing administrator may read project content through the builder tools'
+      description: 'Answers {mode: allow|deny, default: allow}. allow (the default) = today: a billing administrator reads the review, symbols, import analysis, components and memory of a project. Permission org:read.'
+      x-nuzm-permission: org:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrgHeader' }]
+      responses:
+        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderContentAccessPolicy' } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: setBuilderContentAccessPolicy
+      tags: [builder]
+      summary: 'Allow or deny billing administrators project content (owners and admins, signed in as a person)'
+      description: 'Body {mode: allow|deny}. deny makes the five content reads of the builder tools answer 403 for the billing_admin role of this organization only. An API key is refused (403) even with the permission. Audited (builder.policy.content_access_changed, with before and after). Permission org:update.'
+      x-nuzm-permission: org:update
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrgHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuilderContentAccessPolicyInput' }
+      responses:
+        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderContentAccessPolicy' } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/builder/projects:
     post:
       operationId: createBuilderProject
@@ -8933,7 +8966,7 @@ paths:
       operationId: createDeployment
       tags: [deploy]
       summary: 'Publish a project to a hosting site'
-      description: 'WEB-APP projects (M10A) are dispatched to the app-builder pipeline: body {projectId, versionId?, target: {type: site, id}, env: production|staging}; a production target needs hash-bound approvals decided in the approvals inbox (403 `approval_required` with `approvals[{id,type,scopeHash}]`, then repeat the same request), the build runs in a sandbox, only the static `public/` front end is published through the hosting publish port (the Node back end and the database migrations have no compute path yet: NOT VERIFIED live), a failed health gate restores the previous release; a `site` target is a hosting site of the organization (404 otherwise; `instance` targets have no publish path). Website projects: body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). Audited (`deploy.deployment.*`).'
+      description: 'WEB-APP projects (M10A) are dispatched to the app-builder pipeline: body {projectId, versionId?, target: {type: site, id}, env: production|staging}; a production target needs hash-bound approvals decided in the approvals inbox (403 `approval_required` with `approvals[{id,type,scopeHash}]`, then repeat the same request), the build runs in a sandbox, only the static `public/` front end is published through the hosting publish port (the Node back end and the database migrations have no compute path yet: NOT VERIFIED live), a failed health gate restores the previous release; a `site` target is a hosting site of the organization (404 otherwise; `instance` targets have no publish path). Website projects: body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). A production publish is confirmed by a role in `productionPublishRoles` (default owner, admin, developer); another role gets 403 `forbidden` with `policy` and `allowedRoles` and the approval stays pending for an allowed role to confirm. Audited (`deploy.deployment.*`).'
       x-nuzm-permission: deploy:write
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -8978,6 +9011,62 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/deployments/policy:
+    get:
+      operationId: getDeploymentPolicy
+      tags: [deploy]
+      summary: 'Read the deployment policy of the organization'
+      description: 'The switches for owner decisions O-1 (`productionPublishRoles`: who may confirm a production publish of a website) and O-2 (`rollbackRequiresOwnApproval`). `source` is `default` when the organization never set one (the defaults equal the behaviour before the switches existed).'
+      x-nuzm-permission: deploy:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeploymentPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: setDeploymentPolicy
+      tags: [deploy]
+      summary: 'Change the deployment policy (owner or admin, signed in as a person)'
+      description: 'Send one or both settings. `productionPublishRoles` is a non-empty list of distinct roles from owner, admin, developer and must contain owner. `expectedVersion` makes a concurrent edit a 409. An API key is refused (403) even with the permission. Audit: `deploy.policy.updated` with before and after.'
+      x-nuzm-permission: org:security
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                productionPublishRoles:
+                  type: array
+                  minItems: 1
+                  maxItems: 3
+                  uniqueItems: true
+                  items: { type: string, enum: [owner, admin, developer] }
+                rollbackRequiresOwnApproval: { type: boolean }
+                expectedVersion: { type: integer, minimum: 0 }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeploymentPolicy' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/deployments/{id}:
     get:
       operationId: getDeployment
@@ -9026,7 +9115,7 @@ paths:
       operationId: rollbackDeployment
       tags: [deploy]
       summary: 'Roll back to the previous artifact'
-      description: 'Restores the artifact that served before this deployment (its artifact hash) and creates a new deployment with `rollbackOf`. 409 `invalid_state` unless the deployment succeeded and has a predecessor.'
+      description: 'Restores the artifact that served before this deployment (its artifact hash) and creates a new deployment with `rollbackOf`. 409 `invalid_state` unless the deployment succeeded and has a predecessor. When the organization policy `rollbackRequiresOwnApproval` is on, a PRODUCTION rollback answers 403 `approval_required` with an `approvalId`; repeat the request with that id in the body (a signed-in person whose role is in `productionPublishRoles`) to confirm it. The approval is bound to this rollback and single use.'
       x-nuzm-permission: deploy:write
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -9034,6 +9123,15 @@ paths:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
         - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                approvalId: { type: string, format: uuid }
       responses:
         '202':
           description: 'Success'
@@ -20955,6 +21053,19 @@ components:
         nextCursor: { type: [string, 'null'] }
     # <<< S38 schemas
     # >>> S39-41 schemas
+    BuilderContentAccessPolicy:
+      type: object
+      additionalProperties: false
+      required: [mode, default]
+      properties:
+        mode: { type: string, enum: [allow, deny] }
+        default: { type: string, enum: [allow] }
+    BuilderContentAccessPolicyInput:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [allow, deny] }
     BuilderProjectInput:
       type: object
       required: [name]
@@ -21484,6 +21595,18 @@ components:
     PublicFormInput:
       type: object
       additionalProperties: { type: string }
+    DeploymentPolicy:
+      type: object
+      required: [productionPublishRoles, rollbackRequiresOwnApproval, source, version]
+      properties:
+        productionPublishRoles:
+          type: array
+          items: { type: string, enum: [owner, admin, developer] }
+        rollbackRequiresOwnApproval: { type: boolean }
+        source: { type: string, enum: [default, organization] }
+        version: { type: integer }
+        updatedAt: { type: string, format: date-time, nullable: true }
+        updatedBy: { type: string, format: uuid, nullable: true }
     DeploymentInput:
       type: object
       required: [projectId, target]

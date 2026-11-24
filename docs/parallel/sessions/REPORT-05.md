@@ -88,3 +88,99 @@ None blocking. Decisions recorded: (a) pure SHA-256 instead of `node:crypto` bec
 - `SimulatedHealthProbe` wired through `healthProbeFor(cfg)` (`internal/deploy/health-probe-factory.ts`); test: production config never uses the simulated probe.
 - `ExecutionBuildPort` run against the REAL `MockExecutionPort` (`createMockExecutionPort`): `execution-build-port.real-mock.spec.ts` 4 passed, compiles without a cast.
 - Seen: `pnpm spec:lint` clean; `pnpm spec:drift` no drift for my routes (still fails on other sessions' routes: admin benchmarks, deployments cancel); domain `src/ai` 35 files / 674 passed; API `src/modules/appbuilder` 19 files / 194 passed; eslint + prettier clean on changed files; `turbo run typecheck --filter=@nuzm/api`: all dependencies built, then ONE error, in `modules/cloud/internal/adapter-registry.ts(69,33)` (a file this session never touched; unchanged since the baseline).
+
+---
+
+# Phase 2 — the builder agent loop (priority workstream)
+
+Baseline: `integration/ai-engine` @ `39658725` merged into `feature/ai-builder-tools`. Nothing live: no provider call, credential, execution, deployment or paid resource. Every capability is behind a flag that defaults OFF; every build and test result is **SIMULATED** (the Execution Gateway's mock port) and says so.
+
+## P2-A. What was built (evidence labels: SIMULATED = scripted components; the rest is code and tests)
+The lifecycle is **18 steps**; each is a recorded (`ai.run_steps` row, `lc-<step>-r<round>`), resumable (state in the run checkpoint), cancellable, audited, budget-checked step with token and credit accounting.
+
+| # | Step | Kind | Tools it may use (registry) | Result kept |
+|---|---|---|---|---|
+| 1 | requirements | local | analyze_requirements | analysis (product type, features, open questions) |
+| 2 | project analysis | local | list_files, read_file, find_symbols, analyze_imports, list_components, read_memory | file/symbol/component counts, memory entries |
+| 3 | architecture / template | local | choose_architecture | product type + stack (the 14 profiles are the templates) |
+| 4 | plan | local | build_plan | validated plan (waves, files, approvals, risks) |
+| 5 | tasks | local | derive_tasks | dependency-ordered tasks |
+| 6 | file generation | model or placeholder | propose_files, read_file | one change set per run, in `ai.artifacts` |
+| 7 | validated change apply | change | preview_change, apply_change | one new project version (AI branch only) |
+| 8 | review | local | review_project | findings by severity |
+| 9 | execution request | execution | request_execution (dry decision) | gateway pre-flight of the 3 fixed profiles + the build gate |
+| 10 | build | execution | request_execution | typecheck + build outcome |
+| 11–14 | error analysis → repair → apply repair → rebuild | local/model/change/execution | diagnose_build, propose_repair, preview_change, apply_change, request_execution | diagnostics, repair ops, repaired version (only when the build or tests fail) |
+| 15 | tests | execution | request_execution | unit-tests outcome (a failure re-enters the repair loop) |
+| 16 | preview | local | preview_change | file/byte count, entry point (a live preview URL is requested from the deployments screen) |
+| 17 | deployment preparation | local | prepare_deployment | target, env var NAMES, readiness with blockers |
+| 18 | deployment approval request | approval | request_deploy_approval | an approval of type `production_deploy` (owner/admin decides); the lifecycle **deploys nothing** |
+
+- **Pure domain** (`packages/domain/src/ai/agent-tools/builder/lifecycle/`): `steps.ts` (definitions and limits), `tool-registry.ts` (closed registry, authorization, invocation lifecycle), `machine.ts` (state machine: next action, begin/complete/fail, repair rounds, ceilings, cancel, approval, progress), `generation.ts` (skeleton files, generation prompt framed as untrusted data, reply parsing), `deployment.ts` (preparation), `policy.ts` (O-9 and the execution-cost policy). No clock, no I/O; the separation spec still passes.
+- **Tool registry and permission validation per tool**: 19 tools in 5 classes (`read`, `proposal`, `change`, `execution_request`, `approval_request`). A call is checked in this order: known tool → listed in this step → caller class (a MODEL may only be offered `read` tools; asserted by test) → the run user's permission (`builder:read|write|test`, `deploy:create`) → argument validation (paths through the change pipeline's own rules, execution profile one of three). A denial is data in the state, not an exception. Invocation lifecycle: `running → succeeded | failed` or `denied`, with a hash of the arguments (never the arguments) and a capped result size. The run user's permissions are read from the verified membership at execution time; a run with no user has none.
+- **Limits** (a run's own values can only lower them): 2 attempts per step for a transient error, 3 repair rounds, 60 step runs, 120 generated files, 400 000 tokens, 60 minutes, 12 execution requests; the run's own `budget` (tokens, credits) is checked before every step, and a model step reserves its estimated tokens BEFORE it calls anything. A repeated identical failure stops the loop (`no_progress`), a refusal is never retried, a timeout/terminated build is never "repaired".
+- **Cancellation**: `POST /v1/ai/runs/{id}/cancellation`; checked before every step, between generation tasks and while parked at the approval.
+- **Progress**: events `lifecycle_started | lifecycle_step | lifecycle_finished` carry `{percent, done, total, current, repairRound, tokens, credits}`; the customer screen rebuilds its view from them.
+- **Multi-file edit, diff, rollback**: the lifecycle applies up to 120 files as ONE validated change through `ChangeService.apply` (source `ai`, AI branch only), so every lifecycle version is rollbackable with the existing CONTRACT-1 routes. A change that needs a person (deletions, migrations, CI config, deploy manifest) is not applied (`needs_approval`).
+- **Project memory and context management**: step 2 reads `nuzm.memory.json`; step 6 passes the relevant memory (rendered within a token budget) to the generation message as untrusted data. Unchanged from the first batch otherwise.
+- **Model use is off by default**: placeholders (`SKELETON`, labelled) and rule-based repairs cost no tokens. With `builder_lifecycle.model_generation` the files and repairs come from the metered gateway (residency, budget, secret scan, untrusted-content rules; one repair of an unparsable reply; paths outside the task are dropped). Model quality is NOT VERIFIED.
+- **Wiring**: a mode of the `webapp` run kind, `input.builderLifecycle: true` (CONTRACT-S05-P2-1). **No Master-owned registration line was needed and `apps/api/src/modules/ai/**` was not touched** (`ALL_KINDS` and the DB CHECK stay as they are). The only registration is in my own `appbuilder.module.ts`.
+- **Customer UI (ar/en, RTL)**: `apps/web/components/BuilderLifecycle.tsx` (start form, progress, 18-step list with text statuses, failure reason in words, approval notice with the inbox link, deployment preparation, cancel; loading/empty/error/offline/forbidden states), `BuilderLifecycleScreen.tsx` (SSE via the existing `useRunStream`), page `app/[locale]/(console)/builder/projects/[id]/agent/page.tsx`, 104 `bt.lc.*` i18n keys in my delimited block. **Not done:** a tab/link in the web-app workspace (`lib/webapp-workspace.ts` and `AppWorkspace` are outside my paths); the page is reachable by URL.
+
+## P2-B. Finding and design: "a release build requires AI wallet credit"
+**Finding (evidence: code read, then proved by test).** `SandboxService.create` calls `OrgBudgetPort.remainingMinor(orgId)` and refuses with `budget_required` ("no AI credit left for a sandbox") when it is ≤ 0. `OrgBudgetPort` is the AI wallet projection (`ai.credit_balances`). The release build of an app (`AppDeploymentService.build`, no model involved) creates a sandbox through that path, so an organization with an empty AI wallet could not release a build (S06's E2E had to credit the wallet to get past it). docs/12 §7 even lists "AI gateway/sandbox start → AI budgets and credits". Two different costs were gated by one balance:
+- **inference** — tokens a model call uses: gated and settled by the model gateway (reservation → provider → settlement against the wallet, ADR-061), meters `ai.*`;
+- **execution** — time a sandbox or build runner uses: meters `builder.build_minutes` (an INCLUDED meter, docs/12) and `ai.sandbox_cpu_seconds`; the right gate is the plan's build allowance plus platform ceilings.
+
+**Design (implemented, default OFF, `builder.billing_separation`).**
+1. Pure policy `decideExecutionStart(purpose, facts)`: residency and platform ceilings are ALWAYS required; the legacy rule (AI credit > 0) applies while the switch is off and for inference; with the switch on an execution purpose needs the build allowance (`QuotaService.check` on group `builder`) instead of the wallet. An execution can never be admitted without a non-empty `mustMeter` (tested for both settings).
+2. A second `SandboxService` instance (`RELEASE_BUILD_SANDBOX`: same runtime, same DB, same concurrency limit) with `ReleaseBuildBudget` as its budget port, used only by `AppDeploymentService`. Session 04's `internal/sandbox/**` is untouched.
+3. Agent builds ask `ExecutionBudgetService.assertStart` (step 9) and meter every execution (`builder.build_minutes`, idempotent per run/phase/round/profile/attempt). A SIMULATED execution is audited and **not billed**.
+4. Every decision is audited (`builder.execution.start_decided` with the gates evaluated).
+
+**Proved (real DB, `builder-lifecycle.int.spec.ts`).** Org with an EMPTY wallet: switch off → `remainingMinor` 0 and `assertStart` → `budget_required` (today); switch on → admitted with gates `residency, platform_ceiling, build_allowance`; an organization with a wallet is unaffected; a real execution emits one `builder.build_minutes` event and a replay has the same event id; a simulated one emits none.
+
+**What this does NOT do (honest limits).** (1) The build allowance only bites once billing seeds a quota row `('builder','builder.build_minutes')` and plan entitlements; until then the group is UNMEASURED and the gate admits because the platform ceilings still bound it (audited as `build_allowance_unmeasured`): **do not switch it on for an organization before that data exists** (CONTRACT-S05-P2-3, Master). (2) The HTTP `POST …/sandboxes` (a user starting a sandbox) still checks the wallet. (3) The sandbox's own error text still says "AI credit" when the refusing gate is the allowance. Items 2 and 3 are Session 04's `SandboxService`; requested in the contract file.
+
+## P2-C. O-9 `builder.billing_admin_content_access` (PROPOSED, not decided)
+Audited owner/admin setting, **default `allow` = today**. `deny` makes the five content reads of the builder tools answer 403 for the `billing_admin` role only, and audits each denial. Stored as the organization's own row in `platform.feature_flags` (no migration). Tested for both settings over HTTP; the read/change route is parked until CONTRACT-S05-P2-2 is applied. I did not change the default.
+
+## P2-D. Flags, migrations, files
+- New flags, all default OFF: `builder_lifecycle.enabled`, `builder_lifecycle.model_generation`, `builder.billing_separation`; policy setting `builder.billing_admin_content_access` (default allow). `builder_tools.enabled` is also required for the lifecycle.
+- **Migrations: none** (block 2160–2179 unused). `ai.run_steps` already accepts agent `agent`; the run kind is a mode; the policy and the switch are feature-flag rows.
+- New: `packages/domain/src/ai/agent-tools/builder/lifecycle/**`; `apps/api/src/modules/appbuilder/internal/lifecycle/**`, `internal/changes/content-access.service.ts`, `builder-lifecycle.int.spec.ts`, `pending-contracts/builder-policy.controller.ts.pending`; web `BuilderLifecycle*.tsx` (+ spec) and the `agent` page; `e2e/tests/19-builder-agent.spec.ts`; CONTRACT-S05-P2-1/2/3. Edited: `appbuilder.module.ts`, `internal/run-handlers.ts`, `builder-insight.controller.ts`, `build-port.ts` and `execution-build-port.ts` (optional `preflight`), `index.ts` of the builder domain, my delimited block in `packages/i18n/src/messages.ts`.
+
+## P2-E. Tests run and ACTUAL results (own Postgres :54345, nothing repo-wide, no console rebuild, heavy lock not needed)
+| Command | Result |
+|---|---|
+| `packages/domain`: `vitest run src/ai` (whole AI domain, incl. `separation.spec.ts`) | 41 files, **763 tests** (the first run found one failure of mine: `lifecycle/deployment.ts` used the word `process` in a regex literal; rewritten, see below) → after the fix `src/ai/agent-tools` 16 files / **212 passed** |
+| `apps/api`: `vitest run src/modules/appbuilder` (unit) | 21 files / **218 passed** (lifecycle runner 20, file generators 4, machine/registry/policy in the domain) |
+| `apps/api`: `vitest run --config vitest.integration.config.mts src/modules/appbuilder/builder-lifecycle.int.spec.ts` (real DB, real run engine, real approvals, real HTTP; mock model; mock execution port) | **14 passed**: flag off and malformed input; full run parked at the approval then approved by an owner (a developer is refused 403); rejected approval; cancel while parked; tenant isolation; model-backed generation through the metered gateway with token/credit accounting equal to the run's spend; a model file refused by the safety checks is never applied; a token budget smaller than one model turn stops BEFORE any model call; separation switch off/on; metering idempotency and "simulated is not billed"; O-9 for both settings |
+| Regression: `src/qa/qa-builder-tools.int.spec.ts` + `src/modules/appbuilder/agent-loop.int.spec.ts` + `src/modules/appbuilder/change-tools.int.spec.ts` | 3 files / **50 passed** |
+| `apps/web`: `vitest run components/BuilderLifecycle.spec.tsx components/BuilderTools.spec.tsx` | 2 files / **53 passed** (ar and en: states, progress as `progressbar`, 18 step statuses as text, failure in words, approval notice, form validation) |
+| `packages/i18n`: `vitest run` | 9 passed (104 new `bt.lc.*` keys, ar/en parity) |
+| `pnpm spec:lint` | no results with severity warn or higher |
+| `pnpm spec:drift` | `spec drift OK: 523 implemented route(s) all declared (523 declared)` |
+| `apps/api`: `tsc -p tsconfig.json --noEmit` (run once, in the background, after the dependency builds were current) | exactly ONE error, `src/modules/cloud/internal/adapter-registry.ts(69,33)` (`ComputeAdapter \| undefined`), a file this session never touched (unchanged since the baseline). The first typecheck of this batch found three type errors in my own integration spec (loosely typed rows); fixed. |
+| `apps/web`: `tsc -p tsconfig.json --noEmit`; `e2e`: `tsc --noEmit` | clean |
+| ESLint and Prettier on every changed file | clean |
+
+**Not run (NOT VERIFIED):** `e2e/tests/19-builder-agent.spec.ts` (ar/en, axe, screenshots) is written and typechecked but NOT executed: it needs the heavy slot (`mkdir /private/tmp/nuzm-heavy.lock`; I did not take it). `pnpm sdk:generate/sdk:check` (Master). `pnpm test:integration` as a whole. The model-backed path was exercised only with the scripted mock model: it proves plumbing, accounting and safety, not model quality.
+
+## P2-F. Blockers (exact blocker, dependency, what continued), Master actions, next
+| Item | Blocker / dependency | Status |
+|---|---|---|
+| Real build and test runtime | D-21, HG-10-02, ADR-067 (S04 real port refuses to start without an isolation attestation). The lifecycle runs against the Execution Gateway's MOCK port; in an environment that is not the local reference mode the build port is `null` and the execution steps refuse (`build_unavailable`). | BLOCKED by design; everything else continued |
+| Real model quality | D2/D4/D5/D6/D9 (provider) | NOT VERIFIED; `builder_lifecycle.model_generation` stays off |
+| Build allowance enforcement | Billing seed row `('builder','builder.build_minutes')` + plan entitlements (CONTRACT-S05-P2-3, Master; HG-02-01 limits). Do not switch `builder.billing_separation` on before it exists. | PENDING Master |
+| O-9 route (read/change the setting) | CONTRACT-S05-P2-2 (OpenAPI + SDK, Master): parked `pending-contracts/builder-policy.controller.ts.pending` | PENDING Master; the enforcement itself is active and tested |
+| Mention of the run mode in OpenAPI | CONTRACT-S05-P2-1 (description text only) | PENDING Master |
+| Agent tab in the web-app workspace | `apps/web/lib/webapp-workspace.ts` and the workspace component are outside my paths; the page `/{locale}/builder/projects/{id}/agent` works by URL | PENDING Master (one tab entry) |
+| E2E execution and screenshots | heavy lock | spec written, not run |
+| Sandbox `purpose` and message wording; HTTP user-sandbox gate | Session 04 (`internal/sandbox/**`) | requested in CONTRACT-S05-P2-3 |
+
+**Decisions recorded:** (a) a mode of the `webapp` run kind, not a new kind (avoids a DB CHECK migration, an enum change and a registry edit); (b) the lifecycle's permissions come from the run user's membership at execution time, and a run without a user has none (fail closed); (c) a simulated execution is audited and never billed; (d) the O-9 setting and the billing switch are `platform.feature_flags` rows (no migration), an unreadable stored policy reads as `deny`; (e) a change that needs a person is never applied by the lifecycle (`needs_approval`), and the deployment approval is an ordinary `production_deploy` approval requested by the AI (so a human always decides).
+
+**Next available (not started):** a real `BuildPort` factory for the attested runtime once S04's port exists (one function, `mockBuildPortFor`'s sibling); lifecycle resume UI listing earlier runs; an audit view of tool invocations (they are in the run checkpoint today).
+
+**Phase 2 batch 1 head:** `28698627` (code, UI, tests, contracts, report); the commit that adds this line is doc-only. Mergeable: yes, inert by default (all flags OFF), no migration, no spec/SDK edit.

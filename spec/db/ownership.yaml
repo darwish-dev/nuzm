@@ -156,6 +156,7 @@ schemas:
     extended_by:
       - M10
       - S06-DEPLOY # parallel session 06: the cancelled state, migration 1980
+      - S06-DEPLOY2 # Phase 2: deployment policy switches (O-1, O-2), migration 2180
     tables:
       - app_deployment_logs
       - app_deployments
@@ -163,6 +164,7 @@ schemas:
       - deployment_logs
       - deployments
       - hosting
+      - org_policies
   mobile:
     owner_module: mobile
     created_by: M10
@@ -386,6 +388,7 @@ migration_ranges:
   AG-S04: "1940-1959"
   AG-S05: "1960-1979"
   S06-DEPLOY: "1980-1999"
+  S06-DEPLOY2: "2180-2199" # Phase 2 block of session 06 (see docs/parallel/PHASE-2-PLAN.md)
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
@@ -2887,6 +2890,14 @@ classification:
       message: customer-content
       data: customer-content
       created_at: internal
+    deploy.org_policies:
+      org_id: internal
+      production_publish_roles: internal
+      rollback_requires_own_approval: internal
+      updated_by: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
     deploy.deployments:
       id: internal
       org_id: internal

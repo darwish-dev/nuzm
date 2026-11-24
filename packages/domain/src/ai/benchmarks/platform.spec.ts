@@ -874,6 +874,30 @@ describe('the live benchmark runner refuses unless every approval exists', () =>
       { ok: false },
     );
   });
+  it('a price card with a zero, fractional or missing price is refused (a zero price would make every cost cap meaningless)', async () => {
+    for (const bad of [
+      { ...price, minorPerMillionInput: '0' },
+      { ...price, minorPerMillionOutput: '0' },
+      { ...price, minorPerMillionOutput: '1.5' },
+      { ...price, minorPerMillionInput: '' },
+      { ...price, currency: 'usd' },
+    ] as PriceCard[]) {
+      const f = livePreflight(pre(), tasks, bad);
+      expect(f.allowed, JSON.stringify(bad)).toBe(false);
+      expect(f.refusals.map((x) => x.code)).toContain('PRICE_CARD_INVALID');
+    }
+    const { s, calls } = source();
+    const r = await runLiveBenchmark({
+      tasks,
+      pre: pre(),
+      source: s,
+      price: { ...price, minorPerMillionInput: '0' },
+      runId: 'run-x',
+      now: () => '2026-01-01T00:00:00Z',
+    });
+    expect(r.status).toBe('REFUSED');
+    expect(calls).toEqual([]); // the source was never called
+  });
   it('with the default (empty) preconditions everything is refused', () => {
     const none: LivePreconditions = {
       flagEnabled: false,

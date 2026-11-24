@@ -124,7 +124,7 @@ describe('the gate stays closed', () => {
     expect(g.open).toBe(false);
     expect(g.blockers).toHaveLength(5);
   });
-  it('one missing condition keeps it closed; production also needs D-42', () => {
+  it('one missing condition keeps it closed; production also needs D-AG-ROLLOUT', () => {
     const all = {
       ...CLOSED_GATE,
       d21Decided: true,
@@ -143,9 +143,9 @@ describe('the gate stays closed', () => {
     ] as const)
       expect(executionGate({ ...all, [k]: false }).open).toBe(false);
     expect(executionGate({ ...all, production: true }).blockers).toEqual([
-      'D-42 (production rollout) is not decided',
+      'D-AG-ROLLOUT (production rollout) is not decided',
     ]);
-    expect(executionGate({ ...all, production: true, d42Decided: true }).open).toBe(true);
+    expect(executionGate({ ...all, production: true, rolloutDecided: true }).open).toBe(true);
   });
   it('profiles that reach a network or install code need a human', () => {
     for (const p of Object.values(EXEC_PROFILES))

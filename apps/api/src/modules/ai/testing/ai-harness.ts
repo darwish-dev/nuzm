@@ -68,12 +68,16 @@ const ADMIN_ROPA_PROCESSORS = (codes: string[]) =>
     })),
   );
 
-export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}): Promise<AiEnv> {
+/** `realAudit` (QA, Session 07): use the hash-chained database audit sink instead of the in-memory one; `e.sink.events` stays empty then. Default unchanged. */
+export async function setupAiEnv(
+  opts: { overrides?: [unknown, unknown][]; realAudit?: boolean } = {},
+): Promise<AiEnv> {
   applyAiTestEnv();
   const h = new Harness();
   await h.init();
   const { app, sink } = await h.buildApp({}, undefined, [], {
     ...(opts.overrides ? { overrides: opts.overrides } : {}),
+    ...(opts.realAudit ? { realAudit: true } : {}),
   });
   const jars: AiEnv['jars'] = {};
   const ids: AiEnv['ids'] = {};

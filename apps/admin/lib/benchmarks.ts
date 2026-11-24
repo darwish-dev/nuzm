@@ -42,6 +42,45 @@ export interface QualificationRow {
   effectiveState: string;
   datasetVersion: string;
 }
+export const STAGE_IDS = ['A', 'B', 'C', 'D', 'E'] as const;
+export type StageId = (typeof STAGE_IDS)[number];
+export const PREREQUISITE_IDS = [
+  'FLAG_ON',
+  'LIVE_GATE_OPEN',
+  'ENVIRONMENT_NON_PRODUCTION',
+  'PROVIDER_VERIFIED',
+  'CAPTURE_SOURCE_BUILT',
+  'RATES_CONFIRMED',
+  'VENDOR_SPEND_CAP',
+  'THRESHOLDS_ACCEPTED',
+  'BUDGET_APPROVED_FOR_STAGE',
+  'REVIEWERS_NAMED',
+  'SECURITY_REVIEW_PASSED',
+  'PREVIOUS_STAGE_EXITED',
+  'BASELINE_RECORDED',
+] as const;
+export type PrerequisiteId = (typeof PREREQUISITE_IDS)[number];
+export interface StagePlanRow {
+  stage: StageId;
+  tasks: number;
+  runs: number;
+  models: number;
+  currency: string;
+  /** minor units, decimal integer strings */
+  estimateCostMinor: string;
+  maxCostMinor: string;
+  estimatedMinutes: number;
+  maximumMinutes: number;
+  maxTokens: number;
+  prerequisites: PrerequisiteId[];
+}
+export interface StagesView {
+  rateBasis: { status: string; model: string | null; source: string };
+  usagePermille: number;
+  inputSharePermille: number;
+  plans: StagePlanRow[];
+  monthly: { estimateCostMinor: string; maxCostMinor: string; currency: string } | null;
+}
 export interface Overview {
   enabled: boolean;
   dataset: {
@@ -70,6 +109,7 @@ export interface Overview {
   runs: RunSummary[];
   qualifications: QualificationRow[];
   liveAvailable: boolean;
+  stages: StagesView | null;
 }
 
 const obj = (v: unknown): Record<string, unknown> =>
@@ -92,6 +132,7 @@ export function parseOverview(raw: unknown): Overview {
     runs: [],
     qualifications: [],
     liveAvailable: false,
+    stages: null,
   };
   if (o.enabled !== true) return empty;
   const d = obj(o.dataset);
@@ -181,7 +222,120 @@ export function parseOverview(raw: unknown): Overview {
       })
       .filter((q) => q.id),
     liveAvailable: live.available === true,
+    stages: parseStages(live.stages),
   };
+}
+
+const minorOf = (v: unknown): string => (typeof v === 'string' && /^\d+$/.test(v) ? v : '0');
+/** The staged plan as sent by the API; anything malformed is dropped (a missing stage is shown as missing, never invented). */
+export function parseStages(raw: unknown): StagesView | null {
+  const o = obj(raw);
+  const rb = obj(o.rateBasis);
+  if (arr(o.plans).length === 0) return null;
+  const a = obj(o.assumptions);
+  const prices = obj(o.prices);
+  const currency = s(prices.currency);
+  const plans: StagePlanRow[] = [];
+  const defs = new Map(arr(o.definitions).map((d) => [s(obj(d).id), arr(obj(d).prerequisites)]));
+  for (const p of arr(o.plans)) {
+    const x = obj(p);
+    const id = STAGE_IDS.find((i) => i === x.stage);
+    if (!id) continue;
+    const est = obj(x.estimate);
+    const max = obj(x.max);
+    const dur = obj(x.duration);
+    plans.push({
+      stage: id,
+      tasks: n(x.tasks),
+      runs: n(x.runs),
+      models: n(x.models),
+      currency: s(x.currency, currency),
+      estimateCostMinor: minorOf(est.costMinor),
+      maxCostMinor: minorOf(max.costMinor),
+      estimatedMinutes: n(dur.estimatedMinutes),
+      maximumMinutes: n(dur.maximumMinutes),
+      maxTokens: n(max.tokens),
+      prerequisites: (defs.get(id) ?? []).filter((q): q is PrerequisiteId =>
+        PREREQUISITE_IDS.some((i) => i === q),
+      ),
+    });
+  }
+  const m = obj(o.monthly);
+  return {
+    rateBasis: {
+      status: s(rb.status),
+      model: typeof rb.model === 'string' ? rb.model : null,
+      source: s(rb.source),
+    },
+    usagePermille: n(a.usagePermille),
+    inputSharePermille: n(a.inputSharePermille),
+    plans,
+    monthly:
+      typeof m.maxCostMinor === 'string'
+        ? {
+            estimateCostMinor: minorOf(m.estimateCostMinor),
+            maxCostMinor: minorOf(m.maxCostMinor),
+            currency,
+          }
+        : null,
+  };
+}
+
+/** Minor units (cents) as text with two decimals, e.g. `8360` USD -> `83.60 USD`. Integer arithmetic only: no float rounding on money. */
+export function money(minor: string, currency: string): string {
+  const b = BigInt(/^\d+$/.test(minor) ? minor : '0');
+  return `${b / 100n}.${(b % 100n).toString().padStart(2, '0')} ${currency}`;
+}
+/** thousandths as a percentage text (`600` -> `60%`) */
+export const permille = (v: number): string => `${Math.round(v) / 10}%`;
+
+export const SCORECARD_DIMENSIONS = [
+  'functional',
+  'code-quality',
+  'security',
+  'arabic-rtl',
+  'tool-calling-reliability',
+  'cost-token-efficiency',
+  'latency',
+] as const;
+export type ScorecardDimension = (typeof SCORECARD_DIMENSIONS)[number];
+export interface ScorecardRow {
+  dimension: ScorecardDimension;
+  value: number | null;
+  unit: 'score' | 'rate' | 'ms' | 'tokens';
+  tasks: number;
+  thresholds: { id: string; status: 'PASS' | 'FAIL' | 'NOT MEASURED' }[];
+}
+/** The scorecard of a stored run (`GET .../runs/{id}`); a missing or malformed scorecard is an empty list, never a guess. */
+export function parseScorecard(raw: unknown): ScorecardRow[] {
+  const rows: ScorecardRow[] = [];
+  for (const r of arr(obj(raw).scorecard)) {
+    const x = obj(r);
+    const dimension = SCORECARD_DIMENSIONS.find((d) => d === x.dimension);
+    if (!dimension) continue;
+    const unit = (['score', 'rate', 'ms', 'tokens'] as const).find((u) => u === x.unit) ?? 'score';
+    rows.push({
+      dimension,
+      value: nn(x.value),
+      unit,
+      tasks: n(x.tasks),
+      thresholds: arr(x.thresholds).map((t) => {
+        const y = obj(t);
+        return {
+          id: s(y.id),
+          status: y.status === 'PASS' ? 'PASS' : y.status === 'FAIL' ? 'FAIL' : 'NOT MEASURED',
+        };
+      }),
+    });
+  }
+  return rows;
+}
+/** A scorecard value as text: rates as percentages, latency in seconds, tokens as a count; `null` is the not-measured marker. */
+export function scorecardValue(r: Pick<ScorecardRow, 'value' | 'unit'>, na: string): string {
+  if (r.value === null) return na;
+  if (r.unit === 'rate') return pct(r.value);
+  if (r.unit === 'ms') return `${Math.round(r.value / 100) / 10} s`;
+  return String(r.value);
 }
 
 /** A pass rate as a percentage text (`0.8571` -> `85.7%`). */

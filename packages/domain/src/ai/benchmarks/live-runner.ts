@@ -2,6 +2,7 @@ import {
   BudgetLedger,
   isBlank,
   preflightBudget,
+  priceCardProblem,
   type BenchmarkBudget,
   type PriceCard,
 } from './budget';
@@ -42,6 +43,7 @@ export type RefusalCode =
   | 'SOURCE_MISMATCH'
   | 'THRESHOLDS_NOT_ACCEPTED'
   | 'BUDGET_NOT_APPROVED'
+  | 'PRICE_CARD_INVALID'
   | 'BUDGET_TOO_SMALL'
   | 'REVIEWERS_NOT_NAMED'
   | 'SECURITY_REVIEW_MISSING'
@@ -96,6 +98,8 @@ export function livePreflight(
   if (!ta || ta.version !== THRESHOLDS_VERSION || isBlank(ta.acceptedBy) || isBlank(ta.acceptedAt))
     add('THRESHOLDS_NOT_ACCEPTED', `the owner has not accepted thresholds ${THRESHOLDS_VERSION}`);
   if (tasks.length === 0) add('NO_TASKS', 'nothing to run');
+  const priceProblem = priceCardProblem(price);
+  if (priceProblem) add('PRICE_CARD_INVALID', priceProblem);
   const pf = preflightBudget(tasks, pre.budget, price);
   if (!pf.ok) add(pre.budget ? 'BUDGET_TOO_SMALL' : 'BUDGET_NOT_APPROVED', pf.reasons.join('; '));
   const named = pre.reviewers.filter(

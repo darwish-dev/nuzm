@@ -115,3 +115,84 @@ Durable stores and wiring once D-21 is decided (DEPENDENT); an `ExecutionRuntime
 
 ## Escalations
 None blocking. Owner decisions this work feeds (already in OWNER-DECISIONS): D-21, ADR-067, LEGAL-EXEC, D-42, plus, newly named: the node-pool budget (`N_peak`, price, currency), the execution approval permission model, the kill-switch time target for the review.
+
+---
+
+# Phase 2: real isolated runtime preparation (2026-11-24)
+
+- **Branch head at this report:** see `git log -1` (Phase 2 commits: `3d5eb1a3` attested real-runtime scaffold, `c100db75` conformance/fixtures/qualification runner, `320cb88d` fix, `264d339f` orphan reaping, then docs). Baseline: `integration/ai-engine` @ `39658725` merged cleanly into `feature/ai-sandbox` (fast-forward, no conflicts).
+- **Status:** the offline half of "a real runtime behind `ExecutionPort`" is done and tested against stand-ins. **Nothing real exists: no node, no runtime, no attestation signed by a human, no execution. `executionGate` is closed; `ai.agent.exec_tools` is default off; D-21, HG-10-02, ADR-067 (PROPOSED), D-42, LEGAL-EXEC untouched.** Evidence label for everything below: `SIMULATED` (offline-verified); isolation: `NOT VERIFIED`.
+- **Honesty note:** commit `c100db75` was made with the real-runtime specs failing (the simulated kit still carried 21 isolating attempts after I raised the required count to 65; my earlier edit did not match because prettier had reformatted that line). Fixed in `320cb88d`; the results below are from after the fix.
+
+## Infrastructure evaluation (read-only facts, full text in `docs/parallel/RUNTIME-QUALIFICATION.md` §1)
+macOS 13.7.8, Intel x86_64 (i5-7267U, 4 logical CPUs), 8 GiB, `kern.hv_support=1`; Docker, Podman, QEMU, Firecracker, runsc, Kata, Lima, Colima, Multipass, kubectl are all absent. gVisor/Firecracker/Kata are Linux-only; this Mac cannot be a qualification node. Next real step = a dedicated Linux non-production node (owner/provider action, HG-05-04, D-21). No installs, no downloads, no untrusted code on this host.
+
+## Delivered (all offline)
+| Item | Files | Result seen |
+|---|---|---|
+| Isolation attestation: schema, canonical signing bytes (ed25519), fail-closed verifier (about 40 reason codes: missing/malformed/node+endpoint mismatch/environment/runtime class not isolating/unpinned image/cgroups/dedicated/swap/sockets/metadata/egress/suite version/escapes/not all blocked/review/D-21 ref/validity/revocation/signature), draft builder for the reviewer (never verifies), simulated kit (throw-away key; label fixed to SIMULATED) | `packages/domain/src/ai/execution-gateway/real-runtime/attestation*.ts`, `simulated-attestation.ts` | 35 tests pass |
+| `RealRuntimeService.start` (fail-closed: every node needs a verifying attestation bound to node/endpoint/environment/mode, identity answers must match, live mode needs LIVE-VERIFIED + the node claiming `verified` + healthy; one bad node refuses the whole start), `portFor(ctx, inputs)` per run, origin `MOCK` in simulated mode and `REAL` only in live mode | `real-runtime/real-runtime.ts` | 28 tests pass |
+| Per-run flow: spec from `buildRuntimeSpec` re-validated, image must be attested, seed screening (secrets, canaries), dependency policy for installs, wall/limit (monitor) /abort/terminate kill paths, unresponsive node → quarantine, cleanup failure → quarantine, attestation re-verified before every run (expiry, revocation drop the node), least-loaded node choice, bounded output, artifact extraction with hash verification into an `ArtifactSink`, content-free events, per-run accounting (`onUsage`), `terminationPorts()` for `terminate()`, `reapOrphans()` (restart recovery) | same | covered by the 28 tests |
+| Node contract `WorkspaceRuntime` (+ `listWorkspaces`) and `SimulatedWorkspaceRuntime` (starts nothing, validates specs independently) | `real-runtime/workspace-runtime.ts` | used by all of the above |
+| Dependency-install policy | `real-runtime/dependency-policy.ts` | 17 tests; found and fixed a classification-order slip (`./x` reported as git) |
+| Conformance suite (6 contract cases + 22 fixtures = 28) with targets: `MockExecutionPort` (policy/runtime layers only; other layers SKIPPED with a reason, never PASS) and the real-runtime port over the simulated node (all 28 pass); a mutation check (a port that forges approvals fails CP-3; a leaking target and a lying origin fail) | `real-runtime/conformance.ts`, `conformance.spec.ts` | 8 tests pass |
+| 22 disposable synthetic project fixtures (typecheck/unit/build/artifact-link tricks/CPU/memory/pids/disk/output/env/network probes/install/policy/workspace/dependency cases), each with the expected outcome for a real node and a stand-in behaviour; safety checks (no hostnames, no secrets, no traversal, bounded size, seed screening refuses exactly the workspace-layer ones) | `real-runtime/fixtures.ts` | included above |
+| Escape-suite qualification runner + CLI + node adapter: modes `simulated` (works), `qualify` and `requalify` (refuse without approval reference + `NUZM_QUALIFICATION_APPROVED` + staging declaration + node client; none exists), per-case PASS/FAIL/NOT_VERIFIED, report sha256, draft attestation, `renderReport` says SIMULATED | `apps/api/src/modules/appbuilder/internal/sandbox/escape-runner.ts`, `escape-runner.cli.ts`, `endpoint-runtime.ts`, `escape-runner.spec.ts` | 9 tests pass |
+| Documents | `docs/parallel/RUNTIME-QUALIFICATION.md`, `docs/parallel/sessions/PHASE2-04-approval-inputs.md`, `docs/security/sandbox/DURABLE-STORES-DESIGN.md`, README index | n/a |
+| Contract request | `CONTRACT-04-3-qualification-runner-script.md` (package script, no module registration, D-42 naming conflict, ADR-068 reminder) | pending the Master |
+
+## Test commands and the ACTUAL results I saw (load average was 270+ during the final runs; targeted only)
+| Command (from the package directory) | Result |
+|---|---|
+| `packages/domain`: `npx tsc --noEmit -p tsconfig.json` and `npx tsc -p tsconfig.build.json` | no errors |
+| `packages/domain`: `npx vitest run src/ai/execution-gateway src/ai/ssrf.spec.ts` | 21 files, **344 tests passed** |
+| `packages/domain`: `npx vitest run src/ai` | 41 files, **796 tests passed** |
+| `apps/api`: `npx vitest run src/modules/appbuilder/internal/sandbox src/modules/execution` | 5 files, **104 tests passed** |
+| `npx eslint` on `packages/domain/src/ai/execution-gateway`, the sandbox dir, `apps/api/src/modules/execution` | clean |
+| `pnpm scan:secrets` | OK, 2859 files, 0 hits |
+| `npx tsx apps/api/src/modules/appbuilder/internal/sandbox/escape-runner.cli.ts --endpoint simulated:node-1` | suite 1.1.0, mode=simulated, evidence=SIMULATED: **277 cases, 206 PASS, 0 FAIL, 71 NOT_VERIFIED** (65 isolating + 6 database-backed ticket cases); exit 0 |
+Not run: integration specs, repo-wide suites, the API typecheck (dists of other packages are missing in this worktree: pre-existing), anything live.
+
+## Findings (Phase 2)
+- **S04-F7 (conflict, not a defect in code):** "D-42" means the platform object store in `docs/07-open-decisions-and-blockers.md` (decided interim 2026-11-20) but "production rollout" in `docs/parallel/OWNER-DECISIONS.md` and in `ExecGateState.d42Decided`. Per CLAUDE.md §2 the higher source wins; nothing renamed; a distinct id is requested in CONTRACT-04-3 and the approval inputs.
+- **S04-F8:** the `EXEC_PROFILES[...]` own-property bug class (S04-F1) reappeared in my new conformance code on the `constructor` fixture and was caught by the suite itself; fixed with `hasOwnProperty`.
+- **Design decisions (recorded):** (1) the attestation proves a *review*, never isolation; the verifier requires a human reviewer, an HG-10-02 reference, a D-21 reference, a trusted signer, and rejects SIMULATED evidence in live mode. (2) The qualification runner produces a DRAFT that cannot verify; the reviewer completes and signs it outside the repository. (3) The minimum isolating-attempt count is tied to the suite (65) by a spec so suite growth forces an update. (4) A live qualification adapter reports the node as `verified` to the suite only inside a live qualification (the suite is the verification), never from the node's own claim. (5) Migration ids 2140–2159: **none used**; durable stores are design only.
+
+## Remaining / blocked (class)
+| Item | Class |
+|---|---|
+| Linux node, provider, budget, KVM probe | EXTERNAL-BLOCKED (HG-05-04) / OWNER-BLOCKED (D-21) |
+| Node agent (implements `WorkspaceRuntime`) and HTTPS/mTLS node client | DEPENDENT on D-21 (contract + conformance suite ready) |
+| T1-T12 qualification run, signed attestation | SECURITY-BLOCKED (HG-10-02) |
+| Durable stores (design only), module wiring, trusted-key configuration | DEPENDENT on D-21; needs CONTRACT |
+| Customer-facing execution, production | OWNER-BLOCKED (LEGAL-EXEC, ADR acceptance, production-rollout decision) |
+| `package.json` script `sandbox:escape-suite` | needs the Master (CONTRACT-04-3) |
+
+## Heavy-run requests (Phase 2)
+1. Same as before: `sandbox.int.spec.ts` on the integration branch (database-backed ticket attempts of the 277-case suite); expected 0 ESCAPED.
+2. After merge, rebuild `packages/domain` `dist` (API specs import it) and run `pnpm --filter @nuzm/api typecheck` once the other packages' dists exist.
+
+## Next available tasks (offline)
+Idle until D-21 except: a wire-protocol conformance test for the node agent contract (schema validation of the JSON messages) once the owner confirms the transport proposal; extending fixtures when profiles change.
+
+## QA findings from S07 (DEFECT-10, O-11..O-14) — fixed after the Phase 2 batch
+| Finding | Fix | Test (seen passing) |
+|---|---|---|
+| **DEFECT-10** (MEDIUM): concurrent submits with one idempotency key created several jobs (key registered only after an await) | `ExecutionOrchestrator.submit` now claims the key synchronously in an `inflight` map before any await; a concurrent duplicate awaits the first and returns the same job (`duplicate: true`); a refused first submit leaves no key | `orchestrator.spec.ts`: 10 concurrent submits → one job, one port run; 5 concurrent approval-gated duplicates → one approval |
+| **O-11**: same key + different request/run returned the first job | `fingerprint` (sha256 of run id + canonical request) stored on the job; mismatch → `refused: idempotency_key_conflict` (stored and in-flight) | `orchestrator.spec.ts` |
+| **O-12**: `ExecDecision` is an unsigned plain object, a hand-made `{allowed:true, argv:['sh','-c',…]}` was accepted by `MockExecutionPort.run` | new `IssuedDecisions` registry (content digest + `requiresApproval`, bound to org and run): `MockExecutionPort`, `RealRuntimePort` and `SandboxRuntimeExecutionPort` run only decisions their own `request` issued; hand-made, edited or other-port decisions → `decision_not_issued_by_gateway` | `port.spec.ts`, `real-runtime.spec.ts`, `execution-port.spec.ts` |
+| **O-13**: `ExecutionOutcome.artifacts` had no `kind`; the orchestrator hard-coded `file` | optional `kind` (additive to contract 0.1) carried to `collectArtifacts`; links/devices/dirs are refused | `port.spec.ts`, `orchestrator.spec.ts` |
+| **O-14**: canary screen is exact-match only | not changed; limitation recorded: acceptable while no runtime holds a platform secret (the attestation requires none on the node); encoded/split secrets in output are not detected by canaries | documented here |
+Results seen: `packages/domain` `src/ai` 41 files / **803 tests passed**; `execution-gateway` 20 files / 317 passed; `apps/api` sandbox + execution 5 files / 104 passed; ESLint clean; secret scan 0 hits. S07's `it.fails` for DEFECT-10 and CONCERN-1 can be flipped; S07 should re-test (their file `apps/api/src/qa/qa-exec-orchestrator.int.spec.ts` is on their branch, not run by me). `dist` of `packages/domain` was rebuilt for the API specs.
+
+## Batch after the Master's acceptance (CONTRACT-04-3, D-AG-ROLLOUT) — 2026-11-24
+- Merged `integration/ai-engine` (b9cc2a56) first. **Renamed** `ExecGateState.d42Decided` → `rolloutDecided` in `policy.ts`; refusal text is now `D-AG-ROLLOUT (production rollout) is not decided`; still fail-closed (`production && !rolloutDecided`). Updated `exec-policy.spec.ts`, `escape-suite-exec.ts` (EX-GATE cases) and the labels in ADR-067, S-AG6-REQUIREMENTS, `docs/security/sandbox/{README,RECOMMENDED-ARCHITECTURE,ESCAPE-SUITE-1.1}.md`, RUNTIME-QUALIFICATION and the approval inputs. The historical S04-F7 entry above keeps the old id on purpose.
+- **Outside my ownership, needs the same rename:** `apps/api/src/qa/qa-exec-gateway.int.spec.ts` (S07, lines ~219 and ~231 use `d42Decided`; after the rename their `production: true` case reads `rolloutDecided` as undefined and will fail until they update it) and `docs/security/AI-ENGINE-THREAT-MODEL.md` (E5 row says "production needs D-42").
+- New in `PHASE2-04-approval-inputs.md` §6: the exact node checklist (12 items), a sourced rough cost range (bare-metal dedicated about EUR 45-100/month; AWS c5.metal about USD 4.08/h from third-party aggregators; in-Kingdom options listed but not priced), and the recommendation: rent one bare-metal dedicated server, qualify gVisor (systrap) first, then Firecracker on the same box after a rebuild; decide D-21 after both results. Prices are indicative, not quotes, not live-verified.
+- Results seen after the merge: `packages/domain` `src/ai` 41 files, 801 passed, **2 failed**, both in `src/ai/benchmarks/dataset.spec.ts` (S03's `sec-03-hardcoded-token-ar` fixture is flagged by S07's tightened scanner, DEFECT-9, commit ebfde17b: not my change); `apps/api` sandbox + execution 104 passed; ESLint clean; `pnpm scan:secrets` **fails on `apps/api/src/modules/deploy/internal/targets.spec.ts:255,318`** (S06's file, same cause), none in my files. Both need their owners (S03, S06) to assemble the credential-looking strings at run time.
+
+## CONTRACT-S05-P2-3 request 2 (explicit sandbox purpose) — done, default behaviour unchanged
+- `SandboxService.create(orgId, actor, project, body, purpose = 'user_sandbox')` takes a `SandboxPurpose` (`release_build | user_sandbox | ai_run_build`), chosen **in code by the caller, never from the request body** (a `purpose` member in `body` is ignored; an unknown value is `validation_failed`). New constructor parameter (last, optional): `purposeBudgets: Partial<Record<SandboxPurpose, { port: OrgBudgetPort; gate: 'ai_wallet' | 'build_allowance' }>>`. A purpose with no entry uses the service's own `orgBudget` (the AI wallet): so with nothing configured every purpose behaves exactly as before, and the old 4-argument calls are unchanged. The audit event `sandbox.sandbox.created` now records the `purpose`.
+- The `budget_required` message names the gate that refused: wallet → "the organization has no AI credit left for a sandbox" (unchanged text); build allowance → "the build allowance of the plan is used up; new builds are blocked". A budget port may declare `readonly gate = 'build_allowance'` so S05's existing second-instance wiring (`ReleaseBuildBudget` as the only budget of `RELEASE_BUILD_SANDBOX`) reports the right message without any change on my side.
+- Files (mine): `appbuilder/internal/sandbox/budget-gate.ts` (pure selection and message), `sandbox.service.ts`, `budget-gate.spec.ts` (6 tests: default unchanged for all purposes, 4-argument call unchanged, per-purpose allowance replaces the wallet only for its purpose and the wallet is not asked, existing wiring, body cannot set the purpose, prototype-name purpose refused, inherited members ignored). Seen: sandbox + execution specs 6 files / **110 tests passed**, ESLint clean, `pnpm scan:secrets` OK (0 hits). Not run: the database-backed `sandbox.int.spec.ts`/`m09-real.int.spec.ts` (heavy-run request: they exercise `create` with the wallet and must stay green, nothing in the create path changed except the budget lookup).
+- **For Session 05 (their files; I did not touch them):** (1) in `appbuilder.module.ts` the second instance can be replaced by one `SandboxService` built with `purposeBudgets: { release_build: { port: new ReleaseBuildBudget(g), gate: 'build_allowance' } }` (and later `ai_run_build`); until then nothing needs to change. (2) pass the purpose at the call sites: `deployment.service.ts:498` → `'release_build'`, `test-run.service.ts:179` → `'ai_run_build'`, `sandboxes.controller.ts` (HTTP) keeps the default `'user_sandbox'`. (3) optionally add `readonly gate = 'build_allowance'` to `ReleaseBuildBudget`. (4) when `builder.billing_separation` is ON for `user_sandbox`, add a `user_sandbox` entry the same way.

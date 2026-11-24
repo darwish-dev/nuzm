@@ -576,3 +576,67 @@ describe('prepare deployment (read-only plan for the agent loop and the console)
     });
   });
 });
+
+describe("O-9: a deployment's detail and logs are customer content (builder.billing_admin_content_access)", () => {
+  const FLAG = 'builder.billing_admin_content_access';
+  const setMode = async (mode: 'allow' | 'deny' | null) => {
+    await e.sql(`DELETE FROM platform.feature_flags WHERE key=$1 AND org_id=$2`, [FLAG, A()]);
+    if (mode)
+      await e.sql(
+        `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, $2, $3::jsonb)`,
+        [FLAG, A(), JSON.stringify({ mode })],
+      );
+  };
+  let id: string;
+  beforeAll(async () => {
+    await reset();
+    const p = await mkProject('O9 content');
+    const site = await mkSite(A(), 'alice', 'o9-content', 'o9.example.sa');
+    const r = await publish(p.id as string, site, 'alice', 'alice', 'staging');
+    expect(r.statusCode, r.body).toBe(202);
+    id = (await drive(j(r).id as string)).id as string;
+  });
+  afterAll(() => setMode(null));
+
+  it('default (no setting) and explicit allow: a billing admin reads the detail and the logs, as before', async () => {
+    for (const mode of [null, 'allow'] as const) {
+      await setMode(mode);
+      for (const url of [`/v1/deployments/${id}`, `/v1/deployments/${id}/logs`]) {
+        const r = await e.call('frank', 'GET', url, undefined, A());
+        expect(r.statusCode, `${mode} ${url} ${r.body}`).toBe(200);
+      }
+    }
+  });
+
+  it('deny: the billing admin gets 403 on the detail and the logs, each denial is audited with the operation; metadata and every other role are untouched', async () => {
+    await setMode('deny');
+    const before = audits('builder.content.access_denied').length;
+    const d = await e.call('frank', 'GET', `/v1/deployments/${id}`, undefined, A());
+    const l = await e.call('frank', 'GET', `/v1/deployments/${id}/logs`, undefined, A());
+    expect(d.statusCode, d.body).toBe(403);
+    expect(l.statusCode, l.body).toBe(403);
+    const denied = audits('builder.content.access_denied').slice(before);
+    expect(denied.map((x) => (x.detail as Row).operation)).toEqual([
+      'deployment',
+      'deployment_logs',
+    ]);
+    // the list and the policy are metadata: still readable by the billing admin
+    expect((await e.call('frank', 'GET', '/v1/deployments', undefined, A())).statusCode).toBe(200);
+    expect(
+      (await e.call('frank', 'GET', '/v1/deployments/policy', undefined, A())).statusCode,
+    ).toBe(200);
+    for (const who of ['alice', 'erin', 'dave', 'carol'])
+      for (const url of [`/v1/deployments/${id}`, `/v1/deployments/${id}/logs`])
+        expect((await e.call(who, 'GET', url, undefined, A())).statusCode, `${who} ${url}`).toBe(
+          200,
+        );
+    await setMode('allow');
+  });
+
+  it("the setting belongs to its own organization: org B is unaffected by org A's deny", async () => {
+    await setMode('deny');
+    const r = await e.call('bob', 'GET', `/v1/deployments/${id}`, undefined, B());
+    expect(r.statusCode).toBe(404); // not found for another tenant, never 403 about the policy
+    await setMode(null);
+  });
+});

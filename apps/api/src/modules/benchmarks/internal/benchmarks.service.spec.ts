@@ -491,7 +491,7 @@ describe('BenchmarksService (in-memory store)', () => {
     expect(after.decision.allowed).toBe(false);
     expect(failed(after)).toContain('thresholds-accepted');
     // every step left an audit event
-    const actions = new Set(audit.map((e) => e.action));
+    const actions = new Set<string>(audit.map((e) => e.action));
     for (const a of [
       'ai.benchmark.thresholds_accepted',
       'ai.benchmark.budget_set',

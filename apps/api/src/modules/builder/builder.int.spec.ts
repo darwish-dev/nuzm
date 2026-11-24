@@ -429,8 +429,15 @@ describe('previews on the isolated origin (S39.4, AC-M09-04)', () => {
     const t = token(url);
     expect((await previewGet(url, '', 'console.nuzm.test')).statusCode).toBe(404);
     expect((await previewGet(url, '', 'api.nuzm.test')).statusCode).toBe(404);
+    // tamper with the last and the first character: the replacement must DIFFER from the original (a fixed 'a' leaves a token that already ends in 'a' unchanged, 1 run in 32)
+    const other = (c: string) => (c === 'a' ? 'b' : 'a');
     expect(
-      (await previewGet(url, '', `${t.slice(0, -1)}a.preview.nuzm-preview.test`)).statusCode,
+      (await previewGet(url, '', `${t.slice(0, -1)}${other(t.at(-1)!)}.preview.nuzm-preview.test`))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await previewGet(url, '', `${other(t[0]!)}${t.slice(1)}.preview.nuzm-preview.test`))
+        .statusCode,
     ).toBe(404);
     expect(
       (

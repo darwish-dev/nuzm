@@ -8,7 +8,32 @@ export const CONTENT_ACCESS_KEY = 'builder.billing_admin_content_access';
 export type ContentAccessMode = 'allow' | 'deny';
 /** today: `billing_admin` holds `builder:read`, so it reads all of these */
 export const CONTENT_ACCESS_DEFAULT: ContentAccessMode = 'allow';
-export const CONTENT_OPERATIONS = ['review', 'symbols', 'imports', 'components', 'memory'] as const;
+export const CONTENT_OPERATIONS = [
+  // the builder-tools reads (first batch)
+  'review',
+  'symbols',
+  'imports',
+  'components',
+  'memory',
+  // the rest of the content-returning reads of the builder, app-builder and studio routes (S07's O-9 audit, DEFECT-16)
+  'version_diff',
+  'file_content',
+  'file_search',
+  'template_workspace',
+  'generation_plan',
+  'claude_code',
+  'instructions',
+  'test_runs',
+  'previews',
+  'forms',
+  'form_submissions',
+  'cms',
+  // deployments (S06's `deploy` module uses the same guard): a deployment's detail and its logs, not the policy or the list
+  'deployment',
+  'deployment_logs',
+  // approvals: the free text of an approval (its action summary, a decision note) can quote customer data
+  'approvals',
+] as const;
 export type ContentOperation = (typeof CONTENT_OPERATIONS)[number];
 
 /**
@@ -105,4 +130,20 @@ export function decideExecutionStart(p: ExecutionPurpose, f: StartFacts): StartD
     gates,
     mustMeter: k.execution ? [...EXECUTION_METERS] : [],
   };
+}
+
+// ---- approvals: ids, type, state and timestamps stay readable; free text does not --------------------------------------------------------------------------------------------------------
+/** approvals whose action is FINANCIAL (an amount, a resource, a budget): the billing administrator decides them and needs the action */
+export const FINANCIAL_APPROVAL_TYPES: readonly string[] = ['paid_resource', 'budget_increase'];
+
+/**
+ * Under `deny` a billing administrator gets an approval WITHOUT its free text (the action summary of a deployment, an export or a migration can quote customer data, and so can a
+ * decision note); everything else (id, type, state, subject, timestamps, hash) stays. Financial approvals are returned whole. Any other role, and `allow`, is untouched.
+ */
+export function redactApprovalFor<
+  T extends { type: string; action: unknown; decisionNote: string | null },
+>(role: string, mode: ContentAccessMode, a: T): T {
+  if (role !== 'billing_admin' || mode !== 'deny' || FINANCIAL_APPROVAL_TYPES.includes(a.type))
+    return a;
+  return { ...a, action: { redacted: true }, decisionNote: null };
 }

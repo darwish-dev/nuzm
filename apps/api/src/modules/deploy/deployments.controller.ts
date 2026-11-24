@@ -15,6 +15,7 @@ import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { parseLimit } from '../../common/pagination';
 import { AiEnabledGuard } from '../ai';
+import { ContentRead } from '../builder';
 import { DeployService } from './internal/deploy.service';
 import { DeployPolicyService } from './internal/policy.service';
 
@@ -78,11 +79,13 @@ export class DeploymentsController {
     });
   }
   @RequirePermission('deploy:read')
+  @ContentRead('deployment', 'id')
   @Get(':id')
   get(@Org() orgId: string, @Param('id') id: string) {
     return this.deploys.get(orgId, id.toLowerCase());
   }
   @RequirePermission('deploy:read')
+  @ContentRead('deployment_logs', 'id')
   @Get(':id/logs')
   logs(@Org() orgId: string, @Param('id') id: string, @Query() q: { after?: string }) {
     return this.deploys.logs(orgId, id.toLowerCase(), Number(q.after ?? 0) || 0);

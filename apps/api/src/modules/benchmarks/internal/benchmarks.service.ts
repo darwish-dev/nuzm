@@ -1,6 +1,6 @@
 import { v7 as uuidv7 } from 'uuid';
 import { benchmarks as bm } from '@nuzm/domain';
-import type { AuditSink } from '../../../common/audit';
+import type { AuditAction, AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
 import { BenchmarkStore, type RecordKind, type RecordRow, type RunRow } from './store';
 
@@ -113,7 +113,7 @@ export class BenchmarksService {
       );
   }
   private async log(
-    action: `${string}.${string}.${string}`,
+    action: AuditAction,
     who: string,
     resource: { type: string; id?: string },
     detail: Record<string, unknown>,
@@ -177,7 +177,7 @@ export class BenchmarksService {
     who: string,
     requestId: string,
     event: bm.ThresholdEvent,
-    action: string,
+    action: AuditAction,
   ) {
     const rows = await this.store.records('threshold_acceptance', 'thresholds');
     const prior = rows.find((r) => r.requestId === requestId);

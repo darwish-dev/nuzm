@@ -97,6 +97,8 @@ Why this shape: `HostingAdapter` (docs/09 §3) manages sites, domains, certifica
 | `hasRelease`, `listReleases`, `removeRelease` | enumerate and delete releases; `removeRelease` of the live release is refused |
 | Common | org-scoped site resolution (another organization's site is indistinguishable from a missing one); audit of every call with path and size, never content; the site password read from the vault at call time; unavailable in production until D-12; every call refuses when the node is not connected |
 
+> **Update 2026-11-24:** the port, its shared rules and the conformance suite now live in `@nuzm/domain` (`deployTransport`); the implementation-ready specification is `HOST-TRANSPORT-SPEC.md` (a panel docroot switch is a candidate that avoids both symlinks and the two-rename window: READ in Hestia's source, NOT VERIFIED), and who builds it is in `HOST-TRANSPORT-DECISION-MEMO.md`.
+
 ### Hestia plug-in mapping (design, not code)
 
 | Port operation | Hosting abstraction | Hestia (from the hosting line, NOT VERIFIED) |

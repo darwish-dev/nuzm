@@ -5,6 +5,7 @@ import { CustomerTemplateService, KnowledgeCustomerTemplatesGuard } from '../kno
 import { AppBuilderEnabledGuard } from './internal/flag.guard';
 import { GenerationService } from './internal/studio/generation';
 import { TemplateStartService } from './internal/studio/template-start';
+import { ContentRead } from '../builder';
 
 const body = (x: unknown): Record<string, unknown> =>
   x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : {};
@@ -40,6 +41,7 @@ export class TemplateStartController {
   }
 
   @RequirePermission('builder:read')
+  @ContentRead('generation_plan', null)
   @Get('generation-plans/:id')
   getPlan(@Org() orgId: string, @Param('id') id: string) {
     return this.gen.plan(orgId, id);

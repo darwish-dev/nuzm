@@ -14,6 +14,7 @@ import { Idempotent } from '../../common/idempotency';
 import { KnowledgeGenerationGuard } from '../knowledge';
 import { AppBuilderEnabledGuard } from './internal/flag.guard';
 import { GenerationService } from './internal/studio/generation';
+import { ContentRead } from '../builder';
 
 /**
  * Adapting a copied template (S-K6, SCR-K-09): the workspace compared with its template copy, the context preview (exactly what a model would receive) and the run that adapts the copy.
@@ -25,12 +26,14 @@ export class GenerationController {
   constructor(private readonly gen: GenerationService) {}
 
   @RequirePermission('builder:read')
+  @ContentRead('template_workspace', 'id')
   @Get('projects/:id/template-workspace')
   workspace(@Org() orgId: string, @Param('id') id: string) {
     return this.gen.workspace(orgId, id);
   }
 
   @RequirePermission('builder:read')
+  @ContentRead('generation_plan', null)
   @Get('generation-plans/:id/context')
   context(@Org() orgId: string, @Param('id') id: string, @Query('budget') budget?: string) {
     const n = budget === undefined ? undefined : Number(budget);
@@ -38,6 +41,7 @@ export class GenerationController {
   }
 
   @RequirePermission('builder:read')
+  @ContentRead('generation_plan', null)
   @Get('generation-plans/:id/timeline')
   timeline(@Org() orgId: string, @Param('id') id: string) {
     return this.gen.timeline(orgId, id);

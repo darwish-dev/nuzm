@@ -213,10 +213,27 @@ test('compute: offer -> quote -> create -> instance actions -> delete on the moc
   ).toBeVisible();
   const name = `e2e-${L}-${Date.now() % 100000}`;
   await page.getByLabel(T(info, 'field.name')).fill(name);
-  await page.getByRole('radio', { name: /Ubuntu 22\.04/ }).check(); // the mock catalog publishes its images by name
+  await page.getByRole('radio', { name: /Mock Ubuntu/ }).check(); // the simulator publishes its images by name (mock-compute: `Mock Ubuntu`, `Mock Debian`)
   await page.getByRole('button', { name: T(info, 'action.next') }).click();
+  const quoteAnswer = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && /\/v1\/quotes$/.test(new URL(r.url()).pathname),
+  );
   await page.getByRole('button', { name: T(info, 'm05.web.wiz.getQuote') }).click();
-  await expect(page.getByText(T(info, 'm05.web.quote.provisional'))).toBeVisible();
+  // the review shows the quote exactly as the API answered it. The "Provisional estimate" badge belongs to a PROVISIONAL tax estimate only: since the invoicing tax engine
+  // answers `computed` for an organization without a tax profile, the badge is rightly absent, so the expectation follows the API's own status instead of assuming one.
+  const quote = (await (await quoteAnswer).json()) as {
+    taxEstimate: { status: string; reviewRequired: boolean };
+    totalMinor: string;
+  };
+  await expect(page.getByRole('table', { name: T(info, 'm05.web.quote.cost') })).toBeVisible();
+  await expect(page.getByText(T(info, 'bill.f.tax'))).toBeVisible();
+  await expect(page.getByText(T(info, 'bill.f.total'), { exact: true })).toBeVisible();
+  const badge = page.getByText(T(info, 'm05.web.quote.provisional'));
+  if (quote.taxEstimate.status === 'provisional') await expect(badge).toBeVisible();
+  else await expect(badge).toHaveCount(0);
+  const taxReview = page.getByText(T(info, 'm05.web.quote.taxReview'));
+  if (quote.taxEstimate.reviewRequired) await expect(taxReview).toBeVisible();
+  else await expect(taxReview).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: T(info, 'm05.web.quote.residency') }),
   ).toBeVisible();
@@ -245,10 +262,13 @@ test('compute: offer -> quote -> create -> instance actions -> delete on the moc
   ).toBeVisible();
   await audit(page, info, 'compute-instance-metrics');
   await page.goto(`${base}/snapshots`);
+  // the page title AND, because the simulator account's capabilities (dev seed: provision, inspect, delete, metrics) do not include snapshots, the unsupported empty state:
+  // both are on the page, so they are asserted separately (an `or()` of the two matched two elements and failed strict mode)
   await expect(
-    page
-      .getByText(T(info, 'm05.web.snap.unsupported.title'))
-      .or(page.getByRole('heading', { name: T(info, 'm05.web.snap.title') })),
+    page.getByRole('heading', { level: 1, name: T(info, 'm05.web.snap.title') }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'm05.web.snap.unsupported.title') }),
   ).toBeVisible();
   await audit(page, info, 'compute-instance-snapshots');
 

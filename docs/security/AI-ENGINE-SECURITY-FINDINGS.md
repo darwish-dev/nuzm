@@ -40,7 +40,8 @@ New observation O-9: `billing_admin` holds `builder:read` (migration 1400 grants
 | O-4 | `LocalDevSandboxRuntime` is refused only when `NODE_ENV==='production'` and `SANDBOX_LOCAL_DEV!=='true'`; a staging environment with another `NODE_ENV` and that flag runs customer code **unisolated** as the API user. Recommend an explicit allow-list of environments (and refusing when any real tenant exists) | S04 |
 | O-5 | The reservation hold TTL (`AI_RESERVATION_TTL_SECONDS`) and per-call timeout × attempts are independent settings with no invariant; a mis-set TTL lets the sweeper release an in-flight hold (settlement still records spend, so no loss, but the cap check could be briefly exceeded) | S02: validate in `loadAiConfig` |
 | O-6 | `npm run <declared script>` also runs `pre<name>`/`post<name>`; project `.npmrc`/`package.json` can set `script-shell`, `node-options`. The Execution Gateway policy cannot (and does not claim to) contain that: the **sandbox** is the only boundary. Keep `EXEC_ENV` fixed, consider `--ignore-scripts` and `NPM_CONFIG_USERCONFIG=/dev/null` for profiles that do not need them | S04 |
-| O-7 | `apps/api` `tsc --noEmit` reports one error in `modules/cloud/internal/adapter-registry.ts(69,33)` with the packages built from the local turbo cache in my worktree. Not caused by this work; baseline `pnpm typecheck` was reported green, so likely a stale package build locally | Master: confirm on the integration branch |
+| O-7 | (RESOLVED, not a defect) `apps/api` `tsc` failed in my worktree only because the adapter packages had no workspace links after the first install; `pnpm install --frozen-lockfile --offline --force` fixed it and the typecheck is clean | none |
+| O-10 | `packages/db/src/dev-cloud.ts` seeds simulator ids (`dev-sa-1`, `spark-*`, `dev-ubuntu-*`) that the mock-compute adapter rejects (`region_not_listed`), contradicting its header ("only the simulator account can actually provision"); a customer creating a server from the seeded dev catalog gets a failed instance. Dev-only, found by the 08-compute E2E | Master (`packages/db/src`) |
 | O-8 | The admin AI provider endpoint is a single `POST` guarded by `admin:ai:read` plus per-action checks in the handler (`need()`), with step-up. Correct today (tests exist), but a new action added without `need()` would be readable-permission-only | S02: review on change |
 
 ## 3. Verified controls (evidence I ran and saw)
@@ -64,7 +65,7 @@ New observation O-9: `billing_admin` holds `builder:read` (migration 1400 grants
 - Isolation of any real runtime, escape suite on it, egress proxy, resource limits: **BLOCKED (D-21, HG-10-02)**.
 - Real hosting node deploy/rollback/smoke: **BLOCKED (HG-05/06)**; only the in-memory publisher was exercised.
 - Browser E2E, Arabic/English RTL, axe accessibility, screenshots, SDK client compatibility, full integration regression, concurrency/cancellation suites: **not run by me** (heavy: Master slot; see REPORT-07 heavy-run requests). The R6 results (E2E 45/45 per locale with 2 documented skips; integration 2,128 passed) are the baseline, historical, not re-run.
-- The completed `08-compute-customer` mock-catalog test: code complete and type-checked, **NOT RUN**.
+- `08-compute-customer` mock-catalog test: **PASS (simulated)** in ar and en on an isolated stack (REPORT-07 checkpoint 6); proves the screens and the simulator flow, nothing about a real provider.
 - Pen test, DPO review, legal review: out of scope, human gates.
 
 ## 5. Re-audit plan when the Master merges the sessions

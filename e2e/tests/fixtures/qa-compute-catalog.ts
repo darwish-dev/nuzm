@@ -18,6 +18,7 @@ import { DB_URL as DB } from '../env';
  */
 export interface MockComputeCatalog {
   simulatorRegions: number;
+  /** every other region of the seed (vendor slots and the seed's own `dev-*` regions) */
   withdrawnVendorRegions: number;
 }
 
@@ -33,22 +34,52 @@ export async function seedMockComputeCatalog(orgId: string): Promise<MockCompute
   const c = new Client({ connectionString: DB });
   await c.connect();
   try {
-    const withdrawn = await c.query(
-      `UPDATE cloud.provider_regions r SET state = 'withdrawn'
-         FROM cloud.provider_accounts a JOIN cloud.providers p ON p.id = a.provider_id
-        WHERE r.account_id = a.id AND p.key <> 'mock' AND r.state <> 'withdrawn'`,
-    );
-    const sim = await c.query(
-      `SELECT count(*)::int AS n FROM cloud.provider_regions r
-         JOIN cloud.provider_accounts a ON a.id = r.account_id JOIN cloud.providers p ON p.id = a.provider_id
-        WHERE p.key = 'mock' AND r.state = 'verified' AND r.country_code = 'SA'`,
-    );
-    const simulatorRegions = (sim.rows[0] as { n: number }).n;
-    if (simulatorRegions < 1)
-      throw new Error(
-        'the synthetic compute catalog has no verified in-Kingdom simulator region: the seed did not run (run `pnpm db:migrate` on the e2e database first)',
+    // The dev seed's simulator ids (`dev-sa-1`, `spark-1`, `dev-ubuntu-22-04-lts`) are NOT in the mock-compute adapter's own catalog, so the adapter rejects a create with
+    // `region_not_listed` (found by the first real run of this spec: the instance finished "failed", provider rejected the request). The simulator accepts exactly what it lists:
+    // region `mock-sa-1` (SA), plans `mock.small`/`mock.medium`, images `mock-ubuntu`/`mock-debian` (packages/adapters/mock-compute/src/mock-compute.ts). So this fixture
+    // publishes THAT catalog for the simulator account, as a verified `mock`-evidence region, and withdraws every other region (vendor slots and the seed's `dev-*` regions).
+    const account = (
+      await c.query(
+        `SELECT a.id FROM cloud.provider_accounts a JOIN cloud.providers p ON p.id = a.provider_id WHERE p.key = 'mock' AND a.name = 'demo-mock (dev seed)'`,
+      )
+    ).rows[0] as { id: string } | undefined;
+    if (!account)
+      throw new Error('the simulator account of the dev seed is missing: the seed did not run');
+    const region = (
+      await c.query(
+        `INSERT INTO cloud.provider_regions (id, account_id, provider_region_id, country_code, display_name, state, verified_at, evidence_ref, evidence_kind)
+         VALUES (gen_random_uuid(), $1, 'mock-sa-1', 'SA', 'Riyadh (simulator)', 'verified', now(), 'qa-fixture: mock-compute catalog', 'mock')
+         ON CONFLICT (account_id, provider_region_id) DO UPDATE SET state = 'verified', verified_at = now(), last_seen_at = now()
+         RETURNING id`,
+        [account.id],
+      )
+    ).rows[0] as { id: string };
+    for (const [ref, vcpu, mem, disk, hourly] of [
+      ['mock.small', 1, 2048, 40, 12],
+      ['mock.medium', 2, 4096, 80, 24],
+    ] as const)
+      await c.query(
+        `INSERT INTO cloud.provider_plans (id, account_id, region_id, plan_ref, vcpu, memory_mb, disk_gb, provider_price_minor, currency, period, availability)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'SAR', 'hour', 'available')
+         ON CONFLICT (account_id, region_id, plan_ref) DO UPDATE SET availability = 'available', last_seen_at = now()`,
+        [account.id, region.id, ref, vcpu, mem, disk, hourly],
       );
-    return { simulatorRegions, withdrawnVendorRegions: withdrawn.rowCount ?? 0 };
+    for (const [ref, name] of [
+      ['mock-ubuntu', 'Mock Ubuntu'],
+      ['mock-debian', 'Mock Debian'],
+    ] as const)
+      await c.query(
+        `INSERT INTO compute.images (id, account_id, provider_region_id, image_ref, name, os_family)
+         VALUES (gen_random_uuid(), $1, 'mock-sa-1', $2, $3, 'linux')
+         ON CONFLICT (account_id, provider_region_id, image_ref) DO NOTHING`,
+        [account.id, ref, name],
+      );
+    const withdrawn = await c.query(
+      `UPDATE cloud.provider_regions SET state = 'withdrawn'
+        WHERE state <> 'withdrawn' AND id <> $1`,
+      [region.id],
+    );
+    return { simulatorRegions: 1, withdrawnVendorRegions: withdrawn.rowCount ?? 0 };
   } finally {
     await c.end();
   }

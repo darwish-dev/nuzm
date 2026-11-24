@@ -28,6 +28,9 @@ export const CONTENT_OPERATIONS = [
   'forms',
   'form_submissions',
   'cms',
+  // deployments (S06's `deploy` module uses the same guard): a deployment's detail and its logs, not the policy or the list
+  'deployment',
+  'deployment_logs',
 ] as const;
 export type ContentOperation = (typeof CONTENT_OPERATIONS)[number];
 

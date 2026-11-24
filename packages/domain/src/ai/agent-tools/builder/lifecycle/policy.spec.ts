@@ -56,6 +56,8 @@ describe('O-9 billing_admin content access', () => {
       'claude_code',
       'template_workspace',
       'generation_plan',
+      'deployment',
+      'deployment_logs',
     ])
       expect(CONTENT_OPERATIONS).toContain(op);
   });

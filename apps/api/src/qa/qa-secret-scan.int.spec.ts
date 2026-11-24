@@ -7,7 +7,7 @@ import { scanForSecrets } from '@nuzm/domain';
  * sent to a model provider (gateway, builder agent) and from being kept in build logs (mobile build log redaction). No DB, no network. Every "secret" below is
  * ASSEMBLED from fragments at run time and is not a credential: the repository secret scan stays green and nothing real is embedded.
  *
- * `it.fails` marks DEFECT-9 (owner: Session 02 / Master `packages/domain/src/ai/secret-scan.ts`): the test states the SECURE expectation and fails today.
+ * DEFECT-9 (secret shapes the scanner missed) was FIXED by the Master in `packages/domain/src/ai/secret-scan.ts`; the former expected-fail cases are ordinary tests now.
  */
 const j = (...p: string[]) => p.join('');
 const rnd = (n: number, seed = 'Ab3dE5gH7jK9mN1pQ3sT5vX7zC2fR4uW8yB6') =>

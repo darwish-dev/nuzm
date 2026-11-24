@@ -9,6 +9,7 @@
     "test": "vitest run",
     "dev": "tsc -p tsconfig.build.json && node dist/main.js",
     "test:integration": "vitest run --config vitest.integration.config.mts",
+    "sandbox:escape-suite": "tsx src/modules/appbuilder/internal/sandbox/escape-runner.cli.ts",
     "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js",
     "encrypt:backfill": "tsc -p tsconfig.build.json && node dist/ops/encrypt-backfill.js",
     "set-password": "tsx src/dev/set-password.ts",

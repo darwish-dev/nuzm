@@ -10,4 +10,4 @@
 - **Additive?** Yes (a script; a label).
 - **Tests added:** `escape-runner.spec.ts` (runner, refusals, CLI exit codes).
 - **Sessions affected:** 01 only.
-- **Master answer:** _(pending)_
+- **Master answer:** ACCEPTED (2026-11-24). (1) the `sandbox:escape-suite` script is added to `apps/api/package.json`; (2) agreed, no other registration; (3) naming conflict confirmed: the production-rollout decision now has its own id `D-AG-ROLLOUT` in `docs/07-open-decisions-and-blockers.md` and the approval pack; Session 04 may rename the labels in its docs and, when it next edits `execution-gateway/policy.ts`, the field/label (`d42Decided` -> `rolloutDecided`, message text) with the tests; (4) noted (ADR-068 at join).

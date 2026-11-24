@@ -10,7 +10,7 @@ How to read it: **"Blocks"** says whether the item stops *development* (never, f
 3. **Policies O-1, O-2, O-9** (no prerequisites; each changes who may do what).
 4. **Execution:** D-21 + HG-10-02 + ADR acceptance + LEGAL-EXEC → staging runtime qualification.
 5. **Deployment:** HG-05, HG-06 → staging deployment of a synthetic app.
-6. **D-42** last (production rollout), only after the evidence of 1–5.
+6. **D-AG-ROLLOUT** last (production rollout), only after the evidence of 1–5.
 
 ## 2. The approval table
 | ID | Exact question | Recommended | Alternatives | Required evidence | Est. cost | Security impact | Legal impact | Affected functionality | Remaining prerequisites | Blocks |
@@ -41,7 +41,7 @@ How to read it: **"Blocks"** says whether the item stops *development* (never, f
 | **O-2** | Deploy `rollback` reuses the previous approval; policy has `production_rollback`. Require its own approval per rollback operation? | yes: previous deployment approval must not authorize arbitrary rollback | keep reuse | decision | none | rollback without fresh consent | none | rollback authorization | switch `deploy.rollback_requires_own_approval`; default today's | no (switch ready) |
 | **O-9** | `billing_admin` holds `builder:read` and can read a customer project's review, symbols, imports, components, memory through builder-tools routes. Remove customer-content access from the billing role (billing/usage/invoices/financial metadata only)? | yes | keep (documented) | decision | none | read access to customer project contents by a finance role | privacy / data minimisation | builder-tools routes, permission model | switch `builder.billing_admin_content_access`; default today's | no (switch ready) |
 | **O-10** | Fix the dev cloud seed. | **DONE** (authorized by your request, commit `830f2f48`) | — | guard test `packages/db/src/dev-cloud.spec.ts` | none | none | none | dev seed only | — | n/a |
-| **D-42** | Production rollout of any AI Agent Engine capability? | only after all the above have evidence | — | decision + sign-off | — | high | high | all | everything above | production activation |
+| **D-AG-ROLLOUT** (was labelled D-42 in AI-engine docs; docs/07 D-42 is the object store, decided) | Production rollout of any AI Agent Engine capability? | only after all the above have evidence | — | decision + sign-off | — | high | high | all | everything above | production activation |
 
 ## 3. What is NOT requested here
 No credential is requested in this document. Keys are entered by an authorized administrator in the admin console only; vault references are stored. Nothing here asks you to accept an agreement on anyone's behalf, and no engineer or agent will do so.

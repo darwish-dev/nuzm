@@ -38,3 +38,9 @@ Each negative is written as the secure expectation; while a defect is open it is
 | SSRF/egress on a real network (metadata endpoint, DNS rebinding) | the node | `security` | BLOCKED |
 | Audit chain verification after real spend | the same | `security` | BLOCKED |
 The exact blocker per row is generated into `docs/phase3/EVIDENCE/ACCEPTANCE-MATRIX.md`.
+
+## 5. E2E conventions for `p3-*.spec.ts` (lessons of the Phase 2 E2E run: 102 passed, 8 failed in four new specs)
+- **Strict-mode locators:** a locator that can match several elements (`section:has(...)` + `getByRole('button')` matched 3) must be narrowed by name or `data-testid`; never rely on first-match.
+- **Assert on visible text, not raw HTML:** leak and error-text patterns run on `locator('body').innerText()` and on markup with `<script>`/`<style>` bodies removed (inline bundles contain words like `SELECT ` and `at Object.`); secrets (markers, project names, keys) are still checked on the full HTML. `qa-negatives.spec.ts` was changed this way (commit `91570be9`, **NOT RUN**: the E2E needs a heavy slot).
+- **Staff users:** fixtures for admin/staff users on the dev IdP are created in `global-setup` or the spec's own `reset`, never assumed to exist; a missing staff login must fail with the missing fixture named, not as a click timeout (the 120 s `locator.click` timeouts of the run).
+- Every new screen: ar and en, axe, a screenshot outside git, loading/empty/error/forbidden states (CLAUDE.md section 4).

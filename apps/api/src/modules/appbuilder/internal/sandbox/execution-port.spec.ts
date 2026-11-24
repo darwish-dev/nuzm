@@ -89,11 +89,13 @@ describe('SandboxRuntimeExecutionPort over the mock sandbox runtime', () => {
     ac.abort();
     expect((await p.run(d, { ...run, signal: ac.signal })).status).toBe('terminated');
   });
-  it('refuses a decision whose environment is not the constant (defence in depth behind decideExec)', async () => {
+  it('refuses an edited or hand-made decision (the registry of issued decisions refuses before the environment check)', async () => {
     const p = mk(new MockSandboxRuntime());
     const d = await decide(p);
     const tampered = { ...d, env: { ...d.env, LD_PRELOAD: '/x.so' } };
-    expect((await p.run(tampered, run)).stderr).toContain('environment_not_the_constant');
+    expect((await p.run(tampered, run)).stderr).toContain('decision_not_issued_by_gateway');
+    const handMade = { ...d, argv: ['sh', '-c', 'id'] };
+    expect((await p.run(handMade, run)).stderr).toContain('decision_not_issued_by_gateway');
   });
   it('NEVER runs on the local-dev runner (real, non-isolated processes), whatever the decision', async () => {
     let created = false;

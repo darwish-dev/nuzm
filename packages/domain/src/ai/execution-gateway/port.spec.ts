@@ -97,4 +97,25 @@ describe('MockExecutionPort: scripted, never executes', () => {
     o.artifacts[0]!.bytes = 999;
     expect(shared.artifacts[0]!.bytes).toBe(3);
   });
+  it('O-12: runs only decisions it issued: a hand-made or edited decision is refused', async () => {
+    const port = createMockExecutionPort(ctx);
+    const d = await port.request(req());
+    if (!d.allowed) throw new Error('expected allowed');
+    const handMade = { ...d, argv: ['sh', '-c', 'id'] };
+    expect((await port.run(handMade, run)).stderr).toContain('decision_not_issued_by_gateway');
+    expect((await port.run({ ...d, env: { ...d.env, X: '1' } }, run)).stderr).toContain(
+      'decision_not_issued_by_gateway',
+    );
+    expect((await port.run({ allowed: true } as never, run)).status).toBe('refused');
+    expect(port.calls).toHaveLength(0);
+    expect((await port.run(d, run)).status).toBe('completed');
+  });
+  it('O-13: an artifact the runtime reports as a link is carried with its kind so the artifact policy can refuse it', async () => {
+    const port = createMockExecutionPort(ctx);
+    port.script('build', {
+      artifacts: [{ path: 'dist/l', bytes: 3, sha256: 'a'.repeat(64), kind: 'symlink' }],
+    });
+    const o = await port.run(await port.request(req({ profile: 'build' })), run);
+    expect(o.artifacts[0]!.kind).toBe('symlink');
+  });
 });

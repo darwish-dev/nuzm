@@ -28,8 +28,11 @@ export class SandboxRuntimeExecutionPort implements eg.ExecutionPort {
   get origin(): eg.PortOrigin {
     return this.runtime.isolation === 'verified' ? 'REAL' : 'MOCK';
   }
+  private readonly issued = new eg.IssuedDecisions();
   async request(req: eg.ExecRequest): Promise<eg.ExecDecision> {
-    return eg.decideExec(req, this.cfg.ctx);
+    const d = eg.decideExec(req, this.cfg.ctx);
+    this.issued.record(d, this.cfg.ctx.orgId, this.cfg.ctx.runId);
+    return d;
   }
   private refuse(why: string): eg.ExecutionOutcome {
     return {
@@ -48,6 +51,8 @@ export class SandboxRuntimeExecutionPort implements eg.ExecutionPort {
       return this.refuse('local_dev_runtime_never_runs_agent_execution');
     if (ctx.orgId !== this.cfg.ctx.orgId || ctx.runId !== this.cfg.ctx.runId)
       return this.refuse('another_tenant_or_run');
+    if (!this.issued.has(decision, this.cfg.ctx.orgId, this.cfg.ctx.runId))
+      return this.refuse('decision_not_issued_by_gateway');
     if (decision.requiresApproval && !ctx.approvalId) return this.refuse('approval_required');
     if (ctx.signal?.aborted) return { ...this.refuse('terminated'), status: 'terminated' };
     if (!checkRunEnvOk(decision.env)) return this.refuse('environment_not_the_constant');

@@ -1,5 +1,5 @@
 import { executionGateway as eg } from '@nuzm/domain';
-import type { Quota } from '../appbuilder/internal/sandbox/runtime';
+import type { Quota } from './runtime';
 
 /** decision limits -> the M10 sandbox quota (the runtime's own units) */
 export function quotaFromLimits(l: eg.ExecLimits): Quota {

@@ -1,6 +1,6 @@
 import { executionGateway as eg } from '@nuzm/domain';
-import { checkRunEnvOk, quotaFromLimits } from './mapping';
-import type { SandboxRuntime } from '../appbuilder/internal/sandbox/runtime';
+import { checkRunEnvOk, quotaFromLimits } from './execution-mapping';
+import type { SandboxRuntime } from './runtime';
 
 /**
  * S-AG6 (OFFLINE): `ExecutionPort` over the M10 `SandboxRuntime` boundary. It is the seam where a real isolating runtime will plug in; today the only runtimes are the in-memory

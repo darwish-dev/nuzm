@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { executionGateway as eg } from '@nuzm/domain';
-import type { AuditEvent } from '../../common/audit';
-import { MockSandboxRuntime } from '../appbuilder/internal/sandbox/mock-runtime';
-import type { SandboxRuntime } from '../appbuilder/internal/sandbox/runtime';
-import {
-  ExecutionAuditAdapter,
-  SandboxRuntimeExecutionPort,
-  quotaFromLimits,
-  toAuditEvent,
-} from './index';
+import type { AuditEvent } from '../../../../common/audit';
+import { MockSandboxRuntime } from './mock-runtime';
+import type { SandboxRuntime } from './runtime';
+import { ExecutionAuditAdapter, toAuditEvent } from '../../../execution';
+import { SandboxRuntimeExecutionPort } from './execution-port';
+import { quotaFromLimits } from './execution-mapping';
 
 const ctx: eg.ExecContext = {
   orgId: 'org-1',

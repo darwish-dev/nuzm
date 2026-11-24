@@ -11,7 +11,7 @@ Updated 2026-11-24 on `claude/p3-s08-qualification-2cddc5`. Owner of this docume
 | Validation scripts lint | `validate-scripts.spec.ts` | a mutating command or a printed secret in `docs/phase3/validate/` |
 | Harness | `qa/harness/harness.spec.ts` | live mode that does not stop at the first missing approval, falls back to a simulated result, or keeps a rejected record |
 | P3-S02 egress proxy address policy | `qa-p3-egress-proxy.spec.ts` (skipped until `@nuzm/runtime-agent` is in the tree) | DEFECT-18 |
-| Test-environment allocator (collision, foreign lease, protected ports, expired lease, stray URLs, release safety) | `qa-p3-testenv-allocator.spec.ts` (skipped until `scripts/testenv` is in the tree; 13 passed + DEFECT-19 expected fail on `edce169c`) | a lease leaking into another session; DEFECT-19 |
+| Test-environment allocator (collision, foreign lease, protected ports, expired lease, stray URLs, release safety) | `qa-p3-testenv-allocator.spec.ts` (runs since the merge of `integration/ai-engine` `dd3ad2bb`: 14 passed) | a lease leaking into another session; DEFECT-19 |
 When a Phase 3 session merges a new route, these gates fail until the route is classified: **the failure is the review request**. Sessions cannot edit the pinned lists (they are P3-S08 files): send the route and the reason through the Master, or the Master asks P3-S08 after the merge.
 
 ## 2. Gates that need services (`pnpm test:integration`, own PostgreSQL)

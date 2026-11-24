@@ -1,6 +1,6 @@
 # DEFECT-19: the "no default database" guarantee holds only in a shell that sourced `session-env.sh`
 
-Found by: P3-S08 (independent verification of the test-environment allocator), 2026-11-24 · Component: `scripts/testenv` allocator and its consumers, `integration/ai-engine` @ `edce169c` · Severity: **Medium-Low** (process/design: the stated guarantee is "permanently prevents ... any access to another session's (or the owner's) database") · Owner (fixer): Master · State: **OPEN**
+Found by: P3-S08 (independent verification of the test-environment allocator), 2026-11-24 · Component: `scripts/testenv` allocator and its consumers, `integration/ai-engine` @ `edce169c` · Severity: **Medium-Low** (process/design: the stated guarantee is "permanently prevents ... any access to another session's (or the owner's) database") · Owner (fixer): Master · State: **FIXED+RETESTED** (Master, `dd3ad2bb`: the owner dev database is a default only with the owner's explicit `NUZM_ALLOW_OWNER_DEV_DB=1`, never in a leased shell; legacy session ports 54330-54369 protected; the CI policy refuses any registered lease and does not apply in a leased shell). Re-verified by P3-S08 after merging: 14 tests passed, including the former expected fail and the O-18 expectations
 
 ## What is wrong
 The allocator itself is sound (see below). What it cannot do is protect a shell that never took a lease. The consumers refuse the owner's development database only when `NUZM_FORBID_DEFAULT_DB=1`, which `session-env.sh` exports. Without it the old fallback is live:

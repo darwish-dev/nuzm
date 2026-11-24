@@ -161,7 +161,10 @@ describe.skipIf(!available)(
         ['postgres://nuzm_admin@127.0.0.1/nuzm_test', 'port_protected', envA], // the default port 5432
         ['postgres://nuzm_admin@127.0.0.1:054329/nuzm_test', 'port_protected', envA], // leading zero
         [url(54777), 'port_not_leased', envA],
-        [url(54341), 'port_not_leased', envA], // the Master's own dev database port is not a lease either
+        [url(54341), 'port_protected', envA], // the Master's own dev database port (legacy session range 54330-54369, protected since the DEFECT-19 fix)
+        [url(54330), 'port_protected', envA],
+        [url(54369), 'port_protected', envA],
+        [url(54370), 'port_not_leased', envA], // just outside the legacy range: refused only because it is no lease
         [url(a.port), 'no_lease', {}],
       ];
       for (const [u, code, env] of cases) {
@@ -211,13 +214,19 @@ describe.skipIf(!available)(
       expect(existsSync(join(r5, 'leases', x.id))).toBe(false);
       expect(existsSync(join(r5, 'leases', y.id))).toBe(true);
     });
-    // OBSERVATION O-18 (documented limit, not a defect of the default path): the explicit CI policy accepts ANY non-protected loopback port without a lease, including another
-    // session's lease port and the Master's own development database (:54341). It applies only when BOTH CI=true and NUZM_TEST_DB_POLICY=ci are set, which no session environment does.
-    it('OBSERVATION O-18: the CI policy (CI=true + NUZM_TEST_DB_POLICY=ci) does not consult the lease registry', () => {
+    // O-18 (fixed by the Master with the DEFECT-19 fix): the explicit CI policy (CI=true + NUZM_TEST_DB_POLICY=ci, for a service container without a lease) must not reach any registered
+    // lease, nor the legacy session ports, nor apply inside a leased shell; it still accepts an ordinary unleased loopback port.
+    it('O-18 (fixed): the CI policy refuses a registered lease, the legacy session ports and protected ports, does not apply inside a leased shell, and accepts only an unleased port', () => {
       const ci = { CI: 'true', NUZM_TEST_DB_POLICY: 'ci' };
-      expect(cli(root, ['check-url', url(b.port)], ci).out).toContain('CI policy');
-      expect(cli(root, ['check-url', url(54341)], ci).out).toContain('CI policy');
-      expect(cli(root, ['check-url', url(54329)], ci).code).toBe(3); // protected stays refused
+      expect(cli(root, ['check-url', url(b.port)], ci).out).toContain('foreign_lease'); // another session's registered lease
+      expect(cli(root, ['check-url', url(a.port)], ci).code).toBe(3);
+      expect(cli(root, ['check-url', url(54341)], ci).out).toContain('port_protected');
+      expect(cli(root, ['check-url', url(54329)], ci).code).toBe(3);
+      expect(cli(root, ['check-url', url(54777)], { ...ci, ...envA }).code).toBe(3); // inside a leased shell the CI policy does not apply
+      const free = cli(root, ['check-url', url(54777)], ci);
+      expect(free.code, free.out).toBe(0);
+      expect(free.out).toContain('CI policy');
+      expect(cli(root, ['check-url', url(54777)], { CI: 'true' }).code).toBe(3); // CI alone is not the policy
     });
     // ---- (5) no default database: static review of the sources that name the owner's development cluster
     const FALLBACK_FILES = [
@@ -240,18 +249,15 @@ describe.skipIf(!available)(
       expect(text('packages/platform/src/testing/harness.ts')).not.toContain('54329');
       expect(text('e2e/prepare-db.mjs')).not.toContain('54329');
     });
-    // DEFECT-19 (open): the protection above exists ONLY after `source scripts/session-env.sh` has exported NUZM_FORBID_DEFAULT_DB=1. A session shell that never sourced it (the incident
+    // DEFECT-19 (FIXED on integration/ai-engine after edce169c: the default needs the owner's explicit NUZM_ALLOW_OWNER_DEV_DB=1): the protection above exists ONLY after `source scripts/session-env.sh` has exported NUZM_FORBID_DEFAULT_DB=1. A session shell that never sourced it (the incident
     // that motivated the allocator: `pnpm db:migrate` with the default URL) still falls back to the owner's :54329. The secure expectation: the default needs an explicit opt-in
     // (set in the owner's own profile) or is refused in a session worktree; it must not be the behaviour of a shell that merely forgot to source a file.
-    it.fails(
-      'DEFECT-19: the default :54329 fallback is not reachable by a session shell that has not sourced session-env.sh',
-      () => {
-        for (const f of FALLBACK_FILES) {
-          const guardedWithoutLease =
-            /NUZM_ALLOW_OWNER_DEV_DB|\.claude\/worktrees|NUZM_SESSION\b/.test(text(f));
-          expect(guardedWithoutLease, `${f}: the default is reachable without a lease`).toBe(true);
-        }
-      },
-    );
+    it('DEFECT-19 (fixed by the Master): the default :54329 fallback is not reachable by a session shell that has not sourced session-env.sh', () => {
+      for (const f of FALLBACK_FILES) {
+        const guardedWithoutLease =
+          /NUZM_ALLOW_OWNER_DEV_DB|\.claude\/worktrees|NUZM_SESSION\b/.test(text(f));
+        expect(guardedWithoutLease, `${f}: the default is reachable without a lease`).toBe(true);
+      }
+    });
   },
 );

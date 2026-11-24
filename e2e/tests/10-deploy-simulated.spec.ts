@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { T, audit, loc, signIn } from './helpers';
 import { WEB } from './env';
-import { ensureOwnerOrg, sql } from './fixtures/templates';
+import { creditAiWallet, ensureOwnerOrg, sql } from './fixtures/templates';
 import {
   createDeployableWebapp,
   createWebsite,
@@ -53,6 +53,12 @@ async function pollDeployments(
     .toBe(true);
 }
 
+/** The create button of the deployment FORM (the workspace top bar has a "Deploy" button of its own: an unscoped name match is ambiguous in English). */
+const createButton = (page: Page, info: Parameters<typeof loc>[0]) =>
+  page
+    .getByRole('form', { name: T(info, 'm10a.dep.new') })
+    .getByRole('button', { name: T(info, 'm10a.dep.create'), exact: true });
+
 async function ownerContext(page: Page, info: Parameters<typeof loc>[0], name: string) {
   await ensureOwnerOrg(page, info, name);
   const owner = `owner-${loc(info)}@example.test`;
@@ -63,6 +69,8 @@ async function ownerContext(page: Page, info: Parameters<typeof loc>[0], name: s
     )
   )[0]!;
   await enableDeployFlags();
+  // the build of a release runs in a sandbox, and a sandbox needs AI credit on the organization's wallet (`budget_required` otherwise): the credit is test data
+  await creditAiWallet(org.id, '1000000').catch(() => undefined); // already credited by an earlier test of this file: fine
   return org;
 }
 
@@ -82,7 +90,7 @@ test('web app: a SIMULATED deployment succeeds, status syncs without a reload, a
 
   // production needs a human approval bound to the exact release: nothing is deployed by the first call
   await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('production');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
+  await createButton(page, info).click();
   await expect(page.getByText(T(info, 'm10a.dep.approvalNeeded'))).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('table', { name: T(info, 'bld.dep.list') })).toHaveCount(0);
   await audit(page, info, 'deploy-sim-approval-needed');
@@ -91,7 +99,7 @@ test('web app: a SIMULATED deployment succeeds, status syncs without a reload, a
   const list = page.getByRole('table', { name: T(info, 'bld.dep.list') });
   const live = list.getByText(T(info, 'm10a.dep.state.live'), { exact: true });
   await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('staging');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
+  await createButton(page, info).click();
   await expect(list).toBeVisible({ timeout: 30_000 });
   await expect(live).toHaveCount(1, { timeout: 120_000 });
   await expect(page.getByText(T(info, 'dep.simulated.title')).first()).toBeVisible();
@@ -106,7 +114,7 @@ test('web app: a SIMULATED deployment succeeds, status syncs without a reload, a
   );
 
   // a second release supersedes the first (the first one becomes the rollback target)
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
+  await createButton(page, info).click();
   await expect(list.getByText(T(info, 'm10a.dep.state.superseded'), { exact: true })).toBeVisible({
     timeout: 120_000,
   });
@@ -148,11 +156,25 @@ test('web app: a failing build ends FAILED and nothing goes live (ar/en)', async
   await expect(page.getByRole('heading', { name: T(info, 'm10a.dep.new') })).toBeVisible();
   await page.getByLabel(T(info, 'm10a.dep.target')).selectOption(siteId);
   await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('staging');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
+  await createButton(page, info).click();
 
   await pollDeployments(page, org.id, projectId, (items) =>
     items.some((d) => d.state === 'failed' && d.failureCode === 'build_failed'),
   );
+  // the reason is the build itself, not something around it (for instance a missing AI credit for the sandbox)
+  const failed = (
+    (await (
+      await page.request.get(`/v1/deployments?projectId=${projectId}`, {
+        headers: await sessionHeaders(page, org.id),
+      })
+    ).json()) as { items: { id: string; state: string }[] }
+  ).items.find((d) => d.state === 'failed')!;
+  const logs = await page.request.get(`/v1/deployments/${failed.id}/logs`, {
+    headers: await sessionHeaders(page, org.id),
+  });
+  const logText = JSON.stringify(await logs.json());
+  expect(logText).toMatch(/build/i);
+  expect(logText).not.toMatch(/AI credit|budget/i);
   // the console shows the failed release (after a reload: the list is the truth), and no live one
   await page.reload();
   const list = page.getByRole('table', { name: T(info, 'bld.dep.list') });

@@ -76,12 +76,24 @@ export interface AppMeta {
   entities: Record<string, EntityMeta>;
   roles: Record<string, RoleMeta>;
   pages: PageMeta[];
+  /** Authentication options derived from the generation options (absent = the Phase 2 behaviour: administrators create users, single tenant). */
+  auth?: AuthMeta;
+}
+export interface AuthMeta {
+  /** Role given to a self-registered user; `null` disables public sign-up. Never an administrator role. */
+  signupRole: string | null;
+  /** `multi`: every row belongs to a tenant (organisation); sign-up creates a tenant and its first administrator. */
+  tenancy: 'single' | 'multi';
 }
 
 export type Row = Record<string, unknown> & { id: string };
 export interface Scope {
   ownerId: string | null;
   teamId: string | null;
+}
+/** Multi-tenant apps: the tenant of the authenticated user, carried through the request by the engine (AsyncLocalStorage) and enforced by the stores and, in PostgreSQL, by row-level security. */
+export interface TenantContext {
+  tenantId: string;
 }
 export interface Filter {
   field: string;
@@ -112,6 +124,8 @@ export interface UserRow {
   name: string;
   role: string;
   teamId: string | null;
+  /** multi-tenant apps only */
+  tenantId?: string | null;
   locale: 'ar' | 'en';
   passwordHash: string;
   active: boolean;
@@ -123,6 +137,7 @@ export interface SessionUser {
   name: string;
   role: string;
   teamId: string | null;
+  tenantId?: string | null;
   locale: 'ar' | 'en';
 }
 
@@ -147,6 +162,11 @@ export interface Store {
   getUser(id: string): Promise<UserRow | null>;
   insertUser(u: UserRow): Promise<UserRow>;
   listUsers(): Promise<UserRow[]>;
+  /** Logout: the session id is refused until its natural expiry (`expiresAt` in seconds since the epoch; revoked ids may then be purged). */
+  revokeSession(jti: string, expiresAt: number): Promise<void>;
+  isSessionRevoked(jti: string): Promise<boolean>;
+  /** Multi-tenant apps: create a tenant (organisation). */
+  insertTenant(t: { id: string; name: string; createdAt: string }): Promise<void>;
 }
 
 export interface Notifier {

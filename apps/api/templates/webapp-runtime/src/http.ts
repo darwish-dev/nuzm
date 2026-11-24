@@ -51,8 +51,16 @@ interface Route {
 export class Router {
   private routes: Route[] = [];
   private authenticate: (headers: Record<string, string>) => Promise<SessionUser | null>;
+  private context:
+    ((user: SessionUser, run: () => Promise<AppResponse>) => Promise<AppResponse>) | null = null;
   constructor(authenticate: (headers: Record<string, string>) => Promise<SessionUser | null>) {
     this.authenticate = authenticate;
+  }
+  /** Runs every authenticated handler inside a context derived from the verified user (multi-tenant apps: the tenant). */
+  setContext(
+    fn: (user: SessionUser, run: () => Promise<AppResponse>) => Promise<AppResponse>,
+  ): void {
+    this.context = fn;
   }
   add(method: string, pattern: string, handler: Handler, isPublic = false): void {
     this.routes.push({
@@ -90,6 +98,24 @@ export class Router {
           methodMismatch = true;
           continue;
         }
+        // Cross-site request forgery, defence in depth: the session is an Authorization header (never an ambient cookie), so a forged cross-site request cannot carry it; a browser
+        // that still sends an Origin different from the Host on a state-changing request is refused outright.
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+          const origin = headers['origin'];
+          const host = headers['host'];
+          if (origin !== undefined && origin !== 'null' && host !== undefined) {
+            let same = false;
+            try {
+              same = new URL(origin).host === host;
+            } catch {
+              same = false;
+            }
+            if (!same)
+              throw new HttpError(403, 'cross_origin', 'Cross-origin requests are not allowed');
+          } else if (origin === 'null') {
+            throw new HttpError(403, 'cross_origin', 'Cross-origin requests are not allowed');
+          }
+        }
         let user: SessionUser | null = null;
         if (!r.public) {
           user = await this.authenticate(headers);
@@ -103,16 +129,18 @@ export class Router {
             throw new HttpError(400, 'invalid_json', 'The request body is not valid JSON');
           }
         }
-        return await r.handler({
-          method,
-          path: url.pathname,
-          query: url.searchParams,
-          params,
-          headers,
-          rawBody,
-          body,
-          user,
-        });
+        const run = (): Promise<AppResponse> =>
+          r.handler({
+            method,
+            path: url.pathname,
+            query: url.searchParams,
+            params,
+            headers,
+            rawBody,
+            body,
+            user,
+          });
+        return await (this.context && user ? this.context(user, run) : run());
       }
       if (methodMismatch) throw new HttpError(405, 'method_not_allowed', 'Method not allowed');
       throw new HttpError(404, 'not_found', 'Not found');
@@ -146,7 +174,7 @@ export class Router {
   }
 }
 
-const SECURITY_HEADERS: Record<string, string> = {
+export const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
   'referrer-policy': 'no-referrer',

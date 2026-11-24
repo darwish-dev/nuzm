@@ -1,4 +1,5 @@
 import type { AppSpec, EntitySpec, FieldSpec } from '../spec/app-spec';
+import type { ResolvedAuth } from './options';
 
 /** Contract-test generator (S43.5, S44.2 QA agent): node:test files derived from the spec, the RBAC matrix and the OpenAPI document. Test data is SYNTHETIC (example.test addresses, fixed names). */
 function sample(f: FieldSpec): unknown {
@@ -66,11 +67,12 @@ export interface Env {
   store: Store;
   notifier: MemoryNotifier;
   call: (method: string, path: string, opts?: { token?: string; body?: unknown; raw?: string; headers?: Record<string, string> }) => Promise<{ status: number; body: any; text?: string; headers?: Record<string, string> }>;
-  login: (role: string, opts?: { teamId?: string | null; email?: string }) => Promise<{ token: string; id: string }>;
+  login: (role: string, opts?: { teamId?: string | null; email?: string; tenant?: string }) => Promise<{ token: string; id: string; tenantId: string | null }>;
   create: (token: string, entity: string, over?: Record<string, unknown>) => Promise<{ status: number; body: any }>;
 }
 
 let counter = 0;
+export const MULTI = META.auth?.tenancy === 'multi';
 // TEST_DATABASE_URL switches the same tests onto the PostgreSQL store (the data is cleared before each test; run with --test-concurrency=1).
 // The PostgreSQL store is imported lazily, so the in-memory run needs no installed dependency.
 const dbUrl = process.env['TEST_DATABASE_URL'];
@@ -87,7 +89,7 @@ export async function newEnv(): Promise<Env> {
       pool = mod.createPool(dbUrl);
       PgStoreClass = mod.PgStore as never;
     }
-    const tables = Object.values(META.entities).map((e) => '"' + e.table + '"').concat(['"audit_log"', '"app_users"']);
+    const tables = Object.values(META.entities).map((e) => '"' + e.table + '"').concat(['"audit_log"', '"app_users"', '"app_revoked_sessions"']).concat(MULTI ? ['"app_tenants"'] : []);
     await pool.query('TRUNCATE ' + tables.join(', ') + ' CASCADE');
     store = new PgStoreClass!(pool as never, META);
   }
@@ -104,13 +106,25 @@ export async function newEnv(): Promise<Env> {
     const r = await router.handle(method, path, headers, raw);
     return { status: r.status, body: r.body, text: r.text, headers: r.headers };
   };
+  const tenants = new Map<string, string>();
+  const tenantOf = async (key: string): Promise<string | null> => {
+    if (!MULTI) return null;
+    let id = tenants.get(key);
+    if (!id) {
+      id = randomUUID();
+      await store.insertTenant({ id, name: 'Synthetic tenant ' + key, createdAt: new Date().toISOString() });
+      tenants.set(key, id);
+    }
+    return id;
+  };
   const login: Env['login'] = async (role, opts = {}) => {
     const email = opts.email ?? role + (++counter) + '@example.test';
     const id = randomUUID();
-    await store.insertUser({ id, email, name: role + ' user', role, teamId: opts.teamId ?? null, locale: 'en', passwordHash: await hashPassword(PASSWORD), active: true, createdAt: new Date().toISOString() });
+    const tenantId = await tenantOf(opts.tenant ?? 'a');
+    await store.insertUser({ id, email, name: role + ' user', role, teamId: opts.teamId ?? null, ...(MULTI ? { tenantId } : {}), locale: 'en', passwordHash: await hashPassword(PASSWORD), active: true, createdAt: new Date().toISOString() });
     const r = await call('POST', META.basePath + '/auth/login', { body: { email, password: PASSWORD } });
     if (r.status !== 200) throw new Error('login failed: ' + r.status);
-    return { token: r.body.token as string, id };
+    return { token: r.body.token as string, id, tenantId };
   };
   const fill = (entity: string, refs: Record<string, string>, over: Record<string, unknown>): Record<string, unknown> => {
     const n = ++counter;
@@ -149,7 +163,10 @@ export async function newEnv(): Promise<Env> {
 const can = (r: { permissions: Record<string, string[]> }, e: { name: string }, a: string) =>
   (r.permissions[e.name] ?? []).includes(a);
 
-export function generateTests(spec: AppSpec): Record<string, string> {
+export function generateTests(
+  spec: AppSpec,
+  auth: ResolvedAuth = { signupRole: null, tenancy: 'single' },
+): Record<string, string> {
   const files: Record<string, string> = {};
   const samples = Object.fromEntries(
     spec.entities.map((e) => [
@@ -462,6 +479,65 @@ test('login is rate limited after five failures and does not reveal which part w
   assert.equal(nobody.status, 401);
 });
 
+test('logout revokes the session on the server: the same token is refused afterwards, other sessions keep working', async () => {
+  const env = await newEnv();
+  const role = Object.values(META.roles)[0]!.name;
+  const u = await env.login(role, { email: 'out@example.test' });
+  const second = await env.call('POST', META.basePath + '/auth/login', { body: { email: 'out@example.test', password: PASSWORD } });
+  assert.equal((await env.call('GET', META.basePath + '/auth/me', { token: u.token })).status, 200);
+  assert.equal((await env.call('POST', META.basePath + '/auth/logout', { token: u.token })).status, 204);
+  assert.equal((await env.call('GET', META.basePath + '/auth/me', { token: u.token })).status, 401);
+  const t2 = second.body.token as string;
+  assert.equal((await env.call('GET', META.basePath + '/auth/me', { token: t2 })).status, 200);
+  assert.equal((await env.call('POST', META.basePath + '/auth/logout')).status, 401);
+});
+
+test('a state-changing request from another origin is refused (CSRF, defence in depth)', async () => {
+  const env = await newEnv();
+  const r = await env.call('POST', META.basePath + '/auth/login', { body: { email: 'x@example.test', password: PASSWORD }, headers: { origin: 'https://evil.example', host: 'app.example.test' } });
+  assert.equal(r.status, 403);
+  const same = await env.call('POST', META.basePath + '/auth/login', { body: { email: 'x@example.test', password: PASSWORD }, headers: { origin: 'https://app.example.test', host: 'app.example.test' } });
+  assert.equal(same.status, 401);
+});
+${
+  auth.signupRole
+    ? `
+test('sign-up creates ${auth.tenancy === 'multi' ? 'an organisation and its administrator' : 'a user with the least-privileged role'}, signs in, validates input and never creates an administrator${auth.tenancy === 'multi' ? ' of another organisation' : ''}', async () => {
+  const env = await newEnv();
+  const body = { email: 'new.user@example.test', name: 'New User', password: PASSWORD${auth.tenancy === 'multi' ? ", organization: 'Synthetic Org'" : ''} };
+  const bad = await env.call('POST', META.basePath + '/auth/signup', { body: { ...body, password: 'short' } });
+  assert.equal(bad.status, 422);
+  const r = await env.call('POST', META.basePath + '/auth/signup', { body: { ...body, role: 'x', teamId: 'x', active: false } });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(r.body.user.role, ${JSON.stringify(auth.signupRole)});
+  assert.ok(!JSON.stringify(r.body).includes('passwordHash'));
+  const me = await env.call('GET', META.basePath + '/auth/me', { token: r.body.token });
+  assert.equal(me.status, 200);
+  assert.equal((await env.call('POST', META.basePath + '/auth/signup', { body })).status, 409);
+  const login = await env.call('POST', META.basePath + '/auth/login', { body: { email: body.email, password: PASSWORD } });
+  assert.equal(login.status, 200);
+${
+  auth.tenancy === 'single'
+    ? `  assert.ok(!META.roles[r.body.user.role]!.admin);
+`
+    : ''
+}});
+
+test('sign-up is rate limited as a whole', async () => {
+  const env = await newEnv();
+  let last = 0;
+  for (let i = 0; i < 22; i++)
+    last = (await env.call('POST', META.basePath + '/auth/signup', { body: { email: 'bulk' + i + '@example.test', name: 'Bulk', password: PASSWORD${auth.tenancy === 'multi' ? ", organization: 'Bulk ' + i" : ''} } })).status;
+  assert.equal(last, 429);
+});`
+    : `
+test('public sign-up is off: the route does not exist', async () => {
+  const env = await newEnv();
+  const r = await env.call('POST', META.basePath + '/auth/signup', { body: { email: 'a@example.test', name: 'A', password: PASSWORD } });
+  assert.equal(r.status, 404);
+});`
+}
+
 test('csv: formula injection is neutralised and a round trip keeps quotes, commas and newlines', () => {
   assert.equal(csvCell('=1+1'), "'=1+1");
   assert.equal(csvCell('@cmd'), "'@cmd");
@@ -471,5 +547,122 @@ test('csv: formula injection is neutralised and a round trip keeps quotes, comma
   assert.throws(() => parseCsv('a,"b'), /unterminated/);
 });
 `;
+  if (auth.tenancy === 'multi') files['tests/tenant.test.ts'] = tenantTests(spec, auth);
   return files;
+}
+
+/** Cross-tenant isolation (CLAUDE.md: every query path is covered by a cross-tenant test). Two organisations register; nothing of one is reachable from the other, by id, list, search, export, reference, owner or audit trail. */
+function tenantTests(spec: AppSpec, auth: ResolvedAuth): string {
+  const admin = spec.roles.find((r) => r.admin) ?? spec.roles[0]!;
+  const ent =
+    spec.entities.find(
+      (e) =>
+        (admin.permissions[e.name] ?? []).includes('create') &&
+        (admin.permissions[e.name] ?? []).includes('read'),
+    ) ?? spec.entities[0]!;
+  const ref = spec.entities.find(
+    (e) =>
+      e.fields.some((f) => f.type === 'reference' && f.required) &&
+      (admin.permissions[e.name] ?? []).includes('create'),
+  );
+  const refField = ref?.fields.find((f) => f.type === 'reference' && f.required);
+  return `import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { META } from '../src/meta.ts';
+import { newEnv, PASSWORD } from './helpers.ts';
+
+const base = META.basePath + '/${ent.plural}';
+const admin = ${JSON.stringify(admin.name)};
+
+test('two organisations cannot see, read, change, delete, search or export the ${ent.plural} of the other', async () => {
+  const env = await newEnv();
+  const a = await env.login(admin, { tenant: 'a' });
+  const b = await env.login(admin, { tenant: 'b' });
+  const mine = await env.create(a.token, '${ent.name}');
+  assert.equal(mine.status, 201, JSON.stringify(mine.body));
+  // by id: 404, never 403 (the other tenant's record does not exist for this caller)
+  assert.equal((await env.call('GET', base + '/' + mine.body.id, { token: b.token })).status, 404);
+  assert.equal((await env.call('PATCH', base + '/' + mine.body.id, { token: b.token, body: {} })).status, 404);
+  assert.equal((await env.call('DELETE', base + '/' + mine.body.id, { token: b.token })).status, 404);
+  assert.equal((await env.call('GET', base + '/' + mine.body.id + '/audit', { token: b.token })).status, 404);
+  // list, search, sort and export
+  for (const q of ['', '?search=Sample', '?sort=createdAt:asc', '?limit=100']) {
+    const r = await env.call('GET', base + q, { token: b.token });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.total, 0, q);
+    assert.deepEqual(r.body.items, []);
+  }
+  if (META.csvImportExport) {
+    const ex = await env.call('GET', base + '/export.csv', { token: b.token });
+    if (ex.status === 200) assert.ok(!String(ex.text ?? '').includes(String(mine.body.id)));
+  }
+  // the owner still sees it
+  assert.equal((await env.call('GET', base + '/' + mine.body.id, { token: a.token })).status, 200);
+  assert.equal((await env.call('GET', base, { token: a.token })).body.total, 1);
+});
+
+test('users are isolated: an administrator lists and creates users in their own organisation only, and cannot assign a user of another organisation as owner', async () => {
+  const env = await newEnv();
+  const a = await env.login(admin, { tenant: 'a' });
+  const b = await env.login(admin, { tenant: 'b' });
+  const listA = await env.call('GET', META.basePath + '/users', { token: a.token });
+  assert.ok(listA.body.items.every((u: { id: string }) => u.id !== b.id));
+  const created = await env.call('POST', META.basePath + '/users', { token: a.token, body: { email: 'colleague@example.test', name: 'Colleague', role: admin, password: PASSWORD } });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.ok(!(await env.call('GET', META.basePath + '/users', { token: b.token })).body.items.some((u: { id: string }) => u.id === created.body.id));
+  const r = await env.create(a.token, '${ent.name}', { ownerId: b.id });
+  assert.ok(r.status === 422 || r.status === 403, 'assigning a foreign user answered ' + r.status);
+});
+${
+  ref && refField
+    ? `
+test('a reference cannot point at a record of another organisation', async () => {
+  const env = await newEnv();
+  const a = await env.login(admin, { tenant: 'a' });
+  const b = await env.login(admin, { tenant: 'b' });
+  const target = await env.create(a.token, ${JSON.stringify(refField.references)});
+  assert.equal(target.status, 201, JSON.stringify(target.body));
+  const r = await env.create(b.token, ${JSON.stringify(ref.name)}, { ${refField.name}: target.body.id });
+  assert.equal(r.status, 422);
+});`
+    : ''
+}
+
+test('a session is bound to its organisation: a user of one tenant never gains the other by any request field', async () => {
+  const env = await newEnv();
+  const a = await env.login(admin, { tenant: 'a' });
+  const b = await env.login(admin, { tenant: 'b' });
+  const r = await env.call('POST', base, { token: a.token, body: { tenantId: b.tenantId } });
+  assert.equal(r.status, 422);
+  const hdr = await env.call('GET', base, { token: a.token, headers: { 'x-tenant-id': String(b.tenantId) } });
+  assert.equal(hdr.status, 200);
+  assert.equal(hdr.body.total, 0);
+  assert.notEqual(a.tenantId, b.tenantId);
+});
+
+test('a token of a user whose organisation is missing is refused (fail closed)', async () => {
+  const env = await newEnv();
+  const u = await env.login(admin, { tenant: 'c' });
+  assert.ok(u.tenantId);
+  const stray = await env.call('GET', base, { token: 'forged.token' });
+  assert.equal(stray.status, 401);
+});
+${
+  auth.signupRole
+    ? `
+test('sign-up of a second organisation gets its own empty workspace', async () => {
+  const env = await newEnv();
+  const first = await env.call('POST', META.basePath + '/auth/signup', { body: { email: 'owner1@example.test', name: 'Owner One', password: PASSWORD, organization: 'Org One' } });
+  const second = await env.call('POST', META.basePath + '/auth/signup', { body: { email: 'owner2@example.test', name: 'Owner Two', password: PASSWORD, organization: 'Org Two' } });
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+  assert.notEqual(first.body.user.tenantId, second.body.user.tenantId);
+  const made = await env.create(first.body.token, '${ent.name}');
+  assert.equal(made.status, 201, JSON.stringify(made.body));
+  const t2 = second.body.token as string;
+  assert.equal((await env.call('GET', base, { token: t2 })).body.total, 0);
+});`
+    : ''
+}
+`;
 }

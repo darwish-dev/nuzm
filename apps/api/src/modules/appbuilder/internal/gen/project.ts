@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { hashOf } from '../core';
 import type { AppSpec } from '../spec/app-spec';
 import { buildMeta, renderMetaTs } from './meta';
+import { resolveAuth, type FullStackOptions, type ResolvedAuth } from './options';
 import { generateOpenApi } from './openapi';
 import { rbacMarkdown } from './rbac';
 import { initialMigration, type GeneratedMigration } from './sql';
@@ -27,8 +28,13 @@ export function runtimeFiles(): Record<string, string> {
   const walk = (dir: string, prefix: string) => {
     for (const f of readdirSync(dir)) {
       const p = join(dir, f);
-      if (statSync(p).isDirectory()) walk(p, `${prefix}${f}/`);
-      else out[`${prefix}${f}`] = readFileSync(p, 'utf8');
+      // the template's own unit tests live beside it and are never copied into a generated app
+      if (statSync(p).isDirectory()) {
+        if (f !== '__tests__') walk(p, `${prefix}${f}/`);
+      } else if (prefix === '' && f === 'package.json') {
+        // the template's own package.json only marks it as an ES module for its unit tests; a generated app gets a generated package.json
+        continue;
+      } else out[`${prefix}${f}`] = readFileSync(p, 'utf8');
     }
   };
   walk(TEMPLATE_DIR, '');
@@ -47,7 +53,7 @@ export interface GeneratedProject {
 const migrationFile = (m: GeneratedMigration) =>
   `db/migrations/${String(m.version).padStart(4, '0')}_${m.name}`;
 
-export function packageJson(spec: AppSpec): Record<string, unknown> {
+export function packageJson(spec: AppSpec, o: { probe?: boolean } = {}): Record<string, unknown> {
   return {
     name: spec.slug,
     version: '1.0.0',
@@ -62,6 +68,10 @@ export function packageJson(spec: AppSpec): Record<string, unknown> {
       start: 'node --experimental-strip-types src/server.ts',
       migrate: 'node --experimental-strip-types src/migrate.ts',
       seed: 'node --experimental-strip-types src/seed.ts',
+      // runs the app against an EPHEMERAL PostgreSQL created inside the workspace; meant for the qualified runtime (see probe/run.ts)
+      ...(o.probe === false
+        ? {}
+        : { probe: 'node --experimental-strip-types --no-warnings probe/run.ts' }),
     },
     dependencies: { pg: TOOLCHAIN.pg },
     devDependencies: {
@@ -78,12 +88,18 @@ export function packageJson(spec: AppSpec): Record<string, unknown> {
  */
 export function generateProject(
   spec: AppSpec,
-  o: { extraMigrations?: GeneratedMigration[] } = {},
+  o: { extraMigrations?: GeneratedMigration[] } & FullStackOptions = {},
 ): GeneratedProject {
   const files = new Map<string, string>();
-  const meta = buildMeta(spec);
-  const openapi = generateOpenApi(spec);
-  const migrations = [initialMigration(spec), ...(o.extraMigrations ?? [])];
+  const auth: ResolvedAuth = resolveAuth(spec, o);
+  // the Phase 2 scaffold (single tenant, no public sign-up) keeps its exact metadata; anything else is recorded in `auth`
+  const customAuth = auth.signupRole !== null || auth.tenancy !== 'single';
+  const meta = buildMeta(spec, customAuth ? auth : undefined);
+  const openapi = generateOpenApi(spec, auth);
+  const migrations = [
+    initialMigration(spec, { tenancy: auth.tenancy }),
+    ...(o.extraMigrations ?? []),
+  ];
   const specHash = hashOf(spec);
   for (const [path, content] of Object.entries(runtimeFiles()))
     files.set(path.startsWith('src/') || path.startsWith('public/') ? path : path, content);
@@ -95,7 +111,7 @@ export function generateProject(
   }
   files.set('openapi.json', JSON.stringify(openapi, null, 2) + '\n');
   files.set('docs/RBAC.md', rbacMarkdown(spec));
-  for (const [p, c] of Object.entries(generateTests(spec))) files.set(p, c);
+  for (const [p, c] of Object.entries(generateTests(spec, auth))) files.set(p, c);
   files.set('package.json', JSON.stringify(packageJson(spec), null, 2) + '\n');
   files.set(
     'tsconfig.json',
@@ -113,7 +129,7 @@ export function generateProject(
           skipLibCheck: true,
           types: ['node'],
         },
-        include: ['src/**/*.ts', 'tests/**/*.ts'],
+        include: ['src/**/*.ts', 'tests/**/*.ts', 'probe/**/*.ts'],
       },
       null,
       2,
@@ -137,7 +153,10 @@ export function generateProject(
       2,
     ) + '\n',
   );
-  files.set('.gitignore', 'node_modules/\ndist/\n.env\n.env.*\n!.env.example\n');
+  files.set(
+    '.gitignore',
+    'node_modules/\ndist/\n.env\n.env.*\n!.env.example\n.run/\nprobe-report.json\n',
+  );
   files.set(
     '.env.example',
     '# copy to .env; never commit real values\nPORT=8080\nSTORE=pg\nDATABASE_URL=postgres://app_user:<password>@localhost:5432/app\nSESSION_SECRET=change-me-to-a-random-string-of-at-least-32-characters\nSEED_ADMIN_EMAIL=admin@example.test\nSEED_ADMIN_PASSWORD=change-me-please-1\n# optional transactional email endpoint for notifications\nNOTIFY_URL=\nNOTIFY_TOKEN=\n',
@@ -148,6 +167,8 @@ export function generateProject(
       {
         scaffold: SCAFFOLD_VERSION,
         specHash,
+        // generator options that shape the app; a rebuild with the same spec and options gives the same bytes
+        options: { tenancy: auth.tenancy, signupRole: auth.signupRole },
         runtime: { node: TOOLCHAIN.node },
         // the commands the Nuzm test runner executes in the sandbox (no shell: argv arrays)
         commands: {
@@ -163,6 +184,8 @@ export function generateProject(
             'tests/*.test.ts',
           ],
           build: ['npx', 'tsc', '-p', 'tsconfig.build.json'],
+          // starts an ephemeral PostgreSQL, migrates it twice, starts the app and probes it; prints `NUZM_PROBE_REPORT <json>` (runtime profile `app-probe`, loopback network only)
+          probe: ['npm', 'run', 'probe', '--silent'],
         },
         deploy: {
           start: ['node', '--experimental-strip-types', 'src/server.ts'],
@@ -176,11 +199,11 @@ export function generateProject(
       2,
     ) + '\n',
   );
-  files.set('README.md', readme(spec));
+  files.set('README.md', readme(spec, auth));
   return { files, migrations, openapi, specHash };
 }
 
-function readme(spec: AppSpec): string {
+function readme(spec: AppSpec, auth: ResolvedAuth): string {
   return `# ${spec.name}
 
 ${spec.description}
@@ -211,6 +234,17 @@ npm test
 - \`db/migrations/\` versioned SQL with a \`.down.sql\` for every migration
 - \`openapi.json\` the REST contract; \`docs/RBAC.md\` roles and the row-level rule
 - \`tests/\` contract, access-control and validation tests (synthetic data only)
+
+## Authentication and tenancy
+
+- Email and password; passwords are hashed with scrypt, sessions are signed expiring tokens sent in the \`Authorization\` header and are revoked on the server at logout.
+- Sign-in is rate limited; a cross-origin state-changing request is refused (the session is never an ambient cookie).
+- ${auth.signupRole ? `Public sign-up is ON and ${auth.tenancy === 'multi' ? 'creates an organisation and its administrator' : `gives the fixed role \`${auth.signupRole}\``}.` : 'Public sign-up is off: an administrator creates users.'}
+- ${auth.tenancy === 'multi' ? 'Multi-tenant: every row carries a tenant id and PostgreSQL row-level security (forced) isolates tenants; the tenant of a request comes from the verified user, never from the request. The database role of the app must NOT be a superuser (superusers bypass row-level security).' : 'Single tenant: one organisation; rows are scoped by owner or team according to the role.'}
+
+## Run-and-probe
+
+\`npm run probe\` starts a throw-away PostgreSQL inside the workspace, applies the migrations twice, starts the app and runs the platform probe suite (health, sign-in, role-guarded CRUD, validation, isolation, logout, rate limit). It needs the PostgreSQL server binaries and is meant for the isolated runtime. The probe files (\`probe/\`) are platform-owned and must not be edited.
 
 ## Notes
 

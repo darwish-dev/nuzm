@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { currentTenant } from './tenant.ts';
 import type {
   AppMeta,
   AuditEntry,
@@ -44,9 +45,32 @@ function scopeSql(scope: Scope, params: unknown[]): string {
 export class PgStore implements Store {
   private pool: pg.Pool;
   private meta: AppMeta;
+  private multi: boolean;
   constructor(pool: pg.Pool, meta: AppMeta) {
     this.pool = pool;
     this.meta = meta;
+    this.multi = meta.auth?.tenancy === 'multi';
+  }
+  /**
+   * Every query goes through here. Multi-tenant: inside one transaction the tenant of the request is set as `app.tenant_id`, which the row-level-security policies of every
+   * tenant table read; without a tenant context nothing is set and the policies match no row (fail closed).
+   */
+  private async run(text: string, params?: unknown[]): Promise<pg.QueryResult> {
+    const tenant = this.multi ? currentTenant() : null;
+    if (tenant === null) return this.pool.query(text, params);
+    const c = await this.pool.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query("SELECT set_config('app.tenant_id', $1, true)", [tenant]);
+      const r = await c.query(text, params);
+      await c.query('COMMIT');
+      return r;
+    } catch (e) {
+      await c.query('ROLLBACK').catch(() => undefined);
+      throw e;
+    } finally {
+      c.release();
+    }
   }
   private em(entity: string): EntityMeta {
     const e = this.meta.entities[entity];
@@ -156,7 +180,7 @@ export class PgStore implements Store {
     cols.unshift('id');
     vals.unshift(row.id);
     try {
-      const r = await this.pool.query(
+      const r = await this.run(
         'INSERT INTO ' +
           q(em.table) +
           ' (' +
@@ -174,7 +198,7 @@ export class PgStore implements Store {
   }
   async get(entity: string, id: string): Promise<Row | null> {
     const em = this.em(entity);
-    const r = await this.pool.query(
+    const r = await this.run(
       'SELECT ' + this.selectList(em) + ' FROM ' + q(em.table) + ' WHERE "id" = $1',
       [id],
     );
@@ -197,7 +221,7 @@ export class PgStore implements Store {
       sql += ' AND "version" = $' + vals.length;
     }
     try {
-      const r = await this.pool.query(sql + ' RETURNING ' + this.selectList(em), vals);
+      const r = await this.run(sql + ' RETURNING ' + this.selectList(em), vals);
       if (r.rows[0]) return this.fromDb(em, r.rows[0] as Record<string, unknown>);
     } catch (e) {
       return this.mapError(e, em);
@@ -207,7 +231,7 @@ export class PgStore implements Store {
   async remove(entity: string, id: string): Promise<boolean> {
     const em = this.em(entity);
     try {
-      const r = await this.pool.query('DELETE FROM ' + q(em.table) + ' WHERE "id" = $1', [id]);
+      const r = await this.run('DELETE FROM ' + q(em.table) + ' WHERE "id" = $1', [id]);
       return (r.rowCount ?? 0) > 0;
     } catch (e) {
       return this.mapError(e, em);
@@ -255,12 +279,12 @@ export class PgStore implements Store {
         : col(qy.sort.field).column
       : 'created_at';
     const dir = qy.sort ? (qy.sort.dir === 'asc' ? 'ASC' : 'DESC') : 'DESC';
-    const total = await this.pool.query(
+    const total = await this.run(
       'SELECT count(*)::int AS n FROM ' + q(em.table) + ' WHERE ' + where.join(' AND '),
       params,
     );
     params.push(qy.limit, qy.offset);
-    const r = await this.pool.query(
+    const r = await this.run(
       'SELECT ' +
         this.selectList(em) +
         ' FROM ' +
@@ -287,7 +311,7 @@ export class PgStore implements Store {
     const f = em.fields.find((x) => x.name === field);
     if (!f) throw new Error('unknown field ' + field);
     const params: unknown[] = [];
-    const r = await this.pool.query(
+    const r = await this.run(
       'SELECT ' +
         q(f.column) +
         '::text AS k, count(*)::int AS n FROM ' +
@@ -306,7 +330,7 @@ export class PgStore implements Store {
     const f = em.fields.find((x) => x.name === field);
     if (!f) throw new Error('unknown field ' + field);
     const params: unknown[] = [];
-    const r = await this.pool.query(
+    const r = await this.run(
       'SELECT coalesce(sum(' +
         q(f.column) +
         '), 0)::float8 AS s FROM ' +
@@ -321,7 +345,7 @@ export class PgStore implements Store {
     const em = this.em(entity);
     const f = em.fields.find((x) => x.name === field && x.type === 'file');
     if (!f) return null;
-    const r = await this.pool.query(
+    const r = await this.run(
       'SELECT ' + q(f.column + '_data') + ' AS d FROM ' + q(em.table) + ' WHERE "id" = $1',
       [id],
     );
@@ -329,13 +353,14 @@ export class PgStore implements Store {
     return d ? new Uint8Array(d) : null;
   }
   async appendAudit(e: AuditEntry): Promise<void> {
-    await this.pool.query(
+    // multi-tenant apps: the `tenant_id` column defaults to the transaction's `app.tenant_id` and the row-level-security policy checks it
+    await this.run(
       'INSERT INTO "audit_log" ("id","entity","record_id","action","actor_id","diff","at") VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [e.id, e.entity, e.recordId, e.action, e.actorId, JSON.stringify(e.diff), e.at],
     );
   }
   async listAudit(entity: string, recordId: string): Promise<AuditEntry[]> {
-    const r = await this.pool.query(
+    const r = await this.run(
       'SELECT "id","entity","record_id","action","actor_id","diff","at" FROM "audit_log" WHERE "entity" = $1 AND "record_id" = $2 ORDER BY "at"',
       [entity, recordId],
     );
@@ -367,6 +392,7 @@ export class PgStore implements Store {
       name: r['name'] as string,
       role: r['role'] as string,
       teamId: (r['team_id'] as string | null) ?? null,
+      tenantId: (r['tenant_id'] as string | null | undefined) ?? null,
       locale: r['locale'] as 'ar' | 'en',
       passwordHash: r['password_hash'] as string,
       active: r['active'] as boolean,
@@ -374,21 +400,43 @@ export class PgStore implements Store {
     };
   }
   async findUserByEmail(email: string): Promise<UserRow | null> {
-    const r = await this.pool.query('SELECT * FROM "app_users" WHERE "email" = $1', [
-      email.toLowerCase(),
-    ]);
+    const r = await this.run('SELECT * FROM "app_users" WHERE "email" = $1', [email.toLowerCase()]);
     return r.rows[0] ? this.userFromDb(r.rows[0] as Record<string, unknown>) : null;
   }
   async getUser(id: string): Promise<UserRow | null> {
-    const r = await this.pool.query('SELECT * FROM "app_users" WHERE "id" = $1', [id]);
+    const r = await this.run('SELECT * FROM "app_users" WHERE "id" = $1', [id]);
     return r.rows[0] ? this.userFromDb(r.rows[0] as Record<string, unknown>) : null;
   }
   async insertUser(u: UserRow): Promise<UserRow> {
     try {
-      const r = await this.pool.query(
-        'INSERT INTO "app_users" ("id","email","name","role","team_id","locale","password_hash","active") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-        [u.id, u.email.toLowerCase(), u.name, u.role, u.teamId, u.locale, u.passwordHash, u.active],
-      );
+      const r = this.multi
+        ? await this.run(
+            'INSERT INTO "app_users" ("id","email","name","role","team_id","tenant_id","locale","password_hash","active") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+            [
+              u.id,
+              u.email.toLowerCase(),
+              u.name,
+              u.role,
+              u.teamId,
+              u.tenantId ?? null,
+              u.locale,
+              u.passwordHash,
+              u.active,
+            ],
+          )
+        : await this.run(
+            'INSERT INTO "app_users" ("id","email","name","role","team_id","locale","password_hash","active") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+            [
+              u.id,
+              u.email.toLowerCase(),
+              u.name,
+              u.role,
+              u.teamId,
+              u.locale,
+              u.passwordHash,
+              u.active,
+            ],
+          );
       return this.userFromDb(r.rows[0] as Record<string, unknown>);
     } catch (e) {
       if ((e as { code?: string }).code === '23505')
@@ -397,7 +445,32 @@ export class PgStore implements Store {
     }
   }
   async listUsers(): Promise<UserRow[]> {
-    const r = await this.pool.query('SELECT * FROM "app_users" ORDER BY "created_at"');
+    const tenant = this.multi ? currentTenant() : null;
+    if (this.multi && tenant === null) return []; // fail closed: no tenant, no users
+    const r = tenant
+      ? await this.run('SELECT * FROM "app_users" WHERE "tenant_id" = $1 ORDER BY "created_at"', [
+          tenant,
+        ])
+      : await this.run('SELECT * FROM "app_users" ORDER BY "created_at"');
     return r.rows.map((x) => this.userFromDb(x as Record<string, unknown>));
+  }
+  async revokeSession(jti: string, expiresAt: number): Promise<void> {
+    await this.run(
+      'INSERT INTO "app_revoked_sessions" ("jti","expires_at") VALUES ($1, to_timestamp($2)) ON CONFLICT ("jti") DO NOTHING',
+      [jti, expiresAt],
+    );
+    // revoked ids past their natural expiry can never validate again: purge them so the table stays small
+    await this.run('DELETE FROM "app_revoked_sessions" WHERE "expires_at" < now()');
+  }
+  async isSessionRevoked(jti: string): Promise<boolean> {
+    const r = await this.run('SELECT 1 FROM "app_revoked_sessions" WHERE "jti" = $1', [jti]);
+    return (r.rowCount ?? 0) > 0;
+  }
+  async insertTenant(t: { id: string; name: string; createdAt: string }): Promise<void> {
+    await this.run('INSERT INTO "app_tenants" ("id","name","created_at") VALUES ($1,$2,$3)', [
+      t.id,
+      t.name,
+      t.createdAt,
+    ]);
   }
 }

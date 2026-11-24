@@ -1,3 +1,4 @@
+import type { ResolvedAuth } from './options';
 import type { AppSpec, EntitySpec, FieldSpec } from '../spec/app-spec';
 
 type Json = Record<string, unknown>;
@@ -61,7 +62,10 @@ const errs = (...codes: string[]) => Object.fromEntries(codes.map((c) => [c, pro
 const auth = [{ bearerAuth: [] }];
 
 /** OpenAPI 3.1 document of the GENERATED application (S43.2). It is linted with the same Spectral ruleset as the Nuzm API (spec/openapi/.spectral.yaml), and the contract tests are generated from it. */
-export function generateOpenApi(spec: AppSpec): Json {
+export function generateOpenApi(
+  spec: AppSpec,
+  auth2: ResolvedAuth = { signupRole: null, tenancy: 'single' },
+): Json {
   const base = spec.api.basePath;
   const paths: Record<string, Json> = {};
   const schemas: Record<string, Json> = {
@@ -92,6 +96,7 @@ export function generateOpenApi(spec: AppSpec): Json {
         name: { type: 'string' },
         role: { type: 'string', enum: spec.roles.map((r) => r.name) },
         teamId: { type: ['string', 'null'], format: 'uuid' },
+        ...(auth2.tenancy === 'multi' ? { tenantId: { type: 'string', format: 'uuid' } } : {}),
         locale: { type: 'string', enum: ['ar', 'en'] },
       },
     },
@@ -194,6 +199,60 @@ export function generateOpenApi(spec: AppSpec): Json {
       },
     },
   };
+  if (auth2.signupRole)
+    paths[`${base}/auth/signup`] = {
+      post: {
+        operationId: 'signup',
+        tags: ['auth'],
+        summary: 'Register',
+        description:
+          auth2.tenancy === 'multi'
+            ? 'Creates an organisation and its first administrator and signs in. Twenty sign-ups per minute are accepted in total; further ones are answered with 429.'
+            : 'Creates a user with a fixed, non-administrator role and signs in. Twenty sign-ups per minute are accepted in total; further ones are answered with 429. A role in the body is ignored.',
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required:
+                  auth2.tenancy === 'multi'
+                    ? ['email', 'name', 'password', 'organization']
+                    : ['email', 'name', 'password'],
+                properties: {
+                  email: { type: 'string', format: 'email' },
+                  name: { type: 'string', maxLength: 120 },
+                  password: { type: 'string', minLength: 10, maxLength: 200 },
+                  locale: { type: 'string', enum: ['ar', 'en'] },
+                  ...(auth2.tenancy === 'multi'
+                    ? { organization: { type: 'string', maxLength: 120 } }
+                    : {}),
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Registered and signed in',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['token', 'user'],
+                  properties: {
+                    token: { type: 'string' },
+                    user: { $ref: '#/components/schemas/SessionUser' },
+                  },
+                },
+              },
+            },
+          },
+          ...errs('409', '422', '429'),
+        },
+      },
+    };
   paths[`${base}/auth/me`] = {
     get: {
       operationId: 'me',
@@ -228,7 +287,8 @@ export function generateOpenApi(spec: AppSpec): Json {
       operationId: 'logout',
       tags: ['auth'],
       summary: 'Sign out',
-      description: 'Tokens are stateless: the client discards its token.',
+      description:
+        'The session is revoked on the server: the token is refused from now on. The client also discards it.',
       security: auth,
       responses: { '204': { description: 'Signed out' }, ...errs('401') },
     },

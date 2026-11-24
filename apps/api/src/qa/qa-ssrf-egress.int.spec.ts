@@ -12,8 +12,7 @@ import {
  *   (1) `safeFetch`/`isBlockedAddress` (domain, used by the URL fetcher of AI runs: customer-supplied URLs), and
  *   (2) `EgressPolicy` (sandbox proxy policy, M10 section 9; pure, resolver injected).
  * Pure, offline: no network, no DNS. A "differential" test asserts both implementations agree that an address is non-public.
- * `it.fails` marks a DEFECT in code owned by another session (see docs/parallel/sessions/DEFECT-*.md): it states the secure expectation, is expected to fail today and
- * starts failing the day the defect is fixed (then remove the marker). Nothing is weakened.
+ * DEFECT-2, DEFECT-3 (and DEFECT-1, 4, 5, 6 elsewhere) were found by these suites, fixed by their owners and are ordinary regression tests now (docs/parallel/sessions/DEFECT-*.md).
  */
 
 // Addresses that must never be reachable from a customer-supplied URL or generated code (canonical spellings; what a resolver returns).
@@ -136,7 +135,7 @@ const V6_EMBEDDED_V4: [string, string][] = [
 const SANDBOX_GAPS = new Set(['::ffff:0:7f00:1', '100::1']);
 describe('QA: IPv4 embedded in an IPv6 address', () => {
   it.each(V6_EMBEDDED_V4.filter(([a]) => SANDBOX_GAPS.has(a)))(
-    'DEFECT-3: sandbox policy blocks %s (%s)',
+    'DEFECT-3 (fixed): sandbox policy blocks %s (%s)',
     (a) => {
       const c = classifyIpLiteral(a);
       expect(c.literal).toBe(true);
@@ -151,8 +150,8 @@ describe('QA: IPv4 embedded in an IPv6 address', () => {
       if (c.literal) expect(c.blocked !== null || c.metadata).toBe(true);
     },
   );
-  it.fails.each(V6_EMBEDDED_V4.filter(([a]) => !a.startsWith('100::')))(
-    'DEFECT-2: customer URL fetcher blocks %s (%s)',
+  it.each(V6_EMBEDDED_V4.filter(([a]) => !a.startsWith('100::')))(
+    'DEFECT-2 (fixed): customer URL fetcher blocks %s (%s)',
     (a) => {
       expect(isBlockedAddress(a)).toBe(true);
     },

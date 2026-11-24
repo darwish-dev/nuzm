@@ -10,10 +10,14 @@ Living document. Last update: 2026-11-24 (re-test after merge) · baseline `f818
 | DEFECT-4 (API-key part) | **fixed and re-tested** (deploy 7 passed); developer self-confirm and rollback approval still open by owner decision |
 | DEFECT-5 | **fixed and re-tested** (6 passed; the read now refuses with `symlink_in_path`) |
 | DEFECT-6 | **fixed and re-tested** (5 passed) |
-| DEFECT-2 | **still open** (8 `it.fails` still failing as expected; Session 04 is fixing it) |
+| DEFECT-2 | **fixed and re-tested** (Session 04 `cc318642`; `qa-ssrf-egress` 187 passed, no expected fail left) |
 | Integration finding (manifest ranges for 1920/1921/1980) | **resolved** by the Master's manifest patch; re-verified on `1fff67a4`: harness runs, `db check`, classification (3,396 columns / 271 tables), ROPA and residency hooks all OK |
 
 Table 1 below is the original report (history); the status above prevails.
+
+## 0b. Builder tools (Session 05, flag `builder_tools.enabled`, default off) — QA at the HTTP level
+`qa-builder-tools.int.spec.ts`: **19 passed**. Flag off → 404 on every route (organization row beats global row, both directions); no session 401; non-member 404; viewer and billing admin read but every write (rollback, revert, memory add/forget) is 403 with nothing changed; developer writes; API keys: read-scoped key refused on writes; cross-tenant: session and API key of org B against org A's project ids → 404 with no leak (and the reverse); A's key cannot name org B in the header. The two dry-run routes (`plan-previews`, `change-previews`) were proven to write nothing (versions, changes, model usage, metering, operations, reservations, audit and project head unchanged over repeated calls; pure, same answer twice), which supports the Master's decision to pin them as the only non-idempotent exceptions. Memory write is idempotent by key (one entry, one version), refuses secrets/oversize/malformed input without echo; rollback creates a NEW restore version (history kept) and is audited; stale base refused.
+New observation O-9: `billing_admin` holds `builder:read` (migration 1400 grants it to every role), so a billing admin can read a customer project's review, symbols, import analysis, components and memory. Probably unintended for source-level views; owner decision (Session 05).
 
 ## 1. Defects (reported to the owning session in `docs/parallel/sessions/DEFECT-<n>-*.md`)
 | ID | Severity | Area / owner | Summary | Test (state today) |

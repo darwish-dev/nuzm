@@ -63,7 +63,10 @@ export const QUALITY_WEIGHTS = { checks: 60, tools: 15, budget: 15, discipline: 
 export function scoreRun(task: GoldenTask, o: RunOutcome): TaskScore {
   return scoreRunDetailed(task, o).score;
 }
-export function scoreRunDetailed(task: GoldenTask, o: RunOutcome): { score: TaskScore; findings: Finding[] } {
+export function scoreRunDetailed(
+  task: GoldenTask,
+  o: RunOutcome,
+): { score: TaskScore; findings: Finding[] } {
   const results = task.checks.map((c) => runCheck(c, o.files, o.filesChanged));
   const checksPassed = results.filter(Boolean).length;
   const mustCall = task.tools.mustCall.every((t) => o.calledTools.includes(t));

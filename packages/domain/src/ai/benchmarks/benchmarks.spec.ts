@@ -26,9 +26,16 @@ const withPatch = (
   patch,
   ...over,
 });
-const CAPTURE = { runId: 'run-1', approvalRef: 'approval-1', providerEvidenceRef: 'evidence-1', capturedAt: '2026-01-01T00:00:00Z' };
+const CAPTURE = {
+  runId: 'run-1',
+  approvalRef: 'approval-1',
+  providerEvidenceRef: 'evidence-1',
+  capturedAt: '2026-01-01T00:00:00Z',
+};
 const recorded = () =>
-  new Map([...refs()].map(([k, v]) => [k, { ...v, origin: 'RECORDED' as const, capture: CAPTURE }]));
+  new Map(
+    [...refs()].map(([k, v]) => [k, { ...v, origin: 'RECORDED' as const, capture: CAPTURE }]),
+  );
 
 describe('the golden dataset', () => {
   it('keeps the 24 original tasks and has unique synthetic public tasks of every kind, in both languages', () => {
@@ -144,7 +151,9 @@ describe('report, thresholds and the rollout gate', () => {
     expect(evaluateThresholds(report).find((x) => x.id === 'T06')!.status).toBe('NOT MEASURED');
   });
   it('keeps the 11 original thresholds exactly as proposed and adds the Session 03 ones, every one with a reason', () => {
-    const original = PROPOSED_THRESHOLDS.slice(0, 11).map((x) => `${x.id} ${x.scope}.${x.metric} ${x.op} ${x.value}`);
+    const original = PROPOSED_THRESHOLDS.slice(0, 11).map(
+      (x) => `${x.id} ${x.scope}.${x.metric} ${x.op} ${x.value}`,
+    );
     expect(original).toEqual([
       'T01 all.validPatchRate >= 0.95',
       'T02 all.modeViolations == 0',

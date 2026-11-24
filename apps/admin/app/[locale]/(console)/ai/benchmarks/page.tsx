@@ -30,7 +30,13 @@ export default async function AiBenchmarks({ params }: { params: Promise<{ local
       if (!r.ok) throw new Error(`benchmarks overview: ${r.status}`);
       return parseOverview(await r.json());
     },
-    (overview) => <BenchmarksDashboard locale={locale} overview={overview} canRecord={s.can('admin:ai:manage')} />,
+    (overview) => (
+      <BenchmarksDashboard
+        locale={locale}
+        overview={overview}
+        canRecord={s.can('admin:ai:manage')}
+      />
+    ),
   );
   return (
     <>

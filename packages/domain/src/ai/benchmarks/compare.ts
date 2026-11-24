@@ -67,14 +67,23 @@ export function compareModels(entries: readonly ComparisonEntry[]): ModelCompari
   const versions = new Set(entries.map((e) => e.report.datasetVersion));
   const hashes = new Set(entries.map((e) => e.report.datasetHash));
   if (entries.length < 2) problems.push('at least two entries are needed');
-  if (versions.size > 1) problems.push(`entries use different dataset versions: ${[...versions].join(', ')}`);
-  else if (hashes.size > 1) problems.push('entries use the same dataset version with different content hashes');
-  if (new Set(entries.map((e) => e.label)).size !== entries.length) problems.push('labels must be unique');
+  if (versions.size > 1)
+    problems.push(`entries use different dataset versions: ${[...versions].join(', ')}`);
+  else if (hashes.size > 1)
+    problems.push('entries use the same dataset version with different content hashes');
+  if (new Set(entries.map((e) => e.label)).size !== entries.length)
+    problems.push('labels must be unique');
   const idSets = entries.map((e) => new Set(e.scores.map((s) => s.taskId)));
-  const common: string[] = idSets.length === 0 ? [] : [...idSets[0]!].filter((id) => idSets.every((s) => s.has(id)));
-  if (idSets.some((s) => s.size !== common.length)) problems.push('entries did not score the same tasks: pairwise results use the common tasks only');
+  const common: string[] =
+    idSets.length === 0 ? [] : [...idSets[0]!].filter((id) => idSets.every((s) => s.has(id)));
+  if (idSets.some((s) => s.size !== common.length))
+    problems.push(
+      'entries did not score the same tasks: pairwise results use the common tasks only',
+    );
   const comparable = versions.size === 1 && hashes.size === 1 && entries.length >= 2;
-  const notModel = entries.some((e) => e.report.evidence.label !== 'OFFLINE_REPLAY_OF_RECORDED_RUN');
+  const notModel = entries.some(
+    (e) => e.report.evidence.label !== 'OFFLINE_REPLAY_OF_RECORDED_RUN',
+  );
   const rows: ComparisonRow[] = entries.map((e) => ({
     label: e.label,
     evidence: e.report.evidence.label,
@@ -113,14 +122,25 @@ export function compareModels(entries: readonly ComparisonEntry[]): ModelCompari
         else if (a) aw += 1;
         else bw += 1;
       }
-      pairwise.push({ a: entries[i]!.label, b: entries[j]!.label, aWins: aw, bWins: bw, ties, signTestP: signTest(aw, bw) });
+      pairwise.push({
+        a: entries[i]!.label,
+        b: entries[j]!.label,
+        aWins: aw,
+        bWins: bw,
+        ties,
+        signTestP: signTest(aw, bw),
+      });
     }
   const leaders: Record<string, string> = {};
   const cats = entries.map((e) => e.report.byCategory);
-  const shared = Object.keys(cats[0] ?? {}).filter((c) => cats.every((m) => (m as Record<string, KindSummary | undefined>)[c] !== undefined));
+  const shared = Object.keys(cats[0] ?? {}).filter((c) =>
+    cats.every((m) => (m as Record<string, KindSummary | undefined>)[c] !== undefined),
+  );
   for (const c of shared.sort()) {
     const best = Math.max(...cats.map((m) => (m as Record<string, KindSummary>)[c]!.passRate));
-    const winners = entries.filter((e) => (e.report.byCategory as Record<string, KindSummary>)[c]!.passRate === best);
+    const winners = entries.filter(
+      (e) => (e.report.byCategory as Record<string, KindSummary>)[c]!.passRate === best,
+    );
     leaders[c] = winners.length === 1 ? winners[0]!.label : 'tie';
   }
   return {

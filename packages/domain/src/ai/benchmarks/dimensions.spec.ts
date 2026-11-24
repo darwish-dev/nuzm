@@ -33,7 +33,8 @@ const outcome = (files: Record<string, string>): RunOutcome => ({
   files: new Map(Object.entries(files)),
   finishedWith: 'proposal',
 });
-const rulesFor = (task: GoldenTask, files: Record<string, string>) => evaluateDimensions(task, outcome(files), 1).findings.map((f) => f.rule);
+const rulesFor = (task: GoldenTask, files: Record<string, string>) =>
+  evaluateDimensions(task, outcome(files), 1).findings.map((f) => f.rule);
 
 describe('static dimensions: every rule fires on a planted flaw and a clean file scores 100', () => {
   const cases: [string, string, string][] = [
@@ -53,7 +54,7 @@ describe('static dimensions: every rule fires on a planted flaw and a clean file
     ['S04-sql-concat', 'a.ts', "const q = 'SELECT * FROM t WHERE id = ' + id;\n"],
     ['S05-weak-hash', 'a.ts', "createHash('md5');\n"],
     ['S06-tls-off', 'a.ts', 'const o = { rejectUnauthorized: false };\n'],
-    ['S07-hardcoded-credential', 'a.ts', "const password = 'hunter2hunter2';\n"],
+    ['S07-hardcoded-credential', 'a.ts', ['const pass', "word = 'hunter2hunter2';\n"].join('')],
     ['S08-insecure-random', 'a.ts', 'const token = Math.random().toString(36);\n'],
     ['S09-plain-http', 'a.ts', "fetch('http://example.org/api');\n"],
     ['S10-cors-wildcard', 'a.ts', "const c = { origin: '*' };\n"],
@@ -81,20 +82,40 @@ describe('static dimensions: every rule fires on a planted flaw and a clean file
   it('U04 fires only for Arabic tasks (physical CSS properties); the same CSS is fine for an English task', () => {
     const css = '.a { margin-left: 4px; }\n';
     expect(rulesFor(arTask, { 'a.css': css })).toContain('U04-physical-css-in-rtl');
-    expect(rulesFor({ ...base, locale: 'en', category: 'code-editing' }, { 'a.css': css })).not.toContain('U04-physical-css-in-rtl');
+    expect(
+      rulesFor({ ...base, locale: 'en', category: 'code-editing' }, { 'a.css': css }),
+    ).not.toContain('U04-physical-css-in-rtl');
   });
   it('every rule id is covered by a case', () => {
     const covered = new Set(cases.map((c) => c[0]));
     covered.add('U04-physical-css-in-rtl');
-    for (const id of [...DIMENSION_RULE_IDS.codeQuality, ...DIMENSION_RULE_IDS.security, ...DIMENSION_RULE_IDS.uiQuality]) expect(covered.has(id), id).toBe(true);
+    for (const id of [
+      ...DIMENSION_RULE_IDS.codeQuality,
+      ...DIMENSION_RULE_IDS.security,
+      ...DIMENSION_RULE_IDS.uiQuality,
+    ])
+      expect(covered.has(id), id).toBe(true);
   });
   it('a clean change scores 100, a dimension that does not apply is null (never a free 100), penalties accumulate and floor at 0', () => {
-    const clean = evaluateDimensions(base, outcome({ 'src/a.ts': 'export const x = 1;\n' }), base.checks.length).scores;
-    expect(clean).toMatchObject({ functional: 100, codeQuality: 100, security: 100, uiQuality: null });
+    const clean = evaluateDimensions(
+      base,
+      outcome({ 'src/a.ts': 'export const x = 1;\n' }),
+      base.checks.length,
+    ).scores;
+    expect(clean).toMatchObject({
+      functional: 100,
+      codeQuality: 100,
+      security: 100,
+      uiQuality: null,
+    });
     const json = evaluateDimensions(base, outcome({ 'data.json': '{}\n' }), 1).scores;
     expect(json.codeQuality).toBeNull();
     expect(json.uiQuality).toBeNull();
-    const bad = evaluateDimensions(base, outcome({ 'a.ts': "eval(x);\ncreateHash('md5');\nel.innerHTML = v;\n" }), 0).scores;
+    const bad = evaluateDimensions(
+      base,
+      outcome({ 'a.ts': "eval(x);\ncreateHash('md5');\nel.innerHTML = v;\n" }),
+      0,
+    ).scores;
     expect(bad.security).toBe(0);
     expect(bad.functional).toBe(0);
   });
@@ -118,10 +139,17 @@ describe('efficiency', () => {
   const t = base; // 6 turns, 40k tokens
   it('is 100 for a lean fast run and 0 for a run at every ceiling', () => {
     expect(efficiencyScore(t, { tokens: 5_000, turns: 2, latencyMs: 10_000 })).toBe(100);
-    expect(efficiencyScore(t, { tokens: t.budget.maxTokens, turns: t.budget.maxTurns, latencyMs: EFFICIENCY_SHAPE.latencyZeroMs })).toBe(0);
+    expect(
+      efficiencyScore(t, {
+        tokens: t.budget.maxTokens,
+        turns: t.budget.maxTurns,
+        latencyMs: EFFICIENCY_SHAPE.latencyZeroMs,
+      }),
+    ).toBe(0);
   });
   it('falls monotonically with tokens, turns and latency', () => {
-    const f = (tokens: number, turns: number, latencyMs: number) => efficiencyScore(t, { tokens, turns, latencyMs });
+    const f = (tokens: number, turns: number, latencyMs: number) =>
+      efficiencyScore(t, { tokens, turns, latencyMs });
     expect(f(20_000, 3, 40_000)).toBeLessThan(f(15_000, 3, 40_000));
     expect(f(20_000, 5, 40_000)).toBeLessThan(f(20_000, 4, 40_000));
     expect(f(20_000, 3, 100_000)).toBeLessThan(f(20_000, 3, 60_000));
@@ -139,12 +167,26 @@ describe('validateDataset refuses broken tasks', () => {
   const problems = (over: Partial<GoldenTask>) => validateDataset([{ ...t, ...over }]).join(' | ');
   it('vacuous, secret-carrying, sensitive-path, unknown-tool and mismatched tasks are named', () => {
     expect(problems({ checks: [{ type: 'max_files_changed', n: 2 }] })).toMatch(/vacuous/);
-    expect(problems({ solution: [{ path: '.env', content: 'A=1\n' }] })).toMatch(/solution path not allowed/);
-    expect(problems({ fixture: [{ path: 'a.txt', content: ['-----BEGIN', 'PRIVATE KEY-----'].join(' ') }] })).toMatch(/secret-like/);
-    expect(problems({ tools: { mustCall: ['run_shell'], mustNotCall: [], maxCalls: 3 } })).toMatch(/unknown read tool/);
+    expect(problems({ solution: [{ path: '.env', content: 'A=1\n' }] })).toMatch(
+      /solution path not allowed/,
+    );
+    expect(
+      problems({
+        fixture: [{ path: 'a.txt', content: ['-----BEGIN', 'PRIVATE KEY-----'].join(' ') }],
+      }),
+    ).toMatch(/secret-like/);
+    expect(problems({ tools: { mustCall: ['run_shell'], mustNotCall: [], maxCalls: 3 } })).toMatch(
+      /unknown read tool/,
+    );
     expect(problems({ kind: 'tool-calling' })).toMatch(/kind does not match/);
-    expect(problems({ checks: [{ type: 'contains', path: 'nowhere.html', text: 'x' }] })).toMatch(/cannot produce/);
-    expect(problems({ checks: [{ type: 'matches', path: 'index.html', pattern: '(' }] })).toMatch(/does not compile/);
-    expect(problems({ dataClass: 'public', synthetic: false as unknown as true })).toMatch(/synthetic/);
+    expect(problems({ checks: [{ type: 'contains', path: 'nowhere.html', text: 'x' }] })).toMatch(
+      /cannot produce/,
+    );
+    expect(problems({ checks: [{ type: 'matches', path: 'index.html', pattern: '(' }] })).toMatch(
+      /does not compile/,
+    );
+    expect(problems({ dataClass: 'public', synthetic: false as unknown as true })).toMatch(
+      /synthetic/,
+    );
   });
 });

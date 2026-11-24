@@ -15,7 +15,10 @@ export const EFFICIENCY_SHAPE = {
 } as const;
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-export function efficiencyScore(task: GoldenTask, o: Pick<RunOutcome, 'tokens' | 'turns' | 'latencyMs'>): number {
+export function efficiencyScore(
+  task: GoldenTask,
+  o: Pick<RunOutcome, 'tokens' | 'turns' | 'latencyMs'>,
+): number {
   const E = EFFICIENCY_SHAPE;
   const tokPct = (100 * o.tokens) / Math.max(1, task.budget.maxTokens);
   const tok = clamp01((100 - tokPct) / (100 - E.tokenFullAtPct));

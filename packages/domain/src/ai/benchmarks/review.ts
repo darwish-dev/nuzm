@@ -56,12 +56,21 @@ export function createReviewPlan(input: {
   sampleSize?: number;
 }): { ok: true; plan: ReviewPlan } | { ok: false; errors: string[] } {
   const errors: string[] = [];
-  const named = input.reviewers.filter((r) => typeof r.name === 'string' && r.name.trim().length > 1 && typeof r.id === 'string' && r.id.trim().length > 0);
-  if (new Set(named.map((r) => r.id)).size !== named.length) errors.push('reviewer ids must be unique');
+  const named = input.reviewers.filter(
+    (r) =>
+      typeof r.name === 'string' &&
+      r.name.trim().length > 1 &&
+      typeof r.id === 'string' &&
+      r.id.trim().length > 0,
+  );
+  if (new Set(named.map((r) => r.id)).size !== named.length)
+    errors.push('reviewer ids must be unique');
   if (named.length !== input.reviewers.length) errors.push('every reviewer needs an id and a name');
-  if (named.length < REVIEW_PROTOCOL.minReviewers) errors.push(`at least ${REVIEW_PROTOCOL.minReviewers} named reviewers are needed`);
+  if (named.length < REVIEW_PROTOCOL.minReviewers)
+    errors.push(`at least ${REVIEW_PROTOCOL.minReviewers} named reviewers are needed`);
   const size = input.sampleSize ?? Math.min(input.taskIds.length, 40);
-  if (size < REVIEW_PROTOCOL.minReviewedTasks) errors.push(`a plan must cover at least ${REVIEW_PROTOCOL.minReviewedTasks} tasks`);
+  if (size < REVIEW_PROTOCOL.minReviewedTasks)
+    errors.push(`a plan must cover at least ${REVIEW_PROTOCOL.minReviewedTasks} tasks`);
   if (size > input.taskIds.length) errors.push('the sample is larger than the number of tasks');
   if (new Set(input.taskIds).size !== input.taskIds.length) errors.push('task ids must be unique');
   if (errors.length > 0) return { ok: false, errors };
@@ -75,7 +84,16 @@ export function createReviewPlan(input: {
     blindId: `blind-${sha256Hex(`blind:${input.seed}:${p.id}`).slice(0, 10)}`,
     reviewerIds: [named[i % n]!.id, named[(i + 1) % n]!.id],
   }));
-  return { ok: true, plan: { planId: `plan-${sha256Hex(`${input.runRef}:${input.seed}`).slice(0, 12)}`, runRef: input.runRef, seed: input.seed, reviewers: named, items } };
+  return {
+    ok: true,
+    plan: {
+      planId: `plan-${sha256Hex(`${input.runRef}:${input.seed}`).slice(0, 12)}`,
+      runRef: input.runRef,
+      seed: input.seed,
+      reviewers: named,
+      items,
+    },
+  };
 }
 
 /** Validates one review against the plan and the reviews already submitted. Returns the problems (empty = acceptable). */
@@ -84,16 +102,26 @@ export function validateReview(plan: ReviewPlan, existing: readonly Review[], r:
   if (r.planId !== plan.planId) errors.push('review is for another plan');
   const item = plan.items.find((i) => i.taskId === r.taskId);
   if (!item) return [...errors, 'task is not in the plan'];
-  if (!plan.reviewers.some((x) => x.id === r.reviewerId)) errors.push('reviewer is not named in the plan');
+  if (!plan.reviewers.some((x) => x.id === r.reviewerId))
+    errors.push('reviewer is not named in the plan');
   const assigned = item.reviewerIds.includes(r.reviewerId);
   if (r.adjudication) {
     if (assigned) errors.push('an adjudicator must not be one of the assigned reviewers');
-    if (existing.some((x) => x.taskId === r.taskId && x.adjudication === true)) errors.push('already adjudicated');
+    if (existing.some((x) => x.taskId === r.taskId && x.adjudication === true))
+      errors.push('already adjudicated');
   } else if (!assigned) errors.push('reviewer is not assigned to this task');
-  if (existing.some((x) => x.taskId === r.taskId && x.reviewerId === r.reviewerId)) errors.push('reviewer already reviewed this task');
+  if (existing.some((x) => x.taskId === r.taskId && x.reviewerId === r.reviewerId))
+    errors.push('reviewer already reviewed this task');
   const { min, max } = REVIEW_PROTOCOL.scale;
-  for (const [k, v] of Object.entries(r.scores)) if (!Number.isInteger(v) || v < min || v > max) errors.push(`score ${k} must be an integer from ${min} to ${max}`);
-  if (r.accept && (r.scores.correctness < REVIEW_PROTOCOL.acceptFloor || r.scores.security < REVIEW_PROTOCOL.acceptFloor)) errors.push('a result with low correctness or security cannot be accepted');
+  for (const [k, v] of Object.entries(r.scores))
+    if (!Number.isInteger(v) || v < min || v > max)
+      errors.push(`score ${k} must be an integer from ${min} to ${max}`);
+  if (
+    r.accept &&
+    (r.scores.correctness < REVIEW_PROTOCOL.acceptFloor ||
+      r.scores.security < REVIEW_PROTOCOL.acceptFloor)
+  )
+    errors.push('a result with low correctness or security cannot be accepted');
   if ((r.notes?.length ?? 0) > 500) errors.push('notes are limited to 500 characters');
   return errors;
 }
@@ -117,11 +145,30 @@ export interface HumanAcceptanceResult {
 }
 const r4 = (x: number) => Math.round(x * 10_000) / 10_000;
 
-export function summarizeReviews(plan: ReviewPlan | null, reviews: readonly Review[]): HumanAcceptanceResult {
-  const empty = (status: HumanAcceptanceResult['status'], reason: string, planned = 0): HumanAcceptanceResult => ({
-    status, reason, planned, decided: 0, accepted: 0, disputed: [], coverage: 0, rate: null, percentAgreement: null, kappa: null, bar: REVIEW_PROTOCOL.acceptanceBar, meets: null,
+export function summarizeReviews(
+  plan: ReviewPlan | null,
+  reviews: readonly Review[],
+): HumanAcceptanceResult {
+  const empty = (
+    status: HumanAcceptanceResult['status'],
+    reason: string,
+    planned = 0,
+  ): HumanAcceptanceResult => ({
+    status,
+    reason,
+    planned,
+    decided: 0,
+    accepted: 0,
+    disputed: [],
+    coverage: 0,
+    rate: null,
+    percentAgreement: null,
+    kappa: null,
+    bar: REVIEW_PROTOCOL.acceptanceBar,
+    meets: null,
   });
-  if (!plan || plan.reviewers.length < REVIEW_PROTOCOL.minReviewers) return empty('NOT MEASURED', 'no review plan with at least two named reviewers');
+  if (!plan || plan.reviewers.length < REVIEW_PROTOCOL.minReviewers)
+    return empty('NOT MEASURED', 'no review plan with at least two named reviewers');
   const valid: Review[] = [];
   for (const r of reviews) if (validateReview(plan, valid, r).length === 0) valid.push(r);
   let decided = 0;
@@ -132,7 +179,9 @@ export function summarizeReviews(plan: ReviewPlan | null, reviews: readonly Revi
   let aAcc = 0;
   let bAcc = 0;
   for (const item of plan.items) {
-    const [ra, rb] = item.reviewerIds.map((id) => valid.find((v) => v.taskId === item.taskId && v.reviewerId === id && !v.adjudication));
+    const [ra, rb] = item.reviewerIds.map((id) =>
+      valid.find((v) => v.taskId === item.taskId && v.reviewerId === id && !v.adjudication),
+    );
     if (!ra || !rb) continue;
     both += 1;
     if (ra.accept === rb.accept) agree += 1;
@@ -156,9 +205,30 @@ export function summarizeReviews(plan: ReviewPlan | null, reviews: readonly Revi
     const pe = (aAcc / both) * (bAcc / both) + (1 - aAcc / both) * (1 - bAcc / both);
     kappa = pe === 1 ? null : r4((po - pe) / (1 - pe));
   }
-  const base = { planned: plan.items.length, decided, accepted, disputed, coverage, percentAgreement: both === 0 ? null : r4(agree / both), kappa, bar: REVIEW_PROTOCOL.acceptanceBar };
+  const base = {
+    planned: plan.items.length,
+    decided,
+    accepted,
+    disputed,
+    coverage,
+    percentAgreement: both === 0 ? null : r4(agree / both),
+    kappa,
+    bar: REVIEW_PROTOCOL.acceptanceBar,
+  };
   if (decided < REVIEW_PROTOCOL.minReviewedTasks || coverage < REVIEW_PROTOCOL.minCoverage)
-    return { ...base, status: 'INCOMPLETE', reason: `need at least ${REVIEW_PROTOCOL.minReviewedTasks} decided tasks and ${REVIEW_PROTOCOL.minCoverage} coverage (disputes need an adjudicator)`, rate: decided === 0 ? null : r4(accepted / decided), meets: null };
+    return {
+      ...base,
+      status: 'INCOMPLETE',
+      reason: `need at least ${REVIEW_PROTOCOL.minReviewedTasks} decided tasks and ${REVIEW_PROTOCOL.minCoverage} coverage (disputes need an adjudicator)`,
+      rate: decided === 0 ? null : r4(accepted / decided),
+      meets: null,
+    };
   const rate = r4(accepted / decided);
-  return { ...base, status: 'MEASURED', reason: null, rate, meets: rate >= REVIEW_PROTOCOL.acceptanceBar };
+  return {
+    ...base,
+    status: 'MEASURED',
+    reason: null,
+    rate,
+    meets: rate >= REVIEW_PROTOCOL.acceptanceBar,
+  };
 }

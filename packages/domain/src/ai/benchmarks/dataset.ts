@@ -460,4 +460,9 @@ export const CORE_TASKS: readonly GoldenTask[] = [
 ];
 
 /** The full suite: the 24 original tasks plus the extended tasks that cover every one of the 23 categories. */
-export const GOLDEN_TASKS: readonly GoldenTask[] = [...CORE_TASKS, ...WEB_TASKS, ...APP_TASKS, ...ENGINEERING_TASKS];
+export const GOLDEN_TASKS: readonly GoldenTask[] = [
+  ...CORE_TASKS,
+  ...WEB_TASKS,
+  ...APP_TASKS,
+  ...ENGINEERING_TASKS,
+];

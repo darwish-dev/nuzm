@@ -60,8 +60,22 @@ export {
   type RolloutDecision,
 } from './thresholds';
 export { MOCK_PROFILES, mockRecording, mockSuite, type MockProfile } from './simulate';
-export { compareModels, signTest, type ComparisonEntry, type ComparisonRow, type ModelComparison, type Pairwise } from './compare';
-export { CATEGORY_PASS_FLOOR, CATEGORY_REGRESSION_TOLERANCE, ORIGINAL_THRESHOLD_IDS, detectRegressions, taskRegressions, type Regression } from './thresholds';
+export {
+  compareModels,
+  signTest,
+  type ComparisonEntry,
+  type ComparisonRow,
+  type ModelComparison,
+  type Pairwise,
+} from './compare';
+export {
+  CATEGORY_PASS_FLOOR,
+  CATEGORY_REGRESSION_TOLERANCE,
+  ORIGINAL_THRESHOLD_IDS,
+  detectRegressions,
+  taskRegressions,
+  type Regression,
+} from './thresholds';
 export {
   REVIEW_PROTOCOL,
   createReviewPlan,
@@ -73,8 +87,24 @@ export {
   type ReviewPlan,
   type Reviewer,
 } from './review';
-export { BudgetLedger, costMinor, preflightBudget, validateBudget, worstCaseTaskMinor, type BenchmarkBudget, type BudgetCheck, type PriceCard } from './budget';
-export { evaluateRolloutGate, type GateCheck, type GateDecision, type GateInput, type SecurityReviewRecord, type ThresholdAcceptance } from './gate';
+export {
+  BudgetLedger,
+  costMinor,
+  preflightBudget,
+  validateBudget,
+  worstCaseTaskMinor,
+  type BenchmarkBudget,
+  type BudgetCheck,
+  type PriceCard,
+} from './budget';
+export {
+  evaluateRolloutGate,
+  type GateCheck,
+  type GateDecision,
+  type GateInput,
+  type SecurityReviewRecord,
+  type ThresholdAcceptance,
+} from './gate';
 export {
   effectiveState,
   isQualified,

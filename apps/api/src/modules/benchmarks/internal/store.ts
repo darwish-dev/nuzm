@@ -16,7 +16,15 @@ export interface RunRow {
   createdBy: string;
   createdAt: string;
 }
-export type RecordKind = 'threshold_acceptance' | 'budget' | 'security_review' | 'reviewers' | 'review_plan' | 'review' | 'qualification' | 'live_attempt';
+export type RecordKind =
+  | 'threshold_acceptance'
+  | 'budget'
+  | 'security_review'
+  | 'reviewers'
+  | 'review_plan'
+  | 'review'
+  | 'qualification'
+  | 'live_attempt';
 export interface RecordRow {
   id: string;
   kind: RecordKind;
@@ -58,7 +66,9 @@ export class InMemoryBenchmarkStore extends BenchmarkStore {
     return Promise.resolve({ row, created: true });
   }
   records(kind: RecordKind, subject?: string) {
-    return Promise.resolve(this.recs.filter((r) => r.kind === kind && (subject === undefined || r.subject === subject)));
+    return Promise.resolve(
+      this.recs.filter((r) => r.kind === kind && (subject === undefined || r.subject === subject)),
+    );
   }
 }
 
@@ -100,10 +110,25 @@ export class PgBenchmarkStore extends BenchmarkStore {
       const ins = await c.query(
         `INSERT INTO ai.benchmark_runs (id, label, dataset_version, dataset_hash, evidence_label, origins, adapters, report, scores, report_fingerprint, request_id, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (request_id) DO NOTHING RETURNING *`,
-        [row.id, row.label, row.datasetVersion, row.datasetHash, row.evidenceLabel, row.origins, row.adapters, JSON.stringify(row.report), JSON.stringify(row.scores), row.reportFingerprint, row.requestId, row.createdBy],
+        [
+          row.id,
+          row.label,
+          row.datasetVersion,
+          row.datasetHash,
+          row.evidenceLabel,
+          row.origins,
+          row.adapters,
+          JSON.stringify(row.report),
+          JSON.stringify(row.scores),
+          row.reportFingerprint,
+          row.requestId,
+          row.createdBy,
+        ],
       );
       if (ins.rows[0]) return { row: this.toRun(ins.rows[0]), created: true };
-      const old = await c.query(`SELECT * FROM ai.benchmark_runs WHERE request_id = $1`, [row.requestId]);
+      const old = await c.query(`SELECT * FROM ai.benchmark_runs WHERE request_id = $1`, [
+        row.requestId,
+      ]);
       return { row: this.toRun(old.rows[0]), created: false };
     });
   }
@@ -114,7 +139,14 @@ export class PgBenchmarkStore extends BenchmarkStore {
     });
   }
   async listRuns(limit: number) {
-    return this.db.withPlatformScope(async (c) => (await c.query(`SELECT * FROM ai.benchmark_runs ORDER BY created_at DESC, id DESC LIMIT $1`, [limit])).rows.map((r) => this.toRun(r)));
+    return this.db.withPlatformScope(async (c) =>
+      (
+        await c.query(
+          `SELECT * FROM ai.benchmark_runs ORDER BY created_at DESC, id DESC LIMIT $1`,
+          [limit],
+        )
+      ).rows.map((r) => this.toRun(r)),
+    );
   }
   async insertRecord(row: RecordRow) {
     return this.db.withPlatformScope(async (c) => {
@@ -123,7 +155,9 @@ export class PgBenchmarkStore extends BenchmarkStore {
         [row.id, row.kind, row.subject, JSON.stringify(row.payload), row.requestId, row.recordedBy],
       );
       if (ins.rows[0]) return { row: this.toRec(ins.rows[0]), created: true };
-      const old = await c.query(`SELECT * FROM ai.benchmark_records WHERE request_id = $1`, [row.requestId]);
+      const old = await c.query(`SELECT * FROM ai.benchmark_records WHERE request_id = $1`, [
+        row.requestId,
+      ]);
       return { row: this.toRec(old.rows[0]), created: false };
     });
   }

@@ -34,7 +34,8 @@ export class AdminBenchmarksController {
   async act(@Platform() who: PlatformContext, @Body() body: Record<string, unknown> | undefined) {
     const b = body ?? {};
     const need = (p: string) => {
-      if (!who.permissions.has(p)) throw new ProblemException('forbidden', `permission ${p} is required for this action`);
+      if (!who.permissions.has(p))
+        throw new ProblemException('forbidden', `permission ${p} is required for this action`);
     };
     switch (b.action) {
       case 'run_offline':

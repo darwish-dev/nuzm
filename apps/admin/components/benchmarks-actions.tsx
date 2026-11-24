@@ -26,10 +26,18 @@ export function BenchmarksActions({ locale }: { locale: Locale }) {
       const r = await fetch('/v1/admin/ai/benchmarks', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'content-type': 'application/json', 'x-nuzm-realm': 'admin', ...(csrf ? { 'x-csrf-token': csrf } : {}) },
+        headers: {
+          'content-type': 'application/json',
+          'x-nuzm-realm': 'admin',
+          ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        },
         body: JSON.stringify(runOfflineBody(source, crypto.randomUUID())),
       });
-      setMsg(r.ok ? { ok: true, text: bt(locale, 'recorded') } : { ok: false, text: bt(locale, 'failed') });
+      setMsg(
+        r.ok
+          ? { ok: true, text: bt(locale, 'recorded') }
+          : { ok: false, text: bt(locale, 'failed') },
+      );
       if (r.ok) router.refresh();
     } catch {
       setMsg({ ok: false, text: bt(locale, 'failed') });

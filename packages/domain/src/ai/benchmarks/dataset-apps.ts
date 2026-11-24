@@ -33,7 +33,16 @@ const RN_APP = L(
 const APP_JSON = json({ expo: { name: 'Demo', slug: 'demo', version: '1.0.0' } });
 const MOBILE = [f('App.tsx', RN_APP), f('app.json', APP_JSON)];
 
-const PUBSPEC = L('name: demo', 'description: A demo app.', 'version: 1.0.0+1', 'environment:', '  sdk: ">=3.0.0 <4.0.0"', 'dependencies:', '  flutter:', '    sdk: flutter');
+const PUBSPEC = L(
+  'name: demo',
+  'description: A demo app.',
+  'version: 1.0.0+1',
+  'environment:',
+  '  sdk: ">=3.0.0 <4.0.0"',
+  'dependencies:',
+  '  flutter:',
+  '    sdk: flutter',
+);
 const MAIN_DART = L(
   "import 'package:flutter/material.dart';",
   '',
@@ -51,18 +60,70 @@ const MAIN_DART = L(
 const FLUTTER = [f('pubspec.yaml', PUBSPEC), f('lib/main.dart', MAIN_DART)];
 
 const TYPES = L('export interface Todo {', '  id: string;', '  title: string;', '}');
-const SERVER = L("import type { Todo } from '../shared/types';", '', 'export const todos: Todo[] = [];', '', 'export function listTodos(): Todo[] {', '  return todos;', '}');
-const CLIENT = L("import type { Todo } from '../shared/types';", '', 'export async function fetchTodos(): Promise<Todo[]> {', "  const res = await fetch('/api/todos');", '  return res.json();', '}');
-const FULLSTACK = [f('shared/types.ts', TYPES), f('server/todos.ts', SERVER), f('web/client.ts', CLIENT)];
+const SERVER = L(
+  "import type { Todo } from '../shared/types';",
+  '',
+  'export const todos: Todo[] = [];',
+  '',
+  'export function listTodos(): Todo[] {',
+  '  return todos;',
+  '}',
+);
+const CLIENT = L(
+  "import type { Todo } from '../shared/types';",
+  '',
+  'export async function fetchTodos(): Promise<Todo[]> {',
+  "  const res = await fetch('/api/todos');",
+  '  return res.json();',
+  '}',
+);
+const FULLSTACK = [
+  f('shared/types.ts', TYPES),
+  f('server/todos.ts', SERVER),
+  f('web/client.ts', CLIENT),
+];
 
-const INVENTORY = L('export interface StockLine {', '  sku: string;', '  onHand: number;', '}', '', 'export function adjust(line: StockLine, delta: number): StockLine {', '  return { ...line, onHand: line.onHand + delta };', '}');
-const PO = L("export type PoStatus = 'draft' | 'approved';", '', 'export interface PurchaseOrder {', '  id: string;', '  status: PoStatus;', '}');
+const INVENTORY = L(
+  'export interface StockLine {',
+  '  sku: string;',
+  '  onHand: number;',
+  '}',
+  '',
+  'export function adjust(line: StockLine, delta: number): StockLine {',
+  '  return { ...line, onHand: line.onHand + delta };',
+  '}',
+);
+const PO = L(
+  "export type PoStatus = 'draft' | 'approved';",
+  '',
+  'export interface PurchaseOrder {',
+  '  id: string;',
+  '  status: PoStatus;',
+  '}',
+);
 const ERP = [f('src/inventory.ts', INVENTORY), f('src/orders.ts', PO)];
 
-const CONTACTS = L('export interface Contact {', '  id: string;', '  name: string;', '  email: string;', '}', '', 'export function findByEmail(list: Contact[], email: string): Contact | undefined {', '  return list.find((c) => c.email === email);', '}');
+const CONTACTS = L(
+  'export interface Contact {',
+  '  id: string;',
+  '  name: string;',
+  '  email: string;',
+  '}',
+  '',
+  'export function findByEmail(list: Contact[], email: string): Contact | undefined {',
+  '  return list.find((c) => c.email === email);',
+  '}',
+);
 const CRM = [f('src/contacts.ts', CONTACTS)];
 
-const PLANS = L('export const PLANS = {', '  free: { seats: 1 },', '  pro: { seats: 10 },', '} as const;', '', 'export type PlanId = keyof typeof PLANS;');
+const PLANS = L(
+  'export const PLANS = {',
+  '  free: { seats: 1 },',
+  '  pro: { seats: 10 },',
+  '} as const;',
+  '',
+  'export type PlanId = keyof typeof PLANS;',
+);
 const TENANT = L('export interface Tenant {', '  id: string;', '  plan: string;', '}');
 const SAAS = [f('src/plans.ts', PLANS), f('src/tenant.ts', TENANT)];
 
@@ -73,12 +134,17 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'e-commerce',
     locale: 'en',
     title: 'Percentage discount in integer money',
-    prompt: 'Add applyDiscount(totalMinor, percent) to src/cart.ts. It returns the total after the percentage is taken off. Money is integer minor units: no floating point, round the discount down.',
+    prompt:
+      'Add applyDiscount(totalMinor, percent) to src/cart.ts. It returns the total after the percentage is taken off. Money is integer minor units: no floating point, round the discount down.',
     fixture: SHOP,
     checks: [
       { type: 'contains', path: 'src/cart.ts', text: 'export function applyDiscount' },
       { type: 'contains', path: 'src/cart.ts', text: 'Math.floor' },
-      { type: 'not_matches', path: 'src/cart.ts', pattern: String.raw`parseFloat|toFixed|\*\s*0\.` },
+      {
+        type: 'not_matches',
+        path: 'src/cart.ts',
+        pattern: String.raw`parseFloat|toFixed|\*\s*0\.`,
+      },
     ],
     solution: [
       {
@@ -92,18 +158,30 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'e-commerce',
     locale: 'ar',
     title: 'إضافة منتج إلى الكتالوج',
-    prompt: 'أضف منتجًا ثانيًا إلى src/catalog.json: الرمز B2 والاسم "كوب" والسعر 5200 وحدة صغرى، وأبقِ العملة SAR.',
+    prompt:
+      'أضف منتجًا ثانيًا إلى src/catalog.json: الرمز B2 والاسم "كوب" والسعر 5200 وحدة صغرى، وأبقِ العملة SAR.',
     fixture: SHOP,
     checks: [
       { type: 'json_valid', path: 'src/catalog.json' },
       { type: 'json_field_equals', path: 'src/catalog.json', field: 'products.1.sku', value: 'B2' },
-      { type: 'json_field_equals', path: 'src/catalog.json', field: 'products.1.priceMinor', value: 5200 },
+      {
+        type: 'json_field_equals',
+        path: 'src/catalog.json',
+        field: 'products.1.priceMinor',
+        value: 5200,
+      },
       { type: 'json_field_equals', path: 'src/catalog.json', field: 'currency', value: 'SAR' },
     ],
     solution: [
       {
         path: 'src/catalog.json',
-        content: json({ currency: 'SAR', products: [{ sku: 'A1', name: 'Mug', priceMinor: 4500 }, { sku: 'B2', name: 'كوب', priceMinor: 5200 }] }),
+        content: json({
+          currency: 'SAR',
+          products: [
+            { sku: 'A1', name: 'Mug', priceMinor: 4500 },
+            { sku: 'B2', name: 'كوب', priceMinor: 5200 },
+          ],
+        }),
       },
     ],
   }),
@@ -112,14 +190,20 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'e-commerce',
     locale: 'en',
     title: 'VAT in minor units',
-    prompt: 'Add vatMinor(totalMinor) to src/cart.ts returning 15 percent VAT rounded to the nearest minor unit, in integer arithmetic.',
+    prompt:
+      'Add vatMinor(totalMinor) to src/cart.ts returning 15 percent VAT rounded to the nearest minor unit, in integer arithmetic.',
     fixture: SHOP,
     checks: [
       { type: 'contains', path: 'src/cart.ts', text: 'export function vatMinor' },
       { type: 'matches', path: 'src/cart.ts', pattern: String.raw`\b15\b` },
       { type: 'contains', path: 'src/cart.ts', text: 'Math.round' },
     ],
-    solution: [{ path: 'src/cart.ts', content: `${CART}\nexport function vatMinor(totalMinor: number): number {\n  return Math.round((totalMinor * 15) / 100);\n}\n` }],
+    solution: [
+      {
+        path: 'src/cart.ts',
+        content: `${CART}\nexport function vatMinor(totalMinor: number): number {\n  return Math.round((totalMinor * 15) / 100);\n}\n`,
+      },
+    ],
   }),
 
   // ---- mobile application (React Native / Expo)
@@ -128,17 +212,32 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'mobile-application',
     locale: 'en',
     title: 'Add a settings screen',
-    prompt: 'Create src/screens/Settings.tsx: a default-exported function component Settings that shows the text "Settings".',
+    prompt:
+      'Create src/screens/Settings.tsx: a default-exported function component Settings that shows the text "Settings".',
     fixture: MOBILE,
     checks: [
       { type: 'file_exists', path: 'src/screens/Settings.tsx' },
-      { type: 'contains', path: 'src/screens/Settings.tsx', text: 'export default function Settings' },
+      {
+        type: 'contains',
+        path: 'src/screens/Settings.tsx',
+        text: 'export default function Settings',
+      },
       { type: 'contains', path: 'src/screens/Settings.tsx', text: 'Settings</Text>' },
     ],
     solution: [
       {
         path: 'src/screens/Settings.tsx',
-        content: L("import { Text, View } from 'react-native';", '', 'export default function Settings() {', '  return (', '    <View>', '      <Text>Settings</Text>', '    </View>', '  );', '}'),
+        content: L(
+          "import { Text, View } from 'react-native';",
+          '',
+          'export default function Settings() {',
+          '  return (',
+          '    <View>',
+          '      <Text>Settings</Text>',
+          '    </View>',
+          '  );',
+          '}',
+        ),
       },
     ],
   }),
@@ -155,14 +254,20 @@ export const APP_TASKS: readonly GoldenTask[] = [
       { type: 'json_field_equals', path: 'app.json', field: 'expo.slug', value: 'demo' },
       { type: 'json_field_equals', path: 'app.json', field: 'expo.version', value: '1.0.0' },
     ],
-    solution: [{ path: 'app.json', content: json({ expo: { name: 'تطبيقي', slug: 'demo', version: '1.0.0' } }) }],
+    solution: [
+      {
+        path: 'app.json',
+        content: json({ expo: { name: 'تطبيقي', slug: 'demo', version: '1.0.0' } }),
+      },
+    ],
   }),
   task({
     id: 'mob-03-accessible-button',
     category: 'mobile-application',
     locale: 'en',
     title: 'An accessible button',
-    prompt: 'In App.tsx add a Pressable that shows "Continue" and has an accessibilityLabel of "Continue".',
+    prompt:
+      'In App.tsx add a Pressable that shows "Continue" and has an accessibilityLabel of "Continue".',
     fixture: MOBILE,
     checks: [
       { type: 'contains', path: 'App.tsx', text: 'Pressable' },
@@ -196,7 +301,8 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'flutter-application',
     locale: 'en',
     title: 'A stateful counter widget',
-    prompt: 'Create lib/counter.dart with a StatefulWidget named Counter whose state holds an int that a button increments with setState.',
+    prompt:
+      'Create lib/counter.dart with a StatefulWidget named Counter whose state holds an int that a button increments with setState.',
     fixture: FLUTTER,
     checks: [
       { type: 'file_exists', path: 'lib/counter.dart' },
@@ -239,20 +345,41 @@ export const APP_TASKS: readonly GoldenTask[] = [
       { type: 'contains', path: 'lib/main.dart', text: "title: 'تطبيقي'" },
       { type: 'contains', path: 'lib/main.dart', text: "Locale('ar')" },
     ],
-    solution: [{ path: 'lib/main.dart', content: MAIN_DART.replace("const MaterialApp(home:", "const MaterialApp(title: 'تطبيقي', locale: Locale('ar'), home:") }],
+    solution: [
+      {
+        path: 'lib/main.dart',
+        content: MAIN_DART.replace(
+          'const MaterialApp(home:',
+          "const MaterialApp(title: 'تطبيقي', locale: Locale('ar'), home:",
+        ),
+      },
+    ],
   }),
   task({
     id: 'fl-03-dependency',
     category: 'flutter-application',
     locale: 'en',
     title: 'Add a package dependency',
-    prompt: 'Add the http package (^1.2.0) to the dependencies in pubspec.yaml without removing the flutter sdk dependency.',
+    prompt:
+      'Add the http package (^1.2.0) to the dependencies in pubspec.yaml without removing the flutter sdk dependency.',
     fixture: FLUTTER,
     checks: [
-      { type: 'matches', path: 'pubspec.yaml', pattern: String.raw`dependencies:[\s\S]*\n  http: \^1\.2\.0` },
+      {
+        type: 'matches',
+        path: 'pubspec.yaml',
+        pattern: String.raw`dependencies:[\s\S]*\n  http: \^1\.2\.0`,
+      },
       { type: 'contains', path: 'pubspec.yaml', text: 'sdk: flutter' },
     ],
-    solution: [{ path: 'pubspec.yaml', content: `${PUBSPEC}  http: ^1.2.0\n`.replace('sdk: flutter\n  http', 'sdk: flutter\n  http') }],
+    solution: [
+      {
+        path: 'pubspec.yaml',
+        content: `${PUBSPEC}  http: ^1.2.0\n`.replace(
+          'sdk: flutter\n  http',
+          'sdk: flutter\n  http',
+        ),
+      },
+    ],
   }),
 
   // ---- full-stack (multi-file by nature)
@@ -261,7 +388,8 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'full-stack',
     locale: 'en',
     title: 'Add a done flag across the stack',
-    prompt: 'A todo needs a "done" flag. Add done: boolean to the shared Todo type and add addTodo(title) in server/todos.ts that creates a todo with done: false.',
+    prompt:
+      'A todo needs a "done" flag. Add done: boolean to the shared Todo type and add addTodo(title) in server/todos.ts that creates a todo with done: false.',
     fixture: FULLSTACK,
     mustCall: ['read_file'],
     checks: [
@@ -270,7 +398,16 @@ export const APP_TASKS: readonly GoldenTask[] = [
       { type: 'contains', path: 'server/todos.ts', text: 'done: false' },
     ],
     solution: [
-      { path: 'shared/types.ts', content: L('export interface Todo {', '  id: string;', '  title: string;', '  done: boolean;', '}') },
+      {
+        path: 'shared/types.ts',
+        content: L(
+          'export interface Todo {',
+          '  id: string;',
+          '  title: string;',
+          '  done: boolean;',
+          '}',
+        ),
+      },
       {
         path: 'server/todos.ts',
         content: `${SERVER}\nexport function addTodo(title: string): Todo {\n  const todo: Todo = { id: String(todos.length + 1), title, done: false };\n  todos.push(todo);\n  return todo;\n}\n`,
@@ -282,7 +419,8 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'full-stack',
     locale: 'en',
     title: 'Create a todo from the client',
-    prompt: 'Add createTodo(title) to web/client.ts that POSTs {title} as JSON to /api/todos and returns the created Todo.',
+    prompt:
+      'Add createTodo(title) to web/client.ts that POSTs {title} as JSON to /api/todos and returns the created Todo.',
     fixture: FULLSTACK,
     checks: [
       { type: 'contains', path: 'web/client.ts', text: 'export async function createTodo' },
@@ -301,7 +439,8 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'full-stack',
     locale: 'ar',
     title: 'حذف مهمة من الخادم والعميل',
-    prompt: 'أضف removeTodo(id) في server/todos.ts تحذف المهمة من المصفوفة، وأضف deleteTodo(id) في web/client.ts ترسل طلب DELETE إلى /api/todos/ مع المعرّف.',
+    prompt:
+      'أضف removeTodo(id) في server/todos.ts تحذف المهمة من المصفوفة، وأضف deleteTodo(id) في web/client.ts ترسل طلب DELETE إلى /api/todos/ مع المعرّف.',
     fixture: FULLSTACK,
     checks: [
       { type: 'contains', path: 'server/todos.ts', text: 'export function removeTodo' },
@@ -326,7 +465,8 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'erp',
     locale: 'en',
     title: 'Refuse negative stock',
-    prompt: 'adjust() must never produce a negative on-hand quantity: throw a RangeError when the result would be below zero.',
+    prompt:
+      'adjust() must never produce a negative on-hand quantity: throw a RangeError when the result would be below zero.',
     fixture: ERP,
     checks: [
       { type: 'contains', path: 'src/inventory.ts', text: 'RangeError' },
@@ -355,7 +495,8 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'erp',
     locale: 'en',
     title: 'Receive a purchase order',
-    prompt: "Add a 'received' status to PoStatus and a receive(po) function in src/orders.ts that returns the order with status 'received', refusing an order that is not 'approved'.",
+    prompt:
+      "Add a 'received' status to PoStatus and a receive(po) function in src/orders.ts that returns the order with status 'received', refusing an order that is not 'approved'.",
     fixture: ERP,
     checks: [
       { type: 'matches', path: 'src/orders.ts', pattern: String.raw`PoStatus = [^;]*'received'` },
@@ -387,14 +528,18 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'erp',
     locale: 'ar',
     title: 'تنبيه إعادة الطلب',
-    prompt: 'أضف إلى src/inventory.ts الدالة needsReorder(line, minimum) التي تعيد true عندما تكون الكمية المتوفرة أقل من الحد الأدنى.',
+    prompt:
+      'أضف إلى src/inventory.ts الدالة needsReorder(line, minimum) التي تعيد true عندما تكون الكمية المتوفرة أقل من الحد الأدنى.',
     fixture: ERP,
     checks: [
       { type: 'contains', path: 'src/inventory.ts', text: 'export function needsReorder' },
       { type: 'matches', path: 'src/inventory.ts', pattern: String.raw`onHand\s*<\s*minimum` },
     ],
     solution: [
-      { path: 'src/inventory.ts', content: `${INVENTORY}\nexport function needsReorder(line: StockLine, minimum: number): boolean {\n  return line.onHand < minimum;\n}\n` },
+      {
+        path: 'src/inventory.ts',
+        content: `${INVENTORY}\nexport function needsReorder(line: StockLine, minimum: number): boolean {\n  return line.onHand < minimum;\n}\n`,
+      },
     ],
   }),
 
@@ -406,7 +551,10 @@ export const APP_TASKS: readonly GoldenTask[] = [
     title: 'Case-insensitive contact lookup',
     prompt: 'findByEmail must match emails regardless of letter case.',
     fixture: CRM,
-    checks: [{ type: 'contains', path: 'src/contacts.ts', text: 'toLowerCase()' }, { type: 'contains', path: 'src/contacts.ts', text: 'export function findByEmail' }],
+    checks: [
+      { type: 'contains', path: 'src/contacts.ts', text: 'toLowerCase()' },
+      { type: 'contains', path: 'src/contacts.ts', text: 'export function findByEmail' },
+    ],
     solution: [
       {
         path: 'src/contacts.ts',
@@ -430,11 +578,16 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'crm',
     locale: 'en',
     title: 'Pipeline stages',
-    prompt: "Create src/pipeline.ts with a Stage type ('lead' | 'qualified' | 'won' | 'lost') and advance(stage) that moves lead to qualified and qualified to won; won and lost stay as they are.",
+    prompt:
+      "Create src/pipeline.ts with a Stage type ('lead' | 'qualified' | 'won' | 'lost') and advance(stage) that moves lead to qualified and qualified to won; won and lost stay as they are.",
     fixture: CRM,
     checks: [
       { type: 'file_exists', path: 'src/pipeline.ts' },
-      { type: 'matches', path: 'src/pipeline.ts', pattern: String.raw`'lead'[\s\S]*'qualified'[\s\S]*'won'[\s\S]*'lost'` },
+      {
+        type: 'matches',
+        path: 'src/pipeline.ts',
+        pattern: String.raw`'lead'[\s\S]*'qualified'[\s\S]*'won'[\s\S]*'lost'`,
+      },
       { type: 'contains', path: 'src/pipeline.ts', text: 'export function advance' },
     ],
     solution: [
@@ -457,7 +610,8 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'crm',
     locale: 'ar',
     title: 'إزالة جهات الاتصال المكررة',
-    prompt: 'أضف dedupeByEmail(list) إلى src/contacts.ts: تحتفظ بأول جهة اتصال لكل بريد إلكتروني (بغض النظر عن حالة الأحرف).',
+    prompt:
+      'أضف dedupeByEmail(list) إلى src/contacts.ts: تحتفظ بأول جهة اتصال لكل بريد إلكتروني (بغض النظر عن حالة الأحرف).',
     fixture: CRM,
     checks: [
       { type: 'contains', path: 'src/contacts.ts', text: 'export function dedupeByEmail' },
@@ -478,15 +632,31 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'saas',
     locale: 'en',
     title: 'Add an enterprise plan',
-    prompt: 'Add an "enterprise" plan with 100 seats to PLANS in src/plans.ts, keeping free and pro.',
+    prompt:
+      'Add an "enterprise" plan with 100 seats to PLANS in src/plans.ts, keeping free and pro.',
     fixture: SAAS,
     checks: [
-      { type: 'matches', path: 'src/plans.ts', pattern: String.raw`enterprise:\s*\{\s*seats:\s*100\s*\}` },
+      {
+        type: 'matches',
+        path: 'src/plans.ts',
+        pattern: String.raw`enterprise:\s*\{\s*seats:\s*100\s*\}`,
+      },
       { type: 'contains', path: 'src/plans.ts', text: 'free:' },
       { type: 'contains', path: 'src/plans.ts', text: 'pro:' },
     ],
     solution: [
-      { path: 'src/plans.ts', content: L('export const PLANS = {', '  free: { seats: 1 },', '  pro: { seats: 10 },', '  enterprise: { seats: 100 },', '} as const;', '', 'export type PlanId = keyof typeof PLANS;') },
+      {
+        path: 'src/plans.ts',
+        content: L(
+          'export const PLANS = {',
+          '  free: { seats: 1 },',
+          '  pro: { seats: 10 },',
+          '  enterprise: { seats: 100 },',
+          '} as const;',
+          '',
+          'export type PlanId = keyof typeof PLANS;',
+        ),
+      },
     ],
   }),
   task({
@@ -494,20 +664,31 @@ export const APP_TASKS: readonly GoldenTask[] = [
     category: 'saas',
     locale: 'en',
     title: 'Seat limit check',
-    prompt: 'Add canAddSeat(plan, used) to src/plans.ts: true when used seats are below the plan seat limit.',
+    prompt:
+      'Add canAddSeat(plan, used) to src/plans.ts: true when used seats are below the plan seat limit.',
     fixture: SAAS,
     checks: [
       { type: 'contains', path: 'src/plans.ts', text: 'export function canAddSeat' },
-      { type: 'matches', path: 'src/plans.ts', pattern: String.raw`used\s*<\s*PLANS\[plan\]\.seats` },
+      {
+        type: 'matches',
+        path: 'src/plans.ts',
+        pattern: String.raw`used\s*<\s*PLANS\[plan\]\.seats`,
+      },
     ],
-    solution: [{ path: 'src/plans.ts', content: `${PLANS}\nexport function canAddSeat(plan: PlanId, used: number): boolean {\n  return used < PLANS[plan].seats;\n}\n` }],
+    solution: [
+      {
+        path: 'src/plans.ts',
+        content: `${PLANS}\nexport function canAddSeat(plan: PlanId, used: number): boolean {\n  return used < PLANS[plan].seats;\n}\n`,
+      },
+    ],
   }),
   task({
     id: 'saas-03-tenant-key-ar',
     category: 'saas',
     locale: 'ar',
     title: 'مفاتيح معزولة لكل مستأجر',
-    prompt: 'أضف إلى src/tenant.ts الدالة tenantKey(tenantId, key) التي تعيد "tenantId:key" وترمي خطأ إذا كان معرّف المستأجر فارغًا.',
+    prompt:
+      'أضف إلى src/tenant.ts الدالة tenantKey(tenantId, key) التي تعيد "tenantId:key" وترمي خطأ إذا كان معرّف المستأجر فارغًا.',
     fixture: SAAS,
     checks: [
       { type: 'contains', path: 'src/tenant.ts', text: 'export function tenantKey' },

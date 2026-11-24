@@ -1,4 +1,10 @@
-import { BudgetLedger, isBlank, preflightBudget, type BenchmarkBudget, type PriceCard } from './budget';
+import {
+  BudgetLedger,
+  isBlank,
+  preflightBudget,
+  type BenchmarkBudget,
+  type PriceCard,
+} from './budget';
 import type { SecurityReviewRecord, ThresholdAcceptance } from './gate';
 import { DATASET_VERSION } from './registry';
 import { REVIEW_PROTOCOL, type Reviewer } from './review';
@@ -70,28 +76,48 @@ export function livePreflight(
   tasks: readonly GoldenTask[],
   price: PriceCard,
   source?: Pick<CaptureSource, 'adapterId' | 'model'>,
-): { allowed: boolean; refusals: Refusal[]; worstCase?: { tokens: number; requests: number; costMinor: string } } {
+): {
+  allowed: boolean;
+  refusals: Refusal[];
+  worstCase?: { tokens: number; requests: number; costMinor: string };
+} {
   const r: Refusal[] = [];
   const add = (code: RefusalCode, detail: string) => r.push({ code, detail });
   if (!pre.flagEnabled) add('FLAG_OFF', 'BENCHMARK_LIVE_ENABLED is off (default)');
   if (!pre.liveProviderGateOpen) add('LIVE_GATE_CLOSED', 'the live-provider gate (D3) is closed');
-  if (!pre.environment || isBlank(pre.environment.name) || pre.environment.production) add('ENVIRONMENT_NOT_ALLOWED', 'a named non-production environment is required');
+  if (!pre.environment || isBlank(pre.environment.name) || pre.environment.production)
+    add('ENVIRONMENT_NOT_ALLOWED', 'a named non-production environment is required');
   const pv = pre.providerVerified;
-  if (!pv || isBlank(pv.providerId) || isBlank(pv.model) || isBlank(pv.evidenceRef)) add('PROVIDER_NOT_VERIFIED', 'the provider is not verified (no evidence reference)');
-  else if (source && (source.adapterId !== pv.providerId || source.model !== pv.model)) add('SOURCE_MISMATCH', 'the capture source is not the verified provider and model');
+  if (!pv || isBlank(pv.providerId) || isBlank(pv.model) || isBlank(pv.evidenceRef))
+    add('PROVIDER_NOT_VERIFIED', 'the provider is not verified (no evidence reference)');
+  else if (source && (source.adapterId !== pv.providerId || source.model !== pv.model))
+    add('SOURCE_MISMATCH', 'the capture source is not the verified provider and model');
   const ta = pre.thresholdsAccepted;
-  if (!ta || ta.version !== THRESHOLDS_VERSION || isBlank(ta.acceptedBy) || isBlank(ta.acceptedAt)) add('THRESHOLDS_NOT_ACCEPTED', `the owner has not accepted thresholds ${THRESHOLDS_VERSION}`);
+  if (!ta || ta.version !== THRESHOLDS_VERSION || isBlank(ta.acceptedBy) || isBlank(ta.acceptedAt))
+    add('THRESHOLDS_NOT_ACCEPTED', `the owner has not accepted thresholds ${THRESHOLDS_VERSION}`);
   if (tasks.length === 0) add('NO_TASKS', 'nothing to run');
   const pf = preflightBudget(tasks, pre.budget, price);
   if (!pf.ok) add(pre.budget ? 'BUDGET_TOO_SMALL' : 'BUDGET_NOT_APPROVED', pf.reasons.join('; '));
-  const named = pre.reviewers.filter((x) => typeof x.name === 'string' && x.name.trim().length > 1 && !isBlank(x.id));
-  if (named.length < REVIEW_PROTOCOL.minReviewers) add('REVIEWERS_NOT_NAMED', `at least ${REVIEW_PROTOCOL.minReviewers} named reviewers are required`);
+  const named = pre.reviewers.filter(
+    (x) => typeof x.name === 'string' && x.name.trim().length > 1 && !isBlank(x.id),
+  );
+  if (named.length < REVIEW_PROTOCOL.minReviewers)
+    add(
+      'REVIEWERS_NOT_NAMED',
+      `at least ${REVIEW_PROTOCOL.minReviewers} named reviewers are required`,
+    );
   const sr = pre.securityReview;
-  if (!sr || sr.passed !== true || isBlank(sr.ref)) add('SECURITY_REVIEW_MISSING', 'the agent security review is not recorded as passed');
-  return { allowed: r.length === 0, refusals: r, ...('worstCase' in pf && pf.worstCase ? { worstCase: pf.worstCase } : {}) };
+  if (!sr || sr.passed !== true || isBlank(sr.ref))
+    add('SECURITY_REVIEW_MISSING', 'the agent security review is not recorded as passed');
+  return {
+    allowed: r.length === 0,
+    refusals: r,
+    ...('worstCase' in pf && pf.worstCase ? { worstCase: pf.worstCase } : {}),
+  };
 }
 
-export type LiveRunStatus = 'REFUSED' | 'COMPLETED' | 'STOPPED_BUDGET' | 'STOPPED_UNCERTAIN' | 'STOPPED_FAILED';
+export type LiveRunStatus =
+  'REFUSED' | 'COMPLETED' | 'STOPPED_BUDGET' | 'STOPPED_UNCERTAIN' | 'STOPPED_FAILED';
 export interface LiveRunResult {
   status: LiveRunStatus;
   refusals: Refusal[];
@@ -114,12 +140,24 @@ export async function runLiveBenchmark(input: {
   now: () => string;
 }): Promise<LiveRunResult> {
   const { tasks, pre, source, price, runId } = input;
-  const refused = (refusals: Refusal[]): LiveRunResult => ({ status: 'REFUSED', refusals, recordings: new Map(), notRecorded: tasks.map((t) => t.id), uncertainTaskId: null, detail: 'preconditions not met; the source was not called', usage: null });
+  const refused = (refusals: Refusal[]): LiveRunResult => ({
+    status: 'REFUSED',
+    refusals,
+    recordings: new Map(),
+    notRecorded: tasks.map((t) => t.id),
+    uncertainTaskId: null,
+    detail: 'preconditions not met; the source was not called',
+    usage: null,
+  });
   const pf = livePreflight(pre, tasks, price, source);
   if (!pf.allowed) return refused(pf.refusals);
   const ledger = new BudgetLedger(pre.budget!, price);
   const recordings = new Map<string, Recording>();
-  const done = (status: LiveRunStatus, detail: string | null, uncertainTaskId: string | null = null): LiveRunResult => ({
+  const done = (
+    status: LiveRunStatus,
+    detail: string | null,
+    uncertainTaskId: string | null = null,
+  ): LiveRunResult => ({
     status,
     refusals: [],
     recordings,
@@ -132,7 +170,12 @@ export async function runLiveBenchmark(input: {
     if (!ledger.reserve(task)) return done('STOPPED_BUDGET', ledger.stopReason);
     let res: CaptureResult;
     try {
-      res = await source.capture({ task, runId, maxTokens: task.budget.maxTokens, maxTurns: task.budget.maxTurns });
+      res = await source.capture({
+        task,
+        runId,
+        maxTokens: task.budget.maxTokens,
+        maxTurns: task.budget.maxTurns,
+      });
     } catch (e) {
       if (e instanceof UncertainCaptureError) {
         // the call may have been billed: keep the reservation as spent at its ceiling, and stop until a person reconciles
@@ -144,7 +187,11 @@ export async function runLiveBenchmark(input: {
     }
     const turnTokens = res.recording.turns.reduce((a, t) => a + t.tokensIn + t.tokensOut, 0);
     ledger.commit(res.usage.tokensIn, res.usage.tokensOut, res.usage.requests);
-    if (turnTokens > res.usage.tokensIn + res.usage.tokensOut) return done('STOPPED_FAILED', `the recording of ${task.id} reports more tokens than the billed usage`);
+    if (turnTokens > res.usage.tokensIn + res.usage.tokensOut)
+      return done(
+        'STOPPED_FAILED',
+        `the recording of ${task.id} reports more tokens than the billed usage`,
+      );
     if (ledger.stopReason) {
       // the task was recorded and paid for, but the budget is now gone: keep it, then stop
       recordings.set(task.id, toRecording(task, res, source, runId, pre, input.now()));
@@ -155,8 +202,33 @@ export async function runLiveBenchmark(input: {
   return done('COMPLETED', null);
 }
 
-function toRecording(task: GoldenTask, res: CaptureResult, source: CaptureSource, runId: string, pre: LivePreconditions, at: string): Recording {
-  const base = { taskId: task.id, adapterId: source.adapterId, model: source.model, contractVersion: res.recording.contractVersion, turns: res.recording.turns, patch: res.recording.patch, finishedWith: res.recording.finishedWith, datasetVersion: DATASET_VERSION };
+function toRecording(
+  task: GoldenTask,
+  res: CaptureResult,
+  source: CaptureSource,
+  runId: string,
+  pre: LivePreconditions,
+  at: string,
+): Recording {
+  const base = {
+    taskId: task.id,
+    adapterId: source.adapterId,
+    model: source.model,
+    contractVersion: res.recording.contractVersion,
+    turns: res.recording.turns,
+    patch: res.recording.patch,
+    finishedWith: res.recording.finishedWith,
+    datasetVersion: DATASET_VERSION,
+  };
   if (source.mode === 'mock') return { ...base, origin: 'MOCK' };
-  return { ...base, origin: 'RECORDED', capture: { runId, approvalRef: pre.budget!.ref, providerEvidenceRef: pre.providerVerified!.evidenceRef, capturedAt: at } };
+  return {
+    ...base,
+    origin: 'RECORDED',
+    capture: {
+      runId,
+      approvalRef: pre.budget!.ref,
+      providerEvidenceRef: pre.providerVerified!.evidenceRef,
+      capturedAt: at,
+    },
+  };
 }

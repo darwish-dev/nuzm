@@ -11,13 +11,15 @@ const EN = {
   disabled: 'Benchmarks are switched off (feature flag ai.benchmarks).',
   forbidden: 'You do not have permission to view benchmarks.',
   dataset: 'Golden dataset',
-  datasetHelp: 'Synthetic tasks (no customer data), versioned. A report of another dataset version is never compared with this one.',
+  datasetHelp:
+    'Synthetic tasks (no customer data), versioned. A report of another dataset version is never compared with this one.',
   version: 'Version',
   hash: 'Content hash',
   tasks: 'Tasks',
   category: 'Category',
   thresholds: 'Acceptance thresholds',
-  thresholdsProposed: 'PROPOSED: the owner has not accepted these thresholds. No rollout can pass on proposed thresholds.',
+  thresholdsProposed:
+    'PROPOSED: the owner has not accepted these thresholds. No rollout can pass on proposed thresholds.',
   thresholdsAccepted: 'Accepted by {who} on {when}.',
   thresholdId: 'ID',
   scope: 'Scope',
@@ -26,7 +28,8 @@ const EN = {
   why: 'Why',
   runs: 'Benchmark runs',
   runsEmpty: 'No run has been recorded yet.',
-  runsEmptyBody: 'Record an offline replay below to see the pipeline work. It does not call any model.',
+  runsEmptyBody:
+    'Record an offline replay below to see the pipeline work. It does not call any model.',
   label: 'Label',
   when: 'Recorded',
   evidence: 'Evidence',
@@ -50,7 +53,8 @@ const EN = {
   evidenceLabel_MIXED_ORIGINS_NOT_COMPARABLE: 'Mixed origins (not comparable)',
   evidenceLabel_NONE: 'No evidence',
   qualification: 'Model qualification',
-  qualificationEmpty: 'No model is qualified. A model becomes qualified only through the workflow below.',
+  qualificationEmpty:
+    'No model is qualified. A model becomes qualified only through the workflow below.',
   model: 'Model',
   state: 'State',
   gate: 'Rollout gate',
@@ -63,7 +67,8 @@ const EN = {
   securityReview: 'Agent security review',
   securityNone: 'Not recorded.',
   live: 'Live benchmark runner',
-  liveUnavailable: 'Prepared and gated, never run. It refuses unless the provider is verified, thresholds are accepted, a budget is approved, reviewers are named and the security review is done.',
+  liveUnavailable:
+    'Prepared and gated, never run. It refuses unless the provider is verified, thresholds are accepted, a budget is approved, reviewers are named and the security review is done.',
   recordOffline: 'Record an offline replay',
   source: 'Source',
   sourceReference: 'Reference oracle',
@@ -85,7 +90,8 @@ const AR: Record<Key, string> = {
   disabled: 'معايير النماذج متوقفة (علَم الميزة ai.benchmarks).',
   forbidden: 'لا تملك صلاحية عرض معايير النماذج.',
   dataset: 'مجموعة المهام المرجعية',
-  datasetHelp: 'مهام اصطناعية (دون بيانات عملاء) ومُرقَّمة بإصدار. لا يُقارَن تقرير من إصدار آخر بهذا الإصدار.',
+  datasetHelp:
+    'مهام اصطناعية (دون بيانات عملاء) ومُرقَّمة بإصدار. لا يُقارَن تقرير من إصدار آخر بهذا الإصدار.',
   version: 'الإصدار',
   hash: 'بصمة المحتوى',
   tasks: 'المهام',
@@ -137,7 +143,8 @@ const AR: Record<Key, string> = {
   securityReview: 'مراجعة أمان الوكيل',
   securityNone: 'غير مسجَّلة.',
   live: 'مشغّل المعايير الحية',
-  liveUnavailable: 'مُعَدّ ومقيَّد ولم يُشغَّل قط. يرفض ما لم يُتحقَّق من المزوّد وتُقبل العتبات وتُعتمد ميزانية ويُسمَّى المراجعون وتكتمل المراجعة الأمنية.',
+  liveUnavailable:
+    'مُعَدّ ومقيَّد ولم يُشغَّل قط. يرفض ما لم يُتحقَّق من المزوّد وتُقبل العتبات وتُعتمد ميزانية ويُسمَّى المراجعون وتكتمل المراجعة الأمنية.',
   recordOffline: 'سجّل إعادة تشغيل غير متصلة',
   source: 'المصدر',
   sourceReference: 'النموذج المرجعي',

@@ -1,7 +1,12 @@
 import { READ_TOOL_NAMES } from '../agent-tools';
 import { isAgentSensitivePath, normalizeToolPath } from '../agent-tools/paths';
 import { scanForSecrets } from '../secret-scan';
-import { CATEGORY_KIND, MIN_TASKS_PER_CATEGORY, TASK_CATEGORIES, type TaskCategory } from './categories';
+import {
+  CATEGORY_KIND,
+  MIN_TASKS_PER_CATEGORY,
+  TASK_CATEGORIES,
+  type TaskCategory,
+} from './categories';
 import { fingerprint } from './canonical';
 import type { GoldenTask, TaskKind } from './types';
 
@@ -35,11 +40,24 @@ export function buildManifest(
   datasetVersion: string = DATASET_VERSION,
 ): DatasetManifest {
   const entries = tasks
-    .map((t) => ({ id: t.id, category: t.category, kind: t.kind, locale: t.locale, revision: t.revision, hash: taskHash(t) }))
+    .map((t) => ({
+      id: t.id,
+      category: t.category,
+      kind: t.kind,
+      locale: t.locale,
+      revision: t.revision,
+      hash: taskHash(t),
+    }))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const perCategory: DatasetManifest['perCategory'] = {};
   for (const t of tasks) perCategory[t.category] = (perCategory[t.category] ?? 0) + 1;
-  return { datasetVersion, taskCount: entries.length, perCategory, entries, hash: fingerprint({ datasetVersion, entries }) };
+  return {
+    datasetVersion,
+    taskCount: entries.length,
+    perCategory,
+    entries,
+    hash: fingerprint({ datasetVersion, entries }),
+  };
 }
 
 export interface ManifestDiff {
@@ -93,17 +111,21 @@ export function validateDataset(tasks: readonly GoldenTask[]): string[] {
     if (t.dataClass !== 'public' || t.synthetic !== true) at('must be synthetic and public');
     if (t.prompt.trim().length < 20) at('prompt too short to be a request');
     if (t.title.trim().length === 0) at('empty title');
-    if (t.checks.filter((c) => c.type !== 'max_files_changed').length === 0) at('no content check (vacuous)');
+    if (t.checks.filter((c) => c.type !== 'max_files_changed').length === 0)
+      at('no content check (vacuous)');
     if (t.solution.length === 0) at('no reference solution');
-    if (t.budget.maxTurns < 1 || t.budget.maxTokens < 1000 || t.tools.maxCalls < 0) at('budget out of range');
-    for (const name of [...t.tools.mustCall, ...t.tools.mustNotCall]) if (!read.has(name)) at(`unknown read tool ${name}`);
+    if (t.budget.maxTurns < 1 || t.budget.maxTokens < 1000 || t.tools.maxCalls < 0)
+      at('budget out of range');
+    for (const name of [...t.tools.mustCall, ...t.tools.mustNotCall])
+      if (!read.has(name)) at(`unknown read tool ${name}`);
     const fixture = new Set<string>();
     for (const f of t.fixture) {
       const p = normalizeToolPath(f.path);
       if (!p.ok || isAgentSensitivePath(f.path)) at(`fixture path not allowed: ${f.path}`);
       if (fixture.has(f.path)) at(`fixture path twice: ${f.path}`);
       fixture.add(f.path);
-      if (scanForSecrets(f.content).length > 0) at(`fixture carries a secret-like string: ${f.path}`);
+      if (scanForSecrets(f.content).length > 0)
+        at(`fixture carries a secret-like string: ${f.path}`);
     }
     const afterPaths = new Set(fixture);
     const seen = new Set<string>();
@@ -115,19 +137,23 @@ export function validateDataset(tasks: readonly GoldenTask[]): string[] {
       if (op.content === null) afterPaths.delete(op.path);
       else {
         afterPaths.add(op.path);
-        if (scanForSecrets(op.content).length > 0) at(`solution carries a secret-like string: ${op.path}`);
+        if (scanForSecrets(op.content).length > 0)
+          at(`solution carries a secret-like string: ${op.path}`);
       }
     }
     for (const c of t.checks) {
       if (c.type === 'max_files_changed') continue;
-      if (c.type !== 'file_absent' && !afterPaths.has(c.path)) at(`check on a path the solution cannot produce: ${c.path}`);
-      if ((c.type === 'matches' || c.type === 'not_matches') && !compiles(c.pattern, c.flags)) at(`pattern does not compile: ${c.pattern}`);
+      if (c.type !== 'file_absent' && !afterPaths.has(c.path))
+        at(`check on a path the solution cannot produce: ${c.path}`);
+      if ((c.type === 'matches' || c.type === 'not_matches') && !compiles(c.pattern, c.flags))
+        at(`pattern does not compile: ${c.pattern}`);
     }
     if (scanForSecrets(t.prompt).length > 0) at('prompt carries a secret-like string');
   }
   for (const c of TASK_CATEGORIES) {
     const n = tasks.filter((t) => t.category === c).length;
-    if (n < MIN_TASKS_PER_CATEGORY) problems.push(`category ${c}: ${n} task(s), at least ${MIN_TASKS_PER_CATEGORY} needed`);
+    if (n < MIN_TASKS_PER_CATEGORY)
+      problems.push(`category ${c}: ${n} task(s), at least ${MIN_TASKS_PER_CATEGORY} needed`);
   }
   return problems;
 }
@@ -154,7 +180,8 @@ export class GoldenTaskRegistry {
     readonly version: string = DATASET_VERSION,
   ) {
     const problems = validateDataset(tasks);
-    if (problems.length > 0) throw new Error(`invalid golden dataset: ${problems.slice(0, 5).join('; ')}`);
+    if (problems.length > 0)
+      throw new Error(`invalid golden dataset: ${problems.slice(0, 5).join('; ')}`);
     this.byId = new Map(tasks.map((t) => [t.id, t]));
     this.manifest = buildManifest(tasks, version);
   }

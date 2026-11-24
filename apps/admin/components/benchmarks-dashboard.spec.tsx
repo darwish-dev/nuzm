@@ -22,12 +22,46 @@ afterEach(() => {
 const full = (over: Record<string, unknown> = {}) =>
   parseOverview({
     enabled: true,
-    dataset: { version: '2.0.0', hash: 'a'.repeat(64), tasks: 3, perCategory: { erp: 3 }, categories: ['erp'] },
-    thresholds: { version: '2-proposed', status: 'PROPOSED', acceptance: null, items: [{ id: 'T01', scope: 'all', metric: 'validPatchRate', op: '>=', value: 0.95, why: 'because' }] },
+    dataset: {
+      version: '2.0.0',
+      hash: 'a'.repeat(64),
+      tasks: 3,
+      perCategory: { erp: 3 },
+      categories: ['erp'],
+    },
+    thresholds: {
+      version: '2-proposed',
+      status: 'PROPOSED',
+      acceptance: null,
+      items: [
+        {
+          id: 'T01',
+          scope: 'all',
+          metric: 'validPatchRate',
+          op: '>=',
+          value: 0.95,
+          why: 'because',
+        },
+      ],
+    },
     budget: null,
     securityReview: null,
     reviewers: [],
-    runs: [{ id: 'r1', label: 'reference', createdAt: '2026-12-01T00:00:00.000Z', datasetVersion: '2.0.0', evidence: 'OFFLINE_REFERENCE_ORACLE', adapters: ['reference-oracle:reference'], tasks: 3, passRate: 1, meanQuality: 100, meanSecurity: 100, modeViolations: 0 }],
+    runs: [
+      {
+        id: 'r1',
+        label: 'reference',
+        createdAt: '2026-12-01T00:00:00.000Z',
+        datasetVersion: '2.0.0',
+        evidence: 'OFFLINE_REFERENCE_ORACLE',
+        adapters: ['reference-oracle:reference'],
+        tasks: 3,
+        passRate: 1,
+        meanQuality: 100,
+        meanSecurity: 100,
+        modeViolations: 0,
+      },
+    ],
     qualifications: [],
     live: { available: false },
     ...over,
@@ -36,7 +70,9 @@ const full = (over: Record<string, unknown> = {}) =>
 describe.each(['en', 'ar'] as const)('BenchmarksDashboard (%s)', (locale) => {
   it('says offline evidence is not a model, shows thresholds as PROPOSED and the live runner as unavailable', () => {
     render(<BenchmarksDashboard locale={locale} overview={full()} canRecord />);
-    expect(screen.getAllByRole('status')[0]!.textContent).toContain(bt(locale, 'notice').slice(0, 20));
+    expect(screen.getAllByRole('status')[0]!.textContent).toContain(
+      bt(locale, 'notice').slice(0, 20),
+    );
     expect(screen.getByText(bt(locale, 'thresholdsProposed'))).toBeTruthy();
     expect(screen.getByText(bt(locale, 'evidenceLabel_OFFLINE_REFERENCE_ORACLE'))).toBeTruthy();
     expect(screen.getByText(new RegExp(bt(locale, 'liveUnavailable').slice(0, 12)))).toBeTruthy();
@@ -44,7 +80,13 @@ describe.each(['en', 'ar'] as const)('BenchmarksDashboard (%s)', (locale) => {
     expect(screen.getByText(bt(locale, 'budgetNone'), { exact: false })).toBeTruthy();
   });
   it('is the switched-off state when the flag is off, and the empty state without runs', () => {
-    const { unmount } = render(<BenchmarksDashboard locale={locale} overview={parseOverview({ enabled: false })} canRecord />);
+    const { unmount } = render(
+      <BenchmarksDashboard
+        locale={locale}
+        overview={parseOverview({ enabled: false })}
+        canRecord
+      />,
+    );
     expect(screen.getByText(bt(locale, 'disabled'))).toBeTruthy();
     unmount();
     render(<BenchmarksDashboard locale={locale} overview={full({ runs: [] })} canRecord={false} />);
@@ -52,7 +94,20 @@ describe.each(['en', 'ar'] as const)('BenchmarksDashboard (%s)', (locale) => {
     expect(screen.queryByRole('form')).toBeNull();
   });
   it('shows the acceptance when the owner accepted the thresholds', () => {
-    render(<BenchmarksDashboard locale={locale} overview={full({ thresholds: { version: '2-proposed', status: 'ACCEPTED', acceptance: { acceptedBy: 'owner-1', acceptedAt: '2026-12-01T00:00:00.000Z' }, items: [] } })} canRecord />);
+    render(
+      <BenchmarksDashboard
+        locale={locale}
+        overview={full({
+          thresholds: {
+            version: '2-proposed',
+            status: 'ACCEPTED',
+            acceptance: { acceptedBy: 'owner-1', acceptedAt: '2026-12-01T00:00:00.000Z' },
+            items: [],
+          },
+        })}
+        canRecord
+      />,
+    );
     expect(screen.queryByText(bt(locale, 'thresholdsProposed'))).toBeNull();
     expect(screen.getByText(/owner-1/)).toBeTruthy();
   });

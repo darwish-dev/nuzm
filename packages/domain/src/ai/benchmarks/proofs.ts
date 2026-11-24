@@ -14,10 +14,19 @@ export interface Mutant {
 export function mutantsOf(task: GoldenTask): Mutant[] {
   const out: Mutant[] = [{ name: 'empty-patch', patch: [] }];
   task.solution.forEach((op, i) => {
-    if (task.solution.length > 1) out.push({ name: `drop-op-${i}`, patch: task.solution.filter((_, j) => j !== i) });
+    if (task.solution.length > 1)
+      out.push({ name: `drop-op-${i}`, patch: task.solution.filter((_, j) => j !== i) });
     if (op.content !== null) {
-      out.push({ name: `blank-op-${i}`, patch: task.solution.map((o, j) => (j === i ? { path: o.path, content: '' } : o)) });
-      out.push({ name: `shift-path-op-${i}`, patch: task.solution.map((o, j) => (j === i ? { path: `${o.path}.bak`, content: o.content } : o)) });
+      out.push({
+        name: `blank-op-${i}`,
+        patch: task.solution.map((o, j) => (j === i ? { path: o.path, content: '' } : o)),
+      });
+      out.push({
+        name: `shift-path-op-${i}`,
+        patch: task.solution.map((o, j) =>
+          j === i ? { path: `${o.path}.bak`, content: o.content } : o,
+        ),
+      });
     }
   });
   return out;
@@ -35,5 +44,9 @@ export function proveTask(task: GoldenTask): TaskProof {
     const rec = { ...referenceRecording(task), patch: m.patch };
     if (scoreRun(task, replayTask(task, rec)).passed) survivors.push(m.name);
   }
-  return { taskId: task.id, satisfiable: ref.passed && ref.quality === 100, survivingMutants: survivors };
+  return {
+    taskId: task.id,
+    satisfiable: ref.passed && ref.quality === 100,
+    survivingMutants: survivors,
+  };
 }

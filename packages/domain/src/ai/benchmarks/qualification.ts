@@ -13,7 +13,8 @@ import { DATASET_VERSION } from './registry';
  *   any non-final --reject--> REJECTED        QUALIFIED --suspend--> SUSPENDED --reinstate(new evidence)--> UNDER_REVIEW
  *   QUALIFIED/SUSPENDED --(dataset or thresholds changed)--> EXPIRED (effective state; a new record is needed)
  */
-export type QualificationState = 'PROPOSED' | 'EVIDENCE_ATTACHED' | 'UNDER_REVIEW' | 'QUALIFIED' | 'SUSPENDED' | 'REJECTED';
+export type QualificationState =
+  'PROPOSED' | 'EVIDENCE_ATTACHED' | 'UNDER_REVIEW' | 'QUALIFIED' | 'SUSPENDED' | 'REJECTED';
 export type EffectiveState = QualificationState | 'EXPIRED';
 
 export interface QualificationEvidence {
@@ -39,14 +40,27 @@ export interface QualificationRecord {
 }
 export type QualificationEvent =
   | { type: 'attach_evidence'; by: string; at: string; evidence: QualificationEvidence }
-  | { type: 'record_reviews'; by: string; at: string; humanReview: HumanAcceptanceResult; securityReview: SecurityReviewRecord }
+  | {
+      type: 'record_reviews';
+      by: string;
+      at: string;
+      humanReview: HumanAcceptanceResult;
+      securityReview: SecurityReviewRecord;
+    }
   | { type: 'approve'; by: string; at: string }
   | { type: 'reject'; by: string; at: string; reason: string }
   | { type: 'suspend'; by: string; at: string; reason: string }
   | { type: 'reinstate'; by: string; at: string; evidence: QualificationEvidence };
 export type StepResult = { ok: true; record: QualificationRecord } | { ok: false; error: string };
 
-export function proposeQualification(input: { id: string; adapterId: string; model: string; proposedBy: string; at: string; datasetVersion?: string }): QualificationRecord {
+export function proposeQualification(input: {
+  id: string;
+  adapterId: string;
+  model: string;
+  proposedBy: string;
+  at: string;
+  datasetVersion?: string;
+}): QualificationRecord {
   return {
     id: input.id,
     adapterId: input.adapterId,
@@ -64,8 +78,10 @@ export function proposeQualification(input: { id: string; adapterId: string; mod
   };
 }
 const evidenceProblem = (r: QualificationRecord, e: QualificationEvidence): string | null => {
-  if (e.evidenceLabel !== 'OFFLINE_REPLAY_OF_RECORDED_RUN') return `evidence is ${e.evidenceLabel}: only a recorded run of the model can qualify it`;
-  if (e.datasetVersion !== r.datasetVersion) return `evidence is for dataset ${e.datasetVersion}, the record is for ${r.datasetVersion}`;
+  if (e.evidenceLabel !== 'OFFLINE_REPLAY_OF_RECORDED_RUN')
+    return `evidence is ${e.evidenceLabel}: only a recorded run of the model can qualify it`;
+  if (e.datasetVersion !== r.datasetVersion)
+    return `evidence is for dataset ${e.datasetVersion}, the record is for ${r.datasetVersion}`;
   if (!e.gate.allowed) return `the rollout gate did not pass (${e.gate.status})`;
   return null;
 };
@@ -74,7 +90,11 @@ export function stepQualification(r: QualificationRecord, ev: QualificationEvent
   if (isBlank(ev.by)) return fail('an event needs a named actor');
   const next = (patch: Partial<QualificationRecord>, note?: string): StepResult => ({
     ok: true,
-    record: { ...r, ...patch, history: [...r.history, { at: ev.at, event: ev.type, by: ev.by, ...(note ? { note } : {}) }] },
+    record: {
+      ...r,
+      ...patch,
+      history: [...r.history, { at: ev.at, event: ev.type, by: ev.by, ...(note ? { note } : {}) }],
+    },
   });
   switch (ev.type) {
     case 'attach_evidence': {
@@ -84,22 +104,34 @@ export function stepQualification(r: QualificationRecord, ev: QualificationEvent
     }
     case 'record_reviews': {
       if (r.state !== 'EVIDENCE_ATTACHED') return fail(`cannot record reviews in state ${r.state}`);
-      if (ev.humanReview.status !== 'MEASURED' || ev.humanReview.meets !== true) return fail('human acceptance is not measured or below the bar');
-      if (ev.securityReview.passed !== true || isBlank(ev.securityReview.ref)) return fail('the agent security review did not pass');
-      return next({ state: 'UNDER_REVIEW', humanReview: ev.humanReview, securityReview: ev.securityReview });
+      if (ev.humanReview.status !== 'MEASURED' || ev.humanReview.meets !== true)
+        return fail('human acceptance is not measured or below the bar');
+      if (ev.securityReview.passed !== true || isBlank(ev.securityReview.ref))
+        return fail('the agent security review did not pass');
+      return next({
+        state: 'UNDER_REVIEW',
+        humanReview: ev.humanReview,
+        securityReview: ev.securityReview,
+      });
     }
     case 'approve': {
       if (r.state !== 'UNDER_REVIEW') return fail(`cannot approve in state ${r.state}`);
-      if (ev.by === r.proposedBy) return fail('the approver must be a different person from the proposer');
-      if (!r.evidence || !r.humanReview || !r.securityReview) return fail('evidence or reviews are missing');
+      if (ev.by === r.proposedBy)
+        return fail('the approver must be a different person from the proposer');
+      if (!r.evidence || !r.humanReview || !r.securityReview)
+        return fail('evidence or reviews are missing');
       return next({ state: 'QUALIFIED', approvedBy: ev.by, approvedAt: ev.at });
     }
     case 'reject':
       if (r.state === 'REJECTED') return fail('already rejected');
-      return !isBlank(ev.reason) ? next({ state: 'REJECTED' }, ev.reason) : fail('a rejection needs a reason');
+      return !isBlank(ev.reason)
+        ? next({ state: 'REJECTED' }, ev.reason)
+        : fail('a rejection needs a reason');
     case 'suspend':
       if (r.state !== 'QUALIFIED') return fail(`cannot suspend in state ${r.state}`);
-      return !isBlank(ev.reason) ? next({ state: 'SUSPENDED', approvedBy: null, approvedAt: null }, ev.reason) : fail('a suspension needs a reason');
+      return !isBlank(ev.reason)
+        ? next({ state: 'SUSPENDED', approvedBy: null, approvedAt: null }, ev.reason)
+        : fail('a suspension needs a reason');
     case 'reinstate': {
       if (r.state !== 'SUSPENDED') return fail(`cannot reinstate in state ${r.state}`);
       const p = evidenceProblem(r, ev.evidence);
@@ -108,10 +140,27 @@ export function stepQualification(r: QualificationRecord, ev: QualificationEvent
   }
 }
 /** The state that counts today: a record made for another dataset or thresholds version is EXPIRED however it was approved. */
-export function effectiveState(r: QualificationRecord, current: { datasetVersion: string; thresholdsVersion: string } = { datasetVersion: DATASET_VERSION, thresholdsVersion: THRESHOLDS_VERSION }): EffectiveState {
-  if ((r.state === 'QUALIFIED' || r.state === 'SUSPENDED') && (r.datasetVersion !== current.datasetVersion || r.thresholdsVersion !== current.thresholdsVersion)) return 'EXPIRED';
+export function effectiveState(
+  r: QualificationRecord,
+  current: { datasetVersion: string; thresholdsVersion: string } = {
+    datasetVersion: DATASET_VERSION,
+    thresholdsVersion: THRESHOLDS_VERSION,
+  },
+): EffectiveState {
+  if (
+    (r.state === 'QUALIFIED' || r.state === 'SUSPENDED') &&
+    (r.datasetVersion !== current.datasetVersion ||
+      r.thresholdsVersion !== current.thresholdsVersion)
+  )
+    return 'EXPIRED';
   return r.state;
 }
 /** Whether this adapter + model may be used for the agent: only a QUALIFIED, unexpired record. Nothing else, ever. */
-export const isQualified = (records: readonly QualificationRecord[], adapterId: string, model: string): boolean =>
-  records.some((r) => r.adapterId === adapterId && r.model === model && effectiveState(r) === 'QUALIFIED');
+export const isQualified = (
+  records: readonly QualificationRecord[],
+  adapterId: string,
+  model: string,
+): boolean =>
+  records.some(
+    (r) => r.adapterId === adapterId && r.model === model && effectiveState(r) === 'QUALIFIED',
+  );

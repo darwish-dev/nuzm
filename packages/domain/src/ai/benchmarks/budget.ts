@@ -31,36 +31,57 @@ export function validateBudget(b: BenchmarkBudget | null | undefined): BudgetChe
   if (!b) return { ok: false, reasons: ['no approved budget'] };
   if (isBlank(b.ref)) reasons.push('budget approval reference missing');
   if (isBlank(b.approvedBy)) reasons.push('budget approver missing');
-  if (typeof b.currency !== 'string' || !/^[A-Z]{3}$/.test(b.currency)) reasons.push('budget currency must be an ISO code');
-  if (typeof b.maxCostMinor !== 'string' || !/^[1-9]\d*$/.test(b.maxCostMinor)) reasons.push('maxCostMinor must be a positive integer string');
-  if (!Number.isInteger(b.maxTokens) || b.maxTokens < 1) reasons.push('maxTokens must be a positive integer');
-  if (!Number.isInteger(b.maxRequests) || b.maxRequests < 1) reasons.push('maxRequests must be a positive integer');
+  if (typeof b.currency !== 'string' || !/^[A-Z]{3}$/.test(b.currency))
+    reasons.push('budget currency must be an ISO code');
+  if (typeof b.maxCostMinor !== 'string' || !/^[1-9]\d*$/.test(b.maxCostMinor))
+    reasons.push('maxCostMinor must be a positive integer string');
+  if (!Number.isInteger(b.maxTokens) || b.maxTokens < 1)
+    reasons.push('maxTokens must be a positive integer');
+  if (!Number.isInteger(b.maxRequests) || b.maxRequests < 1)
+    reasons.push('maxRequests must be a positive integer');
   return reasons.length === 0 ? { ok: true } : { ok: false, reasons };
 }
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
 /** Money for tokens, rounded up to a whole minor unit. */
 export function costMinor(tokensIn: number, tokensOut: number, p: PriceCard): bigint {
-  return ceilDiv(BigInt(tokensIn) * BigInt(p.minorPerMillionInput) + BigInt(tokensOut) * BigInt(p.minorPerMillionOutput), 1_000_000n);
+  return ceilDiv(
+    BigInt(tokensIn) * BigInt(p.minorPerMillionInput) +
+      BigInt(tokensOut) * BigInt(p.minorPerMillionOutput),
+    1_000_000n,
+  );
 }
 /** Worst-case cost of a task: all its token ceiling billed at the dearer of the two prices. */
 export function worstCaseTaskMinor(task: GoldenTask, p: PriceCard): bigint {
-  const dearer = BigInt(p.minorPerMillionInput) > BigInt(p.minorPerMillionOutput) ? p.minorPerMillionInput : p.minorPerMillionOutput;
+  const dearer =
+    BigInt(p.minorPerMillionInput) > BigInt(p.minorPerMillionOutput)
+      ? p.minorPerMillionInput
+      : p.minorPerMillionOutput;
   return ceilDiv(BigInt(task.budget.maxTokens) * BigInt(dearer), 1_000_000n);
 }
 
 /** Checks before anything is called: the budget is valid, currencies agree, and the worst case of the whole suite fits every cap. */
-export function preflightBudget(tasks: readonly GoldenTask[], b: BenchmarkBudget | null, p: PriceCard): BudgetCheck & { worstCase?: { tokens: number; requests: number; costMinor: string } } {
+export function preflightBudget(
+  tasks: readonly GoldenTask[],
+  b: BenchmarkBudget | null,
+  p: PriceCard,
+): BudgetCheck & { worstCase?: { tokens: number; requests: number; costMinor: string } } {
   const v = validateBudget(b);
   if (!v.ok) return v;
   const budget = b!;
   const reasons: string[] = [];
-  if (p.currency !== budget.currency) reasons.push('price card and budget use different currencies');
+  if (p.currency !== budget.currency)
+    reasons.push('price card and budget use different currencies');
   const tokens = tasks.reduce((a, t) => a + t.budget.maxTokens, 0);
   const requests = tasks.reduce((a, t) => a + t.budget.maxTurns, 0);
   const cost = tasks.reduce((a, t) => a + worstCaseTaskMinor(t, p), 0n);
-  if (tokens > budget.maxTokens) reasons.push(`worst-case tokens ${tokens} exceed the cap ${budget.maxTokens}`);
-  if (requests > budget.maxRequests) reasons.push(`worst-case requests ${requests} exceed the cap ${budget.maxRequests}`);
-  if (cost > BigInt(budget.maxCostMinor)) reasons.push(`worst-case cost ${cost} exceeds the cap ${budget.maxCostMinor} ${budget.currency}`);
+  if (tokens > budget.maxTokens)
+    reasons.push(`worst-case tokens ${tokens} exceed the cap ${budget.maxTokens}`);
+  if (requests > budget.maxRequests)
+    reasons.push(`worst-case requests ${requests} exceed the cap ${budget.maxRequests}`);
+  if (cost > BigInt(budget.maxCostMinor))
+    reasons.push(
+      `worst-case cost ${cost} exceeds the cap ${budget.maxCostMinor} ${budget.currency}`,
+    );
   const worstCase = { tokens, requests, costMinor: cost.toString() };
   return reasons.length === 0 ? { ok: true, worstCase } : { ok: false, reasons, worstCase };
 }
@@ -78,13 +99,22 @@ export class BudgetLedger {
   ) {
     const v = validateBudget(budget);
     if (!v.ok) throw new Error(`invalid benchmark budget: ${v.reasons.join('; ')}`);
-    if (price.currency !== budget.currency) throw new Error('price card and budget use different currencies');
+    if (price.currency !== budget.currency)
+      throw new Error('price card and budget use different currencies');
   }
   /** Reserves the task's ceiling; false (and nothing reserved) when it does not fit what is left or the ledger is stopped. */
   reserve(task: GoldenTask): boolean {
     if (this.stopped || this.reserved) return false;
-    const need = { tokens: task.budget.maxTokens, requests: task.budget.maxTurns, cost: worstCaseTaskMinor(task, this.price) };
-    if (this.tokens + need.tokens > this.budget.maxTokens || this.requests + need.requests > this.budget.maxRequests || this.cost + need.cost > BigInt(this.budget.maxCostMinor)) {
+    const need = {
+      tokens: task.budget.maxTokens,
+      requests: task.budget.maxTurns,
+      cost: worstCaseTaskMinor(task, this.price),
+    };
+    if (
+      this.tokens + need.tokens > this.budget.maxTokens ||
+      this.requests + need.requests > this.budget.maxRequests ||
+      this.cost + need.cost > BigInt(this.budget.maxCostMinor)
+    ) {
       this.stopped = 'the remaining budget cannot cover the next task';
       return false;
     }
@@ -100,8 +130,14 @@ export class BudgetLedger {
     this.tokens += t;
     this.requests += requests;
     this.cost += c;
-    if (r && (t > r.tokens || requests > r.requests || c > r.cost)) this.stopped = 'a task used more than its reserved ceiling';
-    if (this.tokens > this.budget.maxTokens || this.requests > this.budget.maxRequests || this.cost > BigInt(this.budget.maxCostMinor)) this.stopped = 'the budget cap was exceeded';
+    if (r && (t > r.tokens || requests > r.requests || c > r.cost))
+      this.stopped = 'a task used more than its reserved ceiling';
+    if (
+      this.tokens > this.budget.maxTokens ||
+      this.requests > this.budget.maxRequests ||
+      this.cost > BigInt(this.budget.maxCostMinor)
+    )
+      this.stopped = 'the budget cap was exceeded';
   }
   /** Releases a reservation for a call that never went out (nothing spent). */
   release(): void {
@@ -111,6 +147,12 @@ export class BudgetLedger {
     return this.stopped;
   }
   usage() {
-    return { tokens: this.tokens, requests: this.requests, costMinor: this.cost.toString(), currency: this.budget.currency, stopped: this.stopped };
+    return {
+      tokens: this.tokens,
+      requests: this.requests,
+      costMinor: this.cost.toString(),
+      currency: this.budget.currency,
+      stopped: this.stopped,
+    };
   }
 }

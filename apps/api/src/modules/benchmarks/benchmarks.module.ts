@@ -14,8 +14,21 @@ class PgBenchmarkFlags extends BenchmarkFlags {
     super();
   }
   async enabled(): Promise<boolean> {
-    const rows = await this.db.withPlatformScope(async (c) => (await c.query(`SELECT value FROM platform.feature_flags WHERE key = 'ai.benchmarks' AND org_id IS NULL`)).rows);
-    return rows.some((r) => r.value === true || (typeof r.value === 'object' && r.value !== null && (r.value as { enabled?: unknown }).enabled === true));
+    const rows = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT value FROM platform.feature_flags WHERE key = 'ai.benchmarks' AND org_id IS NULL`,
+          )
+        ).rows,
+    );
+    return rows.some(
+      (r) =>
+        r.value === true ||
+        (typeof r.value === 'object' &&
+          r.value !== null &&
+          (r.value as { enabled?: unknown }).enabled === true),
+    );
   }
 }
 
@@ -26,7 +39,12 @@ class PgBenchmarkFlags extends BenchmarkFlags {
   providers: [
     { provide: BenchmarkStore, inject: [DB], useFactory: (db: Db) => new PgBenchmarkStore(db) },
     { provide: BenchmarkFlags, inject: [DB], useFactory: (db: Db) => new PgBenchmarkFlags(db) },
-    { provide: BenchmarksService, inject: [BenchmarkStore, AuditSink, BenchmarkFlags], useFactory: (s: BenchmarkStore, a: AuditSink, f: BenchmarkFlags) => new BenchmarksService(s, a, f) },
+    {
+      provide: BenchmarksService,
+      inject: [BenchmarkStore, AuditSink, BenchmarkFlags],
+      useFactory: (s: BenchmarkStore, a: AuditSink, f: BenchmarkFlags) =>
+        new BenchmarksService(s, a, f),
+    },
   ],
 })
 export class BenchmarksModule {}

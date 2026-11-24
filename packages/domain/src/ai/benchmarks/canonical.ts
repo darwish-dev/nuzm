@@ -11,5 +11,6 @@ export function canonicalJson(value: unknown): string {
     .map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`)
     .join(',')}}`;
 }
-export const sha256Hex = (s: string): string => createHash('sha256').update(s, 'utf8').digest('hex');
+export const sha256Hex = (s: string): string =>
+  createHash('sha256').update(s, 'utf8').digest('hex');
 export const fingerprint = (value: unknown): string => sha256Hex(canonicalJson(value));

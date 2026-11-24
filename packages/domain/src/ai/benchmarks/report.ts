@@ -99,26 +99,37 @@ export function summarize(scores: readonly TaskScore[]): KindSummary {
 const DISCLAIMER: Record<EvidenceLabel, string> = {
   NONE: 'No recording was scored. Nothing was measured.',
   OFFLINE_REFERENCE_ORACLE:
-    'Produced by this repository\'s reference oracle, not by a model. It proves the benchmark machinery and is the baseline; it says nothing about any real model.',
+    "Produced by this repository's reference oracle, not by a model. It proves the benchmark machinery and is the baseline; it says nothing about any real model.",
   OFFLINE_MOCK_REPLAY:
     'Scripted by a mock or test double, not by a model. It exercises the pipeline; it says nothing about any real model.',
   OFFLINE_REPLAY_OF_RECORDED_RUN:
     'An offline replay of a run captured through the gated live runner. It reports what that captured run did; it is not a live measurement, and the capture provenance must be checked.',
-  MIXED_ORIGINS_NOT_COMPARABLE: 'The recordings have different origins; the numbers are not comparable and are not evidence for a rollout.',
+  MIXED_ORIGINS_NOT_COMPARABLE:
+    'The recordings have different origins; the numbers are not comparable and are not evidence for a rollout.',
 };
 export function evidenceLabel(origins: readonly Recording['origin'][]): EvidenceLabel {
   const o = new Set(origins);
   if (o.size === 0) return 'NONE';
   if (o.size > 1) return 'MIXED_ORIGINS_NOT_COMPARABLE';
   const only = [...o][0]!;
-  return only === 'REFERENCE' ? 'OFFLINE_REFERENCE_ORACLE' : only === 'MOCK' ? 'OFFLINE_MOCK_REPLAY' : 'OFFLINE_REPLAY_OF_RECORDED_RUN';
+  return only === 'REFERENCE'
+    ? 'OFFLINE_REFERENCE_ORACLE'
+    : only === 'MOCK'
+      ? 'OFFLINE_MOCK_REPLAY'
+      : 'OFFLINE_REPLAY_OF_RECORDED_RUN';
 }
 
 /** Why a recording may not be scored, or `null` when it may. */
 export function recordingProblem(rec: Recording, datasetVersion: string): string | null {
   if (rec.datasetVersion !== undefined && rec.datasetVersion !== datasetVersion)
     return `recorded against dataset ${rec.datasetVersion}, not ${datasetVersion}`;
-  if (rec.origin === 'RECORDED' && (!rec.capture || !rec.capture.runId || !rec.capture.approvalRef || !rec.capture.providerEvidenceRef))
+  if (
+    rec.origin === 'RECORDED' &&
+    (!rec.capture ||
+      !rec.capture.runId ||
+      !rec.capture.approvalRef ||
+      !rec.capture.providerEvidenceRef)
+  )
     return 'a RECORDED run needs capture provenance (run id, approval reference, provider evidence reference)';
   return null;
 }
@@ -165,7 +176,8 @@ export function runSuite(
     if (of.length > 0) byKind[k] = summarize(of);
   }
   const byCategory: BenchmarkReport['byCategory'] = {};
-  for (const c of [...new Set(scores.map((s) => s.category))].sort()) byCategory[c] = summarize(scores.filter((s) => s.category === c));
+  for (const c of [...new Set(scores.map((s) => s.category))].sort())
+    byCategory[c] = summarize(scores.filter((s) => s.category === c));
   const credits = rate === undefined ? null : creditsFor(tin, tout, rate);
   const passed = scores.filter((s) => s.passed).length;
   const origins = [...new Set(used.map((r) => r.origin))].sort();
@@ -186,8 +198,13 @@ export function runSuite(
       byCategory,
       overall: summarize(scores),
       estimatedCredits: credits === null ? null : credits.toString(),
-      creditsPerPassedTask: credits === null || passed === 0 ? null : ((credits + BigInt(passed) - 1n) / BigInt(passed)).toString(),
-      findingsByRule: Object.fromEntries(Object.entries(findings).sort(([a], [b]) => (a < b ? -1 : 1))),
+      creditsPerPassedTask:
+        credits === null || passed === 0
+          ? null
+          : ((credits + BigInt(passed) - 1n) / BigInt(passed)).toString(),
+      findingsByRule: Object.fromEntries(
+        Object.entries(findings).sort(([a], [b]) => (a < b ? -1 : 1)),
+      ),
       notMeasured: [
         'human acceptance rate (needs named reviewers)',
         'latency of a real provider',
@@ -223,7 +240,11 @@ export function renderReport(r: BenchmarkReport): string {
     ...Object.entries(r.byKind).map(([k, s]) => dimRow(k, s!)),
     dimRow('ALL', r.overall),
     '',
-    `Estimated credits: ${r.estimatedCredits ?? 'n/a (no rate card)'}${r.creditsPerPassedTask ? ` (${r.creditsPerPassedTask} per passed task)` : ''} · Static findings: ${Object.entries(r.findingsByRule).map(([k, v]) => `${k}×${v}`).join(', ') || 'none'}`,
+    `Estimated credits: ${r.estimatedCredits ?? 'n/a (no rate card)'}${r.creditsPerPassedTask ? ` (${r.creditsPerPassedTask} per passed task)` : ''} · Static findings: ${
+      Object.entries(r.findingsByRule)
+        .map(([k, v]) => `${k}×${v}`)
+        .join(', ') || 'none'
+    }`,
     `Not measured offline: ${r.notMeasured.join('; ')}`,
   ].join('\n');
 }
@@ -234,9 +255,28 @@ export const reportFingerprint = (r: BenchmarkReport): string => fingerprint(r);
 
 /** One CSV line per category (and per kind and ALL), for spreadsheets. Values are numbers or empty; no free text, so no quoting is needed. */
 export function renderReportCsv(r: BenchmarkReport): string {
-  const head = 'scope,name,tasks,passRate,validPatchRate,meanQuality,toolCallValidity,modeViolations,budgetKeptRate,meanTokens,p95LatencyMs,meanFunctional,meanCodeQuality,meanSecurity,minSecurity,meanUiQuality,meanEfficiency';
+  const head =
+    'scope,name,tasks,passRate,validPatchRate,meanQuality,toolCallValidity,modeViolations,budgetKeptRate,meanTokens,p95LatencyMs,meanFunctional,meanCodeQuality,meanSecurity,minSecurity,meanUiQuality,meanEfficiency';
   const line = (scope: string, name: string, s: KindSummary) =>
-    [scope, name, s.tasks, s.passRate, s.validPatchRate, s.meanQuality, s.toolCallValidity, s.modeViolations, s.budgetKeptRate, s.meanTokens, s.p95LatencyMs, s.meanFunctional, s.meanCodeQuality ?? '', s.meanSecurity ?? '', s.minSecurity ?? '', s.meanUiQuality ?? '', s.meanEfficiency].join(',');
+    [
+      scope,
+      name,
+      s.tasks,
+      s.passRate,
+      s.validPatchRate,
+      s.meanQuality,
+      s.toolCallValidity,
+      s.modeViolations,
+      s.budgetKeptRate,
+      s.meanTokens,
+      s.p95LatencyMs,
+      s.meanFunctional,
+      s.meanCodeQuality ?? '',
+      s.meanSecurity ?? '',
+      s.minSecurity ?? '',
+      s.meanUiQuality ?? '',
+      s.meanEfficiency,
+    ].join(',');
   return [
     head,
     line('all', 'ALL', r.overall),

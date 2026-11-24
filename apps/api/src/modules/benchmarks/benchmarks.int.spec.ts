@@ -48,25 +48,55 @@ describe('benchmark tables', () => {
     expect(b.row.id).toBe(a.row.id);
     expect((await store.getRun(a.row.id))?.evidenceLabel).toBe('OFFLINE_REFERENCE_ORACLE');
     expect((await store.listRuns(5)).map((x) => x.id)).toContain(a.row.id);
-    const rec = { id: uuidv7(), kind: 'budget' as const, subject: 'live', payload: { ref: 'B' }, requestId: randomUUID(), recordedBy: randomUUID(), recordedAt: new Date().toISOString() };
+    const rec = {
+      id: uuidv7(),
+      kind: 'budget' as const,
+      subject: 'live',
+      payload: { ref: 'B' },
+      requestId: randomUUID(),
+      recordedBy: randomUUID(),
+      recordedAt: new Date().toISOString(),
+    };
     expect((await store.insertRecord(rec)).created).toBe(true);
     expect((await store.insertRecord({ ...rec, id: uuidv7() })).created).toBe(false);
     expect((await store.records('budget', 'live')).length).toBe(1);
   });
   it('the runtime role cannot update or delete (append-only), and an unscoped session sees nothing (RLS)', async () => {
     const r = await store.insertRun(run());
-    await expect(env.app.pool.query(`UPDATE ai.benchmark_runs SET label = 'y' WHERE id = $1`, [r.row.id])).rejects.toThrow(/permission denied/);
-    await expect(env.app.pool.query(`DELETE FROM ai.benchmark_records`)).rejects.toThrow(/permission denied/);
+    await expect(
+      env.app.pool.query(`UPDATE ai.benchmark_runs SET label = 'y' WHERE id = $1`, [r.row.id]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(env.app.pool.query(`DELETE FROM ai.benchmark_records`)).rejects.toThrow(
+      /permission denied/,
+    );
     const unscoped = await env.app.pool.query(`SELECT count(*)::int AS n FROM ai.benchmark_runs`);
     expect(unscoped.rows[0].n).toBe(0);
   });
   it('rejects rows that break the constraints (unknown evidence label, malformed hash, unknown kind)', async () => {
-    await expect(store.insertRun(run({ evidenceLabel: 'REAL_MODEL_PERFORMANCE' }))).rejects.toThrow(/check constraint/);
+    await expect(store.insertRun(run({ evidenceLabel: 'REAL_MODEL_PERFORMANCE' }))).rejects.toThrow(
+      /check constraint/,
+    );
     await expect(store.insertRun(run({ datasetHash: 'zz' }))).rejects.toThrow(/check constraint/);
-    await expect(store.insertRecord({ id: uuidv7(), kind: 'nope' as never, subject: 's', payload: {}, requestId: null, recordedBy: randomUUID(), recordedAt: '' })).rejects.toThrow(/check constraint/);
+    await expect(
+      store.insertRecord({
+        id: uuidv7(),
+        kind: 'nope' as never,
+        subject: 's',
+        payload: {},
+        requestId: null,
+        recordedBy: randomUUID(),
+        recordedAt: '',
+      }),
+    ).rejects.toThrow(/check constraint/);
   });
   it('the service works end to end on the Postgres store (flag on): offline run, gate closed, live attempt refused', async () => {
-    const svc = new BenchmarksService(store, { record: () => undefined }, new (class extends BenchmarkFlags { enabled = () => Promise.resolve(true); })());
+    const svc = new BenchmarksService(
+      store,
+      { record: () => undefined },
+      new (class extends BenchmarkFlags {
+        enabled = () => Promise.resolve(true);
+      })(),
+    );
     const r = await svc.runOffline(randomUUID(), { source: 'mock:ideal', requestId: randomUUID() });
     expect(r.evidence).toBe('OFFLINE_MOCK_REPLAY');
     const g = await svc.evaluateGate(randomUUID(), { runId: r.id });

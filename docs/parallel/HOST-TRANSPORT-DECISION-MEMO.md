@@ -40,3 +40,13 @@ The deploy module can publish a static site to a hosting node only through an `A
 ## What does not change whichever option is chosen
 
 The deploy side (target gate, release lifecycle, approvals, O-1/O-2 switches, O-9 content guard, tracks F and G, the evidence record), the HG-05/HG-06 gates, the rule that a result over a stand-in is SIMULATED, and the rule that HestiaCP is not an isolation boundary for server code.
+
+## Update 2026-11-24 (P3-S07): option B now exists as code, SIMULATED; the decision is still the owner's
+
+What changed: a `FileManagerArtifactTransport` was built in `@nuzm/domain` on **only** the six file-manager operations the hosting module already has (list, download, upload, folder, rename, delete), through a structural port; it passes the shared cases T-01..T-19 over in-memory stand-ins. It duplicates none of the hosting architecture. Details and the verified/unverified matrix: `HOST-TRANSPORT-SPEC.md` section 12.
+
+What it does **not** change:
+- It cannot switch what a site serves: the file manager refuses symlinks and renaming the web root. The switch needs the Hestia docroot command (strategy S1), which is not in the hosting allow-list. **Owner question 2 above is now the blocking one.** Without it the transport stages and verifies releases but refuses `switchCurrent`.
+- One file per call, each with its own SFTP session and audit event: a large release is thousands of calls. Cost on a real node is unmeasured (probe question 8).
+- The recommendation stands: **A** (the hosting line builds the tree write inside its own module) is still better for atomicity and cost; B is the working fallback and the conformance suite is identical, so choosing A later discards the transport but not the tests.
+- Effort for the hosting side to adopt either option remains UNKNOWN (no estimate sourced).

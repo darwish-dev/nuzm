@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/tool-calling/1",
+  "title": "Phase 3 evidence details: tool-calling",
+  "description": "Track B: tool-call round trip with a real model",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "model",
+    "usage",
+    "toolsDeclared",
+    "roundTrips",
+    "supportsToolsFromEvidence",
+    "malformedToolCalls"
+  ],
+  "properties": {
+    "track": {
+      "const": "B"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "tokensIn",
+        "tokensOut"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "toolsDeclared": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "roundTrips": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "supportsToolsFromEvidence": {
+      "type": "boolean"
+    },
+    "malformedToolCalls": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

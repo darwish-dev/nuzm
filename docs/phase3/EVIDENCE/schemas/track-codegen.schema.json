@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/codegen/1",
+  "title": "Phase 3 evidence details: codegen",
+  "description": "Track C: code generation (synthetic brief)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "model",
+    "briefId",
+    "usage",
+    "files",
+    "filesTreeSha256",
+    "syntaxChecked",
+    "secretScan"
+  ],
+  "properties": {
+    "track": {
+      "const": "C"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "briefId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "tokensIn",
+        "tokensOut"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "files": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "filesTreeSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "syntaxChecked": {
+      "type": "boolean"
+    },
+    "secretScan": {
+      "enum": [
+        "clean"
+      ]
+    }
+  }
+}

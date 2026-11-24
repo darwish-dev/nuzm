@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/provider/1",
+  "title": "Phase 3 evidence details: provider",
+  "description": "Track A: provider connection (real endpoint, metered, no key in any output)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "provider",
+    "model",
+    "usage",
+    "usageReconciled",
+    "keyLeakScan"
+  ],
+  "properties": {
+    "track": {
+      "const": "A"
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "tokensIn",
+        "tokensOut"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "latencyMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "capabilityEvidence": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "usageReconciled": {
+      "type": "boolean"
+    },
+    "keyLeakScan": {
+      "enum": [
+        "clean"
+      ]
+    }
+  }
+}

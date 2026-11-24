@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/mobile/1",
+  "title": "Phase 3 evidence details: mobile",
+  "description": "T3 / T4: Flutter app built for Android (APK) or iOS (no signing) in a real isolated build environment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "platform",
+    "projectId",
+    "toolchain",
+    "analyze",
+    "unitTests",
+    "artifact",
+    "install",
+    "signing",
+    "productionKeyUsed"
+  ],
+  "properties": {
+    "track": {
+      "const": "M"
+    },
+    "platform": {
+      "enum": [
+        "android",
+        "ios"
+      ]
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "toolchain": {
+      "type": "object",
+      "minProperties": 2,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "description": "name -> version (flutter, dart, android-sdk, java / xcode, macos)"
+    },
+    "analyze": {
+      "enum": [
+        "clean"
+      ]
+    },
+    "unitTests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "failed"
+      ],
+      "properties": {
+        "passed": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failed": {
+          "const": 0
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "apk-debug",
+            "ios-app-no-codesign",
+            "xcarchive-no-codesign"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "result"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "emulator",
+            "device",
+            "simulator",
+            "apkanalyzer",
+            "xcodebuild"
+          ]
+        },
+        "launched": {
+          "type": "boolean"
+        },
+        "result": {
+          "enum": [
+            "PASS"
+          ]
+        }
+      }
+    },
+    "signing": {
+      "enum": [
+        "debug-test-key",
+        "none"
+      ]
+    },
+    "productionKeyUsed": {
+      "const": false
+    }
+  }
+}

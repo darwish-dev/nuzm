@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/website/1",
+  "title": "Phase 3 evidence details: website",
+  "description": "T1 part 1: real model generates a complete business website (QA gates)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "model",
+    "language",
+    "briefId",
+    "usage",
+    "pages",
+    "qa",
+    "artifactSha256"
+  ],
+  "properties": {
+    "track": {
+      "const": "W"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "language": {
+      "enum": [
+        "ar",
+        "en"
+      ]
+    },
+    "briefId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "tokensIn",
+        "tokensOut"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "pages": {
+      "type": "integer",
+      "minimum": 5
+    },
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axeViolations",
+        "brokenLinks",
+        "cspStrict",
+        "sizeBudgetOk",
+        "rtlVerified"
+      ],
+      "properties": {
+        "axeViolations": {
+          "const": 0
+        },
+        "brokenLinks": {
+          "const": 0
+        },
+        "cspStrict": {
+          "const": true
+        },
+        "sizeBudgetOk": {
+          "const": true
+        },
+        "rtlVerified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "artifactSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

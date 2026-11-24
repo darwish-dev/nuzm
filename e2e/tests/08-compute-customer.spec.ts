@@ -9,9 +9,9 @@
  *  1. flag OFF: no Compute navigation entry; offers/instances answer with the "not available" state (never a crash).
  *  2. flag ON, no catalog needed: offers filter form, the AC-M05-03 empty state (country=SA with no verified Saudi region),
  *     empty instance list, wizard with no offers, unknown instance ids, spend approvals screen, forbidden view.
- *  3. flag ON + mock catalog (M05_E2E_MOCK_CATALOG=1, i.e. the stack was started with the S17 mock-compute catalog seeded with at
- *     least one verified in-Kingdom offer and a SAR price book): offer -> quote -> create -> instance -> stop -> delete, the
- *     provisioning spend approval, quote-expired and residency-denied states. Skipped otherwise.
+ *  3. flag ON + synthetic mock catalog (seeded BY THE TEST: fixtures/qa-compute-catalog.ts, Session 07; formerly skipped unless
+ *     M05_E2E_MOCK_CATALOG was set): offer -> quote -> create -> instance -> stop -> delete. The provisioning spend approval,
+ *     quote-expired and residency-denied states are covered by the S17 integration tests (compute-flow.int.spec.ts), not here.
  * The flag is switched through `platform.feature_flags` (global row, org_id NULL), as the S17 integration tests do; if the API
  * caches flags, allow its TTL to pass (the helper retries navigation).
  */
@@ -20,6 +20,7 @@ import { Client } from 'pg';
 import { T, audit, loc, signIn, expectActiveOrg } from './helpers';
 import { DB_URL as DB } from './env';
 import { resetDatabase } from './reset';
+import { seedMockComputeCatalog } from './fixtures/qa-compute-catalog';
 
 test.beforeAll(resetDatabase);
 
@@ -186,14 +187,15 @@ test('compute: offers, empty states, wizard guard, approvals and forbidden views
 test('compute: offer -> quote -> create -> instance actions -> delete on the mock catalog', async ({
   page,
 }, info) => {
-  test.skip(
-    !process.env.M05_E2E_MOCK_CATALOG,
-    'needs the S17 mock-compute catalog (a verified in-Kingdom offer, SAR prices, an allowed processor); see the header comment',
-  );
+  // Session 07: no longer skipped behind M05_E2E_MOCK_CATALOG. The test seeds the approved synthetic catalog itself (fixtures/qa-compute-catalog.ts: the simulator account, a
+  // verified in-Kingdom region with `mock` evidence, a SAR price book, the allowed processor, an allowance and a residency policy for THIS organization; the vendor slots
+  // that have no adapter in a dev stack are withdrawn so the first offer is the simulator's). A failed seed FAILS the test; it is never a silent skip.
   const L = loc(info);
   const go = (p: string) => page.goto(`/${L}${p}`);
   await setFlag(true);
-  await ownerOrg(page, info);
+  const orgId = await ownerOrg(page, info);
+  const catalog = await seedMockComputeCatalog(orgId);
+  expect(catalog.simulatorRegions).toBeGreaterThan(0);
 
   // UI-M05-01: a verified offer with a price in SAR
   await go('/compute/offers?geoGroup=in_kingdom');

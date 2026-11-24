@@ -77,12 +77,19 @@ describe('QA: isBlockedAddress (customer URL fetcher) - resolved addresses', () 
   it.each(PUBLIC)('allows the public address %s', (a) => {
     expect(isBlockedAddress(a)).toBe(false);
   });
-  it.each(['', ' ', 'localhost', 'example.com', '1.2.3', '1.2.3.4.5', '999.1.1.1', '0x7f.0.0.1', 'abc'])(
-    'refuses a non-literal or malformed address %j (fail closed)',
-    (a) => {
-      expect(isBlockedAddress(a)).toBe(true);
-    },
-  );
+  it.each([
+    '',
+    ' ',
+    'localhost',
+    'example.com',
+    '1.2.3',
+    '1.2.3.4.5',
+    '999.1.1.1',
+    '0x7f.0.0.1',
+    'abc',
+  ])('refuses a non-literal or malformed address %j (fail closed)', (a) => {
+    expect(isBlockedAddress(a)).toBe(true);
+  });
 });
 
 describe('QA: EgressPolicy classifyIpLiteral (sandbox) - resolved addresses', () => {
@@ -135,11 +142,14 @@ describe('QA: IPv4 embedded in an IPv6 address', () => {
       if (c.literal) expect(c.blocked !== null || c.metadata).toBe(true);
     },
   );
-  it.each(V6_EMBEDDED_V4.filter(([a]) => !SANDBOX_GAPS.has(a)))('sandbox policy blocks %s (%s)', (a) => {
-    const c = classifyIpLiteral(a);
-    expect(c.literal).toBe(true);
-    if (c.literal) expect(c.blocked !== null || c.metadata).toBe(true);
-  });
+  it.each(V6_EMBEDDED_V4.filter(([a]) => !SANDBOX_GAPS.has(a)))(
+    'sandbox policy blocks %s (%s)',
+    (a) => {
+      const c = classifyIpLiteral(a);
+      expect(c.literal).toBe(true);
+      if (c.literal) expect(c.blocked !== null || c.metadata).toBe(true);
+    },
+  );
   it.fails.each(V6_EMBEDDED_V4.filter(([a]) => !a.startsWith('100::')))(
     'DEFECT-2: customer URL fetcher blocks %s (%s)',
     (a) => {
@@ -212,20 +222,50 @@ describe('QA: EgressPolicy.decide - URL level attacks (resolver injected)', () =
   });
 
   it('refuses an allow-listed name that resolves (or rebinds) to a private, loopback or metadata address', async () => {
-    for (const bad of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '::1', '::ffff:7f00:1', 'fd00:ec2::254', '192.168.0.5']) {
-      const d = await policy({ 'npm-mirror.nuzm.internal': [bad] }).decide('https://npm-mirror.nuzm.internal/');
+    for (const bad of [
+      '127.0.0.1',
+      '10.1.2.3',
+      '169.254.169.254',
+      '::1',
+      '::ffff:7f00:1',
+      'fd00:ec2::254',
+      '192.168.0.5',
+    ]) {
+      const d = await policy({ 'npm-mirror.nuzm.internal': [bad] }).decide(
+        'https://npm-mirror.nuzm.internal/',
+      );
       expect(d.allow, bad).toBe(false);
       expect(['resolved_private', 'metadata_endpoint']).toContain(d.control);
     }
   });
   it('one bad answer among several refuses the whole name (no "pick the good one")', async () => {
-    const d = await policy({ 'npm-mirror.nuzm.internal': [pub, '127.0.0.1'] }).decide('https://npm-mirror.nuzm.internal/');
+    const d = await policy({ 'npm-mirror.nuzm.internal': [pub, '127.0.0.1'] }).decide(
+      'https://npm-mirror.nuzm.internal/',
+    );
     expect(d.allow).toBe(false);
   });
   it('a resolver failure or an empty answer is a refusal', async () => {
-    expect((await new EgressPolicy(DEFAULT_ALLOW, async () => { throw new Error('x'); }).decide('https://npm-mirror.nuzm.internal/')).control).toBe('resolution_failed');
-    expect((await new EgressPolicy(DEFAULT_ALLOW, async () => []).decide('https://npm-mirror.nuzm.internal/')).control).toBe('resolution_failed');
-    expect((await new EgressPolicy(DEFAULT_ALLOW, async () => ['not-an-ip']).decide('https://npm-mirror.nuzm.internal/')).allow).toBe(false);
+    expect(
+      (
+        await new EgressPolicy(DEFAULT_ALLOW, async () => {
+          throw new Error('x');
+        }).decide('https://npm-mirror.nuzm.internal/')
+      ).control,
+    ).toBe('resolution_failed');
+    expect(
+      (
+        await new EgressPolicy(DEFAULT_ALLOW, async () => []).decide(
+          'https://npm-mirror.nuzm.internal/',
+        )
+      ).control,
+    ).toBe('resolution_failed');
+    expect(
+      (
+        await new EgressPolicy(DEFAULT_ALLOW, async () => ['not-an-ip']).decide(
+          'https://npm-mirror.nuzm.internal/',
+        )
+      ).allow,
+    ).toBe(false);
   });
 
   it('an approval is bound to the exact host and port and expires', async () => {
@@ -263,7 +303,10 @@ describe('QA: EgressPolicy.decide - URL level attacks (resolver injected)', () =
     expect(ok.allow).toBe(true);
   });
   it('caps a redirect chain at five hops', async () => {
-    const d = await policy().decideRedirectChain('https://npm-mirror.nuzm.internal/a', Array(7).fill('/x'));
+    const d = await policy().decideRedirectChain(
+      'https://npm-mirror.nuzm.internal/a',
+      Array(7).fill('/x'),
+    );
     expect(d.allow).toBe(false);
     expect(d.control).toBe('redirect_denied');
   });
@@ -342,7 +385,9 @@ describe('QA: safeFetch (customer URL fetcher) - policy', () => {
     expect(requests).toHaveLength(0);
   });
   it('refuses a name with ANY non-public answer (DNS rebinding resistant)', async () => {
-    const { deps, requests } = make({ 'mixed.example': ['93.184.216.34', '10.0.0.5'] }, [{ status: 200 }]);
+    const { deps, requests } = make({ 'mixed.example': ['93.184.216.34', '10.0.0.5'] }, [
+      { status: 200 },
+    ]);
     expect(await code(safeFetch('https://mixed.example/', deps))).toBe('blocked_address');
     expect(requests).toHaveLength(0);
   });
@@ -362,9 +407,17 @@ describe('QA: safeFetch (customer URL fetcher) - policy', () => {
     expect(await code(safeFetch('https://public.example/', deps))).toBe('blocked_address');
   });
   it('caps redirects, rejects a redirect without Location and a non-2xx status', async () => {
-    expect(await code(safeFetch('https://public.example/', make(PUB, [{ status: 302, location: '/x' }]).deps))).toBe('too_many_redirects');
-    expect(await code(safeFetch('https://public.example/', make(PUB, [{ status: 302 }]).deps))).toBe('bad_status');
-    expect(await code(safeFetch('https://public.example/', make(PUB, [{ status: 500 }]).deps))).toBe('bad_status');
+    expect(
+      await code(
+        safeFetch('https://public.example/', make(PUB, [{ status: 302, location: '/x' }]).deps),
+      ),
+    ).toBe('too_many_redirects');
+    expect(
+      await code(safeFetch('https://public.example/', make(PUB, [{ status: 302 }]).deps)),
+    ).toBe('bad_status');
+    expect(
+      await code(safeFetch('https://public.example/', make(PUB, [{ status: 500 }]).deps)),
+    ).toBe('bad_status');
   });
   it('caps the body size', async () => {
     const deps: SafeFetchDeps = {
@@ -381,10 +434,18 @@ describe('QA: safeFetch (customer URL fetcher) - policy', () => {
     const deps: SafeFetchDeps = {
       resolve: async () => ['93.184.216.34'],
       request: (_u, _to, signal) =>
-        new Promise((_res, rej) => signal.addEventListener('abort', () => rej(new Error('aborted')))),
+        new Promise((_res, rej) =>
+          signal.addEventListener('abort', () => rej(new Error('aborted'))),
+        ),
     };
     expect(
-      await code(safeFetch('https://public.example/', deps, { maxBytes: 10, timeoutMs: 20, maxRedirects: 3 })),
+      await code(
+        safeFetch('https://public.example/', deps, {
+          maxBytes: 10,
+          timeoutMs: 20,
+          maxRedirects: 3,
+        }),
+      ),
     ).toBe('timeout');
   });
 });

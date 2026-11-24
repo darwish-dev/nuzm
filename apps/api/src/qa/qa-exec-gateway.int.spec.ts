@@ -71,19 +71,17 @@ describe('Execution Gateway policy: the model-supplied surface is closed', () =>
     }
   });
 
-  it.each([
-    '__proto__',
-    'a b',
-    'x'.repeat(30),
-    '$(id)',
-    'ünï',
-    '',
-  ])('the refusal reason never echoes an attacker-chosen key name (%j)', (k) => {
-    const body = JSON.parse(`{"orgId":"${ORG}","runId":"${RUN}","profile":"typecheck",${JSON.stringify(k)}:1}`);
-    const d = gw.decideExec(body, ctx());
-    expect(d.allowed).toBe(false);
-    if (!d.allowed) for (const r of d.reasons) expect(r).toMatch(/^[a-z_A-Z0-9]+$/);
-  });
+  it.each(['__proto__', 'a b', 'x'.repeat(30), '$(id)', 'ünï', ''])(
+    'the refusal reason never echoes an attacker-chosen key name (%j)',
+    (k) => {
+      const body = JSON.parse(
+        `{"orgId":"${ORG}","runId":"${RUN}","profile":"typecheck",${JSON.stringify(k)}:1}`,
+      );
+      const d = gw.decideExec(body, ctx());
+      expect(d.allowed).toBe(false);
+      if (!d.allowed) for (const r of d.reasons) expect(r).toMatch(/^[a-z_A-Z0-9]+$/);
+    },
+  );
 });
 
 describe('Execution Gateway policy: run-script is a closed, allow-listed alias, never a shell', () => {
@@ -140,7 +138,13 @@ describe('Execution Gateway policy: run-script is a closed, allow-listed alias, 
     if (d.allowed) {
       expect(d.env).toEqual(gw.EXEC_ENV);
       expect(d.env).not.toBe(gw.EXEC_ENV);
-      expect(Object.keys(d.env).sort()).toEqual(['CI', 'HOME', 'NODE_ENV', 'NO_UPDATE_NOTIFIER', 'PATH']);
+      expect(Object.keys(d.env).sort()).toEqual([
+        'CI',
+        'HOME',
+        'NODE_ENV',
+        'NO_UPDATE_NOTIFIER',
+        'PATH',
+      ]);
     }
   });
 
@@ -181,7 +185,9 @@ describe('Execution Gateway policy: working directory is a project-relative path
     { toString: () => '/' },
     123,
   ])('refuses dir %j', (dir) => {
-    expect(refused(gw.decideExec(req({ params: { dir } }), ctx()))).toContain('dir_outside_project');
+    expect(refused(gw.decideExec(req({ params: { dir } }), ctx()))).toContain(
+      'dir_outside_project',
+    );
   });
   it('accepts a plain relative directory and the project root', () => {
     for (const [dir, cwd] of [

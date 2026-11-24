@@ -93,6 +93,13 @@ export interface ProviderPricing {
   outputPerMillion: string;
 }
 
+/** What a provider's model-listing endpoint reports: an id and display metadata, nothing the platform may trust for limits, prices or capabilities. */
+export interface DiscoveredModel {
+  modelId: string;
+  displayName?: string;
+  createdAt?: string;
+}
+
 export interface CallContext {
   /** stable id of this call: usage/metering dedupe on it */
   callId: string;
@@ -155,6 +162,8 @@ export class ModelAdapterError extends Error {
     readonly retryable: boolean = code === 'timeout' ||
       code === 'rate_limited' ||
       code === 'unavailable',
+    /** the provider's own wait hint (Retry-After) in ms, when it sent one; the gateway's retry policy decides whether to honour it */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'ModelAdapterError';
@@ -170,6 +179,11 @@ export interface ModelAdapter {
   readonly dataTerms: DataTerms;
   readonly pricing: ProviderPricing;
   models(): ModelInfo[];
+  /**
+   * OPTIONAL (S-AG4): ask the provider which models the key can see. A live, read-only, key-validating request that needs the same gates as a call; it sends no prompt.
+   * The result is reconciled against `models()` (see `reconcileDiscovery`): a model the adapter does not declare is reported, never offered.
+   */
+  discoverModels?(ctx: CallContext): Promise<DiscoveredModel[]>;
   complete(ctx: CallContext, req: CompleteRequest): Promise<CompleteResponse>;
   stream(ctx: CallContext, req: CompleteRequest): AsyncIterable<StreamChunk>;
   embed?(

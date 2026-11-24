@@ -467,7 +467,7 @@ export class RunService {
         await c.query(`UPDATE ai.approvals SET state='expired' WHERE id=$1`, [a.id]);
         return { expired: true as const, a };
       }
-      // the stored action hash must still match the stored summary payload (defence against a tampered row)
+      // the database trigger `ai.approval_guard` freezes kind, action_hash and run_id of the row; the run must still be waiting for this decision
       const state = (await c.query(`SELECT state FROM ai.runs WHERE id=$1`, [runId])).rows[0]!
         .state as string;
       if (state !== 'waiting_approval')

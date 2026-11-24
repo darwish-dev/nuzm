@@ -1,0 +1,44 @@
+# S-AG4 — provider resilience, registry, rate cards and reporting (offline-verified)
+
+Date: 2026-11-24 · Session 02 (parallel AI engine effort) · Status: **implemented and tested offline with mock providers and stubbed transports. Nothing here was exercised against a real provider; no live gate was opened; no credential, agreement or rate was used or invented.** Every behaviour below is `VERIFIED OFFLINE`, never `LIVE-VERIFIED`.
+
+## 1. What the gateway does now when a provider misbehaves
+`GatewayService.invoke` (apps/api `ai` module) keeps its order: kill switch → secret scan → candidates → residency → data terms → ranking → **fallback policy** → per candidate: **circuit check → reservation → attempts → settle**.
+
+| Mechanism | Rule | Code | Config (env, defaults) | Evidence |
+|---|---|---|---|---|
+| Retry with backoff | Only errors the adapter marks retryable (`timeout`, `rate_limited`, `unavailable`) are retried, on the **same reservation**; exponential delay from the base, capped, full jitter. A provider's `Retry-After` is honoured up to the cap; a longer hint means "do not wait: fail over". A caller cancelling during the wait sends nothing more, releases the reservation, answers 409 `conflict` | `retryDelayMs`, `abortableSleep`, `parseRetryAfterMs` (`resilience.ts`); the Claude adapter attaches the hint to 429/5xx | `AI_ATTEMPTS_PER_CANDIDATE`=2, `AI_RETRY_BASE_MS`=200, `AI_RETRY_MAX_MS`=5000 | `resilience.spec.ts`, `anthropic.spec.ts`, `resilience.int.spec.ts` (backoff block) |
+| Circuit breaker | **Per provider** (an outage hits all its models). N consecutive health failures (`timeout`, `unavailable`, `rate_limited`) open it; open = the provider is skipped **before any reservation**; after the wait, ONE trial call (half-open): success closes, failure re-opens for a full wait and ends retries on that candidate. Content-filtered, bad requests, cancels never count | `CircuitBreaker` | `AI_BREAKER_THRESHOLD`=5, `AI_BREAKER_OPEN_MS`=30000 | `resilience.spec.ts`, `resilience.int.spec.ts` (6 tests incl. "all circuits open → 503 paused, nothing called") |
+| Health monitor | Rolling 5-minute window per provider and per provider/model: success rate (per mille, integers), p50/p95 latency of successes, last error, breaker state → `unknown|healthy|degraded|unhealthy` | `HealthMonitor`, `GatewayService.providerHealth()`, `ProviderInsightsService.health()` | window/limits fixed in `DEFAULT_HEALTH_CONFIG` | unit + `resilience.int.spec.ts`, `provider-insights.int.spec.ts` |
+| Approved fallback | `AI_FALLBACK_POLICY` = `{"mode":"approved_only","approved":{"claude/claude-opus-5-5":["other/model"]}}`. Default (absent/malformed) = every **allowed** candidate may stand in (the original behaviour). The policy can only **remove** candidates from the already allowed list: residency, data terms and budget are decided before it and cannot be crossed | `applyFallbackPolicy`, `parseFallbackPolicy` | `AI_FALLBACK_POLICY` | `fallback.spec.ts`, `ai-config.spec.ts`, `resilience.int.spec.ts` (4 tests incl. residency still wins) |
+
+**Limit (recorded, not hidden):** breaker and health state live in the memory of the API process. A restart starts every circuit closed; several API instances each learn on their own. A shared store (Redis is not installed here) is an operations decision (see §6). `GET …/health` says `scope: "process"`.
+
+## 2. Capability registry and model discovery
+- `resolveCapabilities` / `explainCapabilities` (`registry.ts`) are the **single** place that decides which capabilities of a model the router may rely on (contract version negotiation + D8 evidence rule: unknown = unsupported; dev references `mock-*`/`local-*` exempt). `GatewayService.offers` now calls it; an equivalence test pins it to the previous behaviour.
+- `ProviderInsightsService.capabilityRegistry()` lists every model of every configured provider with `effective`, `pending` and a per-capability `basis` (`no_evidence`, `evidence_verified`, `contract_too_old`, …).
+- `discoverModels` (optional adapter method; Claude implements it with `GET /v1/models`, behind the same live gate and key rules as a call): the vendor's list is reconciled with the adapter's declared models. A model the adapter does not declare is **reported, never offered** (no verified limits, price or capabilities). A model declared but no longer listed is flagged `unlistedByVendor`, never removed automatically. `ProviderInsightsService.discoverModels` refuses unless the provider is in `AI_LIVE_PROVIDERS`, never in production, and audits `ai.provider.models_discovered`. The result is not capability evidence.
+
+## 3. Context management and token accounting
+- `fitContext` (`context.ts`): fits a conversation into a model window before the call — system head, the first user turn (the task) and the last turn are pinned; middle turns are dropped oldest first in **atomic units** (a tool call and its results go together, so the provider never sees an unanswered call or an orphan result); optional clipping of very long tool results; a pinned part that alone does not fit is reported (`fits: false`, reason), never cut. `promptBudget` = window − requested output − safety.
+- Token accounting (existing, re-verified): provider-reported usage is authoritative; otherwise a flagged **estimate** (`estimated=true`) with the Claude tokenizer margin for pre-flight reservations; one usage row per call id; streaming charged once. **Not modelled** (gap G11, `CONTRACT-3`): cache-creation/cache-read and reasoning tokens — the adapter never requests caching, so they are zero today.
+- **Not wired yet:** `fitContext` is available to callers (the agent loop is Session 05's); the gateway still refuses a prompt that does not fit rather than trimming it on its own, because silently dropping conversation turns is a product decision for the caller.
+
+## 4. Rate cards, currency and credits
+- `ratecard.ts`: integer-only (BigInt) decimal parsing, ISO minor-unit exponents (unknown currency refused), `FxRateSource` interface (a real source must throw `FxUnavailableError` rather than guess; the only implementation is the static table used in tests/finance-approved fixed rates; inverse pairs are never derived silently), `convertMinor` with explicit rounding, `deriveRateCard` (vendor price → FX → margin → credits per million, rounding **up** at every step) producing a **preview**, versioned cards with effective dates (`selectRateCardVersion`, `validateRateCardHistory`, `diffRateCards`).
+- Persistence: migration **1900** `ai.model_rate_card_versions` (append-only, platform-scoped). `configure` appends a row when the card's **content** changed (same content under a new label appends nothing); `ModelProviderService.rateCardHistory(id)` returns the history newest first with the diff to the previous version. The provider row stays the source the gateway prices from (unchanged); `configure` still disables the provider so a new card must be re-approved.
+- All numbers in tests are synthetic. The real vendor price, FX source, margin, VAT/currency treatment are **D6 (OWNER-BLOCKED)**.
+- Not built: scheduled (future-dated) activation of a card — would need the gateway to select by time and an approval flow; recorded as an option for the owner.
+
+## 5. Usage reporting and budgets
+`ProviderInsightsService.usageReport` aggregates the append-only `ai.model_usage` rows by provider / model / UTC day (calls, ok/error/estimated counts, token and credit totals as integer strings, provider cost in minor units — withheld when a group mixes currencies —, p50/p95 latency), filterable by provider and organization, ≤ 366 days, ≤ 1000 rows. Budget enforcement and credit drawdown are unchanged (reserve → settle/release; per-run, project, org-day and balance levels).
+
+## 6. What still needs a human, a contract change, or another session
+| Item | Class | Where |
+|---|---|---|
+| HTTP routes + admin UI for health / registry / usage / rate-card history / discovery | DEPENDENT (spec + SDK by the Master) | `docs/parallel/sessions/CONTRACT-1-provider-insights-api.md` |
+| Ownership manifest rows for migration 1900 | DEPENDENT (Master) | `CONTRACT-2-migration-1900-manifest.md` (patch already in its own commit) |
+| Cache/reasoning token classes | OWNER-BLOCKED (D6 extension) | `CONTRACT-3-…proposal.md` |
+| Breaker/retry defaults, which fallback pairs to approve, shared health store for several instances, FX source | OWNER/OPS decisions (engineering defaults are in place; tune when real providers exist) | report §10 |
+| Live probe, live connection test, live discovery, real key, agreement, rate card | OWNER-BLOCKED (D2, D3, D4, D5, D6, D9) / EXTERNAL-BLOCKED | `S-AG4-DECISIONS.md` |
+| OpenAI / Gemini adapters | OWNER-BLOCKED (D11): contracts only | `docs/adapters/openai.md`, `gemini.md`, `provider-drafts.ts` |

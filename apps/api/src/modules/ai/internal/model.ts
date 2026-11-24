@@ -1,3 +1,4 @@
+import { parseFallbackPolicy, type FallbackPolicy } from '@nuzm/adapter-model';
 import type {
   ContentBlock,
   StreamChunk,
@@ -22,6 +23,14 @@ export interface AiConfig {
   callTimeoutMs: number;
   /** attempts per candidate for a retryable provider error (budget-aware: the same reservation) */
   attemptsPerCandidate: number;
+  /** backoff between attempts on one candidate: exponential from the base, capped, with full jitter (a provider's Retry-After is honoured up to the cap) */
+  retryBaseDelayMs: number;
+  retryMaxDelayMs: number;
+  /** circuit breaker per provider/model: consecutive health failures (timeout, unavailable, rate limited) that open it, and how long it stays open before one trial call */
+  breakerFailureThreshold: number;
+  breakerOpenMs: number;
+  /** which allowed candidates may stand in for another (null = every allowed candidate: the original behaviour). `AI_FALLBACK_POLICY` as JSON; malformed = null. */
+  fallbackPolicy: FallbackPolicy | null;
   /** DEV ONLY: registers the in-memory mock model provider */
   localReference: boolean;
   /** platform secret canaries that must never reach a prompt (tests plant them; production lists real fingerprints' plaintext is NOT used) */
@@ -64,6 +73,11 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     reservationTtlSeconds: n('AI_RESERVATION_TTL_SECONDS', 300, 1),
     callTimeoutMs: n('AI_CALL_TIMEOUT_MS', 60_000, 1),
     attemptsPerCandidate: Math.max(1, Math.floor(n('AI_ATTEMPTS_PER_CANDIDATE', 2, 1))),
+    retryBaseDelayMs: Math.floor(n('AI_RETRY_BASE_MS', 200, 0)),
+    retryMaxDelayMs: Math.floor(n('AI_RETRY_MAX_MS', 5_000, 0)),
+    breakerFailureThreshold: Math.max(1, Math.floor(n('AI_BREAKER_THRESHOLD', 5, 1))),
+    breakerOpenMs: Math.floor(n('AI_BREAKER_OPEN_MS', 30_000, 0)),
+    fallbackPolicy: parseFallbackEnv(env.AI_FALLBACK_POLICY),
     localReference: env.AI_LOCAL_REFERENCE === 'true' && env.NODE_ENV !== 'production',
     canaries: (env.AI_SECRET_CANARIES ?? '')
       .split(',')
@@ -135,6 +149,16 @@ export interface GatewayResult {
   region: string;
   callId: string;
   duplicate: boolean;
+}
+
+/** `AI_FALLBACK_POLICY`: JSON `{mode, approved}`; absent or malformed yields null (every allowed candidate is a fallback, as before). */
+function parseFallbackEnv(raw: string | undefined): FallbackPolicy | null {
+  if (!raw) return null;
+  try {
+    return parseFallbackPolicy(JSON.parse(raw));
+  } catch {
+    return null;
+  }
 }
 
 /** `AI_PROBE_APPROVALS`: a malformed value, a production process or an entry that is not fully specified yields no approval (fail closed). */

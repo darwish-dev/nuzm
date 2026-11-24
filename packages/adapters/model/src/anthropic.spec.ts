@@ -168,6 +168,35 @@ describe('Claude adapter: request and response shape (stubbed fetch, no real cal
       expect(sent).toHaveLength(1); // the gateway decides about retries, not the adapter
     },
   );
+  it("carries the provider's Retry-After hint on a 429 and a 529 (offline, stubbed): a hint, never a decision", async () => {
+    stub(
+      () =>
+        new Response(JSON.stringify({ type: 'error', error: { type: 'x', message: 'm' } }), {
+          status: 429,
+          headers: { 'content-type': 'application/json', 'retry-after': '2' },
+        }),
+    );
+    await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({
+      code: 'rate_limited',
+      retryAfterMs: 2000,
+    });
+    stub(
+      () =>
+        new Response(JSON.stringify({ type: 'error', error: { type: 'x', message: 'm' } }), {
+          status: 529,
+          headers: { 'content-type': 'application/json', 'retry-after-ms': '750' },
+        }),
+    );
+    await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({
+      code: 'unavailable',
+      retryAfterMs: 750,
+    });
+    stub(() => reply(429, { type: 'error', error: { type: 'x', message: 'm' } }));
+    const e = (await real()
+      .complete({ callId: 'c' }, req)
+      .catch((x: unknown) => x)) as ModelAdapterError;
+    expect(e.retryAfterMs).toBeUndefined();
+  });
   it('a network failure is "unavailable"; an aborted signal is "aborted" and sends nothing', async () => {
     stub(() => Promise.reject(new TypeError('fetch failed')));
     await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({

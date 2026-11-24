@@ -44,6 +44,20 @@ const requestIdOf = (b: Record<string, unknown>): string => {
 const PROFILES = new Set<string>(bm.MOCK_PROFILES);
 const RATE: bm.RateCard = { creditsPerMillionInput: '3', creditsPerMillionOutput: '15' };
 
+/** The approved budget as stored: the owner's caps plus (optionally) the price card the caps were sized with, and where that price comes from. */
+type StoredBudget = bm.BenchmarkBudget & { price?: bm.PriceCard & { source: string } };
+const REFERENCE_PRICE = bm.REFERENCE_RATE_INPUTS.find((r) => r.model === 'Claude Opus 5.5')!;
+const planView = (p: bm.StagePlan) => {
+  const { taskIds: _ids, ...rest } = p;
+  return rest;
+};
+const stageOf = (v: unknown): bm.StageId => {
+  if (v === undefined) return 'A';
+  if (typeof v !== 'string' || !(bm.STAGE_IDS as readonly string[]).includes(v))
+    return invalid('stage must be one of A, B, C, D, E');
+  return v as bm.StageId;
+};
+
 export interface RunSummary {
   id: string;
   label: string;
@@ -145,7 +159,7 @@ export class BenchmarksService {
       'threshold_acceptance',
       'thresholds',
     );
-    const budget = await this.latest<bm.BenchmarkBudget>('budget', 'live');
+    const budget = await this.latest<StoredBudget>('budget', 'live');
     const security = await this.latest<bm.SecurityReviewRecord>('security_review', 'agent');
     const reviewers = await this.latest<bm.Reviewer[]>('reviewers', 'roster');
     const runs = await this.store.listRuns(20);
@@ -179,7 +193,43 @@ export class BenchmarksService {
         available: false as const,
         reason:
           'no capture source is wired in this build; the live runner is prepared and gated, never run',
+        stages: this.stagesView(budget?.payload.price),
       },
+    };
+  }
+  /** The five-stage qualification plan with estimated and maximum cost. The rate is the approved budget's price card, else the vendor LIST price as a labelled reference. */
+  private stagesView(approved: StoredBudget['price'] | undefined) {
+    const price: bm.PriceCard = approved ?? REFERENCE_PRICE.price;
+    const rateBasis = approved
+      ? { model: null, source: approved.source, status: 'APPROVED_WITH_BUDGET' as const }
+      : {
+          model: REFERENCE_PRICE.model,
+          source: REFERENCE_PRICE.source,
+          status: REFERENCE_PRICE.status,
+        };
+    const plan = (id: bm.StageId) =>
+      planView(bm.planStage(id, bm.GOLDEN_TASKS, id === 'D' ? [price, price] : [price]));
+    return {
+      rateBasis,
+      prices: {
+        currency: price.currency,
+        input: price.minorPerMillionInput,
+        output: price.minorPerMillionOutput,
+      },
+      assumptions: bm.DEFAULT_COST_ASSUMPTIONS,
+      plans: bm.STAGE_IDS.map(plan),
+      definitions: bm.STAGES.map((d) => ({
+        id: d.id,
+        title: d.title,
+        purpose: d.purpose,
+        selectionRule: d.selectionRule,
+        prerequisites: d.prerequisites,
+        exitCriteria: d.exitCriteria,
+      })),
+      monthly: (() => {
+        const m = bm.planContinuousMonth(bm.GOLDEN_TASKS, price);
+        return { cadence: m.cadence, ...m.monthly };
+      })(),
     };
   }
   async getRun(id: string) {
@@ -192,6 +242,10 @@ export class BenchmarksService {
       datasetHash: r.datasetHash,
       report: r.report,
       markdown: bm.renderReport(r.report as bm.BenchmarkReport),
+      scorecard: bm.buildScorecard(
+        r.report as bm.BenchmarkReport,
+        bm.evaluateThresholds(r.report as bm.BenchmarkReport),
+      ),
     };
   }
 
@@ -290,7 +344,7 @@ export class BenchmarksService {
   async setBudget(who: string, b: Record<string, unknown>) {
     await this.requireEnabled();
     const requestId = requestIdOf(b);
-    const budget: bm.BenchmarkBudget = {
+    const budget: StoredBudget = {
       ref: str(b.ref, 'ref'),
       approvedBy: who,
       currency: str(b.currency, 'currency', 3),
@@ -300,6 +354,18 @@ export class BenchmarksService {
     };
     const v = bm.validateBudget(budget);
     if (!v.ok) invalid(v.reasons.join('; '));
+    if (b.price !== undefined) {
+      const p = b.price as Record<string, unknown> | null;
+      if (!p || typeof p !== 'object') invalid('price must be an object');
+      const card: bm.PriceCard = {
+        currency: budget.currency,
+        minorPerMillionInput: String(p!.minorPerMillionInput ?? ''),
+        minorPerMillionOutput: String(p!.minorPerMillionOutput ?? ''),
+      };
+      const problem = bm.priceCardProblem(card);
+      if (problem) invalid(problem);
+      budget.price = { ...card, source: str(p!.source, 'price.source', 300) };
+    }
     const { created } = await this.put('budget', 'live', budget, who, requestId);
     if (created)
       await this.log(
@@ -312,6 +378,7 @@ export class BenchmarksService {
           maxCostMinor: budget.maxCostMinor,
           maxTokens: budget.maxTokens,
           maxRequests: budget.maxRequests,
+          priceSource: budget.price?.source ?? null,
         },
       );
     return { created, budget };
@@ -570,15 +637,17 @@ export class BenchmarksService {
   async attemptLiveRun(who: string, b: Record<string, unknown>) {
     await this.requireEnabled();
     const requestId = requestIdOf(b);
+    const stage = stageOf(b.stage);
     const env = this.env();
     const acceptance =
       (await this.latest<bm.ThresholdAcceptance>('threshold_acceptance', 'thresholds'))?.payload ??
       null;
-    const budget = (await this.latest<bm.BenchmarkBudget>('budget', 'live'))?.payload ?? null;
+    const budget = (await this.latest<StoredBudget>('budget', 'live'))?.payload ?? null;
     const security =
       (await this.latest<bm.SecurityReviewRecord>('security_review', 'agent'))?.payload ?? null;
     const reviewers = (await this.latest<bm.Reviewer[]>('reviewers', 'roster'))?.payload ?? [];
-    const price: bm.PriceCard = {
+    // the price the caps were sized with must come with the approved budget; without it the card is invalid and the preflight refuses (a zero price would make every cap meaningless)
+    const price: bm.PriceCard = budget?.price ?? {
       currency: budget?.currency ?? 'USD',
       minorPerMillionInput: '0',
       minorPerMillionOutput: '0',
@@ -596,7 +665,8 @@ export class BenchmarksService {
       reviewers,
       securityReview: security,
     };
-    const pf = bm.livePreflight(pre, bm.GOLDEN_TASKS, price);
+    const tasks = bm.selectStageTasks(stage, bm.GOLDEN_TASKS);
+    const pf = bm.livePreflight(pre, tasks, price);
     const refusals = [
       ...pf.refusals,
       {
@@ -604,10 +674,27 @@ export class BenchmarksService {
         detail: 'no capture source is wired in this build; a live benchmark cannot start',
       },
     ];
+    // what holds today, each with the reference that proves it; everything else is reported missing (a stage D plan is shown for two models at this rate)
+    const has = (code: string) => pf.refusals.some((r) => r.code === code);
+    const satisfied: bm.StageState['satisfied'] = {};
+    if (!has('FLAG_OFF')) satisfied.FLAG_ON = 'env:BENCHMARK_LIVE_ENABLED';
+    if (!has('LIVE_GATE_CLOSED')) satisfied.LIVE_GATE_OPEN = 'env:AI_LIVE_PROVIDERS';
+    if (!has('ENVIRONMENT_NOT_ALLOWED')) satisfied.ENVIRONMENT_NON_PRODUCTION = env.environmentName;
+    if (!has('THRESHOLDS_NOT_ACCEPTED')) satisfied.THRESHOLDS_ACCEPTED = acceptance?.acceptedBy;
+    if (!has('BUDGET_NOT_APPROVED') && !has('BUDGET_TOO_SMALL') && budget)
+      satisfied.BUDGET_APPROVED_FOR_STAGE = budget.ref;
+    if (!has('REVIEWERS_NOT_NAMED')) satisfied.REVIEWERS_NAMED = 'roster';
+    if (!has('SECURITY_REVIEW_MISSING')) satisfied.SECURITY_REVIEW_PASSED = security?.ref;
+    if (budget?.price && !has('PRICE_CARD_INVALID'))
+      satisfied.RATES_CONFIRMED = budget.price.source;
+    const entry = bm.evaluateStageEntry(stage, { satisfied });
+    const plan = planView(
+      bm.planStage(stage, bm.GOLDEN_TASKS, stage === 'D' ? [price, price] : [price]),
+    );
     await this.put(
       'live_attempt',
       'live',
-      { refusals, at: this.now().toISOString() },
+      { stage, refusals, at: this.now().toISOString() },
       who,
       requestId,
     );
@@ -615,9 +702,9 @@ export class BenchmarksService {
       'ai.benchmark.live_run_refused',
       who,
       { type: 'ai_benchmark_live_run' },
-      { refusals: refusals.map((r) => r.code) },
+      { stage, refusals: refusals.map((r) => r.code) },
       false,
     );
-    return { started: false as const, refusals };
+    return { started: false as const, stage, refusals, entry, plan };
   }
 }

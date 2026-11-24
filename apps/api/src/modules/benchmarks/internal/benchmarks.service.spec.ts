@@ -258,6 +258,86 @@ describe('BenchmarksService (in-memory store)', () => {
     );
   });
 
+  it('a live attempt is per stage: it reports the stage plan (estimated and maximum cost) and the missing prerequisites, and still never starts', async () => {
+    const { svc } = make(true, {
+      liveEnabled: true,
+      liveProvidersConfigured: true,
+      environmentName: 'staging',
+    });
+    const a = await svc.attemptLiveRun('o', { stage: 'A', ...rid() });
+    expect(a.stage).toBe('A');
+    expect(a.plan.tasks).toBe(5);
+    expect(a.plan).not.toHaveProperty('taskIds');
+    expect(a.entry.canStart).toBe(false);
+    const missing = a.entry.missing.map((m) => m.id);
+    expect(missing).toEqual(
+      expect.arrayContaining(['PROVIDER_VERIFIED', 'CAPTURE_SOURCE_BUILT', 'VENDOR_SPEND_CAP']),
+    );
+    expect(missing).not.toContain('FLAG_ON');
+    expect((await svc.attemptLiveRun('o', { ...rid() })).stage).toBe('A'); // the smallest stage is the default
+    expect((await svc.attemptLiveRun('o', { stage: 'C', ...rid() })).plan.tasks).toBe(
+      bm.GOLDEN_TASKS.length,
+    );
+    expect(await code(svc.attemptLiveRun('o', { stage: 'Z', ...rid() }))).toMatch(
+      /validation_failed/,
+    );
+  });
+
+  it('the approved budget carries the price card its caps were sized with; without one the preflight refuses (a zero price would fit any cap)', async () => {
+    const { svc } = make(true, {
+      liveEnabled: true,
+      liveProvidersConfigured: true,
+      environmentName: 'staging',
+    });
+    const caps = {
+      ref: 'BUD-9',
+      currency: 'USD',
+      maxCostMinor: '9000',
+      maxTokens: 4_200_000,
+      maxRequests: 500,
+    };
+    await svc.setBudget('owner', { ...caps, ...rid() });
+    const noPrice = await svc.attemptLiveRun('o', { stage: 'C', ...rid() });
+    expect(noPrice.refusals.map((x) => x.code)).toContain('PRICE_CARD_INVALID');
+    expect(noPrice.entry.missing.map((m) => m.id)).toContain('RATES_CONFIRMED');
+    await svc.setBudget('owner', {
+      ...caps,
+      ref: 'BUD-10',
+      price: {
+        minorPerMillionInput: '400',
+        minorPerMillionOutput: '2000',
+        source: 'agreement ref 1',
+      },
+      ...rid(),
+    });
+    const priced = await svc.attemptLiveRun('o', { stage: 'C', ...rid() });
+    const codes = priced.refusals.map((x) => x.code);
+    expect(codes).not.toContain('PRICE_CARD_INVALID');
+    expect(codes).not.toContain('BUDGET_TOO_SMALL'); // 9,000 cents covers the 8,360-cent worst case of stage C
+    expect(priced.entry.missing.map((m) => m.id)).not.toContain('RATES_CONFIRMED');
+    expect(priced.started).toBe(false);
+  });
+
+  it('a budget price must be positive integers with a stated source', async () => {
+    const { svc } = make();
+    const base = {
+      ref: 'B',
+      currency: 'USD',
+      maxCostMinor: '100',
+      maxTokens: 1000,
+      maxRequests: 10,
+    };
+    for (const price of [
+      { minorPerMillionInput: '0', minorPerMillionOutput: '10', source: 's' },
+      { minorPerMillionInput: '1.5', minorPerMillionOutput: '10', source: 's' },
+      { minorPerMillionInput: '5', minorPerMillionOutput: '10' },
+      'free',
+    ])
+      expect(await code(svc.setBudget('o', { ...base, price, ...rid() }))).toMatch(
+        /validation_failed/,
+      );
+  });
+
   it('overview lists the dataset, thresholds (PROPOSED), runs and the unavailable live runner', async () => {
     const { svc } = make();
     await svc.runOffline('u', { source: 'reference', ...rid() });
@@ -271,5 +351,20 @@ describe('BenchmarksService (in-memory store)', () => {
     expect(o.thresholds.items).toHaveLength(20);
     expect(o.runs).toHaveLength(1);
     expect(o.live.available).toBe(false);
+    const st = o.live.stages;
+    expect(st.plans.map((p) => p.stage)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(st.rateBasis.status).toBe('TO_BE_CONFIRMED_BY_S02_D6'); // the list price is a labelled reference, not an approved rate
+    for (const p of st.plans)
+      expect(BigInt(p.estimate.costMinor)).toBeLessThan(BigInt(p.max.costMinor));
+    expect(st.definitions).toHaveLength(5);
+    expect(BigInt(st.monthly.maxCostMinor)).toBeGreaterThan(0n);
+  });
+
+  it('a stored run exposes the seven-dimension scorecard', async () => {
+    const { svc } = make();
+    const run = await svc.runOffline('u', { source: 'reference', ...rid() });
+    const got = await svc.getRun(run.id);
+    expect(got.scorecard.map((r) => r.dimension)).toEqual([...bm.SCORECARD_DIMENSIONS]);
+    expect(got.scorecard.find((r) => r.dimension === 'arabic-rtl')!.value).toBe(1);
   });
 });

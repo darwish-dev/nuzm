@@ -92,3 +92,9 @@ Mutation corpus (`qa.spec.ts`, 42 tests, all passed on the first run): 33 target
 - S08: accept `nuzm.website-qa/1` and `nuzm.evidence.website/1` verbatim; own the browser E2E of previews.
 - R-1 (renderer, shared): page `<title>` has no business-name suffix (e.g. `من نحن`, 9 characters; SEO best practice is `Page | Brand`); 3 template titles/descriptions fall under the QA length warnings. A renderer change alters Phase 2 snapshots, so it needs a Master decision.
 - R-2: "AI branch vs published" side-by-side UI deferred (see NOTE-P3-S04-preview-comparison-ui.md).
+
+## Addendum (after the first batch)
+- DEFECT-18 (owner S04): the percent-escape fix has a regression test in the Phase 2 builder integration suite (`builder.int.spec.ts`, preview describe; passes on :54354) next to the unit corpus. Registered by the Master; re-verified by S08.
+- Master assigned `packages/domain/src/builder/templates/**` to S04.
+- Draft of the W2 browser/HTTP-edge negative cases for S08 (not run, needs the isolated E2E stack): `DRAFT-p3-s04-preview-isolation.spec.ts.txt`. The existing `10-builder-customer.spec.ts` already covers the framed preview, sandbox attribute and viewport widths in ar and en.
+- Quiet window: S04's Postgres (:54354) is stopped; nothing heavy was run after the batch above.

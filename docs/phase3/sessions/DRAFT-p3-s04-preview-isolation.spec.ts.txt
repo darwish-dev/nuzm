@@ -1,0 +1,66 @@
+// DRAFT for P3-S08 (owner of e2e/tests/p3-*.spec.ts). NOT RUN: it needs the isolated E2E stack (heavy slot) and was written without executing it. Rename to
+// e2e/tests/p3-s04-preview-isolation.spec.ts, then adapt the two helpers marked ADAPT to the fixtures of 10-builder-customer.spec.ts (which already opens a preview in
+// the console iframe in ar + en, checks the sandbox attribute and the mobile/desktop widths). This spec adds W2's negative cases at the browser/HTTP edge, ar + en.
+//
+// Deterministic decision table behind it (no browser needed): apps/api/src/modules/builder/preview-tamper.spec.ts and builder.int.spec.ts (DEFECT-18 case).
+import { expect, test } from '@playwright/test';
+import { API } from './env';
+
+// ADAPT: returns the framed preview URL (`http://<token>.preview.localhost:<port>/<locale>/`) of a fresh template project, created through the console screens or
+// POST /v1/builder/projects + POST /v1/builder/projects/{id}/previews with the fixture session.
+declare function createPreview(request: import('@playwright/test').APIRequestContext, locale: 'ar' | 'en'): Promise<{ url: string; projectId: string; previewId: string }>;
+// ADAPT: DELETE/revoke endpoint of a preview (or the project) with the fixture session.
+declare function revokePreview(request: import('@playwright/test').APIRequestContext, projectId: string, previewId: string): Promise<void>;
+
+const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
+const flip = (t: string, i: number) => `${t.slice(0, i)}${B32[(B32.indexOf(t[i]!) + 1) % 32]}${t.slice(i + 1)}`;
+
+for (const locale of ['ar', 'en'] as const)
+  test(`preview isolation at the HTTP edge (${locale})`, async ({ request }) => {
+    const { url, projectId, previewId } = await createPreview(request, locale);
+    const u = new URL(url);
+    const token = u.host.split('.')[0]!;
+    // the dev edge maps `<token>.preview.localhost:<port>/<path>` to /_preview/<token>/<path>; here we address the API port directly with an explicit Host header
+    const get = (host: string, path = `/_preview/${token}/${locale}/`, headers: Record<string, string> = {}) =>
+      request.get(`${API}${path}`, { headers: { host, ...headers }, maxRedirects: 0, failOnStatusCode: false });
+
+    // the real page: 200, strict headers, no cookie, no CORS
+    const ok = await get(u.host);
+    expect(ok.status()).toBe(200);
+    expect(ok.headers()['content-security-policy']).toContain("default-src 'self'");
+    expect(ok.headers()['content-security-policy']).not.toMatch(/unsafe-|\*/);
+    expect(ok.headers()['set-cookie']).toBeUndefined();
+    expect(ok.headers()['access-control-allow-origin']).toBeUndefined();
+    expect(ok.headers()['x-content-type-options']).toBe('nosniff');
+
+    // every refusal is the SAME 404 (status and body), so nothing tells a wrong token from an expired one
+    const notFound = await get(`${'a'.repeat(32)}.${u.host.split('.').slice(1).join('.')}`, `/_preview/${'a'.repeat(32)}/${locale}/`);
+    expect(notFound.status()).toBe(404);
+    const refusal = [
+      await get(u.host.replace(token, flip(token, 0)), `/_preview/${flip(token, 0)}/${locale}/`), // first character flipped
+      await get(u.host.replace(token, flip(token, 31)), `/_preview/${flip(token, 31)}/${locale}/`), // last character flipped
+      await get('console.nuzm.test'), // right path, console host
+      await get(u.host, `/_preview/${token}/../../etc/passwd`),
+      await get(u.host, `/_preview/${token}/${locale}/%2e%2e/%2e%2e/x`),
+      await get(u.host, `/_preview/${token}/%252e%252e/secret`), // double encoded (DEFECT-18 family): 404, never 500
+    ];
+    for (const r of refusal) {
+      expect(r.status()).toBe(404);
+      expect(await r.text()).toBe(await notFound.text());
+    }
+
+    // cookies and credentials of the console are ignored on the preview host
+    const withCreds = await get(u.host, undefined, { cookie: 'nuzm_session=stolen', authorization: 'Bearer nzk_stolen' });
+    expect(withCreds.status()).toBe(200);
+    expect(withCreds.headers()['set-cookie']).toBeUndefined();
+
+    // the preview host reaches nothing of the API
+    for (const p of ['/v1/me', '/health', '/v1/builder/projects'])
+      expect((await get(u.host, p)).status()).toBe(404);
+
+    // revoked -> the same 404
+    await revokePreview(request, projectId, previewId);
+    const revoked = await get(u.host);
+    expect(revoked.status()).toBe(404);
+    expect(await revoked.text()).toBe(await notFound.text());
+  });

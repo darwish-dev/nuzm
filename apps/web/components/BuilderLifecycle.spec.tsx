@@ -238,6 +238,19 @@ describe.each(LOCALES)('LifecyclePanel (%s)', (locale) => {
     fireEvent.click(screen.getByRole('button', { name: t(locale, 'bt.lc.cancel') }));
     expect(cancel).toHaveBeenCalledOnce();
   });
+  it("the run panel's own heading is not the page's heading (the page already shows bt.lc.title: two equal headings made the E2E locator ambiguous and confuse a screen reader)", () => {
+    render(
+      <LifecyclePanel
+        locale={locale}
+        state="ready"
+        view={view({ status: 'running', current: 'build' })}
+        simulated={false}
+      />,
+    );
+    const heads = screen.getAllByRole('heading', { level: 2 }).map(txt);
+    expect(heads).toContain(t(locale, 'bt.lc.run.heading'));
+    expect(heads).not.toContain(t(locale, 'bt.lc.title'));
+  });
   it('the cancel button is disabled while cancelling', () => {
     render(
       <LifecyclePanel

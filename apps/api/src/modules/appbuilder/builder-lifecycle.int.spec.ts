@@ -182,6 +182,22 @@ describe('flags and input', () => {
     expect(await head(p)).toBe(before);
     expect(await steps(run.id)).toHaveLength(0);
   });
+  it('DEFECT-20 (E2E 19-builder-agent): the agent screen reads the project through /v1/builder/projects, which answers 404 while `ai.enabled` is off for the organization (the web renders that as "not enabled"); with it on the same read is 200. A fixture or an organization that sets only `app_builder.enabled` gets an empty screen', async () => {
+    const p = await project('Lifecycle AiFlag');
+    await flag(A(), 'ai.enabled', false);
+    try {
+      expect((await call('alice', 'GET', `/v1/builder/projects/${p}`)).statusCode).toBe(404);
+      expect((await call('alice', 'GET', '/v1/builder/projects')).statusCode).toBe(404);
+    } finally {
+      await flag(A(), 'ai.enabled', true);
+    }
+    const r = ok<{ id: string; type: string }>(
+      await call('alice', 'GET', `/v1/builder/projects/${p}`),
+    );
+    expect(r.id).toBe(p);
+    expect(r.type).toBe('webapp');
+    await flag(A(), 'ai.enabled', null);
+  });
   it('malformed input is refused with 422 before anything is created', async () => {
     const p = await project('Lifecycle Input');
     for (const input of [

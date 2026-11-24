@@ -8,6 +8,76 @@ Related: [RUNTIME-EVALUATION](../security/sandbox/RUNTIME-EVALUATION.md) (techno
 
 > **An ordinary container is not evidence of hostile multi-tenant isolation.** A `runc` container (Docker, rootless Docker, Podman, a Kubernetes pod without a sandbox `RuntimeClass`) shares the host kernel's full syscall surface with the code it runs; one kernel bug reachable through any allowed syscall defeats it. Hardening flags (seccomp, dropped capabilities, read-only root, user namespaces) reduce the surface and are required, but they do not turn a container into an isolation boundary for code an attacker controls. This repository therefore treats `runc`-class runtimes as **not acceptable** for customer-supplied or model-generated code (`validateRuntimeSpec` refuses them: `runtime_class_not_isolating`; the attestation verifier refuses them too). A container is fine for the developer-convenience `local-dev` runner, which the execution port refuses unconditionally.
 
+## 0. Staging qualification plan (the runbook for the first real run)
+
+> **Plain statement: every test in this repository (mock, simulated node, conformance, hand-off, qualification runner in `simulated` mode) proves control-plane policy logic and bookkeeping only. None of it proves isolation, resource enforcement, network segmentation or that hostile code is contained. Only the steps below, run on an attested real node and signed off by the named reviewer (HG-10-02), can.** Until then every isolating result is `NOT_VERIFIED` and every report says `SIMULATED`.
+
+### 0.1 Roles
+| Role | Who | Does |
+|---|---|---|
+| Owner | the product owner | decides D-21, provider and budget, HG-05-04; records the approval reference for each live step; names the reviewer; provisions (or authorizes ops to provision) the node |
+| Operator | ops/engineer with node access | runs the bootstrap and inventory on the node; keeps the evidence |
+| Engineer | Session 04 or its successor | builds the node agent and node client (after D-21), runs the qualification commands from a control-plane host, records results |
+| Reviewer | named security reviewer, independent of the implementer | reviews the bootstrap file, checks the inventory, reruns independently, signs the attestation with their own key |
+
+### 0.2 Step list
+| # | Who | Action (exact artifact or command) | Expected result | Evidence recorded | If it fails |
+|---|---|---|---|---|---|
+| S0 | Owner | D-21 decided (technology, node pool, budget); HG-05-04 provider/quota/spend cap; approval reference for the staging qualification (`HG-10-02-…` or `D-21-…`); reviewer named. Synthetic fixtures only: no customer data | references recorded in the approval pack | the references | stop; nothing live happens |
+| S1 | Owner/ops | provision **one dedicated bare-metal Linux node**, Ubuntu Server LTS (V), a separate data volume for workspaces (XFS with `prjquota`), console/SSH from the operator network only | node reachable, clean, nothing else on it | provider, instance type, region (no account ids) | re-provision; never reuse a node that held anything else |
+| S2 | Reviewer | read `bash docs/security/sandbox/bootstrap/node-bootstrap.sh --plan` (prints only) and the file; pick the gVisor release, obtain its sha512 for `runsc` and `containerd-shim-runsc-v1` **independently of the node**; sign off the file commit as `NUZM_BOOTSTRAP_REVIEW_REF` | a written sign-off for that commit | review note, commit hash, release and hashes | fix the script, new commit, new sign-off |
+| S3 | Operator | on the node: `NUZM_BOOTSTRAP_REVIEW_REF=… NUZM_NODE_ID=… NUZM_RUNSC_VERSION=… NUZM_RUNSC_SHA512=… NUZM_SHIM_SHA512=… NUZM_OPERATOR_CIDR=… NUZM_CONTROL_PLANE_CIDR=… NUZM_PROXY_ADDR=… bash node-bootstrap.sh --apply` (the script refuses a node that is not clean and dedicated, and a checksum mismatch aborts before installing) | exit 0; `runsc --version` equals the pinned release; ruleset syntax-checked; firewall loaded only with `NUZM_APPLY_FIREWALL=yes` | full console output | **do not continue**; a checksum mismatch is a supply-chain incident (stop, keep the files, tell the reviewer); other failures: rebuild the node from scratch |
+| S4 | Operator + Reviewer | `bash node-inventory.sh > inventory.txt`; reviewer checks: Linux and kernel pinned, cgroup2fs, swap empty, no Docker socket, only sshd listening, `/dev/kvm` recorded, workspace on XFS `prjquota`, runsc and shim checksums equal the reviewer's, default-deny ruleset, metadata address unreachable, sysctls as written | every item matches the attestation template (§3 of this document) | `inventory.txt` + the reviewer's checklist | fix the node or rebuild; no qualification until all match |
+| S5 | Engineer (after D-21) | install the node agent (`WorkspaceRuntime` over mTLS, validates every spec); issue a short-lived mTLS client credential to the control plane (vault reference only) | `identity()` and `health()` answer; the agent refuses a weakened spec | agent version/digest | rebuild; the agent is part of the reviewed image |
+| S6 | Engineer | write `declaration.json` (`NodeDeclaration`: node id, endpoint id, `environment: "staging"`, kernel, arch, runtime class/version/image digests, host facts from the inventory) | the file validates (the runner rejects a production node) | `declaration.json` | correct from the inventory |
+| S7 | Engineer | SIMULATED baseline from a control-plane host for comparison: `pnpm --filter @nuzm/api sandbox:escape-suite --endpoint simulated:baseline --out baseline.json` | 277 cases: 206 PASS, 0 FAIL, 71 NOT_VERIFIED (65 isolating + 6 DB-backed), `evidence=SIMULATED` | `baseline.json` | a FAIL here is a control-plane defect: fix before touching the node |
+| S8 | Engineer + Reviewer | **qualification run**: `NUZM_QUALIFICATION_APPROVED=<ref> pnpm --filter @nuzm/api sandbox:escape-suite --mode qualify --endpoint https://<node> --declaration declaration.json --approval <ref> --out qualification.json` | `evidence=NOT VERIFIED` (a review is still pending); 65/65 isolating PASS, 0 FAIL, `eligible for human review: yes`; a draft attestation printed with the suite numbers and `reportSha256` | `qualification.json`, its text rendering, the report sha256 | see 0.4 |
+| S9 | Engineer | database-backed control-plane cases: `NUZM_TEST_ADMIN_URL=… pnpm --filter @nuzm/api exec vitest run -c vitest.integration.config.mts src/modules/appbuilder/sandbox.int.spec.ts` (the 6 WS-* ticket attempts) | all BLOCKED, 0 ESCAPED | test output | control-plane defect: fix |
+| S10 | Engineer | conformance fixtures with the real files (22 fixtures + 6 contract cases) through a live target of `runPortConformance` (**needs the node client; added with the agent**: same assertions as today's simulated run) | every fixture meets its expectation; `leftovers` empty after each; limit cases killed at the limit | conformance report JSON + sha256 | reviewer decides whether a deviation is a defect or an environment issue; no sign-off with an unexplained FAIL |
+| S11 | Engineer + Reviewer | hand-off check: `runLifecycleHandoffConformance` with the live rig (typecheck → unit-tests → build, repair round, timeout, foreign run refused) | all cases PASS incl. H-9 once the adapter passes `source` | report | defect in the port/adapter |
+| S12 | Reviewer | **independent second run** on a **rebuilt** node (repeat S3, S4, S8) and the manual items of T4-T8, T10 (kill paths, leaks, noisy neighbour, image digests) | the same results | second evidence set | any difference is investigated; no sign-off until explained |
+| S13 | Reviewer | complete the draft: review reference, reviewer, decision date, D-21 reference, label `LIVE-VERIFIED`; **sign with their own key outside the repository**; the public key id is added to the control plane's trusted keys by change control | `verifyAttestation` returns ok in live mode | the signed attestation (JSON) | cannot sign: record why; the node stays unattested |
+| S14 | Engineer | T9 negative tests: start the service with no attestation, expired, wrong node/endpoint, tampered, SIMULATED label, unattested image, revoked | each is refused with its reason; then a correct start succeeds in `live` mode | start logs | defect in the verifier: fix, re-run |
+| S15 | Owner + Reviewer | HG-10-02 report; gate inputs recorded (`runtimeVerified`, `escapeSuitePassed`, `adrAccepted`, `ownerApproved`); evidence archived | the gate can be evaluated for staging (still closed in production) | the report, the evidence directory index | none of this opens production |
+| S16 | Operator | **teardown**: drain (kill switch on), `reapOrphans`, wipe the workspace volume, deprovision the node (or rebuild for the next class); keep evidence | no node, no data left | deprovision record | if wiping fails, destroy the volume/node at the provider |
+
+### 0.3 Expected PASS criteria per case (escape suite 1.1.0)
+A control-plane case PASSES when the control (egress policy, confinement, secret checks, gateway policy, quota, kill switch) refuses the attack. An isolating case PASSES when **the payload fails inside the sandbox** (exit code non-zero, or timed out, or killed by a signal where the attempt says so) **and no canary value appears in stdout or stderr**; anything else is `FAIL` (ESCAPED). `NOT_VERIFIED` is never a pass.
+| Category | Isolating attempts (65, titles from the suite) | PASS means |
+|---|---|---|
+| `namespace_capability` (12) | NS-1 user namespace to become root · NS-2 enter PID 1 namespaces · NS-3 mount a filesystem · NS-4 chroot into the host root · NS-5 read the capability set (must be empty) · NS-6 ptrace another process · NS-7 load a kernel module · NS-8 change a kernel parameter · NS-9 setuid · XR-NS-1 user namespace to regain capabilities · XR-NS-2 join the cgroup root and leave the limits · XR-NS-3 ptrace the sandbox's init | each call fails; the process is non-root with no capabilities |
+| `mounted_path` (6) | MP-1 list the host root mount · MP-2 read the host shadow file · MP-3 list container storage · MP-4 orchestrator secrets · MP-5 search for platform key material · MP-6 write to the root file system | paths absent or denied; root file system read-only |
+| `runtime_socket` (5) | RS-1 Docker socket · RS-2 containerd socket · RS-3 CRI-O socket · RS-4 Docker API over a socket · XR-ENV-2 runtime socket through an inherited file descriptor | no socket reachable |
+| `proc_sys_leak` (8) | PS-1 PID 1 environment · PS-2 PID 1 root file system · PS-3 kernel memory · PS-4 sysrq crash · PS-5 cgroup release agent (the classic escape) · PS-6 overwrite `core_pattern` · PS-7 debugfs · PS-8 mount info for host paths | denied or sandbox-local content only |
+| `kernel_interface` (6) | KI-1 `/dev/mem` · KI-2 `/dev/kmem` · KI-3 `/dev/kvm` · KI-4 eBPF program · KI-5 `perf_event_open` · KI-6 userfaultfd / io_uring syscall fuzz | denied |
+| `metadata_service` (2) | MS-1 cloud metadata IP · XR-NET-3 IMDSv2 token request | unreachable |
+| `lateral_movement` (5) | LM-N1 control-plane database port · LM-N2 a neighbour sandbox · LM-N3 resolve and reach an arbitrary host · XR-NET-2 the control plane's queue (Redis) · XR-NET-4 registry-only class used to reach a non-registry host | unreachable |
+| `dns_exfiltration` (1) | XR-NET-1 resolve a data-carrying name at runtime | no resolution outside the proxy |
+| `resource_exhaustion` (7) | RX-1 fork bomb · RX-2 fill the disk · RX-3 spin the CPU past the timeout (PASS needs a timeout or a signal) · RX-4 allocate 8 GB · XR-RES-1 2 GB of stdout · XR-RES-2 many small allocations · XR-RES-3 inode exhaustion in scratch | killed or failed at the limit; node and neighbours unaffected |
+| `symlink_mount` (6) | XR-SYM-1 symlink to `/etc/passwd` · XR-SYM-2 hard link to a host file · XR-SYM-3 bind-mount the host root · XR-SYM-4 write through a symlink swapped after the check (TOCTOU) · XR-SYM-5 `/proc/self/root` · XR-SYM-6 another run's workspace | denied; no host or other-tenant content read |
+| `lifecycle_script` (3) | XR-LIFE-1 npm install with lifecycle scripts re-enabled through the environment · XR-LIFE-2 a daemon that outlives the run · XR-LIFE-3 a zombie storm | scripts do not run; nothing survives teardown |
+| `canary` (4) | CA-R1 runner host environment · CA-R2 well-known credential paths · CA-R3 neighbour-sandbox canary file · XR-ENV-1 PID 1 environment for platform secrets | no canary ever printed (a canary read is a security event) |
+Control-plane cases: 212 (206 in the runner, 6 database-backed): all BLOCKED.
+
+### 0.4 Failure handling
+| Observation | Action |
+|---|---|
+| any `ESCAPED` / a canary read | **stop**; no re-run until root cause; treat the node as compromised (quarantine, preserve disk/logs, rebuild, never reuse); open a security finding; the attestation is not signed; the technology choice is revisited with the reviewer |
+| isolating attempt `NOT_VERIFIED` in a live run | incomplete, not a pass: find why (node client, payload, timeout); re-run |
+| a control-plane `FAIL` in S7/S9 | control-plane defect: fix and re-run before any node result counts |
+| node unreachable / agent error mid-run | the run is `terminated`; `reapOrphans`; re-run from S8 on a rebuilt node if state is uncertain |
+| leftovers after a run (workspace, process, mount, device) | FAIL of T8: investigate, rebuild |
+| unexpected egress seen at the firewall/proxy | FAIL: incident, preserve logs |
+| checksum mismatch or an unpinned image | supply-chain incident: stop, tell the reviewer, do not install |
+| attestation negative test (S14) accepts a bad attestation | verifier defect: fix before any live use |
+| reviewer and implementer disagree | the reviewer's call stands; record the dissent |
+
+### 0.5 Evidence files (directory `docs/security/sandbox/evidence/<node-id>/<date>/`, nothing secret)
+`approval-references.txt` · `bootstrap-plan.txt` + `bootstrap-apply.log` + the commit hash of the reviewed scripts · `inventory.txt` · `declaration.json` · `baseline.json` (SIMULATED) · `qualification.json` + `qualification.txt` + report sha256 · `conformance.json` + sha256 · `handoff.json` · `integration-ticket-cases.txt` · second-run set · `attestation.signed.json` + reviewer and key id · `negative-tests.txt` (S14) · `hg-10-02-report.md` · `teardown.txt`. A signed attestation points at `qualification.json`'s sha256 (`evidence.escapeSuite.reportSha256`).
+
+### 0.6 What is ready and what is not
+Ready (offline, tested): the verifier, service and port, the runner and its refusals, the conformance and hand-off suites, the fixtures, the bootstrap and inventory scripts (syntax-checked only), the runnable Track D entry (`run-in-runtime.cli.ts`, simulated today). Not ready: the node agent and the node client (D-21), the live conformance CLI, the Firecracker bootstrap variant (written only if the reviewer chooses that class), the durable stores, and every approval.
+
 ## 1. The infrastructure that actually exists today
 
 Read-only facts gathered on the machine this work runs on (2026-11-24; nothing was installed or started):
@@ -36,6 +106,10 @@ Conclusions, stated plainly:
 | **Node contract** `WorkspaceRuntime` + `SimulatedWorkspaceRuntime` | `real-runtime/workspace-runtime.ts` | the wire-level operations a node agent must implement; a stand-in that starts nothing and independently refuses weakened specs |
 | Dependency-install policy | `real-runtime/dependency-policy.ts` | git/URL/path/alias dependencies, foreign registries, missing integrity, oversize lockfiles refused before any network call |
 | **Conformance suite** + 22 synthetic fixtures | `real-runtime/conformance.ts`, `fixtures.ts` | the same 28 assertions run against `MockExecutionPort` (policy/runtime layers; the rest SKIPPED, never PASS) and against the real-runtime port over the simulated node (all layers) |
+| **Track E hand-off**: the lifecycle's exact `ExecutionPort` traffic as a shared conformance test | `real-runtime/handoff-conformance.ts` (+ CONTRACT-04-4) | 9 cases pass with S05's real adapter over the mock and the simulated node; the `source` case is SKIPPED until the adapter passes `ctx.source` |
+| **Track D** runnable entry: run a project command in the runtime port | `apps/api/.../sandbox/run-in-runtime.ts`, `run-in-runtime.cli.ts` | runs SIMULATED today; live refuses without a verifying attestation, D-21, HG-10-02, ADR and approval references, and a node client |
+| Egress allowlist (default deny, registry hosts from the dependency policy), measured-usage settlement, version-aware seeding, `needsRealNode` labels | `runtime-spec.ts`, `port.ts`, `orchestrator.ts`, `conformance.ts` | validated data and bookkeeping; enforcement needs a real node |
+| Node bootstrap and inventory scripts (gVisor), reviewed, never executed | `docs/security/sandbox/bootstrap/` | `bash -n` syntax check only |
 | **Escape-suite qualification runner + CLI**, node adapter | `apps/api/.../sandbox/escape-runner.ts`, `escape-runner.cli.ts`, `endpoint-runtime.ts` | suite 1.1.0 (277 cases; actual simulated run: 206 PASS, 0 FAIL, 71 NOT_VERIFIED = 65 isolating + 6 database-backed ticket cases) with per-case PASS/FAIL/NOT_VERIFIED, report digest, draft attestation for the reviewer |
 
 Reachability: none of this is imported by a NestJS module, route, controller, job or tool declaration. The flag `ai.agent.exec_tools` stays default off and `executionGate` stays closed. A `REAL` origin exists only for a `live`-mode service that started under a LIVE-VERIFIED attestation; the simulated mode (the only one runnable here) reports `MOCK`.

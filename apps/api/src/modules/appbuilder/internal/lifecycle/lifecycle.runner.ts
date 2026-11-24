@@ -150,10 +150,12 @@ export class LifecycleRunner {
 
       let result: Awaited<ReturnType<(typeof STEP_FNS)[StepId]>> | null = null;
       let failure: string | null = null;
+      let failureDetail: string | null = null;
       try {
         result = await STEP_FNS[step](ctx);
       } catch (e) {
         failure = codeOf(e);
+        failureDetail = e instanceof StepFailure ? (e.detail ?? null) : null;
         if (!(e instanceof StepFailure) && !(e instanceof ProblemException))
           await host.audit('builder.lifecycle.step_error', 'failure', {
             step,
@@ -175,6 +177,8 @@ export class LifecycleRunner {
         await host.audit('builder.lifecycle.step_finished', 'failure', {
           step,
           code: failure,
+          // fixed code names only (a preview error is a code, never file content)
+          detail: failureDetail,
           attempt: act.attempt,
           retry,
           tokens: (usage.tokensIn ?? 0) + (usage.tokensOut ?? 0),

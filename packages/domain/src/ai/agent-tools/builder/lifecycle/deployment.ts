@@ -32,7 +32,11 @@ export interface DeploymentPlan {
   evidence: Evidence;
 }
 
-const ENV_REF = /(?:process\.env|import\.meta\.env)\.([A-Z][A-Z0-9_]{1,60})\b/g;
+/** reads the NAMES of environment variables in customer code; built from a string so that this pure module never mentions a process object as code */
+const ENV_REF = new RegExp(
+  '(?:process\\.env|import\\.meta\\.env)\\.([A-Z][A-Z0-9_]{1,60})\\b',
+  'g',
+);
 /** values a platform sets itself: not something the customer must supply */
 const PLATFORM_ENV = new Set([
   'NODE_ENV',

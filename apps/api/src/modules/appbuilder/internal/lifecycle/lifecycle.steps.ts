@@ -52,7 +52,7 @@ function gate(files: ReadonlyMap<string, string>, ops: FileOp[], hasHead: boolea
       'change_rejected',
       prev.errors
         .slice(0, 3)
-        .map((e) => e.code)
+        .map((e) => `${e.code}@${e.at.slice(0, 80)}`)
         .join(','),
     );
   const additionsOnly = ops.every((o) => o.op === 'add');

@@ -19,6 +19,21 @@ import {
  */
 let e: AiEnv;
 let runs: RunService;
+const modelCalls: unknown[] = [];
+/** the scripted model writes valid placeholder content by extension, or (when asked) an invalid package.json */
+let badManifest = false;
+const contentFor = (path: string): string =>
+  path === 'package.json'
+    ? badManifest
+      ? 'export {};\n'
+      : '{"name":"app","version":"0.0.0"}\n'
+    : path.endsWith('.json')
+      ? '{}\n'
+      : path.endsWith('.sql')
+        ? '-- x\n'
+        : path.endsWith('.md')
+          ? '# x\n'
+          : 'export {};\n';
 const A = () => e.org.A!;
 const B = () => e.org.B!;
 const ok = <T = Row>(
@@ -30,10 +45,13 @@ const ok = <T = Row>(
 };
 const call = (who: string, method: 'GET' | 'POST' | 'PUT', url: string, body?: object, org = A()) =>
   e.call(who, method, url, body, org, { 'idempotency-key': randomUUID() });
+/** rows as loosely typed JSON (the harness returns unknown rows) */
+const q = async (sql: string, params: unknown[] = []): Promise<Row[]> =>
+  (await e.sql(sql, params)) as Row[];
 const flag = async (org: string, key: string, on: boolean | null) => {
-  await e.sql(`DELETE FROM platform.feature_flags WHERE key = $1 AND org_id = $2`, [key, org]);
+  await q(`DELETE FROM platform.feature_flags WHERE key = $1 AND org_id = $2`, [key, org]);
   if (on !== null)
-    await e.sql(
+    await q(
       `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), $1, $2, $3::jsonb)`,
       [key, org, JSON.stringify(on)],
     );
@@ -85,7 +103,7 @@ async function project(name: string, org = A()) {
   return id;
 }
 const head = async (p: string) =>
-  (await e.sql(`SELECT head_version_id FROM builder.projects WHERE id = $1`, [p]))[0]!
+  (await q(`SELECT head_version_id FROM builder.projects WHERE id = $1`, [p]))[0]!
     .head_version_id as string;
 async function startRun(
   p: string,
@@ -98,24 +116,24 @@ async function startRun(
   ).id;
   return call(who, 'POST', '/v1/ai/runs', { sessionId: sid, kind: 'webapp', projectId: p, input });
 }
-async function drive(runId: string) {
-  const r = (await e.sql(`SELECT operation_id FROM ai.runs WHERE id = $1`, [runId]))[0]!;
+async function drive(runId: string): Promise<Row> {
+  const r = (await q(`SELECT operation_id FROM ai.runs WHERE id = $1`, [runId]))[0]!;
   await runs.runOne(A(), r.operation_id as string);
   return (
-    await e.sql(`SELECT state, error, result, checkpoint FROM ai.runs WHERE id = $1`, [runId])
+    await q(`SELECT state, error, result, checkpoint FROM ai.runs WHERE id = $1`, [runId])
   )[0]!;
 }
 /** the decision continues the parked run asynchronously (M09 `resumeParked`): wait for the queued segment before driving it */
 async function resumed(runId: string) {
   for (let i = 0; i < 100; i++) {
-    if ((await e.sql(`SELECT state FROM ai.runs WHERE id = $1`, [runId]))[0]!.state === 'queued')
+    if ((await q(`SELECT state FROM ai.runs WHERE id = $1`, [runId]))[0]!.state === 'queued')
       return;
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error('the run was not queued after the decision');
 }
 const steps = (runId: string) =>
-  e.sql(
+  q(
     `SELECT node, status, attempt, seq, error_code, tokens_in FROM ai.run_steps WHERE run_id = $1 AND node LIKE 'lc-%' ORDER BY seq`,
     [runId],
   );
@@ -125,7 +143,27 @@ beforeAll(async () => {
   process.env.BUILDER_MAX_PROJECTS = '500';
   e = await setupAiEnv();
   runs = e.app.get(RunService);
-  await e.enableMock('mock-model', { adapter: new MockModelAdapter({ id: 'mock-model' }) });
+  await e.enableMock('mock-model', {
+    adapter: new MockModelAdapter({
+      id: 'mock-model',
+      // the generation message names the files of the task: answer with exactly those (plus one path outside the task, which the lifecycle must drop)
+      handler: (req) => {
+        modelCalls.push(req);
+        const text = req.messages.map((m) => m.content).join('\n');
+        const files = (/Write ONLY these files: (.*)\.\n/.exec(text)?.[1] ?? '')
+          .split(', ')
+          .filter(Boolean);
+        return JSON.stringify({
+          summary: 'scripted',
+          patches: [...files, 'src/elsewhere.ts'].map((path) => ({
+            op: 'add',
+            path,
+            content: contentFor(path),
+          })),
+        });
+      },
+    }),
+  });
   for (const org of [A(), B()]) {
     await flag(org, 'app_builder.enabled', true);
     await flag(org, 'builder_tools.enabled', true);
@@ -181,7 +219,7 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
     // the plan's files were added as ONE validated change; the customer's own files are untouched
     const after = await head(p);
     expect(after).not.toBe(before);
-    const files = await e.sql(
+    const files = await q(
       `SELECT path FROM builder.project_files WHERE project_id = $1 AND version_id = $2`,
       [p, after],
     );
@@ -191,9 +229,7 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
     );
     expect(
       (
-        await e.sql(`SELECT count(*)::int n FROM builder.project_versions WHERE project_id = $1`, [
-          p,
-        ])
+        await q(`SELECT count(*)::int n FROM builder.project_versions WHERE project_id = $1`, [p])
       )[0]!.n,
     ).toBe(2);
 
@@ -241,7 +277,7 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
 
     // events and audit: one per step, a start and a finish, the mock executions audited as NOT billed
     const ev = (
-      await e.sql(`SELECT type FROM ai.run_events WHERE run_id = $1 ORDER BY seq`, [started.id])
+      await q(`SELECT type FROM ai.run_events WHERE run_id = $1 ORDER BY seq`, [started.id])
     ).map((r) => r.type);
     expect(ev).toContain('lifecycle_started');
     expect(ev.filter((t) => t === 'lifecycle_step').length).toBeGreaterThanOrEqual(15);
@@ -253,7 +289,7 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
     expect(actions).toContain('builder.lifecycle.started');
     expect(actions).toContain('builder.lifecycle.finished');
     expect(actions.filter((a) => a === 'builder.execution.simulated')).toHaveLength(3);
-    const metered = await e.sql(
+    const metered = await q(
       `SELECT count(*)::int n FROM platform.outbox WHERE topic = 'usage.recorded' AND payload->>'source' = 'builder@S05' AND payload->>'projectId' = $1`,
       [p],
     );
@@ -279,10 +315,9 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
       out.state,
       JSON.stringify({
         err: out.error,
-        ev: await e.sql(
-          `SELECT type FROM ai.run_events WHERE run_id = $1 ORDER BY seq DESC LIMIT 6`,
-          [started.id],
-        ),
+        ev: await q(`SELECT type FROM ai.run_events WHERE run_id = $1 ORDER BY seq DESC LIMIT 6`, [
+          started.id,
+        ]),
       }),
     ).toBe('succeeded');
     expect(out.result.status).toBe('succeeded');
@@ -295,7 +330,7 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
     const started = ok<{ id: string }>(await startRun(p), 202);
     expect((await drive(started.id)).state).toBe('waiting_approval');
     ok(await call('alice', 'POST', `/v1/ai/runs/${started.id}/cancellation`), 202);
-    const state = (await e.sql(`SELECT state FROM ai.runs WHERE id = $1`, [started.id]))[0]!.state;
+    const state = (await q(`SELECT state FROM ai.runs WHERE id = $1`, [started.id]))[0]!.state;
     expect(state).toBe('cancelled');
     expect(await steps(started.id)).toHaveLength(14);
   });
@@ -311,6 +346,95 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
       await e.call('bob', 'GET', '/v1/ai/approvals', undefined, B()),
     ).items;
     expect(theirs.some((a) => a.runId === started.id)).toBe(false);
+  });
+});
+
+describe('model-backed generation (flag builder_lifecycle.model_generation, scripted mock model)', () => {
+  it("writes the files through the METERED gateway: tokens and credits are accounted per step, the files are the model's, and a path outside the task is dropped", async () => {
+    await flag(A(), 'builder_lifecycle.enabled', true);
+    await flag(A(), 'builder_lifecycle.model_generation', true);
+    const p = await project('Lifecycle Model');
+    const before = BigInt(
+      (
+        await q(`SELECT coalesce(sum(spent_credits),0) s FROM ai.runs WHERE project_id = $1`, [p])
+      )[0]!.s,
+    );
+    const started = ok<{ id: string }>(await startRun(p), 202);
+    const out = await drive(started.id);
+    expect(
+      out.state,
+      JSON.stringify({
+        err: out.error,
+        audit: e.sink.events
+          .filter((x) => x.action === 'builder.lifecycle.step_finished' && x.outcome === 'failure')
+          .map((x) => x.detail),
+      }),
+    ).toBe('waiting_approval');
+    const cp = (out.checkpoint as Row).lifecycle as Row;
+    expect(cp.artifacts.generator).toBe('model');
+    expect(cp.state.tokensIn + cp.state.tokensOut).toBeGreaterThan(0);
+    expect(BigInt(cp.state.credits)).toBeGreaterThan(0n);
+    const gen = (await steps(started.id)).find((s) => String(s.node).includes('file-generation'))!;
+    expect(Number(gen.tokens_in)).toBeGreaterThan(0);
+    // what the gateway charged is what the lifecycle reports (one accounting, not two)
+    const run = (await q(`SELECT spent_credits FROM ai.runs WHERE id = $1`, [started.id]))[0]!;
+    expect(BigInt(run.spent_credits) - before).toBe(BigInt(cp.state.credits));
+    const files = await q(
+      `SELECT path FROM builder.project_files WHERE project_id = $1 AND version_id = $2`,
+      [p, await head(p)],
+    );
+    expect(files.map((f) => f.path)).not.toContain('src/elsewhere.ts');
+    expect(files.length).toBeGreaterThan(5);
+    await flag(A(), 'builder_lifecycle.model_generation', null);
+  });
+  it('a file the safety checks refuse is never applied: the run stops with change_rejected and the project is unchanged', async () => {
+    await flag(A(), 'builder_lifecycle.model_generation', true);
+    badManifest = true;
+    try {
+      const p = await project('Lifecycle Model Bad');
+      const before = await head(p);
+      const started = ok<{ id: string }>(await startRun(p), 202);
+      const out = await drive(started.id);
+      expect(out.state).toBe('failed');
+      expect(((out.checkpoint as Row).lifecycle as Row).state.failure).toEqual({
+        step: 'change_apply',
+        code: 'change_rejected',
+      });
+      expect(await head(p)).toBe(before);
+      // no execution was requested for code that was never applied
+      expect(
+        e.sink.events.some(
+          (x) => x.action === 'builder.execution.start_decided' && x.resource?.id === started.id,
+        ),
+      ).toBe(false);
+    } finally {
+      badManifest = false;
+    }
+    await flag(A(), 'builder_lifecycle.model_generation', null);
+  });
+  it('a token budget smaller than one generation turn stops the run BEFORE any model call', async () => {
+    await flag(A(), 'builder_lifecycle.model_generation', true);
+    const p = await project('Lifecycle Model Budget');
+    const calls = modelCalls.length;
+    const sid = ok<{ id: string }>(
+      await call('alice', 'POST', '/v1/ai/sessions', { title: 'b', projectId: p }),
+      201,
+    ).id;
+    const started = ok<{ id: string }>(
+      await call('alice', 'POST', '/v1/ai/runs', {
+        sessionId: sid,
+        kind: 'webapp',
+        projectId: p,
+        input: { builderLifecycle: true, brief: { prompt: BRIEF } },
+        budget: { maxTokens: 500 },
+      }),
+      202,
+    );
+    const out = await drive(started.id);
+    expect(modelCalls.length).toBe(calls);
+    expect(out.state).toBe('budget_exceeded');
+    expect(((out.checkpoint as Row).lifecycle as Row).state.failure.code).toBe('tokens_exceeded');
+    await flag(A(), 'builder_lifecycle.model_generation', null);
   });
 });
 
@@ -366,7 +490,7 @@ describe('inference cost and execution cost are separate gates (finding: a relea
       origin: 'MOCK',
       at: '2026-11-24T10:05:00.000Z',
     });
-    const rows = await e.sql(
+    const rows = await q(
       `SELECT payload FROM platform.outbox WHERE topic = 'usage.recorded' AND payload->>'meterId' = 'builder.build_minutes' AND payload->>'resourceId' = $1`,
       [uuidFrom('run-x:build:0:build')],
     );
@@ -375,7 +499,7 @@ describe('inference cost and execution cost are separate gates (finding: a relea
     expect(Number(rows[0]!.payload.quantity)).toBeCloseTo(1.5, 2);
     expect(
       (
-        await e.sql(
+        await q(
           `SELECT count(*)::int n FROM platform.outbox WHERE topic = 'usage.recorded' AND payload->>'resourceId' = $1`,
           [uuidFrom('run-x:tests:0:unit')],
         )
@@ -438,18 +562,18 @@ describe('O-9 builder.billing_admin_content_access (proposed policy; default = t
     await expect(access.set(A(), e.ids.alice!, { mode: 'deny', other: 1 })).rejects.toMatchObject({
       code: 'validation_failed',
     });
-    await e.sql(
+    await q(
       `DELETE FROM platform.feature_flags WHERE key = 'builder.billing_admin_content_access' AND org_id = $1`,
       [A()],
     );
-    await e.sql(
+    await q(
       `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'builder.billing_admin_content_access', $1, '"garbage"'::jsonb)`,
       [A()],
     );
     expect(await access.mode(A())).toBe('deny');
     expect((await get('frank', 'review')).statusCode).toBe(403);
     expect((await get('alice', 'review')).statusCode).toBe(200);
-    await e.sql(
+    await q(
       `DELETE FROM platform.feature_flags WHERE key = 'builder.billing_admin_content_access' AND org_id = $1`,
       [A()],
     );

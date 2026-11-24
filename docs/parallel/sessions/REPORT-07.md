@@ -151,5 +151,10 @@ qa-deploy-targets + qa-deploy-policy-matrix + qa-deploy-approval = 45 passed, 0 
 ### Batch 7: re-test of Session 02's fixes (feature/ai-providers f02209cd, merged locally; adapter-model dist rebuilt)
 `qa-ai-integrity.int.spec.ts` = 19 passed, 0 expected-fail, in 3 consecutive runs: **DEFECT-7 (HIGH) and DEFECT-8 FIXED and RE-TESTED** (the run that used the old assertions failed with "Expect test to fail" for both, proving the fix before I flipped them). `qa-run-concurrency` + `qa-run-approval` = 15 passed on the merged tree. All twelve defects found in this project are now fixed and re-tested.
 
+### Batch 8: agent-loop tests on S05's lifecycle, E2E spec review (merged integration a423e75a)
+- `qa-agent-loop.int.spec.ts` 15 passed (offline, exhaustive: cancel and crash at every checkpoint boundary, repair/step/time limits, budgets, permissions, approval never self-granted, prompt injection in files, build logs and an obedient model).
+- `qa-agent-loop-http.int.spec.ts` 15 passed + 2 expected-fail on the real run engine, twice in a row: **DEFECT-13** (race loser gets 200), **DEFECT-14** (cancel leaves the deploy approval decidable). Everything else the Master asked for passes: owner/admin-only decisions with API-key refusal, idempotent replay, concurrent runs, budget stop, injection.
+- E2E review of the three specs written by S02/S03/S05: `docs/security/PHASE2-E2E-REVIEW.md` (13 items, none blocking). No browser run by me.
+
 ### Not yet done in Phase 2 (next batches)
 E2E ar+en for builder tools, provider admin, benchmark admin (review + negative cases); agent-loop integration scaffolds (waiting for S05's wiring); authz matrix extension and both-setting tests for O-1/O-2/O-9 (waiting for the switches); prompt injection against tool results and project files; runtime-isolation conformance against the mock; accessibility ar/en; independent review notes on S02/S04/S06 Phase 2 changes (nothing merged yet).

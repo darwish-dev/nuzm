@@ -25,5 +25,17 @@ Free-form shell tool (rejected: the model controls the command line); hosted thi
 ## Consequences
 The agent can verify work only through a small, auditable set of profiles; new profiles need an ADR amendment. Runtime cost and the dedicated nodes are budget decisions for the owner. Until D-21 and the review are done, nothing here runs.
 
+## Offline hardening addendum (Session 04, 2026-11-24; the ADR stays PROPOSED)
+Recorded as proposed amendments, each already implemented as inert offline code with tests; accepting the ADR would accept them:
+1. **Approval binding:** an approval is bound by digest to the exact decision (profile, argv, cwd, environment, limits, network, organization, run), single use, expiring, decidable only by a human user of the same organization holding the permission; never a model, API key or system actor.
+2. **Kill switch scope:** global and per-organization execution kill switches, separate from the AI kill switch; a canary appearing in output engages the organization's switch (fail closed).
+3. **Two walls for the environment:** `decideExec` produces the constant environment and `checkRunEnv` re-verifies it immediately before a run; loader, proxy, npm-config and credential-looking variable names are refused by name.
+4. **Port origin:** an `ExecutionPort` is `MOCK` or `REAL`; a `REAL` port is refused unless `executionGate` is open, at submit and again at claim time. The local developer runner is refused for agent execution unconditionally.
+5. **Artifacts are candidates only:** output roots, regular files, hashes, bounds; never applied automatically (the patch proposal and human approval path stays).
+6. **Runtime classes:** only isolating classes (gVisor, Kata, Firecracker microVM) pass `validateRuntimeSpec`; a plain `runc` container does not.
+7. **Quota defaults closed:** a budget of 0 admits nothing; reservations are worst case and settled on measured use in integer minor units.
+8. **Fix:** inherited object names (`constructor`, `__proto__`…) as the profile are now an unknown profile, not a crash.
+Technology choice and rollout: `docs/security/sandbox/RUNTIME-EVALUATION.md`, `RECOMMENDED-ARCHITECTURE.md`. Nothing here changes the gate (item 9) or any decision owned by the owner.
+
 ## Owner / date
 OWNER-PLACEHOLDER / —

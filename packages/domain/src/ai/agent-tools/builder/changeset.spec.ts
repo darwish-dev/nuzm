@@ -240,3 +240,15 @@ describe('planRestore / planRevert', () => {
     expect(planRestore(cur, M({ 'a.ts': '1' }))).toEqual([]);
   });
 });
+
+describe('pipeline path rules are mirrored by the preview', () => {
+  it('reserved directories, reserved characters and trailing dots are refused like the pipeline refuses them', () => {
+    const base = M({ 'a.ts': '1' });
+    for (const path of ['.nuzm/memory.json', '.config/x', 'node_modules/x/index.js', 'src/a:b.ts', 'src/a?.ts', 'src/name.', 'src/name ']) {
+      const p = previewChangeSet(base, [{ op: 'add', path, content: 'x' }]);
+      expect(p.errors[0]?.code, path).toBe('invalid_path');
+    }
+    expect(previewChangeSet(base, [{ op: 'add', path: 'nuzm.memory.json', content: '{}' }]).ok).toBe(true);
+    expect(previewChangeSet(base, [{ op: 'add', path: 'x'.repeat(241), content: '1' }]).errors[0]?.code).toBe('invalid_path');
+  });
+});

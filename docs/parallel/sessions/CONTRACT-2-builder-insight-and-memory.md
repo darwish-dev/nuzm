@@ -1,6 +1,6 @@
 # CONTRACT-2 — requirement planning, review, code search and project memory endpoints
 
-- Requester: Session 05 · Contract: `spec/openapi/openapi.yaml` (+ SDK regeneration) · Status: PROPOSED · No migration, no new table (project memory is the file `.nuzm/memory.json` in the project, written through the existing safe-change pipeline).
+- Requester: Session 05 · Contract: `spec/openapi/openapi.yaml` (+ SDK regeneration) · Status: PROPOSED · No migration, no new table (project memory is the file `nuzm.memory.json` in the project, written through the existing safe-change pipeline).
 - Why: priorities 2, 4 and 5 of SESSION-05 are implemented as pure domain code (`packages/domain/src/ai/agent-tools/builder/**`) and a thin service `apps/api/src/modules/appbuilder/internal/changes/builder-insight.service.ts` (5 tests). The customer UI needs endpoints to show a plan, a review, search results and memory.
 - Additive: yes (new operations only). All behind flag `builder_tools.enabled` (default OFF; 404 when off), permissions `builder:read` (reads) and `builder:write` (memory writes), org-scoped.
 - Data handling: planning, review, search are computed locally from the customer's own text/files. NOTHING is sent to a model or a vendor, so no residency decision, no credit and no AI-processing consent applies. Memory writes are made as the signed-in person (`source: user`, audited `builder.memory.changed` plus the usual `builder.change.applied`).

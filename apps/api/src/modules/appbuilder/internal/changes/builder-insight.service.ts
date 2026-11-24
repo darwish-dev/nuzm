@@ -10,7 +10,7 @@ const T = builderTools;
 /**
  * Read-only insight over a project plus the customer-facing project memory (S-05). Everything here is computed by the pure builder-tools code from the project's own files or from the
  * text the customer typed; NOTHING is sent to a model or a vendor, so there is no residency decision, no credit spend and no data transfer to make. The only write is the project
- * memory file (`.nuzm/memory.json`), which goes through the ordinary safe-change pipeline like any edit, as the signed-in person (never as an agent).
+ * memory file (`nuzm.memory.json`), which goes through the ordinary safe-change pipeline like any edit, as the signed-in person (never as an agent).
  */
 export class BuilderInsightService {
   constructor(
@@ -78,7 +78,7 @@ export class BuilderInsightService {
   async memory(orgId: string, p: ProjectRecord) {
     this.assertTree(p);
     const m = T.memoryFromFiles(await this.head(orgId, p));
-    if (!m.ok) throw new ProblemException('conflict', 'the stored project memory is damaged; fix or remove .nuzm/memory.json');
+    if (!m.ok) throw new ProblemException('conflict', 'the stored project memory is damaged; fix or remove nuzm.memory.json');
     return { path: T.MEMORY_PATH, entries: T.activeEntries(m.value), total: m.value.entries.length, limits: T.MEMORY_LIMITS };
   }
 
@@ -88,7 +88,7 @@ export class BuilderInsightService {
       throw new ProblemException('base_mismatch', 'the project changed since you loaded it', undefined, { currentVersion: p.headVersionId });
     const files = await this.head(orgId, p);
     const cur = T.memoryFromFiles(files);
-    if (!cur.ok) throw new ProblemException('conflict', 'the stored project memory is damaged; fix or remove .nuzm/memory.json');
+    if (!cur.ok) throw new ProblemException('conflict', 'the stored project memory is damaged; fix or remove nuzm.memory.json');
     const r = T.addEntry(cur.value, { kind: body.kind as builderTools.MemoryKind, text: String(body.text ?? ''), source: 'user', at: this.now().toISOString(), pinned: body.pinned === true }, newId);
     if (!r.ok) throw new ProblemException('validation_failed', `the note was refused: ${r.code}`, [{ field: 'text', message: r.code }]);
     if (!r.value.added) return { entry: r.value.entry, change: null };
@@ -100,7 +100,7 @@ export class BuilderInsightService {
     this.assertTree(p);
     const files = await this.head(orgId, p);
     const cur = T.memoryFromFiles(files);
-    if (!cur.ok) throw new ProblemException('conflict', 'the stored project memory is damaged; fix or remove .nuzm/memory.json');
+    if (!cur.ok) throw new ProblemException('conflict', 'the stored project memory is damaged; fix or remove nuzm.memory.json');
     const r = T.forget(cur.value, entryId);
     if (!r.ok) throw new ProblemException('not_found', 'memory note not found');
     return { change: await this.write(orgId, actor, p, files, r.value, 'Remove project memory note') };

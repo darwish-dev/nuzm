@@ -1,4 +1,5 @@
 import { isAgentSensitivePath, normalizeToolPath } from '../../paths';
+import { projectPathProblem } from '../changeset';
 import { analyzeRequirements, unsupportedStacksIn, type AnalyzeOptions } from './analyze';
 import { PROFILES } from './profiles';
 import { b } from './profiles-core';
@@ -221,6 +222,7 @@ export function validatePlan(plan: unknown): { ok: true } | { ok: false; problem
     for (const f of files) {
       const n = normalizeToolPath(f);
       if (!n.ok) problems.push({ at: `${at}.files`, message: 'a file path is not a valid relative path' });
+      else if (projectPathProblem(n.path)) problems.push({ at: `${at}.files`, message: 'a file path is reserved or malformed' });
       else if (isAgentSensitivePath(n.path)) problems.push({ at: `${at}.files`, message: 'a file path is a sensitive file' });
       else if (seenFiles.has(n.path) && seenFiles.get(n.path) !== t.moduleId && t.moduleId !== 'docs' && t.moduleId !== 'tests')
         problems.push({ at: `${at}.files`, message: 'a file is owned by two tasks' });

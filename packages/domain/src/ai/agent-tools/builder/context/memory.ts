@@ -6,11 +6,12 @@ import { estimateTokens } from './tokens';
 
 /**
  * Project memory (S-05 priority 4): short, durable notes about a project (decisions, conventions, preferences, facts, known issues) that survive between runs. It is stored as ONE
- * file in the project, `.nuzm/memory.json`, so it is versioned, reviewable, covered by rollback and written only through the normal change pipeline (no new table, no new write path).
+ * file in the project, `nuzm.memory.json` at the project root, so it is versioned, reviewable, covered by rollback and written only through the normal change pipeline (no new table, no new write path).
  * Memory is DATA: when it is shown to a model it is framed as untrusted content, never placed in the system prompt, because an entry may have been written from text that came
  * from outside. Entries are short, secret-free and (when not written by the user) free of commands and links.
  */
-export const MEMORY_PATH = '.nuzm/memory.json';
+/** a root file like `nuzm.app.json`: the platform reserves the `.nuzm/` directory, so the change pipeline refuses paths under it */
+export const MEMORY_PATH = 'nuzm.memory.json';
 export const MEMORY_LIMITS = { maxEntries: 200, maxTextChars: 400, maxRenderEntries: 40 } as const;
 export type MemoryKind = 'decision' | 'convention' | 'preference' | 'fact' | 'issue';
 export type MemorySource = 'user' | 'agent' | 'review';

@@ -106,6 +106,23 @@ const MIGRATION = /^db\/migrations\/.+\.sql$/;
 const BUILD_CONFIG = /^(vite|webpack|rollup|next|tsconfig|babel|eslint|postcss|tailwind)[^/]*\.(config\.)?(c|m)?(js|ts|json)$|^tsconfig[^/]*\.json$/;
 const CI_CONFIG = /^(\.github\/workflows\/|\.gitlab-ci\.yml$|Dockerfile$|docker-compose[^/]*\.ya?ml$)/;
 
+const RESERVED_TOP = new Set(['.git', '.nuzm', '.ssh', '.aws', '.gnupg', '.config', 'node_modules']);
+/**
+ * The path rules of the change pipeline that `normalizeToolPath` does not already enforce (reserved top-level directories, reserved characters, a segment ending in a space or a dot,
+ * the 240-character limit), so a preview never says "ok" about a path the pipeline will refuse.
+ */
+export function projectPathProblem(path: string): string | null {
+  if (path.length > 240) return 'too_long';
+  const segs = path.split('/');
+  if (RESERVED_TOP.has(segs[0]!.toLowerCase())) return 'reserved_directory';
+  for (const s of segs) {
+    if (/[:*?"<>|]/.test(s)) return 'reserved_character';
+    if (/[ .]$/.test(s)) return 'trailing_space_or_dot';
+    if (/^\.+$/.test(s)) return 'dot_segment';
+  }
+  return null;
+}
+
 export interface PreviewOptions {
   /** exact platform strings that must never appear in a project file */
   canaries?: readonly string[];
@@ -149,6 +166,10 @@ export function previewChangeSet(
   const pathOk = (at: string, p: unknown): string | null => {
     const r = normalizeToolPath(p);
     if (!r.ok) {
+      errors.push({ at, code: 'invalid_path', message: 'the path is not a valid relative project path' });
+      return null;
+    }
+    if (projectPathProblem(r.path)) {
       errors.push({ at, code: 'invalid_path', message: 'the path is not a valid relative project path' });
       return null;
     }

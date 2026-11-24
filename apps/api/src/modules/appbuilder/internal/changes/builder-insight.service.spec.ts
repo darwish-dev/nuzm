@@ -71,12 +71,12 @@ describe('BuilderInsightService', () => {
     const site = await projects.create(ORG, { type: 'website', name: 's', dataRegion: 'sa', createdBy: USER });
     expect(await code(svc.review(ORG, site))).toBe('unsupported_capability');
   });
-  it('stores memory notes as a user change to .nuzm/memory.json, dedupes, and removes them', async () => {
+  it('stores memory notes as a user change to nuzm.memory.json, dedupes, and removes them', async () => {
     const { svc, p, projects, applied, audit } = await setup();
     expect((await svc.memory(ORG, p)).entries).toEqual([]);
     const a = await svc.addMemory(ORG, USER, p, { kind: 'decision', text: 'Arabic is the default language', pinned: true });
     expect(a.change).not.toBeNull();
-    expect(applied[0]).toMatchObject({ source: 'user', patches: [{ op: 'add', path: '.nuzm/memory.json' }] });
+    expect(applied[0]).toMatchObject({ source: 'user', patches: [{ op: 'add', path: 'nuzm.memory.json' }] });
     const p2 = (await projects.get(ORG, p.id))!;
     const m = await svc.memory(ORG, p2);
     expect(m.entries.map((e) => e.text)).toEqual(['Arabic is the default language']);
@@ -92,7 +92,7 @@ describe('BuilderInsightService', () => {
     expect(await code(svc.forgetMemory(ORG, USER, (await projects.get(ORG, p.id))!, 'nope'))).toBe('not_found');
   });
   it('reports a damaged memory file instead of overwriting it', async () => {
-    const { svc, p } = await setup({ 'src/a.ts': 'export {};\n', '.nuzm/memory.json': '{broken' });
+    const { svc, p } = await setup({ 'src/a.ts': 'export {};\n', 'nuzm.memory.json': '{broken' });
     expect(await code(svc.memory(ORG, p))).toBe('conflict');
     expect(await code(svc.addMemory(ORG, USER, p, { kind: 'fact', text: 'x' }))).toBe('conflict');
   });

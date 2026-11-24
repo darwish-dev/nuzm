@@ -59,3 +59,44 @@ export {
   type ThresholdResult,
   type RolloutDecision,
 } from './thresholds';
+export { MOCK_PROFILES, mockRecording, mockSuite, type MockProfile } from './simulate';
+export { compareModels, signTest, type ComparisonEntry, type ComparisonRow, type ModelComparison, type Pairwise } from './compare';
+export { CATEGORY_PASS_FLOOR, CATEGORY_REGRESSION_TOLERANCE, ORIGINAL_THRESHOLD_IDS, detectRegressions, taskRegressions, type Regression } from './thresholds';
+export {
+  REVIEW_PROTOCOL,
+  createReviewPlan,
+  summarizeReviews,
+  validateReview,
+  type HumanAcceptanceResult,
+  type Review,
+  type ReviewItem,
+  type ReviewPlan,
+  type Reviewer,
+} from './review';
+export { BudgetLedger, costMinor, preflightBudget, validateBudget, worstCaseTaskMinor, type BenchmarkBudget, type BudgetCheck, type PriceCard } from './budget';
+export { evaluateRolloutGate, type GateCheck, type GateDecision, type GateInput, type SecurityReviewRecord, type ThresholdAcceptance } from './gate';
+export {
+  effectiveState,
+  isQualified,
+  proposeQualification,
+  stepQualification,
+  type EffectiveState,
+  type QualificationEvent,
+  type QualificationEvidence,
+  type QualificationRecord,
+  type QualificationState,
+  type StepResult,
+} from './qualification';
+export {
+  UncertainCaptureError,
+  livePreflight,
+  runLiveBenchmark,
+  type CaptureRequest,
+  type CaptureResult,
+  type CaptureSource,
+  type LivePreconditions,
+  type LiveRunResult,
+  type LiveRunStatus,
+  type Refusal,
+  type RefusalCode,
+} from './live-runner';

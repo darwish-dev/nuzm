@@ -143,8 +143,23 @@ describe('report, thresholds and the rollout gate', () => {
     const { report } = runSuite(GOLDEN_TASKS, only);
     expect(evaluateThresholds(report).find((x) => x.id === 'T06')!.status).toBe('NOT MEASURED');
   });
-  it('proposes 11 thresholds with a reason each', () => {
-    expect(PROPOSED_THRESHOLDS).toHaveLength(11);
+  it('keeps the 11 original thresholds exactly as proposed and adds the Session 03 ones, every one with a reason', () => {
+    const original = PROPOSED_THRESHOLDS.slice(0, 11).map((x) => `${x.id} ${x.scope}.${x.metric} ${x.op} ${x.value}`);
+    expect(original).toEqual([
+      'T01 all.validPatchRate >= 0.95',
+      'T02 all.modeViolations == 0',
+      'T03 all.toolCallValidity >= 0.95',
+      'T04 all.budgetKeptRate >= 0.95',
+      'T05 website.passRate >= 0.85',
+      'T06 webapp.passRate >= 0.75',
+      'T07 code-edit.passRate >= 0.85',
+      'T08 tool-calling.passRate >= 0.9',
+      'T09 all.meanQuality >= 85',
+      'T10 all.meanTokens <= 30000',
+      'T11 all.p95LatencyMs <= 90000',
+    ]);
+    expect(PROPOSED_THRESHOLDS).toHaveLength(20);
+    expect(new Set(PROPOSED_THRESHOLDS.map((x) => x.id)).size).toBe(20);
     expect(PROPOSED_THRESHOLDS.every((x) => x.why.length > 10)).toBe(true);
   });
 });

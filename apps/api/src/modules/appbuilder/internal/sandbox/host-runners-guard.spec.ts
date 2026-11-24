@@ -64,6 +64,6 @@ describe('LocalDevSandboxRuntime (host runner)', () => {
     const rt = new LocalDevSandboxRuntime();
     const h = await rt.create(spec(eg.templateOrigin('t-fixture')) as never);
     expect(h).toMatch(/^local-/);
-    await rt.destroy();
+    await rt.destroy(h);
   });
 });

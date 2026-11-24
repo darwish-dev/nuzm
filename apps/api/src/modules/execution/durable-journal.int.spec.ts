@@ -24,6 +24,11 @@ afterAll(async () => {
   await env?.close();
 });
 
+/** typed rows: the test env returns loosely typed rows */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test rows are read by column name only
+type Row = Record<string, any>;
+const q = async (text: string, params?: unknown[]): Promise<Row[]> =>
+  (await env.sql(text, params)) as unknown as Row[];
 const ctx = (orgId: string): eg.ExecContext => ({
   orgId,
   runId: 'run-1',
@@ -66,7 +71,7 @@ const submit = (o: eg.ExecutionOrchestrator, orgId: string, key: string) =>
     request: { orgId, runId: 'run-1', profile: 'typecheck' },
   });
 const rowsOf = (key: string) =>
-  env.sql(
+  q(
     `SELECT id, state, attempts, outcome_status, exit_code, duration_ms, artifact_count, data_region, origin, started_at, ended_at FROM execution.jobs WHERE idempotency_key = $1`,
     [key],
   );
@@ -87,7 +92,7 @@ describe('PgExecutionJournal with the orchestrator', () => {
     expect(await submit(o, ORG_A, 'idem-journal-1')).toMatchObject({ status: 'queued' });
     expect(await o.runNext('w')).toMatchObject({ state: 'succeeded' });
     await j.drain();
-    const [row] = await rowsOf('idem-journal-1');
+    const row = (await rowsOf('idem-journal-1'))[0]!;
     expect(row).toMatchObject({
       state: 'succeeded',
       attempts: 1,
@@ -98,13 +103,16 @@ describe('PgExecutionJournal with the orchestrator', () => {
     });
     expect(row.started_at).not.toBeNull();
     expect(row.ended_at).not.toBeNull();
-    const t = await env.sql(
+    const t = await q(
       `SELECT from_state, to_state, cause FROM execution.job_transitions WHERE job_id = $1 ORDER BY at, id`,
       [row.id],
     );
-    expect(
-      t.map((x: { from_state: string; to_state: string }) => `${x.from_state}>${x.to_state}`),
-    ).toEqual(['requested>requested', 'requested>queued', 'queued>running', 'running>succeeded']);
+    expect(t.map((x) => `${x.from_state}>${x.to_state}`)).toEqual([
+      'requested>requested',
+      'requested>queued',
+      'queued>running',
+      'running>succeeded',
+    ]);
     expect(errors).toEqual([]);
     expect(j.failures()).toBe(0);
   });
@@ -136,7 +144,7 @@ describe('PgExecutionJournal with the orchestrator', () => {
     await j.drain();
     expect(j.failures()).toBe(2); // queued>running, running>succeeded
     expect(errors.every((e) => e.op === 'moved' && e.reason === 'store_error')).toBe(true);
-    const [row] = await rowsOf('idem-journal-flaky');
+    const row = (await rowsOf('idem-journal-flaky'))[0]!;
     expect(row.state).toBe('queued'); // the durable record lags; reconcileOnStart repairs it on the next start
   });
 
@@ -145,18 +153,18 @@ describe('PgExecutionJournal with the orchestrator', () => {
     const o1 = orchestrator(ORG_A, first);
     await submit(o1, ORG_A, 'idem-journal-restart');
     await first.drain();
-    expect((await rowsOf('idem-journal-restart'))[0].state).toBe('queued');
+    expect((await rowsOf('idem-journal-restart'))[0]!.state).toBe('queued');
     // the process dies here; a new one starts
     const second = new PgExecutionJournal(store);
     const r = await second.reconcileOnStart();
     expect(r.terminated).toBeGreaterThanOrEqual(1);
-    const [row] = await rowsOf('idem-journal-restart');
+    const row = (await rowsOf('idem-journal-restart'))[0]!;
     expect(row).toMatchObject({ state: 'terminated', outcome_status: 'terminated' });
-    const last = await env.sql(
+    const last = await q(
       `SELECT cause FROM execution.job_transitions WHERE job_id = $1 ORDER BY at DESC, id DESC LIMIT 1`,
       [row.id],
     );
-    expect(last[0].cause).toBe('restart_recovery');
+    expect(last[0]!.cause).toBe('restart_recovery');
     const o2 = orchestrator(ORG_A, second);
     expect(await submit(o2, ORG_A, 'idem-journal-restart')).toEqual({
       status: 'refused',
@@ -169,10 +177,10 @@ describe('PgExecutionJournal with the orchestrator', () => {
   });
 
   it('records only identifiers, states, causes and numbers: no request, output or environment column exists to leak into', async () => {
-    const cols = await env.sql(
+    const cols = await q(
       `SELECT column_name FROM information_schema.columns WHERE table_schema = 'execution' AND table_name IN ('jobs','job_transitions')`,
     );
-    const names = cols.map((c: { column_name: string }) => c.column_name);
+    const names = cols.map((c) => c.column_name);
     expect(
       names.filter((n: string) => /stdout|stderr|argv|env|payload|request|secret/i.test(n)),
     ).toEqual([]);
@@ -183,12 +191,12 @@ describe('PgExecutionJournal with the orchestrator', () => {
     const o = orchestrator(ORG_A, j);
     await submit(o, ORG_A, 'idem-journal-iso');
     await j.drain();
-    const [row] = await rowsOf('idem-journal-iso');
+    const row = (await rowsOf('idem-journal-iso'))[0]!;
     expect(await store.get(ORG_B, row.id)).toBeNull();
     const seen = await env.app.withOrg(ORG_B, (c) =>
       c.query(`SELECT count(*)::int AS n FROM execution.jobs WHERE org_id = $1`, [ORG_A]),
     );
-    expect(seen.rows[0].n).toBe(0);
+    expect(seen.rows[0]!.n).toBe(0);
   });
 });
 
@@ -214,10 +222,10 @@ describe('durable kill switch', () => {
     expect(ks2.isEngaged(ORG_A)).toBe(true);
     expect(ks2.isEngaged(ORG_B)).toBe(false);
     // hydration does not append rows
-    const before = await env.sql(`SELECT count(*)::int AS n FROM execution.kill_switch`);
+    const before = await q(`SELECT count(*)::int AS n FROM execution.kill_switch`);
     await j2.hydrateKillSwitch(j2.createKillSwitch());
-    expect((await env.sql(`SELECT count(*)::int AS n FROM execution.kill_switch`))[0].n).toBe(
-      before[0].n,
+    expect((await q(`SELECT count(*)::int AS n FROM execution.kill_switch`))[0]!.n).toBe(
+      before[0]!.n,
     );
     // the orchestrator refuses while it is engaged
     const o = orchestrator(ORG_A, j2, ks2);
@@ -231,12 +239,12 @@ describe('durable kill switch', () => {
     const ks3 = new PgExecutionJournal(store).createKillSwitch();
     await new PgExecutionJournal(store).hydrateKillSwitch(ks3);
     expect(ks3.isEngaged(ORG_A)).toBe(false);
-    const hist = await env.sql(
+    const hist = await q(
       `SELECT engaged, reason_code FROM execution.kill_switch WHERE org_id = $1 ORDER BY at, id`,
       [ORG_A],
     );
-    expect(hist.map((h: { engaged: boolean }) => h.engaged)).toEqual([true, false]);
-    expect(hist[0].reason_code).toBe('canary_in_output');
+    expect(hist.map((h) => h.engaged)).toEqual([true, false]);
+    expect(hist[0]!.reason_code).toBe('canary_in_output');
   });
 
   it('start FAILS when the kill-switch state cannot be read (no execution with an unknown state)', async () => {

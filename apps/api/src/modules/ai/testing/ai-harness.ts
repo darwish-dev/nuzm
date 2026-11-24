@@ -138,6 +138,9 @@ export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}
         'mock-disc',
         'mock-nodisc',
         'acme-reg',
+        // Phase 2 spending-cap suite
+        'mock-cap-ok',
+        'mock-cap-vendor',
       ]),
     ],
   );

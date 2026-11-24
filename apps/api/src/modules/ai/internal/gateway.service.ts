@@ -352,6 +352,8 @@ export class GatewayService {
     let firstDenied: BudgetDenied | null = null;
     let lastError: ModelAdapterError | null = null;
     let circuitSkipped = 0;
+    // a provider whose own SPENDING limit answered (a rate_limited error that is not retryable) refuses every model of its account: its other models are not tried
+    const spendLimited = new Set<string>();
     const { retry, breaker, health } = this.resilience;
     const candidates = applyFallbackPolicy(
       routed.ranked.map((ranked) => ({
@@ -369,6 +371,7 @@ export class GatewayService {
       )!;
       const key = candidateKey(r.candidate); // provider/model: health samples
       const pkey = r.candidate.providerCode; // provider: the circuit (an outage hits every model of a provider)
+      if (spendLimited.has(pkey)) continue;
       // an open circuit refuses the candidate BEFORE a reservation is taken: nothing is held for a provider that is known to be failing
       if (!breaker.acquire(pkey)) {
         circuitSkipped++;
@@ -544,6 +547,7 @@ export class GatewayService {
         }
       }
       // this candidate failed: no billable result — release and fall back to the next ALLOWED candidate
+      if (lastError?.code === 'rate_limited' && !lastError.retryable) spendLimited.add(pkey);
       await this.budgets.release(orgId, reservation.id);
       await this.recordUsage(
         call,

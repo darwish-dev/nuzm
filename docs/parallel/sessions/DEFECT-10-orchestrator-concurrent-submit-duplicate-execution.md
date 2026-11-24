@@ -1,6 +1,6 @@
 # DEFECT-10 — concurrent `submit` calls with one idempotency key create several jobs and run the request several times
 
-Reporter: Session 07 (QA) · Owner: Session 04 (`packages/domain/src/ai/execution-gateway/orchestrator.ts`) · cc Master, Session 05 · Severity: **MEDIUM** (duplicate execution of one request; the bug is in the ORDER of the check, so it carries over to a durable store) · Status: OPEN · Found 2026-11-24 on `integration/ai-engine` `39658725`
+Reporter: Session 07 (QA) · Owner: Session 04 (`packages/domain/src/ai/execution-gateway/orchestrator.ts`) · cc Master, Session 05 · Severity: **MEDIUM** (duplicate execution of one request; the bug is in the ORDER of the check, so it carries over to a durable store) · Status: FIXED, RE-TESTED (2026-11-24, feature/ai-sandbox c9c7c557 merged into feature/ai-qa-security; domain dist rebuilt) · Found 2026-11-24 on `integration/ai-engine` `39658725`
 
 Evidence class: SIMULATED (MockExecutionPort; nothing executes).
 
@@ -18,3 +18,6 @@ Reserve the key synchronously before any `await` (put a pending marker in `keys`
 
 ## Tests
 `it.fails('DEFECT-10 …')` (secure expectation) + `CONFIRMED TODAY` control (delete with the fix) in `qa-exec-orchestrator.int.spec.ts`; the sequential duplicate control passes.
+
+## Re-test result
+FIXED and RE-TESTED: the `it.fails` is an ordinary test and passes (10 concurrent submits = one job, one execution); the CONFIRMED TODAY control was deleted. O-11 (same key, different request or run → `idempotency_key_conflict`, also while the first is in flight), O-12 (`decision_not_issued_by_gateway`: hand-made, altered and cross-org/run decisions are refused; pristine one runs) and O-13 (artifact `kind`: symlink, hard link, device, dir refused) are verified by new ordinary tests: `qa-exec-orchestrator.int.spec.ts` 19 passed. Note: API tests import `@nuzm/domain` from `dist`, so `pnpm --filter @nuzm/domain build` is needed after a domain change.

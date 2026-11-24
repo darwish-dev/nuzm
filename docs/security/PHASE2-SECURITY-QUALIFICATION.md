@@ -8,7 +8,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 
 ## 1. Method
 - Independent review of the existing code (gateway, budgets, secret scan, SSRF/egress, sandbox policy and local runtime, deploy, mobile signing, access guard), then a threat model of the new ports (`docs/security/AI-ENGINE-THREAT-MODEL.md`).
-- Adversarial and dynamic tests in `apps/api/src/qa/**` (own paths only), each run alone against its own PostgreSQL, real RLS and the real hash-chained audit sink where relevant. 15 defects were found; 14 are fixed and re-tested by flipping the `it.fails` marker; DEFECT-15 (the per-organization concurrent-run ceiling can be overshot by a burst; low) is open (`docs/security/DEFECT-REGISTER.md`).
+- Adversarial and dynamic tests in `apps/api/src/qa/**` (own paths only), each run alone against its own PostgreSQL, real RLS and the real hash-chained audit sink where relevant. 15 defects were found; all 15 are fixed and re-tested by flipping the `it.fails` marker (`docs/security/DEFECT-REGISTER.md`).
 - Browser E2E specs written by other sessions were reviewed read-only (`PHASE2-E2E-REVIEW.md`); a negatives spec was added (`e2e/tests/qa-negatives.spec.ts`). **No browser run has passed yet: UI evidence is NOT VERIFIED until the Master's isolated E2E has run.**
 
 ## 2. What was verified, and what could not be (by control area)
@@ -40,7 +40,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 7. **Operational controls**: alerting, on-call, backup and restore, key rotation, incident runbooks.
 8. **Legal and regulatory**: residency opinion, data-processing terms with the provider (D1/D2), ZATCA, retention. No compliance claim is made here.
 
-## 4. Residual risks (DEFECT-15 open, the other 14 fixed)
+## 4. Residual risks (all 15 defects fixed)
 | # | Risk | Likelihood / impact | Where it is controlled or tracked |
 |---|---|---|---|
 | R1 | A runtime that does not isolate is wired behind the port | Low (fail-closed gate, attestation required, REAL port refused while the gate is closed) / critical | gate `executionGate`, attestation verifier, HG-10-02; section 5 |
@@ -49,12 +49,11 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 | R4 | Encoded secrets (base64, hex, split) pass the output canary screen (O-14) | Low while the runtime holds no platform secret / medium | env guard; keep "no platform secret in the runtime" as a qualification criterion |
 | R5 | The local dev runtime (`isolation: none`) is enabled outside development by a misconfigured environment (O-4) | Low / high | refuses to start when `NODE_ENV=production`; make it refuse unless an explicit dev marker is present in every non-local environment |
 | R6 | Policy switches O-1/O-2/O-9 keep today's permissive defaults until the owner decides | Certain until decided / medium (developer can self-confirm production publish; billing admin can read project content) | switches exist and are tested in both settings; default change needs a recorded owner decision |
-| R7 | Concurrency fixes serialise on one row per organization (DEFECT-7): possible latency under many parallel runs of one organization | Medium at scale / low | load test needed before enabling for large tenants |
+| R7 | Concurrency fixes serialise per organization (DEFECT-7: the balance row; DEFECT-15: an advisory lock on run creation): possible latency under many parallel runs or creates of one organization | Medium at scale / low | load test needed before enabling for large tenants |
 | R8 | Idempotency error for duplicate in-flight call ids is the generic `conflict` code (nit) | Low / low | registry code recommended |
 | R9 | Supply chain: dependency installation runs with network only under an approved profile; the policy refuses git/URL/path dependencies and foreign registries, but no real registry mirror or advisory feed was exercised | Medium / high once a real runtime exists | dependency policy, SBOM and advisory gates before HG-10-02 |
 | R10 | E2E evidence missing for the new screens | Certain until run / low | Master's isolated E2E; qa-negatives spec |
 | R11 | Preview and custom-domain security (DNS takeover, wildcard TLS, cookie scope) is design-level only | Medium / medium once a real preview domain exists | ADR-060 checks in code; verify on the staging node |
-| R13 | DEFECT-15: a burst of run creations can exceed the organization's concurrent-run ceiling by the burst size | Medium under bursts / low (budgets and reservations still bound spend) | fix pending in Session 02; the ceiling is a cost control, not a safety boundary |
 | R12 | Audit checkpoint signing key is a dev stub (D-12) | Certain until a real key custody exists / medium | external anchoring, key custody decision |
 
 ## 5. HG-10-02 reviewer brief: what an external reviewer must test before any customer-code execution
@@ -91,4 +90,4 @@ Purpose: HG-10-02 is the human gate that says an isolating runtime was reviewed 
 6. Load test the gateway's per-organization serialisation (R7) and the approval inbox under concurrency.
 
 ## 7. Re-verification on the merged head
-`DEFECT-REGISTER.md` section 3 lists every QA suite re-run one file at a time on the merged head with the counts seen (19 suites, 496 passed, 1 expected-fail).
+`DEFECT-REGISTER.md` section 3 lists every QA suite re-run one file at a time on the merged head with the counts seen (19 suites, 497 passed, 0 expected-fail).

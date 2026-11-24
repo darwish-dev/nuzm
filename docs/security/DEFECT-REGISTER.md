@@ -21,9 +21,9 @@ State vocabulary: **FIXED+RETESTED** = the owner's fix is in the tree I ran, and
 | DEFECT-12 | Low (latent) | Deploy targets: `decideTarget` read inherited object names as a rule and threw | S06 | `03380df9` | `qa-deploy-targets.int.spec.ts::DEFECT-12 (fixed by Session 06): inherited object names read as an UNKNOWN product type (null), never as a rule` | FIXED+RETESTED |
 | DEFECT-13 | Low | M10 approvals: the loser of a race against a different decision got 200 with the winner's record | S05 | `8733daad` | `qa-agent-loop-http.int.spec.ts::DEFECT-13 (fixed): a decision that LOST the race to a different decision is told so (409) …` | FIXED+RETESTED |
 | DEFECT-14 | Low-Medium | Cancelling a parked lifecycle run left its production-deploy approval pending and decidable | S05 | `8733daad` | `qa-agent-loop-http.int.spec.ts::DEFECT-14 (fixed): cancelling a run closes the deployment approval it is waiting on …` | FIXED+RETESTED |
-| DEFECT-15 | Low | Run engine: the organization's concurrent-run ceiling is a count then an insert (two unlocked statements); a burst overshoots it (found in the final re-verification; intermittent under load) | S02 | none yet | `qa-run-concurrency.int.spec.ts::DEFECT-15: the organization ceiling holds under bursts …` (`it.fails`, reproduced in 2 of 2 runs) | **OPEN** |
+| DEFECT-15 | Low | Run engine: the organization's concurrent-run ceiling is a count then an insert (two unlocked statements); a burst overshoots it (found in the final re-verification; intermittent under load) | S02 | `abd34766` | `qa-run-concurrency.int.spec.ts::DEFECT-15 (fixed by Session 02): the organization ceiling holds under bursts …` | FIXED+RETESTED |
 
-Count: 15 found, 14 fixed and re-tested, 1 open (DEFECT-15, low). Severity counts: 1 High, 4 Medium (DEFECT-4, 6, 9, 10), 9 Low or Low-Medium. How each was found: static review (1–6), dynamic concurrency and reconciliation tests on the real ledger and audit chain (7, 8, 10, 11, 13, 14), a corpus of realistic secrets (9), a property check of a table lookup (12).
+Count: 15 found, 15 fixed and re-tested, 0 open. Severity counts: 1 High, 4 Medium (DEFECT-4, 6, 9, 10), 9 Low or Low-Medium. How each was found: static review (1–6), dynamic concurrency and reconciliation tests on the real ledger and audit chain (7, 8, 10, 11, 13, 14), a corpus of realistic secrets (9), a property check of a table lookup (12).
 
 ## 2. Concerns and observations raised against Session 04 and 06 work (O-11 … O-16)
 | ID | Concern | Disposition | Evidence |
@@ -52,7 +52,7 @@ Every QA suite was re-run ONE FILE AT A TIME on the merged head (integration `4f
 | `qa-deploy-targets` | 11 passed | target model, preview URL isolation |
 | `qa-deploy-policy-matrix` | 27 passed | O-1/O-2 both settings × five roles, races, expiry |
 | `qa-run-approval` | 5 passed | run approval decisions (DEFECT-6) |
-| `qa-run-concurrency` | first full pass: 5 failed (the ceiling burst overshoot, 4 active vs 3, and four cascades); then rewritten: **10 passed + 1 expected-fail (DEFECT-15)**, twice in a row | one run per session/key, workers, approvals, cancels, ceiling |
+| `qa-run-concurrency` | first full pass: 5 failed (the ceiling burst overshoot, 4 active vs 3, and four cascades = DEFECT-15); rewritten: 10 passed + 1 expected-fail twice; after S02's fix `abd34766`: **11 passed, 0 expected-fail, three runs in a row** | one run per session/key, workers, approvals, cancels, ceiling |
 | `qa-credential-custody` | 5 passed | key appears in no response, output or table |
 | `qa-ai-integrity` | 19 passed | ledger/wallet/usage reconciliation, DEFECT-7/8, audit chain concurrency and tamper detection, runtime role limits |
 | `qa-builder-tools` | 19 passed | builder tools HTTP: flag, authz, cross-tenant, no-side-effect dry runs |
@@ -60,4 +60,4 @@ Every QA suite was re-run ONE FILE AT A TIME on the merged head (integration `4f
 | `qa-agent-loop-http` | 17 passed | approvals, cancel, idempotency, concurrency, budget, injection (real engine) |
 | `qa-mobile-signing` | 6 passed | signing viewer-forbidden at API level |
 | `qa-migration-roundtrip` | 9 passed | up/down/up of every migration from 1800 with a schema fingerprint |
-Total: 19 suites, 496 tests passed, 1 expected-fail (DEFECT-15). Not run by me: the browser E2E (Master's isolated run), `flutter-local` (heavy slot), `sdk:check` and the repo-wide suites (Master's regression).
+Total: 19 suites, 497 tests passed, 0 expected-fail on the final tree (`qa-run-concurrency` 11 and `qa-ai-integrity` 19 re-run after the DEFECT-15 merge). Not run by me: the browser E2E (Master's isolated run), `flutter-local` (heavy slot), `sdk:check` and the repo-wide suites (Master's regression).

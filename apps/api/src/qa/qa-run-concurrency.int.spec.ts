@@ -119,32 +119,28 @@ describe('QA run engine: concurrent creation', () => {
     await cancel([...ids][0] as string);
   });
 
-  it.fails(
-    'DEFECT-15: the organization ceiling holds under bursts: 30 sessions started at once, repeated, never leave more active runs than the ceiling (today the count and the insert are two unlocked statements, so a burst overshoots)',
-    async () => {
-      const keep = cfg.maxConcurrentRuns;
-      cfg.maxConcurrentRuns = 3;
-      let worst = 0;
-      try {
-        for (let round = 0; round < 6 && worst <= 3; round++) {
-          const sids = await Promise.all(Array.from({ length: 30 }, () => session()));
-          const res = await Promise.all(
-            sids.map((sid) => mkRun({ sessionId: sid, kind: 'website' })),
-          );
-          const active = await num(
-            `SELECT count(*) n FROM ai.runs WHERE org_id=$1 AND state IN ('queued','running','waiting_approval')`,
-            [A()],
-          );
-          worst = Math.max(worst, active);
-          for (const r of res.filter((x) => x.statusCode === 202)) await cancel(r.json().id);
-        }
-      } finally {
-        cfg.maxConcurrentRuns = keep;
+  it('DEFECT-15 (fixed by Session 02): the organization ceiling holds under bursts: 30 sessions started at once, repeated, never leave more active runs than the ceiling', async () => {
+    const keep = cfg.maxConcurrentRuns;
+    cfg.maxConcurrentRuns = 3;
+    let worst = 0;
+    try {
+      for (let round = 0; round < 6 && worst <= 3; round++) {
+        const sids = await Promise.all(Array.from({ length: 30 }, () => session()));
+        const res = await Promise.all(
+          sids.map((sid) => mkRun({ sessionId: sid, kind: 'website' })),
+        );
+        const active = await num(
+          `SELECT count(*) n FROM ai.runs WHERE org_id=$1 AND state IN ('queued','running','waiting_approval')`,
+          [A()],
+        );
+        worst = Math.max(worst, active);
+        for (const r of res.filter((x) => x.statusCode === 202)) await cancel(r.json().id);
       }
-      expect(worst, 'most active runs seen after a burst').toBeLessThanOrEqual(3);
-    },
-    300_000,
-  );
+    } finally {
+      cfg.maxConcurrentRuns = keep;
+    }
+    expect(worst, 'most active runs seen after a burst').toBeLessThanOrEqual(3);
+  }, 300_000);
 
   it('the ceiling holds for sequential creates: the run over the ceiling is refused 429 and nothing is created for it', async () => {
     const keep = cfg.maxConcurrentRuns;

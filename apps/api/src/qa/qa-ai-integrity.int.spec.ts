@@ -125,9 +125,12 @@ describe('QA integrity 1: duplicate-charge prevention', () => {
     expect(res.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     for (const f of failed) {
       const r = f.reason as { code?: string; detail?: string; message?: string };
-      expect(r.code, String(f.reason)).toBe('conflict'); // HTTP 409
+      // HTTP 409 either way: the gateway claim (`conflict`) or the platform idempotency guard (`idempotency_in_progress`)
+      expect(['conflict', 'idempotency_in_progress'], String(f.reason)).toContain(r.code);
       // a duplicate that arrives while the call is live is told so; one that arrives after it finished is told the id is settled: both are 409, neither dispatches
-      expect(`${r.detail ?? ''} ${r.message ?? ''}`).toMatch(/call_in_progress|already settled/);
+      expect(`${r.detail ?? ''} ${r.message ?? ''}`).toMatch(
+        /call_in_progress|already settled|in progress/,
+      );
     }
     const charged = w0 - (await e.wallet(A()));
     expect(charged).toBeGreaterThan(0n);

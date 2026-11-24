@@ -642,6 +642,7 @@ export const EXEC_ATTEMPTS: Attempt[] = [
           runId: 'run-a',
           runtimeClass: 'gvisor-runsc',
           image: 'registry.nuzm.internal/sandbox-node:22',
+          egressAllow: eg.registryHosts(),
         });
         return (
           eg.validateRuntimeSpec(base).length === 0 &&

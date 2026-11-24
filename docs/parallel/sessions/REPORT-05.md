@@ -42,7 +42,7 @@ No executable tool is offered to a model (the four read-only tools are unchanged
 ## Test commands and ACTUAL results (all run in this worktree; nothing repo-wide)
 | Command (cwd) | Result seen |
 |---|---|
-| `npx vitest run src/ai/agent-tools/builder` (packages/domain) | 7 files, **112 passed** (changeset 20, review-repair 21, context 15, planning 16, product-types 33, separation 5, sha256 2) |
+| `npx vitest run src/ai/agent-tools/builder` (packages/domain) | 8 files, **116 passed** (adds execution-build-port 4) (changeset 20, review-repair 21, context 15, planning 16, product-types 33, separation 5, sha256 2) |
 | `npx vitest run src/ai` (packages/domain) | 16 files, **273 passed** (includes the existing agent-tools, agent-loop, prompts, tools specs: unchanged and green) |
 | `npx tsc -p tsconfig.json --noEmit` (packages/domain) | no output (clean) |
 | `npx vitest run src/modules/appbuilder/internal/changes` (apps/api) | 3 files, **17 passed** (change-tools 8, insight 5, repair 4) |
@@ -65,7 +65,7 @@ What the integration tests proved on the real pipeline: preview stores nothing; 
 ## Integration requirements (for the Master)
 1. Apply CONTRACT-1 and CONTRACT-2, rename the two parked controllers, register them, regenerate the SDK; register flag `builder_tools.enabled`.
 2. Merge note: `packages/i18n/src/messages.ts` blocks of several sessions may conflict textually at the end of `ar`/`en`; mine is delimited.
-3. When Session 04's `ExecutionPort`/`MockBuildPort` are on the integration branch: add an adapter implementing `BuildPort` over them (profiles `typecheck` / `unit-tests` / `build`) and pass it to `ProjectRepairService`'s constructor in the module factory (today it is not registered, deliberately: no port means no run).
+3. Session 04's `ExecutionPort`/`MockExecutionPort` (branch `feature/ai-sandbox`): the adapter `ExecutionBuildPort` (`builder/execution-build-port.ts`, structural types, 4 tests with a fake of the same shape) is done. After the merge, construct `new ExecutionBuildPort(createMockExecutionPort(ctx), () => new Date().toISOString())` and pass it to `ProjectRepairService` in the module factory (today it is not registered, deliberately: no port means no run). It has NOT been run against the real `MockExecutionPort` yet (its branch is not merged here): re-run `execution-build-port.spec.ts` with the real mock after the merge.
 4. Wiring into the S-AG3 agent loop (a post-apply review/repair stage, plan-driven opening message, project memory in the context) needs a run-kind registration (`apps/api/src/modules/ai/**` is Session 02's, `app.module.ts` is the Master's). Not started.
 
 ## Heavy-run requests (for the Master's slot)

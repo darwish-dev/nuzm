@@ -47,6 +47,7 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
     )
   )[0]!.user_id;
   for (const [k, v] of [
+    ['ai.enabled', true], // the builder API (AiEnabledGuard) answers 404 while it is off, which the page renders as "not enabled"
     ['app_builder.enabled', true],
     ['builder_tools.enabled', null],
     ['builder_lifecycle.enabled', null],
@@ -143,16 +144,22 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
     ],
   ]);
   await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=${parked}`);
-  await expect(page.getByText(T(info, 'bt.lc.run.waiting_approval'))).toBeVisible();
+  await expect(
+    page.locator('strong').getByText(T(info, 'bt.lc.run.waiting_approval'), { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole('progressbar', { name: T(info, 'bt.lc.progress.label') }),
   ).toBeVisible();
   await expect(
-    page.getByRole('listitem').filter({ hasText: T(info, 'bt.lc.step.build') }),
+    page
+      .locator('li[data-status]')
+      .filter({ has: page.getByText(T(info, 'bt.lc.step.build'), { exact: true }) }),
   ).toContainText(T(info, 'bt.lc.st.succeeded'));
   // the repair steps were never needed: shown as skipped, not as pending forever
   await expect(
-    page.getByRole('listitem').filter({ hasText: T(info, 'bt.lc.step.repair') }),
+    page
+      .locator('li[data-status]')
+      .filter({ has: page.getByText(T(info, 'bt.lc.step.repair'), { exact: true }) }),
   ).toContainText(T(info, 'bt.lc.st.skipped'));
   await expect(page.getByText(T(info, 'bt.lc.approval.body'))).toBeVisible();
   await expect(page.getByRole('link', { name: T(info, 'bt.lc.approval.link') })).toHaveAttribute(
@@ -204,7 +211,9 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
     ['lifecycle_finished', { status: 'succeeded', progress: prog(14) }],
   ]);
   await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=${done}`);
-  await expect(page.getByText(T(info, 'bt.lc.run.succeeded'))).toBeVisible();
+  await expect(
+    page.locator('strong').getByText(T(info, 'bt.lc.run.succeeded'), { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(T(info, 'bt.lc.target.node-web'))).toBeVisible();
   await expect(page.getByText(T(info, 'bt.lc.blocker.simulated_evidence'))).toBeVisible();
   await expect(page.getByText(version)).toBeVisible();
@@ -218,13 +227,17 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
   // ---- E-8: a malformed id and an unknown run never show a blank page, a stack trace or step names
   await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=not-a-uuid`);
   await expect(page.getByText(T(info, 'bt.lc.state.empty'))).toBeVisible();
-  expect(await page.content()).not.toMatch(/at \w+ \(|TypeError|undefined/);
+  // what a person SEES (the page's own inline scripts legitimately contain `undefined`)
+  expect(await page.locator('main').innerText()).not.toMatch(/at \w+ \(|TypeError|undefined/);
   await page.goto(
     `${WEB}/${L}/builder/projects/${project}/agent?run=0198a3c0-aaaa-7000-8000-00000000dead`,
   );
-  await expect(page.getByRole('alert')).toBeVisible();
+  // (Next.js adds its own route announcer with role=alert outside <main>)
+  await expect(page.locator('main').getByRole('alert')).toBeVisible();
   await expect(
-    page.getByRole('listitem').filter({ hasText: T(info, 'bt.lc.step.build') }),
+    page
+      .locator('li[data-status]')
+      .filter({ has: page.getByText(T(info, 'bt.lc.step.build'), { exact: true }) }),
   ).toHaveCount(0);
   await audit(page, info, 'builder-agent-unknown-run');
 
@@ -235,7 +248,9 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
   ]);
   try {
     await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=${parked}`);
-    await expect(page.getByText(T(info, 'bt.lc.run.waiting_approval'))).toBeVisible();
+    await expect(
+      page.locator('strong').getByText(T(info, 'bt.lc.run.waiting_approval'), { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: T(info, 'bt.lc.cancel') })).toHaveCount(0);
     // an active run hides the start form, so a read-only member has no way to start anything either
     await expect(
@@ -250,4 +265,5 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
   }
 
   await orgFlag(org, 'app_builder.enabled', null);
+  await orgFlag(org, 'ai.enabled', null);
 });

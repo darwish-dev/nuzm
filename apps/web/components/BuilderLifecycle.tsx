@@ -371,7 +371,7 @@ export function LifecyclePanel({
   return (
     <section aria-labelledby={`${id}-h`} className="nz-card">
       <h2 className="nz-h2" id={`${id}-h`}>
-        {t(locale, 'bt.lc.title')}
+        {t(locale, 'bt.lc.run.heading')}
       </h2>
       {simulated && <Banner tone="warn">{t(locale, 'bt.lc.simulated')}</Banner>}
       <p role="status">

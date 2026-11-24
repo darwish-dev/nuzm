@@ -18,14 +18,15 @@ test.describe.configure({ mode: 'serial' });
  *
  * Every assertion about "no leak" is language-neutral (a marker string planted in the run's events must appear in no page, in either language) and does not depend on the wording of a
  * refusal; the refusal itself is asserted through the shared message catalogue (`state.forbidden.title`, `bt.lc.start.off`, `bench.forbidden`) or through the API status.
- * Preconditions: runs after 02-admin (the staff user enrolled MFA there) like the specs it complements; the dev identity provider's users are `owner-`, `billing-`, `registrant-`
- * and `staff-` of each language (the same ones the existing specs use); `billing-<L>` is made a real viewer member of the owner's organization here, exactly as 10b-mobile does.
+ * Preconditions: runs after 02-admin (the staff user enrolled MFA there) like the specs it complements; the dev identity provider's users are `owner-`, `billing-`, `approver1-`
+ * and `staff-` of each language (`USERS` in playwright.config.ts: `registrant-` is not an identity-provider user, it is only an email typed into the domain forms) (the same ones the existing specs use); `billing-<L>` is made a real viewer member of the owner's organization here, exactly as 10b-mobile does.
  */
 const MARKER = `QA-NEG-MARKER-${Date.now()}`;
 const csrfOf = async (p: Page, name = 'nuzm_csrf') =>
   (await p.context().cookies()).find((c) => c.name === name)?.value ?? '';
+// the SQL marker is case-sensitive and needs a FROM: the page's own stylesheet has `select {` selectors, which a case-insensitive `SELECT ` matched
 const LEAKS =
-  /TypeError|ReferenceError|Unhandled|at Object\.|node_modules|stack trace|SELECT |ECONNREFUSED/i;
+  /TypeError|ReferenceError|[Uu]nhandled|at Object\.|node_modules|[Ss]tack trace|SELECT [^<]*\bFROM\b|ECONNREFUSED/;
 
 test('builder agent screen: unauthenticated, viewer, another tenant, malformed ids (ar/en, axe)', async ({
   page,
@@ -40,6 +41,7 @@ test('builder agent screen: unauthenticated, viewer, another tenant, malformed i
     )
   )[0]!.user_id;
   for (const [k, v] of [
+    ['ai.enabled', true], // the builder API (AiEnabledGuard) answers 404 while it is off
     ['app_builder.enabled', true],
     ['builder_tools.enabled', true],
     ['builder_lifecycle.enabled', true],
@@ -85,10 +87,12 @@ test('builder agent screen: unauthenticated, viewer, another tenant, malformed i
     )[0]!.n,
   );
   const url = `${WEB}/${L}/builder/projects/${project}/agent?run=${run}`;
-  const noLeak = async (p: Page, what: string) => {
+  /** `ownProject`: the page is the owner's own project, whose name the page legitimately shows; the run marker and internal error text still must not appear */
+  const noLeak = async (p: Page, what: string, ownProject = false) => {
     const html = await p.content();
     expect(html, `${what}: the marker must not be on the page`).not.toContain(MARKER);
-    expect(html, `${what}: the project name must not be on the page`).not.toContain(name);
+    if (!ownProject)
+      expect(html, `${what}: the project name must not be on the page`).not.toContain(name);
     expect(html, `${what}: no internal error text`).not.toMatch(LEAKS);
   };
 
@@ -174,11 +178,11 @@ test('builder agent screen: unauthenticated, viewer, another tenant, malformed i
   });
   try {
     const tp = await tctx.newPage();
-    await signIn(tp, info, `registrant-${L}@example.test`);
+    await signIn(tp, info, `approver1-${L}@example.test`);
     await tctx.addCookies([{ name: 'nuzm_org', value: org, url: WEB }]);
     const uid = (
       await sql<{ id: string }>(`SELECT id FROM identity.users WHERE email = $1`, [
-        `registrant-${L}@example.test`,
+        `approver1-${L}@example.test`,
       ])
     )[0]!.id;
     expect(
@@ -223,7 +227,7 @@ test('builder agent screen: unauthenticated, viewer, another tenant, malformed i
   await noLeak(page, 'malformed project id');
   await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=not-a-uuid`);
   await expect(page.getByRole('heading', { name: T(info, 'bt.lc.title') })).toBeVisible();
-  await noLeak(page, 'malformed run id');
+  await noLeak(page, 'malformed run id', true);
   await expect(
     page.getByRole('button', { name: T(info, 'bt.lc.start.submit'), exact: true }),
   ).toBeVisible(); // ignored: the empty start state
@@ -231,10 +235,12 @@ test('builder agent screen: unauthenticated, viewer, another tenant, malformed i
   await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=${randomUUID()}`);
   await expect(page.getByRole('heading', { name: T(info, 'bt.lc.title') })).toBeVisible();
   await expect(
-    page.getByRole('listitem').filter({ hasText: T(info, 'bt.lc.step.plan') }),
+    page
+      .locator('li[data-status]')
+      .filter({ has: page.getByText(T(info, 'bt.lc.step.plan'), { exact: true }) }),
   ).toHaveCount(0);
   await expect(page.getByRole('progressbar')).toHaveCount(0);
-  await noLeak(page, 'unknown run id');
+  await noLeak(page, 'unknown run id', true);
   await audit(page, info, 'qa-neg-agent-unknown-run');
 });
 

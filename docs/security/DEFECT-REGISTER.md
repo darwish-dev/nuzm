@@ -70,3 +70,14 @@ Tree: `integration/ai-engine` `c0043cbd` (all worker branches merged: S02 `1ab89
 | `qa-migration-roundtrip` | 9 passed | up/down/up of every migration from 1800 with a schema fingerprint |
 
 Not run by me (not claimed): the browser E2E including `qa-negatives.spec.ts` (NOT VERIFIED), `flutter-local` (heavy slot, per the Master), `sdk:check` and the repo-wide suites (Master's regression), and the tests of other sessions.
+
+## 4. Phase 3 continuation (P3-S08, from 2026-11-24)
+Defects found in the Phase 3 components keep the same vocabulary and the same proof rule (a test that states the secure expectation: an `it.fails` while open). Findings against a session branch that is not merged yet are marked with the branch and commit that was read; the proving test is skipped until the code is in the tree (never silently green) and is a CI gate from the merge on. Phase 2 DEFECT-1 … DEFECT-17 are unchanged above.
+
+| ID | Severity | Component | Owner (fixer) | Found at | Proving test | State |
+|---|---|---|---|---|---|---|
+| DEFECT-18 | Low | `packages/runtime-agent` egress proxy: `isPublicAddress` accepts `100::/64`, `::7f00:1`, `fec0::1`, which the Phase 2 classifier refuses (`docs/security/defects/DEFECT-18-p3-egress-proxy-address-policy.md`) | P3-S02 | `claude/p3-s02-runtime-999326` @ `fe83787d` | `qa-p3-egress-proxy.spec.ts::DEFECT-18` (`it.fails`; proving run: 4 passed + 1 expected fail) | **OPEN** |
+
+Observations not registered (not reproduced): O-17 (egress proxy tunnel slot held after the client left; see the DEFECT-18 file).
+
+Count (Phase 3, running): 1 found, 0 fixed, 1 open. The final count and the independent re-verification of all registered defects on the final Phase 3 revision are recorded in `docs/phase3/sessions/REPORT-P3-S08.md` (acceptance Q3).

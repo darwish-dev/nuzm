@@ -25,7 +25,7 @@ Code: `packages/domain/src/ai/execution-gateway/` (domain, `executionGateway.*` 
 | 13 | Container/microVM runtime interface, hardening spec builder and validator, `RefusingRuntime` | `runtime-spec.ts` | `runtime-spec.spec.ts` |
 | 14 | Orchestrator (flag, kill switch, gate, policy, quota, approval, queue, mock run, screen, settle, audit) | `orchestrator.ts` | `orchestrator.spec.ts` (31) |
 | 15 | `ExecutionPort` over the M10 `SandboxRuntime` (refuses `local-dev`; REAL only if `isolation: verified`) | `appbuilder/internal/sandbox/execution-port.ts` | `execution-port.spec.ts` (11) |
-| 16 | Escape suite 1.1.0: 127 EX control-plane attempts BLOCKED, 21 XR isolating attempts NOT_VERIFIED (suite total 273) | `escape-suite-exec.ts`, `escape-suite.ts` | `escape-suite.spec.ts` (4) |
+| 16 | Escape suite 1.1.0: 131 EX control-plane attempts BLOCKED, 21 XR isolating attempts NOT_VERIFIED (suite total 273) | `escape-suite-exec.ts`, `escape-suite.ts` | `escape-suite.spec.ts` (4), `confine.spec.ts` |
 | 17 | Runtime evaluation + recommended architecture + verification plan + escape catalogue + runbook | `docs/security/sandbox/` | n/a (documents) |
 | 18 | ADR-067 offline addendum (still PROPOSED), S-AG6 requirements updated | `docs/adr`, `docs/ai-intelligence` | n/a |
 
@@ -68,7 +68,10 @@ Not run (by rule): any integration suite, E2E, `pnpm verify`, console builds.
 ## Security findings (all offline, all fixed, each with a test)
 1. **S04-F1 (low, availability):** `decideExec` threw a TypeError for a model-chosen profile named `__proto__`, `constructor`, `toString`, `hasOwnProperty` or `valueOf` (the lookup returned an inherited object, then `profile.params.script` was dereferenced). Found by the new escape attempts EX-PROFILE-2..5. Fixed in `policy.ts` (own properties only; reads as `unknown_profile`); `exec-policy.spec.ts` covers it. No bypass: such a profile was never enabled.
 2. **S04-F2 (test robustness):** base escape attempts WS-2/3/4/6 reported ESCAPED instead of NOT_VERIFIED when the suite runs without a database (`!!c.tickets && …`). Now they throw "needs the database" like WS-1/5. With a database behaviour is unchanged.
-3. Design observations (not defects): `AiFlags.execTools` is hard-wired false (good, untouched); the base suite's isolating attempts would pass on a *mock that lies about `isolation: verified`* (the mock answers 127 to unknown commands), so a mock must never be allowed to claim `verified`; the orchestrator and `executionGate` refuse a verified-looking runtime while the gate is closed (EX-GATE-8). Documented in `ESCAPE-SUITE-1.1.md`.
+3. **S04-F3 (low, from Session 07 DEFECT-1):** same as F1; already fixed here before the report arrived.
+4. **S04-F4 (low, from Session 07 DEFECT-3):** `egress.ts` `blockedV6` missed the SIIT form `::ffff:0:a.b.c.d` and the discard-only prefix `100::/64`. Fixed; cases added to `egress.spec.ts` (a SIIT form of a public IPv4 stays public, like the other embedded forms).
+5. **S04-F5 (low today, high as a design rule; Session 07 DEFECT-5):** `LocalDevSandboxRuntime.readFiles(named)`, `writeFiles` and `exec` cwd followed symlinks planted by sandboxed code (confused deputy). New `confine.ts` (`lstat` on every existing component, `realpath` of the deepest ancestor under the real root, regular single-link file for reads, no hard-link write target); used by the runtime; escape attempts EX-SYM-1..4 (SYM-READ, SYM-WRITE, SYM-HARDLINK, SYM-CWD) added; `confine.spec.ts` covers it incl. the runtime. Residual: a check-then-open race while sandboxed code runs concurrently (documented in `confine.ts`; the dev runner is dev-only and a real runtime reads through its own agent, not the host path).
+6. Design observations (not defects): `AiFlags.execTools` is hard-wired false (good, untouched); the base suite's isolating attempts would pass on a *mock that lies about `isolation: verified`* (the mock answers 127 to unknown commands), so a mock must never be allowed to claim `verified`; the orchestrator and `executionGate` refuse a verified-looking runtime while the gate is closed (EX-GATE-8). Documented in `ESCAPE-SUITE-1.1.md`.
 
 ## Ordinary engineering decisions recorded (no owner input needed)
 1. Policy core moved to `policy.ts` and `index.ts` became the re-export surface (API unchanged, `executionGateway.*`).
@@ -94,7 +97,7 @@ Offline machinery: ready for review and for Session 05 to consume the mock. As a
 Durable stores and wiring once D-21 is decided (DEPENDENT); an `ExecutionRuntime` adapter for the chosen technology (SECURITY-BLOCKED until then); exercising the runbook on a real runner; extending the suite when ADR-067 adds profiles.
 
 ## Heavy-run requests (for the Master's heavy slot)
-1. `NUZM_TEST_ADMIN_URL=… pnpm --filter @nuzm/api exec vitest run -c vitest.integration.config.mts src/modules/appbuilder/sandbox.int.spec.ts` on the integration branch after merge: the whole 273-attempt suite with database-backed ticket attempts. Expected: 0 ESCAPED, every control-plane attempt BLOCKED, every isolating attempt NOT_VERIFIED, `isolationEvidence` false (the unit spec shows these properties without a database; the int spec also asserts `notVerified > 40`, which now holds with the 21 XR attempts added).
+1. `NUZM_TEST_ADMIN_URL=… pnpm --filter @nuzm/api exec vitest run -c vitest.integration.config.mts src/modules/appbuilder/sandbox.int.spec.ts` on the integration branch after merge: the whole 277-attempt suite with database-backed ticket attempts. Expected: 0 ESCAPED, every control-plane attempt BLOCKED, every isolating attempt NOT_VERIFIED, `isolationEvidence` false (the unit spec shows these properties without a database; the int spec also asserts `notVerified > 40`, which now holds with the 21 XR attempts added).
 2. `pnpm --filter @nuzm/api typecheck` (needs the built package `dist`s) to close the API typecheck gap noted above.
 
 ## Escalations

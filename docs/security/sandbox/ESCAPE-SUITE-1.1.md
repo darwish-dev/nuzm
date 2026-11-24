@@ -6,7 +6,7 @@ Code: `apps/api/src/modules/appbuilder/internal/sandbox/escape-suite.ts` (base c
 - **`control-plane` (EX-\*)** attack a control the control plane owns. They run for real on any runtime. A BLOCKED result is evidence for that control and **only that control**.
 - **`isolating-runtime` (XR-\*, plus the base IS/NS/MP/RS/PS/KI/MS/LM/RX/CA families)** need a verified isolating runtime. On the mock and the local runner they are `NOT_VERIFIED`: not executed, not counted. **A mock cannot be attacked, so it cannot pass them.** `isolationEvidence` is true only when a `verified` runtime executed every isolating attempt with 0 escapes.
 
-## Added in 1.1.0 (counts at this commit: 127 EX control-plane + 21 XR isolating = 148 new; the whole suite is 273 attempts)
+## Added in 1.1.0 (counts at this commit: 131 EX control-plane + 21 XR isolating = 152 new; the whole suite is 277 attempts)
 | Family | Attempts (control plane, EX-\*) | Control that must stop them |
 |---|---|---|
 | `exec_policy` | 22 model-supplied members (argv, command, shell, env, cwd, image, volumes, privileged, approval…), unknown and inherited profile names, other tenant/run, 20 script-name and parameter injections (metacharacters, substitution, lifecycle and publish scripts, prototype names), 10 bad directories, approval abuse (self-approval by model/API key/system, replay, wrong decision) | gateway closed surface; approval workflow |

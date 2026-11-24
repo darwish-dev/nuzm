@@ -36,5 +36,5 @@ Acceptance for S-AG6 (AC-AG-12): the gate open for a named environment by decisi
 | Cleanup | `planCleanup` | `cleanup.spec.ts` |
 | Runtime interface | `ExecutionRuntime`, `buildRuntimeSpec`, `validateRuntimeSpec`, `RefusingRuntime`; sandbox-runtime port refusing `local-dev` (`appbuilder/internal/sandbox/execution-port.ts`) | `runtime-spec.spec.ts`, `execution-port.spec.ts` |
 | Orchestration | `ExecutionOrchestrator`: flag, switches, gate, policy, quota, approval, queue, run, screen, settle, audit | `orchestrator.spec.ts` |
-| Escape suite | 1.1.0: 127 EX control-plane attempts BLOCKED on the mock, 21 XR isolating attempts NOT_VERIFIED | `escape-suite.spec.ts` |
+| Escape suite | 1.1.0: 131 EX control-plane attempts BLOCKED on the mock, 21 XR isolating attempts NOT_VERIFIED | `escape-suite.spec.ts` |
 S-AG6 remains **0 % complete as a capability**; a mock cannot prove isolation.

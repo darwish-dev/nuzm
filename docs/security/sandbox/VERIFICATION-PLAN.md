@@ -14,7 +14,7 @@ Status: PREPARED. Nothing below has been run against a real runtime; there is no
 | 7 | Audit (7) | `audit.spec.ts`, orchestrator spec, platform sink adapter | events reach `audit.audit_logs` hash-chained; no content; a sample reconciles with the runner's own log |
 | 8 | Kill switch and flags (8) | `termination.spec.ts`, orchestrator spec | end-to-end: engage the switch with a real running sandbox and measure time to SIGKILL, workspace teardown and node state (target to be set by the owner, e.g. against the AI kill-switch's 5 s) |
 | 9 | The gate (9) | `exec-policy.spec.ts`, EX-GATE | the gate state is set by recorded decisions, not by configuration alone |
-| 10 | Escape suite (10) | EX-* (127 attempts) BLOCKED on the mock | XR-* and every base isolating attempt BLOCKED on the real runner, 0 ESCAPED, by a named reviewer |
+| 10 | Escape suite (10) | EX-* (131 attempts) BLOCKED on the mock | XR-* and every base isolating attempt BLOCKED on the real runner, 0 ESCAPED, by a named reviewer |
 | 11 | Runtime hardening spec | `runtime-spec.spec.ts`, EX-SPEC-* | the runner's actual configuration (inspect the live sandbox) equals the spec: privileged off, caps dropped, seccomp profile loaded, user, mounts |
 | 12 | Health and cleanup | `monitor.spec.ts`, `cleanup.spec.ts` | after a run, a kill and a node failure nothing remains (processes, mounts, namespaces, files, VMs) |
 | 13 | Compatibility | none | all five profiles on representative projects; the chosen runtime's syscall/`/proc` differences recorded |

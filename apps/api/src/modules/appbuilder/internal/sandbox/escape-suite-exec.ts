@@ -1,4 +1,8 @@
 import { executionGateway as eg } from '@nuzm/domain';
+import { linkSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { confinedPath } from './confine';
 import type { Attempt, Category } from './escape-suite';
 import { SandboxRuntimeExecutionPort } from './execution-port';
 import { MockSandboxRuntime } from './mock-runtime';
@@ -63,6 +67,29 @@ const refusedWith = (over: Record<string, unknown>, reason?: string) => async ()
   return !d.allowed && (reason === undefined || d.reasons.includes(reason));
 };
 const CANARY = 'NZCANARY-exec-0badc0de';
+/** Control-plane confinement attempts: the platform (not the sandboxed code) must refuse to follow what sandboxed code planted (DEFECT-5). Real files in a temporary directory; nothing runs. */
+const withPlanted = async (
+  plant: (root: string, outside: string) => void,
+  attack: (root: string) => void,
+): Promise<boolean> => {
+  const base = mkdtempSync(join(tmpdir(), 'nuzm-sym-'));
+  const root = join(base, 'root');
+  const outside = join(base, 'outside');
+  try {
+    mkdirSync(root);
+    mkdirSync(outside);
+    writeFileSync(join(outside, 'host-secret.txt'), 'x');
+    plant(root, outside);
+    try {
+      attack(root);
+      return false; // the control plane accepted the path: the attack worked
+    } catch {
+      return true;
+    }
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+};
 
 const MODEL_MEMBERS: [string, unknown][] = [
   ['argv', ['sh', '-c', 'id']],
@@ -622,6 +649,50 @@ export const EXEC_ATTEMPTS: Attempt[] = [
         );
       },
     ),
+  ),
+  cp(
+    'EX-SYM-1',
+    'symlink_mount',
+    'SYM-READ: a named read through a symlink to a file outside the sandbox',
+    'control-plane confinement: no symlink component, realpath under the root',
+    () =>
+      withPlanted(
+        (r, o) => symlinkSync(join(o, 'host-secret.txt'), join(r, 'link.txt')),
+        (r) => confinedPath(r, 'link.txt', 'read'),
+      ),
+  ),
+  cp(
+    'EX-SYM-2',
+    'symlink_mount',
+    'SYM-WRITE: a write through a symlinked directory',
+    'control-plane confinement',
+    () =>
+      withPlanted(
+        (r, o) => symlinkSync(o, join(r, 'out')),
+        (r) => confinedPath(r, 'out/planted.txt', 'write'),
+      ),
+  ),
+  cp(
+    'EX-SYM-3',
+    'symlink_mount',
+    'SYM-HARDLINK: a read of a hard link to an outside file',
+    'control-plane confinement: regular file with a single link',
+    () =>
+      withPlanted(
+        (r, o) => linkSync(join(o, 'host-secret.txt'), join(r, 'hard.txt')),
+        (r) => confinedPath(r, 'hard.txt', 'read'),
+      ),
+  ),
+  cp(
+    'EX-SYM-4',
+    'symlink_mount',
+    'SYM-CWD: a working directory that is a symlink out of the sandbox',
+    'control-plane confinement',
+    () =>
+      withPlanted(
+        (r, o) => symlinkSync(o, join(r, 'cwd')),
+        (r) => confinedPath(r, 'cwd', 'dir'),
+      ),
   ),
   cp(
     'EX-QUOTA-1',

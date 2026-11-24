@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { checkPath, MAX_FILE_BYTES } from './paths';
+import { ConfinementError, confinedPath } from './confine';
 import {
   MAX_OUTPUT_BYTES,
   RuntimeNoCapacity,
@@ -65,9 +66,14 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
       if (err) throw new RuntimeQuotaError('files', `${p}: ${err}`);
       if (Buffer.byteLength(c) > MAX_FILE_BYTES)
         throw new RuntimeQuotaError('disk', `${p} is too large`);
-      const full = join(root, p);
-      if (relative(root, full).startsWith('..'))
-        throw new RuntimeQuotaError('files', `${p}: escapes the sandbox`);
+      let full: string;
+      try {
+        full = confinedPath(root, p, 'write');
+      } catch (e) {
+        if (e instanceof ConfinementError)
+          throw new RuntimeQuotaError('files', `${p}: ${e.reason}`);
+        throw e;
+      }
       mkdirSync(dirname(full), { recursive: true });
       writeFileSync(full, c, { flag: 'w' });
     }
@@ -89,8 +95,16 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
       for (const p of paths) {
         const err = checkPath(p);
         if (err) throw new RuntimeQuotaError('files', `${p}: ${err}`);
+        let full: string;
         try {
-          out.set(p, readFileSync(join(root, p), 'utf8'));
+          full = confinedPath(root, p, 'read');
+        } catch (e) {
+          if (e instanceof ConfinementError)
+            throw new RuntimeQuotaError('files', `${p}: ${e.reason}`);
+          throw e;
+        }
+        try {
+          out.set(p, readFileSync(full, 'utf8'));
         } catch {
           /* missing file: not in the result */
         }
@@ -112,9 +126,17 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
         truncated: false,
         cpuSeconds: 0,
       };
-    const cwd = req.cwd ? join(root, req.cwd) : root;
-    if (relative(root, cwd).startsWith('..'))
-      throw new RuntimeQuotaError('files', 'cwd escapes the sandbox');
+    let cwd = root;
+    if (req.cwd) {
+      if (relative(root, join(root, req.cwd)).startsWith('..'))
+        throw new RuntimeQuotaError('files', 'cwd escapes the sandbox');
+      try {
+        cwd = confinedPath(root, req.cwd, 'dir');
+      } catch (e) {
+        if (e instanceof ConfinementError) throw new RuntimeQuotaError('files', `cwd: ${e.reason}`);
+        throw e;
+      }
+    }
     const started = Date.now();
     // scrubbed environment: only what the build needs; none of the platform's variables
     const env: Record<string, string> = {

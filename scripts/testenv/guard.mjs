@@ -24,6 +24,7 @@ export default function setup() {
     if (e instanceof TestEnvError) {
       throw new Error(
         `test environment preflight REFUSED (${e.code}): ${e.message}\nAcquire an isolated environment first: node scripts/testenv/testenv.mjs acquire, then source the printed file.`,
+        { cause: e },
       );
     }
     throw e;

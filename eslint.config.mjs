@@ -23,7 +23,7 @@ export default tseslint.config(
   prettier,
   {
     files: ['**/*.mjs'],
-    languageOptions: { globals: { process: 'readonly' } },
+    languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } },
   },
   {
     // Module boundaries (docs/02 §3, ADR-001): import only a module's public index and

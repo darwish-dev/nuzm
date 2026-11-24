@@ -29,7 +29,10 @@ beforeAll(async () => {
   await c.connect();
   await c.query(`CREATE DATABASE "${dbName}"`);
   await c.end();
-  dbUrl = ADMIN.replace(/\/[^/]*$/, `/${dbName}`);
+  // the generated app runs in a clean child environment: carry the lease's scram password inside the URL (it is otherwise only in PGPASSWORD)
+  const u = new URL(ADMIN.replace(/\/[^/]*$/, `/${dbName}`));
+  if (!u.password && process.env.PGPASSWORD) u.password = process.env.PGPASSWORD;
+  dbUrl = u.toString();
 }, 60_000);
 afterAll(async () => {
   cleanup();

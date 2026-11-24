@@ -147,7 +147,12 @@ export async function startHestiaMock(): Promise<{
         pkg: x.pkg,
         domains: [...x.domains].map(([d, v]) => [
           d,
-          { ...v, wp: { ...v.wp, placeholders: [...v.wp.placeholders] } },
+          {
+            ...v,
+            ftp: [...v.ftp],
+            auth: [...v.auth],
+            wp: { ...v.wp, placeholders: [...v.wp.placeholders] },
+          },
         ]),
         databases: [...x.databases],
       }),
@@ -168,7 +173,11 @@ export async function startHestiaMock(): Promise<{
       pkg: string;
       domains: [
         string,
-        MockDomain & { wp: Omit<MockWp, 'placeholders'> & { placeholders: string[] } },
+        Omit<MockDomain, 'wp' | 'ftp' | 'auth'> & {
+          wp: Omit<MockWp, 'placeholders'> & { placeholders: string[] };
+          ftp: [string, string][];
+          auth: string[];
+        },
       ][];
       databases: [string, { dbuser: string; password: string }][];
     };
@@ -182,13 +191,21 @@ export async function startHestiaMock(): Promise<{
         domains: new Map(),
         databases: new Map(),
         wpCli: false,
+        cron: new Map(),
+        mail: new Map(),
+        sftpJail: false,
       } as MockUser);
     users.set(user, x);
     x.pkg = j.pkg;
     x.domains = new Map(
       j.domains.map(([d, v]) => [
         d,
-        { ...v, wp: { ...v.wp, placeholders: new Set(v.wp.placeholders) } },
+        {
+          ...v,
+          ftp: new Map(v.ftp),
+          auth: new Set(v.auth),
+          wp: { ...v.wp, placeholders: new Set(v.wp.placeholders) },
+        },
       ]),
     );
     x.databases = new Map(j.databases);

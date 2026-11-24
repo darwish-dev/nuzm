@@ -11,6 +11,7 @@ import { LocalSftpConnector } from './internal/mock/local-sftp';
 import { MAIL_DNS, MockMailDns } from './internal/tools/dns';
 import { SFTP_CONNECTOR } from './internal/tools/sftp';
 import { TOOLS_CONFIG, loadToolsConfig } from './internal/tools/tools-config';
+import { HESTIA_COMMANDS } from './internal/hestia/commands';
 import { HESTIA_CLIENT, HOSTING_ADAPTER } from './internal/tokens';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- loosely-typed JSON rows in tests */
@@ -893,9 +894,11 @@ describe('business email within the plan quota', () => {
     expect((await asA('alice', 'GET', M(''))).json().used).toBe(1);
   });
   it('a plan without mailboxes sells no mail: the capability says plan and every mail call is refused', async () => {
-    const [{ id: p2 }] = await hh.env.sql(
-      `SELECT id FROM hosting.plan_definitions WHERE key = 'tools'`,
-    );
+    const p2 = (
+      (await hh.env.sql(`SELECT id FROM hosting.plan_definitions WHERE key = 'tools'`))[0] as {
+        id: string;
+      }
+    ).id;
     await hh.env.sql(
       `UPDATE hosting.plan_definitions SET quotas = quotas - 'mailboxes' WHERE id = $1`,
       [p2],
@@ -930,7 +933,6 @@ describe('business email within the plan quota', () => {
 
 describe('the tools never run a command outside the allow-list', () => {
   it('every command the panel received in this suite is a documented v-* command of the allow-list', async () => {
-    const { HESTIA_COMMANDS } = await import('./internal/hestia/commands');
     const allowed = new Set(Object.values(HESTIA_COMMANDS).map((d) => d.cmd));
     for (const c of new Set(mock.controls.commands)) expect(allowed.has(c), c).toBe(true);
   });

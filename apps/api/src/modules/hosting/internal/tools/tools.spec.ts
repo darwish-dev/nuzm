@@ -166,18 +166,7 @@ describe('S05 command allow-list (documented argument order; every value is vali
   });
 });
 
-describe('the access-key profile of the runbook is exactly the allow-list', () => {
-  it('docs/runbooks/node-onboarding.md lists every allow-listed command and nothing else', async () => {
-    const md = await readFile(
-      join(import.meta.dirname, '../../../../../../..', 'docs/runbooks/node-onboarding.md'),
-      'utf8',
-    );
-    const listed = new Set(/COMMANDS='([^']*)'/.exec(md)![1]!.split(','));
-    const allowed = new Set(Object.values(HESTIA_COMMANDS).map((d) => d.cmd));
-    expect([...allowed].filter((c) => !listed.has(c))).toEqual([]);
-    expect([...listed].filter((c) => !allowed.has(c))).toEqual([]);
-  });
-});
+// The access-key profile equals the allow-list: asserted by `hestia/packages.spec.ts` against `infra/hosting/hestia/nuzm-hosting.profile`.
 
 describe('plain-text reads (the logs) through the real client against the mock panel', () => {
   let mock: Awaited<ReturnType<typeof startHestiaMock>>;

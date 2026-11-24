@@ -236,24 +236,19 @@ describe('Execution Gateway gate: closed by default, every condition required', 
   });
 });
 
-describe('DEFECT-1 (Session 04): the profile lookup walks the prototype chain', () => {
-  // EXEC_PROFILES is a plain object literal and `decideExec` indexes it with the model-supplied string.
+describe('DEFECT-1 (fixed by Session 04): the profile lookup does not walk the prototype chain', () => {
+  // regression of DEFECT-1: the model-supplied profile string must select only an OWN member of the catalogue.
   const protoNames = ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'];
-  it.fails.each(protoNames)(
-    'profile %s is refused as unknown_profile and never throws',
+  it.each(protoNames)('profile %s is refused as unknown_profile and never throws', (profile) => {
+    const d = gw.decideExec(req({ profile, params: {} }), ctx({ enabledProfiles: [] }));
+    expect(d.allowed).toBe(false);
+    if (!d.allowed) expect(d.reasons).toContain('unknown_profile');
+  });
+  it.each(protoNames)(
+    'profile %s is never allowed, even when every real profile is enabled (and never throws)',
     (profile) => {
-      const d = gw.decideExec(req({ profile, params: {} }), ctx({ enabledProfiles: [] }));
+      const d = gw.decideExec(req({ profile, params: {} }), ctx());
       expect(d.allowed).toBe(false);
-      if (!d.allowed) expect(d.reasons).toContain('unknown_profile');
     },
   );
-  it.each(protoNames)('profile %s is never ALLOWED (fails closed today, by luck)', (profile) => {
-    let d: gw.ExecDecision | undefined;
-    try {
-      d = gw.decideExec(req({ profile, params: {} }), ctx());
-    } catch {
-      d = undefined; // a throw is not an allow
-    }
-    if (d) expect(d.allowed).toBe(false);
-  });
 });

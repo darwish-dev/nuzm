@@ -1,6 +1,19 @@
 # AI Agent Engine — consolidated security findings (Session 07, QA / security / compliance)
 
-Living document. Last update: 2026-11-24 · baseline `f81872d5` · branch `feature/ai-qa-security`. Method: read-only review of the existing AI, gateway, sandbox, deploy, mobile-signing and access code; adversarial tests written in `apps/api/src/qa/**` and `e2e/tests/fixtures/qa-*.ts`; compliance gates run on my own database (:54347). **No live provider, real credential, customer data, real execution or real deployment was used.** Everything below is offline evidence: it says nothing about a real model, runtime or hosting node (those are NOT VERIFIED / BLOCKED as in `AG-ENGINE-status-2026-11-24.md`). Re-audit the other sessions' code after the Master merges it (section 5).
+Living document. Last update: 2026-11-24 (re-test after merge) · baseline `f81872d5`, re-tested on `integration/ai-engine` 4af0920c · branch `feature/ai-qa-security`. Method: read-only review of the existing AI, gateway, sandbox, deploy, mobile-signing and access code; adversarial tests written in `apps/api/src/qa/**` and `e2e/tests/fixtures/qa-*.ts`; compliance gates run on my own database (:54347). **No live provider, real credential, customer data, real execution or real deployment was used.** Everything below is offline evidence: it says nothing about a real model, runtime or hosting node (those are NOT VERIFIED / BLOCKED as in `AG-ENGINE-status-2026-11-24.md`). Re-audit the other sessions' code after the Master merges it (section 5).
+
+## 0. Status after the merge (re-test, one file at a time, own Postgres)
+| Defect | Status |
+|---|---|
+| DEFECT-1 | **fixed and re-tested** (79 passed) |
+| DEFECT-3 | **fixed and re-tested** (179 passed in the SSRF/egress file) |
+| DEFECT-4 (API-key part) | **fixed and re-tested** (deploy 7 passed); developer self-confirm and rollback approval still open by owner decision |
+| DEFECT-5 | **fixed and re-tested** (6 passed; the read now refuses with `symlink_in_path`) |
+| DEFECT-6 | **fixed and re-tested** (5 passed) |
+| DEFECT-2 | **still open** (8 `it.fails` still failing as expected; Session 04 is fixing it) |
+| Integration finding (manifest ranges for 1920/1921/1980) | **resolved** by the Master's manifest patch; re-verified on `1fff67a4`: harness runs, `db check`, classification (3,396 columns / 271 tables), ROPA and residency hooks all OK |
+
+Table 1 below is the original report (history); the status above prevails.
 
 ## 1. Defects (reported to the owning session in `docs/parallel/sessions/DEFECT-<n>-*.md`)
 | ID | Severity | Area / owner | Summary | Test (state today) |

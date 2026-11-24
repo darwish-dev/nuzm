@@ -8,7 +8,7 @@ const T = builderTools;
 
 /**
  * Review-and-repair of a project (S-05 priority 3) over a `BuildPort`. The port is injected and is NEVER a real executor in this repository: until the sandbox runtime exists (D-21,
- * HG-10-02, ADR-067) the only implementation is a scripted mock, and `ProjectRepairService` refuses to run without one. Repairs are committed through the ordinary safe-change
+ * HG-10-02, ADR-069) the only implementation is a scripted mock, and `ProjectRepairService` refuses to run without one. Repairs are committed through the ordinary safe-change
  * pipeline as AI changes (the AI branch only, never `main`); a repair that needs a human is returned, not applied. Strategy: the deterministic rule-based repairs first; a
  * model-backed strategy is added by the agent loop later (it needs S-AG4) and plugs into the same `RepairStrategy` interface.
  */

@@ -90,10 +90,10 @@ export default async function AgencyClients({ params }: { params: Promise<{ loca
                   render: (l) =>
                     l.status === 'active' ? (
                       <span className="nz-row">
-                        <a href={`/${locale}/agency/clients/${l.clientOrgId}/access`}>
+                        <a href={`/agency/clients/${l.clientOrgId}/access`}>
                           {t(locale, 'm11.ag.manageAccess')}
                         </a>
-                        <a href={`/${locale}/agency/acting/${l.clientOrgId}`}>
+                        <a href={`/agency/acting/${l.clientOrgId}`}>
                           {t(locale, 'm11.ag.act')}
                         </a>
                       </span>

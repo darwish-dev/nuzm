@@ -34,7 +34,7 @@ export interface TrSources {
   mode: EvidenceMode;
   /** Provider inventory per provider account: refs and states, or null when no adapter/fixture can list it. */
   computeInventory(providerAccountId: string): Promise<{ ref: string; state: string }[] | null>;
-  /** What the node agent reports for a node: site names on the node, or null. */
+  /** What the node reports (the panel account names on it): site names on the node, or null. */
   nodeSites(nodeName: string): Promise<string[] | null>;
   /** The registrar's view for an account: domain names with state and expiry, or null. */
   registrarDomains(

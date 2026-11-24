@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@nuzm/i18n';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/en/login',
+  usePathname: () => '/login',
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock('../lib/client', () => ({ browserApi: () => ({ POST: vi.fn() }) }));
@@ -27,7 +27,7 @@ describe('sign-in / sign-up shell', () => {
     for (const k of ['f1', 'f2', 'f3'] as const)
       expect(screen.getByText(t('en', `auth.panel.${k}`))).toBeTruthy();
     expect(screen.getByRole('separator')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Nuzm' }).getAttribute('href')).toBe('/en');
+    expect(screen.getByRole('link', { name: 'Nuzm' }).getAttribute('href')).toBe('/console');
   });
   it('sign-up shows its two real steps and marks the current one', () => {
     render(

@@ -36,7 +36,7 @@ export default async function Requests({ params }: { params: Promise<{ locale: s
           caption={t(locale, 'pv.req.title')}
           rows={data.items}
           rowKey={(r) => r.id}
-          rowHref={(r) => `/${locale}/privacy/requests/${r.id}`}
+          rowHref={(r) => `/privacy/requests/${r.id}`}
           manageLabel={t(locale, 'action.manage')}
           columns={[
             {
@@ -44,7 +44,7 @@ export default async function Requests({ params }: { params: Promise<{ locale: s
               header: t(locale, 'pv.req.col.type'),
               icon: 'code',
               render: (r) => (
-                <a href={`/${locale}/privacy/requests/${r.id}`}>
+                <a href={`/privacy/requests/${r.id}`}>
                   {tDynamic(locale, `pv.req.type.${r.type}`, r.type)}
                 </a>
               ),
@@ -87,7 +87,7 @@ export default async function Requests({ params }: { params: Promise<{ locale: s
       <PrivacyTabs locale={locale} current="requests" can={s.can} />
       <p className="nz-muted">{t(locale, 'pv.req.help')}</p>
       <p>
-        <ButtonLink href={`/${locale}/privacy/requests/new`}>{t(locale, 'pv.req.new')}</ButtonLink>
+        <ButtonLink href={`/privacy/requests/new`}>{t(locale, 'pv.req.new')}</ButtonLink>
       </p>
       {body}
     </>

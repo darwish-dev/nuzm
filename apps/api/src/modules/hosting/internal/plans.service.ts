@@ -21,6 +21,8 @@ export interface PlanDto {
   };
   price: { amountMinor: string; currency: string; placeholder: boolean } | null;
   runtimes: string[];
+  /** the application installed with the site (`wordpress` = Managed WordPress) */
+  app: 'none' | 'wordpress';
   /** data regions of the eligible nodes; `country` is set when exactly one. */
   regions: string[];
   country: string | null;
@@ -31,6 +33,7 @@ export interface PlanRow {
   status: string;
   quotas: PlanDto['quotas'];
   runtimes: string[];
+  appKind: 'none' | 'wordpress';
   reservation: { cpu_millicores: number; memory_mb: number; disk_mb: number };
   priceMinor: string | null;
   currency: string;
@@ -44,6 +47,7 @@ export const planRow = (r: Row): PlanRow => ({
   status: r.status as string,
   quotas: r.quotas as PlanDto['quotas'],
   runtimes: r.runtimes as string[],
+  appKind: ((r.app_kind as string | undefined) ?? 'none') as 'none' | 'wordpress',
   reservation: r.reservation as PlanRow['reservation'],
   priceMinor: r.price_minor === null ? null : String(r.price_minor),
   currency: (r.currency as string).trim(),
@@ -51,6 +55,29 @@ export const planRow = (r: Row): PlanRow => ({
   nameAr: r.name_ar as string,
   nameEn: r.name_en as string,
 });
+/** A published plan as the public website shows it: limits and price only, no ids, regions or capacity. */
+export interface PublicPlanDto {
+  key: string;
+  name: { ar: string; en: string };
+  quotas: { diskMb: number; bandwidthGb: number; dbCount: number; sitesCount: number };
+  runtimes: string[];
+  price: { amountMinor: string; currency: string };
+}
+export const publicPlan = (p: PlanRow): PublicPlanDto | null =>
+  p.status === 'active' && !p.placeholder && p.priceMinor !== null
+    ? {
+        key: p.key,
+        name: { ar: p.nameAr, en: p.nameEn },
+        quotas: {
+          diskMb: Number(p.quotas.diskMb),
+          bandwidthGb: Number(p.quotas.bandwidthGb),
+          dbCount: Number(p.quotas.dbCount),
+          sitesCount: Number(p.quotas.sitesCount),
+        },
+        runtimes: p.runtimes,
+        price: { amountMinor: p.priceMinor, currency: p.currency },
+      }
+    : null;
 export const planNeed = (p: PlanRow): Need => ({
   cpu_millicores: Number(p.reservation.cpu_millicores),
   memory_mb: Number(p.reservation.memory_mb),
@@ -95,7 +122,7 @@ export class PlansService {
       async (c) =>
         (
           await c.query(
-            `SELECT DISTINCT data_region, runtimes FROM hosting.nodes WHERE status = 'active' AND health = 'healthy'`,
+            `SELECT DISTINCT data_region, runtimes FROM hosting.nodes WHERE status = 'active' AND network_class = 'shared' AND health = 'healthy'`,
           )
         ).rows,
     );
@@ -121,6 +148,21 @@ export class PlansService {
     };
   }
 
+  /**
+   * `GET /v1/public/hosting-plans`: the plans the owner has published (active, price not a placeholder), cheapest first. No capacity or residency check
+   * (there is no organization): availability for an account and region is only ever confirmed by `/v1/offers` when it orders.
+   */
+  async listPublished(): Promise<PublicPlanDto[]> {
+    return this.db.withPlatformScope(async (c) => {
+      const rows = (
+        await c.query(
+          `SELECT * FROM hosting.plan_definitions WHERE status = 'active' AND placeholder = false AND price_minor IS NOT NULL ORDER BY price_minor, key`,
+        )
+      ).rows.map(planRow);
+      return rows.flatMap((r) => publicPlan(r) ?? []);
+    });
+  }
+
   /** `GET /v1/hosting/plans`: ONLY plans that have at least one eligible node with room for the plan (capacity-less plans are hidden). */
   async list(orgId: string): Promise<PlanDto[]> {
     const { regions } = await this.eligibleRegions(orgId);
@@ -135,7 +177,7 @@ export class PlansService {
         await c.query(
           `SELECT n.id, n.data_region, n.runtimes, json_object_agg(c.dim, json_build_object('free', c.sellable - c.reserved)) AS free
              FROM hosting.nodes n JOIN hosting.node_capacity c ON c.node_id = n.id
-            WHERE n.status = 'active' AND n.health = 'healthy' AND n.data_region = ANY($1::text[]) GROUP BY n.id`,
+            WHERE n.status = 'active' AND n.network_class = 'shared' AND n.health = 'healthy' AND n.data_region = ANY($1::text[]) GROUP BY n.id`,
           [regions],
         )
       ).rows;
@@ -168,6 +210,7 @@ export class PlansService {
               ? null
               : { amountMinor: p.priceMinor, currency: p.currency, placeholder: p.placeholder },
           runtimes: rt,
+          app: p.appKind,
           regions: [...ok].sort(),
           country: ok.size === 1 ? [...ok][0]! : null,
         });

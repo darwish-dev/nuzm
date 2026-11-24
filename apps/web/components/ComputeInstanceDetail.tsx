@@ -22,6 +22,7 @@ import {
 import { CapabilityList, InstanceBadges, OperationTimeline, ProblemAlert } from './ComputeBits';
 import { regionLabel } from './ComputeOffers';
 import { NoticeText } from './Feedback';
+import { VpsPanelCard } from './VpsPanelCard';
 import {
   ActionLink,
   ActionPanel,
@@ -52,7 +53,7 @@ export function InstanceNav({
   instance: Pick<Instance, 'id' | 'capabilities'>;
   current: 'overview' | 'metrics' | 'snapshots';
 }) {
-  const base = `/${locale}/compute/instances/${instance.id}`;
+  const base = `/compute/instances/${instance.id}`;
   const links = [
     { key: 'overview', href: base, show: true },
     { key: 'metrics', href: `${base}/metrics`, show: supportsMetrics(instance.capabilities) },
@@ -131,7 +132,7 @@ export function InstanceDetail(p: {
       },
     );
 
-  const base = `/${locale}/compute/instances/${i.id}`;
+  const base = `/compute/instances/${i.id}`;
   const ACT_ICON: Record<ActionType, IconName> = {
     start: 'arrow',
     stop: 'pulse',
@@ -147,6 +148,9 @@ export function InstanceDetail(p: {
           <strong>{t(locale, 'm05.web.uncertain.title')}</strong>{' '}
           {t(locale, 'm05.web.uncertain.body')}
         </Banner>
+      )}
+      {i.panelKind === 'hestia' && i.panel && (
+        <VpsPanelCard locale={locale} instanceId={i.id} initial={i.panel} canAct={p.canAct} />
       )}
       <OverviewLayout
         sideLabel={t(locale, 'm05.web.ov.summary')}
@@ -315,7 +319,7 @@ export function InstanceDetail(p: {
               </section>
             )}
             {i.status === 'deleted' && (
-              <ButtonLink variant="secondary" href={`/${locale}/compute/instances`}>
+              <ButtonLink variant="secondary" href={`/compute/instances`}>
                 {t(locale, 'm05.web.instances.title')}
               </ButtonLink>
             )}

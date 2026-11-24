@@ -74,6 +74,7 @@ describe('admin navigation', () => {
       ['/audit/retention', 'ops'],
       ['/audit-logs', 'platform'],
       ['/feature-flags', 'platform'],
+      ['/docs-feedback', 'platform'],
     ];
     for (const [path, want] of cases)
       expect([path, currentAdminCategory(cats, path)]).toEqual([path, want]);

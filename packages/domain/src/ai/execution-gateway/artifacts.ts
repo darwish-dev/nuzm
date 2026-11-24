@@ -3,7 +3,7 @@ import { isAgentSensitivePath, normalizeToolPath } from '../agent-tools/paths';
 import type { ArtifactRef } from './port';
 
 /**
- * S-AG6 (OFFLINE): artifact handling (ADR-067 item 4). Files a run produced are CANDIDATES: they are listed, size-checked, hashed and stored by reference; they are never applied
+ * S-AG6 (OFFLINE): artifact handling (ADR-069 item 4). Files a run produced are CANDIDATES: they are listed, size-checked, hashed and stored by reference; they are never applied
  * to the project automatically (`ARTIFACTS_AUTO_APPLY` is the constant `false`; applying anything still goes through the patch proposal and human approval path). Paths are
  * normalised or refused, only declared output roots are accepted, sensitive paths and links are refused, and counts and bytes are bounded.
  */

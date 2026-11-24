@@ -46,3 +46,9 @@ Hosts: `api.contabo.com`, `auth.contabo.com` (`spec/providers/providers.yaml`); 
 ## Tests
 
 `pnpm --filter @nuzm/adapter-contabo-vps test`: conformance kit (15 cases) against `ContaboSim` — a local HTTP server shaped from the reference above (fixture evidence, `liveStatus: NOT VERIFIED`) — plus adapter specs (read-only mode, plan-specific snapshots, cancel-not-delete, canary secrets, replay of the documented sample object).
+
+## S04: first-boot configuration (`userData`) for a Hestia VPS
+
+The create request carries `userData` as the caller's complete cloud-init document (the Hestia bootstrap already contains the customer's SSH keys, so the adapter does not generate its own document then). The API reference says cloud-init is available "at least on our default / standard images (for custom images you'll need to provide cloud-init support packages)" and that cloud-init scripts are provisioned through the user-data field — https://api.contabo.com/ (read 2026-11-24). `listImages` lists only `standardImage=true` images and marks them `cloudInit`.
+
+**NOT DOCUMENTED (stays open):** the maximum length and the encoding of `userData`; whether it may be combined with `sshKeys`/`rootPassword` (both are Secrets-API ids); the data-centre country behind region `EU` (the reference shows only "European Union"); which standard images exist (Debian 12 / Ubuntu 24.04 are not named). `x-request-id` is a required UUID "to identify individual requests for support cases" and is not an idempotency key: a create after a timeout is **always preceded by the displayName-marker lookup** (reconcile before resend); when the lookup cannot answer, the order is `needs_reconcile` and no second server is requested.

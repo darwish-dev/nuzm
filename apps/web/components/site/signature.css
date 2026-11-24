@@ -1,0 +1,141 @@
+/*
+ * NUZM SIGNATURE — one identity for the whole public website (home, services, AI builder pages, Blog, Academy, Community, Documentation), matching the
+ * console's start screens (packages/ui console-css "NUZM SIGNATURE"). The background is the Blog / Community / Documentation field: a soft mint light from
+ * the top and a dotted texture that fades out. On top of it the home page's own identity: a light-weight headline, a translucent pill with a beige tag,
+ * orange main buttons and sage chips. Each page keeps its layout and artwork; only the identity is shared. Loaded last. Logical properties only.
+ */
+.landing {
+  --sig-glow: radial-gradient(
+    60% 80% at 50% -10%,
+    color-mix(in srgb, #bcdccb 22%, transparent),
+    transparent 70%
+  );
+  --sig-dot: rgba(188, 220, 203, 0.12);
+  --sig-weight: 450;
+  --sig-pill: rgba(255, 255, 255, 0.06);
+  --sig-pill-ink: #efebe4;
+  --sig-tag: linear-gradient(135deg, #f5e9d6, #d9c7a6);
+  --sig-tag-ink: #34434d;
+  --sig-send: linear-gradient(145deg, #f8ccaa, #e9a16d);
+  --sig-send-ink: #352a23;
+}
+.landing[data-mode='light'] {
+  --sig-glow: radial-gradient(
+    60% 80% at 50% -10%,
+    color-mix(in srgb, #93b6b3 26%, transparent),
+    transparent 70%
+  );
+  --sig-dot: rgba(88, 112, 121, 0.16);
+  --sig-pill: rgba(255, 255, 255, 0.6);
+  --sig-pill-ink: #365249;
+}
+
+/* ---------- one background for every hero: the shared field ---------- */
+.landing .hero .sky {
+  inset: 0;
+  background: var(--sig-glow), var(--bg);
+}
+.landing .hero .sky::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--sig-dot) 1.3px, transparent 1.8px) 0 0 / 22px 22px;
+  -webkit-mask-image: radial-gradient(70% 80% at 50% 20%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(70% 80% at 50% 20%, #000 20%, transparent 75%);
+}
+.landing .hero .horizon,
+.landing .hero .star-field {
+  display: none;
+}
+/* the service, builder, Blog/Academy/Community and index heroes use that same field instead of their own */
+.landing .svc-hero:is(:has(.bsv-hero), :has(.svx-hero), :has(.hub-hero), :has(.svc-index-hero)) {
+  background: none;
+}
+.landing
+  .svc-hero:is(:has(.bsv-hero), :has(.svx-hero), :has(.hub-hero), :has(.svc-index-hero))::before,
+.landing
+  .svc-hero:is(:has(.bsv-hero), :has(.svx-hero), :has(.hub-hero), :has(.svc-index-hero))::after {
+  content: none;
+}
+.landing
+  .svc-hero:is(:has(.bsv-hero), :has(.svx-hero), :has(.hub-hero), :has(.svc-index-hero))
+  .sky {
+  display: block;
+}
+/* the per-section light of Academy (orange) and Community (sage) stays, as the only difference between those pages */
+.landing:has(.hub-hero[data-section='academy']) {
+  --sig-glow: radial-gradient(
+    60% 80% at 50% -10%,
+    color-mix(in srgb, #e9a16d 18%, transparent),
+    transparent 70%
+  );
+}
+.landing:has(.hub-hero[data-section='community']) {
+  --sig-glow: radial-gradient(
+    60% 80% at 50% -10%,
+    color-mix(in srgb, #93b6b3 24%, transparent),
+    transparent 70%
+  );
+}
+/* the documentation panel and the closing bands use the same field */
+.landing .doc-hero,
+.landing .bsv-end,
+.landing .svx-end,
+.landing .hub-band {
+  background:
+    radial-gradient(circle, var(--sig-dot) 1.3px, transparent 1.8px) 0 0 / 22px 22px,
+    var(--sig-glow),
+    var(--hub-card, var(--surface));
+}
+.landing .bsv-end::before {
+  content: none;
+}
+
+/* ---------- one headline: the home page's light weight ---------- */
+.landing :is(.bsv-hero, .svx-hero, .hub-hero, .svc-index-hero, .doc-hero) h1,
+.landing.doc-app .doc-hero h1 {
+  font-weight: var(--sig-weight);
+}
+.landing :is(.bsv-head, .svx-head, .svx-faq-head, .bsv-end, .svx-end, .hub-band) h2,
+.landing :is(.hub-h2, .bsv-orbit h2) {
+  font-weight: var(--sig-weight);
+}
+
+/* ---------- one pill: the home page's announcement (translucent, a beige tag first) ---------- */
+.landing :is(.bsv-pill, .svx-pill, .hub-pill) {
+  gap: 8px;
+  padding-block: 4px;
+  padding-inline: 4px 12px;
+  border: 0;
+  border-radius: 99px;
+  background: var(--sig-pill);
+  box-shadow: none;
+  backdrop-filter: blur(10px);
+  color: var(--sig-pill-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.landing :is(.bsv-pill, .svx-pill, .hub-pill) > :first-child {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: content-box;
+  inline-size: 14px;
+  block-size: 14px;
+  padding: 4px 8px;
+  border-radius: 99px;
+  background: var(--sig-tag);
+  color: var(--sig-tag-ink);
+  filter: none;
+}
+.landing :is(.bsv-pill, .svx-pill, .hub-pill) > img:first-child {
+  inline-size: auto;
+  block-size: 12px;
+  padding: 5px 8px;
+}
+
+/* ---------- one main button: the home page's send orange ---------- */
+.landing:is(.svc-site, .doc-app) :is(.bsv-btn-main, .svx-btn-main, .hub-btn-main) {
+  border-radius: 12px;
+  background: var(--sig-send);
+  color: var(--sig-send-ink);
+}

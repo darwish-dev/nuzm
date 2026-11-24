@@ -20,7 +20,7 @@ export function ApprovalNeeded({ locale, items }: { locale: Locale; items: Appro
           </li>
         ))}
       </ul>
-      <a href={`/${locale}/approvals`}>{t(locale, 'm10.dep.openApprovals')}</a>
+      <a href={`/approvals`}>{t(locale, 'm10.dep.openApprovals')}</a>
     </Banner>
   );
 }

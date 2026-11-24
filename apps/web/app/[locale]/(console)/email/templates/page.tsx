@@ -74,7 +74,7 @@ export default async function Templates({
                       <div className="nz-row">
                         <TemplatePreview locale={locale} tpl={v} />
                         {s.can('email:template:write') && (
-                          <a href={`/${locale}/email/templates?from=${v.id}`}>
+                          <a href={`/email/templates?from=${v.id}`}>
                             {t(locale, 'm8.tp.newVersion')}
                           </a>
                         )}

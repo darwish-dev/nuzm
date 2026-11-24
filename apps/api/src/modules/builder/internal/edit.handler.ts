@@ -95,6 +95,7 @@ export class EditRunHandler implements RunKindHandler {
     const head = await this.projects.headVersion(ctx.orgId, projectId);
     if (!head) throw new ProblemException('not_found', 'project not found');
     const m = head.model;
+    const extra = await attachmentBlocks(ctx);
     const out = await ctx.call<{ summary: { ar?: string; en?: string }; ops: unknown[] }>({
       task: 'edit',
       instruction: INSTR,
@@ -108,7 +109,8 @@ export class EditRunHandler implements RunKindHandler {
           sections: p.sections.map((s) => ({ id: s.id, type: s.type })),
         })),
       },
-      data: [{ label: 'instruction', text: String(ctx.run.input.instruction) }],
+      // the instruction and what the person attached to it (files as text, pages fetched safely): all untrusted DATA, never instructions
+      data: [{ label: 'instruction', text: String(ctx.run.input.instruction) }, ...extra],
       schema: EDIT_SCHEMA,
       check: (r) => checkEditOps(m, r),
       maxTokens: 3000,
@@ -201,4 +203,42 @@ export class EditRunHandler implements RunKindHandler {
   async onDenied(ctx: RunContext): Promise<void> {
     return this.applyDecision(ctx, ctx.run.projectId!);
   }
+}
+
+/**
+ * The attachments of the person's latest chat message (the one that started this edit): text files become data blocks, links are fetched through the
+ * SSRF-safe fetcher and reduced to text. A link that cannot be read is reported as an event (never echoing the URL) and skipped. The same handling as
+ * the chat run kind; the session service already validated, moderated and secret-scanned them (at most 10, 20 000 characters each).
+ */
+export async function attachmentBlocks(
+  ctx: RunContext,
+): Promise<{ label: string; text: string }[]> {
+  const msgs = await ctx.sessionMessages();
+  const last = [...msgs].reverse().find((m) => m.role === 'user');
+  const out: { label: string; text: string }[] = [];
+  const list = (last?.attachments ?? []) as {
+    kind: string;
+    url?: string;
+    name?: string;
+    text?: string;
+  }[];
+  for (const [i, att] of list.entries()) {
+    if (att.kind === 'text')
+      out.push({
+        label: `upload_${i + 1}_${(att.name ?? 'file').slice(0, 20)}`,
+        text: att.text ?? '',
+      });
+    else if (att.kind === 'url' && att.url) {
+      try {
+        const f = await ctx.fetchText(att.url);
+        out.push({ label: `web_${i + 1}`, text: f.text });
+      } catch (e) {
+        await ctx.emit('fetch_failed', {
+          index: i + 1,
+          code: (e as { code?: string }).code ?? 'error',
+        });
+      }
+    }
+  }
+  return out;
 }

@@ -3,3 +3,8 @@ packages:
   - 'packages/*'
   - 'packages/adapters/*'
   - 'e2e'
+
+# Packages whose install scripts may run (pnpm 10 blocks them by default).
+# electron: downloads the Electron runtime for apps/desktop.
+onlyBuiltDependencies:
+  - electron

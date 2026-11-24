@@ -6,7 +6,7 @@
 - **Delivery completion (offline scope):** about 95 %. Remaining offline items are in "Remaining" (durable stores and wiring are deliberately deferred: they depend on D-21).
 
 ## Scope (SESSION-04.md)
-Code: `packages/domain/src/ai/execution-gateway/` (domain, `executionGateway.*` from `@nuzm/domain`), `apps/api/src/modules/execution/` (audit adapter, NOT registered anywhere), `apps/api/src/modules/appbuilder/internal/sandbox/` (execution port, escape suite 1.1.0), `docs/security/sandbox/`, ADR-067 addendum, S-AG6 requirements page.
+Code: `packages/domain/src/ai/execution-gateway/` (domain, `executionGateway.*` from `@nuzm/domain`), `apps/api/src/modules/execution/` (audit adapter, NOT registered anywhere), `apps/api/src/modules/appbuilder/internal/sandbox/` (execution port, escape suite 1.1.0), `docs/security/sandbox/`, ADR-069 addendum, S-AG6 requirements page.
 
 ## Completed tasks (class VERIFIED = implemented with test evidence I ran and saw; offline only)
 | # | Task | Where | Tests |
@@ -28,21 +28,21 @@ Code: `packages/domain/src/ai/execution-gateway/` (domain, `executionGateway.*` 
 | 15 | `ExecutionPort` over the M10 `SandboxRuntime` (refuses `local-dev`; REAL only if `isolation: verified`) | `appbuilder/internal/sandbox/execution-port.ts` | `execution-port.spec.ts` (11) |
 | 16 | Escape suite 1.1.0: 131 EX control-plane attempts BLOCKED, 21 XR isolating attempts NOT_VERIFIED (suite total 273) | `escape-suite-exec.ts`, `escape-suite.ts` | `escape-suite.spec.ts` (4), `confine.spec.ts` |
 | 17 | Runtime evaluation + recommended architecture + verification plan + escape catalogue + runbook | `docs/security/sandbox/` | n/a (documents) |
-| 18 | ADR-067 offline addendum (still PROPOSED), S-AG6 requirements updated | `docs/adr`, `docs/ai-intelligence` | n/a |
+| 18 | ADR-069 offline addendum (still PROPOSED), S-AG6 requirements updated | `docs/adr`, `docs/ai-intelligence` | n/a |
 
 ## Remaining tasks
 - DEPENDENT: durable stores (execution jobs/approvals/quota tables with RLS and data classes, BullMQ + `platform.operations`), module wiring, controller/routes, UI approval screen, i18n copy, metering emission: all need D-21 and the Master (spec/ownership/i18n/app.module). Design is in `RECOMMENDED-ARCHITECTURE.md`; no migration was created (none of ids 1940–1959 used).
 - Heavy-run request below (integration spec of the suite).
 
 ## Blocked tasks (class)
-- Any real runtime (gVisor/Firecracker/Kata adapter) and any isolating-runtime escape attempt: **SECURITY-BLOCKED** (D-21, HG-10-02, ADR-067). XR-* and base isolating attempts stay NOT_VERIFIED.
-- Customer-code execution, opening the gate, flag `ai.agent.exec_tools`: **OWNER-BLOCKED** (D-21, LEGAL-EXEC, ADR-067 acceptance, D-42).
+- Any real runtime (gVisor/Firecracker/Kata adapter) and any isolating-runtime escape attempt: **SECURITY-BLOCKED** (D-21, HG-10-02, ADR-069). XR-* and base isolating attempts stay NOT_VERIFIED.
+- Customer-code execution, opening the gate, flag `ai.agent.exec_tools`: **OWNER-BLOCKED** (D-21, LEGAL-EXEC, ADR-069 acceptance, D-42).
 - Node pool, KVM capability probe: **EXTERNAL-BLOCKED** (HG-05-04, owner-provided infrastructure).
 
 ## Modified / new files
 - Domain `packages/domain/src/ai/execution-gateway/`: `index.ts` (now a re-export surface; the original policy core moved byte-for-byte to `policy.ts` by `git mv`, plus one fix, see findings), new `port.ts mock-port.ts limits.ts quota.ts lifecycle.ts queue.ts approval.ts audit.ts env-guard.ts termination.ts monitor.ts health.ts artifacts.ts cleanup.ts runtime-spec.ts workspace.ts orchestrator.ts` and 13 new specs (+ 4 cases in `exec-policy.spec.ts`).
 - API `apps/api/src/modules/execution/{index.ts,audit-adapter.ts}`; `apps/api/src/modules/appbuilder/internal/sandbox/{execution-port.ts,execution-mapping.ts,execution-port.spec.ts,escape-suite-exec.ts,escape-suite.spec.ts}`, edited `escape-suite.ts` (version 1.1.0, categories, ticket-attempt fix, import of the extension).
-- Docs: `docs/security/sandbox/*` (6 files), `docs/adr/ADR-067-execution-gateway.md` (addendum), `docs/ai-intelligence/S-AG6-REQUIREMENTS.md`, `docs/parallel/sessions/CONTRACT-04-1-execution-port.md`, `CONTRACT-04-2-approval-kind-i18n-audit.md`, this report.
+- Docs: `docs/security/sandbox/*` (6 files), `docs/adr/ADR-069-execution-gateway.md` (addendum), `docs/ai-intelligence/S-AG6-REQUIREMENTS.md`, `docs/parallel/sessions/CONTRACT-04-1-execution-port.md`, `CONTRACT-04-2-approval-kind-i18n-audit.md`, this report.
 
 ## New migrations
 None (ids 1940–1959 unused).
@@ -104,24 +104,24 @@ Not re-run: integration specs, the whole domain package after the merge, API typ
 - Apply CONTRACT-04-1/2 when scheduled; no `spec/**`, SDK, ownership manifest or `app.module.ts` change is needed now.
 
 ## Readiness assessment
-Offline machinery: ready for review and for Session 05 to consume the mock. As a capability: not ready and not meant to be (gate closed; D-21, HG-10-02, ADR-067, LEGAL-EXEC, D-42 open). A mock cannot prove isolation.
+Offline machinery: ready for review and for Session 05 to consume the mock. As a capability: not ready and not meant to be (gate closed; D-21, HG-10-02, ADR-069, LEGAL-EXEC, D-42 open). A mock cannot prove isolation.
 
 ## Next available tasks
-Durable stores and wiring once D-21 is decided (DEPENDENT); an `ExecutionRuntime` adapter for the chosen technology (SECURITY-BLOCKED until then); exercising the runbook on a real runner; extending the suite when ADR-067 adds profiles.
+Durable stores and wiring once D-21 is decided (DEPENDENT); an `ExecutionRuntime` adapter for the chosen technology (SECURITY-BLOCKED until then); exercising the runbook on a real runner; extending the suite when ADR-069 adds profiles.
 
 ## Heavy-run requests (for the Master's heavy slot)
 1. `NUZM_TEST_ADMIN_URL=… pnpm --filter @nuzm/api exec vitest run -c vitest.integration.config.mts src/modules/appbuilder/sandbox.int.spec.ts` on the integration branch after merge: the whole 277-attempt suite with database-backed ticket attempts. Expected: 0 ESCAPED, every control-plane attempt BLOCKED, every isolating attempt NOT_VERIFIED, `isolationEvidence` false (the unit spec shows these properties without a database; the int spec also asserts `notVerified > 40`, which now holds with the 21 XR attempts added).
 2. `pnpm --filter @nuzm/api typecheck` (needs the built package `dist`s) to close the API typecheck gap noted above.
 
 ## Escalations
-None blocking. Owner decisions this work feeds (already in OWNER-DECISIONS): D-21, ADR-067, LEGAL-EXEC, D-42, plus, newly named: the node-pool budget (`N_peak`, price, currency), the execution approval permission model, the kill-switch time target for the review.
+None blocking. Owner decisions this work feeds (already in OWNER-DECISIONS): D-21, ADR-069, LEGAL-EXEC, D-42, plus, newly named: the node-pool budget (`N_peak`, price, currency), the execution approval permission model, the kill-switch time target for the review.
 
 ---
 
 # Phase 2: real isolated runtime preparation (2026-11-24)
 
 - **Branch head at this report:** see `git log -1` (Phase 2 commits: `3d5eb1a3` attested real-runtime scaffold, `c100db75` conformance/fixtures/qualification runner, `320cb88d` fix, `264d339f` orphan reaping, then docs). Baseline: `integration/ai-engine` @ `39658725` merged cleanly into `feature/ai-sandbox` (fast-forward, no conflicts).
-- **Status:** the offline half of "a real runtime behind `ExecutionPort`" is done and tested against stand-ins. **Nothing real exists: no node, no runtime, no attestation signed by a human, no execution. `executionGate` is closed; `ai.agent.exec_tools` is default off; D-21, HG-10-02, ADR-067 (PROPOSED), D-42, LEGAL-EXEC untouched.** Evidence label for everything below: `SIMULATED` (offline-verified); isolation: `NOT VERIFIED`.
+- **Status:** the offline half of "a real runtime behind `ExecutionPort`" is done and tested against stand-ins. **Nothing real exists: no node, no runtime, no attestation signed by a human, no execution. `executionGate` is closed; `ai.agent.exec_tools` is default off; D-21, HG-10-02, ADR-069 (PROPOSED), D-42, LEGAL-EXEC untouched.** Evidence label for everything below: `SIMULATED` (offline-verified); isolation: `NOT VERIFIED`.
 - **Honesty note:** commit `c100db75` was made with the real-runtime specs failing (the simulated kit still carried 21 isolating attempts after I raised the required count to 65; my earlier edit did not match because prettier had reformatted that line). Fixed in `320cb88d`; the results below are from after the fix.
 
 ## Infrastructure evaluation (read-only facts, full text in `docs/parallel/RUNTIME-QUALIFICATION.md` §1)
@@ -186,7 +186,7 @@ Idle until D-21 except: a wire-protocol conformance test for the node agent cont
 Results seen: `packages/domain` `src/ai` 41 files / **803 tests passed**; `execution-gateway` 20 files / 317 passed; `apps/api` sandbox + execution 5 files / 104 passed; ESLint clean; secret scan 0 hits. S07's `it.fails` for DEFECT-10 and CONCERN-1 can be flipped; S07 should re-test (their file `apps/api/src/qa/qa-exec-orchestrator.int.spec.ts` is on their branch, not run by me). `dist` of `packages/domain` was rebuilt for the API specs.
 
 ## Batch after the Master's acceptance (CONTRACT-04-3, D-AG-ROLLOUT) — 2026-11-24
-- Merged `integration/ai-engine` (b9cc2a56) first. **Renamed** `ExecGateState.d42Decided` → `rolloutDecided` in `policy.ts`; refusal text is now `D-AG-ROLLOUT (production rollout) is not decided`; still fail-closed (`production && !rolloutDecided`). Updated `exec-policy.spec.ts`, `escape-suite-exec.ts` (EX-GATE cases) and the labels in ADR-067, S-AG6-REQUIREMENTS, `docs/security/sandbox/{README,RECOMMENDED-ARCHITECTURE,ESCAPE-SUITE-1.1}.md`, RUNTIME-QUALIFICATION and the approval inputs. The historical S04-F7 entry above keeps the old id on purpose.
+- Merged `integration/ai-engine` (b9cc2a56) first. **Renamed** `ExecGateState.d42Decided` → `rolloutDecided` in `policy.ts`; refusal text is now `D-AG-ROLLOUT (production rollout) is not decided`; still fail-closed (`production && !rolloutDecided`). Updated `exec-policy.spec.ts`, `escape-suite-exec.ts` (EX-GATE cases) and the labels in ADR-069, S-AG6-REQUIREMENTS, `docs/security/sandbox/{README,RECOMMENDED-ARCHITECTURE,ESCAPE-SUITE-1.1}.md`, RUNTIME-QUALIFICATION and the approval inputs. The historical S04-F7 entry above keeps the old id on purpose.
 - **Outside my ownership, needs the same rename:** `apps/api/src/qa/qa-exec-gateway.int.spec.ts` (S07, lines ~219 and ~231 use `d42Decided`; after the rename their `production: true` case reads `rolloutDecided` as undefined and will fail until they update it) and `docs/security/AI-ENGINE-THREAT-MODEL.md` (E5 row says "production needs D-42").
 - New in `PHASE2-04-approval-inputs.md` §6: the exact node checklist (12 items), a sourced rough cost range (bare-metal dedicated about EUR 45-100/month; AWS c5.metal about USD 4.08/h from third-party aggregators; in-Kingdom options listed but not priced), and the recommendation: rent one bare-metal dedicated server, qualify gVisor (systrap) first, then Firecracker on the same box after a rebuild; decide D-21 after both results. Prices are indicative, not quotes, not live-verified.
 - Results seen after the merge: `packages/domain` `src/ai` 41 files, 801 passed, **2 failed**, both in `src/ai/benchmarks/dataset.spec.ts` (S03's `sec-03-hardcoded-token-ar` fixture is flagged by S07's tightened scanner, DEFECT-9, commit ebfde17b: not my change); `apps/api` sandbox + execution 104 passed; ESLint clean; `pnpm scan:secrets` **fails on `apps/api/src/modules/deploy/internal/targets.spec.ts:255,318`** (S06's file, same cause), none in my files. Both need their owners (S03, S06) to assemble the credential-looking strings at run time.

@@ -1,0 +1,14 @@
+/* Arabic landing page: Arabic is never slanted (the italic accent line of every heading stays upright and keeps its accent colour), and the type is a little looser. */
+[dir='rtl'] .landing em,
+[dir='rtl'] .landing h1 em,
+[dir='rtl'] .landing h2 em {
+  font-style: normal;
+}
+[dir='rtl'] .landing h1,
+[dir='rtl'] .landing h2 {
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+[dir='rtl'] .landing .eyebrow {
+  letter-spacing: 0;
+}

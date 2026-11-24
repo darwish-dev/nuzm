@@ -18,6 +18,12 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2.2" />
+      <path d="M15.5 8.5V6.7a2.2 2.2 0 0 0-2.2-2.2H6.7a2.2 2.2 0 0 0-2.2 2.2v6.6a2.2 2.2 0 0 0 2.2 2.2h1.8" />
+    </>
+  ),
   support: (
     <>
       <path d="M20 12a7.5 7.5 0 0 1-7.5 7.5H6.2L3.5 21.5l.8-3.6A7.5 7.5 0 1 1 20 12Z" />
@@ -193,7 +199,7 @@ const PATHS: Record<string, ReactNode> = {
   globe: (
     <>
       <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17" />
+      <path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5S14.4 18.1 12 20.5C9.6 18.1 8.4 15.3 8.4 12S9.6 5.9 12 3.5z" />
     </>
   ),
   logout: (
@@ -281,6 +287,16 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   send: <path d="M12 19V5M6 11l6-6 6 6" />,
+  mic: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
+    </>
+  ),
+  stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
+  paperclip: (
+    <path d="m20 11.5-7.9 7.9a5 5 0 0 1-7.1-7.1l8.3-8.3a3.4 3.4 0 0 1 4.8 4.8l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.6-7.6" />
+  ),
   more: (
     <>
       <circle cx="5" cy="12" r="1.2" />

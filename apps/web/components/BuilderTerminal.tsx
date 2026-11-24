@@ -58,7 +58,7 @@ export function TerminalScreen({
         {ended && <Banner tone="danger">{t(locale, 'm10.term.sessionEnded')}</Banner>}
         <Banner tone="warn">{t(locale, 'm10.term.egressDenied')}</Banner>
         <p>
-          <ButtonLink variant="secondary" href={`/${locale}/builder/projects/${projectId}/ide`}>
+          <ButtonLink variant="secondary" href={`/builder/projects/${projectId}/ide`}>
             {t(locale, 'm10.term.back')}
           </ButtonLink>
         </p>

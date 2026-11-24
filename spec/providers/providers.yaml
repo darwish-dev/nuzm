@@ -28,9 +28,9 @@ providers:
     environment_policy: any
     egress: { hosts: ['api.contabo.com', 'auth.contabo.com'], allow_loopback: false } # docs read 2026-11-18
     note: 'Adapter built from the official docs (S22), NOT VERIFIED: needs HG-05-03 for any live call. Per-account, per-plan capability detection; no price/availability API, so no offers until established elsewhere.'
-  - key: cloudpanel
+  - key: hestia
     kind: hosting
-    adapter: cloudpanel-node
+    adapter: hestia-api
     environment_policy: any
-    egress: { hosts: [], allow_loopback: false }
-    note: 'Registered for M06; no adapter in M05.'
+    egress: { hosts: [], allow_loopback: false } # per-node panel FQDNs live in the node registry (hosting.nodes), validated as fixed FQDNs by the client; not a static list
+    note: 'HestiaCP hosting panel (REST API, POST /api/ on the panel port), built from the CLI reference (read 2026-11-24), NOT VERIFIED: needs a human-run probe against a real node. ADR-067.'

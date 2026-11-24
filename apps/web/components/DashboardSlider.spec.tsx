@@ -10,19 +10,19 @@ it('changes the slide and destination, wraps, and allows direct selection', () =
       title: 'Hosting',
       description: 'Your sites',
       label: 'Explore',
-      href: '/en/hosting/sites',
+      href: '/hosting/sites',
     },
     {
       id: 'domains',
       title: 'Domains',
       description: 'Your name',
       label: 'Explore',
-      href: '/en/domains',
+      href: '/domains',
     },
   ];
   render(<DashboardSlider ar={false} slides={slides} />);
   fireEvent.click(screen.getByRole('button', { name: 'Next slide' }));
-  expect(screen.getByRole('link', { name: 'Explore' }).getAttribute('href')).toBe('/en/domains');
+  expect(screen.getByRole('link', { name: 'Explore' }).getAttribute('href')).toBe('/domains');
   expect(document.querySelector('.nzc-service-art')?.getAttribute('data-service')).toBe('domains');
   fireEvent.click(screen.getByRole('button', { name: 'Next slide' }));
   expect(screen.getByRole('heading').textContent).toBe('Hosting');
@@ -42,7 +42,7 @@ it('lets the user pause and resume service animations', () => {
           title: 'Hosting',
           description: 'Sites',
           label: 'Explore',
-          href: '/en/hosting/sites',
+          href: '/hosting/sites',
         },
       ]}
     />,

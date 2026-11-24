@@ -128,7 +128,7 @@ export function FileBrowser({
     );
 
   const propose = file
-    ? `/${locale}/builder/projects/${projectId}/changes?${new URLSearchParams({
+    ? `/builder/projects/${projectId}/changes?${new URLSearchParams({
         op: 'modify',
         path: file.path,
         ...(file.hash ? { hash: file.hash } : {}),
@@ -231,7 +231,7 @@ export function SandboxCard({
           <a
             className="nz-btn"
             data-variant="secondary"
-            href={`/${locale}/builder/projects/${projectId}/sandboxes/${sandbox.id}/terminal`}
+            href={`/builder/projects/${projectId}/sandboxes/${sandbox.id}/terminal`}
           >
             {t(locale, 'm10.sbx.openTerminal')}
           </a>
@@ -433,7 +433,7 @@ export function RunPanel({
                 <Badge tone={testTone(lastRun.status)}>
                   <Word locale={locale} prefix="m10.tst.status" value={lastRun.status} />
                 </Badge>{' '}
-                <a href={`/${locale}/builder/projects/${projectId}/tests`}>
+                <a href={`/builder/projects/${projectId}/tests`}>
                   {t(locale, 'm10.ide.seeResults')}
                 </a>
               </p>

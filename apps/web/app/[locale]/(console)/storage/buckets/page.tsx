@@ -24,14 +24,14 @@ export default async function Buckets({ params }: { params: Promise<{ locale: st
           rows={data.items}
           rowKey={(r) => r.id}
           cardIcon="data"
-          rowHref={(r) => `/${locale}/storage/buckets/${r.id}`}
+          rowHref={(r) => `/storage/buckets/${r.id}`}
           manageLabel={t(locale, 'action.manage')}
           columns={[
             {
               key: 'n',
               card: 'title',
               header: t(locale, 'field.name'),
-              render: (r) => <a href={`/${locale}/storage/buckets/${r.id}`}>{r.name}</a>,
+              render: (r) => <a href={`/storage/buckets/${r.id}`}>{r.name}</a>,
             },
             {
               key: 'b',
@@ -117,7 +117,7 @@ export default async function Buckets({ params }: { params: Promise<{ locale: st
         body={t(locale, 'm8.st.help')}
       >
         {s.can('data:storage:write') && (
-          <ButtonLink href={`/${locale}/storage/buckets/new`}>{t(locale, 'm8.st.new')}</ButtonLink>
+          <ButtonLink href={`/storage/buckets/new`}>{t(locale, 'm8.st.new')}</ButtonLink>
         )}
       </StartHero>
       {body}

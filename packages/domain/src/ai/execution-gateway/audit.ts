@@ -1,7 +1,7 @@
 import { scanForSecrets } from '../secret-scan';
 
 /**
- * S-AG6 (OFFLINE): execution audit events (ADR-067 item 7). Every request, decision (with reasons), approval step, start, finish, exit status and byte count is recorded WITHOUT
+ * S-AG6 (OFFLINE): execution audit events (ADR-069 item 7). Every request, decision (with reasons), approval step, start, finish, exit status and byte count is recorded WITHOUT
  * content: no stdout, no stderr, no file text, no argv beyond the profile id, no environment, no model text. `buildExecAudit` takes a free-form detail and returns only the
  * allow-listed, bounded, scalar members, so a caller cannot leak content by accident. The api module adapts the record to the platform `AuditSink`.
  */

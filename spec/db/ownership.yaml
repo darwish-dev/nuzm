@@ -3,8 +3,8 @@ schemas:
   platform:
     owner_module: platform
     created_by: M01
-    extended_by: []
-    tables: [ feature_flags, idempotency_keys, notification_preferences, notifications, operation_steps, operations, outbox, webhook_events_inbound ]
+    extended_by: [ PLT-INT ]
+    tables: [ docs_feedback, feature_flags, idempotency_keys, notification_preferences, notifications, operation_steps, operations, outbox, webhook_events_inbound ]
   identity:
     owner_module: identity
     created_by: M01
@@ -76,6 +76,8 @@ schemas:
       - M06
       - M08
       - M12
+      - M05-INT
+      - M05-INT2
     tables:
       - catalog_snapshots
       - evidence_items
@@ -83,6 +85,7 @@ schemas:
       - provider_accounts
       - provider_capabilities
       - provider_jobs
+      - provider_network_settings
       - provider_plans
       - provider_regions
       - providers
@@ -92,17 +95,17 @@ schemas:
   compute:
     owner_module: compute
     created_by: M05
-    extended_by: []
-    tables: [ images, instance_actions, instance_intervals, instances, snapshots ]
+    extended_by: [ M05-INT2 ]
+    tables: [ images, instance_actions, instance_intervals, instances, panel_image_approvals, panel_installs, snapshots ]
   hosting:
     owner_module: hosting
     created_by: M06
-    extended_by: [ M10 ]
-    tables: [ abuse_cases, metering_marks, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, site_allocations, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports ]
+    extended_by: [ M10, M06-INT, M06-INT2 ]
+    tables: [ abuse_cases, metering_marks, monitor_alerts, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, restore_drills, site_allocations, site_apps, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports ]
   domains:
     owner_module: domains
     created_by: M07
-    extended_by: []
+    extended_by: [ M07-INT, M07-INT2 ]
     tables: [ dns_records, dns_zones, domain_contacts, domain_orders, domain_transfers, domains, eligibility_checks, registrar_accounts, registrars ]
   data:
     owner_module: data
@@ -121,10 +124,7 @@ schemas:
       - M10
       - M10-INT
       - K # S-AG2: the agent tool gateway records its calls in ai.tool_calls (three additive columns, migration 1868)
-      - PROV # S-AG4 (parallel session 02): the rate card version history, migration 1900
-      - AG-S03 # S-AG5 benchmarks (parallel session 03): migrations 1920-1921
-      - AG-S04 # S-AG6 execution (parallel session 04): reserved
-      - AG-S05 # builder tools (parallel session 05): reserved
+      - AG-JOIN # S-AG4 rate card version history (2210) and S-AG5 benchmarks (2211-2212); renumbered from 1900/1920/1921 when the hosting line joined
     tables:
       - approval_requests
       - approvals
@@ -155,7 +155,7 @@ schemas:
     created_by: M09
     extended_by:
       - M10
-      - S06-DEPLOY # parallel session 06: the cancelled state, migration 1980
+      - AG-JOIN # parallel session 06: the cancelled state, migration 2213 (renumbered from 1980 when the hosting line joined)
       - S06-DEPLOY2 # Phase 2: deployment policy switches (O-1, O-2), migration 2180
     tables:
       - app_deployment_logs
@@ -262,6 +262,7 @@ tenant_less:
   - identity.mfa_factors
   - identity.recovery_codes
   - platform.webhook_events_inbound
+  - platform.docs_feedback
   - tenancy.roles
   - tenancy.permissions
   - tenancy.role_permissions
@@ -304,9 +305,11 @@ tenant_less:
   - cloud.catalog_snapshots
   - cloud.provider_jobs
   - cloud.live_verification_runs
+  - cloud.provider_network_settings
   - cloud.routing_rules
   - cloud.resource_reconciliations
   - compute.images
+  - compute.panel_image_approvals
   - hosting.nodes
   - hosting.node_overcommit_changes
   - hosting.node_agents
@@ -316,6 +319,8 @@ tenant_less:
   - hosting.plan_definitions
   - hosting.site_allocations
   - hosting.site_migrations
+  - hosting.restore_drills
+  - hosting.monitor_alerts
   - ai.model_providers
   - ai.model_capability_evidence
   - ai.model_rate_card_versions
@@ -381,13 +386,22 @@ migration_ranges:
   AS: "1840-1859"
   # AI Intelligence Center (ADR-065)
   K: "1860-1899"
-  # AI providers (parallel AI engine effort, session 02): migrations 1900-1919
-  PROV: "1900-1919"
-  # parallel AI engine effort: session 03 (S-AG5 benchmarks), 04 (S-AG6 execution), 05 (builder tools), 06 (deployment); ids reserved in docs/parallel/MIGRATION-REGISTRY.md
-  AG-S03: "1920-1939"
-  AG-S04: "1940-1959"
-  AG-S05: "1960-1979"
-  S06-DEPLOY: "1980-1999"
+  # Platform additions made after later milestones were applied (documentation feedback): above every applied ordinal, because the runner is forward-only
+  PLT-INT: "1920-1939"
+  # M07 domains additions made after later milestones were applied (DNet registrar settings): above every applied ordinal, because the runner is forward-only
+  M07-INT: "1900-1919"
+  # M05 cloud additions made after later milestones were applied (provider network settings typed in the admin console): above every applied ordinal, because the runner is forward-only
+  M05-INT: "1940-1959"
+  # M07 domains additions after the 1900-1919 range filled (Dynadot registrar row): above every applied ordinal, because the runner is forward-only
+  M07-INT2: "1960-1979"
+  # M06 hosting additions made after later milestones were applied (HestiaCP panel connection): above every applied ordinal, because the runner is forward-only
+  M06-INT: "1980-1984"
+  # M05 cloud: the hosting provider row becomes HestiaCP (owner request 2026-11-24)
+  M05-INT2: "1985-1990"
+  # M06 hosting: customer VPS nodes (S04), backups/WordPress/monitoring (S06), site tools (S05): placed above the dev databases' applied ordinals (1985), because the runner is forward-only
+  M06-INT2: "1991-1999"
+  # AI-engine line (join with the hosting line, P3-S07 reconciliation): the AI/deploy migrations that collided with the hosting line's 1900/1920/1921/1980 are renumbered 2210-2213; Phase 2 block of session 06 (deployment policy switches) stays 2180
+  AG-JOIN: "2210-2219"
   S06-DEPLOY2: "2180-2199" # Phase 2 block of session 06 (see docs/parallel/PHASE-2-PLAN.md)
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
@@ -462,10 +476,15 @@ classification:
     identity.auth_tokens.token_hash: hash
     identity.sessions.csrf_hash: hash
     hosting.node_enrolment_tokens.token_hash: hash
+    hosting.nodes.panel_key_ref: vault_ref
+    compute.panel_installs.registration_hash: hash
+    compute.panel_installs.registration_secret_ref: vault_ref
     hosting.sites.credentials_ref: vault_ref
     hosting.sites.backup_key_ref: vault_ref
     hosting.ssl_certificates.secret_ref: vault_ref
     hosting.site_backups.enc_key_ref: vault_ref
+    hosting.site_apps.admin_secret_ref: vault_ref
+    hosting.site_apps.db_secret_ref: vault_ref
     invoicing.zatca_credentials_refs.key_ref: vault_ref
     invoicing.zatca_credentials_refs.token_ref: vault_ref
     invoicing.zatca_credentials_refs.secret_ref: vault_ref
@@ -1369,6 +1388,17 @@ classification:
       attempts: internal
       lock_until: internal
       published_at: internal
+    # Documentation "Was this helpful?" ratings. No person is stored: client_hash is a SHA-256 over a salt, the client address and agent, and the UTC day, so it cannot be
+    # reversed and cannot be linked from one day to the next; it only lets one client change its own vote on a page and be rate limited.
+    platform.docs_feedback:
+      id: internal
+      page: public
+      locale: public
+      score: internal
+      client_hash: internal
+      day: internal
+      created_at: internal
+      updated_at: internal
     platform.webhook_events_inbound:
       id: internal
       provider: internal
@@ -1680,6 +1710,12 @@ classification:
       created_at: internal
       updated_at: internal
       version: internal
+    cloud.provider_network_settings:
+      provider_key: internal
+      region_id: internal
+      settings: internal
+      updated_by: internal
+      updated_at: internal
     cloud.provider_capabilities:
       account_id: internal
       capability_id: internal
@@ -1807,6 +1843,65 @@ classification:
       name: internal
       os_family: internal
       last_seen_at: internal
+      cloud_init: internal
+    compute.panel_image_approvals:
+      id: internal
+      account_id: internal
+      provider_region_id: internal
+      image_ref: internal
+      panel_kind: internal
+      panel_version: internal
+      os_id: internal
+      os_version: internal
+      evidence_kind: internal
+      evidence_note: internal
+      approved_by: internal
+      approved_at: internal
+      revoked_at: internal
+    compute.panel_installs:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      order_id: internal
+      panel_kind: internal
+      provider_key: internal
+      provider_region_id: internal
+      plan_ref: internal
+      image_ref: internal
+      image_name: internal
+      os_id: internal
+      os_version: internal
+      template: internal
+      panel_version: internal
+      installer_url: internal
+      installer_sha256: internal
+      panel_host: internal
+      panel_port: internal
+      stage: internal
+      resume_stage: internal
+      steps: internal
+      attention_code: internal
+      attention_detail: internal
+      attempts: internal
+      server_ref: internal
+      server_addresses: personal
+      boot_seen_at: internal
+      last_event_at: internal
+      stage_entered_at: internal
+      registration_id: internal
+      registration_hash: credentials
+      registration_secret_ref: credentials
+      registration_expires_at: internal
+      registration_consumed_at: internal
+      registration_source_ip: personal
+      panel_node_id: internal
+      panel_link: internal
+      panel_link_checked_at: internal
+      panel_version_seen: internal
+      ready_at: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
     compute.instance_actions:
       id: internal
       org_id: internal
@@ -1849,6 +1944,9 @@ classification:
       ssh_public_keys: internal
       tags: customer-content
       deletion_protected: internal
+      panel_kind: internal
+      hold_reason: internal
+      held_at: internal
       operation_id: internal
       created_by: internal
       created_at: internal
@@ -2130,7 +2228,16 @@ classification:
       data_region: internal
       status: internal
       agent_id: internal
-      cloudpanel_version: internal
+      panel_version: internal
+      panel_kind: internal
+      panel_host: internal
+      panel_port: internal
+      panel_key_ref: credentials
+      panel_tls_pin: internal
+      network_class: internal
+      owner_org_id: internal
+      purpose: internal
+      sftp_host_key_sha256: internal
       runtimes: internal
       overcommit_factor: internal
       overcommit_change_id: internal
@@ -2204,6 +2311,7 @@ classification:
       price_minor: public
       currency: public
       placeholder: public
+      app_kind: public
       created_at: internal
     hosting.sites:
       id: internal
@@ -2224,6 +2332,7 @@ classification:
       domain_primary: personal
       credentials_ref: credentials
       backup_key_ref: credentials
+      app_kind: internal
       settings: customer-content
       quote_id: internal
       operation_id: internal
@@ -2324,6 +2433,57 @@ classification:
       created_at: internal
       expires_at: internal
       deleted_at: internal
+      archive_name: internal
+      provider_state: internal
+    hosting.site_apps:
+      id: internal
+      site_id: internal
+      org_id: internal
+      app: internal
+      state: internal
+      phase: internal
+      admin_user: personal
+      admin_secret_ref: credentials
+      db_secret_ref: credentials
+      db_name: internal
+      locale: internal
+      handover_state: internal
+      handover_expires_at: internal
+      handover_consumed_at: internal
+      verification: internal
+      attempts: internal
+      last_error: internal
+      installed_at: internal
+      verified_at: internal
+      created_at: internal
+      updated_at: internal
+    hosting.restore_drills:
+      id: internal
+      backup_id: internal
+      site_id: internal
+      org_id: internal
+      node_id: internal
+      state: internal
+      checks: internal
+      error: internal
+      started_at: internal
+      finished_at: internal
+      duration_ms: internal
+      created_by: internal
+    hosting.monitor_alerts:
+      id: internal
+      kind: internal
+      severity: internal
+      scope_key: internal
+      node_id: internal
+      site_id: internal
+      org_id: internal
+      summary: internal
+      detail: internal
+      state: internal
+      opened_at: internal
+      last_seen_at: internal
+      resolved_at: internal
     hosting.site_migrations:
       id: internal
       site_id: internal

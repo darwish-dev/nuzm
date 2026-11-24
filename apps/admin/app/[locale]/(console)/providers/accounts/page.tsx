@@ -3,6 +3,8 @@ import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
 import { Banner, Button, Field, ForbiddenState, PageTitle, Select } from '@nuzm/ui';
 import { AccountsTable, AddAccountForm } from '../../../../../components/ProviderAccounts';
+import { ConnectProviderForm } from '../../../../../components/ProviderConnect';
+import { ProviderNetworkPanel } from '../../../../../components/ProviderNetwork';
 import { ProviderTabs } from '../../../../../components/ProviderTabs';
 import { isUuid } from '../../../../../lib/providers';
 import { requireStaff } from '../../../../../lib/server';
@@ -32,13 +34,14 @@ export default async function Accounts({
     await view(
       locale,
       async () => {
-        const [providers, accounts] = await Promise.all([
+        const [providers, accounts, network] = await Promise.all([
           unwrap(s.api.GET('/v1/admin/providers', {})),
           unwrap(s.api.GET('/v1/admin/provider-accounts', { params: { query: { providerId } } })),
+          unwrap(s.api.GET('/v1/admin/provider-network', {})),
         ]);
-        return { providers: providers.items, accounts: accounts.items };
+        return { providers: providers.items, accounts: accounts.items, network: network.items };
       },
-      ({ providers, accounts }) => (
+      ({ providers, accounts, network }) => (
         <>
           <form method="get" className="nz-row" aria-label={t(locale, 'm05.adm.acc.title')}>
             <Field id="acc-f-provider" label={t(locale, 'm05.adm.col.provider')}>
@@ -58,6 +61,15 @@ export default async function Accounts({
             </Button>
           </form>
           <AccountsTable locale={locale} rows={accounts} canManage={manage} mfaFactorId={mfa} />
+          {manage && (
+            <ConnectProviderForm locale={locale} providers={providers} mfaFactorId={mfa} />
+          )}
+          <ProviderNetworkPanel
+            locale={locale}
+            rows={network}
+            canManage={manage}
+            mfaFactorId={mfa}
+          />
           {manage && <AddAccountForm locale={locale} providers={providers} mfaFactorId={mfa} />}
         </>
       ),

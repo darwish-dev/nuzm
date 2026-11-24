@@ -11,7 +11,7 @@ import { requireSession } from '../../../../lib/server';
 export default async function NewOrg({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const s = await requireSession(locale, `/${locale}/orgs/new`);
+  const s = await requireSession(locale, `/orgs/new`);
   const onboarding = !s.org;
   const body = (
     <>
@@ -22,7 +22,7 @@ export default async function NewOrg({ params }: { params: Promise<{ locale: str
         {onboarding ? (
           <>{t(locale, 'onb.signedAs', { email: s.me.email })}</>
         ) : (
-          <a href={`/${locale}`}>{t(locale, 'onb.back')}</a>
+          <a href={`/console`}>{t(locale, 'onb.back')}</a>
         )}
       </p>
     </>

@@ -4,6 +4,8 @@ import { ProblemException } from '../../common/errors';
 import { parseLimit } from '../../common/pagination';
 import { CloudFlags } from './internal/flags';
 import { ImageCatalog } from './internal/images';
+import { HESTIA_MIN, HESTIA_TEMPLATES } from './internal/hestia-vps/policy';
+import { PanelInstallService } from './internal/hestia-vps/panel-install.service';
 import { OfferService, parseOfferFilters } from './internal/offer.service';
 
 /**
@@ -16,6 +18,7 @@ export class OffersController {
     private readonly offers: OfferService,
     private readonly flags: CloudFlags,
     private readonly images: ImageCatalog,
+    private readonly panel: PanelInstallService,
   ) {}
 
   @RequirePermission('offers:read')
@@ -45,6 +48,27 @@ export class OffersController {
       throw new ProblemException('not_found', 'offer not found');
     const [offer] = await this.offers.eligible(orgId, { planId: offerId.toLowerCase() });
     if (!offer) throw new ProblemException('not_found', 'offer not found');
-    return { items: await this.images.forOffer(offer.accountId, offer.providerRegionId) };
+    // HestiaCP is offered only on images an administrator verified for the configured version, in a sold placement (S04)
+    const verified = await this.panel.verifiedImageRefs(
+      orgId,
+      offer.accountId,
+      offer.providerKey,
+      offer.providerRegionId,
+    );
+    const items = await this.images.forOffer(offer.accountId, offer.providerRegionId, verified);
+    const fits =
+      offer.vcpu >= HESTIA_MIN.vcpu &&
+      offer.memoryMb >= HESTIA_MIN.memoryMb &&
+      offer.diskGb >= HESTIA_MIN.diskGb;
+    return {
+      items: fits ? items : items.map((i) => ({ ...i, hestia: false })),
+      panels: {
+        hestia: {
+          available: fits && items.some((i) => i.hestia),
+          templates: HESTIA_TEMPLATES,
+          minimum: HESTIA_MIN,
+        },
+      },
+    };
   }
 }

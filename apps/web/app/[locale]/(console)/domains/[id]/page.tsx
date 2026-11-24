@@ -91,7 +91,7 @@ export default async function DomainPage({
       return { d, records };
     },
     ({ d, records }) => {
-      const base = `/${locale}/domains/${d.id}`;
+      const base = `/domains/${d.id}`;
       const days = d.expiresAt ? daysLeft(d.expiresAt) : null;
       const live = d.state === 'active' || d.state === 'renewal_at_risk';
       const canRenew = s.can('domain:renew') && d.state !== 'pending' && d.state !== 'failed';
@@ -126,14 +126,14 @@ export default async function DomainPage({
                   {(
                     [
                       [
-                        `/${locale}/hosting/sites/new?domain=${encodeURIComponent(d.name)}`,
+                        `/hosting/sites/new?domain=${encodeURIComponent(d.name)}`,
                         'hosting',
                         'dom.ov.site',
                         'dom.ov.site.desc',
                         true,
                       ],
                       [
-                        `/${locale}/email/domains`,
+                        `/email/domains`,
                         'mail',
                         'dom.ov.email',
                         'dom.ov.email.desc',
@@ -310,7 +310,7 @@ export default async function DomainPage({
   );
   return (
     <>
-      <a className="nzc-back" href={`/${locale}/domains`}>
+      <a className="nzc-back" href={`/domains`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'dom.tab.list')}
       </a>

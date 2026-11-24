@@ -20,6 +20,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/docs-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate a documentation page (Was this helpful?)
+         * @description Public: no sign-in, no cookie. Body {page, score, locale}: page is a documentation address (`/docs`, `/docs/guides/<slug>` or `/docs/reference/<area>`), score is good, okay or bad, locale is ar or en. Nothing identifying is stored: the vote is kept with a salted SHA-256 of the client address, agent and UTC day, so it cannot be traced back or followed across days. One vote per page, client and day: a second vote the same day replaces the first, so it takes no Idempotency-Key and a retry never double counts. Rate limited per client and overall (429). 404 while collection is switched off (it is off in production until DOCS_FEEDBACK_ENABLED=true and a DOCS_FEEDBACK_SALT are set).
+         */
+        post: operations["rateDocumentation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/docs-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Documentation ratings per page
+         * @description Counts of good, okay and bad votes per documentation page over the last `days` days (1..365, default 30), most voted first. Counts only. Requires admin:reports:read.
+         */
+        get: operations["getDocsFeedback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/oidc/login": {
         parameters: {
             query?: never;
@@ -2461,7 +2501,7 @@ export interface paths {
         };
         /**
          * List providers
-         * @description Registered providers (alibaba, huawei, contabo, cloudpanel, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.
+         * @description Registered providers (alibaba, huawei, contabo, hestia, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.
          */
         get: operations["adminListProviders"];
         put?: never;
@@ -2489,6 +2529,90 @@ export interface paths {
          */
         get: operations["adminGetProvider"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-network": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List provisioning network settings
+         * @description The vSwitch / VPC / subnet / security group / project ids typed in the console per provider and region (Alibaba and Huawei). Resource identifiers only: never credentials.
+         */
+        get: operations["adminListProviderNetwork"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-network/{providerKey}/{regionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the provisioning network settings of one region
+         * @description alibaba: {vSwitchId, securityGroupId, zoneId?}. huawei: {vpcId, subnetId, securityGroupId, availabilityZone?, projectId?}. Each value is a resource id (3 to 100 letters, digits, . _ -). Takes effect at once for provisioning; a region with no row is not configured and provisioning there is refused. Audited as provider.network_settings.saved (field names only).
+         */
+        put: operations["adminSaveProviderNetwork"];
+        post?: never;
+        /**
+         * Remove the provisioning network settings of one region
+         * @description The region becomes not configured. Audited as provider.network_settings.removed.
+         */
+        delete: operations["adminDeleteProviderNetwork"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect a provider with credentials typed in the console
+         * @description Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider's adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created.
+         */
+        post: operations["adminConnectProviderAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/provider-accounts/{id}/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace the credentials of a provider account
+         * @description Body {credentials} (same field sets as adminConnectProviderAccount). Stores a new sealed entry, re-points the account at it and clears its verification time: verify it again. The replaced entry is deleted. Same profile limits as adminConnectProviderAccount. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.credentials_changed (references and field names only).
+         */
+        put: operations["adminReplaceProviderCredentials"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2786,6 +2910,166 @@ export interface paths {
          * @description Body {type, params}. Only types in the instance capability set are accepted, otherwise 422 unsupported_capability (never a silent no-op); 409 invalid_state; idempotent per Idempotency-Key. resize takes params.offerId of an eligible plan in the same placement. Requires permission `compute:instance:act`.
          */
         post: operations["actComputeInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}/panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The control panel install of a server (HestiaCP) and its link state
+         * @description Only for a server ordered with the panel installed automatically (404 otherwise). Staged status: create server, wait for boot, install panel, register link, readiness test, then ready or needs attention; a `held` order waits for provider capacity in the SOLD region (it is never moved to another one). `panelLink` is `lost` when Nuzm can no longer reach the panel (the customer has root); start/stop/restart go through the provider API and stay available. Requires permission `compute:instance:read`.
+         */
+        get: operations["getComputeInstancePanel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}/panel/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a panel install that needs attention (same server)
+         * @description Never creates, replaces or wipes a server. Problems on Nuzm's side (readiness, DNS, node registration, secret store) continue from their stage; when the bootstrap did not finish on the server the registration window of the SAME order and server is extended and the response carries the command to re-run the script that is still on the server (`rerun_bootstrap`). A failed integrity check of the pinned installer is not resumable on that server (409 invalid_state). Idempotent per Idempotency-Key. Requires permission `compute:instance:act`.
+         */
+        post: operations["retryComputeInstancePanel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bootstrap/panel/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Progress report of the panel bootstrap running on a new server
+         * @description Called by the bootstrap script on the server. Unauthenticated by design: the single-use registration secret (`Authorization: Bearer nzr1.<registration id>.<secret>`) is the credential; it is bound to one order and one server, short-lived (the window starts when the provider created the server) and stored only as a SHA-256. 401 unknown secret, 409 the server is not recorded yet (retry), 410 the window ended, 429 rate limited.
+         */
+        post: operations["panelBootstrapEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bootstrap/panel/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register the new panel (single use)
+         * @description Called once by the bootstrap script. The secret is consumed atomically; the caller's address must be one of the server's public addresses AS THE PROVIDER REPORTS THEM, and the provider's record must show the server running in the sold region (403 otherwise: the secret is NOT consumed). The panel access key is a read-only profile; it is sealed on receipt and only a vault reference is stored. Repeating the same registration from the same server after a lost answer returns `already_registered`; any other repeat is 409. 503 when the provider or the secret store cannot answer (the script retries).
+         */
+        post: operations["panelBootstrapRegister"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provider images and their HestiaCP verification
+         * @description Every catalogued image with whether the provider states cloud-init for it, the operating system HestiaCP would see, and its approval (version, evidence kind, who approved). Only an approved image on a sold placement is offered to customers.
+         */
+        get: operations["adminListPanelImages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Approve an image for the configured HestiaCP version
+         * @description Body {evidenceKind: live|fixture|mock, evidenceNote}. 422 unless the provider states cloud-init for the image AND HestiaCP documents its operating system (Debian 12/13, Ubuntu 22.04/24.04/26.04) AND the product is configured. `live` is for an install actually performed on that provider; `fixture`/`mock` are labelled and refused as mock in production. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.approved).
+         */
+        put: operations["adminApprovePanelImage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-image-approvals/{approvalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Withdraw an image approval
+         * @description The image stops being offered at once; an order already placed re-checks at execution and is released without charge. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.revoked).
+         */
+        delete: operations["adminRevokePanelImageApproval"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-installs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Panel installs across organizations
+         * @description Most recently changed first; filter by stage (e.g. needs_attention, held). Platform only; carries provider and region (internal), never a secret.
+         */
+        get: operations["adminListPanelInstalls"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3497,13 +3781,13 @@ export interface paths {
         };
         /**
          * List hosting nodes
-         * @description Platform-operated nodes (CloudPanel nodes managed through the node agent). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.
+         * @description Platform-operated hosting nodes (servers running HestiaCP, reached through its REST API). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.
          */
         get: operations["listHostingNodes"];
         put?: never;
         /**
          * Register a hosting node on a platform-owned compute instance
-         * @description Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with a pending agent and a single-use enrolment token (returned ONCE, stored hashed, 15 minutes). A replay with the same computeInstanceId returns the existing node (200) without a token. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).
+         * @description Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with no panel connection yet (set it with PUT …/panel). A replay with the same computeInstanceId returns the existing node (200). Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).
          */
         post: operations["createHostingNode"];
         delete?: never;
@@ -3531,7 +3815,7 @@ export interface paths {
         head?: never;
         /**
          * Change a node status or overcommit factor
-         * @description status is active|draining|maintenance|retired: a node becomes `active` only with an enrolled agent, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.
+         * @description status is active|draining|maintenance|retired: a node becomes `active` only with a panel connection, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.
          */
         patch: operations["patchHostingNode"];
         trace?: never;
@@ -3567,7 +3851,7 @@ export interface paths {
         put?: never;
         /**
          * Run the inventory job for a node now
-         * @description Probe + inventory through the node agent: versions, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The agent must be enrolled (409 otherwise). Permission admin:hosting:manage, MFA step-up.
+         * @description Probe + inventory through the node's HestiaCP panel (this is the connection test): version, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The panel connection must be set (409 otherwise). Permission admin:hosting:manage, MFA step-up.
          */
         post: operations["runHostingNodeInventory"];
         delete?: never;
@@ -3576,7 +3860,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/hosting/nodes/{id}/enrolment-tokens": {
+    "/v1/admin/hosting/nodes/{id}/panel": {
         parameters: {
             query?: never;
             header?: never;
@@ -3584,51 +3868,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
         /**
-         * Issue a single-use agent bootstrap token
-         * @description Invalidates any earlier unused token of the node. The token is returned once and stored hashed; it expires after 15 minutes and works exactly once. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.agent.enrolment_token.issued`).
+         * Set how a node's HestiaCP panel is reached
+         * @description Body {host (the panel's fully qualified domain name: no IP literal, no scheme), port? (default 8083), tlsPinSha256? (SHA-256 fingerprint of a self-signed panel certificate; unset = normal certificate-authority validation), and EITHER credentials {accessKey: "ACCESS_KEY_ID:SECRET_ACCESS_KEY"} OR vaultRef (vault://…)}. A typed key is write-only: accepted outside production only (the production vault is undecided, D-12), sealed on the server, and only the vault reference is stored; it is never returned, logged or audited. Any change clears the node's health and returns an active node to maintenance: run the inventory (the connection test) again before activating it. Needs admin:hosting:manage and a recent MFA check. Audited (hosting.node.panel_set).
          */
-        post: operations["issueHostingEnrolmentToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/hosting/nodes/{id}/command-log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The node agent command audit log
-         * @description Newest first. Every envelope decision the agent made (accepted, rejected with the reason, executed, failed), shipped hash-chained from the node.
-         */
-        get: operations["listHostingNodeCommandLog"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/hosting/agents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List node agents
-         * @description Agent state, version, last seen and certificate rotation time per node.
-         */
-        get: operations["listHostingAgents"];
-        put?: never;
+        put: operations["setHostingNodePanel"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3648,6 +3892,86 @@ export interface paths {
          * @description Plan definitions (quotas, runtimes, price, region) offered to the organization: only plans with at least one eligible node region that has room AND that the data residency policy allows; plans without capacity are hidden. A plan price marked placeholder is not a published price. `/v1/offers?kind=hosting` is what can be bought now (SI-M06-2).
          */
         get: operations["listHostingPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/hosting-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the published hosting plans (public)
+         * @description The plans the owner has published: active, with a price that is not a placeholder, cheapest first. No sign-in and no organization, so there is no capacity or residency check here: whether a plan can be bought for an account and region is only ever confirmed by `/v1/offers`. Used by the public website's plan sections. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).
+         */
+        get: operations["listPublicHostingPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/compute-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the server sizes the website shows (public)
+         * @description The eligible compute offers without any organization, grouped by size (vCPU, memory, disk) with the cheapest monthly price per size and the data-region groups it is offered in. A size appears only when a healthy provider account, a verified region (with acceptable evidence for the environment), an available plan and a Nuzm price all exist; priced from the same price book as `/v1/offers` (the placeholder book is refused in production). Residency, entitlement and quota are decided when an organization orders. No provider identity or provider cost. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).
+         */
+        get: operations["listPublicComputePlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/usage-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the published usage prices (public)
+         * @description The pay-as-you-use rates of the price book version in force for a short fixed list of meters (transactional email, object storage, network egress, AI credits). Same book and same production refusal as rating: the DRAFT-NOT-APPROVED placeholder book is never published in production (the list is then empty). Nothing organization specific. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).
+         */
+        get: operations["listPublicUsagePrices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/domains/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check domain availability and price (public)
+         * @description The website's domain checker: the same answer and rules as `/v1/domains/search` (verified registrar accounts only, unknown is never available, price from the same sales policy) with no organization. No sign-in; rate limited per caller address (429); nothing is recorded about the caller. Buying always happens in the dashboard. 404 while off (`PUBLIC_DOMAIN_SEARCH_ENABLED` in production, or the domains feature off).
+         */
+        get: operations["searchDomainsPublic"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3839,7 +4163,7 @@ export interface paths {
         put?: never;
         /**
          * Create a backup of a site
-         * @description Encrypted on the node with the PER-SITE key and stored in the backup sink of the site region (residency checked, 403 residency_denied). 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.
+         * @description HestiaCP schedules the archive and uploads it to the node's remote backup host; the platform then finds it OFF the node in the store of the site's region and records its size and sha256 (residency checked, 403 residency_denied). Hestia documents no encryption of its archives: the `encrypted` flag of the backup says so. 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.
          */
         post: operations["createHostingSiteBackup"];
         delete?: never;
@@ -3877,7 +4201,7 @@ export interface paths {
         };
         /**
          * Download a backup archive
-         * @description Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the encrypted per-site archive.
+         * @description Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the panel archive as stored (see `encrypted` on the backup).
          */
         get: operations["downloadHostingBackup"];
         put?: never;
@@ -3908,6 +4232,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/hosting/sites/{id}/wordpress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Installation state of a site's Managed WordPress
+         * @description The state is `ready` only after the site was LOOKED AT over HTTP: it answers, no installer redirect, and `wp-login.php` is served. 404 for a site without a managed application and for another organization's site. Never contains a password.
+         */
+        get: operations["getHostingSiteWordPress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/wordpress/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed WordPress installation
+         * @description Only a `failed` installation (409 otherwise). The retry resumes from what the site shows: an existing download, configuration, database or installation is kept, WP-CLI never overwrites them. 202 + operation. Needs Idempotency-Key.
+         */
+        post: operations["retryHostingSiteWordPress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/wordpress/admin-resets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new WordPress admin password
+         * @description Runs `wp user update` as the site user with a generated password and opens a NEW one-time handover (the old password may be lost or already used). Only a `ready` installation set up by the platform. 202 + operation. Needs Idempotency-Key.
+         */
+        post: operations["resetHostingSiteWordPressAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/wordpress/handover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read the WordPress admin access ONCE
+         * @description The one-time secure handover: the first successful call returns the admin username and the generated password and consumes them (the secret is deleted from the vault); a second call, parallel or later, is 409 (already used) and an unread handover expires after 7 days (410). The response is `Cache-Control: no-store`. Deliberately takes NO Idempotency-Key: an idempotency replay would keep the password. Audited.
+         */
+        post: operations["handoverHostingSiteWordPress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/hosting/sites/{id}/usage": {
         parameters: {
             query?: never;
@@ -3923,6 +4327,510 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which tools work for this website
+         * @description The capability report of the website tools (files, cron, logs, FTP, protection, PHP, business email) for THIS website, panel version, caller role, plan and connection state: each tool is available or unavailable with a reason (role, site_state, connection, panel_version, panel_service, plan). Every tool is NOT VERIFIED until a human-run probe on a real node.
+         */
+        get: operations["getHostingSiteTools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/cron-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the scheduled jobs
+         * @description Read from the panel (v-list-cron-jobs) for the site account, with the plan limit.
+         */
+        get: operations["listHostingCronJobs"];
+        put?: never;
+        /**
+         * Create a scheduled job
+         * @description Validates the five-field schedule (digits and * , / - only) and the minimum interval (default 5 minutes), counts the plan limit under a per-site lock, and runs v-add-cron-job for the site account; a lost answer is reconciled against v-list-cron-jobs before any retry. The command runs as the sites own unprivileged account. Needs Idempotency-Key.
+         */
+        post: operations["createHostingCronJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/cron-jobs/{job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a scheduled job
+         * @description v-change-cron-job USER JOB MIN HOUR DAY MONTH WDAY CMD, with the same validation as creation.
+         */
+        put: operations["updateHostingCronJob"];
+        post?: never;
+        /**
+         * Delete a scheduled job
+         * @description v-delete-cron-job. A job that is already gone is 404.
+         */
+        delete: operations["deleteHostingCronJob"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the web logs of a domain
+         * @description The last N lines (1 to 500, default 100) of the access or error log of a domain of the site (v-list-web-domain-accesslog / -errorlog, plain format). The answer is cut again to N lines and every line to a bounded length.
+         */
+        get: operations["getHostingSiteLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/ftp-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the FTP accounts
+         * @description Read from the web domains of the site account on the panel (FTP_USER, FTP_PATH of v-list-web-domains), with the plan limit. Offered only when the node reports an FTP service.
+         */
+        get: operations["listHostingFtpAccounts"];
+        put?: never;
+        /**
+         * Create an FTP account
+         * @description v-add-web-domain-ftp USER DOMAIN FTP_USER FTP_PASSWORD [FTP_PATH]. The plan limit is counted under a per-site lock; the password is sent to the panel once and never stored, logged or audited; the account name is read back from the panel. Needs Idempotency-Key.
+         */
+        post: operations["createHostingFtpAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an FTP password
+         * @description v-change-web-domain-ftp-password. The password is never stored, logged or audited.
+         */
+        put: operations["setHostingFtpPassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an FTP account
+         * @description v-delete-web-domain-ftp.
+         */
+        delete: operations["deleteHostingFtpAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/protection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List password-protected domains
+         * @description Read from the web domains of the site account (AUTH_USER), with the plan limit.
+         */
+        get: operations["listHostingProtection"];
+        put?: never;
+        /**
+         * Protect a domain with a password
+         * @description v-add-web-domain-httpauth USER DOMAIN AUTH_USER AUTH_PASSWORD. The password is never stored, logged or audited. Needs Idempotency-Key.
+         */
+        post: operations["createHostingProtectionUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/protection/{domain}/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a protection user
+         * @description v-delete-web-domain-httpauth.
+         */
+        delete: operations["deleteHostingProtectionUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse the website folder
+         * @description Lists a folder of the website over SFTP as the site account. The path is relative and proven to stay inside the website folder; links are shown and never followed. At most 1000 entries.
+         */
+        get: operations["listHostingFiles"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a file or folder
+         * @description Deletes a file, a link (the link only) or a folder (recursive=true for a non-empty one, bounded entries). Never follows a link.
+         */
+        delete: operations["deleteHostingFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a file
+         * @description The file bytes as an attachment (up to 50 MB). Links are not followed.
+         */
+        get: operations["downloadHostingFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open a text file for editing
+         * @description UTF-8 text up to 1 MB with its SHA-256; other files are refused.
+         */
+        get: operations["readHostingTextFile"];
+        /**
+         * Save a text file
+         * @description Replaces the file only when expectedSha256 is the hash of the content that was opened (409 conflict otherwise); written through a temporary file and a rename.
+         */
+        put: operations["saveHostingTextFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload a file
+         * @description The raw bytes (application/octet-stream) up to the plan upload limit (default 25 MB, at most 60 MB); an existing file is replaced only with overwrite=true. The disk quota of the plan is checked first.
+         */
+        put: operations["uploadHostingFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a folder
+         * @description Creates a folder inside the website folder. Needs Idempotency-Key.
+         */
+        post: operations["createHostingFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/renames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename or move
+         * @description Both paths are proven to be inside the website folder; the target must not exist. Needs Idempotency-Key.
+         */
+        post: operations["renameHostingFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Business email of the website
+         * @description Mail domains that can be enabled, mailboxes with quota and aliases (read from the panel), the plan limits, the webmail availability and the IMAP/SMTP settings. Offered only on a plan that includes mailboxes and a node that reports a mail service. NOT VERIFIED against a real node.
+         */
+        get: operations["getHostingMail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/dns-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check the mail DNS records
+         * @description Reads MX, SPF, DKIM, DMARC, the mail and webmail hosts and the PTR of the mail server. Records are NEVER written; an MX that points to another provider is reported as external and kept.
+         */
+        get: operations["checkHostingMailDns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable mail for a domain
+         * @description v-add-mail-domain (and webmail when the node has it). Never changes DNS. Needs Idempotency-Key.
+         */
+        post: operations["enableHostingMailDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a mailbox
+         * @description v-add-mail-account USER DOMAIN ACCOUNT PASSWORD QUOTA. The plan mailbox count and quota are enforced under a per-site lock; the password is never stored, logged or audited. Needs Idempotency-Key.
+         */
+        post: operations["createHostingMailbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a mailbox password
+         * @description v-change-mail-account-password.
+         */
+        put: operations["setHostingMailboxPassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a mailbox quota
+         * @description v-change-mail-account-quota, at most the plan mailbox quota.
+         */
+        put: operations["setHostingMailboxQuota"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a mailbox
+         * @description v-delete-mail-account.
+         */
+        delete: operations["deleteHostingMailbox"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an alias
+         * @description v-add-mail-account-alias, within the plan alias limit. Needs Idempotency-Key.
+         */
+        post: operations["createHostingMailAlias"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases/{alias}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an alias
+         * @description v-delete-mail-account-alias.
+         */
+        delete: operations["deleteHostingMailAlias"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3946,6 +4854,110 @@ export interface paths {
          * @description Drain/maintenance: backup, create on the target (same data region), restore, verify the checksum, switch, then remove from the source. The source serves until verified; a failure leaves it untouched. Needs Idempotency-Key, admin:hosting:manage, MFA step-up.
          */
         post: operations["migrateHostingSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hosting alerts (capacity, activation, certificates, backups, panel link)
+         * @description One open alert per (kind, scope); the monitoring sweep opens it once, refreshes it while the condition holds and resolves it when it is gone. Filter state (open by default, resolved, all). Admin-realm session; customers never see alerts. Thresholds are proposals (HOSTING_ALERT_* settings).
+         */
+        get: operations["listHostingAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/monitor-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the monitoring sweep now
+         * @description The sweep also runs on the hosting scheduler. A probe that fails leaves its alerts as they were (nothing is resolved on a guess). Needs Idempotency-Key and permission admin:hosting:manage.
+         */
+        post: operations["runHostingMonitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/restore-drills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Restore drills with their duration and result
+         * @description Newest first. A drill restores a real backup onto an isolated drill node and records what was checked.
+         */
+        get: operations["listHostingRestoreDrills"];
+        put?: never;
+        /**
+         * Restore a backup into an isolated node to prove it
+         * @description Body {backupId, nodeId}. The node must have purpose `restore_drill` (409 otherwise), be in `maintenance`, and be in the backup's own data region (403 residency_denied: customer data never leaves its region). The archive checksum is verified before anything is touched; the restored account is compared with the snapshot taken at backup time (and a WordPress site must answer with its admin page); the account is then wiped from the drill node, and a wipe that leaves anything fails the drill. 202 + operation; the verdict is the drill record (state passed|failed, checks, durationMs). Needs Idempotency-Key, admin:hosting:manage and a recent MFA check. Audited.
+         */
+        post: operations["startHostingRestoreDrill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/restore-drills/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One restore drill
+         * @description State, per-check result, error and duration.
+         */
+        get: operations["getHostingRestoreDrill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosting/node-packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Hestia packages and access profile a node is set up with
+         * @description One `.pkg` file per non-retired plan (named `nz-<plan key>`; created on each node with `v-add-user-package`) and the REST access-key profile that equals the adapter's command allow-list. Used by the node setup script (docs/runbooks/node-onboarding.md). Nothing here is a secret.
+         */
+        get: operations["listHostingNodePackages"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4209,6 +5221,26 @@ export interface paths {
          * @description Creates the DNet registrar account on the first save and updates it after that (owner request 2026-11-21, D-50). Body {label?, environment, baseUrl? (https), resellerId?, timeoutMs? (1000..60000), dataRegion? (default SA), currency? (default SAR), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. There is no DNet adapter until DNet documents its API (HG-07-03): verification answers 422 unsupported_capability. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dnet.settings_saved).
          */
         put: operations["saveDnetRegistrarSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/registrars/dynadot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the Dynadot connection settings (admin console)
+         * @description Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot's Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved).
+         */
+        put: operations["saveDynadotRegistrarSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -9623,7 +10655,7 @@ export interface components {
             routing?: {
                 [key: string]: unknown;
             };
-            /** @description compute: {imageId, diskGb?, count}. */
+            /** @description compute: {imageId, diskGb?, count, panel?}. panel = {kind:"none"} or {kind:"hestia", template:{id, mail}} (HestiaCP installed automatically; the mail choice is explicit; one server per order; only on an image the offers list marks hestia). The choice is stored in the order snapshot together with the image, template, region, provider plan and the pinned installer. */
             spec?: {
                 [key: string]: unknown;
             };
@@ -10653,6 +11685,33 @@ export interface components {
             scopeNote?: string;
             spendCap?: components["schemas"]["SpendCap"];
         };
+        ProviderNetworkSetting: {
+            providerKey: string;
+            regionId: string;
+            settings: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ProviderNetworkList: {
+            items: components["schemas"]["ProviderNetworkSetting"][];
+        };
+        ProviderAccountConnect: {
+            /** Format: uuid */
+            providerId: string;
+            name: string;
+            credentials: components["schemas"]["ProviderCredentials"];
+            scopeNote?: string;
+            spendCap?: components["schemas"]["SpendCap"];
+        };
+        ProviderCredentialsReplace: {
+            credentials: components["schemas"]["ProviderCredentials"];
+        };
+        /** @description Write-only named secret fields; only the fields of one provider's adapter are accepted (3 to 400 printable characters, no spaces). */
+        ProviderCredentials: {
+            [key: string]: string;
+        };
         ProviderAccountUpdate: {
             name?: string;
             /** @enum {string} */
@@ -10776,13 +11835,153 @@ export interface components {
             items: components["schemas"]["Offer"][];
             nextCursor: string | null;
         };
+        PanelTemplate: {
+            /** @enum {string} */
+            id: "hestia-web" | "hestia-web-mail";
+            /** @description The explicit mail choice of the order: the panel's mail services (Exim, Dovecot) are installed only when true; hestia-web-mail needs true and hestia-web needs false. */
+            mail: boolean;
+        };
+        PanelStep: {
+            /** @enum {string} */
+            key: "create_server" | "wait_boot" | "install_panel" | "register" | "readiness";
+            /** @enum {string} */
+            state: "pending" | "running" | "done" | "failed";
+        };
+        PanelInstall: {
+            /** @enum {string} */
+            kind: "hestia";
+            /** @enum {string} */
+            stage: "create_server" | "waiting_boot" | "installing_panel" | "registering" | "readiness" | "ready" | "needs_attention" | "held";
+            steps: components["schemas"]["PanelStep"][];
+            template: components["schemas"]["PanelTemplate"];
+            panelVersion: string;
+            osName: string;
+            /** @description The fixed fully qualified domain name of the panel, decided at order time. */
+            panelHost: string;
+            panelPort: number;
+            /** @enum {string} */
+            panelLink: "none" | "connected" | "lost";
+            attention: {
+                code: string;
+                detail: string | null;
+                /**
+                 * @description here: retry continues from Nuzm; server: the script on the server is re-run; support: not resumable on this server.
+                 * @enum {string}
+                 */
+                resumable: "here" | "server" | "support";
+            } | null;
+            /** @enum {string|null} */
+            holdReason: "provider_capacity_unavailable" | null;
+            ready: boolean;
+            rerunCommand: string | null;
+            /** @description Where the panel admin password was left ON the server (root only). It is never sent to Nuzm. */
+            adminPasswordFile: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PanelRetryResult: {
+            /** @enum {string} */
+            action: "continued" | "rerun_bootstrap";
+            command?: string;
+            panel: components["schemas"]["PanelInstall"];
+        };
+        PanelBootstrapEvent: {
+            /** @enum {string} */
+            phase: "booted" | "installer_verified" | "installing" | "failed" | "note";
+            code?: string;
+        };
+        PanelBootstrapRegister: {
+            panelVersion: string;
+            /** @description Must equal the panel FQDN fixed at order time. */
+            host: string;
+            port: number;
+            /** @description SHA-256 fingerprint of the panel's (self-signed) certificate, colon-separated. */
+            tlsFingerprintSha256: string;
+            /**
+             * Format: password
+             * @description ACCESS_KEY_ID:SECRET_ACCESS_KEY of the read-only profile. Sealed on receipt; never returned, logged or audited.
+             */
+            accessKey: string;
+        };
+        PanelBootstrapRegisterResult: {
+            /** @enum {string} */
+            status: "registered" | "already_registered";
+        };
+        PanelImageApprove: {
+            /** @enum {string} */
+            evidenceKind: "live" | "fixture" | "mock";
+            evidenceNote: string;
+        };
+        PanelImageList: {
+            items: {
+                /** Format: uuid */
+                imageId: string;
+                /** Format: uuid */
+                accountId: string;
+                providerRegionId: string;
+                name: string;
+                cloudInit: boolean | null;
+                os: {
+                    id?: string;
+                    version?: string;
+                    supportedByHestia?: boolean;
+                } | null;
+                approval: {
+                    /** Format: uuid */
+                    id?: string;
+                    panelVersion?: string;
+                    /** @enum {string} */
+                    evidenceKind?: "live" | "fixture" | "mock";
+                    evidenceNote?: string;
+                    /** Format: date-time */
+                    approvedAt?: string;
+                    revoked?: boolean;
+                } | null;
+            }[];
+        };
+        PanelInstallAdminList: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                orgId: string;
+                /** Format: uuid */
+                instanceId: string;
+                /** Format: uuid */
+                orderId: string;
+                provider: string;
+                region: string;
+                stage: string;
+                attentionCode: string | null;
+                attentionDetail: string | null;
+                panelVersion: string;
+                panelHost: string;
+                panelLink: string;
+                attempts: number;
+                /** Format: date-time */
+                updatedAt: string;
+            }[];
+        };
         OfferImageList: {
             items: {
                 /** Format: uuid */
                 id: string;
                 name: string;
                 osFamily: string | null;
+                /** @description HestiaCP can be installed on this image: verified by an administrator for the configured version, in a sold placement, with cloud-init stated by the provider. */
+                hestia: boolean;
             }[];
+            panels?: {
+                hestia?: {
+                    available: boolean;
+                    templates: string[];
+                    minimum: {
+                        vcpu?: number;
+                        memoryMb?: number;
+                        diskGb?: number;
+                    };
+                };
+            };
         };
         Offer: {
             /** Format: uuid */
@@ -10870,7 +12069,7 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            status: "provisioning" | "running" | "stopped" | "failed" | "deleting" | "deleted" | "unknown";
+            status: "provisioning" | "running" | "stopped" | "failed" | "deleting" | "deleted" | "unknown" | "held";
             dataRegion: string;
             country: string;
             plan: components["schemas"]["ComputePlan"];
@@ -10891,6 +12090,18 @@ export interface components {
             /** @enum {string} */
             driftState: "in_sync" | "drift" | "orphan_suspected" | "missing";
             version: number;
+            /**
+             * @description hestia = ordered with the panel installed automatically (see GET /v1/compute/instances/{id}/panel).
+             * @enum {string}
+             */
+            panelKind: "none" | "hestia";
+            /**
+             * @description Why a held order waits: the provider has no capacity in the sold region. It is never moved to another region; cancel it with DELETE (no charge).
+             * @enum {string|null}
+             */
+            holdReason: "provider_capacity_unavailable" | null;
+            /** @description Only on a single-instance read. */
+            panel?: components["schemas"]["PanelInstall"] | null;
         };
         ComputeInstanceList: {
             items: components["schemas"]["ComputeInstance"][];
@@ -11637,13 +12848,24 @@ export interface components {
             dataRegion: string;
             /** @enum {string} */
             status: "active" | "draining" | "maintenance" | "retired";
-            /** Format: uuid */
-            agentId?: string | null;
-            /** @enum {string|null} */
-            agentState: "pending" | "enrolled" | "revoked" | null;
-            /** Format: date-time */
-            agentLastSeenAt?: string | null;
-            cloudpanelVersion?: string | null;
+            /**
+             * @description A `restore_drill` node is an isolated machine that only restores backups to prove them; it never takes customer sites and stays in maintenance.
+             * @enum {string}
+             */
+            purpose?: "customer" | "restore_drill";
+            /** @enum {string} */
+            panelKind: "hestia";
+            /**
+             * @description shared = Nuzm's hosting network; customer_vps = a customer's own server running HestiaCP (outside it, never receives shared sites).
+             * @enum {string}
+             */
+            networkClass: "shared" | "customer_vps";
+            panelVersion?: string | null;
+            panelHost?: string | null;
+            panelPort?: number | null;
+            /** @description A panel host and an access key are set. The key itself is never returned. */
+            panelConfigured: boolean;
+            panelTlsPinned?: boolean;
             /** @description Runtime ids reported by the node probe. */
             runtimes: string[];
             overcommitFactor: number;
@@ -11671,11 +12893,29 @@ export interface components {
         CreateHostingNode: {
             name: string;
             computeInstanceId: string;
+            /**
+             * @default customer
+             * @enum {string}
+             */
+            purpose?: "customer" | "restore_drill";
         };
         CreateHostingNodeResult: {
             node: components["schemas"]["HostingNode"];
-            /** @description Shown once on creation; null on a replay. */
-            enrolmentToken: string | null;
+        };
+        SetHostingNodePanel: {
+            /** @description The panel's fully qualified domain name (no IP literal */
+            host: string;
+            /** @description Default 8083. */
+            port?: number;
+            /** @description SHA-256 fingerprint of a self-signed panel certificate (32 colon-separated hex pairs). */
+            tlsPinSha256?: string;
+            /** @description A vault:// reference of the access key. Not together with credentials. */
+            vaultRef?: string;
+            /** @description Write-only; accepted outside production only (D-12). */
+            credentials?: {
+                /** @description ACCESS_KEY_ID:SECRET_ACCESS_KEY of a HestiaCP access key. */
+                accessKey: string;
+            };
         };
         PatchHostingNode: {
             /** @enum {string} */
@@ -11715,40 +12955,6 @@ export interface components {
                 createdAt: string;
             }[];
         };
-        HostingEnrolmentToken: {
-            token: string;
-            expiresInMinutes: number;
-        };
-        HostingCommandLog: {
-            items: {
-                seq: number;
-                operationId?: string | null;
-                commandId?: string | null;
-                /** @enum {string} */
-                outcome: "accepted" | "rejected" | "executed" | "failed";
-                reason?: string | null;
-                /** Format: date-time */
-                occurredAt: string;
-            }[];
-        };
-        HostingAgentList: {
-            items: {
-                /** Format: uuid */
-                id: string;
-                /** Format: uuid */
-                nodeId: string;
-                nodeName: string;
-                /** @enum {string} */
-                state: "pending" | "enrolled" | "revoked";
-                version?: string | null;
-                /** Format: date-time */
-                enrolledAt?: string | null;
-                /** Format: date-time */
-                lastSeenAt?: string | null;
-                /** Format: date-time */
-                certRotatedAt?: string | null;
-            }[];
-        };
         HostingPlan: {
             /** Format: uuid */
             id: string;
@@ -11771,8 +12977,65 @@ export interface components {
                 placeholder?: boolean;
             } | null;
             runtimes: string[];
+            /**
+             * @description The application installed with the site (wordpress = Managed WordPress).
+             * @enum {string}
+             */
+            app?: "none" | "wordpress";
             regions: string[];
             country?: string | null;
+        };
+        PublicComputePlan: {
+            vcpu: number;
+            memoryMb: number;
+            diskGb: number;
+            bandwidth?: string;
+            price: {
+                /** @description Integer minor units per month, as a string. */
+                amountMinor: string;
+                currency: string;
+            };
+            regions: string[];
+        };
+        PublicComputePlanList: {
+            items: components["schemas"]["PublicComputePlan"][];
+        };
+        PublicUsagePrice: {
+            meterId: string;
+            /** @enum {string} */
+            model: "flat" | "graduated" | "volume";
+            unitPriceMinor: string | null;
+            tiers: {
+                upTo: string | null;
+                unitPriceMinor: string;
+            }[] | null;
+            includedAllowance: string;
+        };
+        PublicUsagePriceList: {
+            currency: string;
+            items: components["schemas"]["PublicUsagePrice"][];
+        };
+        PublicHostingPlan: {
+            key: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            quotas: {
+                diskMb: number;
+                bandwidthGb: number;
+                dbCount: number;
+                sitesCount: number;
+            };
+            runtimes: string[];
+            price: {
+                /** @description Integer minor units, as a string. */
+                amountMinor: string;
+                currency: string;
+            };
+        };
+        PublicHostingPlanList: {
+            items: components["schemas"]["PublicHostingPlan"][];
         };
         HostingPlanList: {
             items: components["schemas"]["HostingPlan"][];
@@ -11794,6 +13057,11 @@ export interface components {
             };
             dataRegion: string;
             runtime: string;
+            /**
+             * @description wordpress = Managed WordPress; its state is GET /v1/hosting/sites/{id}/wordpress.
+             * @enum {string}
+             */
+            app?: "none" | "wordpress";
             primaryDomain?: string | null;
             domains: {
                 /** Format: uuid */
@@ -11869,6 +13137,224 @@ export interface components {
             /** Format: uuid */
             operationId: string;
             site: components["schemas"]["HostingSite"];
+        };
+        HostingToolCapability: {
+            /** @enum {string} */
+            id: "files" | "cron" | "logs" | "ftp" | "protection" | "php" | "mail";
+            /** @enum {string} */
+            state: "available" | "unavailable";
+            /** @enum {string} */
+            reason?: "role" | "site_state" | "connection" | "panel_version" | "panel_service" | "plan";
+            limits?: {
+                [key: string]: number;
+            };
+            versions?: string[];
+            /** @enum {string} */
+            verification: "not_verified";
+        };
+        HostingToolsReport: {
+            panel: {
+                version: string | null;
+                /** @enum {string} */
+                connection: "connected" | "not_configured" | "unhealthy";
+            };
+            tools: components["schemas"]["HostingToolCapability"][];
+        };
+        HostingCronJobInput: {
+            min: string;
+            hour: string;
+            day: string;
+            month: string;
+            wday: string;
+            command: string;
+        };
+        HostingCronJob: {
+            id: string;
+            min: string;
+            hour: string;
+            day: string;
+            month: string;
+            wday: string;
+            command: string;
+        };
+        HostingCronList: {
+            items: components["schemas"]["HostingCronJob"][];
+            limit: number;
+        };
+        HostingLogs: {
+            domain: string;
+            /** @enum {string} */
+            kind: "access" | "error";
+            lines: string[];
+            truncated: boolean;
+            requested: number;
+        };
+        HostingFtpAccount: {
+            domain: string;
+            user: string;
+            path: string;
+        };
+        HostingFtpList: {
+            items: components["schemas"]["HostingFtpAccount"][];
+            limit: number;
+        };
+        CreateHostingFtpAccount: {
+            domain?: string;
+            name: string;
+            password: string;
+            path?: string;
+        };
+        SetHostingPassword: {
+            password: string;
+        };
+        HostingProtectionUser: {
+            domain: string;
+            user: string;
+        };
+        HostingProtectionList: {
+            items: components["schemas"]["HostingProtectionUser"][];
+            domains: string[];
+            limit: number;
+        };
+        CreateHostingProtectionUser: {
+            domain?: string;
+            user: string;
+            password: string;
+        };
+        HostingFileEntry: {
+            name: string;
+            /** @enum {string} */
+            type: "file" | "dir" | "symlink";
+            size: number;
+            /** Format: date-time */
+            modifiedAt: string | null;
+        };
+        HostingFileList: {
+            domain: string;
+            path: string;
+            items: components["schemas"]["HostingFileEntry"][];
+            truncated: boolean;
+        };
+        HostingFileText: {
+            path: string;
+            content: string;
+            size: number;
+            sha256: string;
+        };
+        HostingFileWritten: {
+            path: string;
+            size: number;
+            sha256: string;
+        };
+        EditHostingFile: {
+            content: string;
+            expectedSha256: string;
+        };
+        HostingFilePath: {
+            path: string;
+        };
+        HostingFileRemoved: {
+            removed: number;
+        };
+        CreateHostingFolder: {
+            domain?: string;
+            path: string;
+        };
+        RenameHostingFile: {
+            domain?: string;
+            from: string;
+            to: string;
+        };
+        HostingMailbox: {
+            domain: string;
+            name: string;
+            address: string;
+            quotaMb: number | null;
+            usedMb: number;
+            aliases: string[];
+        };
+        HostingMailOverview: {
+            limits: {
+                mailboxes: number;
+                aliasesPerMailbox: number;
+                mailboxQuotaMb: number;
+            };
+            used: number;
+            domains: {
+                domain: string;
+                enabled: boolean;
+            }[];
+            mailboxes: components["schemas"]["HostingMailbox"][];
+            webmail: string | null;
+            settings: {
+                domain: string;
+                webmailUrl: string | null;
+                imap: components["schemas"]["HostingMailEndpoint"];
+                smtp: components["schemas"]["HostingMailEndpoint"];
+                username: string;
+                /** @enum {string} */
+                verification: "not_verified";
+            }[];
+        };
+        HostingMailEndpoint: {
+            host: string;
+            ssl: number;
+            startTls: number;
+        };
+        EnableHostingMailDomain: {
+            domain: string;
+        };
+        HostingMailEnableResult: {
+            domain: string;
+            created: boolean;
+            webmail: boolean;
+        };
+        CreateHostingMailbox: {
+            domain: string;
+            name: string;
+            password: string;
+            quotaMb?: number;
+        };
+        HostingMailboxCreated: {
+            domain: string;
+            name: string;
+            address: string;
+            quotaMb: number;
+        };
+        SetHostingMailboxQuota: {
+            quotaMb: number;
+        };
+        HostingMailboxQuota: {
+            quotaMb: number;
+        };
+        CreateHostingMailAlias: {
+            alias: string;
+        };
+        HostingMailAlias: {
+            alias: string;
+            address: string;
+        };
+        HostingMailDnsCheck: {
+            /** @enum {string} */
+            id: "mx" | "spf" | "dkim" | "dmarc" | "mail_host" | "webmail_host" | "ptr";
+            /** @enum {string} */
+            state: "ok" | "missing" | "mismatch" | "external";
+            expected: {
+                type?: string;
+                name?: string;
+                value?: string;
+            } | null;
+            found: string[];
+        };
+        HostingMailDnsReport: {
+            domain: string;
+            mailEnabled: boolean;
+            mailHostingMoved: boolean;
+            serverIp: string | null;
+            checks: components["schemas"]["HostingMailDnsCheck"][];
+            note: string;
+            /** @enum {string} */
+            verification: "not_verified";
         };
         HostingDomainBinding: {
             /** Format: uuid */
@@ -11948,6 +13434,132 @@ export interface components {
             status: "suspended" | "active";
             reason: string;
         };
+        HostingWordPress: {
+            /** @enum {string} */
+            app: "wordpress";
+            /** @enum {string} */
+            state: "pending" | "installing" | "ready" | "failed";
+            /**
+             * @description What the site showed at the last look (the install is driven by this, not by memory).
+             * @enum {string|null}
+             */
+            phase?: "none" | "unconfigured" | "uninstalled" | "installed" | null;
+            siteUrl?: string | null;
+            /** @description Set once the state is ready. */
+            loginUrl?: string | null;
+            adminUser?: string | null;
+            handover: {
+                /** @enum {string} */
+                state: "none" | "pending" | "consumed" | "expired";
+                /** Format: date-time */
+                expiresAt?: string | null;
+            };
+            verification: {
+                answers?: boolean;
+                adminPage?: boolean;
+                /** Format: date-time */
+                checkedAt?: string;
+            };
+            attempts: number;
+            lastError?: string | null;
+            /** Format: date-time */
+            installedAt?: string | null;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+        };
+        HostingWordPressRetryResult: {
+            /** Format: uuid */
+            operationId: string;
+            wordpress: components["schemas"]["HostingWordPress"];
+        };
+        HostingWordPressResetResult: {
+            /** Format: uuid */
+            operationId: string;
+        };
+        HostingWordPressHandover: {
+            username: string;
+            /** @description Generated, shown once, never stored in a table. */
+            password: string;
+            loginUrl: string;
+        };
+        HostingAlert: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "capacity_low" | "activation_failed" | "activation_stuck" | "certificate_expiring" | "certificate_failed" | "backup_failed" | "backup_missing" | "backup_host_unreachable" | "panel_unreachable" | "wordpress_failed" | "restore_drill_failed";
+            /** @enum {string} */
+            severity: "info" | "warning" | "critical";
+            summary: string;
+            /** Format: uuid */
+            nodeId?: string | null;
+            /** Format: uuid */
+            siteId?: string | null;
+            detail?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            state: "open" | "resolved";
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+        };
+        HostingAlertList: {
+            items: components["schemas"]["HostingAlert"][];
+        };
+        HostingMonitorRun: {
+            open: number;
+            opened: number;
+            resolved: number;
+        };
+        HostingRestoreDrill: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            backupId: string;
+            /** Format: uuid */
+            siteId: string;
+            /** Format: uuid */
+            nodeId: string;
+            /** @enum {string} */
+            state: "running" | "passed" | "failed";
+            /** @description restore, account, wordpress (WordPress sites) and wipe: `passed` or `failed: <reason>`. */
+            checks: {
+                [key: string]: unknown;
+            };
+            error?: string | null;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            durationMs?: number | null;
+        };
+        HostingRestoreDrillList: {
+            items: components["schemas"]["HostingRestoreDrill"][];
+        };
+        StartHostingRestoreDrill: {
+            /** Format: uuid */
+            backupId: string;
+            /** Format: uuid */
+            nodeId: string;
+        };
+        StartHostingRestoreDrillResult: {
+            drill: components["schemas"]["HostingRestoreDrill"];
+            /** Format: uuid */
+            operationId: string;
+        };
+        HostingNodePackages: {
+            packages: {
+                plan: string;
+                name: string;
+                /** @description The content of the `.pkg` file for `v-add-user-package`. */
+                file: string;
+            }[];
+            /** @description The Hestia access-key profile (`ROLE` and `COMMANDS`) equal to the adapter's allow-list. */
+            accessProfile: string;
+        };
         HostingBackup: {
             /** Format: uuid */
             id: string;
@@ -11957,8 +13569,10 @@ export interface components {
             /** @enum {string} */
             status: "creating" | "available" | "failed" | "corrupt" | "deleted";
             sizeBytes?: number | null;
-            /** @description SHA-256 of the encrypted archive. */
+            /** @description SHA-256 of the archive as measured in the off-server store. */
             checksum?: string | null;
+            /** @description false = the archive carries no encryption of its own (HestiaCP documents none); the region's off-server store protects it. */
+            encrypted?: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -12320,6 +13934,42 @@ export interface components {
                 apiKey?: string;
                 apiSecret?: string;
             };
+        };
+        DynadotSettingsSave: {
+            label?: string;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            timeoutMs?: number;
+            searchBatch?: number;
+            dataRegion?: string;
+            currency?: string;
+            /** @description A vault:// reference. Not together with credentials. */
+            vaultRef?: string;
+            /** @description Write-only; accepted outside production only (D-12). */
+            credentials?: {
+                apiKey?: string;
+                apiSecret?: string;
+            };
+        };
+        DocsFeedbackVote: {
+            page: string;
+            /** @enum {string} */
+            score: "good" | "okay" | "bad";
+            /** @enum {string} */
+            locale: "ar" | "en";
+        };
+        DocsFeedbackCounts: {
+            good: number;
+            okay: number;
+            bad: number;
+            total: number;
+        };
+        DocsFeedbackSummary: {
+            days: number;
+            totals: components["schemas"]["DocsFeedbackCounts"];
+            items: (components["schemas"]["DocsFeedbackCounts"] & {
+                page: string;
+            })[];
         };
         RegistrarVerificationRequest: {
             enable?: boolean;
@@ -15346,6 +16996,56 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    rateDocumentation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocsFeedbackVote"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getDocsFeedback: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocsFeedbackSummary"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     oidcLogin: {
@@ -20219,6 +21919,143 @@ export interface operations {
             404: components["responses"]["Problem"];
         };
     };
+    adminListProviderNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderNetworkList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminSaveProviderNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerKey: "alibaba" | "huawei";
+                regionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderNetworkSetting"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminDeleteProviderNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerKey: "alibaba" | "huawei";
+                regionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminConnectProviderAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderAccountConnect"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminReplaceProviderCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderCredentialsReplace"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
     adminListProviderAccounts: {
         parameters: {
             query?: {
@@ -20777,6 +22614,229 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    getComputeInstancePanel: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelInstall"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    retryComputeInstancePanel: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelRetryResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    panelBootstrapEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelBootstrapEvent"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    panelBootstrapRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelBootstrapRegister"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelBootstrapRegisterResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    adminListPanelImages: {
+        parameters: {
+            query?: {
+                accountId?: string;
+                regionId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelImageList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminApprovePanelImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelImageApprove"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        approvalId: string;
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminRevokePanelImageApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approvalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminListPanelInstalls: {
+        parameters: {
+            query?: {
+                stage?: "create_server" | "waiting_boot" | "installing_panel" | "registering" | "readiness" | "ready" | "needs_attention" | "held";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelInstallAdminList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
     getComputeInstanceMetrics: {
@@ -22552,48 +24612,20 @@ export interface operations {
             409: components["responses"]["Problem"];
         };
     };
-    issueHostingEnrolmentToken: {
+    setHostingNodePanel: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Issued */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HostingEnrolmentToken"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-            404: components["responses"]["Problem"];
-        };
-    };
-    listHostingNodeCommandLog: {
-        parameters: {
-            query?: {
-                /** @description Page size. */
-                limit?: components["parameters"]["Limit"];
-            };
             header?: never;
             path: {
                 id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingNodePanel"];
+            };
+        };
         responses: {
             /** @description Success */
             200: {
@@ -22601,34 +24633,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HostingCommandLog"];
+                    "application/json": components["schemas"]["HostingNode"];
                 };
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
-        };
-    };
-    listHostingAgents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HostingAgentList"];
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     listHostingPlans: {
@@ -22654,6 +24666,93 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+        };
+    };
+    listPublicHostingPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHostingPlanList"];
+                };
+            };
+        };
+    };
+    listPublicComputePlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicComputePlanList"];
+                };
+            };
+        };
+    };
+    listPublicUsagePrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicUsagePriceList"];
+                };
+            };
+        };
+    };
+    searchDomainsPublic: {
+        parameters: {
+            query: {
+                q: string;
+                tlds?: string;
+                country?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainSearchResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
         };
     };
     listHostingSites: {
@@ -23280,6 +25379,126 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
+    getHostingSiteWordPress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPress"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    retryHostingSiteWordPress: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPressRetryResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    resetHostingSiteWordPressAdmin: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPressResetResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    handoverHostingSiteWordPress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The access, once */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingWordPressHandover"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+        };
+    };
     getHostingSiteUsage: {
         parameters: {
             query?: never;
@@ -23306,6 +25525,1075 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    getHostingSiteTools: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingToolsReport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listHostingCronJobs: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCronList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingCronJob: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostingCronJobInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCronJob"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    updateHostingCronJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                job: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostingCronJobInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCronJob"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingCronJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                job: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getHostingSiteLogs: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description access or error (default error) */
+                kind?: "access" | "error";
+                /** @description 1 to 500 */
+                lines?: number;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingLogs"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingFtpAccounts: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFtpList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingFtpAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingFtpAccount"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFtpAccount"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    setHostingFtpPassword: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingPassword"];
+            };
+        };
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingFtpAccount: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingProtection: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingProtectionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingProtectionUser: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingProtectionUser"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingProtectionUser"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingProtectionUser: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingFiles: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileList"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+                recursive?: boolean;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileRemoved"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    downloadHostingFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file bytes (attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    readHostingTextFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileText"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    saveHostingTextFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditHostingFile"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileWritten"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    uploadHostingFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+                overwrite?: boolean;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileWritten"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingFolder: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingFolder"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFilePath"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    renameHostingFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameHostingFile"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFilePath"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getHostingMail: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailOverview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    checkHostingMailDns: {
+        parameters: {
+            query: {
+                domain: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailDnsReport"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    enableHostingMailDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnableHostingMailDomain"];
+            };
+        };
+        responses: {
+            /** @description Enabled */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailEnableResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingMailbox: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingMailbox"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailboxCreated"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    setHostingMailboxPassword: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingPassword"];
+            };
+        };
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    setHostingMailboxQuota: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingMailboxQuota"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailboxQuota"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingMailbox: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingMailAlias: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingMailAlias"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailAlias"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingMailAlias: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+                alias: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
         };
     };
     listHostingSiteMigrations: {
@@ -23366,6 +26654,164 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    listHostingAlerts: {
+        parameters: {
+            query?: {
+                state?: "open" | "resolved" | "all";
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingAlertList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    runHostingMonitor: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMonitorRun"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listHostingRestoreDrills: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingRestoreDrillList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    startHostingRestoreDrill: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartHostingRestoreDrill"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartHostingRestoreDrillResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getHostingRestoreDrill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingRestoreDrill"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listHostingNodePackages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingNodePackages"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
     listHostingAbuseCases: {
@@ -23922,6 +27368,33 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DnetSettingsSave"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrarAccount"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    saveDynadotRegistrarSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DynadotSettingsSave"];
             };
         };
         responses: {

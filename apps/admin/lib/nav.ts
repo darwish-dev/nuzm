@@ -291,12 +291,6 @@ export const ADMIN_CATEGORIES: Category[] = [
             href: '/hosting/abuse',
             ...read('admin:hosting:read'),
           },
-          {
-            id: 'agents',
-            label: 'host.admin.agents',
-            href: '/hosting/agents',
-            ...read('admin:hosting:read'),
-          },
         ],
       },
       {
@@ -399,7 +393,14 @@ export const ADMIN_CATEGORIES: Category[] = [
     icon: 'dashboard',
     label: 'anc.cat.platform',
     title: 'anc.cat.platform',
-    roots: ['/audit-logs', '/feature-flags', '/marketplace', '/programs', '/automation'],
+    roots: [
+      '/audit-logs',
+      '/feature-flags',
+      '/docs-feedback',
+      '/marketplace',
+      '/programs',
+      '/automation',
+    ],
     org: false,
     groups: [
       {
@@ -416,6 +417,12 @@ export const ADMIN_CATEGORIES: Category[] = [
             label: 'nav.admin.flags',
             href: '/feature-flags',
             ...read('admin:flags:manage'),
+          },
+          {
+            id: 'docsFeedback',
+            label: 'nav.admin.docsFeedback',
+            href: '/docs-feedback',
+            ...read('admin:reports:read'),
           },
         ],
       },

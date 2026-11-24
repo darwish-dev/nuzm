@@ -16,7 +16,7 @@ export default async function PaymentReturnPage({
   const { locale } = await params;
   const q = await searchParams;
   if (!isLocale(locale)) notFound();
-  await requireSession(locale, `/${locale}/billing/payment-return`);
+  await requireSession(locale, `/billing/payment-return`);
   return (
     <>
       <PageTitle>{t(locale, 'ret.title')}</PageTitle>

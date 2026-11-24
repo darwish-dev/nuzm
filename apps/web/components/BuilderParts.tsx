@@ -40,7 +40,7 @@ export function BuilderTabs({
   id: string;
   current: BuilderSection;
 }) {
-  const base = `/${locale}/builder/projects/${id}`;
+  const base = `/builder/projects/${id}`;
   const tab = (key: BuilderSection, path: string) => ({
     key,
     href: `${base}${path}`,

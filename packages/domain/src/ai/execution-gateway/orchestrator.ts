@@ -22,7 +22,7 @@ import { QuotaLedger, type OrgCeilings, type Reservation } from './quota';
 import type { ExecutionKillSwitch } from './termination';
 
 /**
- * S-AG6 (OFFLINE): the orchestrator composes the gateway pieces into the flow ADR-067 describes, against ports, with an injected clock. It is NOT wired to a route, a tool, a job or
+ * S-AG6 (OFFLINE): the orchestrator composes the gateway pieces into the flow ADR-069 describes, against ports, with an injected clock. It is NOT wired to a route, a tool, a job or
  * a module; it exists so the whole flow (policy, flags, kill switch, quota, approval, queue, run, output screening, artifacts, audit, quota settlement) is tested end to end on the
  * mock. Order of checks at `submit`: execution flag, kill switch, gate (for a REAL port), policy decision, early quota check, then approval or queue. `runNext` re-checks the
  * kill switch, the gate and the environment immediately before running. A `REAL` port with a closed gate is refused at both points.

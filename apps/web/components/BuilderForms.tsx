@@ -241,7 +241,7 @@ export function FormsPanel({
   canWrite: boolean;
 }) {
   const masked = submissions.some((s) => s.masked);
-  const base = `/${locale}/builder/projects/${projectId}/forms`;
+  const base = `/builder/projects/${projectId}/forms`;
   return (
     <>
       {canWrite && <CreateForm locale={locale} projectId={projectId} />}

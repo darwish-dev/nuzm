@@ -20,7 +20,7 @@ Status: **design for the owner's decision and the HG-10-02 review. Not built, no
 ```
 The control plane never executes a model- or customer-written byte. It decides, queues, meters and audits. The execution plane runs one fixed argv per run and returns bounded, screened output.
 
-## 2. The request path (ADR-067), as built offline in `ExecutionOrchestrator`
+## 2. The request path (ADR-069), as built offline in `ExecutionOrchestrator`
 1. **Flag and switches:** `ai.agent.exec_tools` (default off; `AiFlags.execTools` is hard-wired false), the platform AI kill switch, the execution kill switch (global and per organization). **[built]**
 2. **Gate:** a `REAL` port is refused unless `executionGate` is open (D-21 decided, runtime isolation verified, escape suite passed, ADR accepted, owner approval, and in production D-AG-ROLLOUT). The mock port is labelled `MOCK` in every audit record and job view. **[built]**
 3. **Policy (`decideExec`):** the model names a profile and typed parameters; everything else (argv, env, cwd, network, image, mounts, limits, approval…) is refused by name. Fixed argv, constant environment, fixed limits, network class. **[built; inherited profile names such as `constructor` now read as unknown profiles]**
@@ -57,4 +57,4 @@ Default `none`: the sandbox has its own network namespace and no interface that 
 3. `build`, then approval-gated `install-deps`/`run-script`; production only after D-AG-ROLLOUT and LEGAL-EXEC (terms and liability for executing customer code).
 
 ## 8. Decisions this design needs from the owner
-D-21 (technology), node pool and its budget (`N_peak`, price, currency), HG-10-02 reviewer, LEGAL-EXEC, ADR-067 acceptance, the approval permission model for execution, log retention (D-34), D-AG-ROLLOUT.
+D-21 (technology), node pool and its budget (`N_peak`, price, currency), HG-10-02 reviewer, LEGAL-EXEC, ADR-069 acceptance, the approval permission model for execution, log retention (D-34), D-AG-ROLLOUT.

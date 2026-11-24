@@ -131,8 +131,12 @@ export class OfferService {
     private readonly cfg: OfferConfig = offerConfigFromEnv(),
   ) {}
 
+  /**
+   * `orgId` null = the PUBLIC catalog (the website's plan list): the same provider, account, region, plan and capability conditions and the same price book,
+   * but no organization-specific condition (residency, entitlement, instance quota): those are only ever decided when an organization orders (`/v1/offers`).
+   */
   async candidates(
-    orgId: string,
+    orgId: string | null,
     opts: { planId?: string; ignoreInstanceQuota?: boolean } = {},
   ): Promise<OfferCandidate[]> {
     const now = this.now();
@@ -146,16 +150,23 @@ export class OfferService {
         ).rows as Row[],
     );
     if (!rows.length) return [];
-    const pricer = await this.composer.session(orgId, now);
-    const entitlementAllows = await this.quotas.check(orgId, 'compute', '1', now).then(
-      (r) => r.allowed,
-      () => false,
-    );
-    const quotaAllows = opts.ignoreInstanceQuota
-      ? true
-      : await this.quotaGuard.hasHeadroom(orgId).catch(() => false);
+    const pricer =
+      orgId === null
+        ? ((await this.composer.publicSession?.(now)) ?? (() => null))
+        : await this.composer.session(orgId, now);
+    const entitlementAllows =
+      orgId === null ||
+      (await this.quotas.check(orgId, 'compute', '1', now).then(
+        (r) => r.allowed,
+        () => false,
+      ));
+    const quotaAllows =
+      orgId === null || opts.ignoreInstanceQuota
+        ? true
+        : await this.quotaGuard.hasHeadroom(orgId).catch(() => false);
     const residencyByRegion = new Map<string, Promise<boolean>>();
     const residencyAllows = (r: Row): Promise<boolean> => {
+      if (orgId === null) return Promise.resolve(true);
       const key = `${r.region_row_id as string}|${r.provider_key as string}`;
       let p = residencyByRegion.get(key);
       if (!p) {
@@ -253,12 +264,45 @@ export class OfferService {
   }
 
   async eligible(
-    orgId: string,
+    orgId: string | null,
     opts: { planId?: string; ignoreInstanceQuota?: boolean } = {},
   ): Promise<OfferCandidate[]> {
     return (await this.candidates(orgId, opts)).filter(
       (c) => c.failures.length === 0 && c.price !== null,
     );
+  }
+
+  /** The public plan list: eligible compute offers grouped by size (vCPU, memory, disk), cheapest price per size, no provider identity, cost or account. */
+  async publicPlans(): Promise<
+    {
+      vcpu: number;
+      memoryMb: number;
+      diskGb: number;
+      bandwidth?: string;
+      price: { amountMinor: string; currency: string };
+      regions: string[];
+    }[]
+  > {
+    const bySize = new Map<string, { c: OfferCandidate; regions: Set<string> }>();
+    for (const c of await this.eligible(null)) {
+      const k = `${c.vcpu}|${c.memoryMb}|${c.diskGb}`;
+      const cur = bySize.get(k);
+      if (!cur) bySize.set(k, { c, regions: new Set([c.geoGroup]) });
+      else {
+        cur.regions.add(c.geoGroup);
+        if (c.price!.monthlyMinor < cur.c.price!.monthlyMinor) cur.c = c;
+      }
+    }
+    return [...bySize.values()]
+      .sort((a, b) => a.c.vcpu - b.c.vcpu || a.c.memoryMb - b.c.memoryMb || a.c.diskGb - b.c.diskGb)
+      .map(({ c, regions }) => ({
+        vcpu: c.vcpu,
+        memoryMb: c.memoryMb,
+        diskGb: c.diskGb,
+        ...(c.bandwidth ? { bandwidth: c.bandwidth } : {}),
+        price: { amountMinor: c.price!.monthlyMinor.toString(), currency: c.price!.currency },
+        regions: [...regions].sort(),
+      }));
   }
 
   /** Customer view (portals C/A/R): no provider identity, no providerRegionId, no provider cost. */

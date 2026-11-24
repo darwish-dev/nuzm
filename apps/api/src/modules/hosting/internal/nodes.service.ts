@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import type { PoolClient } from 'pg';
 import type { Db } from '@nuzm/platform';
@@ -7,7 +7,8 @@ import { ProblemException } from '../../../common/errors';
 import type { AccountContext } from './m05-contracts';
 import type { ComputeProvisioningPort, HostingAdapter } from './ports';
 import type { HostingConfig } from './config';
-import { ZERO_HASH, auditHash, type AuditEntry } from './agent/agent-runtime';
+import type { SealedVault } from '../../../common/sealed-vault';
+import { isFingerprint, isPanelHost } from './hestia/client';
 import { UUID } from '@nuzm/domain';
 
 type Row = Record<string, unknown>;
@@ -22,10 +23,18 @@ export interface NodeDto {
   region: string;
   dataRegion: string;
   status: string;
-  agentId: string | null;
-  agentState: string | null;
-  agentLastSeenAt: string | null;
-  cloudpanelVersion: string | null;
+  /** `restore_drill` = an isolated node that only restores backups to prove them; it never takes customer sites */
+  purpose: 'customer' | 'restore_drill';
+  panelKind: string;
+  /** `shared` (Nuzm's hosting network) or `customer_vps` (a customer's own server: outside it, never receives shared sites) */
+  networkClass: string;
+  panelVersion: string | null;
+  panelHost: string | null;
+  panelPort: number | null;
+  /** a panel host AND an access key are set: the node can be probed. The key itself is never returned. */
+  panelConfigured: boolean;
+  /** the panel certificate is pinned by fingerprint (a self-signed certificate); false = validated by a certificate authority */
+  panelTlsPinned: boolean;
   runtimes: string[];
   overcommitFactor: number;
   health: string;
@@ -47,10 +56,14 @@ const dto = (r: Row, pending: Row | undefined): NodeDto => ({
   region: r.region as string,
   dataRegion: r.data_region as string,
   status: r.status as string,
-  agentId: (r.agent_id as string | null) ?? null,
-  agentState: (r.agent_state as string | null) ?? null,
-  agentLastSeenAt: iso(r.agent_last_seen),
-  cloudpanelVersion: (r.cloudpanel_version as string | null) ?? null,
+  purpose: ((r.purpose as string | undefined) ?? 'customer') as 'customer' | 'restore_drill',
+  panelKind: r.panel_kind as string,
+  networkClass: (r.network_class as string | undefined) ?? 'shared',
+  panelVersion: (r.panel_version as string | null) ?? null,
+  panelHost: (r.panel_host as string | null) ?? null,
+  panelPort: r.panel_port === null || r.panel_port === undefined ? null : Number(r.panel_port),
+  panelConfigured: !!r.panel_host && !!r.panel_key_ref,
+  panelTlsPinned: !!r.panel_tls_pin,
   runtimes: (r.runtimes as string[]) ?? [],
   overcommitFactor: Number(r.overcommit_factor),
   health: r.health as string,
@@ -67,7 +80,7 @@ const dto = (r: Row, pending: Row | undefined): NodeDto => ({
       }
     : null,
 });
-const SELECT = `SELECT n.*, a.state AS agent_state, a.last_seen_at AS agent_last_seen FROM hosting.nodes n LEFT JOIN hosting.node_agents a ON a.id = n.agent_id`;
+const SELECT = `SELECT n.* FROM hosting.nodes n`;
 export const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
 export const NODE_STATUSES = ['active', 'draining', 'maintenance', 'retired'] as const;
@@ -86,12 +99,14 @@ export class NodesService {
     private readonly compute: ComputeProvisioningPort,
     private readonly cfg: HostingConfig,
     private readonly clock: () => Date = () => new Date(),
+    /** where a typed panel access key goes (sealed store, non-production). Absent = typed keys are refused. */
+    private readonly sealed?: SealedVault,
   ) {}
 
   private ctx(nodeId: string): AccountContext {
     return {
       providerAccountId: 'platform-hosting',
-      credentialRef: 'vault://hosting/node-agent-signing',
+      credentialRef: 'vault://hosting/panel-access',
       traceId: `inv-${nodeId}`,
       deadlineMs: 30_000,
     };
@@ -131,11 +146,11 @@ export class NodesService {
     });
   }
 
-  /** Register a node on a platform-owned compute instance (M05 port). Returns the single-use bootstrap token ONCE. */
+  /** Register a node on a platform-owned compute instance (M05 port). The panel connection is set next (`setPanel`). */
   async create(
     actor: string,
     input: Record<string, unknown>,
-  ): Promise<{ node: NodeDto; enrolmentToken: string | null; created: boolean }> {
+  ): Promise<{ node: NodeDto; created: boolean }> {
     const name = input.name;
     const instance = input.computeInstanceId;
     if (typeof name !== 'string' || !/^[a-z0-9][a-z0-9-]{1,62}$/.test(name))
@@ -145,6 +160,9 @@ export class NodesService {
       );
     if (typeof instance !== 'string' || instance.length < 1 || instance.length > 200)
       throw new ProblemException('validation_failed', 'computeInstanceId is required');
+    const purpose = input.purpose ?? 'customer';
+    if (purpose !== 'customer' && purpose !== 'restore_drill')
+      throw new ProblemException('validation_failed', 'purpose must be customer or restore_drill');
     const info = await this.compute.describe(instance);
     if (!info)
       throw new ProblemException(
@@ -160,18 +178,13 @@ export class NodesService {
       if (existing)
         return {
           node: dto(await this.load(c, existing.id as string), undefined),
-          enrolmentToken: null,
           created: false,
         };
       const id = uuidv7();
-      const agentId = uuidv7();
       await c.query(
-        `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, created_by) VALUES ($1,$2,$3,$4,$5,$6)`,
-        [id, name, instance, info.region, info.dataRegion, actor],
+        `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, created_by, purpose) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [id, name, instance, info.region, info.dataRegion, actor, purpose],
       );
-      await c.query(`INSERT INTO hosting.node_agents (id, node_id) VALUES ($1,$2)`, [agentId, id]);
-      await c.query(`UPDATE hosting.nodes SET agent_id = $2 WHERE id = $1`, [id, agentId]);
-      const token = await this.newToken(c, id, agentId, actor);
       await this.audit.record({
         action: 'hosting.node.created',
         actorUserId: actor,
@@ -180,135 +193,126 @@ export class NodesService {
         outcome: 'success',
         detail: { dataRegion: info.dataRegion },
       });
-      return { node: dto(await this.load(c, id), undefined), enrolmentToken: token, created: true };
+      return { node: dto(await this.load(c, id), undefined), created: true };
     });
   }
 
-  private async newToken(
-    c: PoolClient,
-    nodeId: string,
-    agentId: string,
-    actor: string | null,
-  ): Promise<string> {
-    const token = randomBytes(32).toString('base64url');
-    await c.query(
-      `UPDATE hosting.node_enrolment_tokens SET used_at = now() WHERE node_id = $1 AND used_at IS NULL`,
-      [nodeId],
-    ); // one live token per node
-    await c.query(
-      `INSERT INTO hosting.node_enrolment_tokens (id, node_id, agent_id, token_hash, expires_at, created_by) VALUES ($1,$2,$3,$4, now() + make_interval(mins => $5), $6)`,
-      [uuidv7(), nodeId, agentId, sha256(token), this.cfg.enrolmentTtlMinutes, actor],
-    );
-    return token;
-  }
-  /** A fresh bootstrap token (e.g. a re-install). The previous unused token is invalidated. */
-  async issueEnrolmentToken(
-    actor: string,
-    nodeId: string,
-  ): Promise<{ token: string; expiresInMinutes: number }> {
+  // ---- S04: a customer's VPS that runs HestiaCP --------------------------------------------------------------------------------
+  /**
+   * Registers the customer's own VPS as a node of class `customer_vps`: outside the shared-hosting network (placement, capacity and plans only ever read `shared` nodes), owned by one
+   * organization, `maintenance` for good (a shared site is never placed on it), with a READ-ONLY panel key. Idempotent per compute instance.
+   */
+  async registerCustomerVps(a: {
+    orgId: string;
+    instanceId: string;
+    name: string;
+    region: string;
+    dataRegion: string;
+    panelHost: string;
+    panelPort: number;
+    tlsPinSha256: string | null;
+    keyRef: string;
+    panelVersion: string | null;
+  }): Promise<{ nodeId: string }> {
+    if (!isPanelHost(a.panelHost))
+      throw new ProblemException('validation_failed', 'panel host is not an fqdn');
+    if (a.tlsPinSha256 && !isFingerprint(a.tlsPinSha256))
+      throw new ProblemException('validation_failed', 'invalid TLS fingerprint');
     return this.db.withPlatformScope(async (c) => {
-      const n = await this.load(c, nodeId);
-      if (n.status === 'retired')
-        throw new ProblemException('conflict', 'a retired node cannot be enrolled');
-      const token = await this.newToken(c, nodeId, n.agent_id as string, actor);
-      await this.audit.record({
-        action: 'hosting.agent.enrolment_token.issued',
-        actorUserId: actor,
-        actorType: 'user',
-        resource: { type: 'hosting_node', id: nodeId },
-        outcome: 'success',
-      });
-      return { token, expiresInMinutes: this.cfg.enrolmentTtlMinutes };
-    });
-  }
-  /** Agent bootstrap (called from the agent channel, not over the public HTTP API): single-use token + the client certificate fingerprint. */
-  async enrol(
-    token: string,
-    certFingerprint: string,
-    version: string,
-  ): Promise<{ nodeId: string; agentId: string }> {
-    if (!/^[0-9a-f]{64}$/.test(certFingerprint))
-      throw new ProblemException('validation_failed', 'certFingerprint must be a sha256 hex');
-    return this.db.withPlatformScope(async (c) => {
-      const t = (
+      const existing = (
         await c.query(
-          `SELECT * FROM hosting.node_enrolment_tokens WHERE token_hash = $1 FOR UPDATE`,
-          [sha256(token)],
+          `SELECT id, network_class, owner_org_id FROM hosting.nodes WHERE compute_instance_id = $1`,
+          [a.instanceId],
         )
       ).rows[0];
-      if (!t || t.used_at || (t.expires_at as Date).getTime() <= this.clock().getTime())
-        throw new ProblemException(
-          'unauthenticated',
-          'the enrolment token is invalid, used or expired',
+      if (existing) {
+        if (existing.network_class !== 'customer_vps' || existing.owner_org_id !== a.orgId)
+          throw new ProblemException(
+            'conflict',
+            'this compute instance is already a different kind of node',
+          );
+        await c.query(
+          `UPDATE hosting.nodes SET panel_host = $2, panel_port = $3, panel_tls_pin = $4, panel_key_ref = $5, panel_version = COALESCE($6, panel_version), updated_at = now() WHERE id = $1`,
+          [existing.id, a.panelHost, a.panelPort, a.tlsPinSha256, a.keyRef, a.panelVersion],
         );
-      await c.query(`UPDATE hosting.node_enrolment_tokens SET used_at = now() WHERE id = $1`, [
-        t.id,
-      ]);
+        return { nodeId: existing.id as string };
+      }
+      const id = uuidv7();
       await c.query(
-        `UPDATE hosting.node_agents SET state = 'enrolled', cert_fingerprint = $2, version = $3, enrolled_at = now(), last_seen_at = now() WHERE id = $1`,
-        [t.agent_id, certFingerprint, version.slice(0, 40)],
+        `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, status, network_class, owner_org_id, panel_host, panel_port, panel_tls_pin, panel_key_ref, panel_version)
+         VALUES ($1,$2,$3,$4,$5,'maintenance','customer_vps',$6,$7,$8,$9,$10,$11)`,
+        [
+          id,
+          a.name,
+          a.instanceId,
+          a.region,
+          a.dataRegion,
+          a.orgId,
+          a.panelHost,
+          a.panelPort,
+          a.tlsPinSha256,
+          a.keyRef,
+          a.panelVersion,
+        ],
       );
       await this.audit.record({
-        action: 'hosting.agent.enrolled',
+        action: 'hosting.node.created',
+        orgId: a.orgId,
         actorType: 'system',
-        resource: { type: 'hosting_node', id: t.node_id as string },
+        resource: { type: 'hosting_node', id },
         outcome: 'success',
+        detail: { networkClass: 'customer_vps', dataRegion: a.dataRegion },
       });
-      return { nodeId: t.node_id as string, agentId: t.agent_id as string };
+      return { nodeId: id };
     });
   }
-  async rotateCert(actor: string | null, nodeId: string, newFingerprint: string): Promise<void> {
-    if (!/^[0-9a-f]{64}$/.test(newFingerprint))
-      throw new ProblemException('validation_failed', 'fingerprint must be a sha256 hex');
-    await this.db.withPlatformScope(async (c) => {
-      const n = await this.load(c, nodeId);
-      if (n.agent_state !== 'enrolled')
-        throw new ProblemException('conflict', 'the agent is not enrolled');
-      await c.query(
-        `UPDATE hosting.node_agents SET cert_fingerprint = $2, cert_rotated_at = now() WHERE id = $1`,
-        [n.agent_id, newFingerprint],
-      );
-      await this.audit.record({
-        action: 'hosting.agent.cert.rotated',
-        actorUserId: actor ?? undefined,
-        actorType: actor ? 'user' : 'system',
-        resource: { type: 'hosting_node', id: nodeId },
-        outcome: 'success',
-      });
-    });
+
+  async retireCustomerVps(nodeId: string): Promise<void> {
+    await this.db.withPlatformScope((c) =>
+      c.query(
+        `UPDATE hosting.nodes SET status = 'retired', health = 'unknown', updated_at = now() WHERE id = $1 AND network_class = 'customer_vps'`,
+        [nodeId],
+      ),
+    );
   }
-  /** Revoke the agent: the channel refuses the node until a new enrolment. */
-  async revokeAgent(actor: string, nodeId: string): Promise<void> {
-    await this.db.withPlatformScope(async (c) => {
-      const n = await this.load(c, nodeId);
-      await c.query(
-        `UPDATE hosting.node_agents SET state = 'revoked', cert_fingerprint = NULL WHERE id = $1`,
-        [n.agent_id],
-      );
-      const agentId = uuidv7();
-      await c.query(`INSERT INTO hosting.node_agents (id, node_id) VALUES ($1,$2)`, [
-        agentId,
+
+  /** Read-only readiness of a customer VPS panel: health (one documented read), the version it reports, and the proof that the key is as narrow as intended. */
+  async checkCustomerVps(nodeId: string) {
+    const n = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT compute_instance_id, network_class FROM hosting.nodes WHERE id = $1`,
+            [nodeId],
+          )
+        ).rows[0],
+    );
+    if (!n || n.network_class !== 'customer_vps')
+      throw new ProblemException('not_found', 'node not found');
+    const ref = { nodeId, computeInstanceId: n.compute_instance_id as string };
+    const h = await this.adapter.health(this.ctx(nodeId), ref);
+    let profile: 'read_only' | 'too_broad' | 'unknown' = 'unknown';
+    if (h.state === 'healthy')
+      profile = (await this.adapter.verifyReadOnlyKey?.(this.ctx(nodeId), ref)) ?? 'unknown';
+    await this.db.withPlatformScope((c) =>
+      c.query(`UPDATE hosting.nodes SET health = $2, updated_at = now() WHERE id = $1`, [
         nodeId,
-      ]);
-      await c.query(
-        `UPDATE hosting.nodes SET agent_id = $2, status = CASE WHEN status = 'active' THEN 'maintenance' ELSE status END, updated_at = now(), version = version + 1 WHERE id = $1`,
-        [nodeId, agentId],
-      );
-      await this.audit.record({
-        action: 'hosting.agent.revoked',
-        actorUserId: actor,
-        actorType: 'user',
-        resource: { type: 'hosting_node', id: nodeId },
-        outcome: 'success',
-      });
-    });
+        h.state,
+      ]),
+    );
+    const panelVersion = (await this.db.withPlatformScope(
+      async (c) =>
+        (await c.query(`SELECT panel_version FROM hosting.nodes WHERE id = $1`, [nodeId])).rows[0]
+          ?.panel_version,
+    )) as string | null;
+    return { health: h.state, panelVersion, profile, ...(h.detail ? { code: h.detail } : {}) };
   }
 
   /** The inventory job: probe + inventory through the adapter; stores versions, health and runtimes and sizes the node's capacity rows. */
   async runInventory(nodeId: string): Promise<NodeDto> {
     const n = await this.db.withPlatformScope(async (c) => this.load(c, nodeId));
-    if (n.agent_state !== 'enrolled')
-      throw new ProblemException('conflict', 'the node agent is not enrolled');
+    if (!n.panel_host || !n.panel_key_ref)
+      throw new ProblemException('conflict', 'the node has no panel connection yet');
     const ref = { nodeId, computeInstanceId: n.compute_instance_id as string };
     const probe = await this.adapter.probe(this.ctx(nodeId), ref);
     const inv = await this.adapter.inventory(this.ctx(nodeId), ref);
@@ -349,23 +353,19 @@ export class NodesService {
         );
       }
       await c.query(
-        `UPDATE hosting.nodes SET cloudpanel_version = $2, runtimes = $3, health = $4, last_inventory = $5, last_inventory_at = now(), updated_at = now() WHERE id = $1`,
+        `UPDATE hosting.nodes SET panel_version = $2, runtimes = $3, health = $4, last_inventory = $5, last_inventory_at = now(), updated_at = now() WHERE id = $1`,
         [
           nodeId,
-          d.cloudpanelVersion,
+          d.panelVersion,
           JSON.stringify(probe.runtimes.length ? probe.runtimes : d.runtimes),
           d.health.state,
           JSON.stringify({
             usage: d.usage,
-            clpctlVersion: d.clpctlVersion,
-            agentVersion: d.agentVersion,
+            panelKind: d.panelKind,
             capacity: d.capacity,
+            ...(d.services ? { services: d.services } : {}),
           }),
         ],
-      );
-      await c.query(
-        `UPDATE hosting.node_agents SET last_seen_at = now(), version = $2 WHERE id = $1`,
-        [n.agent_id, d.agentVersion.slice(0, 40)],
       );
       return dto(await this.load(c, nodeId), await this.pending(c, nodeId));
     });
@@ -445,9 +445,14 @@ export class NodesService {
     if (from === to) return;
     if (!ALLOWED[from]!.includes(to))
       throw new ProblemException('conflict', `a ${from} node cannot become ${to}`);
+    if (n.purpose === 'restore_drill' && (to === 'active' || to === 'draining'))
+      throw new ProblemException(
+        'conflict',
+        'a restore-drill node never takes customer sites: it stays in maintenance',
+      );
     if (to === 'active') {
-      if (n.agent_state !== 'enrolled')
-        throw new ProblemException('conflict', 'the node agent is not enrolled');
+      if (!n.panel_host || !n.panel_key_ref)
+        throw new ProblemException('conflict', 'the node has no panel connection yet');
       if (n.health !== 'healthy') throw new ProblemException('conflict', 'the node is not healthy');
       const age = n.last_inventory_at
         ? this.clock().getTime() - (n.last_inventory_at as Date).getTime()
@@ -602,87 +607,95 @@ export class NodesService {
     });
   }
 
-  /** The control-plane side of "audit log shipped to the control plane": append entries after verifying the chain continues from the stored head. */
-  async shipAudit(nodeId: string, entries: readonly AuditEntry[]): Promise<{ stored: number }> {
+  /**
+   * Sets how the node's HestiaCP panel is reached: a fixed FQDN, a port (default 8083), an optional pinned TLS fingerprint (a self-signed panel certificate) and the access key,
+   * typed here (write-only, sealed) or as a vault reference. Any change clears the node's health: it must be probed again before it can serve (inventory).
+   */
+  async setPanel(actor: string, nodeId: string, body: Record<string, unknown>): Promise<NodeDto> {
     if (!UUID.test(nodeId)) throw new ProblemException('not_found', 'node not found');
-    return this.db.withPlatformScope(async (c) => {
-      await this.load(c, nodeId);
-      const head = (
-        await c.query(
-          `SELECT agent_seq, hash FROM hosting.node_command_log WHERE node_id = $1 ORDER BY agent_seq DESC LIMIT 1`,
-          [nodeId],
-        )
-      ).rows[0];
-      let seq = head ? Number(head.agent_seq) : 0;
-      let prev = (head?.hash as string | undefined) ?? ZERO_HASH;
-      let stored = 0;
-      for (const e of entries) {
-        if (e.seq <= seq) continue; // already stored (redelivery)
-        const { hash, ...base } = e;
-        if (e.seq !== seq + 1 || e.prevHash !== prev || auditHash(base) !== hash)
-          throw new ProblemException(
-            'conflict',
-            `the agent audit chain is broken at entry ${e.seq}`,
-          );
-        await c.query(
-          `INSERT INTO hosting.node_command_log (id, node_id, agent_seq, operation_id, command_id, outcome, reason, envelope_hash, prev_hash, hash, occurred_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-          [
-            uuidv7(),
-            nodeId,
-            e.seq,
-            e.operationId,
-            e.commandId,
-            e.outcome,
-            e.reason,
-            e.envelopeHash,
-            e.prevHash,
-            e.hash,
-            e.occurredAt,
-          ],
+    const allowed = new Set(['host', 'port', 'tlsPinSha256', 'credentials', 'vaultRef']);
+    for (const k of Object.keys(body))
+      if (!allowed.has(k)) throw new ProblemException('validation_failed', `unknown member ${k}`);
+    if (typeof body.host !== 'string' || !isPanelHost(body.host.trim().toLowerCase()))
+      throw new ProblemException(
+        'validation_failed',
+        "host must be the panel's fully qualified domain name",
+      );
+    const host = body.host.trim().toLowerCase();
+    const port = body.port === undefined ? 8083 : body.port;
+    if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535)
+      throw new ProblemException('validation_failed', 'port must be an integer 1..65535');
+    let pin: string | null = null;
+    if (body.tlsPinSha256 !== undefined && body.tlsPinSha256 !== null && body.tlsPinSha256 !== '') {
+      if (typeof body.tlsPinSha256 !== 'string' || !isFingerprint(body.tlsPinSha256.trim()))
+        throw new ProblemException(
+          'validation_failed',
+          'tlsPinSha256 must be a SHA-256 fingerprint (32 colon-separated hex pairs)',
         );
-        seq = e.seq;
-        prev = e.hash;
-        stored++;
-      }
-      return { stored };
-    });
-  }
-  async commandLog(nodeId: string, limit = 100) {
-    if (!UUID.test(nodeId)) throw new ProblemException('not_found', 'node not found');
+      pin = body.tlsPinSha256.trim().toUpperCase();
+    }
+    let keyRef: string | null = null;
+    if (body.credentials !== undefined && body.credentials !== null) {
+      const c = body.credentials as Record<string, unknown>;
+      if (
+        typeof c !== 'object' ||
+        Array.isArray(c) ||
+        Object.keys(c).some((k) => k !== 'accessKey')
+      )
+        throw new ProblemException('validation_failed', 'credentials must be {accessKey}');
+      if (
+        typeof c.accessKey !== 'string' ||
+        !/^[A-Za-z0-9]{8,64}:[\x21-\x7E]{8,128}$/.test(c.accessKey.trim())
+      )
+        throw new ProblemException(
+          'validation_failed',
+          'accessKey must be ACCESS_KEY_ID:SECRET_ACCESS_KEY',
+        );
+      if (body.vaultRef)
+        throw new ProblemException('validation_failed', 'send credentials or vaultRef, not both');
+      if (!this.sealed || process.env.NODE_ENV === 'production')
+        throw new ProblemException(
+          'unsupported_capability',
+          'storing the key here is not available in this profile: the production vault is not decided yet (D-12); send a vault reference (vaultRef)',
+        );
+      keyRef = await this.sealed.putFields(`hosting-panel-${nodeId}`, {
+        accessKey: c.accessKey.trim(),
+      });
+    } else if (body.vaultRef !== undefined && body.vaultRef !== null && body.vaultRef !== '') {
+      if (
+        typeof body.vaultRef !== 'string' ||
+        !/^vault:\/\/[A-Za-z0-9][A-Za-z0-9._/-]{1,200}$/.test(body.vaultRef)
+      )
+        throw new ProblemException(
+          'credential_value_rejected',
+          'vaultRef must be a vault:// reference',
+        );
+      keyRef = body.vaultRef;
+    }
     return this.db.withPlatformScope(async (c) => {
-      await this.load(c, nodeId);
-      const rows = (
-        await c.query(
-          `SELECT agent_seq, operation_id, command_id, outcome, reason, occurred_at FROM hosting.node_command_log WHERE node_id = $1 ORDER BY agent_seq DESC LIMIT $2`,
-          [nodeId, Math.min(Math.max(limit, 1), 500)],
-        )
-      ).rows;
-      return rows.map((r) => ({
-        seq: Number(r.agent_seq),
-        operationId: (r.operation_id as string | null) ?? null,
-        commandId: (r.command_id as string | null) ?? null,
-        outcome: r.outcome as string,
-        reason: (r.reason as string | null) ?? null,
-        occurredAt: iso(r.occurred_at)!,
-      }));
+      const n = await this.load(c, nodeId);
+      if (n.status === 'retired')
+        throw new ProblemException('conflict', 'a retired node cannot be changed');
+      if (!keyRef && !n.panel_key_ref)
+        throw new ProblemException(
+          'validation_failed',
+          'an access key (credentials or vaultRef) is required the first time',
+        );
+      await c.query(
+        `UPDATE hosting.nodes SET panel_host = $2, panel_port = $3, panel_tls_pin = $4, panel_key_ref = COALESCE($5, panel_key_ref),
+                health = 'unknown', last_inventory_at = NULL, status = CASE WHEN status = 'active' THEN 'maintenance' ELSE status END, version = version + 1, updated_at = now()
+          WHERE id = $1`,
+        [nodeId, host, port, pin, keyRef],
+      );
+      await this.audit.record({
+        action: 'hosting.node.panel_set',
+        actorUserId: actor,
+        actorType: 'user',
+        resource: { type: 'hosting_node', id: nodeId },
+        outcome: 'success',
+        after: { host, port, pinned: pin !== null, keyChanged: keyRef !== null },
+      });
+      return dto(await this.load(c, nodeId), await this.pending(c, nodeId));
     });
-  }
-  async listAgents() {
-    return this.db.withPlatformScope(async (c) =>
-      (
-        await c.query(
-          `SELECT a.id, a.node_id, a.state, a.version, a.enrolled_at, a.last_seen_at, a.cert_rotated_at, n.name AS node_name FROM hosting.node_agents a JOIN hosting.nodes n ON n.id = a.node_id ORDER BY a.created_at DESC LIMIT 200`,
-        )
-      ).rows.map((r) => ({
-        id: r.id as string,
-        nodeId: r.node_id as string,
-        nodeName: r.node_name as string,
-        state: r.state as string,
-        version: (r.version as string | null) ?? null,
-        enrolledAt: iso(r.enrolled_at),
-        lastSeenAt: iso(r.last_seen_at),
-        certRotatedAt: iso(r.cert_rotated_at),
-      })),
-    );
   }
 }

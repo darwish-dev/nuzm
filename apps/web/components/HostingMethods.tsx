@@ -49,8 +49,8 @@ export function HostingMethods({
             data-featured={m.id === 'ai' ? 'true' : undefined}
             href={
               m.id === 'ai'
-                ? `/${locale}/builder/projects`
-                : `/${locale}/hosting/sites/new${qs({ method: m.id })}`
+                ? `/builder/projects`
+                : `/hosting/sites/new${qs({ method: m.id })}`
             }
           >
             {body}

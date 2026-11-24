@@ -108,16 +108,16 @@ export function BuyPanel({
         <p>{t(locale, purchase.status === 'paid' ? 'm11.buy.paid' : 'm11.buy.pending')}</p>
         <div className="nz-row">
           {purchase.invoiceId && purchase.status !== 'paid' && (
-            <ButtonLink href={`/${locale}/billing/invoices/${purchase.invoiceId}`}>
+            <ButtonLink href={`/billing/invoices/${purchase.invoiceId}`}>
               {t(locale, 'm11.buy.payInvoice')}
             </ButtonLink>
           )}
           {purchase.invoiceId && (
-            <a href={`/${locale}/billing/invoices/${purchase.invoiceId}`}>
+            <a href={`/billing/invoices/${purchase.invoiceId}`}>
               {t(locale, 'm11.buy.invoice')} <Ltr>{purchase.invoiceId.slice(0, 8)}</Ltr>
             </a>
           )}
-          <a href={`/${locale}/marketplace/purchases`}>{t(locale, 'm11.buy.toPurchases')}</a>
+          <a href={`/marketplace/purchases`}>{t(locale, 'm11.buy.toPurchases')}</a>
         </div>
       </section>
     );
@@ -278,7 +278,7 @@ export function InstallForm({
             status: tDynamic(locale, `m11.inst.status.${done.status}`, done.status),
           })}{' '}
           {done.targetType === 'workflow' && done.targetId && (
-            <a href={`/${locale}/automation/workflows/${done.targetId}/edit`}>
+            <a href={`/automation/workflows/${done.targetId}/edit`}>
               {t(locale, 'm11.inst.openWorkflow')}
             </a>
           )}

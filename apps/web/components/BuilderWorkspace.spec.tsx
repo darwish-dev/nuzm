@@ -47,9 +47,9 @@ const detail = {
   siteModel: model,
 } as unknown as ProjectDetail;
 const links = [
-  { key: 'versions', href: '/en/builder/projects/p1/versions', label: 'Versions' },
-  { key: 'seo', href: '/en/builder/projects/p1/seo', label: 'SEO' },
-  { key: 'deployments', href: '/en/builder/projects/p1/deployments', label: 'Deployments' },
+  { key: 'versions', href: '/builder/projects/p1/versions', label: 'Versions' },
+  { key: 'seo', href: '/builder/projects/p1/seo', label: 'SEO' },
+  { key: 'deployments', href: '/builder/projects/p1/deployments', label: 'Deployments' },
 ];
 const ws = (over: Partial<Parameters<typeof Workspace>[0]> = {}) =>
   render(
@@ -128,7 +128,7 @@ describe('builder workspace shell', () => {
   it('Publish goes to deployments; the other project screens sit under More', () => {
     const { container } = ws();
     expect(screen.getByRole('link', { name: t('en', 'bld.ws.publish') }).getAttribute('href')).toBe(
-      '/en/builder/projects/p1/deployments',
+      '/builder/projects/p1/deployments',
     );
     const more = container.querySelector('.bws-more')!;
     expect(
@@ -137,7 +137,7 @@ describe('builder workspace shell', () => {
         .map((a) => a.textContent),
     ).toEqual(['Versions', 'SEO']);
     expect(screen.getByRole('link', { name: t('en', 'bld.ws.back') }).getAttribute('href')).toBe(
-      '/en/builder/projects',
+      '/builder/projects',
     );
   });
   it('a viewer (no write permission) cannot undo or redo, and has no Publish when the link is not offered', () => {

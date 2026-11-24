@@ -5,12 +5,12 @@ import { ConsoleFrame } from '@nuzm/ui';
 import { t } from '@nuzm/i18n';
 import { SupportPanel } from './SupportPanel';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/en' }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/console' }));
 afterEach(cleanup);
 
 const topics = [
-  { id: 'hosting', label: 'Hosting', href: '/en/hosting/sites', icon: 'hosting' as const },
-  { id: 'domains', label: 'Domains', href: '/en/domains', icon: 'globe' as const },
+  { id: 'hosting', label: 'Hosting', href: '/hosting/sites', icon: 'hosting' as const },
+  { id: 'domains', label: 'Domains', href: '/domains', icon: 'globe' as const },
 ];
 
 describe('support panel', () => {
@@ -18,7 +18,7 @@ describe('support panel', () => {
     render(<SupportPanel locale="en" topics={topics} />);
     expect(screen.getByText(t('en', 'sup.greeting'))).toBeTruthy();
     expect(screen.getByRole('link', { name: /Hosting/ }).getAttribute('href')).toBe(
-      '/en/hosting/sites',
+      '/hosting/sites',
     );
     expect(screen.getByRole('link', { name: /Domains/ })).toBeTruthy();
     expect(screen.getByText(t('en', 'sup.offline'))).toBeTruthy();

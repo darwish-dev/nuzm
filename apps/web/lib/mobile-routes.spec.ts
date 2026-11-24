@@ -33,7 +33,7 @@ const dest = async (p: Promise<unknown>): Promise<string> => {
   }
   return 'no redirect';
 };
-const BASE = `/en/builder/projects/${ID}`;
+const BASE = `/builder/projects/${ID}`;
 
 beforeEach(() => {
   flags['mobile_builder.enabled'] = true;
@@ -75,7 +75,7 @@ describe('the former mobile pages redirect into the builder workspace (existing 
     const page = (await load()).default as (a: { params: Promise<unknown> }) => Promise<unknown>;
     expect(await dest(page({ params: params() }))).toBe(to);
     // Arabic keeps its locale
-    expect(await dest(page({ params: params(ID, 'ar') }))).toBe(to.replace('/en/', '/ar/'));
+    expect(await dest(page({ params: params(ID, 'ar') }))).toBe(to.replace('/', '/'));
   });
   it('an id that is not a UUID, or an unknown locale, is a plain 404 (nothing is redirected to)', async () => {
     const page = (await import('../app/[locale]/(console)/mobile/[id]/builds/page'))
@@ -92,7 +92,7 @@ describe('/mobile/new is the Mobile apps entry: it opens the start screen with t
     }) => Promise<unknown>;
   it('redirects to the builder start screen filtered to mobile apps while the flag is on', async () => {
     expect(await dest((await load())({ params: Promise.resolve({ locale: 'en' }) }))).toBe(
-      '/en/builder/projects?type=mobile',
+      '/builder/projects?type=mobile',
     );
   });
   it('still answers the "not enabled" state while mobile_builder.enabled is off (no redirect)', async () => {

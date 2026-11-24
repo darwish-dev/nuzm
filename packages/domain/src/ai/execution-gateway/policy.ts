@@ -1,7 +1,7 @@
 import { normalizeToolDir } from '../agent-tools/paths';
 
 /**
- * S-AG6 (OFFLINE PREPARATION): the policy core of the Execution Gateway (ADR-067, PROPOSED). Pure functions only: nothing here starts a process, touches a runtime or is wired
+ * S-AG6 (OFFLINE PREPARATION): the policy core of the Execution Gateway (ADR-069, PROPOSED). Pure functions only: nothing here starts a process, touches a runtime or is wired
  * to any route, tool declaration or job. The model NEVER supplies a command line: it names a profile from a closed catalogue and gives typed parameters; this module maps
  * that to a fixed argv, a fixed environment, fixed limits and a network class, or refuses with reasons. Whether anything may run at all is decided by `executionGate`, which
  * stays closed until D-21 is decided, a runtime passed the escape suite and the owner approved (and, in production, D-AG-ROLLOUT).

@@ -66,7 +66,7 @@ export default async function Marketplace({
                     <Badge>{t(locale, `m11.mkt.type.${l.type}`)}</Badge>
                   </p>
                   <h2 className="nz-h2">
-                    <a href={`/${locale}/marketplace/listings/${l.id}`}>
+                    <a href={`/marketplace/listings/${l.id}`}>
                       <bdi dir="auto">{listingTitle(l, locale)}</bdi>
                     </a>
                   </h2>
@@ -86,7 +86,7 @@ export default async function Marketplace({
           {next && (
             <p>
               <a
-                href={`/${locale}/marketplace?${new URLSearchParams({ ...(q ? { q } : {}), ...(type ? { type } : {}), cursor: next })}`}
+                href={`/marketplace?${new URLSearchParams({ ...(q ? { q } : {}), ...(type ? { type } : {}), cursor: next })}`}
               >
                 {t(locale, 'm11.c.next')}
               </a>

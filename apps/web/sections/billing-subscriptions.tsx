@@ -38,14 +38,14 @@ export default async function Subscriptions({ params }: { params: Promise<{ loca
             caption={t(locale, 'sub.title')}
             rows={subs.items}
             rowKey={(x) => x.id}
-            rowHref={(x) => `/${locale}/billing/subscriptions/${x.id}`}
+            rowHref={(x) => `/billing/subscriptions/${x.id}`}
             manageLabel={t(locale, 'action.manage')}
             columns={[
               {
                 key: 'p',
                 header: t(locale, 'sub.col.plan'),
                 icon: 'tag',
-                render: (x) => <a href={`/${locale}/billing/subscriptions/${x.id}`}>{x.planKey}</a>,
+                render: (x) => <a href={`/billing/subscriptions/${x.id}`}>{x.planKey}</a>,
               },
               {
                 key: 's',

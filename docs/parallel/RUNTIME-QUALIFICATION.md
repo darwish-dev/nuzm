@@ -228,7 +228,7 @@ Rules: evidence is append-only; a repeated run adds a new dated directory; an at
 | **D-21** | the isolation technology (and the node pool and its budget) | provisioning a staging node; implementing the node agent | any real execution |
 | **HG-05-04 / compute provider** | a Linux provider/account, quota, spend cap; KVM capability probe for microVM classes | a node to exist | everything live |
 | **HG-10-02** | the named security reviewer's review of the node, the suite results and the attestation | a LIVE-VERIFIED attestation; `runtimeVerified` and `escapeSuitePassed` in the gate | opening the gate |
-| **Execution Gateway ADR acceptance** (numbered ADR-067 on this line; the hosting line also uses that number: the Master will renumber ours, ADR-069, when the lines are joined; nothing here was renamed) | the owner accepts the design | `adrAccepted` in the gate | opening the gate |
+| **Execution Gateway ADR acceptance** (ADR-069; numbered ADR-067 before the hosting line joined, renamed on the join branch `p3-s07-hosting-join`) | the owner accepts the design | `adrAccepted` in the gate | opening the gate |
 | **LEGAL-EXEC** | terms and liability for executing customer code | customer-facing use | production; arguably also any customer-visible staging |
 | **D-AG-ROLLOUT (production rollout)** | the production go decision (formerly mislabelled D-42, an id `docs/07` gives to the platform object store; resolved by the Master 2026-11-24) | `rolloutDecided` in `ExecGateState` | production only |
 | Owner approval to run staging qualification | a recorded reference the runner checks (`HG-10-02-…` or `D-21-…`, and `NUZM_QUALIFICATION_APPROVED` set to it) | the live runner modes | live tests |

@@ -26,17 +26,23 @@ export class ImageCatalog {
   }
 
   /** Images offered for one offer's account and region (customer-safe: id, name, osFamily). */
-  async forOffer(accountId: string, providerRegionId: string) {
+  async forOffer(
+    accountId: string,
+    providerRegionId: string,
+    hestiaVerified: ReadonlySet<string> = new Set(),
+  ) {
     return this.db.withPlatformScope(async (c) =>
       (
         await c.query(
-          `SELECT id, name, os_family FROM compute.images WHERE account_id = $1 AND provider_region_id = $2 ORDER BY name`,
+          `SELECT id, name, os_family, image_ref FROM compute.images WHERE account_id = $1 AND provider_region_id = $2 ORDER BY name`,
           [accountId, providerRegionId],
         )
       ).rows.map((r) => ({
         id: r.id as string,
         name: r.name as string,
         osFamily: (r.os_family as string | null) ?? null,
+        // HestiaCP is offered only on images an administrator verified for the configured version (and only where the provider states cloud-init)
+        hestia: hestiaVerified.has(r.image_ref as string),
       })),
     );
   }

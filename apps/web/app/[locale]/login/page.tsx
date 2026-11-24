@@ -16,7 +16,7 @@ export default async function Login({
   const { error, returnTo: rt } = await searchParams;
   if (!isLocale(locale)) notFound();
   // only same-site relative paths are followed (the API validates returnTo again for the identity-provider flow)
-  const next = safeNext(rt, `/${locale}`);
+  const next = safeNext(rt, `/console`);
   const returnTo = encodeURIComponent(next);
   return (
     <AuthShell
@@ -36,11 +36,11 @@ export default async function Login({
       <OrDivider locale={locale} />
       <LoginForm locale={locale} next={next} />
       <p className="nzc-split-links">
-        <a href={`/${locale}/forgot-password`}>{t(locale, 'login.forgot')}</a>
+        <a href={`/forgot-password`}>{t(locale, 'login.forgot')}</a>
       </p>
       <p className="nzc-split-links">
         {t(locale, 'login.noAccount')}{' '}
-        <a href={`/${locale}/register`}>{t(locale, 'login.register')}</a>
+        <a href={`/register`}>{t(locale, 'login.register')}</a>
       </p>
     </AuthShell>
   );

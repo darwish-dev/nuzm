@@ -132,8 +132,8 @@ describe('current page', () => {
   const cat = (p: string) => currentCategory(nav, p);
 
   it('strips the locale', () => {
-    expect(stripLocale('/en', 'en')).toBe('/');
-    expect(stripLocale('/ar/billing/invoices?x=1', 'ar')).toBe('/billing/invoices');
+    expect(stripLocale('/console', 'en')).toBe('/');
+    expect(stripLocale('/billing/invoices?x=1', 'ar')).toBe('/billing/invoices');
     expect(stripLocale('', 'en')).toBe('/');
   });
 

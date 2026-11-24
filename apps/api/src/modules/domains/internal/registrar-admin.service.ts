@@ -211,11 +211,23 @@ export class RegistrarAdminService {
     adminUserId: string,
     body: Record<string, unknown>,
   ): Promise<RegistrarAccountDto> {
+    return this.saveSettings('dnet', adminUserId, body);
+  }
+
+  /**
+   * Connection settings of a registrar the admin console configures by hand (one account per registrar, created on the first save): `dnet` (no adapter yet) and
+   * `dynadot` (Legacy API adapter). Non-secret settings are stored as typed; credentials are write-only (sealed store → only the reference is kept).
+   */
+  async saveSettings(
+    providerCode: 'dnet' | 'dynadot',
+    adminUserId: string,
+    body: Record<string, unknown>,
+  ): Promise<RegistrarAccountDto> {
+    const dyn = providerCode === 'dynadot';
     const allowed = new Set([
       'label',
       'environment',
-      'baseUrl',
-      'resellerId',
+      ...(dyn ? ['searchBatch'] : ['baseUrl', 'resellerId']),
       'timeoutMs',
       'dataRegion',
       'currency',
@@ -223,7 +235,7 @@ export class RegistrarAdminService {
       'credentials',
     ]);
     for (const k of Object.keys(body)) if (!allowed.has(k)) throw badRequest(`unknown field ${k}`);
-    const label = body.label === undefined ? 'DNet' : body.label;
+    const label = body.label === undefined ? (dyn ? 'Dynadot' : 'DNet') : body.label;
     if (typeof label !== 'string' || label.trim().length < 1 || label.length > 100)
       throw badRequest('label must be 1..100 characters');
     if (body.environment !== 'sandbox' && body.environment !== 'production')
@@ -256,12 +268,23 @@ export class RegistrarAdminService {
       timeoutMs > 60_000
     )
       throw badRequest('timeoutMs must be an integer 1000..60000');
-    const dataRegion = body.dataRegion === undefined ? 'SA' : body.dataRegion;
+    const dataRegion = body.dataRegion === undefined ? (dyn ? 'US' : 'SA') : body.dataRegion;
     if (typeof dataRegion !== 'string' || !/^[A-Za-z][A-Za-z0-9-]{1,39}$/.test(dataRegion))
       throw badRequest('dataRegion must be a country or region code');
-    const currency = body.currency === undefined ? 'SAR' : body.currency;
+    const currency = body.currency === undefined ? (dyn ? 'USD' : 'SAR') : body.currency;
     if (typeof currency !== 'string' || !/^[A-Z]{3}$/.test(currency))
       throw badRequest('currency must be an ISO 4217 code');
+
+    // Dynadot: domains per `search` call (1 for a regular account; bulk accounts may send up to 100 — docs)
+    const searchBatch = body.searchBatch === undefined ? 1 : body.searchBatch;
+    if (
+      dyn &&
+      (typeof searchBatch !== 'number' ||
+        !Number.isInteger(searchBatch) ||
+        searchBatch < 1 ||
+        searchBatch > 100)
+    )
+      throw badRequest('searchBatch must be an integer 1..100');
 
     let typed: { apiKey: string; apiSecret?: string } | null = null;
     if (body.credentials !== undefined && body.credentials !== null) {
@@ -299,12 +322,13 @@ export class RegistrarAdminService {
         );
     }
 
-    const existing = (await this.access.listAccounts()).find((a) => a.providerCode === 'dnet');
+    const existing = (await this.access.listAccounts()).find((a) => a.providerCode === providerCode);
     const id = existing?.id ?? uuidv7();
     let vaultRef: string | null =
       typeof body.vaultRef === 'string' && body.vaultRef !== '' ? body.vaultRef : null;
-    if (typed) vaultRef = await this.secrets!.put(`domains-dnet-${id}`, JSON.stringify(typed));
-    const settings = { baseUrl, resellerId, timeoutMs };
+    if (typed)
+      vaultRef = await this.secrets!.put(`domains-${providerCode}-${id}`, JSON.stringify(typed));
+    const settings = dyn ? { timeoutMs, searchBatch } : { baseUrl, resellerId, timeoutMs };
 
     await this.db.withPlatformScope(async (c) => {
       if (existing) {
@@ -325,7 +349,7 @@ export class RegistrarAdminService {
         );
       } else {
         const reg = (
-          await c.query(`SELECT id FROM domains.registrars WHERE provider_code = 'dnet'`)
+          await c.query(`SELECT id FROM domains.registrars WHERE provider_code = $1`, [providerCode])
         ).rows[0];
         if (!reg) throw new ProblemException('not_found', 'unknown registrar');
         await c.query(
@@ -336,7 +360,7 @@ export class RegistrarAdminService {
             reg.id,
             label.trim(),
             body.environment,
-            vaultRef ?? `${UNSET_REF}dnet`,
+            vaultRef ?? `${UNSET_REF}${providerCode}`,
             dataRegion.toUpperCase(),
             currency,
             JSON.stringify(settings),
@@ -346,7 +370,7 @@ export class RegistrarAdminService {
       }
     });
     await this.audit.record({
-      action: 'registrar.dnet.settings_saved',
+      action: `registrar.${providerCode}.settings_saved`,
       actorUserId: adminUserId,
       outcome: 'success',
       resource: { type: 'registrar_account', id },

@@ -20,7 +20,7 @@ export default async function Accept({
   if (!isLocale(locale)) notFound();
   await requireSession(
     locale,
-    `/${locale}/invitations/${id}${token ? `?token=${encodeURIComponent(token)}` : ''}`,
+    `/invitations/${id}${token ? `?token=${encodeURIComponent(token)}` : ''}`,
   );
   return (
     <main className="nz-main" style={{ maxInlineSize: 520, marginInline: 'auto' }}>

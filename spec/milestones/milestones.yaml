@@ -26,7 +26,7 @@ milestones:
     depends_hard: [M01, M02, M03, M04]
     depends_soft: []
   - id: M06
-    name: "CloudPanel Shared Hosting"
+    name: "Shared Hosting (HestiaCP)"
     sprints: [24, 27]
     depends_hard: [M01, M02, M04, M05]
     depends_soft: [M03]

@@ -42,7 +42,7 @@ export default async function CreditNotePage({
           </h2>
           <p>
             {t(locale, 'cn.forInvoice', { number: c.invoiceNumber })}{' '}
-            <a href={`/${locale}/billing/invoices/${c.invoiceId}`}>{c.invoiceNumber}</a>
+            <a href={`/billing/invoices/${c.invoiceId}`}>{c.invoiceNumber}</a>
           </p>
           <p>{c.reason}</p>
           <p>{formatDateTime(c.issuedAt, locale)}</p>

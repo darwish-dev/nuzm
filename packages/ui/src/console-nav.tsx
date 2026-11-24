@@ -144,6 +144,7 @@ export function StatTile({
   icon,
   href,
   featured,
+  accent,
 }: {
   label: string;
   value: ReactNode;
@@ -152,6 +153,8 @@ export function StatTile({
   href?: string;
   /** The one highlighted tile of a row (the glowing gradient card). */
   featured?: boolean;
+  /** A small orange edge bar and icon (the website's second brand colour); decoration only. */
+  accent?: 'orange';
 }) {
   const inner = (
     <>
@@ -170,11 +173,11 @@ export function StatTile({
     </>
   );
   return href ? (
-    <a className="nzc-stat" href={href} data-featured={featured || undefined}>
+    <a className="nzc-stat" href={href} data-featured={featured || undefined} data-accent={accent}>
       {inner}
     </a>
   ) : (
-    <div className="nzc-stat" data-featured={featured || undefined}>
+    <div className="nzc-stat" data-featured={featured || undefined} data-accent={accent}>
       {inner}
     </div>
   );

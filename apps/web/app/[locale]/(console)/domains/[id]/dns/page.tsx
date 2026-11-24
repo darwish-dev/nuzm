@@ -50,7 +50,7 @@ export default async function Dns({ params }: { params: Promise<{ locale: string
           )}
           {s.can('domain:write') && d.capabilities.nameservers && (
             <p style={{ margin: '16px 0 0' }}>
-              <ButtonLink href={`/${locale}/domains/${id}#settings`}>
+              <ButtonLink href={`/domains/${id}#settings`}>
                 {t(locale, 'dom.ns.change')}
               </ButtonLink>
             </p>
@@ -90,7 +90,7 @@ export default async function Dns({ params }: { params: Promise<{ locale: string
   );
   return (
     <>
-      <a className="nzc-back" href={`/${locale}/domains/${id}`}>
+      <a className="nzc-back" href={`/domains/${id}`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'dom.detail.title')}
       </a>

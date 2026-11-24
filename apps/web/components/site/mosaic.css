@@ -1,0 +1,15 @@
+/*
+ * The illustrations are drawn on a light studio background. In the dark appearance they are not recoloured or cut out: the picture is inverted (the
+ * light studio turns into near-black, the hardware into brushed silver, the glows keep their hue through the hue-rotate). Light appearance is untouched.
+ */
+.landing[data-mode='dark'] .svc-visual img,
+.landing[data-mode='dark'] img.svc-card-art,
+.landing[data-mode='dark'] img.doc-art,
+.landing[data-mode='dark'] .doc-help img {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.05);
+  background: transparent;
+}
+
+.landing .platform-section .section-heading {
+  margin-block-end: 36px;
+}

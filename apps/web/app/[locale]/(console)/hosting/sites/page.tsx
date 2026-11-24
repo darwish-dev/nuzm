@@ -42,7 +42,7 @@ export default async function Sites({ params }: { params: Promise<{ locale: stri
           body={t(locale, 'state.empty.body')}
           action={
             s.can('hosting:site:create') ? (
-              <ButtonLink href={`/${locale}/hosting/sites/new`}>{t(locale, 'host.add')}</ButtonLink>
+              <ButtonLink href={`/hosting/sites/new`}>{t(locale, 'host.add')}</ButtonLink>
             ) : undefined
           }
         />
@@ -52,14 +52,14 @@ export default async function Sites({ params }: { params: Promise<{ locale: stri
           rows={data.items}
           rowKey={(x) => x.id}
           cardIcon="hosting"
-          rowHref={(x) => `/${locale}/hosting/sites/${x.id}`}
+          rowHref={(x) => `/hosting/sites/${x.id}`}
           manageLabel={t(locale, 'action.manage')}
           columns={[
             {
               key: 'n',
               card: 'title',
               header: t(locale, 'host.col.name'),
-              render: (x) => <a href={`/${locale}/hosting/sites/${x.id}`}>{x.name}</a>,
+              render: (x) => <a href={`/hosting/sites/${x.id}`}>{x.name}</a>,
             },
             {
               key: 'p',
@@ -115,12 +115,12 @@ export default async function Sites({ params }: { params: Promise<{ locale: stri
           body={t(locale, 'host.hero.body')}
         >
           {s.can('hosting:plan:read') && (
-            <ButtonLink variant="secondary" href={`/${locale}/hosting/plans`}>
+            <ButtonLink variant="secondary" href={`/hosting/plans`}>
               <Icon name="tag" size={18} />
               {t(locale, 'host.hero.new')}
             </ButtonLink>
           )}
-          <ButtonLink href={`/${locale}/hosting/sites/new`}>
+          <ButtonLink href={`/hosting/sites/new`}>
             <Icon name="plus" size={18} />
             {t(locale, 'host.hero.addSite')}
           </ButtonLink>

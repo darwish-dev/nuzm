@@ -5,5 +5,5 @@ import { isLocale } from '@nuzm/i18n';
 export default async function Sessions({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  redirect(`/${locale}/account#sessions`);
+  redirect(`/account#sessions`);
 }

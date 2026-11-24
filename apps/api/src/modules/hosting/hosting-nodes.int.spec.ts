@@ -2,15 +2,11 @@ import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
 import { HostingHarness } from './hosting-harness';
-import { NodesService } from './internal/nodes.service';
-import { sha256 } from './internal/nodes.service';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- loosely-typed JSON rows in tests */
 const hh = new HostingHarness();
-let nodes: NodesService;
 beforeAll(async () => {
   await hh.init();
-  nodes = hh.app.get(NodesService);
 });
 afterAll(() => hh.close());
 
@@ -27,9 +23,8 @@ const sqlErr = async (q: string, p: unknown[] = []) => {
   }
 };
 
-describe('S24 nodes: registration, enrolment, inventory, activation', () => {
+describe('S24 nodes: registration, panel connection, inventory, activation', () => {
   let nodeId = '';
-  let token = '';
   it('refuses an unknown compute instance (M05 port) and a non-running one', async () => {
     const r = await hh.admin('host', 'POST', '/v1/admin/hosting/nodes', {
       name: 'n-unknown',
@@ -87,7 +82,7 @@ describe('S24 nodes: registration, enrolment, inventory, activation', () => {
     expect((await hh.admin('finance', 'GET', '/v1/admin/hosting/nodes')).statusCode).toBe(403);
     expect((await hh.admin('support', 'GET', '/v1/admin/hosting/nodes')).statusCode).toBe(200);
   });
-  it('creates a node in maintenance with a one-time token; a replay returns the node without a token', async () => {
+  it('creates a node in maintenance with no panel connection; a replay returns the same node', async () => {
     const r = await hh.admin('host', 'POST', '/v1/admin/hosting/nodes', {
       name: 'node-one',
       computeInstanceId: 'i-1',
@@ -95,29 +90,22 @@ describe('S24 nodes: registration, enrolment, inventory, activation', () => {
     expect(r.statusCode).toBe(201);
     const j = r.json();
     nodeId = j.node.id;
-    token = j.enrolmentToken;
     expect(j.node).toMatchObject({
       status: 'maintenance',
       dataRegion: 'SA',
-      agentState: 'pending',
+      panelKind: 'hestia',
+      panelConfigured: false,
       overcommitFactor: 1,
     });
-    expect(token.length).toBeGreaterThan(30);
     const again = await hh.admin('host', 'POST', '/v1/admin/hosting/nodes', {
       name: 'node-one',
       computeInstanceId: 'i-1',
     });
     expect(again.statusCode).toBe(200);
-    expect(again.json().enrolmentToken).toBeNull();
-    const stored = await hh.env.sql(
-      `SELECT token_hash FROM hosting.node_enrolment_tokens WHERE node_id = $1`,
-      [nodeId],
-    );
-    expect(stored[0]!.token_hash).toBe(sha256(token)); // hashed, never the token itself
-    expect(JSON.stringify(stored)).not.toContain(token);
+    expect(again.json().node.id).toBe(nodeId);
     hh.stack.addNode(nodeId);
   });
-  it('cannot be activated or inventoried before the agent is enrolled', async () => {
+  it('cannot be activated or inventoried before the panel connection is set', async () => {
     const n = (await hh.admin('host', 'GET', `/v1/admin/hosting/nodes/${nodeId}`)).headers
       .etag as string;
     const r = await hh.admin(
@@ -132,32 +120,59 @@ describe('S24 nodes: registration, enrolment, inventory, activation', () => {
       (await hh.admin('host', 'POST', `/v1/admin/hosting/nodes/${nodeId}/inventory`)).statusCode,
     ).toBe(409);
   });
-  it('enrols with the single-use token exactly once; an expired token fails', async () => {
-    const fp = 'b'.repeat(64);
-    expect(await nodes.enrol(token, fp, '0.1.0')).toMatchObject({ nodeId });
-    await expect(nodes.enrol(token, fp, '0.1.0')).rejects.toMatchObject({
-      code: 'unauthenticated',
+  it('sets the panel connection: the key is write-only, only a vault reference is stored, and wrong input is refused', async () => {
+    const KEY = 'CANARYACCESSKEY0001:canary-secret-access-key-never-store';
+    const url = `/v1/admin/hosting/nodes/${nodeId}/panel`;
+    for (const bad of [
+      { host: '10.0.0.5', credentials: { accessKey: KEY } }, // an IP literal is not a panel host
+      { host: 'https://panel.example.test', credentials: { accessKey: KEY } },
+      { host: 'panel.example.test', port: 70000, credentials: { accessKey: KEY } },
+      { host: 'panel.example.test', tlsPinSha256: 'abc', credentials: { accessKey: KEY } },
+      { host: 'panel.example.test', credentials: { accessKey: 'no-colon-here' } },
+      { host: 'panel.example.test' }, // the first time a key is required
+      { host: 'panel.example.test', credentials: { accessKey: KEY }, vaultRef: 'vault://x/y' },
+      { host: 'panel.example.test', credentials: { accessKey: KEY }, command: 'v-delete-user' },
+    ])
+      expect(
+        (await hh.admin('host', 'PUT', url, bad)).statusCode,
+        JSON.stringify(bad).slice(0, 60),
+      ).toBe(422);
+    expect(
+      (
+        await hh.admin('support', 'PUT', url, {
+          host: 'panel.example.test',
+          credentials: { accessKey: KEY },
+        })
+      ).statusCode,
+    ).toBe(403);
+    const ok = await hh.admin('host', 'PUT', url, {
+      host: 'Panel.Example.Test',
+      tlsPinSha256: 'aa:'.repeat(31) + 'aa',
+      credentials: { accessKey: KEY },
     });
-    await expect(nodes.enrol('wrong-token', fp, '0.1.0')).rejects.toMatchObject({
-      code: 'unauthenticated',
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({
+      panelHost: 'panel.example.test',
+      panelPort: 8083,
+      panelConfigured: true,
+      panelTlsPinned: true,
+      health: 'unknown',
     });
-    const t2 = (
-      await hh.admin('host', 'POST', `/v1/admin/hosting/nodes/${nodeId}/enrolment-tokens`)
-    ).json().token;
-    await hh.env.sql(
-      `UPDATE hosting.node_enrolment_tokens SET expires_at = now() - interval '1 minute', created_at = now() - interval '20 minutes' WHERE token_hash = $1`,
-      [sha256(t2)],
-    );
-    await expect(nodes.enrol(t2, fp, '0.1.0')).rejects.toMatchObject({ code: 'unauthenticated' });
+    const everything = JSON.stringify([ok.json(), await hh.env.sql(`SELECT * FROM hosting.nodes`)]);
+    expect(everything).not.toContain('canary-secret-access-key');
+    const [row] = await hh.env.sql(`SELECT panel_key_ref FROM hosting.nodes WHERE id = $1`, [
+      nodeId,
+    ]);
+    expect(row!.panel_key_ref).toMatch(/^vault:\/\//);
   });
   it('runs the inventory job: versions, health, runtimes from the probe, capacity sized with the reserve', async () => {
     const r = await hh.admin('host', 'POST', `/v1/admin/hosting/nodes/${nodeId}/inventory`);
     expect(r.statusCode).toBe(201);
     expect(r.json()).toMatchObject({
       health: 'healthy',
-      cloudpanelVersion: '2.5.4',
+      panelVersion: '1.9.4',
       runtimes: ['php:8.3', 'php:8.4', 'nodejs:22', 'static'],
-      agentState: 'enrolled',
+      panelConfigured: true,
     });
     const cap = (
       await hh.admin('host', 'GET', `/v1/admin/hosting/nodes/${nodeId}/capacity`)
@@ -172,7 +187,7 @@ describe('S24 nodes: registration, enrolment, inventory, activation', () => {
     expect(by.memory_mb.physical).toBe(7372);
     expect(by.sites).toMatchObject({ physical: 200, sellable: 200 });
   });
-  it('activates a healthy enrolled inventoried node; retired is refused while sites live; stale inventory blocks activation', async () => {
+  it('activates a healthy inventoried node with a panel connection; retired is refused while sites live; stale inventory blocks activation', async () => {
     let etag = (await hh.admin('host', 'GET', `/v1/admin/hosting/nodes/${nodeId}`)).headers
       .etag as string;
     const bad = await hh.admin(
@@ -238,7 +253,7 @@ describe('S24 nodes: registration, enrolment, inventory, activation', () => {
       ).statusCode,
     ).toBe(200);
   });
-  it('audits status changes and enrolment (node.status.changed, agent.enrolled)', async () => {
+  it('audits status changes and the panel connection (node.status.changed, node.panel_set)', async () => {
     const rows = await hh.env.sql(
       `SELECT action FROM audit.audit_logs WHERE action LIKE 'hosting.%' ORDER BY chain_seq`,
     );
@@ -246,7 +261,7 @@ describe('S24 nodes: registration, enrolment, inventory, activation', () => {
     expect(actions).toEqual(
       expect.arrayContaining([
         'hosting.node.created',
-        'hosting.agent.enrolled',
+        'hosting.node.panel_set',
         'hosting.node.status.changed',
       ]),
     );
@@ -366,26 +381,8 @@ describe('S24 overcommit needs dual approval; the database enforces the capacity
   });
 });
 
-describe('S24 node agent audit shipping and tenant isolation of node data', () => {
-  it('stores the shipped agent audit chain, tolerates redelivery, and refuses a broken chain', async () => {
-    const nodeId = (await hh.admin('host', 'GET', '/v1/admin/hosting/nodes')).json().items[0].id;
-    const log = hh.stack.nodes.get(nodeId) ? hh.stack.agents.get(nodeId)!.auditLog : [];
-    expect(log.length).toBeGreaterThan(0);
-    expect((await nodes.shipAudit(nodeId, log)).stored).toBe(log.length);
-    expect((await nodes.shipAudit(nodeId, log)).stored).toBe(0); // redelivery is a no-op
-    const bad = { ...log[log.length - 1]!, seq: log.length + 1, hash: 'c'.repeat(64) };
-    await expect(nodes.shipAudit(nodeId, [bad as any])).rejects.toMatchObject({ code: 'conflict' });
-    const r = await hh.admin(
-      'host',
-      'GET',
-      `/v1/admin/hosting/nodes/${nodeId}/command-log?limit=5`,
-    );
-    expect(r.statusCode).toBe(200);
-    expect(r.json().items).toHaveLength(Math.min(5, log.length));
-    expect(await sqlErr(`UPDATE hosting.node_command_log SET reason = 'x'`)).toMatch(/append-only/);
-    expect(await sqlErr(`DELETE FROM hosting.node_command_log`)).toMatch(/append-only/);
-  });
-  it('a customer (org) database scope can read no node, agent, capacity or command-log row', async () => {
+describe('S24 tenant isolation of node data and panel changes', () => {
+  it('a customer (org) database scope can read no node or capacity row', async () => {
     const c = new Client({ connectionString: hh.env.appUrl });
     await c.connect();
     try {
@@ -393,25 +390,24 @@ describe('S24 node agent audit shipping and tenant isolation of node data', () =
       await c.query(
         `SELECT set_config('app.org_id', '00000000-0000-7000-8000-00000000000a', true)`,
       );
-      for (const t of [
-        'nodes',
-        'node_agents',
-        'node_capacity',
-        'node_command_log',
-        'node_enrolment_tokens',
-        'node_overcommit_changes',
-        'site_allocations',
-      ])
+      for (const t of ['nodes', 'node_capacity', 'node_overcommit_changes', 'site_allocations'])
         expect((await c.query(`SELECT count(*)::int AS n FROM hosting.${t}`)).rows[0].n, t).toBe(0);
       await c.query('ROLLBACK');
     } finally {
       await c.end();
     }
   });
-  it('revoking the agent returns the node to maintenance and issues a new pending agent', async () => {
+  it('changing the panel connection returns an active node to maintenance with unknown health', async () => {
     const nodeId = (await hh.admin('host', 'GET', '/v1/admin/hosting/nodes')).json().items[0].id;
-    await nodes.revokeAgent(hh.staff.host!.id, nodeId);
-    const n = (await hh.admin('host', 'GET', `/v1/admin/hosting/nodes/${nodeId}`)).json();
-    expect(n).toMatchObject({ status: 'maintenance', agentState: 'pending' });
+    const r = await hh.admin('host', 'PUT', `/v1/admin/hosting/nodes/${nodeId}/panel`, {
+      host: 'moved.panel.example.test',
+    });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({
+      status: 'maintenance',
+      health: 'unknown',
+      panelHost: 'moved.panel.example.test',
+      panelConfigured: true,
+    });
   });
 });

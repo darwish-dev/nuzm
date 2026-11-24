@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { ExecDecision } from './policy';
 
 /**
- * S-AG6 (OFFLINE): the human approval workflow for execution (ADR-067 item 3; `requiresApproval` in the decision). An approval is bound to ONE decision by a digest of everything
+ * S-AG6 (OFFLINE): the human approval workflow for execution (ADR-069 item 3; `requiresApproval` in the decision). An approval is bound to ONE decision by a digest of everything
  * that will run (profile, argv, cwd, network, limits, org, run) so what a human approved is exactly what runs; it is single-use, expires, and can only be decided by a human
  * user of the same organization who holds the approve permission (the API layer resolves the permission; a model, a worker or an API key without it is never an approver).
  *

@@ -153,7 +153,7 @@ export default async function EditWorkflow({
                 key: 'id',
                 header: t(locale, 'm11.exec.col.id'),
                 render: (e) => (
-                  <a href={`/${locale}/automation/executions/${e.id}`}>
+                  <a href={`/automation/executions/${e.id}`}>
                     <Ltr>{e.id.slice(0, 8)}</Ltr>
                   </a>
                 ),

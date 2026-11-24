@@ -22,10 +22,10 @@ export function ComputeTabs({
   can: (permission: string) => boolean;
 }) {
   const tabs = [
-    { key: 'offers', href: `/${locale}/compute/offers`, perm: 'offers:read' },
-    { key: 'instances', href: `/${locale}/compute/instances`, perm: 'compute:instance:read' },
-    { key: 'new', href: `/${locale}/compute/instances/new`, perm: 'compute:instance:create' },
-    { key: 'approvals', href: `/${locale}/billing/approvals`, perm: 'spend:request' },
+    { key: 'offers', href: `/compute/offers`, perm: 'offers:read' },
+    { key: 'instances', href: `/compute/instances`, perm: 'compute:instance:read' },
+    { key: 'new', href: `/compute/instances/new`, perm: 'compute:instance:create' },
+    { key: 'approvals', href: `/billing/approvals`, perm: 'spend:request' },
   ] as const;
   return (
     <nav aria-label={t(locale, 'm05.web.nav.label')} className="nz-row nz-subnav">
@@ -61,7 +61,7 @@ export function ProblemAlert({
       <strong>{t(locale, problemKey(problem))}</strong>
       {problem.code === 'spend_approval_required' && (
         <p>
-          <a href={`/${locale}/billing/approvals`}>{t(locale, 'm05.web.err.approvalLink')}</a>
+          <a href={`/billing/approvals`}>{t(locale, 'm05.web.err.approvalLink')}</a>
           {problem.approvalId && (
             <>
               {' '}

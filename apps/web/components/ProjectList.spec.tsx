@@ -34,7 +34,7 @@ const tab = (f: string) =>
   screen.getByRole('link', { name: t('en', `m10a.proj.filter.${f}` as never) });
 const names = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
 
-beforeEach(() => window.history.replaceState(null, '', '/en/builder/projects'));
+beforeEach(() => window.history.replaceState(null, '', '/builder/projects'));
 afterEach(cleanup);
 
 describe('project list filter', () => {
@@ -47,7 +47,7 @@ describe('project list filter', () => {
     expect(tab('webapp').getAttribute('aria-current')).toBe('page');
     expect(tab('all').getAttribute('aria-current')).toBeNull();
     expect(window.location.pathname + window.location.search).toBe(
-      '/en/builder/projects?type=webapp',
+      '/builder/projects?type=webapp',
     );
     fireEvent.click(tab('mobile'));
     expect(names()).toEqual(['n-m1']);
@@ -81,6 +81,6 @@ describe('project list filter', () => {
     view();
     fireEvent.click(tab('webapp'), { ctrlKey: true });
     expect(names()).toHaveLength(4);
-    expect(tab('webapp').getAttribute('href')).toBe('/en/builder/projects?type=webapp');
+    expect(tab('webapp').getAttribute('href')).toBe('/builder/projects?type=webapp');
   });
 });

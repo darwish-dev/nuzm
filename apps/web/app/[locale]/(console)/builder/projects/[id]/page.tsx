@@ -42,10 +42,12 @@ export default async function ProjectWorkspace({
         query: { projectId: id, limit: 20 },
       });
       const sessions = await g.c.get<Page_<Session>>('/v1/ai/sessions', { query: { limit: 100 } });
-      const session =
-        (sessions.response.ok ? sessions.data?.items : undefined)?.find(
-          (s) => s.projectId === id,
-        ) ?? null;
+      // `?session=` (a chat picked in the history sidebar) opens that conversation; otherwise the project's newest one
+      const own = (sessions.response.ok ? (sessions.data?.items ?? []) : []).filter(
+        (s) => s.projectId === id,
+      );
+      const wanted = typeof sp.session === 'string' ? sp.session : undefined;
+      const session = own.find((s) => s.id === wanted) ?? own[0] ?? null;
       const msgs = session
         ? await g.c.get<Page_<Message>>(`/v1/ai/sessions/${session.id}/messages`, {
             query: { limit: 100 },
@@ -152,7 +154,7 @@ export default async function ProjectWorkspace({
               .filter((x) => g.s.can(x.perm))
               .map((x) => ({
                 key: x.key,
-                href: `/${locale}/builder/projects/${id}?panel=${x.key}`,
+                href: `/builder/projects/${id}?panel=${x.key}`,
                 label: t(locale, `bld.tab.${x.key}` as 'bld.tab.versions'),
               }))}
           />

@@ -255,7 +255,7 @@ export function AppRunProgress({
           <RunBadge locale={locale} state={run.state} />
           <Badge>{tDynamic(locale, `bld.run.kind.${run.kind}`, run.kind)}</Badge>
           <span className="nz-muted">{when(run.createdAt, locale)}</span>
-          <a href={`/${locale}/builder/runs/${run.id}`}>{t(locale, 'bld.run.details')}</a>
+          <a href={`/builder/runs/${run.id}`}>{t(locale, 'bld.run.details')}</a>
         </p>
         {run.state === 'succeeded' && (
           <p role="status">
@@ -348,7 +348,7 @@ export function AppRunProgress({
               </ul>
             )}
             <p>
-              <a className="nz-btn" data-variant="primary" href={`/${locale}/approvals`}>
+              <a className="nz-btn" data-variant="primary" href={`/approvals`}>
                 {t(locale, canApprove ? 'm10a.run.decide' : 'm10a.run.review')}
               </a>
             </p>

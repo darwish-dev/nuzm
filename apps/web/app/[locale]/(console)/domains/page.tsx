@@ -45,7 +45,7 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
           title={t(locale, 'dom.empty.title')}
           body={t(locale, 'state.empty.body')}
           action={
-            <ButtonLink href={`/${locale}/domains/search`}>{t(locale, 'dom.empty.cta')}</ButtonLink>
+            <ButtonLink href={`/domains/search`}>{t(locale, 'dom.empty.cta')}</ButtonLink>
           }
         />
       ) : (
@@ -56,7 +56,7 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
             rows={data.items}
             rowKey={(r) => r.id}
             cardIcon="domains"
-            rowHref={(r) => `/${locale}/domains/${r.id}`}
+            rowHref={(r) => `/domains/${r.id}`}
             manageLabel={t(locale, 'action.manage')}
             columns={[
               {
@@ -64,7 +64,7 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
                 card: 'title',
                 header: t(locale, 'dom.col.name'),
                 render: (r) => (
-                  <a className="nzc-dname-cell" href={`/${locale}/domains/${r.id}`}>
+                  <a className="nzc-dname-cell" href={`/domains/${r.id}`}>
                     <Ltr>{r.name}</Ltr>
                   </a>
                 ),
@@ -125,13 +125,13 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
           body={t(locale, 'dom.hero.body')}
         >
           {canTransfer && (
-            <ButtonLink variant="secondary" href={`/${locale}/domains/transfers#start`}>
+            <ButtonLink variant="secondary" href={`/domains/transfers#start`}>
               <Icon name="transfer" size={18} />
               {t(locale, 'dom.action.transfer')}
             </ButtonLink>
           )}
           {canBuy && (
-            <ButtonLink href={`/${locale}/domains/search`}>
+            <ButtonLink href={`/domains/search`}>
               <Icon name="search" size={18} />
               {t(locale, 'dom.action.buy')}
             </ButtonLink>

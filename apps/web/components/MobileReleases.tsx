@@ -26,7 +26,7 @@ export function MobileReleases({
           {onNew ? (
             <Button onClick={onNew}>{t(locale, 'mobile.releases.new')}</Button>
           ) : (
-            <ButtonLink href={`/${locale}/mobile/${projectId}/releases/new`}>
+            <ButtonLink href={`/mobile/${projectId}/releases/new`}>
               {t(locale, 'mobile.releases.new')}
             </ButtonLink>
           )}

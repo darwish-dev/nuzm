@@ -59,7 +59,7 @@ export function SnapshotsPanel(p: {
         <p className="nz-muted">{t(locale, 'm05.web.snap.readOnly')}</p>
       )}
       <p>
-        <a href={`/${locale}/operations`}>{t(locale, 'm05.web.snap.operations')}</a>
+        <a href={`/operations`}>{t(locale, 'm05.web.snap.operations')}</a>
       </p>
       {a.problem ? (
         <ProblemAlert locale={locale} problem={a.problem} />

@@ -31,3 +31,6 @@ e2e/playwright-report/
 
 # M10A: generated-app scratch directory of the app-builder tests
 apps/api/.gen-tmp/
+
+# desktop installers served by the website locally (large binaries never go in git; see apps/web/lib/desktop-downloads.ts)
+apps/web/.downloads/

@@ -71,14 +71,14 @@ export default async function Invoices({
             caption={t(locale, 'inv.title')}
             rows={page.items}
             rowKey={(i) => i.id}
-            rowHref={(i) => `/${locale}/billing/invoices/${i.id}`}
+            rowHref={(i) => `/billing/invoices/${i.id}`}
             manageLabel={t(locale, 'action.manage')}
             columns={[
               {
                 key: 'n',
                 header: t(locale, 'inv.col.number'),
                 render: (i) => (
-                  <a href={`/${locale}/billing/invoices/${i.id}`}>
+                  <a href={`/billing/invoices/${i.id}`}>
                     <Ltr>{i.number}</Ltr>
                   </a>
                 ),

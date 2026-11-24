@@ -2,7 +2,7 @@
  * LOCAL COPY of the M05 adapter contract types this module needs (owner-directed exception: M06 is built before M05 exists on this base).
  * Names and shapes mirror `packages/adapters/contracts` of branch claude/m05-provider-core-05b775 (S16, contractVersion 1.0.0) and docs/09 §1.
  * When M05 is ported onto this base, delete this file and re-point the imports to `@nuzm/adapters-contracts` (see
- * docs/reports/M06-m05-interface-assumptions.md, assumption A-01). Nothing here asserts what CloudPanel can do.
+ * docs/reports/M06-m05-interface-assumptions.md, assumption A-01). Nothing here asserts what a hosting panel can do.
  */
 export const CONTRACT_VERSION = '1.0.0';
 

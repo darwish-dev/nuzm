@@ -15,9 +15,9 @@ describe('client password check', () => {
 
 describe('safeNext', () => {
   it('keeps same-site paths only', () => {
-    expect(safeNext('/en/billing', '/en')).toBe('/en/billing');
+    expect(safeNext('/billing', '/console')).toBe('/billing');
     for (const bad of [undefined, '', 'https://evil.test', '//evil.test', '/\\evil.test', 'x'])
-      expect(safeNext(bad, '/en')).toBe('/en');
+      expect(safeNext(bad, '/console')).toBe('/console');
   });
 });
 

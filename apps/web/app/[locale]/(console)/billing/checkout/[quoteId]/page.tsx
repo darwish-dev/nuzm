@@ -39,7 +39,7 @@ export default async function Checkout({
         {q.requiresApproval && (
           <Banner tone="warn">
             {t(locale, 'chk.needsApproval')}{' '}
-            <a href={`/${locale}/billing/approvals`}>{t(locale, 'chk.approvals')}</a>
+            <a href={`/billing/approvals`}>{t(locale, 'chk.approvals')}</a>
           </Banner>
         )}
         <h2 className="nz-h2">{t(locale, 'chk.review')}</h2>
@@ -75,10 +75,10 @@ export default async function Checkout({
         </Card>
         <p className="nz-muted">{t(locale, 'chk.notPayable')}</p>
         <div className="nz-row">
-          <ButtonLink variant="secondary" href={`/${locale}/billing/quotes/${q.id}`}>
+          <ButtonLink variant="secondary" href={`/billing/quotes/${q.id}`}>
             {t(locale, 'chk.backToQuote')}
           </ButtonLink>
-          <ButtonLink variant="secondary" href={`/${locale}/billing/invoices`}>
+          <ButtonLink variant="secondary" href={`/billing/invoices`}>
             {t(locale, 'chk.invoices')}
           </ButtonLink>
         </div>

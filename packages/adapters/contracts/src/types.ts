@@ -107,6 +107,8 @@ export interface ProviderImage {
   providerRegionId: string;
   name: string;
   osFamily?: string;
+  /** The provider states the image takes cloud-init user data (Alibaba `IsSupportCloudinit`; Contabo: standard images). Absent = unknown = not usable for bootstrap. */
+  cloudInit?: boolean;
 }
 export interface CatalogSnapshot {
   takenAt: string;
@@ -123,6 +125,12 @@ export interface ProvisionRequest {
   name: string;
   diskGb?: number;
   sshPublicKeys: string[];
+  /**
+   * Optional first-boot configuration (cloud-init `#cloud-config` text, UTF-8, NOT encoded). Each adapter applies the provider's own encoding and limit and refuses
+   * (validation) what the provider cannot take. It must be byte-identical across retries of the same `idempotencyToken` (Alibaba rejects a replayed ClientToken with changed parameters).
+   * It never carries a platform secret other than a single-use registration secret.
+   */
+  userData?: string;
   /** Opaque org hash and operation id only: never names or PII (M05 §9). */
   tags: Record<string, string>;
 }

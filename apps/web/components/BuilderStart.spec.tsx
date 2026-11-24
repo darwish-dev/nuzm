@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@nuzm/i18n';
 import { BuilderStart, nameFromPrompt } from './BuilderStart';
@@ -64,7 +64,7 @@ describe('start a project (one prompt, no steps)', () => {
     screenUnderTest();
     typeIn('A website for my restaurant with a menu and table booking');
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p1'));
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
       'POST /v1/builder/projects',
       'POST /v1/ai/sessions',
@@ -100,7 +100,7 @@ describe('start a project (one prompt, no steps)', () => {
     fireEvent.click(screen.getByLabelText(new RegExp(t('en', 'bld.start.type.mobile'))));
     typeIn('A mobile app for booking padel courts');
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/m1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/m1'));
     expect(calls[0]!.body).toMatchObject({ type: 'mobile' });
     expect(calls[2]!.url).toBe('/v1/ai/sessions/s1/messages');
     expect(calls[2]!.body).toMatchObject({ content: 'A mobile app for booking padel courts' });
@@ -134,7 +134,7 @@ describe('start a project (one prompt, no steps)', () => {
     screenUnderTest();
     typeIn('Coffee shop site');
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p2'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p2'));
     const created = calls.filter((c) => c.url === '/v1/builder/projects');
     expect(created.map((c) => (c.body as { name: string }).name)).toEqual([
       'Coffee shop site',
@@ -160,7 +160,7 @@ describe('start a project (one prompt, no steps)', () => {
     go();
     await screen.findByText(t('en', 'bld.wiz.partial'), { exact: false });
     go();
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p3'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p3'));
     expect(calls.filter((c) => c.url === '/v1/builder/projects')).toHaveLength(1);
     expect(calls.filter((c) => c.url === '/v1/ai/sessions')).toHaveLength(1);
     expect(calls.filter((c) => c.url === '/v1/ai/runs')).toHaveLength(2);
@@ -181,14 +181,27 @@ describe('start a project (one prompt, no steps)', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('an example fills the prompt and selects the website type', () => {
+  it('a template fills the prompt, selects its type and, for a website, its site template', () => {
     mockFetch(() => json(500, {}));
-    screenUnderTest();
-    fireEvent.click(screen.getByLabelText(new RegExp(t('en', 'bld.start.type.mobile'))));
-    window.HTMLElement.prototype.scrollIntoView = () => undefined;
+    render(<BuilderStart locale="en" credits={wallet} canRun appsEnabled />);
+    fireEvent.click(screen.getByLabelText(new RegExp(t('en', 'bld.start.type.webapp'))));
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.tpl.button') }));
+    const dialog = screen.getByRole('dialog', { name: t('en', 'bld.tpl.title') });
+    // the popup opens on the type that is selected, with one tab per type
+    const tabs = within(dialog).getAllByRole('tab');
+    expect(tabs).toHaveLength(3);
+    expect(
+      within(dialog)
+        .getByRole('tab', { name: new RegExp(t('en', 'bld.start.type.webapp')) })
+        .getAttribute('aria-selected'),
+    ).toBe('true');
     fireEvent.click(
-      screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.ex.clinic')) }),
+      within(dialog).getByRole('tab', { name: new RegExp(t('en', 'bld.start.type.website')) }),
     );
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: new RegExp(t('en', 'bld.land.exTitle.clinic')) }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(
       (screen.getByLabelText(t('en', 'bld.start.promptLabel')) as HTMLTextAreaElement).value,
     ).toBe(t('en', 'bld.start.ex.clinic'));
@@ -196,46 +209,36 @@ describe('start a project (one prompt, no steps)', () => {
       (screen.getByLabelText(new RegExp(t('en', 'bld.start.type.website'))) as HTMLInputElement)
         .checked,
     ).toBe(true);
+    expect((screen.getByLabelText(t('en', 'bld.wiz.template')) as HTMLSelectElement).value).toBe(
+      'clinic',
+    );
   });
 
-  it('the lower section has tabs: the projects open first when there are some, the examples otherwise', () => {
-    window.HTMLElement.prototype.scrollIntoView = () => undefined;
-    const projects = <p>PROJECT-LIST</p>;
-    const { unmount } = render(
-      <BuilderStart locale="en" credits={wallet} canRun projects={projects} projectCount={3} />,
+  it('templates of a type the organization cannot start yet are shown as coming soon and cannot be used', () => {
+    render(<BuilderStart locale="en" credits={wallet} canRun />);
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'bld.tpl.button') }));
+    const dialog = screen.getByRole('dialog', { name: t('en', 'bld.tpl.title') });
+    fireEvent.click(
+      within(dialog).getByRole('tab', { name: new RegExp(t('en', 'bld.start.type.mobile')) }),
     );
-    const mine = screen.getByRole('tab', { name: new RegExp(t('en', 'bld.land.tab.projects')) });
-    const ex = screen.getByRole('tab', { name: new RegExp(t('en', 'bld.land.tab.examples')) });
-    expect(mine.getAttribute('aria-selected')).toBe('true');
-    expect(mine.textContent).toContain('3');
-    expect(screen.getByText('PROJECT-LIST')).toBeTruthy();
-    expect(screen.getByRole('tabpanel')).toBeTruthy();
-    fireEvent.click(ex);
-    expect(ex.getAttribute('aria-selected')).toBe('true');
-    expect(screen.queryByText('PROJECT-LIST')).toBeNull();
-    expect(
-      screen.getAllByRole('button', { name: new RegExp(t('en', 'bld.land.use')) }),
-    ).toHaveLength(4);
-    unmount();
-    // no projects: there is no projects tab at all for a read-only list, and with an empty list the examples lead
-    render(
-      <BuilderStart locale="en" credits={wallet} canRun projects={projects} projectCount={0} />,
-    );
-    expect(
-      screen
-        .getByRole('tab', { name: new RegExp(t('en', 'bld.land.tab.examples')) })
-        .getAttribute('aria-selected'),
-    ).toBe('true');
+    const cards = within(dialog).getAllByRole('button', {
+      name: new RegExp(t('en', 'bld.land.use')),
+    });
+    expect(cards).toHaveLength(3);
+    expect(cards.every((c) => (c as HTMLButtonElement).disabled)).toBe(true);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('the prompt and the app choice come first (one full screen), before the tabs', () => {
+  it('the start screen is the prompt alone: no projects or examples section below it', () => {
     const { container } = screenUnderTest();
     const hero = container.querySelector('.bl-hero')!;
     expect(hero.querySelector('textarea')).toBeTruthy();
     expect(hero.querySelectorAll('input[type="radio"]')).toHaveLength(3);
-    expect(hero.compareDocumentPosition(container.querySelector('.bl-more')!)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(container.querySelector('.bl-more')).toBeNull();
+    expect(
+      screen.queryByRole('tab', { name: new RegExp(t('en', 'bld.land.tab.projects')) }),
+    ).toBeNull();
   });
 
   it('without the permission to run AI the screen says so', () => {

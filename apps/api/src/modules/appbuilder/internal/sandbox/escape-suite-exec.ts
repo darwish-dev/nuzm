@@ -11,7 +11,7 @@ import { MockSandboxRuntime } from './mock-runtime';
 const AWS_KEY = 'AKIA' + 'ABCDEFGHIJKLMNOP';
 
 /**
- * ESCAPE-ATTEMPT SUITE, EXECUTION EXTENSION (suite 1.1.0, S-AG6 offline, ADR-067 item 10). Two kinds, exactly as in the base suite:
+ * ESCAPE-ATTEMPT SUITE, EXECUTION EXTENSION (suite 1.1.0, S-AG6 offline, ADR-069 item 10). Two kinds, exactly as in the base suite:
  *  - `control-plane` (EX-*): attacks on controls the CONTROL PLANE owns (the gateway policy, environment and workspace guards, output screening, artifact policy, quota, kill
  *    switch, gate, the runtime hardening specification, the refusal to run on a non-isolated runner). They run for real on any runtime and are evidence for THOSE controls only.
  *  - `isolating-runtime` (XR-*): attacks that need namespaces, seccomp, cgroups or network segmentation. They run ONLY on a runtime whose isolation is `verified`; on the mock

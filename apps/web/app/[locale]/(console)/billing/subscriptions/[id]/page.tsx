@@ -42,7 +42,7 @@ export default async function SubscriptionPage({
               stage: tDynamic(locale, `sub.dunning.stage.${sub.dunningStage}`, sub.dunningStage),
             })}{' '}
             {sub.latestInvoiceId && (
-              <a href={`/${locale}/billing/invoices/${sub.latestInvoiceId}`}>
+              <a href={`/billing/invoices/${sub.latestInvoiceId}`}>
                 {t(locale, 'sub.dunning.invoice')}
               </a>
             )}
@@ -95,7 +95,7 @@ export default async function SubscriptionPage({
           />
         )}
         <p>
-          <ButtonLink variant="secondary" href={`/${locale}/billing/plans#subscriptions`}>
+          <ButtonLink variant="secondary" href={`/billing/plans#subscriptions`}>
             {t(locale, 'sub.title')}
           </ButtonLink>
         </p>

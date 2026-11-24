@@ -11,12 +11,12 @@ export function PrivacyTabs({
   can: (permission: string) => boolean;
 }) {
   const tabs = [
-    { key: 'consents', href: `/${locale}/privacy/consents`, perm: 'privacy:consent:self' },
-    { key: 'requests', href: `/${locale}/privacy/requests`, perm: 'privacy:dsr:self' },
-    { key: 'exports', href: `/${locale}/privacy/exports`, perm: 'privacy:export:manage' },
+    { key: 'consents', href: `/privacy/consents`, perm: 'privacy:consent:self' },
+    { key: 'requests', href: `/privacy/requests`, perm: 'privacy:dsr:self' },
+    { key: 'exports', href: `/privacy/exports`, perm: 'privacy:export:manage' },
     {
       key: 'residency',
-      href: `/${locale}/settings/data-residency`,
+      href: `/settings/data-residency`,
       perm: 'privacy:residency:read',
     },
   ] as const;

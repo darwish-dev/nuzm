@@ -7,6 +7,7 @@ import { AdminAdjustmentsController } from './admin-adjustments.controller';
 import { AdminPriceBooksController } from './admin-price-books.controller';
 import { BillingSpendController } from './billing-spend.controller';
 import { QuotasController } from './quotas.controller';
+import { PublicUsagePricesController } from './public-usage-prices.controller';
 import { BillingController } from './billing.controller';
 import { AdjustmentService } from './internal/adjustment.service';
 import { BillingReadService } from './internal/billing-read.service';
@@ -32,6 +33,7 @@ import { billingManagerIds as approverIds } from '../../common/billing-managers'
 @Global()
 @Module({
   controllers: [
+    PublicUsagePricesController,
     BillingController,
     AdminBillingController,
     AdminPriceBooksController,

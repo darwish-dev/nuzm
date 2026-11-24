@@ -1,7 +1,7 @@
 /**
  * A LOCAL ACME-STYLE TEST DOUBLE for CI (M06 §2): an HTTP server on 127.0.0.1 that "issues" certificates and rate-limits like a certificate authority would
  * (a duplicate-certificate limit per domain set per week; a failed-validation limit per hour). It is NOT an RFC 8555 implementation and says nothing about how
- * Let's Encrypt behaves: real issuance goes through the node (`clpctl lets-encrypt:install:certificate`) and is BLOCKED until HG-06-01 (AC-M06-08).
+ * Let's Encrypt behaves: real issuance is `v-add-letsencrypt-domain` on the node's HestiaCP and is NOT VERIFIED until a human-run live check.
  * The clock is injectable so renewal (T-30 days) can be tested with a fake clock.
  */
 import { createServer, type Server } from 'node:http';

@@ -24,7 +24,7 @@ export default async function EmailDomains({ params }: { params: Promise<{ local
           rows={data.items}
           rowKey={(d) => d.id}
           cardIcon="mail"
-          rowHref={(d) => `/${locale}/email/domains/${d.id}`}
+          rowHref={(d) => `/email/domains/${d.id}`}
           manageLabel={t(locale, 'action.manage')}
           columns={[
             {
@@ -32,7 +32,7 @@ export default async function EmailDomains({ params }: { params: Promise<{ local
               card: 'title',
               header: t(locale, 'm8.emd.domain'),
               icon: 'globe',
-              render: (d) => <a href={`/${locale}/email/domains/${d.id}`}>{d.domain}</a>,
+              render: (d) => <a href={`/email/domains/${d.id}`}>{d.domain}</a>,
             },
             {
               key: 'p',

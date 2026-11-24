@@ -3,7 +3,7 @@ import { dataFence, wrapUntrusted } from '../untrusted';
 import { EXEC_ENV } from './policy';
 
 /**
- * S-AG6 (OFFLINE): secret and environment protection (ADR-067 item 2). The environment of a run is the constant `EXEC_ENV`. This module is the second wall behind `decideExec`:
+ * S-AG6 (OFFLINE): secret and environment protection (ADR-069 item 2). The environment of a run is the constant `EXEC_ENV`. This module is the second wall behind `decideExec`:
  *  - `checkRunEnv` verifies, immediately before a run, that the environment about to be handed to a runtime is EXACTLY the constant (no extra, no changed, no loader variable);
  *  - `checkWorkspaceFiles` refuses to seed a workspace with secret-bearing files or content;
  *  - `screenOutput` scans a run's output for secrets and canaries and redacts it before it is stored, audited or shown to anyone;

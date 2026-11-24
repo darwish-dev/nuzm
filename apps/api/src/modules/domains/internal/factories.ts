@@ -1,4 +1,10 @@
 import {
+  DYNADOT_HOSTS,
+  DYNADOT_PRODUCTION_URL,
+  DYNADOT_SANDBOX_URL,
+  DynadotAdapter,
+} from '@nuzm/adapter-dynadot';
+import {
   OpenproviderAdapter,
   OPENPROVIDER_HOSTS,
   OPENPROVIDER_PRODUCTION_URL,
@@ -48,6 +54,15 @@ export function productionFactories(cfg: DomainsConfig): Record<string, AdapterF
         http: new FetchHttpClient({ adapterId: 'openprovider', hosts: OPENPROVIDER_HOSTS }),
         vault: d.vault,
         evidenceKind: 'live',
+      }),
+    dynadot: (a, d) =>
+      new DynadotAdapter({
+        baseUrl: a.environment === 'production' ? DYNADOT_PRODUCTION_URL : DYNADOT_SANDBOX_URL,
+        http: new FetchHttpClient({ adapterId: 'dynadot', hosts: DYNADOT_HOSTS }),
+        vault: d.vault,
+        evidenceKind: 'live',
+        currency: a.currency,
+        searchBatch: typeof a.settings.searchBatch === 'number' ? a.settings.searchBatch : 1,
       }),
     resellerclub: (a, d) =>
       new ResellerClubAdapter({

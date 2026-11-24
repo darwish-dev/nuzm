@@ -1,0 +1,99 @@
+:root {
+  --bg: #f6faf9;
+  --card: #ffffff;
+  --text: #14211f;
+  --muted: #55625f;
+  --border: #dce7e4;
+  --accent: #0f766e;
+  --accent-text: #ffffff;
+  --focus: #e08a50;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1513;
+    --card: #16201e;
+    --text: #e8f1ef;
+    --muted: #a3b3af;
+    --border: #2a3835;
+    --accent: #5fd0c0;
+    --accent-text: #08201c;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+body {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px/1.6 'Segoe UI',
+    -apple-system,
+    BlinkMacSystemFont,
+    Tahoma,
+    'Geeza Pro',
+    sans-serif;
+}
+.card {
+  inline-size: min(460px, 100%);
+  padding: 40px 32px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  text-align: center;
+}
+.mark {
+  display: block;
+  margin: 0 auto 20px;
+}
+h1 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+}
+p {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.origin {
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-block-start: 24px;
+}
+button {
+  min-block-size: 44px;
+  padding: 0 22px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.status {
+  min-block-size: 1.6em;
+  margin-block-start: 16px;
+}

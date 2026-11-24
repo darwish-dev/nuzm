@@ -32,11 +32,11 @@ Background in one paragraph: the Execution Gateway, quota, queue, approvals, aud
 | **Blocks development?** | No (runner, draft attestation and verifier are ready). |
 | **Blocks activation?** | **Yes**: no LIVE-VERIFIED attestation means the service refuses to start and `runtimeVerified`/`escapeSuitePassed` stay false. |
 
-## 3. The Execution Gateway ADR (numbered ADR-067 on this line) — acceptance
+## 3. The Execution Gateway ADR (numbered ADR-069 on this line) — acceptance
 | Field | |
 |---|---|
 | **Question** | Accept the design (closed profile catalogue, fixed argv/env, approvals, quota, queue, audit, kill switch, fail-closed attested runtime) as binding? |
-| **Recommendation** | **Accept after the offline hardening addendum**, as amended by Phase 2 (attestation-gated real-runtime port; qualification runner; conformance suite). Also decide the **number**: the hosting line already claims ADR-067 (HestiaCP); the Master's plan renumbers ours to ADR-069 when the lines join. Session 04 changed no existing ADR reference and added none to new code. |
+| **Recommendation** | **Accept after the offline hardening addendum**, as amended by Phase 2 (attestation-gated real-runtime port; qualification runner; conformance suite). Also decide the **number**: the hosting line already claims ADR-069 (HestiaCP); the Master's plan renumbers ours to ADR-069 when the lines join. Session 04 changed no existing ADR reference and added none to new code. |
 | **Alternatives** | Amend first (e.g. require a microVM class, or forbid `registry-only` network entirely in the first rollout); reject (execution stays out of scope). |
 | **Evidence** | The ADR and addendum; the passing offline suites (`execution-gateway/**` 309 domain tests, sandbox 104 API tests at this checkpoint); the escape-suite 1.1.0 simulated report; the Master's independent QA findings (DEFECT-1/2/3/5 fixed). |
 | **Cost** | None. |

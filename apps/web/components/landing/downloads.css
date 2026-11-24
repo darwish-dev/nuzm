@@ -1,0 +1,197 @@
+/* Apps section: 70% desktop / 30% mobile, with captures of the real console. Identity: blue-green and orange. */
+.landing > .downloads-section {
+  --dl-teal: linear-gradient(165deg, #cfe8da 0%, #93b6b3 100%);
+  --dl-orange: linear-gradient(165deg, #f2b98c 0%, #e9a16d 100%);
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 22px;
+  align-items: stretch;
+  padding-block: 50px;
+}
+.download-card {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow: hidden;
+  min-width: 0;
+  padding: 28px 28px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card, 28px);
+  background: var(--surface);
+}
+.download-card .eyebrow {
+  color: #e9a16d;
+}
+.download-card h2 {
+  margin: 8px 0 16px;
+  font-size: clamp(24px, 2.3vw, 33px);
+  letter-spacing: -1px;
+}
+.store-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.store-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: #000;
+  font-size: 13px;
+  cursor: not-allowed;
+  user-select: none;
+}
+.store-teal {
+  background: var(--dl-teal);
+}
+.store-orange {
+  background: var(--dl-orange);
+}
+.store-button strong {
+  font-family: Manrope, 'Cairo Variable', sans-serif;
+  font-weight: 700;
+}
+.store-button small {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #0000001f;
+  color: #000;
+  font-size: 10px;
+  font-weight: 600;
+}
+/* black text and icons on every button, including the links, which would otherwise take the site's link colour */
+.landing .store-button,
+.landing a.store-button,
+.landing .store-button strong,
+.landing .store-button small {
+  color: #000;
+}
+.store-button svg {
+  color: #000;
+}
+/* a real download: clickable, lifts on hover, keyboard focus is visible */
+.landing a.store-button.store-live {
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+.landing a.store-button.store-live:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  text-decoration: none;
+}
+.landing a.store-button.store-live:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+/* how to open an unsigned build the first time, under the buttons */
+.download-help {
+  margin-top: 12px;
+  max-width: 52ch;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.download-help summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 600;
+}
+.download-help ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-inline-start: 18px;
+}
+
+/* desktop window: the capture of the dashboard, as large as the card allows */
+.desktop-shot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  background: #0b0b0c;
+  box-shadow: 0 -14px 50px #00000040;
+}
+.desk-bar {
+  display: flex;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #34383a;
+  background: #161618;
+}
+.desk-bar i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #475b66;
+}
+.desk-bar i:nth-child(1) {
+  background: #e9a16d;
+}
+.desk-bar i:nth-child(2) {
+  background: #93b6b3;
+}
+.desktop-shot img {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+  object-position: left top;
+}
+[dir='rtl'] .desktop-shot img {
+  object-position: right top;
+}
+
+/* phone: the capture of the mobile dashboard inside a bezel */
+.phone-shot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+.phone-frame {
+  display: flex;
+  width: min(100%, 270px);
+  padding: 9px 9px 0;
+  border: 1px solid #475b66;
+  border-bottom: 0;
+  border-radius: 38px 38px 0 0;
+  background: #22262d;
+  box-shadow: 0 -14px 50px #00000040;
+}
+.phone-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 30px 30px 0 0;
+}
+
+@media (max-width: 1100px) {
+  .landing > .downloads-section {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 767px) {
+  .landing > .downloads-section {
+    padding-block: 24px;
+  }
+  .download-card {
+    padding: 22px 16px 0;
+  }
+  .phone-shot {
+    max-height: 420px;
+  }
+}

@@ -232,7 +232,7 @@ describe('Data view', () => {
     expect(table.getByText('Opening')).toBeTruthy();
     expect(table.getByText('draft')).toBeTruthy();
     expect(screen.getByRole('link', { name: t('en', 'bld.dx.manage') }).getAttribute('href')).toBe(
-      '/en/builder/projects/p1/cms',
+      '/builder/projects/p1/cms',
     );
   });
   it('says so when there is nothing yet, and points to the forms and content screens', async () => {
@@ -240,7 +240,7 @@ describe('Data view', () => {
     render(<DataPane locale="en" projectId="p1" model={model} siteLocale="en" />);
     expect(await screen.findByText(t('en', 'bld.dx.empty.title'))).toBeTruthy();
     expect(screen.getByRole('link', { name: t('en', 'bld.tab.forms') }).getAttribute('href')).toBe(
-      '/en/builder/projects/p1/forms',
+      '/builder/projects/p1/forms',
     );
   });
   it('Files shows the images of the site in the chosen language; History lists the versions with the current one marked', async () => {
@@ -253,6 +253,6 @@ describe('Data view', () => {
     expect(screen.getByText(t('en', 'bld.dx.history.current'))).toBeTruthy();
     expect(
       screen.getByRole('link', { name: t('en', 'bld.dx.history.manage') }).getAttribute('href'),
-    ).toBe('/en/builder/projects/p1/versions');
+    ).toBe('/builder/projects/p1/versions');
   });
 });

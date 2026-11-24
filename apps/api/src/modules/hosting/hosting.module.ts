@@ -13,19 +13,46 @@ import { EntitlementService, PriceBookService } from '../billing';
 import { OrderService, QuotePricerRegistry } from '../commerce';
 import { ResidencyService } from '../compliance';
 import { IdentityModule } from '../identity';
-import { AdminAgentsController } from './admin-agents.controller';
 import { AdminNodesController } from './admin-nodes.controller';
 import { AdminSitesController } from './admin-sites.controller';
 import { HostingPlansController } from './hosting-plans.controller';
+import { PublicPlansController } from './public-plans.controller';
 import { AdminAbuseController } from './admin-abuse.controller';
 import { SiteAbuseController } from './site-abuse.controller';
 import { BackupDownloadsController } from './backup-downloads.controller';
 import { SiteBackupsController } from './site-backups.controller';
+import { SiteWordPressController } from './site-wordpress.controller';
+import { AdminHostingOpsController } from './admin-ops.controller';
 import { SiteDatabasesController } from './site-databases.controller';
 import { SiteDomainsController } from './site-domains.controller';
 import { SiteSslController } from './site-ssl.controller';
+import { SiteToolsController } from './site-tools.controller';
+import { SiteFilesController } from './site-files.controller';
+import { SiteMailController } from './site-mail.controller';
+import { ToolContext } from './internal/tools/tool-context';
+import { SiteToolsService } from './internal/tools/site-tools.service';
+import { FilesService } from './internal/tools/files.service';
+import { MailService } from './internal/tools/mail.service';
+import { MAIL_DNS, SystemMailDns, type MailDns } from './internal/tools/dns';
+import { SFTP_CONNECTOR, Ssh2SftpConnector, type SftpConnector } from './internal/tools/sftp';
+import { TOOLS_CONFIG, loadToolsConfig, type ToolsConfig } from './internal/tools/tools-config';
 import { SitesController } from './sites.controller';
-import { CloudPanelHostingAdapter } from './internal/cloudpanel-adapter';
+import { SealedVault } from '../../common/sealed-vault';
+import { SecretStore } from '../../common/secrets';
+import { HestiaHostingAdapter } from './internal/hestia/adapter';
+import { HestiaClient, HttpHestiaChannel } from './internal/hestia/client';
+import {
+  DbHestiaConnections,
+  SealedHestiaKeys,
+  SealedVaultPort,
+} from './internal/hestia/connections';
+import { HestiaWordPress } from './internal/hestia/wordpress';
+import { HttpSiteProbe } from './internal/hestia/site-probe';
+import { RegionDirectorySink } from './internal/hestia/directory-sink';
+import { packageName } from './internal/hestia/packages';
+import { WordPressService } from './internal/wordpress.service';
+import { RestoreDrillService } from './internal/restore-drill.service';
+import { MonitorService } from './internal/monitor.service';
 import { loadHostingConfig, type HostingConfig } from './internal/config';
 import { BackupService } from './internal/backups.service';
 import { DomainsService } from './internal/domains.service';
@@ -40,7 +67,6 @@ import { HostingQuotePricer } from './internal/hosting-pricer';
 import {
   InMemoryComputeProvisioning,
   MemoryBackupSink,
-  MemoryVault,
   MockDomainOwnershipVerifier,
   NoBackupSink,
   NoDatabaseBindingProvider,
@@ -52,9 +78,12 @@ import {
   COMPUTE_PROVISIONING,
   DATABASE_BINDING_PROVIDER,
   DOMAIN_VERIFIER,
+  SITE_PROBE,
   VAULT_PORT,
+  WORDPRESS_PORT,
+  type SiteProbe,
+  type WordPressNodePort,
   type BackupSink,
-  type CloudPanelTransport,
   type ComputeProvisioningPort,
   type DomainOwnershipVerifier,
   type HostingAdapter,
@@ -64,24 +93,13 @@ import { SiteWorkflow } from './internal/site-workflow';
 import { KIND, SitesService } from './internal/sites.service';
 import { SslService } from './internal/ssl.service';
 import {
+  HESTIA_CLIENT,
   HOSTING_ADAPTER,
   HOSTING_CONFIG,
   HOSTING_KICK,
   HOSTING_WORKER_DB,
 } from './internal/tokens';
 
-/** Until a real node agent channel exists (HG-06-01) the transport refuses: nothing is simulated inside a running API. */
-class UnavailableTransport implements CloudPanelTransport {
-  readonly mode = 'node-agent' as const;
-  async send() {
-    return {
-      status: 'failed' as const,
-      reason: 'unsupported',
-      result: 'the node agent channel is not configured',
-      rawSummary: 'no agent channel',
-    };
-  }
-}
 const prod = () => process.env.NODE_ENV === 'production';
 /** Production has no secret store until D-12/HG-01-02 is decided (M05 S16 posture): the vault port refuses instead of keeping secrets in memory. */
 class BlockedVault implements VaultPort {
@@ -92,6 +110,9 @@ class BlockedVault implements VaultPort {
     this.no();
   }
   async exists(): Promise<boolean> {
+    return this.no();
+  }
+  async read(): Promise<Buffer | null> {
     return this.no();
   }
   async delete(): Promise<void> {
@@ -114,14 +135,19 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
   imports: [IdentityModule],
   controllers: [
     AdminNodesController,
-    AdminAgentsController,
     AdminSitesController,
     HostingPlansController,
+    PublicPlansController,
     SitesController,
     SiteDomainsController,
     SiteSslController,
     SiteDatabasesController,
+    SiteToolsController,
+    SiteFilesController,
+    SiteMailController,
     SiteBackupsController,
+    SiteWordPressController,
+    AdminHostingOpsController,
     BackupDownloadsController,
     AdminAbuseController,
     SiteAbuseController,
@@ -135,11 +161,112 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
       }),
     },
     {
+      // ONE client per process: the adapter and the WordPress steps talk to the same panels (host, port, pinned TLS and access key come from the node registry and the sealed store)
+      provide: HESTIA_CLIENT,
+      useFactory: (db: Db, s: SecretStore) =>
+        new HestiaClient(
+          new DbHestiaConnections(db),
+          new SealedHestiaKeys(new SealedVault(s)),
+          new HttpHestiaChannel(),
+        ),
+      inject: [DB, SecretStore],
+    },
+    {
+      // the product adapter: HestiaCP's REST API, per node
       provide: HOSTING_ADAPTER,
-      useFactory: () => new CloudPanelHostingAdapter(new UnavailableTransport()),
+      useFactory: (
+        db: Db,
+        c: HestiaClient,
+        v: VaultPort,
+        compute: ComputeProvisioningPort,
+        sink: BackupSink,
+      ) =>
+        new HestiaHostingAdapter(c, {
+          vault: v,
+          evidenceKind: 'live',
+          // one Hestia package per plan (`nz-<key>`), created on every node by the node setup (docs/runbooks/node-onboarding.md)
+          packageFor: (_limits, planKey) => (planKey ? packageName(planKey) : 'default'),
+          archives: {
+            sink,
+            regionOf: async (nodeId) =>
+              (
+                await db.withPlatformScope(
+                  async (cl) =>
+                    (
+                      await cl.query(`SELECT data_region FROM hosting.nodes WHERE id = $1`, [
+                        nodeId,
+                      ])
+                    ).rows[0],
+                )
+              )?.data_region ?? null,
+          },
+          // no ArchiveStager here: staging an archive on a node needs a live SFTP path that is not built yet, so restores stay `unsupported` on a real node until it is (ADR-068)
+          capacityOf: async (node) => {
+            const i = await compute.describe(node.computeInstanceId);
+            return i
+              ? { cpuMillicores: i.vcpu * 1000, memoryMb: i.memoryMb, diskMb: i.diskGb * 1024 }
+              : null;
+          },
+        }),
+      inject: [DB, HESTIA_CLIENT, VAULT_PORT, COMPUTE_PROVISIONING, BACKUP_SINK],
+    },
+    {
+      provide: WORDPRESS_PORT,
+      useFactory: (c: HestiaClient) => new HestiaWordPress(c),
+      inject: [HESTIA_CLIENT],
+    },
+    {
+      provide: SITE_PROBE,
+      useFactory: (db: Db) =>
+        new HttpSiteProbe({
+          hostOf: async (nodeId) =>
+            (
+              await db.withPlatformScope(
+                async (cl) =>
+                  (await cl.query(`SELECT panel_host FROM hosting.nodes WHERE id = $1`, [nodeId]))
+                    .rows[0],
+              )
+            )?.panel_host ?? null,
+        }),
+      inject: [DB],
+    },
+    { provide: TOOLS_CONFIG, useFactory: () => loadToolsConfig() },
+    { provide: SFTP_CONNECTOR, useFactory: () => new Ssh2SftpConnector() },
+    { provide: MAIL_DNS, useFactory: () => new SystemMailDns() },
+    {
+      provide: ToolContext,
+      useFactory: (db: Db, s: SitesService, c: HestiaClient, cfg: ToolsConfig) =>
+        new ToolContext(db, s, c, cfg),
+      inject: [DB, SitesService, HESTIA_CLIENT, TOOLS_CONFIG],
+    },
+    {
+      provide: SiteToolsService,
+      useFactory: (c: ToolContext, a: AuditSink) => new SiteToolsService(c, a),
+      inject: [ToolContext, AuditSink],
+    },
+    {
+      provide: FilesService,
+      useFactory: (
+        c: ToolContext,
+        t: SiteToolsService,
+        a: AuditSink,
+        sftp: SftpConnector,
+        v: VaultPort,
+      ) => new FilesService(c, t, a, sftp, v),
+      inject: [ToolContext, SiteToolsService, AuditSink, SFTP_CONNECTOR, VAULT_PORT],
+    },
+    {
+      provide: MailService,
+      useFactory: (c: ToolContext, t: SiteToolsService, a: AuditSink, d: MailDns) =>
+        new MailService(c, t, a, d),
+      inject: [ToolContext, SiteToolsService, AuditSink, MAIL_DNS],
     },
     { provide: COMPUTE_PROVISIONING, useFactory: () => new InMemoryComputeProvisioning() },
-    { provide: VAULT_PORT, useFactory: () => (prod() ? new BlockedVault() : new MemoryVault()) },
+    {
+      provide: VAULT_PORT,
+      useFactory: (s: SecretStore) => (prod() ? new BlockedVault() : new SealedVaultPort(s)),
+      inject: [SecretStore],
+    },
     {
       provide: DOMAIN_VERIFIER,
       useFactory: () => (prod() ? new UnverifiedDomains() : new MockDomainOwnershipVerifier()),
@@ -147,7 +274,9 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
     { provide: DATABASE_BINDING_PROVIDER, useFactory: () => new NoDatabaseBindingProvider() },
     {
       provide: BACKUP_SINK,
-      useFactory: () => (prod() ? new NoBackupSink() : new MemoryBackupSink()),
+      // the off-server store of each region: directories of the backup hosts (HOSTING_BACKUP_DIR_<REGION>); none in production until D-07 is decided
+      useFactory: () =>
+        RegionDirectorySink.fromEnv() ?? (prod() ? new NoBackupSink() : new MemoryBackupSink()),
     },
     {
       provide: HOSTING_WORKER_DB,
@@ -162,8 +291,9 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
         ad: HostingAdapter,
         cp: ComputeProvisioningPort,
         cfg: HostingConfig,
-      ) => new NodesService(db, a, ad, cp, cfg),
-      inject: [DB, AuditSink, HOSTING_ADAPTER, COMPUTE_PROVISIONING, HOSTING_CONFIG],
+        s: SecretStore,
+      ) => new NodesService(db, a, ad, cp, cfg, undefined, new SealedVault(s)),
+      inject: [DB, AuditSink, HOSTING_ADAPTER, COMPUTE_PROVISIONING, HOSTING_CONFIG, SecretStore],
     },
     {
       provide: PlansService,
@@ -267,7 +397,21 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
         v: VaultPort,
         ssl: SslService,
         cfg: HostingConfig,
-      ) => new SiteWorkflow(db, a, o, s, s.capacity, ad, v, ssl, cfg),
+        wp: WordPressService,
+      ) =>
+        new SiteWorkflow(
+          db,
+          a,
+          o,
+          s,
+          s.capacity,
+          ad,
+          v,
+          ssl,
+          cfg,
+          () => new Date(),
+          (org, site, app) => (app === 'wordpress' ? wp.enqueue(org, site) : Promise.resolve()),
+        ),
       inject: [
         DB,
         AuditSink,
@@ -277,6 +421,7 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
         VAULT_PORT,
         SslService,
         HOSTING_CONFIG,
+        WordPressService,
       ],
     },
     {
@@ -389,6 +534,89 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
       ],
     },
     {
+      provide: WordPressService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        o: OperationsService,
+        s: SitesService,
+        w: WordPressNodePort,
+        p: SiteProbe,
+        v: VaultPort,
+        cfg: HostingConfig,
+        k: { handler: ((o: string, i: string) => void) | null },
+      ) =>
+        new WordPressService(
+          db,
+          a,
+          o,
+          s,
+          w,
+          p,
+          v,
+          cfg,
+          () => new Date(),
+          (org, id) => k.handler?.(org, id),
+        ),
+      inject: [
+        DB,
+        AuditSink,
+        OperationsService,
+        SitesService,
+        WORDPRESS_PORT,
+        SITE_PROBE,
+        VAULT_PORT,
+        HOSTING_CONFIG,
+        HOSTING_KICK,
+      ],
+    },
+    {
+      provide: RestoreDrillService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        o: OperationsService,
+        s: SitesService,
+        ad: HostingAdapter,
+        p: SiteProbe,
+        cfg: HostingConfig,
+        k: { handler: ((o: string, i: string) => void) | null },
+      ) =>
+        new RestoreDrillService(
+          db,
+          a,
+          o,
+          s,
+          ad,
+          p,
+          cfg.defaultDomainSuffix,
+          () => new Date(),
+          (org, id) => k.handler?.(org, id),
+        ),
+      inject: [
+        DB,
+        AuditSink,
+        OperationsService,
+        SitesService,
+        HOSTING_ADAPTER,
+        SITE_PROBE,
+        HOSTING_CONFIG,
+        HOSTING_KICK,
+      ],
+    },
+    {
+      provide: MonitorService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        ad: HostingAdapter,
+        sink: BackupSink,
+        s: SitesService,
+        cfg: HostingConfig,
+      ) => new MonitorService(db, a, ad, sink, s, cfg),
+      inject: [DB, AuditSink, HOSTING_ADAPTER, BACKUP_SINK, SitesService, HOSTING_CONFIG],
+    },
+    {
       provide: HostingJobs,
       useFactory: (
         o: OperationsService,
@@ -403,8 +631,16 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
         ab: AbuseService,
         mt: HostingMetering,
         dh: DunningHook,
+        wp: WordPressService,
+        dr: RestoreDrillService,
+        mon: MonitorService,
       ) => {
         const j = new HostingJobs(o, db, w, ssl, wdb ? new OperationsService(wdb) : null);
+        j.register(KIND.wordpress, (op) => wp.execute(op));
+        j.register(KIND.drill, (op) => dr.execute(op));
+        j.registerOnFailed(KIND.wordpress, (org, input, msg) =>
+          wp.failed(org, input.siteId as string, msg),
+        );
         j.register(KIND.backup, (op) => b.execute(op));
         j.register(KIND.restore, (op) => b.executeRestore(op));
         j.register(KIND.migrate, (op) => m.execute(op));
@@ -416,6 +652,9 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
         j.registerSweep('metering', () => mt.accrue());
         j.registerSweep('dunning', () => dh.reconcile());
         j.registerSweep('retention', () => b.sweepRetention());
+        j.registerSweep('backup-schedule', () => b.scheduleDue());
+        j.registerSweep('wordpress', () => wp.sweep());
+        j.registerSweep('monitor', () => mon.sweep());
         j.registerSweep('bandwidth-period', () => u.newPeriodReinstate());
         k.handler = (org, id) => j.kick(org, id);
         return j;
@@ -433,6 +672,9 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
         AbuseService,
         HostingMetering,
         DunningHook,
+        WordPressService,
+        RestoreDrillService,
+        MonitorService,
       ],
     },
     {
@@ -445,6 +687,10 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
     },
   ],
   exports: [
+    WordPressService,
+    RestoreDrillService,
+    MonitorService,
+    SiteToolsService,
     AbuseService,
     HostingMetering,
     DunningHook,

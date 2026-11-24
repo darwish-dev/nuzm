@@ -88,7 +88,7 @@ export default async function Statements({
             {st.provisional && <Badge tone="warn">{t(locale, 'm11.st.provisional')}</Badge>}
             <ButtonLink
               variant="secondary"
-              href={`/${locale}/reseller/statements/export?period=${st.period}`}
+              href={`/reseller/statements/export?period=${st.period}`}
             >
               {t(locale, 'm11.st.csv')}
             </ButtonLink>

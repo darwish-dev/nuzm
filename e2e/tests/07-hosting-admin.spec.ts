@@ -21,7 +21,7 @@ const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[]
  * Admin hosting screens UI-M06-11..15 (read-only; the drain/overcommit dual-approval modal, suspend/resume and abuse action forms are NOT BUILT).
  * Seeds its own node. STATUS: written, NOT RUN (the E2E ports belong to another session; see the M06 report).
  */
-test('admin hosting: nodes, node capacity, cross-org sites, abuse queue, agents (ar/en, axe, forbidden state)', async ({
+test('admin hosting: servers, server panel connection and capacity, cross-org sites, abuse queue (ar/en, axe, forbidden state)', async ({
   page,
   browser,
 }, info) => {
@@ -89,9 +89,7 @@ test('admin hosting: nodes, node capacity, cross-org sites, abuse queue, agents 
   await expect(page.getByRole('table')).toBeVisible();
   await audit(page, info, 'admin-hosting-nodes');
   await page.goto(`${ADMIN}/${L}/hosting/nodes/${node.id}`);
-  await expect(
-    page.getByRole('heading', { name: T(info, 'host.admin.capacity') }).or(page.getByRole('table')),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: T(info, 'hnode.panel.title') })).toBeVisible();
   await audit(page, info, 'admin-hosting-node');
   await page.goto(`${ADMIN}/${L}/hosting/sites`);
   await expect(page.getByText(T(info, 'host.admin.cross'))).toBeVisible();
@@ -99,7 +97,4 @@ test('admin hosting: nodes, node capacity, cross-org sites, abuse queue, agents 
   await page.goto(`${ADMIN}/${L}/hosting/abuse`);
   await expect(page.getByRole('heading', { name: T(info, 'host.admin.abuse') })).toBeVisible();
   await audit(page, info, 'admin-hosting-abuse');
-  await page.goto(`${ADMIN}/${L}/hosting/agents`);
-  await expect(page.getByRole('heading', { name: T(info, 'host.admin.agents') })).toBeVisible();
-  await audit(page, info, 'admin-hosting-agents');
 });

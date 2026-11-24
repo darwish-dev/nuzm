@@ -44,7 +44,7 @@ describe('add a website', () => {
       target: { value: 'Shop.Example.com' },
     });
     fireEvent.click(screen.getByRole('button', { name: t('en', 'host.new.go') }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/hosting/sites/s1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/hosting/sites/s1'));
     expect(post.mock.calls[0]![0]).toBe('/v1/quotes');
     expect(post.mock.calls[0]![1].body).toEqual({
       kind: 'hosting',

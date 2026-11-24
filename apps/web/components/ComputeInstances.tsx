@@ -19,7 +19,7 @@ export function InstancesPanel(p: {
         body={t(locale, 'm05.web.instances.empty.body')}
         action={
           p.canCreate ? (
-            <ButtonLink href={`/${locale}/compute/instances/new`}>
+            <ButtonLink href={`/compute/instances/new`}>
               {t(locale, 'm05.web.instances.create')}
             </ButtonLink>
           ) : undefined
@@ -33,7 +33,7 @@ export function InstancesPanel(p: {
         rows={p.items}
         rowKey={(i) => i.id}
         cardIcon="cloud"
-        rowHref={(i) => `/${locale}/compute/instances/${i.id}`}
+        rowHref={(i) => `/compute/instances/${i.id}`}
         manageLabel={t(locale, 'action.manage')}
         columns={[
           {
@@ -41,7 +41,7 @@ export function InstancesPanel(p: {
             card: 'title',
             header: t(locale, 'field.name'),
             render: (i) => (
-              <a href={`/${locale}/compute/instances/${i.id}`}>
+              <a href={`/compute/instances/${i.id}`}>
                 <Ltr>{i.name}</Ltr>
               </a>
             ),
@@ -96,7 +96,7 @@ export function InstancesPanel(p: {
         <p>
           <ButtonLink
             variant="secondary"
-            href={`/${locale}/compute/instances${queryString({ cursor: p.nextCursor })}`}
+            href={`/compute/instances${queryString({ cursor: p.nextCursor })}`}
           >
             {t(locale, 'm05.web.page.next')}
           </ButtonLink>

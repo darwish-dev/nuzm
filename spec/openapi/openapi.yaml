@@ -109,6 +109,48 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /v1/docs-feedback:
+    post:
+      operationId: rateDocumentation
+      tags: [platform]
+      summary: Rate a documentation page (Was this helpful?)
+      description: 'Public: no sign-in, no cookie. Body {page, score, locale}: page is a documentation address (`/docs`, `/docs/guides/<slug>` or `/docs/reference/<area>`), score is good, okay or bad, locale is ar or en. Nothing identifying is stored: the vote is kept with a salted SHA-256 of the client address, agent and UTC day, so it cannot be traced back or followed across days. One vote per page, client and day: a second vote the same day replaces the first, so it takes no Idempotency-Key and a retry never double counts. Rate limited per client and overall (429). 404 while collection is switched off (it is off in production until DOCS_FEEDBACK_ENABLED=true and a DOCS_FEEDBACK_SALT are set).'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DocsFeedbackVote' }
+      responses:
+        '204': { description: Recorded }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/admin/docs-feedback:
+    get:
+      operationId: getDocsFeedback
+      tags: [platform]
+      summary: Documentation ratings per page
+      description: 'Counts of good, okay and bad votes per documentation page over the last `days` days (1..365, default 30), most voted first. Counts only. Requires admin:reports:read.'
+      x-nuzm-platform-permission: admin:reports:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: days,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 365, default: 30 },
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocsFeedbackSummary' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/auth/oidc/login:
     get:
       operationId: oidcLogin
@@ -4180,7 +4222,7 @@ paths:
       operationId: adminListProviders
       tags: [cloud]
       summary: 'List providers'
-      description: 'Registered providers (alibaba, huawei, contabo, cloudpanel, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.'
+      description: 'Registered providers (alibaba, huawei, contabo, hestia, mock) with their adapter id and whether an adapter implementation is available in this deployment. Real vendor adapters arrive in S18-S22; until then adapterAvailable is false and verification fails honestly.'
       x-nuzm-platform-permission: admin:provider:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -4241,6 +4283,126 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-network:
+    get:
+      operationId: adminListProviderNetwork
+      tags: [cloud]
+      summary: 'List provisioning network settings'
+      description: 'The vSwitch / VPC / subnet / security group / project ids typed in the console per provider and region (Alibaba and Huawei). Resource identifiers only: never credentials.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderNetworkList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-network/{providerKey}/{regionId}:
+    put:
+      operationId: adminSaveProviderNetwork
+      tags: [cloud]
+      summary: 'Save the provisioning network settings of one region'
+      description: 'alibaba: {vSwitchId, securityGroupId, zoneId?}. huawei: {vpcId, subnetId, securityGroupId, availabilityZone?, projectId?}. Each value is a resource id (3 to 100 letters, digits, . _ -). Takes effect at once for provisioning; a region with no row is not configured and provisioning there is refused. Audited as provider.network_settings.saved (field names only).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: providerKey,
+            in: path,
+            required: true,
+            schema: { type: string, enum: [alibaba, huawei] },
+          }
+        - { name: regionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderNetworkSetting' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: adminDeleteProviderNetwork
+      tags: [cloud]
+      summary: 'Remove the provisioning network settings of one region'
+      description: 'The region becomes not configured. Audited as provider.network_settings.removed.'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: providerKey,
+            in: path,
+            required: true,
+            schema: { type: string, enum: [alibaba, huawei] },
+          }
+        - { name: regionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/connect:
+    post:
+      operationId: adminConnectProviderAccount
+      tags: [cloud]
+      summary: 'Connect a provider with credentials typed in the console'
+      description: "Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider's adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created."
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderAccountConnect' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/provider-accounts/{id}/credentials:
+    put:
+      operationId: adminReplaceProviderCredentials
+      tags: [cloud]
+      summary: 'Replace the credentials of a provider account'
+      description: 'Body {credentials} (same field sets as adminConnectProviderAccount). Stores a new sealed entry, re-points the account at it and clears its verification time: verify it again. The replaced entry is deleted. Same profile limits as adminConnectProviderAccount. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.credentials_changed (references and field names only).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderCredentialsReplace' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/admin/provider-accounts:
     get:
       operationId: adminListProviderAccounts
@@ -4821,6 +4983,204 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances/{id}/panel:
+    get:
+      operationId: getComputeInstancePanel
+      tags: [cloud]
+      summary: 'The control panel install of a server (HestiaCP) and its link state'
+      description: 'Only for a server ordered with the panel installed automatically (404 otherwise). Staged status: create server, wait for boot, install panel, register link, readiness test, then ready or needs attention; a `held` order waits for provider capacity in the SOLD region (it is never moved to another one). `panelLink` is `lost` when Nuzm can no longer reach the panel (the customer has root); start/stop/restart go through the provider API and stay available. Requires permission `compute:instance:read`.'
+      x-nuzm-permission: compute:instance:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelInstall' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances/{id}/panel/retry:
+    post:
+      operationId: retryComputeInstancePanel
+      tags: [cloud]
+      summary: 'Resume a panel install that needs attention (same server)'
+      description: "Never creates, replaces or wipes a server. Problems on Nuzm's side (readiness, DNS, node registration, secret store) continue from their stage; when the bootstrap did not finish on the server the registration window of the SAME order and server is extended and the response carries the command to re-run the script that is still on the server (`rerun_bootstrap`). A failed integrity check of the pinned installer is not resumable on that server (409 invalid_state). Idempotent per Idempotency-Key. Requires permission `compute:instance:act`."
+      x-nuzm-permission: compute:instance:act
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelRetryResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/bootstrap/panel/events:
+    post:
+      operationId: panelBootstrapEvent
+      tags: [cloud]
+      summary: 'Progress report of the panel bootstrap running on a new server'
+      description: 'Called by the bootstrap script on the server. Unauthenticated by design: the single-use registration secret (`Authorization: Bearer nzr1.<registration id>.<secret>`) is the credential; it is bound to one order and one server, short-lived (the window starts when the provider created the server) and stored only as a SHA-256. 401 unknown secret, 409 the server is not recorded yet (retry), 410 the window ended, 429 rate limited.'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PanelBootstrapEvent' }
+      responses:
+        '204': { description: Recorded }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/bootstrap/panel/register:
+    post:
+      operationId: panelBootstrapRegister
+      tags: [cloud]
+      summary: 'Register the new panel (single use)'
+      description: "Called once by the bootstrap script. The secret is consumed atomically; the caller's address must be one of the server's public addresses AS THE PROVIDER REPORTS THEM, and the provider's record must show the server running in the sold region (403 otherwise: the secret is NOT consumed). The panel access key is a read-only profile; it is sealed on receipt and only a vault reference is stored. Repeating the same registration from the same server after a lost answer returns `already_registered`; any other repeat is 409. 503 when the provider or the secret store cannot answer (the script retries)."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PanelBootstrapRegister' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelBootstrapRegisterResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-images:
+    get:
+      operationId: adminListPanelImages
+      tags: [cloud]
+      summary: 'Provider images and their HestiaCP verification'
+      description: 'Every catalogued image with whether the provider states cloud-init for it, the operating system HestiaCP would see, and its approval (version, evidence kind, who approved). Only an approved image on a sold placement is offered to customers.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: accountId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: regionId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelImageList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-images/{imageId}:
+    put:
+      operationId: adminApprovePanelImage
+      tags: [cloud]
+      summary: 'Approve an image for the configured HestiaCP version'
+      description: 'Body {evidenceKind: live|fixture|mock, evidenceNote}. 422 unless the provider states cloud-init for the image AND HestiaCP documents its operating system (Debian 12/13, Ubuntu 22.04/24.04/26.04) AND the product is configured. `live` is for an install actually performed on that provider; `fixture`/`mock` are labelled and refused as mock in production. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.approved).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: imageId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PanelImageApprove' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approvalId]
+                properties:
+                  approvalId: { type: string, format: uuid }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-image-approvals/{approvalId}:
+    delete:
+      operationId: adminRevokePanelImageApproval
+      tags: [cloud]
+      summary: 'Withdraw an image approval'
+      description: 'The image stops being offered at once; an order already placed re-checks at execution and is released without charge. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.revoked).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: approvalId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Withdrawn }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-installs:
+    get:
+      operationId: adminListPanelInstalls
+      tags: [cloud]
+      summary: 'Panel installs across organizations'
+      description: 'Most recently changed first; filter by stage (e.g. needs_attention, held). Platform only; carries provider and region (internal), never a secret.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: stage,
+            in: query,
+            required: false,
+            schema:
+              {
+                type: string,
+                enum:
+                  [
+                    create_server,
+                    waiting_boot,
+                    installing_panel,
+                    registering,
+                    readiness,
+                    ready,
+                    needs_attention,
+                    held,
+                  ],
+              },
+          }
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 200 },
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelInstallAdminList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   /v1/compute/instances/{id}/metrics:
     get:
       operationId: getComputeInstanceMetrics
@@ -6129,7 +6489,7 @@ paths:
       operationId: listHostingNodes
       tags: [hosting]
       summary: List hosting nodes
-      description: 'Platform-operated nodes (CloudPanel nodes managed through the node agent). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.'
+      description: 'Platform-operated hosting nodes (servers running HestiaCP, reached through its REST API). Filters status and dataRegion. Permission `admin:hosting:read` (hosting_admin, platform_admin, support, security); admin-realm session. Customers never see nodes.'
       x-nuzm-platform-permission: admin:hosting:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -6152,7 +6512,7 @@ paths:
       operationId: createHostingNode
       tags: [hosting]
       summary: Register a hosting node on a platform-owned compute instance
-      description: 'Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with a pending agent and a single-use enrolment token (returned ONCE, stored hashed, 15 minutes). A replay with the same computeInstanceId returns the existing node (200) without a token. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).'
+      description: 'Takes the opaque computeInstanceId of a running compute instance (M05); the node is created in `maintenance` with no panel connection yet (set it with PUT …/panel). A replay with the same computeInstanceId returns the existing node (200). Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.node.created`).'
       x-nuzm-platform-permission: admin:hosting:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -6202,7 +6562,7 @@ paths:
       operationId: patchHostingNode
       tags: [hosting]
       summary: Change a node status or overcommit factor
-      description: 'status is active|draining|maintenance|retired: a node becomes `active` only with an enrolled agent, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.'
+      description: 'status is active|draining|maintenance|retired: a node becomes `active` only with a panel connection, healthy fresh inventory and reported runtimes; `retired` only with no live sites; a draining node receives no new placements. overcommit is DUAL APPROVAL: `{factor, reason, approverId}` requests a change (the approver must hold admin:hosting:approve and be a different person), `{changeId, decision: approve|reject}` is the approver deciding (permission admin:hosting:approve); an approved factor above 1.0 raises sellable capacity and is audited (`hosting.node.overcommit.changed`). Needs If-Match, MFA step-up, permission admin:hosting:manage.'
       x-nuzm-platform-permission: admin:hosting:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -6252,7 +6612,7 @@ paths:
       operationId: runHostingNodeInventory
       tags: [hosting]
       summary: Run the inventory job for a node now
-      description: 'Probe + inventory through the node agent: versions, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The agent must be enrolled (409 otherwise). Permission admin:hosting:manage, MFA step-up.'
+      description: "Probe + inventory through the node's HestiaCP panel (this is the connection test): version, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The panel connection must be set (409 otherwise). Permission admin:hosting:manage, MFA step-up."
       x-nuzm-platform-permission: admin:hosting:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -6268,66 +6628,33 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
-  /v1/admin/hosting/nodes/{id}/enrolment-tokens:
-    post:
-      operationId: issueHostingEnrolmentToken
+  /v1/admin/hosting/nodes/{id}/panel:
+    put:
+      operationId: setHostingNodePanel
       tags: [hosting]
-      summary: Issue a single-use agent bootstrap token
-      description: 'Invalidates any earlier unused token of the node. The token is returned once and stored hashed; it expires after 15 minutes and works exactly once. Needs Idempotency-Key, permission admin:hosting:manage, MFA step-up. Audited (`hosting.agent.enrolment_token.issued`).'
+      summary: Set how a node's HestiaCP panel is reached
+      description: 'Body {host (the panel''s fully qualified domain name: no IP literal, no scheme), port? (default 8083), tlsPinSha256? (SHA-256 fingerprint of a self-signed panel certificate; unset = normal certificate-authority validation), and EITHER credentials {accessKey: "ACCESS_KEY_ID:SECRET_ACCESS_KEY"} OR vaultRef (vault://…)}. A typed key is write-only: accepted outside production only (the production vault is undecided, D-12), sealed on the server, and only the vault reference is stored; it is never returned, logged or audited. Any change clears the node''s health and returns an active node to maintenance: run the inventory (the connection test) again before activating it. Needs admin:hosting:manage and a recent MFA check. Audited (hosting.node.panel_set).'
       x-nuzm-platform-permission: admin:hosting:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { $ref: '#/components/parameters/IdempotencyKey' }
-      responses:
-        '201':
-          description: Issued
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/HostingEnrolmentToken' }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-  /v1/admin/hosting/nodes/{id}/command-log:
-    get:
-      operationId: listHostingNodeCommandLog
-      tags: [hosting]
-      summary: The node agent command audit log
-      description: 'Newest first. Every envelope decision the agent made (accepted, rejected with the reason, executed, failed), shipped hash-chained from the node.'
-      x-nuzm-platform-permission: admin:hosting:read
-      x-nuzm-realm: admin
-      security: [{ sessionCookie: [], csrfHeader: [] }]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { $ref: '#/components/parameters/Limit' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetHostingNodePanel' }
       responses:
         '200':
           description: Success
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/HostingCommandLog' }
+              schema: { $ref: '#/components/schemas/HostingNode' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
-  /v1/admin/hosting/agents:
-    get:
-      operationId: listHostingAgents
-      tags: [hosting]
-      summary: List node agents
-      description: 'Agent state, version, last seen and certificate rotation time per node.'
-      x-nuzm-platform-permission: admin:hosting:read
-      x-nuzm-realm: admin
-      security: [{ sessionCookie: [], csrfHeader: [] }]
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/HostingAgentList' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /v1/hosting/plans:
     get:
       operationId: listHostingPlans
@@ -6346,6 +6673,65 @@ paths:
               schema: { $ref: '#/components/schemas/HostingPlanList' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+  /v1/public/hosting-plans:
+    get:
+      operationId: listPublicHostingPlans
+      tags: [hosting]
+      summary: List the published hosting plans (public)
+      description: "The plans the owner has published: active, with a price that is not a placeholder, cheapest first. No sign-in and no organization, so there is no capacity or residency check here: whether a plan can be bought for an account and region is only ever confirmed by `/v1/offers`. Used by the public website's plan sections. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default)."
+      security: []
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHostingPlanList' }
+  /v1/public/compute-plans:
+    get:
+      operationId: listPublicComputePlans
+      tags: [cloud]
+      summary: List the server sizes the website shows (public)
+      description: 'The eligible compute offers without any organization, grouped by size (vCPU, memory, disk) with the cheapest monthly price per size and the data-region groups it is offered in. A size appears only when a healthy provider account, a verified region (with acceptable evidence for the environment), an available plan and a Nuzm price all exist; priced from the same price book as `/v1/offers` (the placeholder book is refused in production). Residency, entitlement and quota are decided when an organization orders. No provider identity or provider cost. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).'
+      security: []
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicComputePlanList' }
+  /v1/public/usage-prices:
+    get:
+      operationId: listPublicUsagePrices
+      tags: [billing]
+      summary: List the published usage prices (public)
+      description: 'The pay-as-you-use rates of the price book version in force for a short fixed list of meters (transactional email, object storage, network egress, AI credits). Same book and same production refusal as rating: the DRAFT-NOT-APPROVED placeholder book is never published in production (the list is then empty). Nothing organization specific. An empty list is answered while `PUBLIC_PLANS_ENABLED` is off (production default).'
+      security: []
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicUsagePriceList' }
+  /v1/public/domains/search:
+    get:
+      operationId: searchDomainsPublic
+      tags: [domains]
+      summary: Check domain availability and price (public)
+      description: "The website's domain checker: the same answer and rules as `/v1/domains/search` (verified registrar accounts only, unknown is never available, price from the same sales policy) with no organization. No sign-in; rate limited per caller address (429); nothing is recorded about the caller. Buying always happens in the dashboard. 404 while off (`PUBLIC_DOMAIN_SEARCH_ENABLED` in production, or the domains feature off)."
+      security: []
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 253 } }
+        - { name: tlds, in: query, schema: { type: string } }
+        - { name: country, in: query, schema: { type: string, minLength: 2, maxLength: 2 } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainSearchResult' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
   /v1/hosting/sites:
     post:
       operationId: createHostingSite
@@ -6687,7 +7073,7 @@ paths:
       operationId: createHostingSiteBackup
       tags: [hosting]
       summary: Create a backup of a site
-      description: 'Encrypted on the node with the PER-SITE key and stored in the backup sink of the site region (residency checked, 403 residency_denied). 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.'
+      description: "HestiaCP schedules the archive and uploads it to the node's remote backup host; the platform then finds it OFF the node in the store of the site's region and records its size and sha256 (residency checked, 403 residency_denied). Hestia documents no encryption of its archives: the `encrypted` flag of the backup says so. 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key."
       x-nuzm-permission: hosting:backup:create
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
       parameters:
@@ -6760,7 +7146,7 @@ paths:
       operationId: downloadHostingBackup
       tags: [hosting]
       summary: Download a backup archive
-      description: 'Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the encrypted per-site archive.'
+      description: 'Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the panel archive as stored (see `encrypted` on the backup).'
       x-nuzm-permission: hosting:backup:read
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
       parameters:
@@ -6803,6 +7189,92 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress:
+    get:
+      operationId: getHostingSiteWordPress
+      tags: [hosting]
+      summary: Installation state of a site's Managed WordPress
+      description: "The state is `ready` only after the site was LOOKED AT over HTTP: it answers, no installer redirect, and `wp-login.php` is served. 404 for a site without a managed application and for another organization's site. Never contains a password."
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPress' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress/retry:
+    post:
+      operationId: retryHostingSiteWordPress
+      tags: [hosting]
+      summary: Retry a failed WordPress installation
+      description: 'Only a `failed` installation (409 otherwise). The retry resumes from what the site shows: an existing download, configuration, database or installation is kept, WP-CLI never overwrites them. 202 + operation. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPressRetryResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress/admin-resets:
+    post:
+      operationId: resetHostingSiteWordPressAdmin
+      tags: [hosting]
+      summary: Set a new WordPress admin password
+      description: 'Runs `wp user update` as the site user with a generated password and opens a NEW one-time handover (the old password may be lost or already used). Only a `ready` installation set up by the platform. 202 + operation. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPressResetResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress/handover:
+    post:
+      operationId: handoverHostingSiteWordPress
+      tags: [hosting]
+      summary: Read the WordPress admin access ONCE
+      description: 'The one-time secure handover: the first successful call returns the admin username and the generated password and consumes them (the secret is deleted from the vault); a second call, parallel or later, is 409 (already used) and an unread handover expires after 7 days (410). The response is `Cache-Control: no-store`. Deliberately takes NO Idempotency-Key: an idempotency replay would keep the password. Audited.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'The access, once'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPressHandover' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
   /v1/hosting/sites/{id}/usage:
     get:
       operationId: getHostingSiteUsage
@@ -6823,6 +7295,798 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/tools:
+    get:
+      operationId: getHostingSiteTools
+      tags: [hosting]
+      summary: Which tools work for this website
+      description: 'The capability report of the website tools (files, cron, logs, FTP, protection, PHP, business email) for THIS website, panel version, caller role, plan and connection state: each tool is available or unavailable with a reason (role, site_state, connection, panel_version, panel_service, plan). Every tool is NOT VERIFIED until a human-run probe on a real node.'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingToolsReport' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/cron-jobs:
+    get:
+      operationId: listHostingCronJobs
+      tags: [hosting]
+      summary: List the scheduled jobs
+      description: 'Read from the panel (v-list-cron-jobs) for the site account, with the plan limit.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCronList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createHostingCronJob
+      tags: [hosting]
+      summary: Create a scheduled job
+      description: 'Validates the five-field schedule (digits and * , / - only) and the minimum interval (default 5 minutes), counts the plan limit under a per-site lock, and runs v-add-cron-job for the site account; a lost answer is reconciled against v-list-cron-jobs before any retry. The command runs as the sites own unprivileged account. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HostingCronJobInput' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCronJob' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/cron-jobs/{job}:
+    put:
+      operationId: updateHostingCronJob
+      tags: [hosting]
+      summary: Change a scheduled job
+      description: 'v-change-cron-job USER JOB MIN HOUR DAY MONTH WDAY CMD, with the same validation as creation.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: job, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HostingCronJobInput' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCronJob' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteHostingCronJob
+      tags: [hosting]
+      summary: Delete a scheduled job
+      description: 'v-delete-cron-job. A job that is already gone is 404.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: job, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/logs:
+    get:
+      operationId: getHostingSiteLogs
+      tags: [hosting]
+      summary: Read the web logs of a domain
+      description: 'The last N lines (1 to 500, default 100) of the access or error log of a domain of the site (v-list-web-domain-accesslog / -errorlog, plain format). The answer is cut again to N lines and every line to a bounded length.'
+      x-nuzm-permission: hosting:logs:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: kind, in: query, required: false, schema: { type: string, enum: [access, error] }, description: 'access or error (default error)' }
+        - { name: lines, in: query, required: false, schema: { type: integer }, description: '1 to 500' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingLogs' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/ftp-accounts:
+    get:
+      operationId: listHostingFtpAccounts
+      tags: [hosting]
+      summary: List the FTP accounts
+      description: 'Read from the web domains of the site account on the panel (FTP_USER, FTP_PATH of v-list-web-domains), with the plan limit. Offered only when the node reports an FTP service.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFtpList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createHostingFtpAccount
+      tags: [hosting]
+      summary: Create an FTP account
+      description: 'v-add-web-domain-ftp USER DOMAIN FTP_USER FTP_PASSWORD [FTP_PATH]. The plan limit is counted under a per-site lock; the password is sent to the panel once and never stored, logged or audited; the account name is read back from the panel. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingFtpAccount' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFtpAccount' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}/password:
+    put:
+      operationId: setHostingFtpPassword
+      tags: [hosting]
+      summary: Change an FTP password
+      description: 'v-change-web-domain-ftp-password. The password is never stored, logged or audited.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: user, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetHostingPassword' }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}:
+    delete:
+      operationId: deleteHostingFtpAccount
+      tags: [hosting]
+      summary: Delete an FTP account
+      description: 'v-delete-web-domain-ftp.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: user, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/protection:
+    get:
+      operationId: listHostingProtection
+      tags: [hosting]
+      summary: List password-protected domains
+      description: 'Read from the web domains of the site account (AUTH_USER), with the plan limit.'
+      x-nuzm-permission: hosting:protection:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingProtectionList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createHostingProtectionUser
+      tags: [hosting]
+      summary: Protect a domain with a password
+      description: 'v-add-web-domain-httpauth USER DOMAIN AUTH_USER AUTH_PASSWORD. The password is never stored, logged or audited. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:protection:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingProtectionUser' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingProtectionUser' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/protection/{domain}/{user}:
+    delete:
+      operationId: deleteHostingProtectionUser
+      tags: [hosting]
+      summary: Remove a protection user
+      description: 'v-delete-web-domain-httpauth.'
+      x-nuzm-permission: hosting:protection:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: user, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files:
+    get:
+      operationId: listHostingFiles
+      tags: [hosting]
+      summary: Browse the website folder
+      description: 'Lists a folder of the website over SFTP as the site account. The path is relative and proven to stay inside the website folder; links are shown and never followed. At most 1000 entries.'
+      x-nuzm-permission: hosting:files:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileList' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteHostingFile
+      tags: [hosting]
+      summary: Delete a file or folder
+      description: 'Deletes a file, a link (the link only) or a folder (recursive=true for a non-empty one, bounded entries). Never follows a link.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - { name: recursive, in: query, required: false, schema: { type: boolean } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileRemoved' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/download:
+    get:
+      operationId: downloadHostingFile
+      tags: [hosting]
+      summary: Download a file
+      description: 'The file bytes as an attachment (up to 50 MB). Links are not followed.'
+      x-nuzm-permission: hosting:files:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      responses:
+        '200':
+          description: 'The file bytes (attachment)'
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/text:
+    get:
+      operationId: readHostingTextFile
+      tags: [hosting]
+      summary: Open a text file for editing
+      description: 'UTF-8 text up to 1 MB with its SHA-256; other files are refused.'
+      x-nuzm-permission: hosting:files:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileText' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: saveHostingTextFile
+      tags: [hosting]
+      summary: Save a text file
+      description: 'Replaces the file only when expectedSha256 is the hash of the content that was opened (409 conflict otherwise); written through a temporary file and a rename.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditHostingFile' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileWritten' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/content:
+    put:
+      operationId: uploadHostingFile
+      tags: [hosting]
+      summary: Upload a file
+      description: 'The raw bytes (application/octet-stream) up to the plan upload limit (default 25 MB, at most 60 MB); an existing file is replaced only with overwrite=true. The disk quota of the plan is checked first.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - { name: overwrite, in: query, required: false, schema: { type: boolean } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileWritten' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/folders:
+    post:
+      operationId: createHostingFolder
+      tags: [hosting]
+      summary: Create a folder
+      description: 'Creates a folder inside the website folder. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingFolder' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFilePath' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/renames:
+    post:
+      operationId: renameHostingFile
+      tags: [hosting]
+      summary: Rename or move
+      description: 'Both paths are proven to be inside the website folder; the target must not exist. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RenameHostingFile' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFilePath' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail:
+    get:
+      operationId: getHostingMail
+      tags: [hosting]
+      summary: Business email of the website
+      description: 'Mail domains that can be enabled, mailboxes with quota and aliases (read from the panel), the plan limits, the webmail availability and the IMAP/SMTP settings. Offered only on a plan that includes mailboxes and a node that reports a mail service. NOT VERIFIED against a real node.'
+      x-nuzm-permission: hosting:mail:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailOverview' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/dns-checks:
+    get:
+      operationId: checkHostingMailDns
+      tags: [hosting]
+      summary: Check the mail DNS records
+      description: 'Reads MX, SPF, DKIM, DMARC, the mail and webmail hosts and the PTR of the mail server. Records are NEVER written; an MX that points to another provider is reported as external and kept.'
+      x-nuzm-permission: hosting:mail:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailDnsReport' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/domains:
+    post:
+      operationId: enableHostingMailDomain
+      tags: [hosting]
+      summary: Enable mail for a domain
+      description: 'v-add-mail-domain (and webmail when the node has it). Never changes DNS. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EnableHostingMailDomain' }
+      responses:
+        '201':
+          description: 'Enabled'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailEnableResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes:
+    post:
+      operationId: createHostingMailbox
+      tags: [hosting]
+      summary: Create a mailbox
+      description: 'v-add-mail-account USER DOMAIN ACCOUNT PASSWORD QUOTA. The plan mailbox count and quota are enforced under a per-site lock; the password is never stored, logged or audited. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingMailbox' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailboxCreated' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/password:
+    put:
+      operationId: setHostingMailboxPassword
+      tags: [hosting]
+      summary: Change a mailbox password
+      description: 'v-change-mail-account-password.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetHostingPassword' }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/quota:
+    put:
+      operationId: setHostingMailboxQuota
+      tags: [hosting]
+      summary: Change a mailbox quota
+      description: 'v-change-mail-account-quota, at most the plan mailbox quota.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetHostingMailboxQuota' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailboxQuota' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}:
+    delete:
+      operationId: deleteHostingMailbox
+      tags: [hosting]
+      summary: Delete a mailbox
+      description: 'v-delete-mail-account.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases:
+    post:
+      operationId: createHostingMailAlias
+      tags: [hosting]
+      summary: Add an alias
+      description: 'v-add-mail-account-alias, within the plan alias limit. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingMailAlias' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailAlias' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases/{alias}:
+    delete:
+      operationId: deleteHostingMailAlias
+      tags: [hosting]
+      summary: Remove an alias
+      description: 'v-delete-mail-account-alias.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: alias, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/sites/{id}/migrations:
     post:
       operationId: migrateHostingSite
@@ -6871,6 +8135,130 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/alerts:
+    get:
+      operationId: listHostingAlerts
+      tags: [hosting]
+      summary: Hosting alerts (capacity, activation, certificates, backups, panel link)
+      description: 'One open alert per (kind, scope); the monitoring sweep opens it once, refreshes it while the condition holds and resolves it when it is gone. Filter state (open by default, resolved, all). Admin-realm session; customers never see alerts. Thresholds are proposals (HOSTING_ALERT_* settings).'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [open, resolved, all] } }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAlertList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/monitor-runs:
+    post:
+      operationId: runHostingMonitor
+      tags: [hosting]
+      summary: Run the monitoring sweep now
+      description: 'The sweep also runs on the hosting scheduler. A probe that fails leaves its alerts as they were (nothing is resolved on a guess). Needs Idempotency-Key and permission admin:hosting:manage.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMonitorRun' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/restore-drills:
+    get:
+      operationId: listHostingRestoreDrills
+      tags: [hosting]
+      summary: Restore drills with their duration and result
+      description: 'Newest first. A drill restores a real backup onto an isolated drill node and records what was checked.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingRestoreDrillList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: startHostingRestoreDrill
+      tags: [hosting]
+      summary: Restore a backup into an isolated node to prove it
+      description: "Body {backupId, nodeId}. The node must have purpose `restore_drill` (409 otherwise), be in `maintenance`, and be in the backup's own data region (403 residency_denied: customer data never leaves its region). The archive checksum is verified before anything is touched; the restored account is compared with the snapshot taken at backup time (and a WordPress site must answer with its admin page); the account is then wiped from the drill node, and a wipe that leaves anything fails the drill. 202 + operation; the verdict is the drill record (state passed|failed, checks, durationMs). Needs Idempotency-Key, admin:hosting:manage and a recent MFA check. Audited."
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StartHostingRestoreDrill' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StartHostingRestoreDrillResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/restore-drills/{id}:
+    get:
+      operationId: getHostingRestoreDrill
+      tags: [hosting]
+      summary: One restore drill
+      description: 'State, per-check result, error and duration.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingRestoreDrill' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/node-packages:
+    get:
+      operationId: listHostingNodePackages
+      tags: [hosting]
+      summary: The Hestia packages and access profile a node is set up with
+      description: "One `.pkg` file per non-retired plan (named `nz-<plan key>`; created on each node with `v-add-user-package`) and the REST access-key profile that equals the adapter's command allow-list. Used by the node setup script (docs/runbooks/node-onboarding.md). Nothing here is a secret."
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingNodePackages' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/abuse-cases:
     get:
       operationId: listHostingAbuseCases
@@ -7331,6 +8719,29 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/DnetSettingsSave' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrarAccount' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/registrars/dynadot:
+    put:
+      operationId: saveDynadotRegistrarSettings
+      tags: [domains]
+      summary: Save the Dynadot connection settings (admin console)
+      description: "Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot's Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved)."
+      x-nuzm-platform-permission: admin:domains:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DynadotSettingsSave' }
       responses:
         '200':
           description: Success
@@ -16857,7 +18268,7 @@ components:
           {
             type: object,
             additionalProperties: true,
-            description: 'compute: {imageId, diskGb?, count}.',
+            description: 'compute: {imageId, diskGb?, count, panel?}. panel = {kind:"none"} or {kind:"hestia", template:{id, mail}} (HestiaCP installed automatically; the mail choice is explicit; one server per order; only on an image the offers list marks hestia). The choice is stored in the order snapshot together with the image, template, region, provider plan and the pinned installer.',
           }
         term:
           { type: object, additionalProperties: true, description: 'compute: {period:"month"}.' }
@@ -18070,6 +19481,39 @@ components:
           }
         scopeNote: { type: string }
         spendCap: { $ref: '#/components/schemas/SpendCap' }
+    ProviderNetworkSetting:
+      type: object
+      required: [providerKey, regionId, settings, updatedAt]
+      properties:
+        providerKey: { type: string }
+        regionId: { type: string }
+        settings: { type: object, additionalProperties: { type: string } }
+        updatedAt: { type: string, format: date-time }
+    ProviderNetworkList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProviderNetworkSetting' }
+    ProviderAccountConnect:
+      type: object
+      required: [providerId, name, credentials]
+      properties:
+        providerId: { type: string, format: uuid }
+        name: { type: string }
+        credentials: { $ref: '#/components/schemas/ProviderCredentials' }
+        scopeNote: { type: string }
+        spendCap: { $ref: '#/components/schemas/SpendCap' }
+    ProviderCredentialsReplace:
+      type: object
+      required: [credentials]
+      properties:
+        credentials: { $ref: '#/components/schemas/ProviderCredentials' }
+    ProviderCredentials:
+      type: object
+      description: "Write-only named secret fields; only the fields of one provider's adapter are accepted (3 to 400 printable characters, no spaces)."
+      additionalProperties: { type: string }
     ProviderAccountUpdate:
       type: object
       properties:
@@ -18196,6 +19640,209 @@ components:
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Offer' } }
         nextCursor: { type: string, nullable: true }
+    PanelTemplate:
+      type: object
+      required: [id, mail]
+      properties:
+        id: { type: string, enum: [hestia-web, hestia-web-mail] }
+        mail:
+          {
+            type: boolean,
+            description: "The explicit mail choice of the order: the panel's mail services (Exim, Dovecot) are installed only when true; hestia-web-mail needs true and hestia-web needs false.",
+          }
+    PanelStep:
+      type: object
+      required: [key, state]
+      properties:
+        key: { type: string, enum: [create_server, wait_boot, install_panel, register, readiness] }
+        state: { type: string, enum: [pending, running, done, failed] }
+    PanelInstall:
+      type: object
+      required:
+        [
+          kind,
+          stage,
+          steps,
+          template,
+          panelVersion,
+          osName,
+          panelHost,
+          panelPort,
+          panelLink,
+          attention,
+          holdReason,
+          ready,
+          rerunCommand,
+          adminPasswordFile,
+          updatedAt,
+        ]
+      properties:
+        kind: { type: string, enum: [hestia] }
+        stage:
+          {
+            type: string,
+            enum:
+              [
+                create_server,
+                waiting_boot,
+                installing_panel,
+                registering,
+                readiness,
+                ready,
+                needs_attention,
+                held,
+              ],
+          }
+        steps: { type: array, items: { $ref: '#/components/schemas/PanelStep' } }
+        template: { $ref: '#/components/schemas/PanelTemplate' }
+        panelVersion: { type: string }
+        osName: { type: string }
+        panelHost:
+          {
+            type: string,
+            description: 'The fixed fully qualified domain name of the panel, decided at order time.',
+          }
+        panelPort: { type: integer }
+        panelLink: { type: string, enum: [none, connected, lost] }
+        attention:
+          type: object
+          nullable: true
+          required: [code, detail, resumable]
+          properties:
+            code: { type: string }
+            detail: { type: string, nullable: true }
+            resumable:
+              {
+                type: string,
+                enum: [here, server, support],
+                description: 'here: retry continues from Nuzm; server: the script on the server is re-run; support: not resumable on this server.',
+              }
+        holdReason: { type: string, nullable: true, enum: [provider_capacity_unavailable] }
+        ready: { type: boolean }
+        rerunCommand: { type: string, nullable: true }
+        adminPasswordFile:
+          {
+            type: string,
+            description: 'Where the panel admin password was left ON the server (root only). It is never sent to Nuzm.',
+          }
+        updatedAt: { type: string, format: date-time }
+    PanelRetryResult:
+      type: object
+      required: [action, panel]
+      properties:
+        action: { type: string, enum: [continued, rerun_bootstrap] }
+        command: { type: string }
+        panel: { $ref: '#/components/schemas/PanelInstall' }
+    PanelBootstrapEvent:
+      type: object
+      required: [phase]
+      properties:
+        phase: { type: string, enum: [booted, installer_verified, installing, failed, note] }
+        code: { type: string, pattern: '^[a-z0-9_]{0,60}$' }
+    PanelBootstrapRegister:
+      type: object
+      required: [panelVersion, host, port, tlsFingerprintSha256, accessKey]
+      additionalProperties: false
+      properties:
+        panelVersion: { type: string }
+        host: { type: string, description: 'Must equal the panel FQDN fixed at order time.' }
+        port: { type: integer }
+        tlsFingerprintSha256:
+          {
+            type: string,
+            description: "SHA-256 fingerprint of the panel's (self-signed) certificate, colon-separated.",
+          }
+        accessKey:
+          {
+            type: string,
+            format: password,
+            writeOnly: true,
+            description: 'ACCESS_KEY_ID:SECRET_ACCESS_KEY of the read-only profile. Sealed on receipt; never returned, logged or audited.',
+          }
+    PanelBootstrapRegisterResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [registered, already_registered] }
+    PanelImageApprove:
+      type: object
+      required: [evidenceKind, evidenceNote]
+      additionalProperties: false
+      properties:
+        evidenceKind: { type: string, enum: [live, fixture, mock] }
+        evidenceNote: { type: string, minLength: 3, maxLength: 500 }
+    PanelImageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [imageId, accountId, providerRegionId, name, cloudInit, os, approval]
+            properties:
+              imageId: { type: string, format: uuid }
+              accountId: { type: string, format: uuid }
+              providerRegionId: { type: string }
+              name: { type: string }
+              cloudInit: { type: boolean, nullable: true }
+              os:
+                type: object
+                nullable: true
+                properties:
+                  id: { type: string }
+                  version: { type: string }
+                  supportedByHestia: { type: boolean }
+              approval:
+                type: object
+                nullable: true
+                properties:
+                  id: { type: string, format: uuid }
+                  panelVersion: { type: string }
+                  evidenceKind: { type: string, enum: [live, fixture, mock] }
+                  evidenceNote: { type: string }
+                  approvedAt: { type: string, format: date-time }
+                  revoked: { type: boolean }
+    PanelInstallAdminList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              [
+                id,
+                orgId,
+                instanceId,
+                orderId,
+                provider,
+                region,
+                stage,
+                attentionCode,
+                attentionDetail,
+                panelVersion,
+                panelHost,
+                panelLink,
+                attempts,
+                updatedAt,
+              ]
+            properties:
+              id: { type: string, format: uuid }
+              orgId: { type: string, format: uuid }
+              instanceId: { type: string, format: uuid }
+              orderId: { type: string, format: uuid }
+              provider: { type: string }
+              region: { type: string }
+              stage: { type: string }
+              attentionCode: { type: string, nullable: true }
+              attentionDetail: { type: string, nullable: true }
+              panelVersion: { type: string }
+              panelHost: { type: string }
+              panelLink: { type: string }
+              attempts: { type: integer }
+              updatedAt: { type: string, format: date-time }
     OfferImageList:
       type: object
       required: [items]
@@ -18204,11 +19851,31 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, osFamily]
+            required: [id, name, osFamily, hestia]
             properties:
               id: { type: string, format: uuid }
               name: { type: string }
               osFamily: { type: string, nullable: true }
+              hestia:
+                {
+                  type: boolean,
+                  description: 'HestiaCP can be installed on this image: verified by an administrator for the configured version, in a sold placement, with cloud-init stated by the provider.',
+                }
+        panels:
+          type: object
+          properties:
+            hestia:
+              type: object
+              required: [available, templates, minimum]
+              properties:
+                available: { type: boolean }
+                templates: { type: array, items: { type: string } }
+                minimum:
+                  type: object
+                  properties:
+                    vcpu: { type: integer }
+                    memoryMb: { type: integer }
+                    diskGb: { type: integer }
     Offer:
       type: object
       required: [offerId, kind, country, dataRegion, plan, price, capabilities, verifiedAt]
@@ -18307,6 +19974,8 @@ components:
           capabilities,
           driftState,
           version,
+          panelKind,
+          holdReason,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -18314,7 +19983,7 @@ components:
         status:
           {
             type: string,
-            enum: [provisioning, running, stopped, failed, deleting, deleted, unknown],
+            enum: [provisioning, running, stopped, failed, deleting, deleted, unknown, held],
           }
         dataRegion: { type: string }
         country: { type: string }
@@ -18329,6 +19998,25 @@ components:
         deletionProtected: { type: boolean }
         driftState: { type: string, enum: [in_sync, drift, orphan_suspected, missing] }
         version: { type: integer }
+        panelKind:
+          {
+            type: string,
+            enum: [none, hestia],
+            description: 'hestia = ordered with the panel installed automatically (see GET /v1/compute/instances/{id}/panel).',
+          }
+        holdReason:
+          {
+            type: string,
+            nullable: true,
+            enum: [provider_capacity_unavailable],
+            description: 'Why a held order waits: the provider has no capacity in the sold region. It is never moved to another region; cancel it with DELETE (no charge).',
+          }
+        panel:
+          {
+            allOf: [{ $ref: '#/components/schemas/PanelInstall' }],
+            nullable: true,
+            description: 'Only on a single-instance read.',
+          }
     ComputeInstanceList:
       type: object
       required: [items, nextCursor]
@@ -19594,7 +21282,9 @@ components:
           region,
           dataRegion,
           status,
-          agentState,
+          panelKind,
+          networkClass,
+          panelConfigured,
           runtimes,
           overcommitFactor,
           health,
@@ -19609,10 +21299,26 @@ components:
         region: { type: string }
         dataRegion: { type: string }
         status: { type: string, enum: [active, draining, maintenance, retired] }
-        agentId: { type: [string, 'null'], format: uuid }
-        agentState: { type: [string, 'null'], enum: [pending, enrolled, revoked, null] }
-        agentLastSeenAt: { type: [string, 'null'], format: date-time }
-        cloudpanelVersion: { type: [string, 'null'] }
+        purpose:
+          type: string
+          enum: [customer, restore_drill]
+          description: A `restore_drill` node is an isolated machine that only restores backups to prove them; it never takes customer sites and stays in maintenance.
+        panelKind: { type: string, enum: [hestia] }
+        networkClass:
+          {
+            type: string,
+            enum: [shared, customer_vps],
+            description: "shared = Nuzm's hosting network; customer_vps = a customer's own server running HestiaCP (outside it, never receives shared sites).",
+          }
+        panelVersion: { type: [string, 'null'] }
+        panelHost: { type: [string, 'null'] }
+        panelPort: { type: [integer, 'null'] }
+        panelConfigured:
+          {
+            type: boolean,
+            description: A panel host and an access key are set. The key itself is never returned.,
+          }
+        panelTlsPinned: { type: boolean }
         runtimes:
           {
             type: array,
@@ -19643,13 +21349,43 @@ components:
       properties:
         name: { type: string, pattern: '^[a-z0-9][a-z0-9-]{1,62}$' }
         computeInstanceId: { type: string, minLength: 1, maxLength: 200 }
+        purpose: { type: string, enum: [customer, restore_drill], default: customer }
     CreateHostingNodeResult:
       type: object
-      required: [node, enrolmentToken]
+      required: [node]
       properties:
         node: { $ref: '#/components/schemas/HostingNode' }
-        enrolmentToken:
-          { type: [string, 'null'], description: Shown once on creation; null on a replay. }
+    SetHostingNodePanel:
+      type: object
+      required: [host]
+      properties:
+        host:
+          {
+            type: string,
+            description: The panel's fully qualified domain name (no IP literal,
+            no scheme).,
+          }
+        port: { type: integer, minimum: 1, maximum: 65535, description: Default 8083. }
+        tlsPinSha256:
+          {
+            type: string,
+            description: SHA-256 fingerprint of a self-signed panel certificate (32 colon-separated hex pairs).,
+          }
+        vaultRef:
+          {
+            type: string,
+            description: A vault:// reference of the access key. Not together with credentials.,
+          }
+        credentials:
+          type: object
+          description: Write-only; accepted outside production only (D-12).
+          required: [accessKey]
+          properties:
+            accessKey:
+              {
+                type: string,
+                description: 'ACCESS_KEY_ID:SECRET_ACCESS_KEY of a HestiaCP access key.',
+              }
     PatchHostingNode:
       type: object
       properties:
@@ -19692,46 +21428,6 @@ components:
               diskMb: { type: integer }
               sites: { type: integer }
               createdAt: { type: string, format: date-time }
-    HostingEnrolmentToken:
-      type: object
-      required: [token, expiresInMinutes]
-      properties:
-        token: { type: string }
-        expiresInMinutes: { type: integer }
-    HostingCommandLog:
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            required: [seq, outcome, occurredAt]
-            properties:
-              seq: { type: integer }
-              operationId: { type: [string, 'null'] }
-              commandId: { type: [string, 'null'] }
-              outcome: { type: string, enum: [accepted, rejected, executed, failed] }
-              reason: { type: [string, 'null'] }
-              occurredAt: { type: string, format: date-time }
-    HostingAgentList:
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            required: [id, nodeId, nodeName, state]
-            properties:
-              id: { type: string, format: uuid }
-              nodeId: { type: string, format: uuid }
-              nodeName: { type: string }
-              state: { type: string, enum: [pending, enrolled, revoked] }
-              version: { type: [string, 'null'] }
-              enrolledAt: { type: [string, 'null'], format: date-time }
-              lastSeenAt: { type: [string, 'null'], format: date-time }
-              certRotatedAt: { type: [string, 'null'], format: date-time }
     HostingPlan:
       type: object
       required: [id, key, name, quotas, runtimes, regions]
@@ -19761,8 +21457,88 @@ components:
             currency: { type: string }
             placeholder: { type: boolean }
         runtimes: { type: array, items: { type: string } }
+        app:
+          {
+            type: string,
+            enum: [none, wordpress],
+            description: 'The application installed with the site (wordpress = Managed WordPress).',
+          }
         regions: { type: array, items: { type: string } }
         country: { type: [string, 'null'] }
+    PublicComputePlan:
+      type: object
+      required: [vcpu, memoryMb, diskGb, price, regions]
+      properties:
+        vcpu: { type: integer }
+        memoryMb: { type: integer }
+        diskGb: { type: integer }
+        bandwidth: { type: string }
+        price:
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor:
+              { type: string, description: 'Integer minor units per month, as a string.' }
+            currency: { type: string }
+        regions: { type: array, items: { type: string } }
+    PublicComputePlanList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PublicComputePlan' } }
+    PublicUsagePrice:
+      type: object
+      required: [meterId, model, unitPriceMinor, tiers, includedAllowance]
+      properties:
+        meterId: { type: string }
+        model: { type: string, enum: [flat, graduated, volume] }
+        unitPriceMinor: { type: [string, 'null'] }
+        tiers:
+          type: [array, 'null']
+          items:
+            type: object
+            required: [upTo, unitPriceMinor]
+            properties:
+              upTo: { type: [string, 'null'] }
+              unitPriceMinor: { type: string }
+        includedAllowance: { type: string }
+    PublicUsagePriceList:
+      type: object
+      required: [currency, items]
+      properties:
+        currency: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/PublicUsagePrice' } }
+    PublicHostingPlan:
+      type: object
+      required: [key, name, quotas, runtimes, price]
+      properties:
+        key: { type: string }
+        name:
+          {
+            type: object,
+            required: [ar, en],
+            properties: { ar: { type: string }, en: { type: string } },
+          }
+        quotas:
+          type: object
+          required: [diskMb, bandwidthGb, dbCount, sitesCount]
+          properties:
+            diskMb: { type: integer }
+            bandwidthGb: { type: integer }
+            dbCount: { type: integer }
+            sitesCount: { type: integer }
+        runtimes: { type: array, items: { type: string } }
+        price:
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor: { type: string, description: 'Integer minor units, as a string.' }
+            currency: { type: string }
+    PublicHostingPlanList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PublicHostingPlan' } }
     HostingPlanList:
       type: object
       required: [items]
@@ -19791,6 +21567,12 @@ components:
               properties: { ar: { type: string }, en: { type: string } }
         dataRegion: { type: string }
         runtime: { type: string }
+        app:
+          {
+            type: string,
+            enum: [none, wordpress],
+            description: 'wordpress = Managed WordPress; its state is GET /v1/hosting/sites/{id}/wordpress.',
+          }
         primaryDomain: { type: [string, 'null'] }
         domains:
           type: array
@@ -19868,6 +21650,293 @@ components:
       properties:
         operationId: { type: string, format: uuid }
         site: { $ref: '#/components/schemas/HostingSite' }
+    HostingToolCapability:
+      type: object
+      required: [id, state, verification]
+      properties:
+        id: { type: string, enum: [files, cron, logs, ftp, protection, php, mail] }
+        state: { type: string, enum: [available, unavailable] }
+        reason: { type: string, enum: [role, site_state, connection, panel_version, panel_service, plan] }
+        limits: { type: object, additionalProperties: { type: number } }
+        versions: { type: array, items: { type: string } }
+        verification: { type: string, enum: [not_verified] }
+    HostingToolsReport:
+      type: object
+      required: [panel, tools]
+      properties:
+        panel:
+          type: object
+          required: [version, connection]
+          properties:
+            version: { type: [string, 'null'] }
+            connection: { type: string, enum: [connected, not_configured, unhealthy] }
+        tools: { type: array, items: { $ref: '#/components/schemas/HostingToolCapability' } }
+    HostingCronJobInput:
+      type: object
+      required: [min, hour, day, month, wday, command]
+      properties:
+        min: { type: string, maxLength: 40 }
+        hour: { type: string, maxLength: 40 }
+        day: { type: string, maxLength: 40 }
+        month: { type: string, maxLength: 40 }
+        wday: { type: string, maxLength: 40 }
+        command: { type: string, minLength: 1, maxLength: 512 }
+    HostingCronJob:
+      type: object
+      required: [id, min, hour, day, month, wday, command]
+      properties:
+        id: { type: string }
+        min: { type: string }
+        hour: { type: string }
+        day: { type: string }
+        month: { type: string }
+        wday: { type: string }
+        command: { type: string }
+    HostingCronList:
+      type: object
+      required: [items, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingCronJob' } }
+        limit: { type: integer }
+    HostingLogs:
+      type: object
+      required: [domain, kind, lines, truncated, requested]
+      properties:
+        domain: { type: string }
+        kind: { type: string, enum: [access, error] }
+        lines: { type: array, items: { type: string } }
+        truncated: { type: boolean }
+        requested: { type: integer }
+    HostingFtpAccount:
+      type: object
+      required: [domain, user, path]
+      properties:
+        domain: { type: string }
+        user: { type: string }
+        path: { type: string }
+    HostingFtpList:
+      type: object
+      required: [items, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingFtpAccount' } }
+        limit: { type: integer }
+    CreateHostingFtpAccount:
+      type: object
+      required: [name, password]
+      properties:
+        domain: { type: string }
+        name: { type: string, pattern: '^[a-z0-9_]{3,24}$' }
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+        path: { type: string, maxLength: 201 }
+    SetHostingPassword:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+    HostingProtectionUser:
+      type: object
+      required: [domain, user]
+      properties:
+        domain: { type: string }
+        user: { type: string }
+    HostingProtectionList:
+      type: object
+      required: [items, domains, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingProtectionUser' } }
+        domains: { type: array, items: { type: string } }
+        limit: { type: integer }
+    CreateHostingProtectionUser:
+      type: object
+      required: [user, password]
+      properties:
+        domain: { type: string }
+        user: { type: string, pattern: '^[a-z0-9_]{3,24}$' }
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+    HostingFileEntry:
+      type: object
+      required: [name, type, size, modifiedAt]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [file, dir, symlink] }
+        size: { type: integer }
+        modifiedAt: { type: [string, 'null'], format: date-time }
+    HostingFileList:
+      type: object
+      required: [domain, path, items, truncated]
+      properties:
+        domain: { type: string }
+        path: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/HostingFileEntry' } }
+        truncated: { type: boolean }
+    HostingFileText:
+      type: object
+      required: [path, content, size, sha256]
+      properties:
+        path: { type: string }
+        content: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+    HostingFileWritten:
+      type: object
+      required: [path, size, sha256]
+      properties:
+        path: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+    EditHostingFile:
+      type: object
+      required: [content, expectedSha256]
+      properties:
+        content: { type: string }
+        expectedSha256: { type: string }
+    HostingFilePath:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string }
+    HostingFileRemoved:
+      type: object
+      required: [removed]
+      properties:
+        removed: { type: integer }
+    CreateHostingFolder:
+      type: object
+      required: [path]
+      properties:
+        domain: { type: string }
+        path: { type: string }
+    RenameHostingFile:
+      type: object
+      required: [from, to]
+      properties:
+        domain: { type: string }
+        from: { type: string }
+        to: { type: string }
+    HostingMailbox:
+      type: object
+      required: [domain, name, address, quotaMb, usedMb, aliases]
+      properties:
+        domain: { type: string }
+        name: { type: string }
+        address: { type: string }
+        quotaMb: { type: [integer, 'null'] }
+        usedMb: { type: number }
+        aliases: { type: array, items: { type: string } }
+    HostingMailOverview:
+      type: object
+      required: [limits, used, domains, mailboxes, webmail, settings]
+      properties:
+        limits:
+          type: object
+          required: [mailboxes, aliasesPerMailbox, mailboxQuotaMb]
+          properties:
+            mailboxes: { type: integer }
+            aliasesPerMailbox: { type: integer }
+            mailboxQuotaMb: { type: integer }
+        used: { type: integer }
+        domains:
+          type: array
+          items:
+            type: object
+            required: [domain, enabled]
+            properties:
+              domain: { type: string }
+              enabled: { type: boolean }
+        mailboxes: { type: array, items: { $ref: '#/components/schemas/HostingMailbox' } }
+        webmail: { type: [string, 'null'] }
+        settings:
+          type: array
+          items:
+            type: object
+            required: [domain, webmailUrl, imap, smtp, username, verification]
+            properties:
+              domain: { type: string }
+              webmailUrl: { type: [string, 'null'] }
+              imap: { $ref: '#/components/schemas/HostingMailEndpoint' }
+              smtp: { $ref: '#/components/schemas/HostingMailEndpoint' }
+              username: { type: string }
+              verification: { type: string, enum: [not_verified] }
+    HostingMailEndpoint:
+      type: object
+      required: [host, ssl, startTls]
+      properties:
+        host: { type: string }
+        ssl: { type: integer }
+        startTls: { type: integer }
+    EnableHostingMailDomain:
+      type: object
+      required: [domain]
+      properties:
+        domain: { type: string }
+    HostingMailEnableResult:
+      type: object
+      required: [domain, created, webmail]
+      properties:
+        domain: { type: string }
+        created: { type: boolean }
+        webmail: { type: boolean }
+    CreateHostingMailbox:
+      type: object
+      required: [domain, name, password]
+      properties:
+        domain: { type: string }
+        name: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+        quotaMb: { type: integer, minimum: 1 }
+    HostingMailboxCreated:
+      type: object
+      required: [domain, name, address, quotaMb]
+      properties:
+        domain: { type: string }
+        name: { type: string }
+        address: { type: string }
+        quotaMb: { type: integer }
+    SetHostingMailboxQuota:
+      type: object
+      required: [quotaMb]
+      properties:
+        quotaMb: { type: integer, minimum: 1 }
+    HostingMailboxQuota:
+      type: object
+      required: [quotaMb]
+      properties:
+        quotaMb: { type: integer }
+    CreateHostingMailAlias:
+      type: object
+      required: [alias]
+      properties:
+        alias: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+    HostingMailAlias:
+      type: object
+      required: [alias, address]
+      properties:
+        alias: { type: string }
+        address: { type: string }
+    HostingMailDnsCheck:
+      type: object
+      required: [id, state, expected, found]
+      properties:
+        id: { type: string, enum: [mx, spf, dkim, dmarc, mail_host, webmail_host, ptr] }
+        state: { type: string, enum: [ok, missing, mismatch, external] }
+        expected:
+          type: [object, 'null']
+          properties:
+            type: { type: string }
+            name: { type: string }
+            value: { type: string }
+        found: { type: array, items: { type: string } }
+    HostingMailDnsReport:
+      type: object
+      required: [domain, mailEnabled, mailHostingMoved, serverIp, checks, note, verification]
+      properties:
+        domain: { type: string }
+        mailEnabled: { type: boolean }
+        mailHostingMoved: { type: boolean }
+        serverIp: { type: [string, 'null'] }
+        checks: { type: array, items: { $ref: '#/components/schemas/HostingMailDnsCheck' } }
+        note: { type: string }
+        verification: { type: string, enum: [not_verified] }
     HostingDomainBinding:
       type: object
       required: [id, domain, state, primary, createdAt]
@@ -19957,6 +22026,150 @@ components:
       properties:
         status: { type: string, enum: [suspended, active] }
         reason: { type: string, minLength: 5, maxLength: 200 }
+    HostingWordPress:
+      type: object
+      required: [app, state, handover, verification, attempts]
+      properties:
+        app: { type: string, enum: [wordpress] }
+        state: { type: string, enum: [pending, installing, ready, failed] }
+        phase:
+          type: [string, 'null']
+          enum: [none, unconfigured, uninstalled, installed, null]
+          description: What the site showed at the last look (the install is driven by this, not by memory).
+        siteUrl: { type: [string, 'null'] }
+        loginUrl: { type: [string, 'null'], description: Set once the state is ready. }
+        adminUser: { type: [string, 'null'] }
+        handover:
+          type: object
+          required: [state]
+          properties:
+            state: { type: string, enum: [none, pending, consumed, expired] }
+            expiresAt: { type: [string, 'null'], format: date-time }
+        verification:
+          type: object
+          properties:
+            answers: { type: boolean }
+            adminPage: { type: boolean }
+            checkedAt: { type: string, format: date-time }
+        attempts: { type: integer }
+        lastError: { type: [string, 'null'] }
+        installedAt: { type: [string, 'null'], format: date-time }
+        verifiedAt: { type: [string, 'null'], format: date-time }
+    HostingWordPressRetryResult:
+      type: object
+      required: [operationId, wordpress]
+      properties:
+        operationId: { type: string, format: uuid }
+        wordpress: { $ref: '#/components/schemas/HostingWordPress' }
+    HostingWordPressResetResult:
+      type: object
+      required: [operationId]
+      properties:
+        operationId: { type: string, format: uuid }
+    HostingWordPressHandover:
+      type: object
+      required: [username, password, loginUrl]
+      properties:
+        username: { type: string }
+        password: { type: string, description: 'Generated, shown once, never stored in a table.' }
+        loginUrl: { type: string }
+    HostingAlert:
+      type: object
+      required: [id, kind, severity, summary, state, openedAt, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum:
+            [
+              capacity_low,
+              activation_failed,
+              activation_stuck,
+              certificate_expiring,
+              certificate_failed,
+              backup_failed,
+              backup_missing,
+              backup_host_unreachable,
+              panel_unreachable,
+              wordpress_failed,
+              restore_drill_failed,
+            ]
+        severity: { type: string, enum: [info, warning, critical] }
+        summary: { type: string }
+        nodeId: { type: [string, 'null'], format: uuid }
+        siteId: { type: [string, 'null'], format: uuid }
+        detail: { type: object, additionalProperties: true }
+        state: { type: string, enum: [open, resolved] }
+        openedAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+    HostingAlertList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingAlert' } }
+    HostingMonitorRun:
+      type: object
+      required: [open, opened, resolved]
+      properties:
+        open: { type: integer }
+        opened: { type: integer }
+        resolved: { type: integer }
+    HostingRestoreDrill:
+      type: object
+      required: [id, backupId, siteId, nodeId, state, checks, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        backupId: { type: string, format: uuid }
+        siteId: { type: string, format: uuid }
+        nodeId: { type: string, format: uuid }
+        state: { type: string, enum: [running, passed, failed] }
+        checks:
+          type: object
+          additionalProperties: true
+          description: 'restore, account, wordpress (WordPress sites) and wipe: `passed` or `failed: <reason>`.'
+        error: { type: [string, 'null'] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        durationMs: { type: [integer, 'null'] }
+    HostingRestoreDrillList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingRestoreDrill' } }
+    StartHostingRestoreDrill:
+      type: object
+      required: [backupId, nodeId]
+      additionalProperties: false
+      properties:
+        backupId: { type: string, format: uuid }
+        nodeId: { type: string, format: uuid }
+    StartHostingRestoreDrillResult:
+      type: object
+      required: [drill, operationId]
+      properties:
+        drill: { $ref: '#/components/schemas/HostingRestoreDrill' }
+        operationId: { type: string, format: uuid }
+    HostingNodePackages:
+      type: object
+      required: [packages, accessProfile]
+      properties:
+        packages:
+          type: array
+          items:
+            type: object
+            required: [plan, name, file]
+            properties:
+              plan: { type: string }
+              name: { type: string }
+              file:
+                {
+                  type: string,
+                  description: The content of the `.pkg` file for `v-add-user-package`.,
+                }
+        accessProfile:
+          type: string
+          description: The Hestia access-key profile (`ROLE` and `COMMANDS`) equal to the adapter's allow-list.
     HostingBackup:
       type: object
       required: [id, kind, status, createdAt]
@@ -19966,7 +22179,16 @@ components:
         label: { type: [string, 'null'] }
         status: { type: string, enum: [creating, available, failed, corrupt, deleted] }
         sizeBytes: { type: [integer, 'null'] }
-        checksum: { type: [string, 'null'], description: SHA-256 of the encrypted archive. }
+        checksum:
+          {
+            type: [string, 'null'],
+            description: SHA-256 of the archive as measured in the off-server store.,
+          }
+        encrypted:
+          {
+            type: boolean,
+            description: "false = the archive carries no encryption of its own (HestiaCP documents none); the region's off-server store protects it.",
+          }
         createdAt: { type: string, format: date-time }
         expiresAt: { type: [string, 'null'], format: date-time }
         failureReason: { type: [string, 'null'] }
@@ -20368,6 +22590,54 @@ components:
           properties:
             apiKey: { type: string }
             apiSecret: { type: string }
+    DynadotSettingsSave:
+      type: object
+      required: [environment]
+      properties:
+        label: { type: string }
+        environment: { type: string, enum: [sandbox, production] }
+        timeoutMs: { type: integer, minimum: 1000, maximum: 60000 }
+        searchBatch: { type: integer, minimum: 1, maximum: 100 }
+        dataRegion: { type: string }
+        currency: { type: string }
+        vaultRef:
+          { type: string, description: A vault:// reference. Not together with credentials. }
+        credentials:
+          type: object
+          description: Write-only; accepted outside production only (D-12).
+          properties:
+            apiKey: { type: string }
+            apiSecret: { type: string }
+    DocsFeedbackVote:
+      type: object
+      required: [page, score, locale]
+      properties:
+        page: { type: string, pattern: '^/docs(/(guides|reference)/[a-z0-9-]{1,60})?$' }
+        score: { type: string, enum: [good, okay, bad] }
+        locale: { type: string, enum: [ar, en] }
+    DocsFeedbackCounts:
+      type: object
+      required: [good, okay, bad, total]
+      properties:
+        good: { type: integer }
+        okay: { type: integer }
+        bad: { type: integer }
+        total: { type: integer }
+    DocsFeedbackSummary:
+      type: object
+      required: [days, totals, items]
+      properties:
+        days: { type: integer }
+        totals: { $ref: '#/components/schemas/DocsFeedbackCounts' }
+        items:
+          type: array
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/DocsFeedbackCounts' }
+              - type: object
+                required: [page]
+                properties:
+                  page: { type: string }
     RegistrarVerificationRequest:
       type: object
       properties: { enable: { type: boolean } }

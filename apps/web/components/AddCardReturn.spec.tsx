@@ -18,14 +18,14 @@ afterEach(() => {
 describe('saving a card from the checkout', () => {
   it('goes back to the checkout after the card is saved', async () => {
     post.mockResolvedValue({ data: {}, response: { ok: true, status: 201 } });
-    render(<AddMethodForm locale="en" sandbox={true} mfaFactorId={null} next="/en/checkout" />);
+    render(<AddMethodForm locale="en" sandbox={true} mfaFactorId={null} next="/checkout" />);
     fireEvent.click(screen.getByRole('button', { name: t('en', 'pay.add.submit') }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/checkout'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/checkout'));
   });
   it('goes to the payments page when it was not opened from the checkout', async () => {
     post.mockResolvedValue({ data: {}, response: { ok: true, status: 201 } });
     render(<AddMethodForm locale="en" sandbox={true} mfaFactorId={null} />);
     fireEvent.click(screen.getByRole('button', { name: t('en', 'pay.add.submit') }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/billing/payments#methods'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/billing/payments#methods'));
   });
 });

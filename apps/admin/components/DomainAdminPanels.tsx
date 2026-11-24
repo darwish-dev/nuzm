@@ -12,10 +12,13 @@ export function VerifyButton({
   locale,
   id,
   mfaFactorId,
+  enable = false,
 }: {
   locale: Locale;
   id: string;
   mfaFactorId: string | null;
+  /** also enable the account when the probe shows search and register (the API refuses otherwise) */
+  enable?: boolean;
 }) {
   const router = useRouter();
   const a = useStaffAction(locale, mfaFactorId);
@@ -30,7 +33,7 @@ export function VerifyButton({
             () =>
               browserApi().POST('/v1/admin/registrars/{id}/verification', {
                 params: { path: { id }, header: { 'Idempotency-Key': key() } },
-                body: {},
+                body: { enable },
               }),
             () => {
               a.setNotice({ tone: 'ok', text: t(locale, 'dom.admin.reg.verified') });
@@ -40,7 +43,7 @@ export function VerifyButton({
           )
         }
       >
-        {t(locale, 'dom.admin.reg.verify')}
+        {t(locale, enable ? 'dom.admin.reg.verifyEnable' : 'dom.admin.reg.verify')}
       </Button>
       <Note n={a.notice} />
       {a.panel}

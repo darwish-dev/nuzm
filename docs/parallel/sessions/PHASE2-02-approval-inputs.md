@@ -43,6 +43,8 @@ Evidence the runner reads: one row per decision `{decision, ref, recordedBy, rec
 - **Security / legal impact:** credential custody. Production custody (the production vault) is **D-12, a separate, open decision**: nothing here stores a key in production (the admin action refuses).
 - **Blocks development:** no. **Blocks activation:** the connection test, the probe and the suite.
 
+> **Multi-provider note (Phase 2 completion):** the key flow is per provider row (`set_credential`), proved for Claude, OpenAI and Gemini rows with synthetic keys (no leak in responses, audit, database or output). OpenAI and Gemini rows can hold a key but **cannot be enabled, probed, connection-tested or asked for models** (no adapter; D11); each would need its own D1/D2/D4/D5/D6 evidence and an adapter first. Nothing is asked of the owner for them now.
+
 ## D5 — Region statement and ROPA entry for `claude`
 - **Question:** What region and sub-processors does the contract state for Claude, and which data classes and purpose go into the ROPA processor entry?
 - **Recommended:** state **only what the contract says**; leave the region `unspecified` (which residency never treats as in-Kingdom) until it says otherwise.
@@ -54,6 +56,7 @@ Evidence the runner reads: one row per decision `{decision, ref, recordedBy, rec
 ## D6 — Customer rate card, currency and VAT treatment
 - **Question:** What do customers pay per million input and output tokens of `claude-opus-5-5` (credits per million), in which currency, with which FX source and rounding, and what VAT treatment?
 - **Recommended:** list price plus the owner's margin, **versioned** (the platform keeps every version append-only: `GET /v1/admin/ai/model-providers/{id}/rate-card-versions`); integer credits; round **up**; an explicit FX source with a stale-rate refusal (`StaticFxRateSource`, `deriveRateCard` gives a preview, never a default). Inputs available: vendor cost $4 / $20 per MTok (**to be confirmed against the agreement or the console**, HG-09-01).
+- **Tool:** `rate-card-preview-cli.ts` computes the card from the inputs you supply (offline; saves nothing; refuses without a dated FX quote and a price reference).
 - **Illustrative arithmetic only (synthetic FX and margin, NOT a proposal):** at an illustrative 3.75 SAR per USD and a 20% margin, $4.00 → 1,500 halalas → 1,800; $20.00 → 7,500 → 9,000 credits per million at 1 credit = 1 halala. The owner supplies the real FX policy, margin (basis points), credit unit and VAT.
 - **Alternatives:** a different margin or tiering.
 - **Evidence to close:** confirmed vendor price; the signed-off rate card version with its effective date.
@@ -76,6 +79,7 @@ Evidence table `ai.model_capability_evidence` (migration 1870); a real provider'
   | Nine-check suite (includes the whole probe) | 13 | 14,716 | **USD 0.116720** | USD 0.294320 |
   | Both | 21 | 26,432 | **USD 0.197440** | USD 0.528640 |
   No retries (adapter `maxRetries: 0`, the harness never repeats a request); thinking tokens are billed as output inside each request's `max_tokens`; the contents are constants of public text (no customer, organization or project data); nothing a model returns is executed.
+- **Per track (computed, `trackWorstCase`):** A provider connection 2 requests / 800 tokens / **USD 0.006400**; B tool calling 8 / 11,716 / **USD 0.080720**; C code generation 2 / 2,000 / **USD 0.030400** (static checks, the code is never run). One approval entry of 13 requests and 14,716 tokens covers each run separately. The D-31 tolerance for usage reconciliation (**proposed 1% = 10 per mille**, not decided) is a parameter of the reconcile command; the default is exact.
 - **Approval record to fill (becomes `AI_PROBE_APPROVALS` and `approval.json`):** `ref`, `approvedBy`, `environment: non-production`, `maxRequests` ≥ 13 (suite) / 8 (probe), `maxTotalTokens` ≥ 14,716 / 11,716, `maxCostNano` ≥ **116,720,000** (nano-USD; the runner refuses a lower figure).
 - **Evidence to close:** the approval record; the report file; the reconciliation against the vendor figure.
 - **Alternatives:** defer (the provider stays unverified; the router never offers tools on Claude).

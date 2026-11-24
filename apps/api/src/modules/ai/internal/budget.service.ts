@@ -132,8 +132,9 @@ export class BudgetService {
           this.cfg.retryMaxDelayMs * this.cfg.attemptsPerCandidate +
           10_000;
         if (Number(existing.age_ms) < window)
+          // the call id is the call's idempotency key: the registry's code for "a request with this key is already in progress" (409)
           throw new ProblemException(
-            'conflict',
+            'idempotency_in_progress',
             'call_in_progress: this call id is already being served; wait for it or use a new call id',
           );
         return {

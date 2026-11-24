@@ -251,6 +251,25 @@ describe('Claude adapter: request and response shape (stubbed fetch, no real cal
       code: 'invalid_request',
     });
   });
+  it("carries the provider's request id when it is well formed, and drops anything else", async () => {
+    const withId = (id: string) =>
+      new Response(
+        JSON.stringify({
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          model: CLAUDE_MODEL_ID,
+          content: [{ type: 'text', text: 'ok' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 3, output_tokens: 1 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json', 'request-id': id } },
+      );
+    stub(() => withId('req_011CabcDEF123'));
+    expect((await real().complete({ callId: 'c' }, req)).requestId).toBe('req_011CabcDEF123');
+    stub(() => withId('not a request id <script>'));
+    expect((await real().complete({ callId: 'c' }, req)).requestId).toBeUndefined();
+  });
   it('a network failure is "unavailable"; an aborted signal is "aborted" and sends nothing', async () => {
     stub(() => Promise.reject(new TypeError('fetch failed')));
     await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({

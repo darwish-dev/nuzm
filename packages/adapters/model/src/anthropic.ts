@@ -84,6 +84,8 @@ export interface ClaudeContentBlock {
   input?: unknown;
 }
 export interface ClaudeMessage {
+  /** the SDK exposes the response's `request-id` header here */
+  _request_id?: string | null;
   content: ClaudeContentBlock[];
   stop_reason: string | null;
   usage: {
@@ -275,7 +277,12 @@ export class AnthropicModelAdapter implements ModelAdapter {
       }
       const final = await s.finalMessage();
       const r = this.response(req.model, final, req);
-      yield { done: true, finishReason: r.finishReason, usage: r.usage };
+      yield {
+        done: true,
+        finishReason: r.finishReason,
+        usage: r.usage,
+        ...(r.requestId ? { requestId: r.requestId } : {}),
+      };
     } catch (e) {
       throw this.mapError(e, ctx.signal);
     } finally {
@@ -467,6 +474,16 @@ export class AnthropicModelAdapter implements ModelAdapter {
   }
 
   private response(model: string, msg: ClaudeMessage, req?: CompleteRequest): CompleteResponse {
+    const r = this.responseCore(model, msg, req);
+    // only a well-formed vendor request id is passed on (it ends up in evidence files): anything else is dropped
+    const rid =
+      typeof msg._request_id === 'string' && /^req_[A-Za-z0-9_-]{4,100}$/.test(msg._request_id)
+        ? msg._request_id
+        : null;
+    return rid ? { ...r, requestId: rid } : r;
+  }
+
+  private responseCore(model: string, msg: ClaudeMessage, req?: CompleteRequest): CompleteResponse {
     const text = msg.content
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')

@@ -306,3 +306,68 @@ describe('Arabic', () => {
     expect(screen.getByRole('button', { name: ti('ar', 'ins.disc.run') })).toBeTruthy();
   });
 });
+
+describe('tool-calling probe', () => {
+  const fill = () => {
+    fireEvent.change(
+      screen.getByLabelText(T('ins.rc.provider'), { selector: '#ins-probe-provider' }),
+      { target: { value: 'p-claude' } },
+    );
+    fireEvent.change(screen.getByLabelText(T('ins.probe.model')), {
+      target: { value: 'claude-opus-5-5' },
+    });
+    fireEvent.change(screen.getByLabelText(T('ins.probe.ref')), {
+      target: { value: 'synthetic-D9-ref' },
+    });
+  };
+  it('is offered only to someone who may approve', () => {
+    panel({ canApprove: false });
+    expect(screen.queryByText(T('ins.probe.title'))).toBeNull();
+    cleanup();
+    panel({ canApprove: true });
+    expect(screen.getByText(T('ins.probe.help'))).toBeTruthy();
+  });
+  it('refuses an incomplete form on the screen, without calling the API', () => {
+    panel({ canApprove: true });
+    fireEvent.click(screen.getByTestId('ins-probe-run'));
+    expect(screen.getByText(T('ins.probe.invalid'))).toBeTruthy();
+    fill();
+    fireEvent.change(screen.getByLabelText(T('ins.probe.cap')), { target: { value: '100' } });
+    fireEvent.click(screen.getByTestId('ins-probe-run'));
+    expect(screen.getByText(T('ins.probe.invalid'))).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+  });
+  it('posts the probe action and shows the evidence rows recorded for the model', async () => {
+    post.mockResolvedValue(
+      ok({
+        capabilityEvidence: [
+          { model: 'claude-opus-5-5', capability: 'tool-use', state: 'VERIFIED' },
+          { model: 'claude-opus-5-5', capability: 'parallel-tool-calls', state: 'NOT VERIFIED' },
+          { model: 'other-model', capability: 'tool-use', state: 'VERIFIED' },
+        ],
+      }),
+    );
+    panel({ canApprove: true });
+    fill();
+    fireEvent.click(screen.getByTestId('ins-probe-run'));
+    expect(await screen.findByText(T('ins.probe.done'))).toBeTruthy();
+    expect(post.mock.calls[0]![0]).toBe('/v1/admin/ai/model-providers');
+    expect(post.mock.calls[0]![1].body).toEqual({
+      action: 'probe_tool_use',
+      id: 'p-claude',
+      model: 'claude-opus-5-5',
+      approvalRef: 'synthetic-D9-ref',
+      maxTotalTokens: 11716,
+    });
+    expect(screen.getByText(T('ins.probe.state.VERIFIED'))).toBeTruthy();
+    expect(screen.getByText(T('ins.probe.state.NOT VERIFIED'))).toBeTruthy();
+    expect(screen.queryByText('other-model')).toBeNull();
+  });
+  it('explains a refusal (nothing was sent)', async () => {
+    post.mockResolvedValue(fail(422, 'unsupported_capability'));
+    panel({ canApprove: true });
+    fill();
+    fireEvent.click(screen.getByTestId('ins-probe-run'));
+    expect(await screen.findByText(T('ins.probe.refused'))).toBeTruthy();
+  });
+});

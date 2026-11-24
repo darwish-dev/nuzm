@@ -237,6 +237,20 @@ const en: Dict = {
   'ins.disc.notDeclared': 'Listed by the provider but not declared (never offered)',
   'ins.disc.none': 'none',
   'ins.disc.live': 'Live request',
+  'ins.probe.title': 'Tool-calling probe',
+  'ins.probe.help':
+    'Records, from what the model actually does, whether tool calling may be offered for it (a bounded live run: at most 8 small requests, no retries, public content only). It needs the recorded approval (D9), the agreement (D2), a credential (D4) and the live gate (D3); otherwise it is refused and nothing is sent.',
+  'ins.probe.model': 'Model id',
+  'ins.probe.ref': 'Approval reference',
+  'ins.probe.cap': 'Token cap (at least 11716)',
+  'ins.probe.run': 'Run the probe',
+  'ins.probe.refused':
+    'The probe was refused and nothing was sent: a recorded approval, the agreement, a credential or the live gate is missing.',
+  'ins.probe.invalid': 'Check the approval reference and a token cap of at least 11716.',
+  'ins.probe.done': 'The probe finished. Evidence recorded:',
+  'ins.probe.none': 'no evidence rows',
+  'ins.probe.state.VERIFIED': 'verified',
+  'ins.probe.state.NOT VERIFIED': 'not verified',
 };
 const ar: Dict = {
   'ins.title': 'صحة المزوّدين وقدراتهم واستهلاكهم',
@@ -340,6 +354,20 @@ const ar: Dict = {
   'ins.disc.notDeclared': 'مدرجة لدى المزوّد لكن غير معلنة (لا تُعرض أبداً)',
   'ins.disc.none': 'لا شيء',
   'ins.disc.live': 'طلب حيّ',
+  'ins.probe.title': 'فحص استدعاء الأدوات',
+  'ins.probe.help':
+    'يسجّل، من سلوك النموذج الفعلي، هل يجوز عرض استدعاء الأدوات له (تشغيل حيّ محدود: ثمانية طلبات صغيرة كحدّ أقصى، دون إعادة محاولة، بمحتوى عام فقط). يتطلب الموافقة المسجّلة (D9) والاتفاقية (D2) وبيانات اعتماد (D4) وبوابة التشغيل الحيّ (D3)؛ وإلا يُرفض ولا يُرسل شيء.',
+  'ins.probe.model': 'معرّف النموذج',
+  'ins.probe.ref': 'مرجع الموافقة',
+  'ins.probe.cap': 'سقف الرموز (11716 على الأقل)',
+  'ins.probe.run': 'تشغيل الفحص',
+  'ins.probe.refused':
+    'رُفض الفحص ولم يُرسل شيء: ينقص موافقة مسجّلة أو الاتفاقية أو بيانات اعتماد أو بوابة التشغيل الحيّ.',
+  'ins.probe.invalid': 'تحقق من مرجع الموافقة ومن سقف رموز لا يقل عن 11716.',
+  'ins.probe.done': 'انتهى الفحص. الأدلة المسجّلة:',
+  'ins.probe.none': 'لا صفوف أدلة',
+  'ins.probe.state.VERIFIED': 'موثّقة',
+  'ins.probe.state.NOT VERIFIED': 'غير موثّقة',
 };
 export const INSIGHT_TEXT = { en, ar } as const;
 export type InsightKey = keyof typeof en;

@@ -35,7 +35,7 @@ Docs: `docs/runbooks/node-onboarding.md` (access-key profile = the allow-list; S
 
 ## D. Migrations and rollback
 
-`hosting/1983__hosting__site_tools.sql`: eight permissions (`hosting:files:read|write`, `cron:manage`, `logs:read`, `ftp:manage`, `protection:manage`, `mail:read|manage`) with role grants (owner/admin all; developer all except `mail:manage`; viewer and billing_admin none) and `hosting.nodes.sftp_host_key_sha256` (classified `internal`). No new tenant table: jobs, accounts and mailboxes live on the panel. The ordinal 1983 is in the M06-INT range (1980–1984); parallel sprints (S04, S06) must not reuse it. Down script is dev-only; production is forward-fix.
+`hosting/1993__hosting__site_tools.sql`: eight permissions (`hosting:files:read|write`, `cron:manage`, `logs:read`, `ftp:manage`, `protection:manage`, `mail:read|manage`) with role grants (owner/admin all; developer all except `mail:manage`; viewer and billing_admin none) and `hosting.nodes.sftp_host_key_sha256` (classified `internal`). No new tenant table: jobs, accounts and mailboxes live on the panel. The ordinal 1983 is in the M06-INT range (1980–1984); parallel sprints (S04, S06) must not reuse it. Down script is dev-only; production is forward-fix.
 
 ## E. Tests run (actual results)
 

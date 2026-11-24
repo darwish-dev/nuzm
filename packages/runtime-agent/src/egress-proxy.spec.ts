@@ -49,9 +49,34 @@ const connectLine = (t: string) => `CONNECT ${t} HTTP/1.1\r\nhost: ${t}\r\n\r\n`
 
 describe('public address test', () => {
   it('refuses every private, loopback, link-local, CGNAT, documentation, multicast and embedded form', () => {
-    for (const ip of ['0.0.0.0', '10.1.2.3', '127.0.0.1', '169.254.169.254', '172.16.0.1', '172.31.255.255', '192.168.1.1', '100.64.0.1', '198.18.0.1', '192.0.2.1', '198.51.100.9', '203.0.113.5', '224.0.0.1', '255.255.255.255', '::', '::1', 'fe80::1', 'fd00:ec2::254', 'fc00::1', 'ff02::1', '2001:db8::1', '::ffff:10.0.0.1', '::ffff:7f00:1', '2002:c0a8:0101::1', '64:ff9b::a00:1', 'not-an-ip', ''])
+    for (const ip of ['0.0.0.0', '10.1.2.3', '127.0.0.1', '169.254.169.254', '172.16.0.1', '172.31.255.255', '192.168.1.1', '100.64.0.1', '198.18.0.1', '192.0.2.1', '198.51.100.9', '203.0.113.5', '224.0.0.1', '255.255.255.255', '::', '::1', 'fe80::1', 'fd00:ec2::254', 'fc00::1', 'ff02::1', '2001:db8::1', '::ffff:10.0.0.1', '::ffff:7f00:1', '2002:c0a8:0101::1', '64:ff9b::a00:1', '100::1', '::7f00:1', 'fec0::1', 'not-an-ip', ''])
       expect(isPublicAddress(ip), ip).toBe(false);
     for (const ip of ['104.16.1.1', '151.101.1.1', '8.8.8.8', '172.32.0.1', '100.63.0.1', '2606:4700::1111']) expect(isPublicAddress(ip), ip).toBe(true);
+  });
+  it('a client that disconnects while the upstream connect is in flight frees its tunnel slot immediately (O-17)', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let upstreamDestroyed = false;
+    const p = await start({
+      maxTunnels: 1,
+      connector: async () => {
+        await gate;
+        const up = new PassThrough();
+        up.on('close', () => (upstreamDestroyed = true));
+        return Object.assign(up, { setTimeout: () => up, setNoDelay: () => up }) as unknown as Socket;
+      },
+    });
+    const c = connect(p.port, '127.0.0.1');
+    await new Promise<void>((r) => c.write(connectLine('registry.npmjs.org:443'), () => r()));
+    await new Promise((r) => setTimeout(r, 50));
+    c.destroy();
+    await new Promise((r) => setTimeout(r, 50));
+    release();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(upstreamDestroyed).toBe(true);
+    expect(p.metrics.get('nuzm_proxy_tunnels_closed_total', 'client_gone_before_open')).toBe(1);
+    // the single slot is free again
+    expect(await send(p.port, connectLine('registry.npmjs.org:443'))).toMatch(/^HTTP\/1\.1 200 /);
   });
   it('parses only host:port authority forms', () => {
     expect(parseConnectTarget('registry.npmjs.org:443')).toEqual({ host: 'registry.npmjs.org', port: 443 });

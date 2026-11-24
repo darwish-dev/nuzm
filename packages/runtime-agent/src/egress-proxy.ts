@@ -1,6 +1,6 @@
 import { connect as netConnect, createServer, isIP, type Server, type Socket } from 'node:net';
 import { lookup } from 'node:dns/promises';
-import { executionGateway as eg } from '@nuzm/domain';
+import { executionGateway as eg, isBlockedAddress } from '@nuzm/domain';
 import type { Metrics } from './metrics';
 
 /**
@@ -28,32 +28,16 @@ export interface ProxyOptions {
   onEvent?: (e: { host: string; outcome: string; bytes?: number }) => void;
 }
 
-/** true if the textual address is publicly routable unicast (v4 or v6); everything else is refused */
+/**
+ * true if the textual address is publicly routable unicast. It DELEGATES to the platform's SSRF classifier (`isBlockedAddress`, Phase 2 DEFECT-2/3) so the proxy and the rest of the
+ * platform can never disagree (DEFECT-18: a private re-implementation accepted 100::/64, `::7f00:1` and `fec0::1`). A non-IP string is refused. The extra rules below are
+ * additional, never a replacement: NAT64 (`64:ff9b::/96`) and 6to4 (`2002::/16`) embed an IPv4 address this proxy does not vet, so they are refused here too.
+ */
 export function isPublicAddress(ip: string): boolean {
-  const v = isIP(ip);
-  if (v === 4) {
-    const p = ip.split('.').map(Number);
-    const [a, b, c] = p as [number, number, number, number];
-    if (a === 0 || a === 10 || a === 127 || a >= 224) return false; // this-net, private, loopback, multicast/reserved/broadcast
-    if (a === 100 && b >= 64 && b <= 127) return false; // CGNAT
-    if (a === 169 && b === 254) return false; // link-local, metadata
-    if (a === 172 && b >= 16 && b <= 31) return false;
-    if (a === 192 && b === 168) return false;
-    if (a === 192 && b === 0 && (c === 0 || c === 2)) return false; // IETF protocol, TEST-NET-1
-    if (a === 198 && (b === 18 || b === 19)) return false; // benchmarking
-    if (a === 198 && b === 51 && c === 100) return false; // TEST-NET-2
-    if (a === 203 && b === 0 && c === 113) return false; // TEST-NET-3
-    return true;
-  }
-  if (v === 6) {
-    const s = ip.toLowerCase();
-    if (s === '::' || s === '::1') return false;
-    if (/^(fc|fd)/.test(s) || /^fe[89ab]/.test(s) || /^ff/.test(s)) return false; // ULA, link-local, multicast
-    if (/^2001:0?db8:/.test(s) || /^2001:0?:/.test(s) || /^2002:/.test(s) || /^64:ff9b:/.test(s)) return false; // documentation, Teredo, 6to4, NAT64 (embedded v4 not vetted)
-    if (s.includes('.') || /^::ffff:/.test(s) || /^0{0,4}:0{0,4}:0{0,4}:0{0,4}:0{0,4}:ffff:/.test(s)) return false; // IPv4-mapped / embedded
-    return true;
-  }
-  return false;
+  if (isIP(ip) === 0) return false;
+  if (isBlockedAddress(ip)) return false;
+  const s = ip.toLowerCase();
+  return !(/^64:ff9b:/.test(s) || /^2002:/.test(s));
 }
 
 const defaultResolver = async (host: string): Promise<string[]> => (await lookup(host, { all: true, verbatim: true })).map((r) => r.address);
@@ -128,6 +112,14 @@ export function createEgressProxy(o: ProxyOptions): Server {
       } catch {
         tunnels--;
         return refuse(502, 'connect_failed', t.host);
+      }
+      // O-17: the client may have gone while the upstream connect was in flight: drop the upstream and free the slot at once instead of holding it until the idle timeout
+      if (client.destroyed) {
+        upstream.destroy();
+        tunnels--;
+        o.metrics.inc('nuzm_proxy_tunnels_closed_total', 1, 'client_gone_before_open');
+        o.onEvent?.({ host: t.host, outcome: 'client_gone_before_open' });
+        return;
       }
       let bytes = 0;
       const cap = o.maxBytesPerTunnel ?? 512 * 1024 * 1024;

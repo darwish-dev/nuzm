@@ -26,4 +26,48 @@ describe('live provider gate configuration (S-AG4)', () => {
       loadAiConfig({ NODE_ENV: 'production', AI_LIVE_PROVIDERS: 'claude' }).liveProviders,
     ).toEqual([]);
   });
+
+  it('resilience defaults: bounded retries with backoff, a breaker that opens after 5 consecutive health failures, and no fallback restriction', () => {
+    const c = loadAiConfig({});
+    expect(c).toMatchObject({
+      attemptsPerCandidate: 2,
+      retryBaseDelayMs: 200,
+      retryMaxDelayMs: 5000,
+      breakerFailureThreshold: 5,
+      breakerOpenMs: 30000,
+      fallbackPolicy: null,
+    });
+  });
+  it('resilience settings are read, floored and sanitised', () => {
+    const c = loadAiConfig({
+      AI_RETRY_BASE_MS: '10.9',
+      AI_BREAKER_THRESHOLD: '0',
+      AI_BREAKER_OPEN_MS: 'x',
+      AI_ATTEMPTS_PER_CANDIDATE: '3',
+    });
+    expect(c).toMatchObject({
+      retryBaseDelayMs: 10,
+      breakerFailureThreshold: 5,
+      breakerOpenMs: 30000,
+      attemptsPerCandidate: 3,
+    });
+  });
+  it('the fallback policy is read only when well-formed; anything else keeps the safe default', () => {
+    const ok = JSON.stringify({
+      mode: 'approved_only',
+      approved: { 'claude/claude-opus-5-5': ['mock-a/m'] },
+    });
+    expect(loadAiConfig({ AI_FALLBACK_POLICY: ok }).fallbackPolicy).toEqual({
+      mode: 'approved_only',
+      approved: { 'claude/claude-opus-5-5': ['mock-a/m'] },
+    });
+    for (const bad of [
+      '',
+      'not json',
+      '[]',
+      '{"mode":"nope"}',
+      '{"mode":"approved_only","approved":{"x":[]}}',
+    ])
+      expect(loadAiConfig({ AI_FALLBACK_POLICY: bad }).fallbackPolicy).toBeNull();
+  });
 });

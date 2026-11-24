@@ -9,6 +9,7 @@ import {
   type CompleteResponse,
   type ContentBlock,
   type DataTerms,
+  type DiscoveredModel,
   type ModelAdapter,
   type ModelInfo,
   type ModelMessage,
@@ -18,6 +19,7 @@ import {
   type Usage,
 } from './types';
 import { allowedToolCalls, assertToolCalls, assertToolRequest } from './tools';
+import { parseRetryAfterMs } from './resilience';
 
 /**
  * Claude (Anthropic Messages API) behind the `ModelAdapter` contract (docs/09 §7), written from the provider's official documentation (docs/adapters/anthropic.md)
@@ -98,7 +100,17 @@ export interface ClaudeStreamEvent {
   content_block?: { type?: string; id?: string; name?: string };
   delta?: { type?: string; text?: string; partial_json?: string };
 }
+export interface ClaudeModelListing {
+  data: { id: string; display_name?: string | null; created_at?: string | null }[];
+}
 export interface ClaudeClient {
+  /** optional: only model discovery uses it */
+  models?: {
+    list(
+      params?: Record<string, unknown>,
+      opts?: { signal?: AbortSignal },
+    ): Promise<ClaudeModelListing>;
+  };
   messages: {
     create(
       params: Record<string, unknown>,
@@ -166,6 +178,35 @@ export class AnthropicModelAdapter implements ModelAdapter {
 
   models(): ModelInfo[] {
     return modelsFor(this.v11);
+  }
+
+  /**
+   * Model discovery (`GET /v1/models`, read-only, no prompt, nothing billed). Behind the same live gate and key rules as a call: closed gate = nothing leaves the process.
+   * One bounded page (100); ids are sanitised, display names clipped. NOT live-verified: the shape is the SDK's, exercised only against a stub.
+   */
+  async discoverModels(ctx: CallContext): Promise<DiscoveredModel[]> {
+    if (ctx.signal?.aborted) throw new ModelAdapterError('aborted', ERR.aborted);
+    this.assertLive();
+    const client = await this.client();
+    if (!client.models)
+      throw new ModelAdapterError('unavailable', 'model listing is not available', false);
+    try {
+      const page = await client.models.list({ limit: 100 }, { signal: ctx.signal });
+      const out: DiscoveredModel[] = [];
+      for (const m of page.data.slice(0, 100)) {
+        if (typeof m.id !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(m.id)) continue;
+        out.push({
+          modelId: m.id,
+          ...(typeof m.display_name === 'string'
+            ? { displayName: m.display_name.slice(0, 120) }
+            : {}),
+          ...(typeof m.created_at === 'string' ? { createdAt: m.created_at.slice(0, 40) } : {}),
+        });
+      }
+      return out;
+    } catch (e) {
+      throw this.mapError(e, ctx.signal);
+    }
   }
 
   tokenCount(_model: string, messages: ModelMessage[]): number {
@@ -486,7 +527,12 @@ export class AnthropicModelAdapter implements ModelAdapter {
     if (e instanceof Anthropic.APIConnectionTimeoutError)
       return new ModelAdapterError('timeout', ERR.timeout);
     if (e instanceof Anthropic.RateLimitError)
-      return new ModelAdapterError('rate_limited', ERR.rate_limited);
+      return new ModelAdapterError(
+        'rate_limited',
+        ERR.rate_limited,
+        true,
+        parseRetryAfterMs((e as { headers?: unknown }).headers),
+      );
     if (e instanceof Anthropic.APIConnectionError)
       return new ModelAdapterError('unavailable', 'could not reach the model provider (network)');
     if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError)
@@ -500,6 +546,8 @@ export class AnthropicModelAdapter implements ModelAdapter {
         return new ModelAdapterError(
           'unavailable',
           `the model provider answered with an error (HTTP ${e.status})`,
+          true,
+          parseRetryAfterMs((e as { headers?: unknown }).headers),
         ); // includes 529 overloaded
       return new ModelAdapterError(
         'invalid_request',

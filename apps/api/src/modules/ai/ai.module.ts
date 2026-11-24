@@ -38,6 +38,7 @@ import { AgentWorkspaceRegistry, StaticAgentWorkspaceRegistry } from './internal
 import { AI_CONFIG, loadAiConfig, type AiConfig } from './internal/model';
 import { probeAnthropic } from './internal/claude-probe';
 import { ModelProviderService } from './internal/provider.service';
+import { ProviderInsightsService } from './internal/provider-insights.service';
 import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/registry';
 
 /**
@@ -140,6 +141,25 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
         AI_CONFIG,
       ],
     },
+    {
+      provide: ProviderInsightsService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        p: ModelProviderService,
+        r: ModelAdapterRegistry,
+        g: GatewayService,
+        cfg: AiConfig,
+      ) => new ProviderInsightsService(db, a, p, r, g, cfg),
+      inject: [
+        DB,
+        AuditSink,
+        ModelProviderService,
+        ModelAdapterRegistry,
+        GatewayService,
+        AI_CONFIG,
+      ],
+    },
     { provide: UrlFetchPort, useFactory: () => new SafeUrlFetcher() },
     // D-46 / S-AG2: the read-only agent tool gateway and the registry the app builder fills with its project workspaces
     { provide: AgentWorkspaceRegistry, useFactory: () => new StaticAgentWorkspaceRegistry() },
@@ -211,6 +231,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     ModelProviderService,
     BudgetService,
     GatewayService,
+    ProviderInsightsService,
     RunKindRegistry,
     RunService,
     SessionService,

@@ -24,7 +24,7 @@ export class DeploymentsController {
 
   /**
    * Body {projectId, target: hostingSiteId, environment, approvalId?}. First call: 403 `approval_required` + `approvalId` and the cost disclosure; repeat with the approvalId
-   * (a NEW Idempotency-Key) to confirm as a human with a write role. 202 + deployment. 422 `unsupported_capability` when no publish path exists.
+   * (a NEW Idempotency-Key) to confirm as a signed-in person with a write role (an API key may ask for the approval but its confirmation is refused 403). 202 + deployment. 422 `unsupported_capability` when no publish path exists.
    */
   @RequirePermission('deploy:write')
   @Idempotent()
@@ -38,7 +38,7 @@ export class DeploymentsController {
   ) {
     if (!key)
       throw new ProblemException('idempotency_key_required', 'send an Idempotency-Key header');
-    return this.deploys.create(orgId, a.actor.userId, key, body ?? {});
+    return this.deploys.create(orgId, a.actor.userId, key, body ?? {}, a.actor.kind);
   }
   @RequirePermission('deploy:read')
   @Get()
@@ -72,5 +72,13 @@ export class DeploymentsController {
     if (!key)
       throw new ProblemException('idempotency_key_required', 'send an Idempotency-Key header');
     return this.deploys.rollback(orgId, a.actor.userId, id.toLowerCase(), key);
+  }
+  /** Cancel a queued or running deployment (202; a running one stops at its next checkpoint, before the switch). 409 `invalid_state` once finished. */
+  @RequirePermission('deploy:write')
+  @Idempotent()
+  @Post(':id/cancel')
+  @HttpCode(202)
+  cancel(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string) {
+    return this.deploys.cancel(orgId, a.actor.userId, id.toLowerCase());
   }
 }

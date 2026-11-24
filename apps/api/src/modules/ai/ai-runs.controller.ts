@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
+import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { parseLimit } from '../../common/pagination';
 import { AiEnabledGuard } from './internal/ai-enabled.guard';
@@ -126,7 +127,11 @@ export class AiRunsController {
     return this.runs.cancel(orgId, a.actor.userId, id.toLowerCase());
   }
 
-  /** Body `{approvalId, decision: approve|deny, note?}`. Needs a write role (the approver is always a human member); 409 `approval_expired`. */
+  /**
+   * Body `{approvalId, decision: approve|deny, note?}`. The approver is a PERSON in a session who holds `ai:approve` (DEFECT-6): an API key, which may create and cancel runs with
+   * `ai:write`, can never decide a gate on its own work, and the audit records the person who really decided. 403 otherwise; 409 `approval_expired`.
+   * The route keeps `ai:write` as its guard (the OpenAPI operation says so); the stricter checks are made here.
+   */
   @RequirePermission('ai:write')
   @Idempotent()
   @Post(':id/approvals')
@@ -137,6 +142,16 @@ export class AiRunsController {
     @Param('id') id: string,
     @Body() body: Record<string, unknown> | undefined,
   ) {
+    if (a.actor.kind !== 'session')
+      throw new ProblemException(
+        'forbidden',
+        'an approval is decided by a person signed in, not by an API key',
+      );
+    if (!a.permissions.has('ai:approve'))
+      throw new ProblemException(
+        'forbidden',
+        'permission ai:approve is required to decide an approval',
+      );
     return this.runs.decide(orgId, a.actor.userId, id.toLowerCase(), body ?? {});
   }
 }

@@ -1,6 +1,9 @@
+import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import {
   ProbeRefused,
+  diffRateCards,
+  type RateCardChange,
   contractAtLeast,
   probeWorstCase,
   runCapabilityProbe,
@@ -34,6 +37,31 @@ export interface EvidenceDto {
   recordedBy: string;
   recordedAt: string;
 }
+
+export interface RateCardVersionDto {
+  id: string;
+  version: string;
+  recordedBy: string;
+  recordedAt: string;
+  models: RateCardModels['models'];
+  /** what this version changed against the one before it (everything is `added` for the first) */
+  changes: RateCardChange[];
+}
+/** A stable digest of a rate card's CONTENT: key order and the version label do not matter. */
+export const rateCardSha = (card: RateCardModels): string =>
+  createHash('sha256')
+    .update(
+      JSON.stringify(
+        Object.keys(card.models)
+          .sort()
+          .map((k) => [
+            k,
+            card.models[k]!.creditsPerMillionInput,
+            card.models[k]!.creditsPerMillionOutput,
+          ]),
+      ),
+    )
+    .digest('hex');
 
 export interface RateCardModels {
   models: Record<string, { creditsPerMillionInput: string; creditsPerMillionOutput: string }>;
@@ -209,6 +237,62 @@ export class ModelProviderService {
     return rows.map((r) => ({ row: this.dto(r) })).filter((x) => x.row.adapterRegistered);
   }
 
+  /**
+   * Append the rate card to its history when its CONTENT changed (S-AG4, migration 1900). Same content under a new label, or a re-save, appends nothing; an empty card is recorded only
+   * when it replaces a non-empty one (a removal of prices is part of the history). Runs inside the `configure` transaction, so the history and the provider row cannot disagree.
+   */
+  private async recordRateCardVersion(
+    c: { query: (sql: string, params?: unknown[]) => Promise<{ rows: Row[] }> },
+    providerId: string,
+    version: string,
+    card: RateCardModels,
+    actor: string,
+  ): Promise<void> {
+    const sha = rateCardSha(card);
+    const last = (
+      await c.query(
+        `SELECT content_sha256 FROM ai.model_rate_card_versions WHERE provider_id=$1 ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+        [providerId],
+      )
+    ).rows[0];
+    if (last ? last.content_sha256 === sha : Object.keys(card.models).length === 0) return;
+    await c.query(
+      `INSERT INTO ai.model_rate_card_versions (id, provider_id, version, models, content_sha256, recorded_by) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [uuidv7(), providerId, version, JSON.stringify(card.models), sha, actor],
+    );
+  }
+
+  /** The rate card history of a provider, newest first, each entry with what it changed against the entry before it. Read-only. */
+  async rateCardHistory(id: string): Promise<{ items: RateCardVersionDto[] }> {
+    if (!isUuid(id)) throw new ProblemException('validation_failed', 'id must be a uuid');
+    const rows = await this.db.withPlatformScope(async (c) => {
+      const p = (await c.query(`SELECT 1 FROM ai.model_providers WHERE id=$1`, [id])).rows[0];
+      if (!p) return null;
+      return (
+        await c.query(
+          `SELECT id, version, models, basis, recorded_by, recorded_at FROM ai.model_rate_card_versions WHERE provider_id=$1 ORDER BY recorded_at DESC, id DESC LIMIT 200`,
+          [id],
+        )
+      ).rows as Row[];
+    });
+    if (rows === null) throw new ProblemException('not_found');
+    const asCard = (r: Row) => ({
+      version: r.version as string,
+      effectiveFrom: new Date(r.recorded_at as string | Date).toISOString(),
+      models: r.models as RateCardModels['models'],
+    });
+    return {
+      items: rows.map((r, i) => ({
+        id: r.id as string,
+        version: r.version as string,
+        recordedBy: r.recorded_by as string,
+        recordedAt: new Date(r.recorded_at as string | Date).toISOString(),
+        models: r.models as RateCardModels['models'],
+        changes: diffRateCards(rows[i + 1] ? asCard(rows[i + 1]!) : null, asCard(r)),
+      })),
+    };
+  }
+
   static parseRateCard(v: unknown): RateCardModels {
     if (typeof v !== 'object' || v === null || Array.isArray(v))
       throw new ProblemException(
@@ -295,13 +379,36 @@ export class ModelProviderService {
       const cur = (
         await c.query(`SELECT * FROM ai.model_providers WHERE code=$1 FOR UPDATE`, [code])
       ).rows[0] as Row | undefined;
-      if (!cur) {
+      const saved = await (async (): Promise<Row> => {
+        if (!cur) {
+          return (
+            await c.query(
+              `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, vault_ref, egress_allow, rate_card_version, rate_card, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+              [
+                uuidv7(),
+                code,
+                adapter,
+                displayName,
+                region,
+                vaultRef,
+                JSON.stringify(egress),
+                rateCardVersion,
+                JSON.stringify(rateCard),
+                actor,
+              ],
+            )
+          ).rows[0] as Row;
+        }
+        const regionChanged = cur.region !== region;
         return (
           await c.query(
-            `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, vault_ref, egress_allow, rate_card_version, rate_card, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+            `UPDATE ai.model_providers SET adapter=$2, display_name=$3, region=$4, vault_ref=COALESCE($5, vault_ref), egress_allow=$6, rate_card_version=$7, rate_card=$8,
+                  enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL,
+                  data_terms = CASE WHEN $9 THEN '{"attested":false,"retainsPrompts":"unknown","trainsOnData":"unknown"}'::jsonb ELSE data_terms END,
+                  attestation_ref = CASE WHEN $9 THEN NULL ELSE attestation_ref END, attested_by = CASE WHEN $9 THEN NULL ELSE attested_by END, attested_at = CASE WHEN $9 THEN NULL ELSE attested_at END,
+                  updated_at=now(), version=version+1 WHERE code=$1 RETURNING *`,
             [
-              uuidv7(),
               code,
               adapter,
               displayName,
@@ -310,32 +417,13 @@ export class ModelProviderService {
               JSON.stringify(egress),
               rateCardVersion,
               JSON.stringify(rateCard),
-              actor,
+              regionChanged,
             ],
           )
         ).rows[0] as Row;
-      }
-      const regionChanged = cur.region !== region;
-      return (
-        await c.query(
-          `UPDATE ai.model_providers SET adapter=$2, display_name=$3, region=$4, vault_ref=COALESCE($5, vault_ref), egress_allow=$6, rate_card_version=$7, rate_card=$8,
-                  enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL,
-                  data_terms = CASE WHEN $9 THEN '{"attested":false,"retainsPrompts":"unknown","trainsOnData":"unknown"}'::jsonb ELSE data_terms END,
-                  attestation_ref = CASE WHEN $9 THEN NULL ELSE attestation_ref END, attested_by = CASE WHEN $9 THEN NULL ELSE attested_by END, attested_at = CASE WHEN $9 THEN NULL ELSE attested_at END,
-                  updated_at=now(), version=version+1 WHERE code=$1 RETURNING *`,
-          [
-            code,
-            adapter,
-            displayName,
-            region,
-            vaultRef,
-            JSON.stringify(egress),
-            rateCardVersion,
-            JSON.stringify(rateCard),
-            regionChanged,
-          ],
-        )
-      ).rows[0] as Row;
+      })();
+      await this.recordRateCardVersion(c, saved.id as string, rateCardVersion, rateCard, actor);
+      return saved;
     });
     await this.audit.record({
       action: 'ai.provider.configured',

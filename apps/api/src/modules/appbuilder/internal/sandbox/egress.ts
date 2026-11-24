@@ -136,6 +136,11 @@ export function blockedV6(g: number[]): string | null {
   const embedded = (hi: number, lo: number) => blockedV4(((hi << 16) | lo) >>> 0);
   if (g.every((x) => x === 0)) return 'unspecified';
   if (g.slice(0, 7).every((x) => x === 0) && g[7] === 1) return 'loopback';
+  // SIIT (RFC 2765/6145): ::ffff:0:a.b.c.d carries the IPv4 address in the last 32 bits
+  if (g.slice(0, 4).every((x) => x === 0) && g[4] === 0xffff && g[5] === 0)
+    return embedded(g[6]!, g[7]!) ? `SIIT-embedded ${embedded(g[6]!, g[7]!)}` : null;
+  // 100::/64 is the discard-only prefix (RFC 6666): never a public destination
+  if (g[0] === 0x100 && g[1] === 0 && g[2] === 0 && g[3] === 0) return 'discard-only (100::/64)';
   if (g.slice(0, 5).every((x) => x === 0) && (g[5] === 0xffff || g[5] === 0))
     return embedded(g[6]!, g[7]!) ? `IPv4-embedded ${embedded(g[6]!, g[7]!)}` : null;
   if (g[0] === 0x64 && g[1] === 0xff9b)

@@ -30,6 +30,7 @@ export const DEPLOY_OP = 'deploy.run';
 export const ROLLBACK_OP = 'deploy.rollback';
 const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);
 const ACTIVE = ['queued', 'building', 'deploying', 'smoke_checking'];
+const FINISHED = ['succeeded', 'failed', 'rolled_back', 'cancelled'];
 
 export interface DeployConfig {
   approvalTtlHours: number;
@@ -62,10 +63,12 @@ export interface DeploymentDto {
   url: string | null;
   smoke: unknown;
   error: unknown;
+  /** true: published through the local in-memory stand-in (SIMULATED, nothing reached a hosting node); false is reserved for a live-verified real publisher */
+  simulated: boolean;
   createdAt: string;
   finishedAt: string | null;
 }
-const dto = (r: Row): DeploymentDto => ({
+const dto = (r: Row, simulated: boolean): DeploymentDto => ({
   id: r.id as string,
   projectId: r.project_id as string,
   versionId: r.version_id as string,
@@ -79,6 +82,7 @@ const dto = (r: Row): DeploymentDto => ({
   url: (r.url as string | null) ?? null,
   smoke: r.smoke ?? null,
   error: r.error ?? null,
+  simulated,
   createdAt: iso(r.created_at)!,
   finishedAt: iso(r.finished_at),
 });
@@ -104,6 +108,9 @@ export class DeployService {
   ) {}
   setKicker(k: (orgId: string, opId: string) => void) {
     this.kicker = k;
+  }
+  private dto(r: Row): DeploymentDto {
+    return dto(r, this.publisher.simulated);
   }
   private async site(orgId: string, id: unknown): Promise<TargetSite> {
     if (typeof id !== 'string' || !UUID.test(id))
@@ -134,6 +141,8 @@ export class DeployService {
     userId: string,
     idempotencyKey: string,
     b: Record<string, unknown>,
+    /** who is calling: only a signed-in person (`session`) may CONFIRM a publish approval; an API key may ask for one but never decide it (DEFECT-4) */
+    actorKind: 'session' | 'api_key' = 'session',
   ): Promise<DeploymentDto> {
     if (!UUID.test(String(b.projectId)))
       throw new ProblemException('validation_failed', 'projectId must be a uuid');
@@ -237,6 +246,12 @@ export class DeployService {
     }
     if (typeof approvalId !== 'string' || !UUID.test(approvalId))
       throw new ProblemException('validation_failed', 'approvalId must be a uuid');
+    // the confirmation IS the human decision of the approval: a non-human actor (API key) must never make it, and the audit must not attribute it to a person
+    if (actorKind !== 'session')
+      throw new ProblemException(
+        'forbidden',
+        'a publish approval is confirmed by a signed-in person, not by an API key: ask a team member to confirm it in the console',
+      );
     const id = uuidv7();
     let row: Row;
     try {
@@ -335,7 +350,7 @@ export class DeployService {
       detail: { projectId: project.id, siteId: site.id, environment },
     });
     this.kicker(orgId, op.id);
-    return dto({ ...row, operation_id: op.id });
+    return this.dto({ ...row, operation_id: op.id });
   }
 
   async log(
@@ -385,7 +400,7 @@ export class DeployService {
       async (c) => (await c.query(`SELECT * FROM deploy.deployments WHERE id=$1`, [id])).rows[0],
     )) as Row | undefined;
     if (!r) throw new ProblemException('not_found');
-    return dto(r);
+    return this.dto(r);
   }
   async list(orgId: string, o: { limit: number; cursor?: string; projectId?: string }) {
     if (o.projectId && UUID.test(o.projectId) && this.webapp) {
@@ -404,7 +419,7 @@ export class DeployService {
         ).rows as Row[],
     );
     const p = pageOf(rows as (Row & { id: string })[], o.limit);
-    return { items: p.items.map(dto), nextCursor: p.nextCursor };
+    return { items: p.items.map((r) => this.dto(r)), nextCursor: p.nextCursor };
   }
   async logs(orgId: string, id: string, afterSeq = 0) {
     if (await this.webappOwns(orgId, id)) return (await this.webapp!.logs(orgId, id)) as never;
@@ -501,7 +516,90 @@ export class DeployService {
       to: d.previousDeploymentId,
     });
     this.kicker(orgId, op.id);
-    return dto({ ...row, operation_id: op.id });
+    return this.dto({ ...row, operation_id: op.id });
+  }
+
+  /**
+   * Cancel a queued or in-flight deployment. A queued one (its operation not yet claimed) is cancelled at once (200-class result: `cancelled`). An in-flight one is FLAGGED
+   * (`platform.operations.cancel_requested`) and the engine stops at its next checkpoint (before the build, before staging, before the switch), discards what it staged and
+   * ends `cancelled`; the live site is never touched by a cancellation. Once the switch has happened it is too late: the deployment ends `succeeded` (use rollback). 409
+   * `invalid_state` for a finished deployment. Web-app deployments (the app builder's own pipeline) have no cancel yet: 422 `unsupported_capability`.
+   */
+  async cancel(orgId: string, userId: string, id: string): Promise<DeploymentDto> {
+    if (await this.webappOwns(orgId, id))
+      throw new ProblemException(
+        'unsupported_capability',
+        'cancelling a web-app deployment is not available yet',
+      );
+    const d = await this.get(orgId, id);
+    if (!ACTIVE.includes(d.state))
+      throw new ProblemException(
+        'invalid_state',
+        `only a queued or running deployment can be cancelled (it is ${d.state})`,
+      );
+    if (!d.operationId)
+      throw new ProblemException('invalid_state', 'the deployment has no operation yet');
+    const r = await this.ops.requestCancel(orgId, d.operationId);
+    if (r.accepted === 'cancelled') {
+      // the operation was still pending: nothing ran, close the deployment now
+      await this.setState(orgId, id, 'cancelled', { error: { code: 'cancelled' } });
+      await this.log(orgId, id, 'warn', 'deployment cancelled before it started', {});
+    } else {
+      await this.log(
+        orgId,
+        id,
+        'warn',
+        'cancellation requested: the run stops at its next checkpoint',
+        {
+          state: d.state,
+        },
+      );
+    }
+    await this.audit.record({
+      action: 'deploy.deployment.cancelled',
+      actorUserId: userId,
+      actorType: 'user',
+      orgId,
+      resource: { type: 'deployment', id },
+      outcome: 'success',
+      detail: { accepted: r.accepted, stateWas: d.state },
+    });
+    return this.get(orgId, id);
+  }
+  private async cancelRequested(orgId: string, d: Row): Promise<boolean> {
+    if (!d.operation_id) return false;
+    return (await this.ops.get(orgId, d.operation_id as string))?.cancel_requested === true;
+  }
+  /** The engine honours a cancel request at a checkpoint: discard what is staged, end `cancelled`. Returns true when the run must stop. */
+  private async stopIfCancelled(
+    orgId: string,
+    d: Row,
+    site: TargetSite,
+    at: string,
+    stagingRef?: string,
+  ): Promise<boolean> {
+    if (!(await this.cancelRequested(orgId, d))) return false;
+    if (stagingRef) await this.publisher.discard(site, stagingRef).catch(() => undefined);
+    const id = d.id as string;
+    await this.log(
+      orgId,
+      id,
+      'warn',
+      `deployment cancelled at ${at}: the live site was not touched`,
+      {
+        checkpoint: at,
+      },
+    );
+    await this.setState(orgId, id, 'cancelled', { error: { code: 'cancelled', at } });
+    await this.audit.record({
+      action: 'deploy.deployment.cancelled',
+      actorType: 'system',
+      orgId,
+      resource: { type: 'deployment', id },
+      outcome: 'success',
+      detail: { checkpoint: at },
+    });
+    return true;
   }
 
   // ---- engine -------------------------------------------------------------------------------------------------------------------
@@ -512,7 +610,7 @@ export class DeployService {
     state: string,
     patch: Record<string, unknown> = {},
   ) {
-    const finished = ['succeeded', 'failed', 'rolled_back'].includes(state);
+    const finished = FINISHED.includes(state);
     await this.db.withOrg(orgId, (c) =>
       c.query(
         `UPDATE deploy.deployments SET state=$2, url=coalesce($3,url), smoke=coalesce($4,smoke), error=coalesce($5,error), artifact_hash=coalesce($6,artifact_hash), build_id=coalesce($7,build_id), finished_at=CASE WHEN $8 THEN now() ELSE finished_at END WHERE id=$1`,
@@ -685,7 +783,7 @@ export class DeployService {
         (await c.query(`SELECT * FROM deploy.deployments WHERE id=$1`, [input.deploymentId]))
           .rows[0],
     )) as Row | undefined;
-    if (!d || ['succeeded', 'failed', 'rolled_back'].includes(d.state as string)) {
+    if (!d || FINISHED.includes(d.state as string)) {
       await this.ops.succeed(orgId, operationId, worker, { skipped: true });
       return true;
     }
@@ -723,9 +821,11 @@ export class DeployService {
   private async executeDeploy(orgId: string, d: Row, site: TargetSite) {
     const id = d.id as string;
     const before = await this.publisher.activeHash(site); // reconcile first: what is live right now?
+    if (await this.stopIfCancelled(orgId, d, site, 'before_build')) return;
     await this.setState(orgId, id, 'building');
     await this.log(orgId, id, 'info', 'building artifact');
     const { buildId, artifact, paths } = await this.buildArtifact(orgId, d, site);
+    if (await this.stopIfCancelled(orgId, d, site, 'before_stage')) return;
     await this.setState(orgId, id, 'deploying', { artifactHash: artifact.hash, buildId });
     await this.log(
       orgId,
@@ -734,6 +834,7 @@ export class DeployService {
       `artifact ${artifact.hash.slice(0, 12)} built (${artifact.files.length} files); staging`,
     );
     const { stagingRef } = await this.publisher.stage(site, artifact, id);
+    if (await this.stopIfCancelled(orgId, d, site, 'before_switch', stagingRef)) return;
     await this.setState(orgId, id, 'smoke_checking');
     const staged = await this.publisher.smoke(site, 'staged', stagingRef, paths);
     await this.log(
@@ -765,6 +866,7 @@ export class DeployService {
       });
       return;
     }
+    if (await this.stopIfCancelled(orgId, d, site, 'before_switch', stagingRef)) return;
     const { url } = await this.publisher.activate(site, stagingRef);
     const live = await this.publisher.smoke(site, 'live', null, paths);
     if (!live.ok) {
@@ -841,20 +943,83 @@ export class DeployService {
       detail: { restored: art.hash, newDeployment: id },
     });
   }
+  /**
+   * Scheduler tick: run every open deployment (a worker that died mid-run leaves an expired lease, which `runOne` re-claims: reconcile-before-retry) and RECOVER the ones
+   * whose operation can no longer run: an operation that was cancelled (or flagged for cancellation with no live lease) closes the deployment `cancelled`; one that ended
+   * `failed`/`succeeded`/`dead` while the deployment never finished closes it `failed` (`operation_lost`). Nothing here switches a site.
+   */
   async tick(): Promise<number> {
     const open = await this.db.withPlatformScope(
       async (c) =>
         (
           await c.query(
-            `SELECT org_id, operation_id FROM deploy.deployments WHERE state = ANY($1) AND operation_id IS NOT NULL LIMIT 100`,
+            `SELECT org_id, id, operation_id FROM deploy.deployments WHERE state = ANY($1) AND operation_id IS NOT NULL LIMIT 100`,
             [ACTIVE],
           )
         ).rows as Row[],
     );
     let n = 0;
-    for (const o of open)
-      if (await this.runOne(o.org_id as string, o.operation_id as string).catch(() => false)) n++;
+    for (const o of open) {
+      const ran = await this.runOne(o.org_id as string, o.operation_id as string).catch(
+        () => false,
+      );
+      if (ran) n++;
+      else if (await this.recoverOrphan(o.org_id as string, o.id as string).catch(() => false)) n++;
+    }
     return n;
+  }
+  private async recoverOrphan(orgId: string, deploymentId: string): Promise<boolean> {
+    const d = (await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (await c.query(`SELECT * FROM deploy.deployments WHERE id=$1`, [deploymentId])).rows[0],
+    )) as Row | undefined;
+    if (!d || !ACTIVE.includes(d.state as string) || !d.operation_id) return false;
+    const op = await this.ops.get(orgId, d.operation_id as string);
+    if (!op) return false;
+    const leaseLive =
+      op.lease_expires_at !== null && new Date(op.lease_expires_at).getTime() > Date.now();
+    const cancelled = op.state === 'cancelled' || (op.cancel_requested && !leaseLive);
+    const dead = ['failed', 'succeeded'].includes(op.state as string);
+    if (!cancelled && !dead) return false; // still leased by a live worker, or retry pending: not an orphan
+    const site = await this.site(orgId, d.target_ref).catch(() => null);
+    if (cancelled) {
+      if (site) await this.publisher.discard(site, deploymentId).catch(() => undefined);
+      await this.log(
+        orgId,
+        deploymentId,
+        'warn',
+        'recovered: the run was cancelled and no worker owns it; the live site was not touched',
+      );
+      await this.setState(orgId, deploymentId, 'cancelled', {
+        error: { code: 'cancelled', recovered: true },
+      });
+      await this.audit.record({
+        action: 'deploy.deployment.cancelled',
+        actorType: 'system',
+        orgId,
+        resource: { type: 'deployment', id: deploymentId },
+        outcome: 'success',
+        detail: { recovered: true },
+      });
+      return true;
+    }
+    await this.log(
+      orgId,
+      deploymentId,
+      'error',
+      `recovered: the operation ended ${op.state} but the deployment never finished`,
+    );
+    await this.setState(orgId, deploymentId, 'failed', { error: { code: 'operation_lost' } });
+    await this.audit.record({
+      action: 'deploy.deployment.succeeded',
+      actorType: 'system',
+      orgId,
+      resource: { type: 'deployment', id: deploymentId },
+      outcome: 'failure',
+      detail: { code: 'operation_lost', operationState: op.state },
+    });
+    return true;
   }
   static sha(s: string) {
     return createHash('sha256').update(s).digest('hex');

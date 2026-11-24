@@ -7,6 +7,8 @@ export {
   UnavailableSitePublisher,
   artifactHash,
 } from './internal/ports';
+export { SimulatedHealthProbe } from './internal/simulated-health';
+export type { HealthProbeLike } from './internal/simulated-health';
 export type {
   TargetSite,
   Artifact,

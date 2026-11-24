@@ -121,6 +121,7 @@ schemas:
       - M10
       - M10-INT
       - K # S-AG2: the agent tool gateway records its calls in ai.tool_calls (three additive columns, migration 1868)
+      - PROV # S-AG4 (parallel session 02): the rate card version history, migration 1900
     tables:
       - approval_requests
       - approvals
@@ -131,6 +132,7 @@ schemas:
       - messages
       - model_capability_evidence
       - model_providers
+      - model_rate_card_versions
       - model_usage
       - reservations
       - run_events
@@ -308,6 +310,7 @@ tenant_less:
   - hosting.site_migrations
   - ai.model_providers
   - ai.model_capability_evidence
+  - ai.model_rate_card_versions
   - compliance.policy_versions
   - ops.incidents
   - ops.incident_updates
@@ -368,6 +371,8 @@ migration_ranges:
   AS: "1840-1859"
   # AI Intelligence Center (ADR-065)
   K: "1860-1899"
+  # AI providers (parallel AI engine effort, session 02): migrations 1900-1919
+  PROV: "1900-1919"
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
@@ -2558,6 +2563,15 @@ classification:
       state: internal
       evidence_ref: internal
       contract_version: internal
+      recorded_by: internal
+      recorded_at: internal
+    ai.model_rate_card_versions:
+      id: internal
+      provider_id: internal
+      version: internal
+      models: internal
+      content_sha256: internal
+      basis: internal
       recorded_by: internal
       recorded_at: internal
     ai.model_usage:

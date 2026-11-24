@@ -196,7 +196,7 @@ export class ChangeService {
     if (body.baseVersion !== null && body.baseVersion !== undefined && !isUuid(body.baseVersion))
       throw new ProblemException('validation_failed', 'baseVersion must be a version id or null');
     const base = (body.baseVersion ?? null) as string | null;
-    const source = body.source === 'ai' ? 'ai' : 'user';
+    const source = body.source === 'ai' ? 'ai' : body.source === 'restore' ? 'restore' : 'user';
     // the raised limit exists only for the first change of an empty project (the template copy); on any project that already has a version the ordinary limit holds
     const { patches, problems } = this.validate(
       body.patches,

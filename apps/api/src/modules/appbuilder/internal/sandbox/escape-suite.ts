@@ -1,4 +1,5 @@
 import { checkPath } from './paths';
+import { EXEC_ATTEMPTS } from './escape-suite-exec';
 import type { CanaryRegistry } from './canary';
 import type { EgressPolicy } from './egress';
 import type { ExecResult, SandboxRuntime } from './runtime';
@@ -10,8 +11,11 @@ import type { ExecResult, SandboxRuntime } from './runtime';
  *  - `isolating-runtime` attempts need the sandbox technology (namespaces, seccomp, capabilities, cgroups, network segmentation). They run ONLY against a runtime whose
  *    `isolation` is `verified`. On the mock and the local dev runner they are reported NOT_VERIFIED: **a mock cannot be attacked, so it cannot pass them** (AC-M10-02/03).
  * A result is BLOCKED (the attack failed, as required), ESCAPED (a successful attack: the suite fails) or NOT_VERIFIED.
+ * Suite 1.1.0 adds the execution extension (`escape-suite-exec.ts`, S-AG6 offline): EX-* control-plane attempts (gateway, environment, workspace, output, artifacts, gate, runtime
+ * hardening spec, quota, kill switch) and XR-* isolating-runtime attempts (symlink/mount, namespaces, lifecycle scripts, network, resources). The XR-* attempts are NOT_VERIFIED
+ * everywhere in this repository.
  */
-export const SUITE_VERSION = '1.0.0';
+export const SUITE_VERSION = '1.1.0';
 export type Category =
   | 'namespace_capability'
   | 'mounted_path'
@@ -25,7 +29,18 @@ export type Category =
   | 'resource_exhaustion'
   | 'path_traversal'
   | 'ws_ticket'
-  | 'canary';
+  | 'canary'
+  // suite 1.1.0 (execution extension, escape-suite-exec.ts)
+  | 'exec_policy'
+  | 'exec_env'
+  | 'exec_workspace'
+  | 'exec_artifact'
+  | 'exec_output'
+  | 'exec_gate'
+  | 'exec_runtime_spec'
+  | 'exec_quota'
+  | 'symlink_mount'
+  | 'lifecycle_script';
 export type Status = 'BLOCKED' | 'ESCAPED' | 'NOT_VERIFIED';
 
 export interface TicketApi {
@@ -68,6 +83,11 @@ export interface AttemptResult {
   note: string;
 }
 
+/** ticket attempts need the database: without it they are NOT_VERIFIED (a thrown error), never ESCAPED */
+const needTickets = (c: SuiteContext): TicketApi => {
+  if (!c.tickets) throw new Error('needs the database');
+  return c.tickets;
+};
 const denied = (r: ExecResult) => r.exitCode !== 0 || r.timedOut;
 const noOutput = (r: ExecResult) => r.stdout.trim() === '' || r.exitCode !== 0;
 const cp = (
@@ -156,6 +176,7 @@ const TRAVERSAL = [
 ];
 
 export const ATTEMPTS: Attempt[] = [
+  ...EXEC_ATTEMPTS,
   // ---- proxy bypass: IP literals in every spelling, schemes, authority tricks, rebinding, redirects (control plane) ----
   ...IP_LITERALS.map((u, i) =>
     cp(
@@ -355,21 +376,21 @@ export const ATTEMPTS: Attempt[] = [
     'ws_ticket',
     'use a ticket as another user',
     'ticket bound to the issuing user',
-    async (c) => !!c.tickets && !(await c.tickets.redeem(await c.tickets.issue(), 'other_user')),
+    async (c) => !(await needTickets(c).redeem(await needTickets(c).issue(), 'other_user')),
   ),
   cp(
     'WS-3',
     'ws_ticket',
     'use a ticket for another sandbox',
     'ticket bound to one sandbox',
-    async (c) => !!c.tickets && !(await c.tickets.redeem(await c.tickets.issue(), 'other_sandbox')),
+    async (c) => !(await needTickets(c).redeem(await needTickets(c).issue(), 'other_sandbox')),
   ),
   cp(
     'WS-4',
     'ws_ticket',
     'use a ticket from another organization',
     'org-bound lookup (404-equivalent)',
-    async (c) => !!c.tickets && !(await c.tickets.redeem(await c.tickets.issue(), 'other_org')),
+    async (c) => !(await needTickets(c).redeem(await needTickets(c).issue(), 'other_org')),
   ),
   cp('WS-5', 'ws_ticket', 'use an expired ticket (60 s)', 'ticket expiry', async (c) => {
     if (!c.tickets) throw new Error('needs the database');
@@ -382,7 +403,7 @@ export const ATTEMPTS: Attempt[] = [
     'ws_ticket',
     'guess or forge a ticket',
     'ticket entropy (256 bits) and hash lookup',
-    async (c) => !!c.tickets && !(await c.tickets.redeem('A'.repeat(43), 'same')),
+    async (c) => !(await needTickets(c).redeem('A'.repeat(43), 'same')),
   ),
   // ---- canary detection ----
   cp(

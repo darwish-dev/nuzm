@@ -42,3 +42,7 @@ Production is blocked until the production vault (D-12) exists: the key cannot b
 - The forced last turn of the agent loop carries no tools, so a history with tool blocks is sent as plain text (the API refuses tool blocks without `tools`).
 - Server tools, extended-thinking budgets, forced tool choice together with thinking, prompt caching controls and batch APIs are **not** used.
 - Enabling for real: `docs/runbooks/anthropic-live-enablement.md`. Required public-surface changes: `docs/spec-change-requests/SCR-K-11-claude-contract-1-1-public-surface.md`.
+
+## Resilience and discovery (S-AG4, 2026-11-24; offline-verified only)
+- A 429 or 5xx answer carries the provider's `Retry-After` / `retry-after-ms` hint on the `ModelAdapterError` (`retryAfterMs`), parsed from the SDK error's headers; it is only a hint: the gateway's retry policy decides whether to wait or to fail over (`docs/ai-intelligence/S-AG4-RESILIENCE.md`). Tested against a stubbed `fetch` (`anthropic.spec.ts`); **NOT LIVE-VERIFIED** that the service sends these headers.
+- `discoverModels` (`GET /v1/models`, one page of 100, ids sanitised, names clipped) sits behind the same live gate and key rules as a call and is reconciled with the declared model list by `reconcileDiscovery`: an undeclared model is reported, never offered. **NOT LIVE-VERIFIED.**

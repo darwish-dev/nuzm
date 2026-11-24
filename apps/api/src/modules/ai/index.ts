@@ -3,6 +3,14 @@ export { AiModule } from './ai.module';
 export { GatewayService } from './internal/gateway.service';
 export { BudgetService, BudgetDenied } from './internal/budget.service';
 export { ModelProviderService } from './internal/provider.service';
+export { ProviderInsightsService } from './internal/provider-insights.service';
+export type {
+  DiscoveryResult,
+  UsageGroupBy,
+  UsageReport,
+  UsageReportQuery,
+  UsageReportRow,
+} from './internal/provider-insights.service';
 export { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/registry';
 export { AiFlags } from './internal/flags';
 export { AiEnabledGuard } from './internal/ai-enabled.guard';

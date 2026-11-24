@@ -17,7 +17,8 @@ jobs:
   # The combined, everything-included check (integration + browser E2E) needs a Postgres cluster and Chrome: `pnpm verify:full`. Not yet run anywhere (D-01).
   full:
     needs: verify
-    runs-on: ubuntu-latest
+    # pinned: `ubuntu-latest` moved to a release without the postgresql-16 package
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

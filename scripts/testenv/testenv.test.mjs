@@ -86,12 +86,12 @@ describe('port allocation', () => {
   it('automatic allocation never returns a protected port even when the range contains one', async () => {
     const e = {
       ...env,
-      NUZM_TESTENV_PORT_MIN: '54325',
-      NUZM_TESTENV_PORT_MAX: '54335',
+      NUZM_TESTENV_PORT_MIN: '54320',
+      NUZM_TESTENV_PORT_MAX: '54380',
       NUZM_TESTENV_MAX_LEASES: '64',
     };
     const got = await Promise.all(Array.from({ length: 10 }, () => acquire({ pg: false, env: e })));
-    assert.ok(got.every((l) => l.port !== 54329));
+    assert.ok(got.every((l) => l.port !== 54329 && (l.port < 54330 || l.port > 54369)));
   });
   it('the allocator stops at capacity: the lease beyond the CPU/memory bound is rejected', async () => {
     const e = { ...env, NUZM_TESTENV_MAX_LEASES: '2' };
@@ -222,6 +222,95 @@ describe('database URL preflight (no fallback, no cross-session access)', () => 
     });
     assert.equal(r.status, 3);
     assert.match(r.stderr, /url_missing/);
+  });
+});
+
+describe('no default database outside a lease (DEFECT-19)', () => {
+  const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const clean = (extra = {}) => {
+    const e = { ...process.env, ...extra };
+    for (const k of [
+      'DATABASE_ADMIN_URL',
+      'DATABASE_URL',
+      'NUZM_TEST_ADMIN_URL',
+      'NUZM_ALLOW_OWNER_DEV_DB',
+      'NUZM_FORBID_DEFAULT_DB',
+      'NUZM_LEASE_ID',
+      'NUZM_LEASE_PORT',
+      'NUZM_PGPORT',
+    ])
+      if (!(k in extra)) delete e[k];
+    return e;
+  };
+  const dbCli = (extra) =>
+    spawnSync(path.join(repo, 'packages/db/node_modules/.bin/tsx'), ['src/cli.ts', 'migrate'], {
+      cwd: path.join(repo, 'packages/db'),
+      env: clean(extra),
+      encoding: 'utf8',
+      timeout: 60000,
+    });
+  it('the db CLI without a URL and without the owner opt-in refuses (exit 2) before any connection', () => {
+    const r = dbCli();
+    assert.equal(r.status, 2, r.stderr + r.stdout);
+    assert.match(r.stderr + r.stdout, /DATABASE_ADMIN_URL is mandatory/);
+  });
+  it('even the owner opt-in does not help inside a leased session (NUZM_FORBID_DEFAULT_DB=1)', () => {
+    const r = dbCli({ NUZM_ALLOW_OWNER_DEV_DB: '1', NUZM_FORBID_DEFAULT_DB: '1' });
+    assert.equal(r.status, 2, r.stderr + r.stdout);
+  });
+  it('a leased shell cannot point the db CLI at another port', () => {
+    const r = dbCli({
+      DATABASE_ADMIN_URL: 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev',
+      NUZM_LEASE_PORT: '54500',
+      NUZM_FORBID_DEFAULT_DB: '1',
+    });
+    assert.equal(r.status, 2, r.stderr + r.stdout);
+    assert.match(r.stderr + r.stdout, /not this session's leased database port/);
+  });
+  it('dev-services start without NUZM_PGPORT refuses unless the owner opted in; status is always allowed', () => {
+    const start = spawnSync('bash', ['scripts/dev-services.sh', 'start'], {
+      cwd: repo,
+      env: clean(),
+      encoding: 'utf8',
+      timeout: 30000,
+    });
+    assert.equal(start.status, 2);
+    assert.match(start.stderr, /NUZM_PGPORT is mandatory/);
+    const st = spawnSync('bash', ['scripts/dev-services.sh', 'status'], {
+      cwd: repo,
+      env: clean(),
+      encoding: 'utf8',
+      timeout: 30000,
+    });
+    assert.notEqual(st.status, 2);
+  });
+  it('legacy fixed session ports are protected, and the CI policy cannot reach a leased port or run inside a lease', async () => {
+    for (const p of [54341, 54345, 54369])
+      throwsCode(
+        () =>
+          checkUrl(`postgres://nuzm_admin@127.0.0.1:${p}/postgres`, {
+            env: { ...env, NUZM_LEASE_ID: 'x' },
+          }),
+        'port_protected',
+      );
+    const ci = { ...env, CI: 'true', NUZM_TEST_DB_POLICY: 'ci' };
+    throwsCode(
+      () => checkUrl('postgres://nuzm_admin@127.0.0.1:54341/postgres', { env: ci }),
+      'port_protected',
+    );
+    const l = await acquire({ pg: false, env });
+    throwsCode(
+      () => checkUrl(`postgres://nuzm_admin@127.0.0.1:${l.port}/postgres`, { env: ci }),
+      'foreign_lease',
+    );
+    throwsCode(
+      () =>
+        checkUrl('postgres://nuzm_admin@127.0.0.1:5439/postgres', {
+          env: { ...ci, NUZM_LEASE_ID: l.id },
+        }),
+      'foreign_lease',
+    );
+    assert.equal(checkUrl('postgres://nuzm_admin@127.0.0.1:5439/postgres', { env: ci }), null);
   });
 });
 

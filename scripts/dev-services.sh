@@ -8,6 +8,11 @@ export LC_ALL="${NUZM_LC_ALL:-en_US.UTF-8}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="$ROOT/.dev-data"
 PGBIN="${NUZM_PGBIN:-/usr/local/opt/postgresql@16/bin}"
+# DEFECT-19: the default port 54329 is the OWNER's development cluster. It is used only when the owner opts in (NUZM_ALLOW_OWNER_DEV_DB=1 in their own shell profile);
+# a session passes its own NUZM_PGPORT (a lease: source scripts/session-env.sh <name>). Read-only commands (status) are always allowed.
+if [ -z "${NUZM_PGPORT:-}" ] && [ "${NUZM_ALLOW_OWNER_DEV_DB:-}" != "1" ] && [ "${1:-status}" != "status" ]; then
+  echo "dev-services: NUZM_PGPORT is mandatory (the default :54329 is the owner's development cluster: set NUZM_ALLOW_OWNER_DEV_DB=1 in your own profile if you are the owner, or use source scripts/session-env.sh <name>)" >&2; exit 2
+fi
 PGPORT="${NUZM_PGPORT:-54329}"
 # Session safety (scripts/testenv): in a leased test environment the owner's development cluster is never started, stopped or reused.
 if [ -n "${NUZM_LEASE_ID:-}" ] && [ "$PGPORT" != "${NUZM_LEASE_PORT:-}" ]; then

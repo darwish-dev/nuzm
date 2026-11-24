@@ -17,6 +17,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const PROTECTED_PORTS = [54329, 54339, 5432, 5433]; // owner dev cluster, other dev clusters, system Postgres
+export const LEGACY_SESSION_PORTS = [54330, 54369]; // fixed session ports used before the allocator (54341 Master, 543xx workers): never a valid test database now
+export const isProtectedPort = (port, extra = []) =>
+  PROTECTED_PORTS.includes(port) ||
+  extra.includes(port) ||
+  (port >= LEGACY_SESSION_PORTS[0] && port <= LEGACY_SESSION_PORTS[1]);
 export class TestEnvError extends Error {
   constructor(code, message) {
     super(message);
@@ -151,7 +156,7 @@ async function pickPort(c, requested) {
         'port_out_of_range',
         `port ${requested} is outside the allocator range ${c.portMin}-${c.portMax}`,
       );
-    if (c.protectedPorts.includes(requested))
+    if (isProtectedPort(requested, c.protectedPorts))
       throw new TestEnvError('port_protected', `port ${requested} is protected`);
     if (!reservePortDir(c, requested))
       throw new TestEnvError(
@@ -168,7 +173,7 @@ async function pickPort(c, requested) {
   const start = randomBytes(2).readUInt16BE() % span;
   for (let i = 0; i < span; i++) {
     const port = c.portMin + ((start + i) % span);
-    if (c.protectedPorts.includes(port)) continue;
+    if (isProtectedPort(port, c.protectedPorts)) continue;
     if (!reservePortDir(c, port)) continue;
     if ((await portBindable(port)) && !(await portInUse(port))) return port;
     releasePortDir(c, port);
@@ -431,12 +436,20 @@ export function checkUrl(url, { env = process.env } = {}) {
     );
   const port = Number(u.port || 5432);
   const c = config(env);
-  if (c.protectedPorts.includes(port))
+  if (isProtectedPort(port, c.protectedPorts))
     throw new TestEnvError(
       'port_protected',
-      `port ${port} is a protected development/system database: refused`,
+      `port ${port} is a protected development/system/legacy session database: refused`,
     );
-  if (env.CI === 'true' && env.NUZM_TEST_DB_POLICY === 'ci') return null;
+  if (env.CI === 'true' && env.NUZM_TEST_DB_POLICY === 'ci') {
+    // the CI policy is for a service container without a lease: it cannot reach a port that belongs to ANY registered lease, nor apply inside a leased shell
+    if (env.NUZM_LEASE_ID || listLeases(c).some((l) => l.port === port))
+      throw new TestEnvError(
+        'foreign_lease',
+        `port ${port} belongs to a session lease (or this shell holds one): the CI policy does not apply`,
+      );
+    return null;
+  }
   const leaseId = env.NUZM_LEASE_ID;
   if (!leaseId)
     throw new TestEnvError(

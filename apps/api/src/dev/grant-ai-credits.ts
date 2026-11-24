@@ -21,12 +21,20 @@ async function main() {
   const amount = args[0] ?? '500000';
   if (!/^[1-9]\d{0,11}$/.test(amount)) throw new Error('amountMinor must be a positive integer');
   const filter = args[1];
-  if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_ADMIN_URL)
+  if (
+    !process.env.DATABASE_ADMIN_URL &&
+    (process.env.NUZM_FORBID_DEFAULT_DB === '1' || process.env.NUZM_ALLOW_OWNER_DEV_DB !== '1')
+  )
     throw new Error(
-      'DATABASE_ADMIN_URL is mandatory in a leased test environment (no default database)',
+      'DATABASE_ADMIN_URL is mandatory: the owner development database is a default ONLY with the owner own NUZM_ALLOW_OWNER_DEV_DB=1 opt-in (never in a session; use source scripts/session-env.sh <name>)',
     );
-  if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_URL)
-    throw new Error('DATABASE_URL is mandatory in a leased test environment (no default database)');
+  if (
+    !process.env.DATABASE_URL &&
+    (process.env.NUZM_FORBID_DEFAULT_DB === '1' || process.env.NUZM_ALLOW_OWNER_DEV_DB !== '1')
+  )
+    throw new Error(
+      'DATABASE_URL is mandatory: the owner development database is a default ONLY with the owner own NUZM_ALLOW_OWNER_DEV_DB=1 opt-in (never in a session; use source scripts/session-env.sh <name>)',
+    );
   const adminUrl =
     process.env.DATABASE_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev';
   const appUrl =

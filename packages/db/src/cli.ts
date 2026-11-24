@@ -17,11 +17,14 @@ const root = join(__dirname, '..', '..', '..');
 const manifest = loadManifest(join(root, 'spec/db/ownership.yaml'));
 const migrationsDir = join(__dirname, '..', 'migrations');
 const controlsPath = join(root, 'spec/compliance/controls.yaml');
-// Session safety (scripts/testenv): a leased test environment exports NUZM_FORBID_DEFAULT_DB=1 and NUZM_LEASE_PORT. There the owner's development database is never a
-// fallback and the URL must point at the session's own cluster. Without a lease (the owner's own shell) the development default still applies.
-if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_ADMIN_URL) {
+// Session safety (scripts/testenv, DEFECT-19): the owner's development database (:54329) is a default ONLY when the OWNER opts in (NUZM_ALLOW_OWNER_DEV_DB=1 in their own
+// shell profile). A session never does: it must pass an explicit DATABASE_ADMIN_URL, which a leased environment pins to its own cluster (NUZM_LEASE_PORT).
+if (
+  !process.env.DATABASE_ADMIN_URL &&
+  (process.env.NUZM_FORBID_DEFAULT_DB === '1' || process.env.NUZM_ALLOW_OWNER_DEV_DB !== '1')
+) {
   console.error(
-    'db cli: DATABASE_ADMIN_URL is mandatory in a leased test environment (no default database)',
+    'db cli: DATABASE_ADMIN_URL is mandatory: the owner development database is a default ONLY with the owner own NUZM_ALLOW_OWNER_DEV_DB=1 opt-in (never in a session; use source scripts/session-env.sh <name>)',
   );
   process.exit(2);
 }

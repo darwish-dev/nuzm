@@ -13,7 +13,17 @@
     "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js",
     "encrypt:backfill": "tsc -p tsconfig.build.json && node dist/ops/encrypt-backfill.js",
     "set-password": "tsx src/dev/set-password.ts",
-    "grant-ai-credits": "tsx src/dev/grant-ai-credits.ts"
+    "grant-ai-credits": "tsx src/dev/grant-ai-credits.ts",
+    "qualification:builder": "tsx scripts/qualification-builder.ts",
+    "track:c": "tsx scripts/track-c-model-codegen.ts",
+    "track:e": "tsx scripts/track-e-build-repair.ts",
+    "track:d": "tsx src/modules/appbuilder/internal/sandbox/run-in-runtime.cli.ts",
+    "track:fg": "tsx src/modules/deploy/internal/live-track.cli.ts",
+    "qualify:a": "tsx src/modules/ai/internal/qualify-a-connection.ts",
+    "qualify:b": "tsx src/modules/ai/internal/qualify-b-tool-calling.ts",
+    "qualify:c": "tsx src/modules/ai/internal/qualify-c-code-generation.ts",
+    "qualify:suite": "tsx src/modules/ai/internal/live-smoke-cli.ts",
+    "rate-card:preview": "tsx src/modules/ai/internal/rate-card-preview-cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.8.0",

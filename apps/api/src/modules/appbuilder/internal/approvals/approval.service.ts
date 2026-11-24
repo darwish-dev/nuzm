@@ -5,6 +5,7 @@ import {
   APPROVAL_TTL_HOURS,
   APPROVAL_TYPES,
   hashOf,
+  isUuid,
   iso,
   newId,
   type ApprovalType,
@@ -172,7 +173,38 @@ export class ApprovalService {
     return this.dto(row.row);
   }
 
+  /**
+   * DEFECT-14 (S07): an approval is authority for ONE parked run. When that run has ended (cancelled, failed, succeeded, over budget) a still-pending approval can no longer be
+   * acted on: it is closed (`expired`, note `run_ended`, audited) so it is neither listed as pending nor decidable. Run on every read and decision, in the same transaction as the
+   * read, so no window leaves a dangling authorization. Approvals without a run (deployments, exports) are untouched.
+   */
+  private async closeEnded(orgId: string, id?: string): Promise<void> {
+    const closed = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE ai.approval_requests a SET status = 'expired', decision_note = 'run_ended'
+              FROM ai.runs r
+             WHERE a.org_id = $1 AND a.status = 'pending' AND a.run_id = r.id AND r.state = ANY($2) AND ($3::uuid IS NULL OR a.id = $3)
+             RETURNING a.id, a.run_id`,
+            [orgId, ['succeeded', 'failed', 'cancelled', 'budget_exceeded'], id ?? null],
+          )
+        ).rows as { id: string; run_id: string }[],
+    );
+    for (const x of closed)
+      await this.audit.record({
+        action: 'ai.approval.closed',
+        orgId,
+        actorType: 'system',
+        resource: { type: 'approval', id: x.id },
+        outcome: 'success',
+        detail: { reason: 'run_ended', runId: x.run_id },
+      });
+  }
+
   async get(orgId: string, id: string): Promise<ApprovalDto> {
+    if (isUuid(id)) await this.closeEnded(orgId, id);
     const r = await this.db.withOrg(
       orgId,
       async (c) =>
@@ -191,6 +223,7 @@ export class ApprovalService {
     orgId: string,
     f: { status?: string; subjectType?: string; runId?: string; limit?: number } = {},
   ): Promise<ApprovalDto[]> {
+    await this.closeEnded(orgId);
     const rows = await this.db.withOrg(orgId, async (c) => {
       // pending rows past their expiry are marked first so the inbox never offers an approval that cannot be decided
       await c.query(
@@ -270,7 +303,18 @@ export class ApprovalService {
           )
         ).rows[0] as Row | undefined,
     );
-    if (!updated) return this.get(orgId, id); // lost a race with an identical decision: return the winner
+    if (!updated) {
+      // lost a race (DEFECT-13): only the SAME decision by the SAME person on the SAME action is the idempotent answer; any other loser is told so (409, or 410 if it expired)
+      const now = await this.get(orgId, id);
+      if (
+        now.status === decision &&
+        now.scopeHash === body.scopeHash &&
+        now.decidedBy === actor.userId
+      )
+        return now;
+      if (now.status === 'expired') throw new ProblemException('gone', 'the approval has expired');
+      throw new ProblemException('conflict', `the approval is already ${now.status}`);
+    }
     const dto = this.dto(updated);
     await this.audit.record({
       action: 'ai.approval.decided',

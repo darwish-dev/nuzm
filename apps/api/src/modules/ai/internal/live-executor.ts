@@ -127,7 +127,10 @@ export function usdToNano(s: string): bigint | null {
   const [whole, frac = ''] = s.split('.');
   return BigInt(whole!) * 1_000_000_000n + BigInt(frac.padEnd(9, '0'));
 }
-const sha = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
+/** The digest the envelope stores for each record: sha-256 of the record's JSON text. */
+export const recordSha256 = (v: unknown): string =>
+  createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const sha = recordSha256;
 
 const sumWorst = (ws: WorstCase[]): WorstCase =>
   ws.reduce(

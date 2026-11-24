@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runStagingRehearsal, syntheticApp } from './rehearsal';
+import { renderEvidenceTable, runStagingRehearsal, syntheticApp } from './rehearsal';
 import { UnavailableArtifactTransport, InMemoryArtifactTransport } from './hosting-target';
 import type { StagingTarget } from './targets';
 
@@ -98,5 +98,13 @@ describe('staging rehearsal of a synthetic app', () => {
   it('a simulated rehearsal refuses to run on a real target', async () => {
     const r = await runStagingRehearsal({ mode: 'simulated', target: real() });
     expect(r.status).toBe('BLOCKED');
+  });
+
+  it('the evidence table labels every row SIMULATED and never says verified', async () => {
+    const md = renderEvidenceTable(await runStagingRehearsal());
+    expect(md).toMatch(/mode `simulated`.*SIMULATED.*\*\*PASS\*\*/);
+    expect(md.match(/\| SIMULATED \|/g)).toHaveLength(9);
+    expect(md).not.toMatch(/LIVE-VERIFIED/);
+    expect(md).toMatch(/NOT VERIFIED on any real node/);
   });
 });

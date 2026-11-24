@@ -253,6 +253,24 @@ describe('who may change the policy', () => {
     });
   });
 
+  it('two simultaneous first-ever writers: one wins, the other gets 409, never a 500 (DEFECT-11)', async () => {
+    await reset();
+    const results = await Promise.all(
+      [0, 1, 2, 3].map((i) =>
+        put(
+          '/v1/deployments/policy',
+          { rollbackRequiresOwnApproval: i % 2 === 0, expectedVersion: 0 },
+          i % 2 === 0 ? 'alice' : 'erin',
+        ),
+      ),
+    );
+    const codes = results.map((r) => r.statusCode).sort();
+    expect(codes.filter((c) => c === 200)).toHaveLength(1);
+    expect(codes.filter((c) => c === 409)).toHaveLength(3);
+    expect(Number((await e.sql(`SELECT version v FROM deploy.org_policies`))[0]!.v)).toBe(1);
+    expect(audits('deploy.policy.updated').length).toBeGreaterThan(0);
+  });
+
   it('an API key cannot change the policy even with the permission', async () => {
     await reset();
     await expect(deploysPolicyAsKey()).resolves.toBe(403);
@@ -480,5 +498,81 @@ describe('O-2 deploy.rollback_requires_own_approval = true', () => {
     const rb = await post(`/v1/deployments/${d2.id}/rollback`, undefined, 'dave');
     expect(rb.statusCode, rb.body).toBe(202);
     expect((await drive(j(rb).id as string)).artifactHash).toBe(d1.artifactHash);
+  });
+});
+
+describe('prepare deployment (read-only plan for the agent loop and the console)', () => {
+  it('a website with an active static site is ready, labelled SIMULATED, and nothing is created', async () => {
+    await reset();
+    const p = await mkProject('Prep One');
+    const site = await mkSite(A(), 'alice', 'prep-one', 'prep1.example.sa');
+    const before = Number((await e.sql(`SELECT count(*) n FROM deploy.deployments`))[0]!.n);
+    const approvalsBefore = Number((await e.sql(`SELECT count(*) n FROM ai.approvals`))[0]!.n);
+    const plan = await deploys.prepare(A(), {
+      projectId: p.id,
+      environment: 'production',
+      target: site,
+    });
+    expect(plan).toMatchObject({
+      productType: 'website',
+      ready: true,
+      reasons: [],
+      target: { kind: 'static_hosting', readiness: 'simulated' },
+      publisher: { available: true, simulated: true, label: 'SIMULATED' },
+      approval: {
+        required: true,
+        kind: 'publish',
+        confirmableBy: ['owner', 'admin', 'developer'],
+        apiKeyMayConfirm: false,
+      },
+      policy: { source: 'default', rollbackRequiresOwnApproval: false },
+    });
+    expect(Number((await e.sql(`SELECT count(*) n FROM deploy.deployments`))[0]!.n)).toBe(before);
+    expect(Number((await e.sql(`SELECT count(*) n FROM ai.approvals`))[0]!.n)).toBe(
+      approvalsBefore,
+    ); // it requests no approval
+  });
+
+  it('reflects the policy: with owner/admin only, a production plan names them; staging still names everyone', async () => {
+    await reset();
+    await put(
+      '/v1/deployments/policy',
+      { productionPublishRoles: ['owner', 'admin'], rollbackRequiresOwnApproval: true },
+      'alice',
+    );
+    const p = await mkProject('Prep Two');
+    const prod = await deploys.prepare(A(), { projectId: p.id, environment: 'production' });
+    expect(prod.approval.confirmableBy).toEqual(['owner', 'admin']);
+    expect(prod.policy).toMatchObject({
+      source: 'organization',
+      rollbackRequiresOwnApproval: true,
+    });
+    const stg = await deploys.prepare(A(), { projectId: p.id, environment: 'staging' });
+    expect(stg.approval.confirmableBy).toEqual(['owner', 'admin', 'developer']);
+  });
+
+  it('says why it is not ready: an inactive site, a type with no deployable target, an unknown or foreign project', async () => {
+    await reset();
+    const p = await mkProject('Prep Three');
+    const sid = await mkSite(A(), 'alice', 'prep-three', 'prep3.example.sa');
+    await e.sql(`UPDATE hosting.sites SET status='suspended', suspended_by='admin' WHERE id=$1`, [
+      sid,
+    ]);
+    const plan = await deploys.prepare(A(), { projectId: p.id, target: sid });
+    expect(plan.ready).toBe(false);
+    expect(plan.reasons.join(' ')).toMatch(/not active/);
+    await e.sql(`UPDATE builder.projects SET type='mobile' WHERE id=$1`, [p.id]);
+    const mobile = await deploys.prepare(A(), { projectId: p.id });
+    expect(mobile).toMatchObject({
+      productType: 'mobile',
+      ready: false,
+      target: { kind: 'store_distribution', readiness: 'not_yet', blockers: ['store-HG'] },
+    });
+    await expect(deploys.prepare(B(), { projectId: p.id })).rejects.toMatchObject({
+      code: 'not_found',
+    });
+    await expect(deploys.prepare(A(), { projectId: 'nope' })).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
   });
 });

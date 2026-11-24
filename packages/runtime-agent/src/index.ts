@@ -15,3 +15,4 @@ export * from './runsc-launcher';
 export * from './server';
 export * from './workspace-store';
 export * from './testing';
+export * from './egress-proxy';

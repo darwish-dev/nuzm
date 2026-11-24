@@ -6,7 +6,11 @@
   "description": "P3-S02 node agent: the process that runs on a dedicated, attested Linux node and implements the node protocol over gVisor (runsc). Nothing here executes on a developer machine.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": { "nuzm-runtime-agent": "./dist/main.js" },
+  "bin": {
+    "nuzm-runtime-agent": "./dist/main.js",
+    "nuzm-egress-proxy": "./dist/proxy-main.js",
+    "nuzm-tree-digest": "./dist/tree-digest-cli.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

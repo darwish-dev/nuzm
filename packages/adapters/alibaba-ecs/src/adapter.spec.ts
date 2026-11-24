@@ -150,6 +150,50 @@ describe('alibaba-ecs lifecycle', () => {
     expect(s.sim.billableByToken(t)).toBe(1);
   });
 
+  it("UserData is sent Base64-encoded (documented), is identical on a ClientToken replay, and a replay with changed user data is the vendor's IdempotentParameterMismatch", async () => {
+    const s = await subj();
+    await s.adapter.probe(s.ctx);
+    const t = tok('userdata');
+    const ud = '#cloud-config\nruncmd:\n  - echo "héllo"\n';
+    const r = await s.adapter.provision(s.ctx, req(s, t, { userData: ud }));
+    expect(r.status).toBe('accepted');
+    const inst = [...s.sim.instances.values()].find((i) => i.clientToken === t)!;
+    expect(inst.userDataB64).toBe(Buffer.from(ud, 'utf8').toString('base64'));
+    expect(Buffer.from(inst.userDataB64!, 'base64').toString('utf8')).toBe(ud);
+    const same = await s.adapter.provision(s.ctx, req(s, t, { userData: ud }));
+    expect(same.providerRef).toBe(r.providerRef);
+    expect(s.sim.billableByToken(t)).toBe(1);
+    const changed = await s.adapter.provision(s.ctx, req(s, t, { userData: ud + '# changed\n' }));
+    expect(changed.status).toBe('failed');
+    expect(s.sim.billableByToken(t)).toBe(1);
+  });
+
+  it('user data above the local ceiling (8 KB before encoding; vendor limit 32 KB) or empty is refused locally, nothing is sent', async () => {
+    const s = await subj();
+    await s.adapter.probe(s.ctx);
+    const n = s.sim.calls.length;
+    const big = await s.adapter.provision(
+      s.ctx,
+      req(s, tok('big'), { userData: 'x'.repeat(8 * 1024 + 1) }),
+    );
+    const empty = await s.adapter.provision(s.ctx, req(s, tok('empty'), { userData: '' }));
+    const edge = await s.adapter.provision(
+      s.ctx,
+      req(s, tok('edge'), { userData: 'y'.repeat(8 * 1024) }),
+    );
+    expect(big.error?.providerCode).toBe('invalid_user_data');
+    expect(empty.error?.providerCode).toBe('invalid_user_data');
+    expect(edge.status).toBe('accepted');
+    expect(s.sim.calls.slice(n).filter((c) => c.action === 'RunInstances')).toHaveLength(1);
+  });
+
+  it('listImages carries the documented IsSupportCloudinit statement', async () => {
+    const s = await subj();
+    const imgs = await s.adapter.listImages(s.ctx, s.fixture.providerRegionId);
+    expect(imgs.length).toBeGreaterThan(0);
+    expect(imgs.every((i) => i.cloudInit === true)).toBe(true);
+  });
+
   it('refuses more than one SSH key and unknown regions locally (nothing sent)', async () => {
     const s = await subj();
     await s.adapter.probe(s.ctx);

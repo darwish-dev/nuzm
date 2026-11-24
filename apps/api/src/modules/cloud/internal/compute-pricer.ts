@@ -7,11 +7,15 @@ import { HOURS_PER_MONTH, type OfferPriceComposer } from './offer-price';
 import type { OfferCandidate, OfferService } from './offer.service';
 import type { RoutingService } from './routing.service';
 import type { ImageCatalog } from './images';
+import { parsePanelRequest, type HestiaTemplate } from './hestia-vps/policy';
+import type { PanelInstallService } from './hestia-vps/panel-install.service';
 
 export interface ComputeSpec {
   imageId: string;
   diskGb: number | null;
   count: number;
+  /** the control panel choice of the purchase page (S04): none, or HestiaCP with an explicit template (mail on/off) */
+  panel: { kind: 'none' } | { kind: 'hestia'; template: HestiaTemplate };
 }
 export interface ComputeQuoteRequest {
   offerId?: string;
@@ -33,7 +37,8 @@ export function parseComputeRequest(raw: unknown): ComputeQuoteRequest {
     throw bad('a compute quote needs {offerId | routing, spec, term}');
   if ((r.offerId === undefined) === (r.routing === undefined))
     throw bad('send exactly one of offerId or routing');
-  const s = r.spec as { imageId?: unknown; diskGb?: unknown; count?: unknown } | undefined;
+  const s = r.spec as
+    { imageId?: unknown; diskGb?: unknown; count?: unknown; panel?: unknown } | undefined;
   if (!s || typeof s !== 'object') throw bad('spec is required');
   if (typeof s.imageId !== 'string' || !UUID.test(s.imageId))
     throw bad('spec.imageId must be an image id (UUID)');
@@ -54,7 +59,7 @@ export function parseComputeRequest(raw: unknown): ComputeQuoteRequest {
   const term = (r.term ?? { period: 'month' }) as { period?: unknown };
   if (term.period !== 'month') throw bad('term.period must be "month" (the only supported term)');
   const out: ComputeQuoteRequest = {
-    spec: { imageId: s.imageId.toLowerCase(), diskGb, count },
+    spec: { imageId: s.imageId.toLowerCase(), diskGb, count, panel: parsePanelRequest(s.panel) },
     term: { period: 'month' },
   };
   if (r.offerId !== undefined) {
@@ -91,6 +96,13 @@ export function parseComputeRequest(raw: unknown): ComputeQuoteRequest {
  * evaluates residency (M04 hook, mutation → audited, denial → 403 residency_denied), prices the plan from the price book, and returns the routing
  * decision as an internal preference. Provider identity never appears in the quote lines.
  */
+const unsupportedPanel: Pick<PanelInstallService, 'planOrder'> = {
+  planOrder: () =>
+    Promise.reject(
+      new ProblemException('unsupported_capability', 'a VPS with HestiaCP is not available'),
+    ),
+};
+
 export class ComputeQuotePricer implements QuotePricer {
   readonly kind = 'compute' as const;
   constructor(
@@ -99,6 +111,7 @@ export class ComputeQuotePricer implements QuotePricer {
     private readonly images: Pick<ImageCatalog, 'findImage'>,
     private readonly composer: OfferPriceComposer,
     private readonly residency: Pick<ResidencyService, 'evaluate'>,
+    private readonly panel?: Pick<PanelInstallService, 'planOrder'>,
   ) {}
 
   itemsFrom(input: Record<string, unknown>): unknown[] {
@@ -137,6 +150,27 @@ export class ComputeQuotePricer implements QuotePricer {
       );
     const diskGb = Math.max(req.spec.diskGb ?? chosen.diskGb, chosen.diskGb);
     const spec = { vcpu: chosen.vcpu, memoryMb: chosen.memoryMb, diskGb };
+    if (req.spec.count > 1 && req.spec.panel.kind === 'hestia')
+      throw new ProblemException(
+        'validation_failed',
+        'a VPS with HestiaCP is ordered one server at a time',
+      );
+    // S04: the panel choice is validated against the chosen placement and image and stored as part of the order snapshot.
+    const panel =
+      req.spec.panel.kind === 'hestia'
+        ? await (this.panel ?? unsupportedPanel).planOrder(
+            ctx.orgId,
+            req.spec.panel.template,
+            {
+              accountId: chosen.accountId,
+              providerKey: chosen.providerKey,
+              providerRegionId: chosen.providerRegionId,
+              planRef: chosen.planRef,
+              ...spec,
+            },
+            { imageRef: image.imageRef, name: image.name },
+          )
+        : null;
     // Residency at the quote (class customer-content): audited decision; a denial is a hard stop, not a hidden offer.
     let verdict;
     try {
@@ -202,6 +236,8 @@ export class ComputeQuotePricer implements QuotePricer {
           plan: spec,
           imageId: req.spec.imageId,
           imageRef: image.imageRef,
+          imageName: image.name,
+          ...(panel ? { panel } : {}),
           count: req.spec.count,
           term: req.term,
           providerPrice: chosen.providerPrice,

@@ -24,3 +24,6 @@ export type { InstanceDto } from './internal/instance.service';
 export { ComputeMeteringSampler } from './internal/metering-sampler';
 export { CloudFlags, CLOUD_FLAG } from './internal/flags';
 export { ComputeQuotaGuard } from './internal/quota-guard';
+export { PanelInstallService } from './internal/hestia-vps/panel-install.service';
+export type { PanelDto } from './internal/hestia-vps/panel-install.service';
+export type { PanelNodePort, PanelDnsPort } from './internal/hestia-vps/ports';

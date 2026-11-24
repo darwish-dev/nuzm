@@ -65,7 +65,7 @@ export class ComputeKit {
   }
   admin(
     who: string,
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     url: string,
     body?: object,
     headers: Record<string, string> = {},

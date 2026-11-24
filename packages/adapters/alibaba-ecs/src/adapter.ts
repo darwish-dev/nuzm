@@ -186,6 +186,14 @@ const monthsBetween = (from: string, to: string): string[] => {
   return out;
 };
 
+/** RunInstances `UserData`: "cannot exceed 32 KB before Base64 encoding" (https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-runinstances, read 2026-11-24). */
+export const ALIBABA_USER_DATA_MAX_BYTES = 32 * 1024;
+/**
+ * This adapter's signer (ACS3, query-string parameters, empty body) carries `UserData` in the URL, so the practical ceiling is the URL/header limit of the HTTP stack in between —
+ * NOT DOCUMENTED by Alibaba. Until the body-parameter form of the signature has been read from the V3 page and verified live, a lower ceiling applies (the Hestia bootstrap is ~4 KB).
+ */
+export const ALIBABA_USER_DATA_QUERY_MAX_BYTES = 8 * 1024;
+
 export class AlibabaEcsAdapter implements ComputeAdapter {
   readonly id = 'alibaba-ecs';
   readonly kind = 'compute' as const;
@@ -730,6 +738,8 @@ export class AlibabaEcsAdapter implements ComputeAdapter {
           providerRegionId: region,
           name: String(i.OSNameEn ?? i.ImageName ?? i.ImageId),
           osFamily: String(i.OSType ?? 'linux'),
+          // documented response field of DescribeImages ("Indicates whether cloud-init is supported"); anything else = unknown
+          ...(typeof i.IsSupportCloudinit === 'boolean' ? { cloudInit: i.IsSupportCloudinit } : {}),
         });
       if (out.length >= Number(r.json?.TotalCount ?? 0) || rows.length === 0) break;
     }
@@ -848,6 +858,22 @@ export class AlibabaEcsAdapter implements ComputeAdapter {
         'invalid_token',
         'idempotency token must be 64 hex characters',
       );
+    // UserData: documented as Base64 with "no more than 32 KB before Base64 encoding" (RunInstances page); a larger or empty document is refused here, never truncated.
+    let userDataB64: string | undefined;
+    if (req.userData !== undefined) {
+      const bytes = Buffer.byteLength(req.userData, 'utf8');
+      if (
+        bytes === 0 ||
+        bytes > Math.min(ALIBABA_USER_DATA_MAX_BYTES, ALIBABA_USER_DATA_QUERY_MAX_BYTES)
+      )
+        return opFailCat(
+          this.evNow('provision', 'user data size'),
+          'validation',
+          'invalid_user_data',
+          `user data must be 1..${ALIBABA_USER_DATA_QUERY_MAX_BYTES} bytes before Base64 encoding (vendor limit ${ALIBABA_USER_DATA_MAX_BYTES}; parameters travel in the query string)`,
+        );
+      userDataB64 = Buffer.from(req.userData, 'utf8').toString('base64');
+    }
     // SSH key: ImportKeyPair under a name derived from the key (re-importing the same key is a no-op: KeyPair.AlreadyExist is success)
     let keyName: string | undefined;
     if (req.sshPublicKeys[0]) {
@@ -883,6 +909,7 @@ export class AlibabaEcsAdapter implements ComputeAdapter {
       'SystemDisk.Size': String(req.diskGb ?? this.disk.sizeGb),
       InternetMaxBandwidthOut: String(this.o.internetMaxBandwidthOut ?? 5),
       ...(keyName ? { KeyPairName: keyName } : {}),
+      ...(userDataB64 ? { UserData: userDataB64 } : {}),
     };
     Object.entries(tags)
       .slice(0, 20)

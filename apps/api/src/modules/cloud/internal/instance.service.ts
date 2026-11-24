@@ -21,6 +21,11 @@ import {
 } from './provisioning.service';
 import type { ComputeQuotaGuard } from './quota-guard';
 import type { ReconcilerService } from './reconciler.service';
+import type {
+  PanelDto,
+  PanelInstallService,
+  PanelSnapshot,
+} from './hestia-vps/panel-install.service';
 import { transitionResource } from './resource-store';
 
 export interface InstanceDto {
@@ -40,6 +45,12 @@ export interface InstanceDto {
   deletionProtected: boolean;
   driftState: string;
   version: number;
+  /** S04: `hestia` when the server was ordered with the panel installed automatically */
+  panelKind: 'none' | 'hestia';
+  /** why a `held` order waits (the provider has no capacity in the sold region; it is never moved to another region) */
+  holdReason: string | null;
+  /** the staged install, only on a single-instance read */
+  panel?: PanelDto | null;
 }
 
 const SSH_KEY =
@@ -71,6 +82,8 @@ const toDto = (r: Row): InstanceDto => {
     deletionProtected: r.deletion_protected as boolean,
     driftState: r.drift_state as string,
     version: r.version as number,
+    panelKind: ((r.panel_kind as string | undefined) ?? 'none') as 'none' | 'hestia',
+    holdReason: r.status === 'held' ? ((r.hold_reason as string | null) ?? null) : null,
   };
 };
 
@@ -133,6 +146,7 @@ export class InstanceService {
     private readonly prov: ProvisioningService,
     private readonly reconciler: Pick<ReconcilerService, 'reconcileResource'>,
     private readonly flags: CloudFlags,
+    private readonly panel?: PanelInstallService,
   ) {}
 
   private async requireFlag(orgId: string) {
@@ -149,9 +163,16 @@ export class InstanceService {
     const after = decodeCursor(q.cursor);
     if (
       q.status !== undefined &&
-      !['provisioning', 'running', 'stopped', 'failed', 'deleting', 'deleted', 'unknown'].includes(
-        q.status,
-      )
+      ![
+        'provisioning',
+        'running',
+        'stopped',
+        'failed',
+        'deleting',
+        'deleted',
+        'unknown',
+        'held',
+      ].includes(q.status)
     )
       throw new ProblemException('invalid_filter', 'status is invalid');
     const rows = await this.db.withOrg(
@@ -180,7 +201,13 @@ export class InstanceService {
   }
   async get(orgId: string, id: string): Promise<InstanceDto> {
     await this.requireFlag(orgId);
-    return toDto(await this.getRow(orgId, id));
+    const row = await this.getRow(orgId, id);
+    return {
+      ...toDto(row),
+      ...(row.panel_kind === 'hestia' && this.panel
+        ? { panel: await this.panel.status(orgId, row.id as string) }
+        : {}),
+    };
   }
 
   // ---- create ---------------------------------------------------------------------------------------------------------------
@@ -222,6 +249,9 @@ export class InstanceService {
     if (!pref)
       throw new ProblemException('validation_failed', 'the quote carries no compute placement');
     const plan = pref.plan as PlanShape;
+    const panelSnap = (pref.panel as PanelSnapshot | undefined) ?? null;
+    if (panelSnap && !this.panel)
+      throw new ProblemException('unsupported_capability', 'a VPS with HestiaCP is not available');
     const accountId = pref.accountId as string;
     const providerPrice = (pref.providerPrice as CreateInput['providerPrice']) ?? null;
     const priceBookVersionId = (quote.price_book_version_id as string | null) ?? null;
@@ -254,6 +284,8 @@ export class InstanceService {
         'the compute quota would be exceeded; existing resources are untouched',
       );
 
+    // S04: the single-use registration secret is sealed BEFORE the quote is consumed, so a vault problem costs the customer nothing.
+    const reg = panelSnap ? await this.panel!.prepareRegistration() : null;
     // The order consumes the quote: validity, hard quota group, spend limit or an approved spend approval (M02).
     let order;
     try {
@@ -304,6 +336,7 @@ export class InstanceService {
       name: req.name,
       plan,
       sshPublicKeys: req.sshPublicKeys,
+      ...(panelSnap ? { panel: { kind: 'hestia' as const } } : {}),
       providerPrice,
       priceBookVersionId,
     };
@@ -357,6 +390,14 @@ export class InstanceService {
             actorUserId,
           ],
         );
+        if (panelSnap && reg)
+          await this.panel!.insertInstall(c, {
+            orgId,
+            instanceId,
+            orderId: order.id,
+            snapshot: panelSnap,
+            reg,
+          });
         await c.query(
           `INSERT INTO platform.operations (id, org_id, kind, input, resource_kind, resource_id, created_by, trace_id, idempotency_key, max_attempts) VALUES ($1,$2,$3,$4,'cloud_resource',$5,$6,$7,$8,5)`,
           [
@@ -383,6 +424,7 @@ export class InstanceService {
       });
     } catch (e) {
       // the quote was consumed but nothing was created: close the order so it is not left looking active
+      if (reg) await this.panel!.discard(reg.secretRef);
       await this.db
         .withOrg(orgId, (c) =>
           c.query(
@@ -460,6 +502,14 @@ export class InstanceService {
         'invalid_state',
         `the instance is already ${row.status as string}`,
       );
+    if (row.status === 'held') {
+      // nothing exists at the provider yet: cancelling releases the cost authorization and fails the order
+      await this.prov.cancelHeld(orgId, row.id as string);
+      return {
+        instance: toDto(await this.getRow(orgId, id)),
+        operationId: (row.operation_id as string | null) ?? '',
+      };
+    }
     if (row.status === 'provisioning')
       throw new ProblemException(
         'invalid_state',
@@ -598,6 +648,16 @@ export class InstanceService {
         'invalid_state',
         `the ${action} action is not allowed while the instance is ${status}`,
       );
+    // S04: the panel installer is running on the server; stopping or restarting it mid-install would break the install. After it finished (or failed) every action is open again,
+    // including when the panel link is lost: start/stop/restart go through the provider's API and never through the panel.
+    if ((action === 'stop' || action === 'reboot') && row.panel_kind === 'hestia' && this.panel) {
+      const p = await this.panel.status(orgId, row.id as string);
+      if (p && ['waiting_boot', 'installing_panel', 'registering'].includes(p.stage))
+        throw new ProblemException(
+          'invalid_state',
+          'the panel is being installed on this server; wait until it finishes before stopping or restarting it',
+        );
+    }
     let targetPlan: ActionInput['targetPlan'];
     if (action === 'resize') {
       if (typeof params.offerId !== 'string' || !UUID.test(params.offerId))

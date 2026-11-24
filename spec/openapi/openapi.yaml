@@ -4310,7 +4310,12 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: providerKey, in: path, required: true, schema: { type: string, enum: [alibaba, huawei] } }
+        - {
+            name: providerKey,
+            in: path,
+            required: true,
+            schema: { type: string, enum: [alibaba, huawei] },
+          }
         - { name: regionId, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
@@ -4336,7 +4341,12 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: providerKey, in: path, required: true, schema: { type: string, enum: [alibaba, huawei] } }
+        - {
+            name: providerKey,
+            in: path,
+            required: true,
+            schema: { type: string, enum: [alibaba, huawei] },
+          }
         - { name: regionId, in: path, required: true, schema: { type: string } }
       responses:
         '204': { description: Removed }
@@ -4348,7 +4358,7 @@ paths:
       operationId: adminConnectProviderAccount
       tags: [cloud]
       summary: 'Connect a provider with credentials typed in the console'
-      description: 'Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider''s adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created.'
+      description: "Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider's adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created."
       x-nuzm-platform-permission: admin:provider:manage
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -4973,6 +4983,204 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances/{id}/panel:
+    get:
+      operationId: getComputeInstancePanel
+      tags: [cloud]
+      summary: 'The control panel install of a server (HestiaCP) and its link state'
+      description: 'Only for a server ordered with the panel installed automatically (404 otherwise). Staged status: create server, wait for boot, install panel, register link, readiness test, then ready or needs attention; a `held` order waits for provider capacity in the SOLD region (it is never moved to another one). `panelLink` is `lost` when Nuzm can no longer reach the panel (the customer has root); start/stop/restart go through the provider API and stay available. Requires permission `compute:instance:read`.'
+      x-nuzm-permission: compute:instance:read
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelInstall' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/compute/instances/{id}/panel/retry:
+    post:
+      operationId: retryComputeInstancePanel
+      tags: [cloud]
+      summary: 'Resume a panel install that needs attention (same server)'
+      description: "Never creates, replaces or wipes a server. Problems on Nuzm's side (readiness, DNS, node registration, secret store) continue from their stage; when the bootstrap did not finish on the server the registration window of the SAME order and server is extended and the response carries the command to re-run the script that is still on the server (`rerun_bootstrap`). A failed integrity check of the pinned installer is not resumable on that server (409 invalid_state). Idempotent per Idempotency-Key. Requires permission `compute:instance:act`."
+      x-nuzm-permission: compute:instance:act
+      x-nuzm-org-scoped: true
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelRetryResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/bootstrap/panel/events:
+    post:
+      operationId: panelBootstrapEvent
+      tags: [cloud]
+      summary: 'Progress report of the panel bootstrap running on a new server'
+      description: 'Called by the bootstrap script on the server. Unauthenticated by design: the single-use registration secret (`Authorization: Bearer nzr1.<registration id>.<secret>`) is the credential; it is bound to one order and one server, short-lived (the window starts when the provider created the server) and stored only as a SHA-256. 401 unknown secret, 409 the server is not recorded yet (retry), 410 the window ended, 429 rate limited.'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PanelBootstrapEvent' }
+      responses:
+        '204': { description: Recorded }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /v1/bootstrap/panel/register:
+    post:
+      operationId: panelBootstrapRegister
+      tags: [cloud]
+      summary: 'Register the new panel (single use)'
+      description: "Called once by the bootstrap script. The secret is consumed atomically; the caller's address must be one of the server's public addresses AS THE PROVIDER REPORTS THEM, and the provider's record must show the server running in the sold region (403 otherwise: the secret is NOT consumed). The panel access key is a read-only profile; it is sealed on receipt and only a vault reference is stored. Repeating the same registration from the same server after a lost answer returns `already_registered`; any other repeat is 409. 503 when the provider or the secret store cannot answer (the script retries)."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PanelBootstrapRegister' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelBootstrapRegisterResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-images:
+    get:
+      operationId: adminListPanelImages
+      tags: [cloud]
+      summary: 'Provider images and their HestiaCP verification'
+      description: 'Every catalogued image with whether the provider states cloud-init for it, the operating system HestiaCP would see, and its approval (version, evidence kind, who approved). Only an approved image on a sold placement is offered to customers.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: accountId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: regionId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelImageList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-images/{imageId}:
+    put:
+      operationId: adminApprovePanelImage
+      tags: [cloud]
+      summary: 'Approve an image for the configured HestiaCP version'
+      description: 'Body {evidenceKind: live|fixture|mock, evidenceNote}. 422 unless the provider states cloud-init for the image AND HestiaCP documents its operating system (Debian 12/13, Ubuntu 22.04/24.04/26.04) AND the product is configured. `live` is for an install actually performed on that provider; `fixture`/`mock` are labelled and refused as mock in production. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.approved).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: imageId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PanelImageApprove' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approvalId]
+                properties:
+                  approvalId: { type: string, format: uuid }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-image-approvals/{approvalId}:
+    delete:
+      operationId: adminRevokePanelImageApproval
+      tags: [cloud]
+      summary: 'Withdraw an image approval'
+      description: 'The image stops being offered at once; an order already placed re-checks at execution and is released without charge. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.revoked).'
+      x-nuzm-platform-permission: admin:provider:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: approvalId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Withdrawn }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/compute/panel-installs:
+    get:
+      operationId: adminListPanelInstalls
+      tags: [cloud]
+      summary: 'Panel installs across organizations'
+      description: 'Most recently changed first; filter by stage (e.g. needs_attention, held). Platform only; carries provider and region (internal), never a secret.'
+      x-nuzm-platform-permission: admin:provider:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - {
+            name: stage,
+            in: query,
+            required: false,
+            schema:
+              {
+                type: string,
+                enum:
+                  [
+                    create_server,
+                    waiting_boot,
+                    installing_panel,
+                    registering,
+                    readiness,
+                    ready,
+                    needs_attention,
+                    held,
+                  ],
+              },
+          }
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 200 },
+          }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PanelInstallAdminList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   /v1/compute/instances/{id}/metrics:
     get:
       operationId: getComputeInstanceMetrics
@@ -6404,7 +6612,7 @@ paths:
       operationId: runHostingNodeInventory
       tags: [hosting]
       summary: Run the inventory job for a node now
-      description: 'Probe + inventory through the node''s HestiaCP panel (this is the connection test): version, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The panel connection must be set (409 otherwise). Permission admin:hosting:manage, MFA step-up.'
+      description: "Probe + inventory through the node's HestiaCP panel (this is the connection test): version, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The panel connection must be set (409 otherwise). Permission admin:hosting:manage, MFA step-up."
       x-nuzm-platform-permission: admin:hosting:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -7523,7 +7731,7 @@ paths:
       operationId: saveDynadotRegistrarSettings
       tags: [domains]
       summary: Save the Dynadot connection settings (admin console)
-      description: 'Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot''s Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved).'
+      description: "Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot's Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved)."
       x-nuzm-platform-permission: admin:domains:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -16429,7 +16637,7 @@ components:
           {
             type: object,
             additionalProperties: true,
-            description: 'compute: {imageId, diskGb?, count}.',
+            description: 'compute: {imageId, diskGb?, count, panel?}. panel = {kind:"none"} or {kind:"hestia", template:{id, mail}} (HestiaCP installed automatically; the mail choice is explicit; one server per order; only on an image the offers list marks hestia). The choice is stored in the order snapshot together with the image, template, region, provider plan and the pinned installer.',
           }
         term:
           { type: object, additionalProperties: true, description: 'compute: {period:"month"}.' }
@@ -17673,7 +17881,7 @@ components:
         credentials: { $ref: '#/components/schemas/ProviderCredentials' }
     ProviderCredentials:
       type: object
-      description: 'Write-only named secret fields; only the fields of one provider''s adapter are accepted (3 to 400 printable characters, no spaces).'
+      description: "Write-only named secret fields; only the fields of one provider's adapter are accepted (3 to 400 printable characters, no spaces)."
       additionalProperties: { type: string }
     ProviderAccountUpdate:
       type: object
@@ -17801,6 +18009,209 @@ components:
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Offer' } }
         nextCursor: { type: string, nullable: true }
+    PanelTemplate:
+      type: object
+      required: [id, mail]
+      properties:
+        id: { type: string, enum: [hestia-web, hestia-web-mail] }
+        mail:
+          {
+            type: boolean,
+            description: "The explicit mail choice of the order: the panel's mail services (Exim, Dovecot) are installed only when true; hestia-web-mail needs true and hestia-web needs false.",
+          }
+    PanelStep:
+      type: object
+      required: [key, state]
+      properties:
+        key: { type: string, enum: [create_server, wait_boot, install_panel, register, readiness] }
+        state: { type: string, enum: [pending, running, done, failed] }
+    PanelInstall:
+      type: object
+      required:
+        [
+          kind,
+          stage,
+          steps,
+          template,
+          panelVersion,
+          osName,
+          panelHost,
+          panelPort,
+          panelLink,
+          attention,
+          holdReason,
+          ready,
+          rerunCommand,
+          adminPasswordFile,
+          updatedAt,
+        ]
+      properties:
+        kind: { type: string, enum: [hestia] }
+        stage:
+          {
+            type: string,
+            enum:
+              [
+                create_server,
+                waiting_boot,
+                installing_panel,
+                registering,
+                readiness,
+                ready,
+                needs_attention,
+                held,
+              ],
+          }
+        steps: { type: array, items: { $ref: '#/components/schemas/PanelStep' } }
+        template: { $ref: '#/components/schemas/PanelTemplate' }
+        panelVersion: { type: string }
+        osName: { type: string }
+        panelHost:
+          {
+            type: string,
+            description: 'The fixed fully qualified domain name of the panel, decided at order time.',
+          }
+        panelPort: { type: integer }
+        panelLink: { type: string, enum: [none, connected, lost] }
+        attention:
+          type: object
+          nullable: true
+          required: [code, detail, resumable]
+          properties:
+            code: { type: string }
+            detail: { type: string, nullable: true }
+            resumable:
+              {
+                type: string,
+                enum: [here, server, support],
+                description: 'here: retry continues from Nuzm; server: the script on the server is re-run; support: not resumable on this server.',
+              }
+        holdReason: { type: string, nullable: true, enum: [provider_capacity_unavailable] }
+        ready: { type: boolean }
+        rerunCommand: { type: string, nullable: true }
+        adminPasswordFile:
+          {
+            type: string,
+            description: 'Where the panel admin password was left ON the server (root only). It is never sent to Nuzm.',
+          }
+        updatedAt: { type: string, format: date-time }
+    PanelRetryResult:
+      type: object
+      required: [action, panel]
+      properties:
+        action: { type: string, enum: [continued, rerun_bootstrap] }
+        command: { type: string }
+        panel: { $ref: '#/components/schemas/PanelInstall' }
+    PanelBootstrapEvent:
+      type: object
+      required: [phase]
+      properties:
+        phase: { type: string, enum: [booted, installer_verified, installing, failed, note] }
+        code: { type: string, pattern: '^[a-z0-9_]{0,60}$' }
+    PanelBootstrapRegister:
+      type: object
+      required: [panelVersion, host, port, tlsFingerprintSha256, accessKey]
+      additionalProperties: false
+      properties:
+        panelVersion: { type: string }
+        host: { type: string, description: 'Must equal the panel FQDN fixed at order time.' }
+        port: { type: integer }
+        tlsFingerprintSha256:
+          {
+            type: string,
+            description: "SHA-256 fingerprint of the panel's (self-signed) certificate, colon-separated.",
+          }
+        accessKey:
+          {
+            type: string,
+            format: password,
+            writeOnly: true,
+            description: 'ACCESS_KEY_ID:SECRET_ACCESS_KEY of the read-only profile. Sealed on receipt; never returned, logged or audited.',
+          }
+    PanelBootstrapRegisterResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [registered, already_registered] }
+    PanelImageApprove:
+      type: object
+      required: [evidenceKind, evidenceNote]
+      additionalProperties: false
+      properties:
+        evidenceKind: { type: string, enum: [live, fixture, mock] }
+        evidenceNote: { type: string, minLength: 3, maxLength: 500 }
+    PanelImageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [imageId, accountId, providerRegionId, name, cloudInit, os, approval]
+            properties:
+              imageId: { type: string, format: uuid }
+              accountId: { type: string, format: uuid }
+              providerRegionId: { type: string }
+              name: { type: string }
+              cloudInit: { type: boolean, nullable: true }
+              os:
+                type: object
+                nullable: true
+                properties:
+                  id: { type: string }
+                  version: { type: string }
+                  supportedByHestia: { type: boolean }
+              approval:
+                type: object
+                nullable: true
+                properties:
+                  id: { type: string, format: uuid }
+                  panelVersion: { type: string }
+                  evidenceKind: { type: string, enum: [live, fixture, mock] }
+                  evidenceNote: { type: string }
+                  approvedAt: { type: string, format: date-time }
+                  revoked: { type: boolean }
+    PanelInstallAdminList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              [
+                id,
+                orgId,
+                instanceId,
+                orderId,
+                provider,
+                region,
+                stage,
+                attentionCode,
+                attentionDetail,
+                panelVersion,
+                panelHost,
+                panelLink,
+                attempts,
+                updatedAt,
+              ]
+            properties:
+              id: { type: string, format: uuid }
+              orgId: { type: string, format: uuid }
+              instanceId: { type: string, format: uuid }
+              orderId: { type: string, format: uuid }
+              provider: { type: string }
+              region: { type: string }
+              stage: { type: string }
+              attentionCode: { type: string, nullable: true }
+              attentionDetail: { type: string, nullable: true }
+              panelVersion: { type: string }
+              panelHost: { type: string }
+              panelLink: { type: string }
+              attempts: { type: integer }
+              updatedAt: { type: string, format: date-time }
     OfferImageList:
       type: object
       required: [items]
@@ -17809,11 +18220,31 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, osFamily]
+            required: [id, name, osFamily, hestia]
             properties:
               id: { type: string, format: uuid }
               name: { type: string }
               osFamily: { type: string, nullable: true }
+              hestia:
+                {
+                  type: boolean,
+                  description: 'HestiaCP can be installed on this image: verified by an administrator for the configured version, in a sold placement, with cloud-init stated by the provider.',
+                }
+        panels:
+          type: object
+          properties:
+            hestia:
+              type: object
+              required: [available, templates, minimum]
+              properties:
+                available: { type: boolean }
+                templates: { type: array, items: { type: string } }
+                minimum:
+                  type: object
+                  properties:
+                    vcpu: { type: integer }
+                    memoryMb: { type: integer }
+                    diskGb: { type: integer }
     Offer:
       type: object
       required: [offerId, kind, country, dataRegion, plan, price, capabilities, verifiedAt]
@@ -17912,6 +18343,8 @@ components:
           capabilities,
           driftState,
           version,
+          panelKind,
+          holdReason,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -17919,7 +18352,7 @@ components:
         status:
           {
             type: string,
-            enum: [provisioning, running, stopped, failed, deleting, deleted, unknown],
+            enum: [provisioning, running, stopped, failed, deleting, deleted, unknown, held],
           }
         dataRegion: { type: string }
         country: { type: string }
@@ -17934,6 +18367,25 @@ components:
         deletionProtected: { type: boolean }
         driftState: { type: string, enum: [in_sync, drift, orphan_suspected, missing] }
         version: { type: integer }
+        panelKind:
+          {
+            type: string,
+            enum: [none, hestia],
+            description: 'hestia = ordered with the panel installed automatically (see GET /v1/compute/instances/{id}/panel).',
+          }
+        holdReason:
+          {
+            type: string,
+            nullable: true,
+            enum: [provider_capacity_unavailable],
+            description: 'Why a held order waits: the provider has no capacity in the sold region. It is never moved to another region; cancel it with DELETE (no charge).',
+          }
+        panel:
+          {
+            allOf: [{ $ref: '#/components/schemas/PanelInstall' }],
+            nullable: true,
+            description: 'Only on a single-instance read.',
+          }
     ComputeInstanceList:
       type: object
       required: [items, nextCursor]
@@ -19200,6 +19652,7 @@ components:
           dataRegion,
           status,
           panelKind,
+          networkClass,
           panelConfigured,
           runtimes,
           overcommitFactor,
@@ -19216,11 +19669,20 @@ components:
         dataRegion: { type: string }
         status: { type: string, enum: [active, draining, maintenance, retired] }
         panelKind: { type: string, enum: [hestia] }
+        networkClass:
+          {
+            type: string,
+            enum: [shared, customer_vps],
+            description: "shared = Nuzm's hosting network; customer_vps = a customer's own server running HestiaCP (outside it, never receives shared sites).",
+          }
         panelVersion: { type: [string, 'null'] }
         panelHost: { type: [string, 'null'] }
         panelPort: { type: [integer, 'null'] }
         panelConfigured:
-          { type: boolean, description: A panel host and an access key are set. The key itself is never returned. }
+          {
+            type: boolean,
+            description: A panel host and an access key are set. The key itself is never returned.,
+          }
         panelTlsPinned: { type: boolean }
         runtimes:
           {
@@ -19261,17 +19723,33 @@ components:
       type: object
       required: [host]
       properties:
-        host: { type: string, description: The panel's fully qualified domain name (no IP literal, no scheme). }
+        host:
+          {
+            type: string,
+            description: The panel's fully qualified domain name (no IP literal,
+            no scheme).,
+          }
         port: { type: integer, minimum: 1, maximum: 65535, description: Default 8083. }
         tlsPinSha256:
-          { type: string, description: SHA-256 fingerprint of a self-signed panel certificate (32 colon-separated hex pairs). }
-        vaultRef: { type: string, description: A vault:// reference of the access key. Not together with credentials. }
+          {
+            type: string,
+            description: SHA-256 fingerprint of a self-signed panel certificate (32 colon-separated hex pairs).,
+          }
+        vaultRef:
+          {
+            type: string,
+            description: A vault:// reference of the access key. Not together with credentials.,
+          }
         credentials:
           type: object
           description: Write-only; accepted outside production only (D-12).
           required: [accessKey]
           properties:
-            accessKey: { type: string, description: 'ACCESS_KEY_ID:SECRET_ACCESS_KEY of a HestiaCP access key.' }
+            accessKey:
+              {
+                type: string,
+                description: 'ACCESS_KEY_ID:SECRET_ACCESS_KEY of a HestiaCP access key.',
+              }
     PatchHostingNode:
       type: object
       properties:

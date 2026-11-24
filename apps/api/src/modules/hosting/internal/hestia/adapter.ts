@@ -174,6 +174,19 @@ export class HestiaHostingAdapter implements HostingAdapter {
     };
   }
 
+  /**
+   * S04: a customer's VPS panel key is a READ-ONLY profile (the customer has root). Proof, not trust: `v-list-users` is NOT in that profile, so a panel that answers it
+   * has a broader key than intended. Only meaningful after `health` showed the key itself works.
+   */
+  async verifyReadOnlyKey(
+    ctx: AccountContext,
+    node: NodeRef,
+  ): Promise<'read_only' | 'too_broad' | 'unknown'> {
+    const r = await this.run(node, ctx, 'listUsers', {});
+    if (r.ok) return 'too_broad';
+    return r.error.category === 'auth' ? 'read_only' : 'unknown';
+  }
+
   async inventory(ctx: AccountContext, node: NodeRef): Promise<OperationResult<NodeState>> {
     const info = await this.run(node, ctx, 'sysInfo', {});
     if (!info.ok) return this.fail('inventory', info);

@@ -22,6 +22,7 @@ import {
 import { CapabilityList, InstanceBadges, OperationTimeline, ProblemAlert } from './ComputeBits';
 import { regionLabel } from './ComputeOffers';
 import { NoticeText } from './Feedback';
+import { VpsPanelCard } from './VpsPanelCard';
 import {
   ActionLink,
   ActionPanel,
@@ -147,6 +148,9 @@ export function InstanceDetail(p: {
           <strong>{t(locale, 'm05.web.uncertain.title')}</strong>{' '}
           {t(locale, 'm05.web.uncertain.body')}
         </Banner>
+      )}
+      {i.panelKind === 'hestia' && i.panel && (
+        <VpsPanelCard locale={locale} instanceId={i.id} initial={i.panel} canAct={p.canAct} />
       )}
       <OverviewLayout
         sideLabel={t(locale, 'm05.web.ov.summary')}

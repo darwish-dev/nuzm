@@ -5291,9 +5291,33 @@ export interface paths {
         put?: never;
         /**
          * Publish a project to a hosting site
-         * @description WEB-APP projects (M10A) are dispatched to the app-builder pipeline: body {projectId, versionId?, target: {type: site, id}, env: production|staging}; a production target needs hash-bound approvals decided in the approvals inbox (403 `approval_required` with `approvals[{id,type,scopeHash}]`, then repeat the same request), the build runs in a sandbox, only the static `public/` front end is published through the hosting publish port (the Node back end and the database migrations have no compute path yet: NOT VERIFIED live), a failed health gate restores the previous release; a `site` target is a hosting site of the organization (404 otherwise; `instance` targets have no publish path). Website projects: body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). Audited (`deploy.deployment.*`).
+         * @description WEB-APP projects (M10A) are dispatched to the app-builder pipeline: body {projectId, versionId?, target: {type: site, id}, env: production|staging}; a production target needs hash-bound approvals decided in the approvals inbox (403 `approval_required` with `approvals[{id,type,scopeHash}]`, then repeat the same request), the build runs in a sandbox, only the static `public/` front end is published through the hosting publish port (the Node back end and the database migrations have no compute path yet: NOT VERIFIED live), a failed health gate restores the previous release; a `site` target is a hosting site of the organization (404 otherwise; `instance` targets have no publish path). Website projects: body {projectId, target: hostingSiteId, environment: production|staging, approvalId?}. Needs a human PUBLISH approval bound to the exact version, target and environment: the first call answers 403 `approval_required` with `approvalId` and the cost disclosure; repeat with that `approvalId` and a NEW Idempotency-Key to confirm. Then build → stage → smoke (HTTP 200 on every page, TLS) → switch → live smoke; a failed smoke check rolls back automatically. 404 for another organization site, 409 (one deployment in flight per target), 422 `unsupported_capability` (no publish path: live publish needs a real hosting node, HG-05-01/02, HG-06-01). A production publish is confirmed by a role in `productionPublishRoles` (default owner, admin, developer); another role gets 403 `forbidden` with `policy` and `allowedRoles` and the approval stays pending for an allowed role to confirm. Audited (`deploy.deployment.*`).
          */
         post: operations["createDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deployments/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the deployment policy of the organization
+         * @description The switches for owner decisions O-1 (`productionPublishRoles`: who may confirm a production publish of a website) and O-2 (`rollbackRequiresOwnApproval`). `source` is `default` when the organization never set one (the defaults equal the behaviour before the switches existed).
+         */
+        get: operations["getDeploymentPolicy"];
+        /**
+         * Change the deployment policy (owner or admin, signed in as a person)
+         * @description Send one or both settings. `productionPublishRoles` is a non-empty list of distinct roles from owner, admin, developer and must contain owner. `expectedVersion` makes a concurrent edit a 409. An API key is refused (403) even with the permission. Audit: `deploy.policy.updated` with before and after.
+         */
+        put: operations["setDeploymentPolicy"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5351,7 +5375,7 @@ export interface paths {
         put?: never;
         /**
          * Roll back to the previous artifact
-         * @description Restores the artifact that served before this deployment (its artifact hash) and creates a new deployment with `rollbackOf`. 409 `invalid_state` unless the deployment succeeded and has a predecessor.
+         * @description Restores the artifact that served before this deployment (its artifact hash) and creates a new deployment with `rollbackOf`. 409 `invalid_state` unless the deployment succeeded and has a predecessor. When the organization policy `rollbackRequiresOwnApproval` is on, a PRODUCTION rollback answers 403 `approval_required` with an `approvalId`; repeat the request with that id in the body (a signed-in person whose role is in `productionPublishRoles`) to confirm it. The approval is bound to this rollback and single use.
          */
         post: operations["rollbackDeployment"];
         delete?: never;
@@ -13192,6 +13216,17 @@ export interface components {
         };
         PublicFormInput: {
             [key: string]: string;
+        };
+        DeploymentPolicy: {
+            productionPublishRoles: ("owner" | "admin" | "developer")[];
+            rollbackRequiresOwnApproval: boolean;
+            /** @enum {string} */
+            source: "default" | "organization";
+            version: number;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: uuid */
+            updatedBy?: string | null;
         };
         DeploymentInput: {
             /** Format: uuid */
@@ -25936,6 +25971,68 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
+    getDeploymentPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    setDeploymentPolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    productionPublishRoles?: ("owner" | "admin" | "developer")[];
+                    rollbackRequiresOwnApproval?: boolean;
+                    expectedVersion?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
     getDeployment: {
         parameters: {
             query?: never;
@@ -26008,7 +26105,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    approvalId?: string;
+                };
+            };
+        };
         responses: {
             /** @description Success */
             202: {

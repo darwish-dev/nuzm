@@ -135,4 +135,4 @@ Additive. A client that never sends a rollback body or reads the policy is unaff
 01 (spec, SDK, ownership manifest), 07 (matrix tests for developer self-publish and rollback authorization; use `GET/PUT /v1/deployments/policy` to set the state), 05 (none: web-app approvals use the app builder's own policy).
 
 ## Master answer
-(pending)
+ACCEPTED as proposed (2026-11-24, Master): applied to spec/openapi/openapi.yaml, spec/db/ownership.yaml (range S06-DEPLOY2 2180-2199, table org_policies, classification) and the SDK regenerated; spec:lint, spec:drift (525 routes) and sdk:check pass. Defaults unchanged; the O-1/O-2 decisions remain the owner's.

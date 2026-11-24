@@ -272,11 +272,7 @@ export function WebAppWorkspace({
         />
       ) : tab === 'agent' ? (
         <div className="mws-panel" data-panel="agent">
-          <BuilderLifecycleScreen
-            locale={locale}
-            projectId={project.id}
-            canRun={can('ai:write') && can('builder:write')}
-          />
+          <BuilderLifecycleScreen locale={locale} projectId={project.id} canRun={can.describe} />
         </div>
       ) : tab === 'studio' ? (
         <AppStudioPanel

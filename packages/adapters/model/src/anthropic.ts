@@ -9,6 +9,7 @@ import {
   type CompleteResponse,
   type ContentBlock,
   type DataTerms,
+  type DiscoveredModel,
   type ModelAdapter,
   type ModelInfo,
   type ModelMessage,
@@ -99,7 +100,14 @@ export interface ClaudeStreamEvent {
   content_block?: { type?: string; id?: string; name?: string };
   delta?: { type?: string; text?: string; partial_json?: string };
 }
+export interface ClaudeModelListing {
+  data: { id: string; display_name?: string | null; created_at?: string | null }[];
+}
 export interface ClaudeClient {
+  /** optional: only model discovery uses it */
+  models?: {
+    list(params?: Record<string, unknown>, opts?: { signal?: AbortSignal }): Promise<ClaudeModelListing>;
+  };
   messages: {
     create(
       params: Record<string, unknown>,
@@ -167,6 +175,32 @@ export class AnthropicModelAdapter implements ModelAdapter {
 
   models(): ModelInfo[] {
     return modelsFor(this.v11);
+  }
+
+  /**
+   * Model discovery (`GET /v1/models`, read-only, no prompt, nothing billed). Behind the same live gate and key rules as a call: closed gate = nothing leaves the process.
+   * One bounded page (100); ids are sanitised, display names clipped. NOT live-verified: the shape is the SDK's, exercised only against a stub.
+   */
+  async discoverModels(ctx: CallContext): Promise<DiscoveredModel[]> {
+    if (ctx.signal?.aborted) throw new ModelAdapterError('aborted', ERR.aborted);
+    this.assertLive();
+    const client = await this.client();
+    if (!client.models) throw new ModelAdapterError('unavailable', 'model listing is not available', false);
+    try {
+      const page = await client.models.list({ limit: 100 }, { signal: ctx.signal });
+      const out: DiscoveredModel[] = [];
+      for (const m of page.data.slice(0, 100)) {
+        if (typeof m.id !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(m.id)) continue;
+        out.push({
+          modelId: m.id,
+          ...(typeof m.display_name === 'string' ? { displayName: m.display_name.slice(0, 120) } : {}),
+          ...(typeof m.created_at === 'string' ? { createdAt: m.created_at.slice(0, 40) } : {}),
+        });
+      }
+      return out;
+    } catch (e) {
+      throw this.mapError(e, ctx.signal);
+    }
   }
 
   tokenCount(_model: string, messages: ModelMessage[]): number {

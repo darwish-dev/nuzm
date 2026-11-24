@@ -7,3 +7,4 @@ export * from './probe';
 export * from './resilience';
 export * from './ratecard';
 export * from './context';
+export * from './registry';

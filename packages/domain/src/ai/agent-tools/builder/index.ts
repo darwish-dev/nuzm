@@ -6,3 +6,4 @@ export * from './code-intel';
 export * from './validate';
 export * from './diagnose';
 export * from './repair';
+export * from './context';

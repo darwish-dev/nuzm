@@ -10,3 +10,6 @@ export * from './limits';
 export * from './quota';
 export * from './lifecycle';
 export * from './queue';
+export * from './approval';
+export * from './audit';
+export * from './env-guard';

@@ -8405,7 +8405,14 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/BuilderChangePreviewInput' }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderChangePreview' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/BuilderChangePreview' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8426,7 +8433,14 @@ paths:
         - { name: from, in: query, required: true, schema: { type: string } }
         - { name: to, in: query, required: true, schema: { type: string } }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderChangePreview' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/BuilderChangePreview' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8450,7 +8464,15 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/BuilderRollbackInput' }
       responses:
-        '201': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderRollbackResult' } } } }
+        '201':
+          {
+            description: 'Success',
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/BuilderRollbackResult' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8475,7 +8497,14 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/BuilderRevertInput' }
       responses:
-        '201': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderRevertResult' } } } }
+        '201':
+          {
+            description: 'Success',
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/BuilderRevertResult' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8498,7 +8527,12 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/BuilderPlanPreviewInput' }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderPlanPreview' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/BuilderPlanPreview' } } },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8516,7 +8550,12 @@ paths:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: projectId, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderReview' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/BuilderReview' } } },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8536,7 +8575,12 @@ paths:
         - { name: q, in: query, required: true, schema: { type: string } }
         - { name: kind, in: query, required: false, schema: { type: string } }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderSymbolPage' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/BuilderSymbolPage' } } },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8554,7 +8598,15 @@ paths:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: projectId, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderImportAnalysis' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/BuilderImportAnalysis' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8572,7 +8624,14 @@ paths:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: projectId, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderComponentList' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/BuilderComponentList' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8590,7 +8649,12 @@ paths:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: projectId, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderMemory' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/BuilderMemory' } } },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8613,7 +8677,12 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/BuilderMemoryInput' }
       responses:
-        '201': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderMemoryAdded' } } } }
+        '201':
+          {
+            description: 'Success',
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/BuilderMemoryAdded' } } },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -8633,7 +8702,14 @@ paths:
         - { name: projectId, in: path, required: true, schema: { type: string } }
         - { name: entryId, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: 'Success', content: { application/json: { schema: { $ref: '#/components/schemas/BuilderMemoryRemoved' } } } }
+        '200':
+          {
+            description: 'Success',
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/BuilderMemoryRemoved' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
@@ -21039,12 +21115,23 @@ components:
       required: [ok, errors, files, totals, risks, approval, baseVersion, headVersion, drift, ops]
       properties:
         ok: { type: boolean }
-        errors: { type: array, items: { type: object, required: [at, code, message], properties: { at: { type: string }, code: { type: string }, message: { type: string } } } }
+        errors:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [at, code, message],
+                properties:
+                  { at: { type: string }, code: { type: string }, message: { type: string } },
+              },
+          }
         files:
           type: array
           items:
             type: object
-            required: [op, path, bytesBefore, bytesAfter, added, removed, diff, diffTruncated, hashBefore]
+            required:
+              [op, path, bytesBefore, bytesAfter, added, removed, diff, diffTruncated, hashBefore]
             properties:
               op: { type: string, enum: [add, modify, delete, rename] }
               path: { type: string }
@@ -21056,9 +21143,30 @@ components:
               diff: { type: string }
               diffTruncated: { type: boolean }
               hashBefore: { type: [string, 'null'] }
-        totals: { type: object, required: [files, added, removed], properties: { files: { type: integer }, added: { type: integer }, removed: { type: integer } } }
-        risks: { type: array, items: { type: object, required: [code, message], properties: { code: { type: string }, message: { type: string } } } }
-        approval: { type: object, required: [required, reasons], properties: { required: { type: boolean }, reasons: { type: array, items: { type: string } } } }
+        totals:
+          {
+            type: object,
+            required: [files, added, removed],
+            properties:
+              { files: { type: integer }, added: { type: integer }, removed: { type: integer } },
+          }
+        risks:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [code, message],
+                properties: { code: { type: string }, message: { type: string } },
+              },
+          }
+        approval:
+          {
+            type: object,
+            required: [required, reasons],
+            properties:
+              { required: { type: boolean }, reasons: { type: array, items: { type: string } } },
+          }
         baseVersion: { type: [string, 'null'] }
         headVersion: { type: [string, 'null'] }
         drift: { type: integer }
@@ -21066,11 +21174,17 @@ components:
     BuilderRollbackInput:
       type: object
       required: [targetVersion]
-      properties: { targetVersion: { type: string }, baseVersion: { type: string }, confirmed: { type: boolean } }
+      properties:
+        {
+          targetVersion: { type: string },
+          baseVersion: { type: string },
+          confirmed: { type: boolean },
+        }
     BuilderRevertInput:
       type: object
       required: [versionId]
-      properties: { versionId: { type: string }, baseVersion: { type: string }, confirmed: { type: boolean } }
+      properties:
+        { versionId: { type: string }, baseVersion: { type: string }, confirmed: { type: boolean } }
     BuilderRollbackResult:
       type: object
       required: [versionId, commit, branch, diff, risks, restoredFrom]
@@ -21097,14 +21211,44 @@ components:
       required: [text]
       properties:
         text: { type: string, maxLength: 20000 }
-        hint: { type: string, enum: [website, landing, ecommerce, webapp, mobile, flutter, erp, crm, saas, fullstack, api, database, auth, docs] }
+        hint:
+          {
+            type: string,
+            enum:
+              [
+                website,
+                landing,
+                ecommerce,
+                webapp,
+                mobile,
+                flutter,
+                erp,
+                crm,
+                saas,
+                fullstack,
+                api,
+                database,
+                auth,
+                docs,
+              ],
+          }
         repairRounds: { type: integer, minimum: 0, maximum: 3 }
     BuilderPlanPreview:
       type: object
       required: [plan, estimate, estimateNote]
       properties:
-        plan: { type: object, additionalProperties: true, description: 'ImplementationPlan version 1: productType, locale, stack, tasks[] (id, title {en, ar}, kind, dependsOn, wave, files, acceptance, size, approval), waves, fileCount, approvals, risks, effort, analysis.' }
-        estimate: { type: object, additionalProperties: true, description: 'PlanEstimate: tasks[], inputTokens, outputTokens, repairTokens, totalTokens and costMinor (integer minor units).' }
+        plan:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'ImplementationPlan version 1: productType, locale, stack, tasks[] (id, title {en, ar}, kind, dependsOn, wave, files, acceptance, size, approval), waves, fileCount, approvals, risks, effort, analysis.',
+          }
+        estimate:
+          {
+            type: object,
+            additionalProperties: true,
+            description: 'PlanEstimate: tasks[], inputTokens, outputTokens, repairTokens, totalTokens and costMinor (integer minor units).',
+          }
         estimateNote: { type: string }
     BuilderFinding:
       type: object
@@ -21121,7 +21265,18 @@ components:
       properties:
         versionId: { type: [string, 'null'] }
         findings: { type: array, items: { $ref: '#/components/schemas/BuilderFinding' } }
-        summary: { type: object, required: [passed, errors, warnings, infos], properties: { passed: { type: boolean }, errors: { type: integer }, warnings: { type: integer }, infos: { type: integer } } }
+        summary:
+          {
+            type: object,
+            required: [passed, errors, warnings, infos],
+            properties:
+              {
+                passed: { type: boolean },
+                errors: { type: integer },
+                warnings: { type: integer },
+                infos: { type: integer },
+              },
+          }
     BuilderSymbolPage:
       type: object
       required: [query, symbols]
@@ -21143,8 +21298,33 @@ components:
       type: object
       required: [unresolved, missingPackages, unusedDependencies, cycles, files, truncated]
       properties:
-        unresolved: { type: array, items: { type: object, required: [path, spec, line, reason], properties: { path: { type: string }, spec: { type: string }, line: { type: integer }, reason: { type: string, enum: [not_found, outside_project] } } } }
-        missingPackages: { type: array, items: { type: object, required: [path, pkg, line], properties: { path: { type: string }, pkg: { type: string }, line: { type: integer } } } }
+        unresolved:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [path, spec, line, reason],
+                properties:
+                  {
+                    path: { type: string },
+                    spec: { type: string },
+                    line: { type: integer },
+                    reason: { type: string, enum: [not_found, outside_project] },
+                  },
+              },
+          }
+        missingPackages:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [path, pkg, line],
+                properties:
+                  { path: { type: string }, pkg: { type: string }, line: { type: integer } },
+              },
+          }
         unusedDependencies: { type: array, items: { type: string } }
         cycles: { type: array, items: { type: array, items: { type: string } } }
         files: { type: integer }
@@ -21153,7 +21333,22 @@ components:
       type: object
       required: [components]
       properties:
-        components: { type: array, items: { type: object, required: [name, path, line, importedBy], properties: { name: { type: string }, path: { type: string }, line: { type: integer }, importedBy: { type: integer } } } }
+        components:
+          {
+            type: array,
+            items:
+              {
+                type: object,
+                required: [name, path, line, importedBy],
+                properties:
+                  {
+                    name: { type: string },
+                    path: { type: string },
+                    line: { type: integer },
+                    importedBy: { type: integer },
+                  },
+              },
+          }
     BuilderMemoryEntry:
       type: object
       required: [id, kind, text, source, at, pinned]
@@ -21186,7 +21381,12 @@ components:
       required: [entry, change]
       properties:
         entry: { $ref: '#/components/schemas/BuilderMemoryEntry' }
-        change: { type: [object, 'null'], additionalProperties: true, description: 'The safe-change result (versionId, commit, branch, diff, risks), or null when an identical note already existed.' }
+        change:
+          {
+            type: [object, 'null'],
+            additionalProperties: true,
+            description: 'The safe-change result (versionId, commit, branch, diff, risks), or null when an identical note already existed.',
+          }
     BuilderMemoryRemoved:
       type: object
       required: [change]

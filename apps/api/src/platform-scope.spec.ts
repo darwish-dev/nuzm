@@ -19,7 +19,7 @@ const walk = (d: string): string[] =>
  * ledger postings) and the metering module (meter catalogue, provider cost capture and margin) the invoicing module (e-invoicing onboarding and the finance submissions console, S11b) the finrec module (cross-organization reconciliation runs and breaks, S12a) the compliance module (platform-level compliance registers such as the ROPA, M04 S13b) the enterprise module (M12: access reviews, audit assurance and policy versions, behind verified platform permissions) and the ops module (M12: incidents, alerts, recovery exercises, health) the cloud module (provider registry/accounts/catalog/health: admin-console register tables, M05) and the payments module (finance refunds resolve a payment's organization; pending-refund sweeper), all of which sit behind a verified platform permission or a service-level caller.
  */
 describe('platform scope usage', () => {
-  it('is only used from modules/admin, modules/audit, modules/billing, modules/metering, modules/payments, modules/invoicing, modules/finrec, modules/compliance, modules/cloud, modules/cloud-vendors, modules/data modules/email and modules/hosting and modules/domains and modules/enterprise and modules/ops', () => {
+  it('is only used from modules/admin, modules/audit, modules/benchmarks, modules/billing, modules/metering, modules/payments, modules/invoicing, modules/finrec, modules/compliance, modules/cloud, modules/cloud-vendors, modules/data modules/email and modules/hosting and modules/domains and modules/enterprise and modules/ops', () => {
     const offenders = walk(src)
       .filter((f) => /withPlatformScope\(/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(src.length + 1))
@@ -46,6 +46,7 @@ describe('platform scope usage', () => {
           !f.startsWith('modules/knowledge/') && // ADR-065: the AI knowledge library is platform-owned (org_id NULL) and managed by staff; customers never use this scope
           // >>> M09: model provider registry, run oversight and sweepers (admin console register tables, service-level callers)
           !f.startsWith('modules/ai/') &&
+          !f.startsWith('modules/benchmarks/') && // S-AG5: benchmark runs and governance records are PLATFORM data (no org_id, synthetic tasks only), read and written by platform staff
           !f.startsWith('modules/builder/') &&
           !f.startsWith('modules/deploy/') &&
           !f.startsWith('modules/enterprise/') &&

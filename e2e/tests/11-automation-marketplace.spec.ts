@@ -148,7 +148,7 @@ test('automation: navigation, build a workflow, publish with errors, activate, r
   await next.selectOption(target!);
   await page.getByRole('button', { name: T(info, 'm11.wf.publish.action') }).click();
   await expect(page.getByText(T(info, 'm11.wf.publish.done', { version: 2 }))).toBeVisible();
-  await page.waitForLoadState('networkidle'); // the page re-reads the workflow after publishing: activating with the old ETag is (correctly) refused with 412
+  await page.reload(); // a fresh read of the workflow (its ETag moved with the new version): activating with the old ETag is, correctly, refused with 412
   await page.getByRole('button', { name: T(info, 'm11.wf.status.activate') }).click();
   await expect(
     page.getByText(T(info, 'm11.wf.status.active'), { exact: true }).first(),

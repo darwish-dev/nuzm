@@ -80,7 +80,9 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
       await sql(`INSERT INTO tenancy.platform_roles (user_id, role) VALUES ($1, $2)`, [uid, r]);
   };
   const cleanProviders = () =>
-    sql(`DELETE FROM ai.model_providers WHERE code IN ('acme-e2e', 'mock-model')`);
+    // the rate card version history (append-only evidence, migration 1900) references a provider row, so a provider cannot be deleted any more: it is switched off instead
+    // (every spec file starts from a fresh database, so no row survives into another spec)
+    sql(`UPDATE ai.model_providers SET enabled = false WHERE code IN ('acme-e2e', 'mock-model')`);
   await cleanProviders();
 
   try {

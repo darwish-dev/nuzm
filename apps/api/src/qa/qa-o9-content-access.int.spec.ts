@@ -358,14 +358,16 @@ describe('O-9 deny: the switch must stop a billing administrator from reading cu
     300_000,
   );
 
-  it.fails(
-    'O-9 (Session 02 scope): under deny, the AI conversation routes (sessions, messages, runs, run events, artifacts, approvals) answer 403 to a billing administrator',
-    async () => {
-      expect(aiSide().length, 'content routes found on the AI side').toBeGreaterThan(0);
-      expect(await violations(aiSide())).toEqual([]);
-    },
-    300_000,
-  );
+  it('O-9 (Session 02 scope, fixed): under deny, the AI conversation routes (sessions, messages, runs, run, run events, artifacts) answer 403 to a billing administrator, and allow restores them', async () => {
+    expect(aiSide().length, 'content routes found on the AI side').toBeGreaterThanOrEqual(6);
+    expect(await violations(aiSide())).toEqual([]);
+    await setPolicy('allow');
+    for (const c of aiSide())
+      expect(
+        (await call('frank', 'GET', urlFor(c.route.replace('GET ', '')))).statusCode,
+        `allow restores ${c.route}`,
+      ).toBe(200);
+  }, 300_000);
 
   it('writes the audit table for docs/security/O9-CONTENT-ACCESS-AUDIT.md and restores the default', async () => {
     // the deny results of the routes not covered by a test above (observation pass)

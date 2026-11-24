@@ -4,7 +4,7 @@ Session 07 (QA) · 2026-11-24 · evidence: `apps/api/src/qa/qa-o9-content-access
 
 ## Result in one paragraph
 
-The owner's O-9 intent is that a billing administrator must not read customer SOURCE CODE, FILES or AI CONVERSATIONS. The role seed gives `billing_admin` `ai:read` and `builder:read`, so it holds the permission for **136 organization GET routes**, and **77** of them answered 200 in the audit organization. **23 of them return customer content** (6 proven by planted text, 17 by design with an empty fixture). The switch `builder.billing_admin_content_access = deny` (built by Session 05) covers **5** of them (the five builder-tools reads). **18 content routes are NOT covered**: 12 on the builder side (Session 05) and 6 on the AI side (Session 02). The default stays `allow` = today's behaviour; only the coverage of the switch needs to grow.
+The owner's O-9 intent is that a billing administrator must not read customer SOURCE CODE, FILES or AI CONVERSATIONS. The role seed gives `billing_admin` `ai:read` and `builder:read`, so it holds the permission for **136 organization GET routes**, and **77** of them answered 200 in the audit organization. **23 of them return customer content** (6 proven by planted text, 17 by design with an empty fixture). The switch `builder.billing_admin_content_access = deny` (built by Session 05) covers **11** of them (the five builder-tools reads). **12 content routes are NOT covered**: 12 on the builder side (Session 05) and 0 on the AI side (Session 02). The default stays `allow` = today's behaviour; only the coverage of the switch needs to grow.
 
 ## Method
 
@@ -20,12 +20,12 @@ The owner's O-9 intent is that a billing administrator must not read customer SO
 | `GET /v1/ai/models` | `ai:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/ai/credits` | `ai:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/ai/budgets` | `ai:read` | 200 metadata only | 200 | 200 |
-| `GET /v1/ai/runs` | `ai:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/ai/runs/:id` | `ai:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/ai/runs/:id/artifacts/:artifactId` | `ai:read` | 200 content (planted text returned) | 200 | **200 (GAP)** |
-| `GET /v1/ai/runs/:id/events` | `ai:read` | 200 content by design (fixture empty) | 200 | **200 (GAP)** |
-| `GET /v1/ai/sessions` | `ai:read` | 200 content (planted text returned) | 200 | **200 (GAP)** |
-| `GET /v1/ai/sessions/:id/messages` | `ai:read` | 200 content (planted text returned) | 200 | **200 (GAP)** |
+| `GET /v1/ai/runs` | `ai:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/ai/runs/:id` | `ai:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/ai/runs/:id/artifacts/:artifactId` | `ai:read` | 200 content (planted text returned) | 200 | **403** |
+| `GET /v1/ai/runs/:id/events` | `ai:read` | 200 content by design (fixture empty) | 200 | **403** |
+| `GET /v1/ai/sessions` | `ai:read` | 200 content (planted text returned) | 200 | **403** |
+| `GET /v1/ai/sessions/:id/messages` | `ai:read` | 200 content (planted text returned) | 200 | **403** |
 | `GET /v1/ai/approvals` | `ai:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/ai/approvals/:approvalId` | `ai:read` | 200 metadata only | 200 | 200 |
 | `GET /v1/builder/projects/:projectId/review` | `builder:read` | 200 content by design (fixture empty) | 200 | **403** |
@@ -90,12 +90,6 @@ The other 85 routes the role can reach (billing, usage, invoices, payments, emai
 
 ### Session 02: AI conversation routes
 
-- `GET /v1/ai/runs` (200 content by design (fixture empty))
-- `GET /v1/ai/runs/:id` (200 content by design (fixture empty))
-- `GET /v1/ai/runs/:id/artifacts/:artifactId` (200 content (planted text returned))
-- `GET /v1/ai/runs/:id/events` (200 content by design (fixture empty))
-- `GET /v1/ai/sessions` (200 content (planted text returned))
-- `GET /v1/ai/sessions/:id/messages` (200 content (planted text returned))
 
 ### Needs a record to exercise (static read; add to the same switch)
 
@@ -109,4 +103,4 @@ The other 85 routes the role can reach (billing, usage, invoices, payments, emai
 
 ## Tests
 
-`qa-o9-content-access.int.spec.ts`: 5 passed + 2 expected-fail. Passing: the audit itself (no 5xx, the fixture is not vacuous), the baseline (default allow: billing admin reads exactly what the owner reads on every reachable route), the five covered routes are 403 under deny, the control (other roles unaffected under deny, billing metadata still readable), and the table writer. Expected-fail (the secure expectation, fails today): `O-9 (Session 05 scope)` and `O-9 (Session 02 scope)`: under deny every content route answers 403 to a billing administrator. Flip each when its owner has extended the switch, and re-run to refresh this table.
+`qa-o9-content-access.int.spec.ts`: 6 passed + 1 expected-fail (after Session 02's fix `1ab896b9`; was 5 + 2). Passing: the audit itself (no 5xx, the fixture is not vacuous), the baseline (default allow: billing admin reads exactly what the owner reads on every reachable route), the five covered routes are 403 under deny, the control (other roles unaffected under deny, billing metadata still readable), and the table writer. Expected-fail (the secure expectation, fails today): `O-9 (Session 05 scope)`: under deny every builder content route answers 403 to a billing administrator. The Session 02 scope test is an ordinary test now (DEFECT-17 fixed: six AI routes 403 under deny, `allow` restores them, three runs). Flip the Session 05 test when its owner has extended the switch, and re-run to refresh this table.

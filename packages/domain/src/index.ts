@@ -16,3 +16,4 @@ export * from './builder/evaluation';
 export * from './ids';
 export * from './ai-studio';
 export * from './knowledge';
+export * as deployTransport from './deploy-transport';

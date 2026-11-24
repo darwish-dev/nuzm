@@ -37,7 +37,7 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
   it('stage → smoke staged → activate → smoke live; the URL is a simulated temporary host', async () => {
     const { pub } = mk();
     const a = art('v1');
-    const { stagingRef } = await pub.stage(site, a, 'dep-1');
+    const { stagingRef } = await pub.stage(site, a, 'dep-00000001');
     expect((await pub.smoke(site, 'staged', stagingRef, ['/', '/about/'])).ok).toBe(true);
     expect(await pub.activeHash(site)).toBeNull(); // staged, not live
     const { url } = await pub.activate(site, stagingRef);
@@ -53,15 +53,17 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
   it('a release that does not read back identical is refused and removed (integrity)', async () => {
     const { pub, transport } = mk();
     transport.corruptNextPut = true;
-    await expect(pub.stage(site, art('v1'), 'dep-1')).rejects.toBeInstanceOf(ReleaseIntegrityError);
-    expect(await transport.hasRelease(site, 'dep-1')).toBe(false);
+    await expect(pub.stage(site, art('v1'), 'dep-00000001')).rejects.toBeInstanceOf(
+      ReleaseIntegrityError,
+    );
+    expect(await transport.hasRelease(site, 'dep-00000001')).toBe(false);
   });
 
   it('an artifact whose hash does not match its files never reaches the node', async () => {
     const { pub, transport } = mk();
-    await expect(pub.stage(site, { ...art('v1'), hash: 'f'.repeat(64) }, 'dep-1')).rejects.toThrow(
-      /hash/,
-    );
+    await expect(
+      pub.stage(site, { ...art('v1'), hash: 'f'.repeat(64) }, 'dep-00000001'),
+    ).rejects.toThrow(/hash/);
     expect(transport.puts).toBe(0);
   });
 
@@ -78,11 +80,11 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
   it('cancellation discards a staged release and never touches the live one', async () => {
     const { pub, transport } = mk();
     const v1 = art('v1');
-    await pub.activate(site, (await pub.stage(site, v1, 'dep-1')).stagingRef);
-    await pub.stage(site, art('v2'), 'dep-2');
-    await pub.discard(site, 'dep-2');
-    expect(await transport.listReleases(site)).toEqual(['dep-1']);
-    await pub.discard(site, 'dep-1'); // the live release: a no-op
+    await pub.activate(site, (await pub.stage(site, v1, 'dep-00000001')).stagingRef);
+    await pub.stage(site, art('v2'), 'dep-00000002');
+    await pub.discard(site, 'dep-00000002');
+    expect(await transport.listReleases(site)).toEqual(['dep-00000001']);
+    await pub.discard(site, 'dep-00000001'); // the live release: a no-op
     expect(await pub.activeHash(site)).toBe(v1.hash);
   });
 
@@ -92,8 +94,8 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
     const v2 = art('v2');
     const v3 = art('v3');
     for (const [id, a] of [
-      ['d1', v1],
-      ['d2', v2],
+      ['dep-00000001', v1],
+      ['dep-00000002', v2],
     ] as const)
       await pub.activate(site, (await pub.stage(site, a, id)).stagingRef);
     const putsBefore = transport.puts;
@@ -101,8 +103,8 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
     expect(transport.puts).toBe(putsBefore); // switched, not re-uploaded
     expect(await pub.activeHash(site)).toBe(v1.hash);
     // two more releases push v1 out of the retained window; v1 is no longer live so it can be pruned
-    await pub.activate(site, (await pub.stage(site, v2, 'd3')).stagingRef);
-    await pub.activate(site, (await pub.stage(site, v3, 'd4')).stagingRef);
+    await pub.activate(site, (await pub.stage(site, v2, 'dep-00000003')).stagingRef);
+    await pub.activate(site, (await pub.stage(site, v3, 'dep-00000004')).stagingRef);
     expect((await transport.listReleases(site)).length).toBeLessThanOrEqual(2);
     await pub.restore(site, v1); // gone: uploaded again, verified, switched
     expect(await pub.activeHash(site)).toBe(v1.hash);
@@ -111,11 +113,11 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
   it('the live release is never pruned, whatever the retention', async () => {
     const { pub, transport } = mk({ keepReleases: 2 });
     for (let i = 1; i <= 6; i++)
-      await pub.activate(site, (await pub.stage(site, art(`v${i}`), `d${i}`)).stagingRef);
+      await pub.activate(site, (await pub.stage(site, art(`v${i}`), `dep-0000000${i}`)).stagingRef);
     const live = await transport.currentRelease(site);
-    expect(live).toBe('d6');
-    expect(await transport.listReleases(site)).toContain('d6');
-    await expect(transport.removeRelease(site, 'd6')).rejects.toThrow(/live release/);
+    expect(live).toBe('dep-00000006');
+    expect(await transport.listReleases(site)).toContain('dep-00000006');
+    await expect(transport.removeRelease(site, 'dep-00000006')).rejects.toThrow(/live release/);
   });
 
   it('a real target without the HG-05 approval is unavailable (refuses, never degrades); the missing upload path refuses every call', async () => {
@@ -164,7 +166,7 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
     expect(await pub.applySsl(site, { kind: 'none' })).toBeNull();
     const { url } = await pub.activate(
       { ...site, domain: 'shop.example.sa' },
-      (await pub.stage(site, art('v1'), 'd1')).stagingRef,
+      (await pub.stage(site, art('v1'), 'dep-00000001')).stagingRef,
     );
     expect(url).toBe('https://shop.example.sa/');
   });

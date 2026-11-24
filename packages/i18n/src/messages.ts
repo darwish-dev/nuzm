@@ -8046,6 +8046,13 @@ export const messages = {
     'bt.mem.source.review': 'المراجعة',
     // <<< Builder tools (S-05)
     // <<< AI Intelligence Center
+    // >>> Deployment (S06)
+    'dep.simulated.title': 'نشر تجريبي (محاكاة)',
+    'dep.simulated.body':
+      'جرى هذا النشر على بيئة محاكاة محلية وليس على عقدة استضافة حقيقية، ولم يُنشر أي شيء على الإنترنت.',
+    'dep.cancel': 'إلغاء النشر',
+    'bld.dep.state.cancelled': 'أُلغي',
+    // <<< Deployment (S06)
   },
   en: {
     'app.web.title': 'Nuzm — Customer Console',
@@ -16340,5 +16347,12 @@ export const messages = {
     'bt.mem.source.review': 'review',
     // <<< Builder tools (S-05)
     // <<< AI Intelligence Center
+    // >>> Deployment (S06)
+    'dep.simulated.title': 'Simulated deployment',
+    'dep.simulated.body':
+      'This deployment ran on a local stand-in, not on a real hosting node. Nothing was published to the internet.',
+    'dep.cancel': 'Cancel deployment',
+    'bld.dep.state.cancelled': 'Cancelled',
+    // <<< Deployment (S06)
   },
 } as const satisfies Record<Locale, Record<string, string>>;

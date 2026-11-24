@@ -36,6 +36,11 @@ export const artifactHash = (files: { path: string; content: Uint8Array }[]): st
  */
 export abstract class SitePublisherPort {
   abstract available(): boolean;
+  /**
+   * True when this publisher is a local stand-in, not a hosting node: every deployment made through it is SIMULATED (nothing reaches a real node; HG-05/HG-06) and is
+   * labelled so in the API (`simulated`), the console and the reports. A future real publisher answers false only after its live verification (`LIVE-VERIFIED`).
+   */
+  abstract readonly simulated: boolean;
   /** upload the artifact next to the live site without switching */
   abstract stage(
     site: TargetSite,
@@ -50,11 +55,14 @@ export abstract class SitePublisherPort {
     paths: string[],
   ): Promise<SmokeResult>;
   abstract activate(site: TargetSite, stagingRef: string): Promise<{ url: string }>;
+  /** drop an upload that was staged but never switched (cancellation); the live site is untouched */
+  abstract discard(site: TargetSite, stagingRef: string): Promise<void>;
   /** serve THIS artifact again (rollback); `null` removes the content */
   abstract restore(site: TargetSite, artifact: Artifact | null): Promise<void>;
   abstract activeHash(site: TargetSite): Promise<string | null>;
 }
 export class UnavailableSitePublisher extends SitePublisherPort {
+  readonly simulated = false;
   available() {
     return false;
   }
@@ -70,6 +78,9 @@ export class UnavailableSitePublisher extends SitePublisherPort {
   activate(): never {
     return this.no();
   }
+  discard(): never {
+    return this.no();
+  }
   restore(): never {
     return this.no();
   }
@@ -79,6 +90,7 @@ export class UnavailableSitePublisher extends SitePublisherPort {
 }
 /** In-memory fake node: records what is live per site, with fault injection for the smoke checks. NOT a hosting node: nothing about a real one is verified. */
 export class InMemorySitePublisher extends SitePublisherPort {
+  readonly simulated = true;
   readonly live = new Map<string, Artifact>();
   readonly staged = new Map<string, Artifact>();
   failSmoke: 'staged' | 'live' | null = null;
@@ -117,6 +129,9 @@ export class InMemorySitePublisher extends SitePublisherPort {
     this.live.set(s.id, this.staged.get(ref)!);
     this.staged.delete(ref);
     return { url: `https://${s.domain ?? `${s.name.toLowerCase()}.sites.nuzm.invalid`}/` };
+  }
+  async discard(_s: TargetSite, ref: string) {
+    this.staged.delete(ref);
   }
   async restore(s: TargetSite, a: Artifact | null) {
     if (a) this.live.set(s.id, a);

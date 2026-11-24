@@ -43,7 +43,7 @@ export async function seedHostingSite(
       site,
       orgId,
       `e2e-dep-${label}`,
-      'd'.repeat(64),
+      (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, ''), // 64 hex characters, unique per site (the column is unique)
       `s-${site.replace(/-/g, '').slice(0, 20)}`,
       plan,
       node,

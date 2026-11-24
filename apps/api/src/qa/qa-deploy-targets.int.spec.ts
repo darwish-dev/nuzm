@@ -26,7 +26,7 @@ const real = (over: Partial<StagingTarget> = {}): StagingTarget => ({
   verification: 'NOT VERIFIED',
   region: 'sa-central',
   previewDomain: 'nuzm-preview.example',
-  approvalRef: 'HG-05-01',
+  approvalRef: 'HG-05:node-staging-1',
   evidenceRef: null,
   ...over,
 });
@@ -81,22 +81,42 @@ describe('QA targets: a real target is never usable by accident', () => {
       StagingTargetRefused,
     );
   });
-  it.fails(
-    'DEFECT-12: inherited object names (`__proto__`, `constructor`, `toString`, `hasOwnProperty`) read as an UNKNOWN product type (null), as DEFECT-1 required of the exec profiles (today the table lookup returns the inherited member and `decideTarget` throws a TypeError)',
-    () => {
-      for (const t of ['__proto__', 'constructor', 'toString', 'hasOwnProperty'])
-        expect(decideTarget(t), t).toBeNull();
-    },
-  );
-  it('CONFIRMED TODAY (delete with the DEFECT-12 fix): the inherited names throw instead of answering null; the failure is closed (nothing is allowed)', () => {
-    for (const t of ['__proto__', 'constructor', 'toString'])
-      expect(() => decideTarget(t), t).toThrow(TypeError);
+  it('DEFECT-12 (fixed by Session 06): inherited object names read as an UNKNOWN product type (null), never as a rule', () => {
+    for (const t of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf'])
+      expect(decideTarget(t), t).toBeNull();
   });
-  it('CONCERN O-15: `approvalRef` is only checked for presence: any non-empty string unlocks a real target (nothing ties it to a recorded owner decision), and a real hosting panel may be labelled SIMULATED', () => {
-    expect(() => assertStagingTargetUsable(real({ approvalRef: 'x' }), 'website')).not.toThrow(); // documents today's behaviour
+  it('O-15 (fixed by Session 06): the approval reference must have the recorded format and a real hosting panel can never carry the SIMULATED label', () => {
+    for (const bad of [
+      'x',
+      'approved',
+      'HG-05',
+      'HG-05-01',
+      'HG-07:abcd',
+      'hg-05:abcd',
+      'HG-05:',
+      'HG-05:ab',
+      'HG-05: spaced value',
+      'HG-05:a;b',
+      'HG-06:' + 'a'.repeat(80),
+      '../HG-05:abcd',
+    ])
+      expect(
+        () => assertStagingTargetUsable(real({ approvalRef: bad }), 'website'),
+        bad,
+      ).toThrowError(expect.objectContaining({ reason: 'approval_malformed' }) as never);
+    for (const ok of ['HG-05:node-staging-1', 'HG-06:2026-11-24.panel'])
+      expect(
+        () => assertStagingTargetUsable(real({ approvalRef: ok }), 'website'),
+        ok,
+      ).not.toThrow();
     expect(() =>
       assertStagingTargetUsable(real({ verification: 'SIMULATED' }), 'website'),
-    ).not.toThrow();
+    ).toThrowError(expect.objectContaining({ reason: 'label_mismatch' }) as never);
+  });
+  it('CONCERN (remains): the format is checked, but nothing proves the referenced approval exists: the owner-signed record is outside the code (approval pack); a real target must not be registered without that record', () => {
+    expect(() =>
+      assertStagingTargetUsable(real({ approvalRef: 'HG-05:made-up-1234' }), 'website'),
+    ).not.toThrow(); // documents the limit
   });
 });
 
@@ -201,13 +221,32 @@ describe('QA preview URLs: isolated origin (ADR-060)', () => {
     ])
       expect(isTemporaryPreviewHost(h, d), h).toBe(false);
   });
-  it('CONCERN O-16: the per-deployment tag is 8 hex digits (32 bits) of sha256(deployment id): an unpublished staging preview is reachable by anyone who guesses `<site>-<8 hex>`; use a random token of at least 64 bits (and keep the preview behind the console session for unpublished content)', () => {
-    const t = temporarySubdomain({
-      siteName: 'Shop',
+  it('O-16 (fixed by Session 06): the tag is 64 bits; with a vault-held key it is an HMAC (stable per key, different per key and per deployment, not derivable from the deployment id alone)', () => {
+    const mk = (extra: { tagKey?: string; deploymentId?: string } = {}) =>
+      temporarySubdomain({
+        siteName: 'Shop',
+        deploymentId: extra.deploymentId ?? 'd-1',
+        previewDomain: 'nuzm-preview.example',
+        protectedDomains: PROTECTED,
+        ...(extra.tagKey ? { tagKey: extra.tagKey } : {}),
+      });
+    const plain = mk();
+    expect(/-[0-9a-f]{16}\./.test(plain.host)).toBe(true);
+    const k1 = mk({ tagKey: 'test-only-key-one-0123456789' });
+    const k2 = mk({ tagKey: 'test-only-key-two-0123456789' });
+    expect(k1.host).toBe(mk({ tagKey: 'test-only-key-one-0123456789' }).host);
+    expect(new Set([plain.host, k1.host, k2.host]).size).toBe(3);
+    expect(mk({ tagKey: 'test-only-key-one-0123456789', deploymentId: 'd-2' }).host).not.toBe(
+      k1.host,
+    );
+    // the longest site name still fits the 63-character label limit
+    const long = temporarySubdomain({
+      siteName: 'x'.repeat(300),
       deploymentId: 'd-1',
       previewDomain: 'nuzm-preview.example',
       protectedDomains: PROTECTED,
+      tagKey: 'test-only-key-one-0123456789',
     });
-    expect(/-[0-9a-f]{8}\./.test(t.host)).toBe(true); // documents today's width
+    expect(long.host.split('.')[0]!.length).toBeLessThanOrEqual(63);
   });
 });

@@ -145,5 +145,8 @@ Heavy-slot requests: (a) `MOBILE_FLUTTER_LOCAL=1 pnpm --filter @nuzm/api exec vi
 ### Batch 5: re-test of Session 04's fixes (feature/ai-sandbox c9c7c557, merged locally into this branch)
 `qa-exec-orchestrator.int.spec.ts` 19 passed, 0 expected-fail: DEFECT-10, O-11, O-12, O-13 FIXED and RE-TESTED (stale domain `dist` rebuilt first; before the rebuild the old tests still failed as expected, which proved the rebuild was needed). `qa-exec-gateway` and `qa-secret-scan` also pass on the merged tree (94 + 36). O-14 (exact-match canary) unchanged by design.
 
+### Batch 6: re-test of Session 06's fixes (feature/ai-deployment 03380df9, merged locally)
+qa-deploy-targets + qa-deploy-policy-matrix + qa-deploy-approval = 45 passed, 0 expected-fail, seen in one run: DEFECT-11, DEFECT-12, O-15, O-16 FIXED and RE-TESTED (new negatives: 12 malformed approval references, SIMULATED label refused, HMAC tag behaviour). Remaining concern: the approval reference format is checked but its existence is not provable in code.
+
 ### Not yet done in Phase 2 (next batches)
 E2E ar+en for builder tools, provider admin, benchmark admin (review + negative cases); agent-loop integration scaffolds (waiting for S05's wiring); authz matrix extension and both-setting tests for O-1/O-2/O-9 (waiting for the switches); prompt injection against tool results and project files; runtime-isolation conformance against the mock; accessibility ar/en; independent review notes on S02/S04/S06 Phase 2 changes (nothing merged yet).

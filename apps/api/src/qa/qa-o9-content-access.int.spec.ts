@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MockModelAdapter } from '@nuzm/adapter-model';
 import { permissionCovers } from '../modules/identity';
 import { RunService } from '../modules/ai';
+import { ApprovalService } from '../modules/appbuilder';
 import { setupAiEnv, type AiEnv, type Row } from '../modules/ai/testing/ai-harness';
 import { has, key, routes, type Route } from './qa-route-scan';
 
@@ -414,4 +415,96 @@ describe('O-9 deny: the switch must stop a billing administrator from reading cu
       writeFileSync(process.env.O9_AUDIT_OUT, JSON.stringify({ marker: MK, rows: audit }, null, 2));
     expect(audit.length).toBeGreaterThan(40);
   }, 300_000);
+});
+
+describe('O-9 approvals: free text of an approval can quote customer data (S05 redaction under deny)', () => {
+  const NOTE = `${MK}-approval-free-text`;
+  const FINANCIAL = new Set(['paid_resource', 'budget_increase']);
+  const TYPES = [
+    'production_deploy',
+    'production_rollback',
+    'data_migration_rollback',
+    'destructive_migration',
+    'paid_resource',
+    'egress_or_dependency',
+    'budget_increase',
+    'export_third_party',
+    'mobile_signing',
+    'release_owner',
+  ] as const;
+  const made: Record<string, string> = {};
+  const get = (who: string, url: string) => e.call(who, 'GET', url, undefined, A());
+
+  it('setup: one pending approval of every type, each with a planted free-text marker in its action', async () => {
+    const approvals = e.app.get(ApprovalService);
+    for (const type of TYPES) {
+      const r = await approvals.request(A(), {
+        subject: { type: 'project', id: ids.project! },
+        type,
+        action: { summary: `${NOTE} ${type}`, amountMinor: 1000 },
+        requestedBy: { kind: 'user', userId: e.ids.alice! },
+        dataRegion: 'sa-central',
+      });
+      made[type] = r.id;
+    }
+    expect(Object.keys(made)).toHaveLength(TYPES.length);
+    await setPolicy('allow');
+  });
+
+  it('default allow (today): every role, billing administrator included, reads the free text of every approval', async () => {
+    for (const who of ['frank', 'alice', 'dave', 'carol']) {
+      const list = await get(who, '/v1/ai/approvals?status=pending');
+      expect(list.statusCode, who).toBe(200);
+      for (const type of TYPES) expect(list.body, `${who} ${type}`).toContain(`${NOTE} ${type}`);
+    }
+  });
+
+  it('deny: billing administrator keeps id, type, status and timestamps (200, not 403) but loses the free text of every NON-financial approval, in the list and in the single read; paid_resource and budget_increase stay whole; each redaction is audited', async () => {
+    await setPolicy('deny');
+    const list = await get('frank', '/v1/ai/approvals?status=pending');
+    expect(list.statusCode).toBe(200);
+    const byId = new Map((list.json().items as Row[]).map((r) => [r.id as string, r]));
+    for (const type of TYPES) {
+      const row = byId.get(made[type]!)!;
+      expect(row, `${type} listed`).toBeTruthy();
+      expect(row.type).toBe(type);
+      expect(row.status).toBe('pending');
+      expect(row.createdAt).toBeTruthy();
+      const one = await get('frank', `/v1/ai/approvals/${made[type]}`);
+      expect(one.statusCode, type).toBe(200);
+      if (FINANCIAL.has(type)) {
+        expect(JSON.stringify(row), `${type} stays whole`).toContain(NOTE);
+        expect(one.body, `${type} stays whole`).toContain(NOTE);
+      } else {
+        expect(JSON.stringify(row), `${type} list redacted`).not.toContain(NOTE);
+        expect(one.body, `${type} read redacted`).not.toContain(NOTE);
+        expect(row.action, type).toMatchObject({ redacted: true });
+        expect(row.decisionNote ?? null, type).toBeNull();
+      }
+    }
+    const logged = await q(
+      `SELECT count(*)::int n FROM audit.audit_logs WHERE org_id = $1 AND action = 'builder.content.redacted'`,
+      [A()],
+    ).catch(() => [{ n: -1 }]);
+    // the in-process sink may hold the events instead of the database chain: either way an event exists
+    const inMemory = e.sink.events.filter((x) => x.action === 'builder.content.redacted').length;
+    expect(Math.max(Number(logged[0]!.n), inMemory)).toBeGreaterThan(0);
+  });
+
+  it('deny: every other role still reads every approval whole; and allow restores the billing administrator', async () => {
+    await setPolicy('deny');
+    for (const who of ['alice', 'erin', 'dave', 'carol']) {
+      for (const type of TYPES)
+        expect((await get(who, `/v1/ai/approvals/${made[type]}`)).body, `${who} ${type}`).toContain(
+          NOTE,
+        );
+    }
+    await setPolicy('allow');
+    for (const type of TYPES)
+      expect(
+        (await get('frank', `/v1/ai/approvals/${made[type]}`)).body,
+        `allow ${type}`,
+      ).toContain(NOTE);
+    await setPolicy(null);
+  });
 });

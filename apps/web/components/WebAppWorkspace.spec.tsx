@@ -123,7 +123,8 @@ const ws = (over: Partial<Parameters<typeof WebAppWorkspace>[0]> = {}, can: Part
     />,
   );
 const top = (c: HTMLElement) => c.querySelector('.bws-top') as HTMLElement;
-const label = (x: AppTab) => t('en', `mws.web.tab.${x}` as 'mws.web.tab.preview');
+const label = (x: AppTab) =>
+  x === 'agent' ? t('en', 'bt.lc.tab') : t('en', `mws.web.tab.${x}` as 'mws.web.tab.preview');
 
 const SPEC = {
   name: 'Clinic',

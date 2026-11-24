@@ -184,3 +184,43 @@ Audited owner/admin setting, **default `allow` = today**. `deny` makes the five 
 **Next available (not started):** a real `BuildPort` factory for the attested runtime once S04's port exists (one function, `mockBuildPortFor`'s sibling); lifecycle resume UI listing earlier runs; an audit view of tool invocations (they are in the run checkpoint today).
 
 **Phase 2 batch 1 head:** `28698627` (code, UI, tests, contracts, report); the commit that adds this line is doc-only. Mergeable: yes, inert by default (all flags OFF), no migration, no spec/SDK edit.
+
+---
+
+## Phase 2 batch 2 (after the Master merged batch 1 as `7cc3c3dd`)
+Merged `integration/ai-engine` (head `7cc3c3dd`; no conflicts). **Observation:** that head contains batch 1 only: the Master's applied P2-2 (registered policy controller, OpenAPI, SDK) is not on the branch I merged, so the parked controller and its tests below are still parked.
+
+### B2-1. Real run engine + scheduler evidence (answers the Master's item 2) — `builder-lifecycle-engine.int.spec.ts`, 10 tests, REAL DB, REAL `RunService.tick` / `runOne`, leases, `cancel_requested`; builds are scripted ports (MOCK), the model is the dev-reference one
+| Claim | Proof on the real engine |
+|---|---|
+| The scheduler runs it | `tick()` picks up the queued run and parks it at the approval with 14 step rows; a second `tick()` changes nothing |
+| Cancel before start | cancelled while queued → `tick()` never starts it: no step, project head unchanged, no approval |
+| Cancel DURING a build | the build port issues `POST /v1/ai/runs/{id}/cancellation` while running; the step in flight finishes, nothing after it starts (no tests/preview/deployment rows), run `cancelled`, no approval created, `lifecycle_finished` emitted, the next `tick()` does nothing |
+| Cancel while parked | run `cancelled` |
+| Repair limit | a build that keeps failing, a repair that never helps, `maxRepairRounds: 2` → run `failed`, `error.code = repair_exhausted`, repairRound 2, 4 project versions (the customer's first one, the generation, and one per repair round) all through the safe pipeline, no approval |
+| Gateway refusal | one build call only, `failed / build_refused`, never retried |
+| Timeout | `failed / build_timeout`, no repair |
+| Token budget | `budget_exceeded` (not `failed`), `tokens_exceeded`, ZERO model calls (`ai.model_usage` empty) |
+| Crash after a finished step | `WorkerCrash` right after `build` is checkpointed → lease expires → resumed: 14 distinct steps, build NOT run again (`typecheck, build, unit-tests` once each), project changed once |
+| Crash inside a build | the step is left `running` (attempt 1), re-run after the lease expires, run finishes |
+Fix found by this evidence and made: the runner treated `WorkerCrash` as an ordinary (transient) step error and retried it; control-flow signals (`WorkerCrash`, `SegmentSuspend`) are now rethrown untouched. Test hook: `BuilderLifecycleService.buildPortOverride` (null in production).
+Time and step-count ceilings are proved in the pure machine (`machine.spec.ts`, `lifecycle.runner.spec.ts`: a run past its minutes stops `time_exceeded`; the step ceiling stops `steps_exceeded`); the wall clock cannot be advanced on the real engine, so those two are not repeated there.
+
+### B2-2. Synthetic project qualification (item 3)
+`qualification.spec.ts` drives five briefs (business website, e-commerce frontend, full-stack app, ERP/CRM module, Flutter app) from prompt to deployment-approval request through the real runner and writes `docs/parallel/sessions/PHASE2-05-qualification-evidence.md` (`S05_QUALIFICATION_WRITE=1`). Each project reaches `waiting_approval` in 14 steps, one validated change with every planned file (19, 29, 21, 34 and 23 files), 0 review errors, 3 mock executions, readiness `needs_attention` because the evidence is simulated. The document lists a label per component: model SIMULATED (placeholders), execution SIMULATED (mock), deployment NOT PERFORMED. Preview entry detection was widened (Next.js `app/layout.tsx`, NestJS main) after the first run showed "none".
+
+### B2-3. Agent tab (Master exception granted)
+`apps/web/lib/webapp-workspace.ts`: tab `agent` (permission `builder:write`) added to `APP_TABS`/`APP_TAB_PERMISSION`; `WebAppWorkspace.tsx` renders `BuilderLifecycleScreen` for it (icon `workflow`, label `bt.lc.tab`, a key in my block). `WebAppWorkspace.spec.tsx` needed one line (its label helper built the key as `mws.web.tab.<tab>`; the agent tab uses `bt.lc.tab`). Web specs `webapp-workspace`, `WebAppWorkspace`, `BuilderLifecycle`, `WebAppStudio`: 74 tests passing before a final fix; after it `WebAppWorkspace` + `BuilderLifecycle` 43 passed and `tsc` on `apps/web` is clean. (The web typecheck found two type errors of mine that vitest does not see: `can` is an `AppCan` object, not a function. Fixed: the tab uses `can.describe`.)
+
+**Typecheck of `apps/api` after this merge:** errors only outside my files: the old `cloud/adapter-registry.ts(69,33)` and new ones in `src/qa/qa-exec-gateway.int.spec.ts` (`ExecGateState` now requires `rolloutDecided` and has no `d42Decided`; merged from Session 04/07 work). None in files of this session.
+
+### B2-4. Model generation through the metered gateway (item 4)
+Already the only model path: `GatewayService.invoke` (residency, budget, secret scan, untrusted framing, usage settlement). No provider code was added or touched. The flag is `builder_lifecycle.model_generation` (not `builder.model_generation`); proved with the dev-reference provider in `builder-lifecycle.int.spec.ts` (accounting equals the run's spend; a refused file is never applied; a budget smaller than a turn stops before any call). Model quality is NOT VERIFIED.
+
+### B2-5. O-9 PUT API-key refusal (Master's request)
+Written and parked: `pending-contracts/builder-policy-route.int.spec.ts.pending` (GET for four roles; PUT by owner/developer/viewer/billing admin; PUT with an API key holding every scope → 403 with nothing changed and nothing audited as changed; GET with a key allowed; 422 cases; the setting drives the content reads). The parked controller now enforces the session-only rule (`a.actor.kind`). **Blocked on:** the Master's applied controller and OpenAPI not being on `integration/ai-engine` yet; when they are, rename the spec (drop `.pending`) and run it with `builder-lifecycle.int.spec.ts`.
+
+### B2-6. S07 findings DEFECT-13 and DEFECT-14 (fixed, in `internal/approvals/approval.service.ts`, my path)
+- **DEFECT-14 (cancelled parked run left its `production_deploy` approval pending and decidable):** an approval is authority for ONE run. `closeEnded` now closes (status `expired`, note `run_ended`, audit `ai.approval.closed`) any pending approval whose run is `succeeded|failed|cancelled|budget_exceeded`, on every `get`, `list` (and therefore `decide`), in the transaction of the read. Result: not listed as pending, reading it shows `expired`, a decision is refused 410, the run never resumes. Approvals without a run are untouched. The close happens on first access after the cancel, not inside `RunService.cancel` (that is `modules/ai/**`, not mine): there is no window in which it can be listed or decided, but a never-read approval stays `pending` in the table until read or swept by the next list.
+- **DEFECT-13 (loser of a concurrent approve-vs-reject answered 200 with the winner's record):** the loser now gets 409 (410 if expired); only the same decision by the same person on the same action is the idempotent 200.
+- Proof (real DB/HTTP): `builder-lifecycle.int.spec.ts` 15 passed, including the cancel/close test and the concurrent approve-vs-reject test. Regression: `builder-s47`, `run-engine`, `m09-real`, `qa-run-approval`, `qa-deploy-approval` 63 passed. S07's two `it.fails` in `qa-agent-loop-http.int.spec.ts` (on `feature/ai-qa-security`) should now be flipped after merge.

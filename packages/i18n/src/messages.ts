@@ -8152,6 +8152,7 @@ export const messages = {
     'bt.lc.current': 'الخطوة الحالية',
     'bt.lc.result.title': 'نتيجة العملية',
     'bt.lc.result.version': 'النسخة الناتجة',
+    'bt.lc.tab': 'الوكيل الذكي',
     // <<< Builder tools (S-05)
     // <<< AI Intelligence Center
     // >>> Deployment (S06)
@@ -16640,6 +16641,7 @@ export const messages = {
     'bt.lc.current': 'Current step',
     'bt.lc.result.title': 'Run result',
     'bt.lc.result.version': 'Resulting version',
+    'bt.lc.tab': 'Builder agent',
     // <<< Builder tools (S-05)
     // <<< AI Intelligence Center
     // >>> Deployment (S06)

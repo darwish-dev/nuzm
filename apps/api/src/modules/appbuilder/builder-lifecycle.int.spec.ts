@@ -325,14 +325,69 @@ describe('the lifecycle on the real run engine (offline, simulated)', () => {
     expect(String(last.node)).toContain('deployment-approval');
   });
 
-  it('cancelling a parked run ends it as cancelled and it never continues', async () => {
+  it('cancelling a parked run ends it as cancelled, never continues, and CLOSES its deployment approval (DEFECT-14): not listed as pending, not decidable', async () => {
     const p = await project('Lifecycle Cancel');
     const started = ok<{ id: string }>(await startRun(p), 202);
     expect((await drive(started.id)).state).toBe('waiting_approval');
+    const pending = ok<{ items: Row[] }>(
+      await call('alice', 'GET', '/v1/ai/approvals?status=pending'),
+    ).items.find((x) => x.runId === started.id)!;
+    expect(pending).toBeTruthy();
     ok(await call('alice', 'POST', `/v1/ai/runs/${started.id}/cancellation`), 202);
     const state = (await q(`SELECT state FROM ai.runs WHERE id = $1`, [started.id]))[0]!.state;
     expect(state).toBe('cancelled');
     expect(await steps(started.id)).toHaveLength(14);
+    // the approval is closed: gone from the pending list, expired when read, and a decision is refused (never 200)
+    const still = ok<{ items: Row[] }>(
+      await call('alice', 'GET', '/v1/ai/approvals?status=pending'),
+    ).items;
+    expect(still.some((x) => x.id === pending.id)).toBe(false);
+    expect(ok<Row>(await call('alice', 'GET', `/v1/ai/approvals/${pending.id}`)).status).toBe(
+      'expired',
+    );
+    const late = await call('alice', 'POST', `/v1/ai/approvals/${pending.id}/decisions`, {
+      decision: 'approve',
+      scopeHash: pending.scopeHash,
+    });
+    expect(late.statusCode, late.body).toBe(410);
+    expect(
+      (
+        await q(`SELECT status, decision_note FROM ai.approval_requests WHERE id = $1`, [
+          pending.id,
+        ])
+      )[0],
+    ).toMatchObject({ status: 'expired', decision_note: 'run_ended' });
+    expect(
+      e.sink.events.some((x) => x.action === 'ai.approval.closed' && x.resource?.id === pending.id),
+    ).toBe(true);
+    // the run never resumes
+    await runs.tick();
+    expect(await steps(started.id)).toHaveLength(14);
+    expect((await q(`SELECT state FROM ai.runs WHERE id = $1`, [started.id]))[0]!.state).toBe(
+      'cancelled',
+    );
+  });
+
+  it("two concurrent opposite decisions: exactly one wins and the loser is told 409, not handed the winner's record as success (DEFECT-13); the same decision twice stays idempotent", async () => {
+    const p = await project('Lifecycle Race');
+    const started = ok<{ id: string }>(await startRun(p), 202);
+    expect((await drive(started.id)).state).toBe('waiting_approval');
+    const a = ok<{ items: Row[] }>(
+      await call('alice', 'GET', '/v1/ai/approvals?status=pending'),
+    ).items.find((x) => x.runId === started.id)!;
+    const dec = (decision: string) =>
+      call('alice', 'POST', `/v1/ai/approvals/${a.id}/decisions`, {
+        decision,
+        scopeHash: a.scopeHash,
+      });
+    const [x, y] = await Promise.all([dec('approve'), dec('reject')]);
+    expect([x.statusCode, y.statusCode].sort()).toEqual([200, 409]);
+    const final = (await q(`SELECT status FROM ai.approval_requests WHERE id = $1`, [a.id]))[0]!
+      .status;
+    expect(final).toBe(x.statusCode === 200 ? 'approved' : 'rejected');
+    // the same decision again by the same person is the idempotent answer
+    expect((await dec(final === 'approved' ? 'approve' : 'reject')).statusCode).toBe(200);
+    await call('alice', 'POST', `/v1/ai/runs/${started.id}/cancellation`);
   });
 
   it('another organization sees nothing of the run, its steps or its approval', async () => {

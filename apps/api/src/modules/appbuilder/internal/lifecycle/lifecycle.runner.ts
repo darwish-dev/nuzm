@@ -1,5 +1,6 @@
 import { builderTools } from '@nuzm/domain';
 import { ProblemException } from '../../../../common/errors';
+import { SegmentSuspend, WorkerCrash } from '../../../ai';
 import { STEP_FNS, type StepCtx } from './lifecycle.steps';
 import {
   StepFailure,
@@ -154,6 +155,8 @@ export class LifecycleRunner {
       try {
         result = await STEP_FNS[step](ctx);
       } catch (e) {
+        // control-flow signals of the run engine are not step failures: a handler must never swallow them (a dying worker leaves everything as it is; the lease expires and the run resumes)
+        if (e instanceof WorkerCrash || e instanceof SegmentSuspend) throw e;
         failure = codeOf(e);
         failureDetail = e instanceof StepFailure ? (e.detail ?? null) : null;
         if (!(e instanceof StepFailure) && !(e instanceof ProblemException))

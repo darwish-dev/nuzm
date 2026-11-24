@@ -1,0 +1,24 @@
+# STATUS: REVIEWED ARTIFACT, NEVER RUN.
+[Unit]
+Description=Nuzm egress proxy (CONNECT-only, allow-listed)
+After=nuzm-proxy-addr.service
+Requires=nuzm-proxy-addr.service
+[Service]
+User=nuzm-proxy
+Group=nuzm-proxy
+ExecStart=/usr/bin/node /opt/nuzm/runtime-agent/dist/proxy-main.js --config /etc/nuzm/proxy.json
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=256M
+TasksMax=256
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,32 @@
+# Registry MIRROR for the `registry-only` class (Verdaccio). STATUS: REVIEWED CONFIGURATION, NEVER RUN.
+# The mirror is the only upstream the egress proxy needs to allow for npm traffic: sandboxes ask the proxy for the mirror host; the mirror caches public packages and serves them
+# read-only, so a package that disappears or changes upstream cannot change a build that already resolved through it (integrity hashes in the lockfile still decide).
+# Run it on the node pool's network, NOT on the runtime node itself (a sandbox must not share a host with a service that holds a cache of other tenants' dependency graphs).
+storage: /var/lib/verdaccio/storage
+auth:
+  htpasswd:
+    file: /etc/verdaccio/htpasswd
+    max_users: -1            # nobody can register; the file is empty and root-owned
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    timeout: 30s
+    max_fails: 3
+    cache: true
+packages:
+  '**':
+    access: $anonymous       # reachable only from the proxy's address (firewalled); read access needs no identity
+    publish: $none           # nobody can publish
+    unpublish: $none
+    proxy: npmjs
+server:
+  keepAliveTimeout: 60
+security:
+  api:
+    jwt:
+      sign: { expiresIn: 1h }
+middlewares:
+  audit: { enabled: false }  # no `npm audit` traffic to the upstream
+log: { type: file, path: /var/log/verdaccio/verdaccio.log, level: warn, format: pretty }
+max_body_size: 10mb
+# (V) listen on the node pool's private address only: `listen: <addr>:4873`, TLS terminated by the pool's reverse proxy; the proxy allow-list then names that host.

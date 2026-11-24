@@ -1,0 +1,37 @@
+{
+  "schema": "nuzm.rootfs-recipe/1",
+  "status": "REVIEWED ARTIFACT, NEVER EXECUTED. Every value marked (V) is chosen and verified by the reviewer on the build host; nothing here is a verified fact.",
+  "base": {
+    "tool": "mmdebstrap",
+    "variant": "minbase",
+    "suite": "(V) a Debian stable suite, e.g. bookworm",
+    "snapshotTimestamp": "(V) a snapshot.debian.org timestamp, so the same recipe yields the same packages (reproducible)",
+    "packages": ["libc6", "libstdc++6", "libgcc-s1", "ca-certificates", "dash", "coreutils", "tzdata"],
+    "forbidden": ["bash-completion", "curl", "wget", "git", "ssh", "openssh-client", "python3", "perl", "gcc", "make", "sudo", "apt", "dpkg-dev"],
+    "note": "no package manager, no compiler, no network client, no git: a sandbox cannot install or fetch anything inside the rootfs"
+  },
+  "toolchain": {
+    "mount": "/toolchain (read-only bind mount from the node's toolchain directory)",
+    "node": { "version": "(V) a Node 22 LTS release", "tarball": "node-v<version>-linux-<arch>.tar.xz", "sha256": "(V) from the reviewer's own verification of the release's SHASUMS256.txt signature" },
+    "npm": "the npm that ships with that Node release (never self-updated)",
+    "globalPackages": { "typescript": "(V) 5.9.x", "lockfile": "infra/runtime/rootfs/toolchain/package-lock.json (generated on the build host with `npm install --package-lock-only`, reviewed, committed; the build refuses without it)" },
+    "links": { "/usr/local/bin/node": "/toolchain/node/bin/node", "/usr/local/bin/npm": "/toolchain/node/bin/npm", "/usr/local/bin/npx": "/toolchain/node/bin/npx", "/usr/local/bin/tsc": "/toolchain/lib/node_modules/typescript/bin/tsc" }
+  },
+  "files": {
+    "/usr/local/etc/npmrc": "infra/runtime/rootfs/npmrc (global npm config: registry, proxy, ignore-scripts=true, no update notifier; the constant environment cannot override it)",
+    "/etc/passwd": "root and `sandbox` (uid 10001, gid 10001, home /home/sandbox, shell /usr/sbin/nologin)",
+    "/etc/group": "root and sandbox",
+    "/home/sandbox": "empty, mode 0755 (HOME in the constant environment); the root file system is read-only at run time, so it is only a path"
+  },
+  "dependencyPolicy": {
+    "install": "lockfile only: `npm ci --ignore-scripts` (the `install-deps` profile); the control plane refuses git/url/path/alias dependencies and missing integrity hashes before any network call (dependency-policy.ts); npm itself verifies every tarball against the lockfile's integrity hash",
+    "lifecycleScripts": "never: ignore-scripts=true in the global npmrc AND `--ignore-scripts` in the fixed argv AND `run-script` refuses lifecycle names",
+    "registry": "only the mirror/registry host(s) of the dependency policy, reached through the egress proxy"
+  },
+  "output": {
+    "layout": "an unpacked directory tree, owned by root, no setuid/setgid files, no device nodes, no sockets",
+    "digest": "node packages/runtime-agent/dist/tree-digest-cli.js <rootfs-dir>  ->  sha256:<hex>  (the image digest the attestation and agent.json list; the agent recomputes it at every start)",
+    "sbom": "(V) `syft dir:<rootfs> -o spdx-json` and a vulnerability scan, attached to the evidence",
+    "signature": "(V) the digest is signed by the build host's release key; the node verifies before first use"
+  }
+}

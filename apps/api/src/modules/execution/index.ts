@@ -5,3 +5,4 @@
  */
 export * from './audit-adapter';
 export * from './qualification-tools';
+export * from './runtime-metrics';

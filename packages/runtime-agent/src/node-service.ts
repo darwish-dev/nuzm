@@ -77,6 +77,11 @@ export class NodeService {
     m.gauge('nuzm_agent_runs_active', () => this.runs.size);
     m.gauge('nuzm_agent_runs_leaked', () => this.leaked.size);
     m.gauge('nuzm_agent_max_slots', () => this.cfg.maxSlots);
+    m.gauge('nuzm_agent_oldest_run_age_seconds', () => {
+      let oldest = 0;
+      for (const r of this.runs.values()) oldest = Math.max(oldest, (this.now() - r.startedAt) / 1000);
+      return Math.floor(oldest);
+    });
   }
 
   // ---------------------------------------------------------------- state

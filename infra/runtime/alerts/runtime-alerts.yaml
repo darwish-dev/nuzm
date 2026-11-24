@@ -1,0 +1,108 @@
+# Prometheus alert rules for the REAL runtime (P3-S02). STATUS: REVIEWED, NEVER LOADED. Metric names are checked against the code by packages/runtime-agent/src/alerts.spec.ts, so a
+# rename cannot silently orphan an alert. Severity: page = a human acts now (possible compromise or loss of control); ticket = next working day.
+# Runbook: docs/security/sandbox/RUNBOOK-REAL-RUNNER.md (anchors named in each annotation).
+groups:
+  - name: nuzm-runtime-node
+    rules:
+      - alert: NuzmRuntimeCleanupFailed
+        expr: increase(nuzm_agent_cleanup_failed_total[10m]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "A sandbox or workspace could not be removed on a runtime node"
+          description: "The node may hold a process, mount, namespace or files of a finished run. The control plane quarantines the node on a failed cleanup. Do not reuse it."
+          runbook: "RUNBOOK-REAL-RUNNER.md#cleanup-failed-or-leaked-runs"
+      - alert: NuzmRuntimeLeakedRuns
+        expr: nuzm_agent_runs_leaked > 0
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "Runs whose cleanup failed are still held by the agent (node is unhealthy, takes no work)"
+          runbook: "RUNBOOK-REAL-RUNNER.md#cleanup-failed-or-leaked-runs"
+      - alert: NuzmRuntimeKillSwitchEngaged
+        expr: increase(nuzm_agent_emergency_stops_total[5m]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "The node's emergency stop ran: every run was killed, every workspace destroyed, the node refuses new work"
+          runbook: "RUNBOOK-REAL-RUNNER.md#kill-switch-and-emergency-stop"
+      - alert: NuzmRuntimeStuckRun
+        expr: nuzm_agent_oldest_run_age_seconds > 1200
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "A run has been alive for over 20 minutes (the longest profile wall limit is 5 minutes plus the kill grace)"
+          description: "The wall backstop and the control plane's kill both failed to end it: treat as a possible escape or a hung runtime."
+          runbook: "RUNBOOK-REAL-RUNNER.md#stuck-runs"
+      - alert: NuzmRuntimeQuotaBreaches
+        expr: sum(increase(nuzm_agent_runs_killed_total{reason=~"limit_.*|output_flood|unobservable"}[15m])) > 5
+        labels: { severity: ticket }
+        annotations:
+          summary: "More than 5 runs were killed for crossing a resource limit in 15 minutes"
+          description: "One tenant probing limits, a runaway generator, or a node that cannot enforce a limit. Check the audit trail for the organization before raising any limit."
+          runbook: "RUNBOOK-REAL-RUNNER.md#quota-breach"
+      - alert: NuzmRuntimeUnobservableRuns
+        expr: increase(nuzm_agent_runs_killed_total{reason="unobservable"}[15m]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "A run was killed because the runtime stopped reporting statistics"
+          runbook: "RUNBOOK-REAL-RUNNER.md#stuck-runs"
+      - alert: NuzmRuntimeAuthRefusals
+        expr: sum(increase(nuzm_agent_auth_refused_total[10m])) > 20
+        labels: { severity: page }
+        annotations:
+          summary: "Many node requests were refused for bad or replayed tokens (a leaked token, a clock problem or a probe of the management interface)"
+          runbook: "RUNBOOK-REAL-RUNNER.md#authentication-refusals"
+      - alert: NuzmRuntimeClientCertRefused
+        expr: increase(nuzm_agent_client_cert_refused_total[10m]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "A TLS client with a valid CA certificate that is not pinned reached the agent"
+          runbook: "RUNBOOK-REAL-RUNNER.md#authentication-refusals"
+      - alert: NuzmRuntimeSpecRefusedOnNode
+        expr: increase(nuzm_agent_spec_refused_total[15m]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "The node refused a spec the control plane had already validated (control plane and node disagree, or a spec was forged)"
+          runbook: "RUNBOOK-REAL-RUNNER.md#spec-refused-on-the-node"
+      - alert: NuzmRuntimeAgentErrors
+        expr: increase(nuzm_agent_internal_errors_total[10m]) > 0
+        labels: { severity: ticket }
+        annotations: { summary: "The agent returned internal errors", runbook: "RUNBOOK-REAL-RUNNER.md#agent-errors" }
+      - alert: NuzmRuntimeSlotsExhausted
+        expr: nuzm_agent_runs_active >= nuzm_agent_max_slots
+        for: 10m
+        labels: { severity: ticket }
+        annotations: { summary: "All run slots of a node have been busy for 10 minutes", runbook: "RUNBOOK-REAL-RUNNER.md#capacity" }
+  - name: nuzm-runtime-proxy
+    rules:
+      - alert: NuzmEgressProxyRefusalsSpike
+        expr: sum(increase(nuzm_proxy_refused_total{reason=~"host_not_allowed|resolved_to_non_public_address|port_not_443"}[10m])) > 20
+        labels: { severity: page }
+        annotations:
+          summary: "A sandbox tried to reach hosts outside the allow-list, a non-public address or another port, repeatedly"
+          description: "Treat as hostile code probing the network (metadata, internal ranges). Identify the run from the audit trail and the node's veth counters."
+          runbook: "RUNBOOK-REAL-RUNNER.md#egress-probing"
+      - alert: NuzmEgressProxyTunnelsSaturated
+        expr: nuzm_proxy_tunnels_opened_total - sum(nuzm_proxy_tunnels_closed_total) > 30
+        for: 5m
+        labels: { severity: ticket }
+        annotations: { summary: "The egress proxy is near its tunnel cap", runbook: "RUNBOOK-REAL-RUNNER.md#capacity" }
+  - name: nuzm-runtime-control-plane
+    rules:
+      - alert: NuzmRuntimeNodeQuarantined
+        expr: nuzm_exec_node_quarantined == 1
+        labels: { severity: page }
+        annotations:
+          summary: "The control plane took a node out of rotation (failed cleanup or unresponsive after a hard kill)"
+          runbook: "RUNBOOK-REAL-RUNNER.md#cleanup-failed-or-leaked-runs"
+      - alert: NuzmRuntimeAttestationExpiring
+        expr: nuzm_exec_attestation_seconds_left < 7 * 86400
+        labels: { severity: ticket }
+        annotations: { summary: "A node's isolation attestation expires in under 7 days: re-qualify before it does (an expired node is dropped at its next use)", runbook: "RUNBOOK-REAL-RUNNER.md#re-qualification" }
+      - alert: NuzmRuntimeAttestationExpired
+        expr: nuzm_exec_attestation_seconds_left <= 0
+        labels: { severity: page }
+        annotations: { summary: "A node's attestation has expired: it takes no runs", runbook: "RUNBOOK-REAL-RUNNER.md#re-qualification" }
+      - alert: NuzmRuntimeNodeDropped
+        expr: nuzm_exec_node_dropped == 1
+        labels: { severity: page }
+        annotations: { summary: "A node was dropped from the pool (attestation revoked, expired or invalid at use)", runbook: "RUNBOOK-REAL-RUNNER.md#re-qualification" }

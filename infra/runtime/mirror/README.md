@@ -1,0 +1,3 @@
+# npm registry mirror (P3-S02)
+
+Policy: **lockfile only, no lifecycle scripts, integrity hashes** (rootfs/recipe.json `dependencyPolicy`). The mirror adds availability and a place to watch; it is not the integrity control (the lockfile's `integrity` is). The egress proxy allow-list is the host name of the mirror (or `registry.npmjs.org` if no mirror is deployed yet): set it in `proxy/proxy.example.json`, `agent.json` `egress.allowHosts`, and the control plane's `DEFAULT_DEPENDENCY_POLICY.registries`: all three must name the same host or `install-deps` is refused by the first one that disagrees. For Android builds (P3-S06) a Maven/Gradle/pub mirror is defined in `../profiles/android/`.

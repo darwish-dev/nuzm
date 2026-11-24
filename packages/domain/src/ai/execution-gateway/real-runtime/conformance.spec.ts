@@ -29,7 +29,11 @@ describe('port conformance suite (S-AG6 phase 2): the same assertions, simulated
   });
   it('the real-runtime port over the simulated node passes every case, SIMULATED, and is not isolation evidence', async () => {
     const r = await runPortConformance(
-      createSimulatedNodeTarget({ pump: (ms) => vi.advanceTimersByTimeAsync(ms) }),
+      createSimulatedNodeTarget({
+        pump: async (ms) => {
+          await vi.advanceTimersByTimeAsync(ms);
+        },
+      }),
     );
     expect(r.fail, JSON.stringify(r.results.filter((x) => x.status === 'FAIL'))).toBe(0);
     expect(r.skipped).toBe(0);

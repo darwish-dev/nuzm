@@ -5,6 +5,7 @@ import {
   type IsolationAttestation,
   type TrustedKeys,
 } from './attestation';
+import { DEFAULT_MIN_ISOLATING_ATTEMPTS } from './real-runtime';
 
 /**
  * S-AG6 PHASE 2 (OFFLINE): builds SIMULATED attestations signed with a THROW-AWAY key generated in memory, for the conformance suite, the simulated escape-suite run and the
@@ -74,8 +75,8 @@ export function createSimulatedKit(keyId = 'sim-key-1'): SimulatedKit {
           escapeSuite: {
             version: '1.1.0',
             reportSha256: 'cd'.repeat(32),
-            isolatingAttempts: 21,
-            blocked: 21,
+            isolatingAttempts: DEFAULT_MIN_ISOLATING_ATTEMPTS,
+            blocked: DEFAULT_MIN_ISOLATING_ATTEMPTS,
             escaped: 0,
             notVerified: 0,
           },

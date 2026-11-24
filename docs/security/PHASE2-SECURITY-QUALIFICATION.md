@@ -91,4 +91,4 @@ Purpose: HG-10-02 is the human gate that says an isolating runtime was reviewed 
 6. Load test the gateway's per-organization serialisation (R7) and the approval inbox under concurrency.
 
 ## 7. Re-verification on the merged head
-`DEFECT-REGISTER.md` section 3 lists every QA suite re-run one file at a time on the merged head with the counts seen (19 suites, 497 passed, 0 expected-fail).
+`DEFECT-REGISTER.md` section 3 lists every QA suite re-run one file at a time on the merged head with the counts seen (20 suites, 510 passed, 0 expected-fail on the final tree).

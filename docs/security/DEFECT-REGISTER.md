@@ -38,28 +38,35 @@ Count: 17 found, 17 fixed and re-tested, 0 open (O-9 switch now covers all 25 ex
 | O-16 | Preview host tag was 32 bits (a guessable unpublished preview) | **FIXED** (`03380df9`): 64-bit tag, HMAC with a vault-held key for real runs | `qa-deploy-targets.int.spec.ts::O-16 (fixed by Session 06) …` |
 Observations O-1 (developer self-confirms a production publish), O-2 (rollback reuses the earlier approval) and O-9 (billing admin can read project content) are implemented as policy switches whose defaults equal today's behaviour; both settings are tested for every role (`qa-deploy-policy-matrix.int.spec.ts`, 26 tests; `builder-policy-route.int.spec.ts` by Session 05). Changing a default needs a recorded owner decision. O-3 … O-10 are listed with their dispositions in the findings document.
 
-## 3. Re-verification on the merged head
-Every QA suite was re-run ONE FILE AT A TIME on the merged head (integration `4feb1d84` + my branch; own PostgreSQL :54347; domain, adapter-model and db `dist` rebuilt first). Counts are from the run output I saw (2026-11-24, 15:50–16:20, machine load 110–290):
+## 3. Independent re-verification on the final merged tree
+Tree: `integration/ai-engine` `c0043cbd` (all worker branches merged: S02 `1ab896b9`, S03 `4cac39c4`, S04, S05 `4f53dd65`, S06 `32897ced`) merged into `feature/ai-qa-security`; dists rebuilt with `turbo run build --filter=@nuzm/api^...`; own PostgreSQL :54347; every file run ALONE with `vitest run --config vitest.integration.config.mts src/qa/<file>.int.spec.ts`; counts are from the run output I saw (2026-11-24, ~18:00). **20 files, 510 tests passed, 0 failed, 0 expected-fail** (no `it.fails` is left in any QA suite).
 
-| Suite | Result | Covers |
+| Defect(s) | Proving file (file::test group) | Count seen | State |
+|---|---|---|---|
+| 1 | `qa-exec-gateway.int.spec.ts::DEFECT-1 (fixed by Session 04): the profile lookup does not walk the prototype chain` | 79 passed | FIXED+RETESTED |
+| 2, 3 | `qa-ssrf-egress.int.spec.ts::DEFECT-2 (fixed) …` and `::DEFECT-3 (fixed) …` | 187 passed | FIXED+RETESTED |
+| 4 | `qa-deploy-approval.int.spec.ts::DEFECT-4: an API key (not a human) cannot confirm a publish approval` | 7 passed | FIXED+RETESTED |
+| 5 | `qa-local-dev-sandbox.int.spec.ts::DEFECT-5 (fixed) …` (read and write symlink tests) | 6 passed | FIXED+RETESTED |
+| 6 | `qa-run-approval.int.spec.ts::DEFECT-6: an API key (not a human) cannot decide a run approval` | 5 passed | FIXED+RETESTED |
+| 7, 8 | `qa-ai-integrity.int.spec.ts::DEFECT-7 (fixed by Session 02) …` and `::DEFECT-8 (fixed by Session 02) …` | 19 passed | FIXED+RETESTED |
+| 9 | `qa-secret-scan.int.spec.ts::DEFECT-9 (fixed): <shape> is detected` (13) + false-positive controls | 38 passed | FIXED+RETESTED |
+| 10 | `qa-exec-orchestrator.int.spec.ts::ten concurrent submits with ONE idempotency key … (DEFECT-10 …)` | 19 passed | FIXED+RETESTED |
+| 11, 12 | `qa-deploy-policy-matrix.int.spec.ts::eight simultaneous FIRST-EVER edits … (DEFECT-11 …)` ; `qa-deploy-targets.int.spec.ts::DEFECT-12 (fixed by Session 06) …` | 27 and 11 passed | FIXED+RETESTED |
+| 13, 14 | `qa-agent-loop-http.int.spec.ts::DEFECT-13 (fixed) …` and `::DEFECT-14 (fixed) …` | 17 passed | FIXED+RETESTED |
+| 15 | `qa-run-concurrency.int.spec.ts::DEFECT-15 (fixed by Session 02) …` | 11 passed | FIXED+RETESTED |
+| 16, 17 | `qa-o9-content-access.int.spec.ts::O-9 (Sessions 05 and 06 scope, fixed) …`, `::O-9 (Session 02 scope, fixed) …`, and the four approvals-redaction tests | 11 passed | FIXED+RETESTED |
+
+**All 17 defects: FIXED+RETESTED. Nothing is open.** The same run covered the other gates:
+
+| Suite | Count seen | Covers |
 |---|---|---|
-| `qa-route-inventory` | 8 passed | every public route pinned; platform routes need a platform permission; POSTs without `@Idempotent` pinned |
-| `qa-authz-matrix` | 11 passed | live matrix over every organization route (401 / 404 non-member / 403 per role, five roles), now also asserts the Phase 2 routes (`GET/PUT /v1/deployments/policy`, `GET/PUT /v1/builder/policies/content-access`, run cancellation, approval decisions) are in the scanned set |
-| `qa-exec-gateway` | 79 passed | Execution Gateway policy adversarial suite |
-| `qa-exec-orchestrator` | 19 passed | orchestrator, ports, forged/altered decisions, artifacts |
-| `qa-secret-scan` | 36 passed | 26 shapes + false-positive controls |
-| `qa-ssrf-egress` | 187 passed | 36-address corpus, URL attacks, safeFetch, egress policy |
-| `qa-local-dev-sandbox` | 6 passed | symlink confinement, refusal outside development |
-| `qa-deploy-approval` | 7 passed | deploy tenant isolation, roles, approval replay, API key |
-| `qa-deploy-targets` | 11 passed | target model, preview URL isolation |
-| `qa-deploy-policy-matrix` | 27 passed | O-1/O-2 both settings × five roles, races, expiry |
-| `qa-run-approval` | 5 passed | run approval decisions (DEFECT-6) |
-| `qa-run-concurrency` | first full pass: 5 failed (the ceiling burst overshoot, 4 active vs 3, and four cascades = DEFECT-15); rewritten: 10 passed + 1 expected-fail twice; after S02's fix `abd34766`: **11 passed, 0 expected-fail, three runs in a row** | one run per session/key, workers, approvals, cancels, ceiling |
-| `qa-credential-custody` | 5 passed | key appears in no response, output or table |
-| `qa-ai-integrity` | 19 passed | ledger/wallet/usage reconciliation, DEFECT-7/8, audit chain concurrency and tamper detection, runtime role limits |
-| `qa-builder-tools` | 19 passed | builder tools HTTP: flag, authz, cross-tenant, no-side-effect dry runs |
+| `qa-route-inventory` | 8 passed | public routes pinned, platform routes need a platform permission, POSTs without `@Idempotent` pinned |
+| `qa-authz-matrix` | 11 passed | live matrix over every organization route (401 / 404 non-member / 403 per role, five roles) incl. the Phase 2 routes by name |
+| `qa-exec-orchestrator` / `qa-exec-gateway` | 19 / 79 | orchestrator, ports, forged/altered decisions, artifacts; policy |
+| `qa-credential-custody` | 5 passed | a console-typed key appears in no response, output or table |
+| `qa-builder-tools` | 19 passed | builder tools HTTP: flag, authz, cross-tenant, dry runs write nothing |
 | `qa-agent-loop` | 15 passed | cancel/crash at every boundary, limits, budgets, injection (offline) |
-| `qa-agent-loop-http` | 17 passed | approvals, cancel, idempotency, concurrency, budget, injection (real engine) |
 | `qa-mobile-signing` | 6 passed | signing viewer-forbidden at API level |
 | `qa-migration-roundtrip` | 9 passed | up/down/up of every migration from 1800 with a schema fingerprint |
-Total: 19 suites, 497 tests passed, 0 expected-fail on the final tree (`qa-run-concurrency` 11 and `qa-ai-integrity` 19 re-run after the DEFECT-15 merge). Not run by me: the browser E2E (Master's isolated run), `flutter-local` (heavy slot), `sdk:check` and the repo-wide suites (Master's regression).
+
+Not run by me (not claimed): the browser E2E including `qa-negatives.spec.ts` (NOT VERIFIED), `flutter-local` (heavy slot, per the Master), `sdk:check` and the repo-wide suites (Master's regression), and the tests of other sessions.

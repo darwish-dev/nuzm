@@ -168,5 +168,8 @@ qa-deploy-targets + qa-deploy-policy-matrix + qa-deploy-approval = 45 passed, 0 
 ### O-9 closure for approvals (S05 `4f53dd65`)
 `qa-o9-content-access.int.spec.ts` 11 passed, 0 expected-fail, x3 (one pending approval of each of the 10 types with a planted marker: allow = all roles read all; deny = billing_admin 200 without the free text on 8 non-financial types, `paid_resource`/`budget_increase` whole, other roles whole, allow restores; redactions audited). The open owner question about approvals is closed by this change.
 
+### Final independent re-verification (integration c0043cbd merged)
+All 20 QA files run alone: **510 tests passed, 0 failed, 0 expected-fail** (list with counts in `docs/security/DEFECT-REGISTER.md` section 3). All 17 defects FIXED+RETESTED, none open. Not run: browser E2E (`qa-negatives.spec.ts` NOT VERIFIED), flutter-local, repo-wide suites.
+
 ### Not yet done in Phase 2 (next batches)
 E2E ar+en for builder tools, provider admin, benchmark admin (review + negative cases); agent-loop integration scaffolds (waiting for S05's wiring); authz matrix extension and both-setting tests for O-1/O-2/O-9 (waiting for the switches); prompt injection against tool results and project files; runtime-isolation conformance against the mock; accessibility ar/en; independent review notes on S02/S04/S06 Phase 2 changes (nothing merged yet).

@@ -97,6 +97,7 @@ async function runProfiles(
       profile,
       durationMs: res.durationMs,
       origin: build.origin,
+      at: c.state.steps[c.step].startedAt ?? c.host.now(),
     });
     if (res.status === 'timeout') throw new StepFailure('build_timeout');
     if (res.status === 'terminated') throw new StepFailure('build_terminated');
@@ -225,7 +226,7 @@ export const STEP_FNS: Record<StepId, StepFn> = {
         'plan_invalid',
         ok.problems
           .slice(0, 3)
-          .map((p) => p.code)
+          .map((p) => p.at)
           .join(','),
       );
     if (plan.fileCount > c.state.limits.maxGeneratedFiles)

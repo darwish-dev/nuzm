@@ -1,4 +1,5 @@
 import { builderTools } from '@nuzm/domain';
+import { ProblemException } from '../../../../common/errors';
 import { SkeletonGenerator } from './file-generators';
 import type {
   ExecutionBudgetPort,
@@ -102,7 +103,6 @@ export class MemoryBudget implements ExecutionBudgetPort {
   deny: { code: string } | null = null;
   async assertStart(_org: string, purpose: string) {
     if (this.deny) {
-      const { ProblemException } = await import('../../../../common/errors');
       throw new ProblemException(this.deny.code as never, 'denied');
     }
     this.starts.push(purpose);
@@ -111,7 +111,13 @@ export class MemoryBudget implements ExecutionBudgetPort {
   async meter(
     _o: string,
     _p: string,
-    e: { eventKey: string; profile: string; durationMs: number; origin: 'MOCK' | 'REAL' },
+    e: {
+      eventKey: string;
+      profile: string;
+      durationMs: number;
+      origin: 'MOCK' | 'REAL';
+      at: string;
+    },
   ) {
     // idempotent by key, like the metering pipeline
     if (!this.metered.some((m) => m.eventKey === e.eventKey)) this.metered.push(e);

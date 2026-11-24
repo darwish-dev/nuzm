@@ -105,7 +105,14 @@ export interface ExecutionBudgetPort {
   meter(
     orgId: string,
     projectId: string,
-    e: { eventKey: string; profile: string; durationMs: number; origin: 'MOCK' | 'REAL' },
+    e: {
+      eventKey: string;
+      profile: string;
+      durationMs: number;
+      origin: 'MOCK' | 'REAL';
+      /** when this attempt of the step began (ISO): the metering window is derived from it, so a replay of the same call is the same event */
+      at: string;
+    },
   ): Promise<void>;
 }
 

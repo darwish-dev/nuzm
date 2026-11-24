@@ -135,6 +135,8 @@ export interface CompleteResponse {
   /** provider-reported counts; `null` when the provider did not report (the gateway then estimates and flags `estimated`) */
   usage: Usage | null;
   model: string;
+  /** the provider's own id of this request (e.g. `req_…`), when it sent one: for support and for the qualification evidence record; never content */
+  requestId?: string;
 }
 export type StreamChunk =
   | { delta: string }
@@ -142,7 +144,13 @@ export type StreamChunk =
   | { toolCallDelta: { index: number; id?: string; name?: string; argsDelta?: string } }
   /** contract 1.1: the call at `index` is complete (its arguments text is complete JSON) */
   | { toolCallDone: { index: number } }
-  | { done: true; finishReason: CompleteResponse['finishReason']; usage: Usage | null };
+  | {
+      done: true;
+      finishReason: CompleteResponse['finishReason'];
+      usage: Usage | null;
+      /** the provider's id of this request, when it sent one */
+      requestId?: string;
+    };
 
 export type ModelErrorCode =
   | 'timeout'

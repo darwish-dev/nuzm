@@ -193,3 +193,107 @@ describe('the admin credential flow never exposes the key', () => {
     noLeak(JSON.stringify(ev), 'audit event');
   });
 });
+
+/**
+ * Multi-provider configuration (D11): OpenAI and Gemini exist as CONTRACTS and fixtures only. Their provider rows can be configured and a key can be sealed for each exactly as for
+ * Claude (the generic `set_credential` action: key typed in the console, only a vault reference stored or shown), but neither can be enabled, probed, connection-tested or asked
+ * for models: there is no adapter, and every gate (attestation, rate card, adapter, second person) still stands. The keys are synthetic and built at run time in each vendor's usual shape.
+ */
+const VENDOR_KEYS: Record<string, string> = {
+  openai: `${'sk'}-${'proj'}-${'Zq8L'.repeat(12)}`,
+  gemini: `${'AI'}${'za'}${'Sy'}${'k3Rt'.repeat(8)}-x`,
+};
+describe.each(Object.entries(VENDOR_KEYS))(
+  'provider %s: key sealed, never exposed, never enableable',
+  (code, vendorKey) => {
+    const frag = [vendorKey.slice(0, 18), vendorKey.slice(8, 26), vendorKey.slice(-18)];
+    const clean = (text: string, where: string) => {
+      expect(text, `${code} ${where}`).not.toContain(vendorKey);
+      for (const f of frag) expect(text, `${code} ${where} fragment`).not.toContain(f);
+    };
+    it('configure, set_credential, read back, refused live actions, refused enable, clear: no leak anywhere', async () => {
+      const f = vi.fn(async () => {
+        throw new Error('a request left the process');
+      });
+      vi.stubGlobal('fetch', f);
+      captured.length = 0;
+      captureOutput();
+      const bodies: string[] = [];
+      const act = async (method: 'GET' | 'POST', url: string, body?: object) => {
+        const r = await e.admin('padmin', method, url, body);
+        bodies.push(r.body);
+        return r;
+      };
+      const cfg = await act('POST', base, {
+        action: 'configure',
+        code,
+        adapter: code,
+        displayName: `${code} (contract only)`,
+        region: 'unspecified',
+      });
+      expect(cfg.statusCode, cfg.body).toBe(200);
+      const id = cfg.json().id as string;
+      expect(cfg.json().adapterRegistered).toBe(false);
+      const set = await act('POST', base, { action: 'set_credential', id, apiKey: vendorKey });
+      expect(set.statusCode, set.body).toBe(200);
+      expect(set.json().vaultRef).toMatch(new RegExp(`^vault://(dev|mem)/ai-${code}$`));
+      expect(set.json().enabled).toBe(false);
+      for (const url of [
+        base,
+        `${base}/capability-registry`,
+        `${base}/health`,
+        `${base}/${id}/rate-card-versions`,
+      ])
+        expect((await act('GET', url)).statusCode, url).toBe(200);
+      // no model of this provider is in the registry: there is no adapter to declare one
+      const reg = (await act('GET', `${base}/capability-registry`)).json().items as {
+        providerCode: string;
+      }[];
+      expect(reg.some((x) => x.providerCode === code)).toBe(false);
+
+      // nothing that could reach the vendor is possible
+      for (const url of [`${base}/${id}/connection-test`, `${base}/${id}/model-discovery`])
+        expect((await act('POST', url)).statusCode, url).toBe(422);
+      for (const body of [
+        { action: 'request_enable', id },
+        { action: 'enable', id },
+        {
+          action: 'probe_tool_use',
+          id,
+          model: 'any-model',
+          approvalRef: 'synthetic-D9',
+          maxTotalTokens: 20000,
+        },
+      ]) {
+        const r = await act('POST', base, body);
+        expect(r.statusCode, `${code} ${body.action}: ${r.body}`).toBeGreaterThanOrEqual(400);
+      }
+      const row = (
+        await e.sql(`SELECT enabled, vault_ref FROM ai.model_providers WHERE code=$1`, [code])
+      )[0]!;
+      expect(row.enabled).toBe(false);
+      expect(row.vault_ref).toMatch(new RegExp(`^vault://(dev|mem)/ai-${code}$`));
+
+      const cleared = await act('POST', base, { action: 'clear_credential', id });
+      expect(cleared.statusCode).toBe(200);
+      expect(cleared.json().vaultRef).toBeNull();
+
+      clean(bodies.join('\n'), 'responses');
+      clean(JSON.stringify(e.sink.events), 'audit sink');
+      const tables = (await e.sql(
+        `SELECT quote_ident(schemaname) || '.' || quote_ident(tablename) AS t FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')`,
+      )) as { t: string }[];
+      const leaks: string[] = [];
+      for (const { t } of tables)
+        for (const needle of [vendorKey, ...frag])
+          if (
+            (await e.sql(`SELECT 1 FROM ${t} x WHERE x::text LIKE $1 LIMIT 1`, [`%${needle}%`]))
+              .length
+          )
+            leaks.push(`${t}:${needle.length}`);
+      expect(leaks).toEqual([]);
+      clean(captured.join('\n'), 'process output');
+      expect(f).not.toHaveBeenCalled();
+    });
+  },
+);

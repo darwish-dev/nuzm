@@ -9,6 +9,7 @@ import {
   ErrorState,
   Field,
   ForbiddenState,
+  Input,
   Ltr,
   Select,
   Skeleton,
@@ -535,12 +536,129 @@ function DiscoveryCard({
   );
 }
 
+function ProbeCard({
+  locale,
+  providers,
+  mfaFactorId,
+}: {
+  locale: Locale;
+  providers: ProviderOption[];
+  mfaFactorId: string | null;
+}) {
+  const a = useStaffAction(locale, mfaFactorId);
+  const [id, setId] = useState('');
+  const [model, setModel] = useState('');
+  const [ref, setRef] = useState('');
+  const [cap, setCap] = useState('11716');
+  const [rows, setRows] = useState<{ model: string; capability: string; state: string }[] | null>(
+    null,
+  );
+  const valid =
+    id !== '' &&
+    model.trim() !== '' &&
+    ref.trim().length >= 3 &&
+    /^\d+$/.test(cap) &&
+    Number(cap) >= 11716;
+  function run() {
+    if (!valid) return a.setNotice({ tone: 'error', text: ti(locale, 'ins.probe.invalid') });
+    setRows(null);
+    void a.run(
+      () =>
+        browserApi().POST('/v1/admin/ai/model-providers', {
+          body: {
+            action: 'probe_tool_use',
+            id,
+            model: model.trim(),
+            approvalRef: ref.trim(),
+            maxTotalTokens: Number(cap),
+          } as never,
+        }) as never,
+      (data) =>
+        setRows(
+          (
+            (
+              data as {
+                capabilityEvidence?: { model: string; capability: string; state: string }[];
+              }
+            )?.capabilityEvidence ?? []
+          ).filter((x) => x.model === model.trim()),
+        ),
+      { 422: ti(locale, 'ins.probe.refused') },
+    );
+  }
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
+        <Field id="ins-probe-provider" label={ti(locale, 'ins.rc.provider')}>
+          {(x) => (
+            <Select {...x} value={id} onChange={(e) => setId(e.target.value)}>
+              <option value="">{ti(locale, 'ins.rc.choose')}</option>
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName} ({p.code})
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field id="ins-probe-model" label={ti(locale, 'ins.probe.model')}>
+          {(x) => (
+            <Input {...x} dir="ltr" value={model} onChange={(e) => setModel(e.target.value)} />
+          )}
+        </Field>
+        <Field id="ins-probe-ref" label={ti(locale, 'ins.probe.ref')}>
+          {(x) => <Input {...x} dir="ltr" value={ref} onChange={(e) => setRef(e.target.value)} />}
+        </Field>
+        <Field id="ins-probe-cap" label={ti(locale, 'ins.probe.cap')}>
+          {(x) => (
+            <Input
+              {...x}
+              dir="ltr"
+              inputMode="numeric"
+              value={cap}
+              onChange={(e) => setCap(e.target.value)}
+            />
+          )}
+        </Field>
+        <Button data-testid="ins-probe-run" disabled={a.busy} onClick={run}>
+          {ti(locale, 'ins.probe.run')}
+        </Button>
+      </div>
+      <div data-testid="ins-probe-note">
+        <Note n={a.notice} />
+      </div>
+      {a.panel}
+      {rows && (
+        <div role="status">
+          <p>{ti(locale, 'ins.probe.done')}</p>
+          {rows.length === 0 ? (
+            <p>{ti(locale, 'ins.probe.none')}</p>
+          ) : (
+            <ul>
+              {rows.map((r) => (
+                <li key={r.capability}>
+                  <Ltr>{r.capability}</Ltr>:{' '}
+                  <Badge tone={r.state === 'VERIFIED' ? 'success' : 'warn'}>
+                    {ti(locale, `ins.probe.state.${r.state}`)}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function AiProviderInsightsPanel(p: {
   locale: Locale;
   health: Result<{ items: HealthItem[] }>;
   registry: Result<{ items: RegistryItem[] }>;
   providers: ProviderOption[];
   canManage: boolean;
+  /** may run the tool-calling probe (`admin:ai:approve`) */
+  canApprove?: boolean;
   mfaFactorId: string | null;
 }) {
   const { locale } = p;
@@ -583,6 +701,15 @@ export function AiProviderInsightsPanel(p: {
           help={ti(locale, 'ins.disc.help')}
         >
           <DiscoveryCard locale={locale} providers={p.providers} mfaFactorId={p.mfaFactorId} />
+        </Frame>
+      )}
+      {p.canApprove && (
+        <Frame
+          id="ins-probe"
+          title={ti(locale, 'ins.probe.title')}
+          help={ti(locale, 'ins.probe.help')}
+        >
+          <ProbeCard locale={locale} providers={p.providers} mfaFactorId={p.mfaFactorId} />
         </Frame>
       )}
     </div>

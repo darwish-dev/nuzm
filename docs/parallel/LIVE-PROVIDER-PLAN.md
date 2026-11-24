@@ -99,3 +99,82 @@ pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-smoke-cli.ts --vau
 pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-smoke-cli.ts --reconcile ~/nuzm-live/report.json --vendor-usage ~/nuzm-live/usage.json --report ~/nuzm-live/report-reconciled.json
 ```
 The environment of the process needs `SESSION_SEAL_KEY` (reads the sealed dev vault), `AI_LIVE_PROVIDERS=claude` and the `AI_PROBE_APPROVALS` entry. Exit codes: 0 all passed, 1 a check failed or was not verified, 2 refused (nothing sent), 3 unexpected failure.
+
+---
+# 9. Activation runbook for the first real provider (Anthropic / Claude)
+Status: **RUNBOOK. Nothing in it has been run.** Written 2026-11-24 (Phase 2 completion). Prerequisite: D2, D5, D6, D4, D3, D9 decided and recorded (see `PHASE2-02-approval-inputs.md`). Official API-key authentication only. **No step asks anyone to paste a key into code, a file, a report, a chat or a screenshot**; the only place a key is typed is the admin console field.
+
+## 9.1 Owner steps, in order (what to enter where)
+| # | Where | What you do | Result you should see |
+|---|---|---|---|
+| O1 | Vendor Console | Create a **dedicated workspace** for non-production use (not the Default Workspace). Record its name. | Workspace exists |
+| O2 | Vendor Console → Spend limits → Workspace limits | Set the workspace **monthly limit: USD 5** (D4; raise only by a dated decision). Platform caps stay at ≤ 80% of it (`S-AG4-SPEND-CAPS.md`). | Limit shown in the Console |
+| O3 | Vendor Console → API keys | Create **one key inside that workspace**. Do not copy it anywhere except the next step. | Key shown once |
+| O4 | Nuzm admin console → AI → Model providers → "Claude" card → key field → **Save** (answer the MFA prompt) | Paste the key; the field empties itself. | Provider row **Claude**: credential `vault://dev/ai-claude` (a reference, never the key), **disabled**, region `unspecified` |
+| O5 | Same screen → Claude row → Actions → **Attest terms** | Enter the D2 agreement reference and the flags exactly as the contract states (`unknown` where it does not say). | Terms: attested, reference shown |
+| O6 | Same screen → Advanced → Configure | Set region and (D5) the statement the contract makes; save the **rate card** (D6). To compute the card: `pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/rate-card-preview-cli.ts ~/nuzm-live/rate-input.json` (inputs: vendor price and its reference, your FX quote with its date, your margin in basis points, the credit unit) and paste its `rateCard` JSON. | Rate card version listed under "Rate card history" |
+| O7 | Two different platform admins | First: **Request enable**; second: **Enable** | Provider enabled (still unable to call: the live gate is closed) |
+| O8 | The API process environment of the ONE named non-production environment (never production) | `AI_LIVE_PROVIDERS=claude` and `AI_PROBE_APPROVALS` as below, then restart that process | The "live calls approved" indicator of the provider turns on |
+| O9 | A private folder **outside the repository** (e.g. `~/nuzm-live/`) | Create `evidence.json` and `approval.json` (formats below) | — |
+| O10 | Handover | Tell engineering: "gates open, folder ready". Nothing else is shared. | — |
+
+`AI_PROBE_APPROVALS` (one JSON line, D9; covers every run below separately: the largest is the nine-check suite):
+```
+AI_PROBE_APPROVALS=[{"ref":"<your D9 reference>","approvedBy":"<your name>","environment":"non-production","maxRequests":13,"maxTotalTokens":14716}]
+AI_LIVE_PROVIDERS=claude
+```
+`approval.json` (same `ref`; **`maxCostNano` must be at least the hard maximum of the run**; at the list price read 2026-11-24 the largest is 116,720,000 nano-USD):
+```
+{"ref":"<your D9 reference>","approvedBy":"<your name>","environment":"non-production","maxRequests":13,"maxTotalTokens":14716,"maxCostNano":"116720000"}
+```
+`evidence.json` (one row per decision D2, D3, D4, D5, D6, D9; `provider` is `claude`; **references only, never a secret**; a later `withdrawn` row revokes):
+```
+[{"decision":"D2","ref":"<agreement reference>","recordedBy":"<name>","recordedAt":"2026-12-01T09:00:00Z","provider":"claude","environment":"non-production","outcome":"approved"}, …D3, D4, D5, D6, D9…]
+```
+
+## 9.2 Engineering steps, in order (exact commands; each prints its plan first)
+Every command refuses with all problems listed and **sends nothing** unless every gate holds. Without `--execute` it is a dry run. Common arguments: `--vault-ref vault://dev/ai-claude --approval ~/nuzm-live/approval.json --evidence ~/nuzm-live/evidence.json`. The process needs `SESSION_SEAL_KEY` (to read the sealed dev vault) and the two variables of O8.
+| # | Command (after `pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/…`) | What it does | Expected output | Hard max |
+|---|---|---|---|---|
+| E0 | `qualify-a-connection.ts --twin` (and `-b-tool-calling.ts`, `-c-code-generation.ts`) | Rehearsal on the mock twin, no key, no network | `PASS …` lines, `SIMULATED (mock twin: nothing real was verified)`, exit 0 | USD 0 |
+| E1 | `qualify-a-connection.ts <common args>` | Dry run of **track A** | A JSON plan: worst case 2 requests / 800 tokens, `maxCostNano`, the evidence file name, `decisionsStanding` = D2 D3 D4 D5 D6 D9 | USD 0 |
+| E2 | Console: Claude row → **Test connection**, then **Ask the provider for its models** | Lists the key's models; no prompt, nothing billed | Connection `ok`; the declared model `claude-opus-5-5` under "Confirmed by the provider" | USD 0 |
+| E3 | `qualify-a-connection.ts <common args> --execute --out-dir ~/nuzm-live` | **Track A** live | `PASS listing / complete / stream`, `LIVE-VERIFIED`, cost line; writes `qualification-A-claude-live-<time>.json` | **USD 0.006400** |
+| E4 | `qualify-b-tool-calling.ts <common args> --execute --out-dir ~/nuzm-live` | **Track B** live: the capability probe (8 requests) | `PASS tool_calling …`, `LIVE-VERIFIED`; the record lists the 8 steps with request ids | **USD 0.080720** |
+| E5 | Console: AI → Model providers → **Tool-calling probe** card (needs `admin:ai:approve`): provider *Claude*, model `claude-opus-5-5`, your D9 reference, token cap `11716`, **Run the probe** (MFA prompt) | The `probe_tool_use` action: writes the `VERIFIED` / `NOT VERIFIED` rows that let the router offer tools (D8) | The card lists the evidence rows; the capability registry shows `tool-use` **in use** for `claude-opus-5-5` (only if the probe passed) | **USD 0.080720** |
+| E6 | `qualify-c-code-generation.ts <common args> --execute --out-dir ~/nuzm-live` | **Track C** live: two small functions, **static checks only; the code is never executed** | `PASS codegen_slugify / codegen_sum`, `LIVE-VERIFIED` | **USD 0.030400** |
+| E7 | `live-smoke-cli.ts <common args> --report ~/nuzm-live/report.json --execute` | The nine-check suite (includes streaming, structured output, cancel, health; retry/breaker/fallback stay `simulated`) | Per-check PASS/FAIL with `[live]` or `[simulated]`; `usage_reconciliation` is NOT RUN until E8 | **USD 0.116720** |
+| E8 | Owner reads the Console usage for the workspace and the run window → `~/nuzm-live/usage.json` `{"inputTokens":…,"outputTokens":…,"source":"console, workspace <name>, <date>"}`; then `live-smoke-cli.ts --reconcile ~/nuzm-live/report.json --vendor-usage ~/nuzm-live/usage.json --tolerance-permille 10` | Our reported usage against the vendor's figure; **10 per mille = the D-31 proposal (1%), not yet decided; use 0 for an exact match** | `PASS usage_reconciliation … within …` | USD 0 |
+Total of E3 + E4 + E5 + E6 + E7: **USD 0.314960 at most** (0.006400 + 0.080720 + 0.080720 + 0.030400 + 0.116720). The nine-check suite (E7) already contains the whole probe, and E5 writes the evidence rows from its own probe run: if you want the smallest bill, run E3, E5, E6 and E7 and skip E4 (**USD 0.234240**). Retries add nothing (none occur). Re-verified 2026-11-24: the list price is unchanged ($4 / $20 per MTok, Opus 5.5).
+
+## 9.3 The evidence file each qualification run writes (schema 1)
+`qualification-<track>-<provider>-<live|mock>-<UTC time>.json`, mode 0600, in the folder you chose (outside the repository; **never committed**):
+```
+{ schemaVersion: 1, track: "A"|"B"|"C", trackName, provider: "claude", model: "claude-opus-5-5", contractVersion, mode: "live"|"mock",
+  verdict: "LIVE-VERIFIED" | "SIMULATED" | "FAIL" | "NOT VERIFIED", approvalRef, startedAt, finishedAt, currency,
+  requests: [{ step, requestId: "req_…"|null, tokensIn, tokensOut, estimated, costNano, latencyMs, outcome: "ok"|"error", errorCode|null }],
+  totals: { requests, tokensIn, tokensOut, costNano },
+  checks: [{ id, ok, ran, detail: <fixed sentence> }], stoppedEarly?, contentPolicy: "no prompt, completion or tool argument is recorded; code checks are static and the generated code is never executed" }
+```
+Recorded: model id, tokens, cost, latency, the vendor's request ids, outcomes. **Not recorded:** prompts, completions, tool arguments, generated code, keys. `validateEvidence` refuses to return a record with a string over 300 characters, a malformed request id, totals that do not add up, or a verdict that does not match its checks; a record that contains the key is discarded (tested).
+
+## 9.4 Rollback and kill switch (fastest first)
+1. Admin console → Kill switch card → **Engage** (global; a second confirmation): every model call is refused at once.
+2. Unset `AI_LIVE_PROVIDERS` and restart: every live path refuses before the key is read.
+3. Claude row → **Remove key**, then revoke the key in the Vendor Console.
+4. Withdraw an evidence row (`"outcome":"withdrawn"`): the runners refuse to start.
+If a run is stuck: Ctrl-C cancels the request in flight; the run stops at the first credential, availability, timeout, refusal or rate-limit failure and never retries.
+
+## 9.5 What becomes available after, and what does not
+- **Available:** Claude is `LIVE-VERIFIED` for the checks that passed with `[live]` (connection, streaming, structured output, cancellation, tool calling, usage accounting within the chosen tolerance); the router may offer tool calling on Claude only from the recorded `VERIFIED` rows; the builder's agent loop and the S-AG5 benchmark runner may use a **verified provider** (each with its own budget approval, BUD).
+- **Still not available:** customer content (D1 and a transfer assessment), production use (D-12 vault, D-42), executable tools (D-21), OpenAI and Gemini (contracts and fixtures only, D11: each needs its own D1/D2/D4/D5/D6 evidence and an adapter), any claim about model **quality**, retry/breaker/fallback as live-verified (always `simulated`), the vendor's behaviour at its spending limit.
+
+## 9.6 Lines for `apps/api/package.json` (Master; I may not edit it)
+```
+"qualify:a": "tsx src/modules/ai/internal/qualify-a-connection.ts",
+"qualify:b": "tsx src/modules/ai/internal/qualify-b-tool-calling.ts",
+"qualify:c": "tsx src/modules/ai/internal/qualify-c-code-generation.ts",
+"qualify:suite": "tsx src/modules/ai/internal/live-smoke-cli.ts",
+"rate-card:preview": "tsx src/modules/ai/internal/rate-card-preview-cli.ts"
+```
+Until they exist the commands above work as written with `pnpm --filter @nuzm/api exec tsx …`.

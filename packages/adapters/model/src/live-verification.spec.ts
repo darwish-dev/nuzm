@@ -454,3 +454,45 @@ describe('a vendor figure that arrives after the run (reconcileLiveReport)', () 
     ).toMatchObject({ ok: false, ran: false });
   });
 });
+
+describe('D-31: a relative tolerance (proposed 1% = 10 per mille; the default is none)', () => {
+  const led = {
+    reported: { in: 10_000, out: 2_000 },
+    unreportedCeiling: { in: 0, out: 0 },
+    reportedRequests: 5,
+  };
+  const v = (i: number, o: number) => ({ inputTokens: i, outputTokens: o, source: 'synthetic' });
+  it('without it the figures must match exactly; with 10 per mille a difference up to 1% of OUR figure is accepted, either way, and no more', () => {
+    expect(decideUsageReconciliation(led, v(10_050, 2_000), 0, 'live').ok).toBe(false);
+    expect(decideUsageReconciliation(led, v(10_000, 2_000), 0, 'live').ok).toBe(true);
+    expect(decideUsageReconciliation(led, v(10_100, 2_020), 0, 'live', 10).ok).toBe(true); // exactly 1%
+    expect(decideUsageReconciliation(led, v(10_101, 2_000), 0, 'live', 10).ok).toBe(false);
+    expect(decideUsageReconciliation(led, v(9_900, 1_980), 0, 'live', 10).ok).toBe(true);
+    expect(decideUsageReconciliation(led, v(9_899, 2_000), 0, 'live', 10).ok).toBe(false);
+    expect(decideUsageReconciliation(led, v(10_000, 2_021), 0, 'live', 10).ok).toBe(false);
+  });
+  it('rounds the relative part UP and adds it to the absolute tolerance; refuses a nonsense value', () => {
+    const small = { ...led, reported: { in: 7, out: 7 } };
+    expect(decideUsageReconciliation(small, v(8, 7), 0, 'live', 10).ok).toBe(true); // ceil(0.07) = 1
+    expect(decideUsageReconciliation(small, v(10, 7), 2, 'live', 10).ok).toBe(true); // 2 + 1
+    for (const bad of [-1, 1001, 1.5])
+      expect(decideUsageReconciliation(led, v(10_000, 2_000), 0, 'live', bad)).toMatchObject({
+        ok: false,
+        ran: false,
+      });
+  });
+  it('reconcileLiveReport passes it through', async () => {
+    const { target } = twinTarget();
+    const rep = await runLiveVerification(target, approval());
+    const off = {
+      inputTokens:
+        rep.usage.reported.in +
+        rep.usage.unreportedCeiling.in +
+        Math.ceil(rep.usage.reported.in / 200),
+      outputTokens: rep.usage.reported.out,
+      source: 'synthetic',
+    };
+    expect(reconcileLiveReport(rep, off).allPassed).toBe(false);
+    expect(reconcileLiveReport(rep, off, 0, 10).allPassed).toBe(true);
+  });
+});

@@ -165,6 +165,9 @@ export class RunService {
     const id = uuidv7();
     try {
       await this.db.withOrg(orgId, async (c) => {
+        // DEFECT-15: the ceiling check and the insert must not interleave with another create of the same organization (a burst would overshoot `maxConcurrentRuns`). A transaction-scoped
+        // advisory lock on the organization serializes them; it is released at commit. This transaction takes no other lock before it, so it cannot take part in a lock cycle (DEFECT-7).
+        await c.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`ai.runs.create:${orgId}`]);
         const active = Number(
           (await c.query(`SELECT count(*) n FROM ai.runs WHERE state = ANY($1)`, [ACTIVE])).rows[0]!
             .n,

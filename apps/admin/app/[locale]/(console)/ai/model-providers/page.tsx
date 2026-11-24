@@ -55,6 +55,7 @@ export default async function ModelProviders({ params }: { params: Promise<{ loc
             displayName: p.displayName,
           }))}
           canManage={s.can('admin:ai:manage')}
+          canApprove={s.can('admin:ai:approve')}
           mfaFactorId={s.me.mfaFactorId ?? null}
         />
       </>

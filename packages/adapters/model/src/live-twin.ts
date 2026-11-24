@@ -28,6 +28,10 @@ export function createLiveTwin(id = 'mock-live-twin'): MockModelAdapter {
     handler: (req) => {
       const t = lastText(req);
       if (req.responseFormat === 'json') return '{"ok":true}';
+      if (t.includes('slugify'))
+        return "```ts\nexport function slugify(input: string): string {\n  return input.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\n}\n```";
+      if (t.includes('`sum('))
+        return '```ts\nexport function sum(values: number[]): number {\n  let total = 0;\n  for (const v of values) total += v;\n  return total;\n}\n```';
       if (t.includes('numbers'))
         return 'one two three four five six seven eight nine ten '.repeat(8);
       if (t.includes('exactly the word')) return 'ok';

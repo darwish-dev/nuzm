@@ -143,11 +143,20 @@ test('admin AI provider insights: health, registry, usage (exact integers, mixed
     await expect(page.getByTestId('ins-discovery-note').getByRole('alert')).toBeVisible();
     await audit(page, info, 'ai-insights-discovery-refused');
 
+    // ---- probe: without a recorded approval (D9) it is refused and nothing is sent
+    await page.locator('#ins-probe-provider').selectOption(pid);
+    await page.locator('#ins-probe-model').fill('acme-insight-model');
+    await page.locator('#ins-probe-ref').fill('synthetic-unapproved-ref');
+    await page.getByTestId('ins-probe-run').click();
+    await expect(page.getByTestId('ins-probe-note').getByRole('alert')).toBeVisible();
+    await audit(page, info, 'ai-insights-probe-refused');
+
     // ---- support: reads everything, cannot ask the provider anything
     await setRoles(['support']);
     await page.goto(`${ADMIN}/${L}/ai/model-providers`);
     await expect(section('ins-usage')).toBeVisible();
     await expect(section('ins-discovery')).toHaveCount(0);
+    await expect(section('ins-probe')).toHaveCount(0);
     await audit(page, info, 'ai-insights-read-only');
 
     // ---- finance: no admin:ai:read, so the whole screen is the forbidden state and none of the insights is there

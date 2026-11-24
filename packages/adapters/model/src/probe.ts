@@ -123,6 +123,10 @@ export interface ProbeObservation {
   /** a fixed sentence: never a provider message, never content */
   detail: string;
   errorCode?: string;
+  /** wall-clock time of the step, ms (set by the harness) */
+  latencyMs?: number;
+  /** the provider's own request id, when it sent one (non-streamed steps) */
+  requestId?: string;
 }
 export interface ProbeReport {
   adapterId: string;
@@ -199,9 +203,16 @@ export async function runCapabilityProbe(
   const seen = new Map<ProbeId, ProbeObservation>();
   let firstCall: { id: string; name: string; args: unknown } | undefined;
 
+  let stepT0 = Date.now();
+  let stepRid: string | undefined;
   const record = (o: ProbeObservation) => {
-    obs.push(o);
-    seen.set(o.id, o);
+    const full: ProbeObservation = {
+      ...o,
+      latencyMs: Math.max(0, Date.now() - stepT0),
+      ...(stepRid ? { requestId: stepRid } : {}),
+    };
+    obs.push(full);
+    seen.set(full.id, full);
   };
   const base = (s: PlanStep, extra: Partial<CompleteRequest> = {}): CompleteRequest => ({
     model,
@@ -231,6 +242,8 @@ export async function runCapabilityProbe(
       break;
     }
     requests += 1;
+    stepT0 = Date.now();
+    stepRid = undefined;
     const ac = new AbortController();
     const onAbort = () => ac.abort();
     opts.signal?.addEventListener('abort', onAbort, { once: true });
@@ -321,6 +334,7 @@ export async function runCapabilityProbe(
             ],
           }),
         );
+        stepRid = r.requestId;
         const u = use(r, s);
         const ok = r.finishReason === 'stop' && r.text.trim().length > 0 && !r.toolCalls?.length;
         record({
@@ -344,6 +358,7 @@ export async function runCapabilityProbe(
               ? { toolChoice: 'none' }
               : { maxToolCalls: 1 };
       const r = await adapter.complete(ctx, base(s, extra));
+      stepRid = r.requestId;
       const u = use(r, s);
       const calls = r.toolCalls ?? [];
       if (s.id === 'auto_call' && calls[0]) firstCall = calls[0];

@@ -144,7 +144,7 @@ describe('DEFECT-8: one call id, one provider invocation', () => {
     const refused = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
     expect(ok).toHaveLength(1);
     expect(refused).toHaveLength(11);
-    for (const r of refused) expect(r.reason).toMatchObject({ code: 'conflict' });
+    for (const r of refused) expect(r.reason).toMatchObject({ code: 'idempotency_in_progress' });
     expect((refused[0]!.reason as { detail?: string }).detail).toContain('call_in_progress');
     const usage = await e.sql(
       `SELECT credits::text c FROM ai.model_usage WHERE org_id=$1 AND call_id=$2`,
@@ -160,7 +160,7 @@ describe('DEFECT-8: one call id, one provider invocation', () => {
     const first = await budgets.reserve({ orgId: A(), callId, credits: 50n, tokens: 100n });
     await expect(
       budgets.reserve({ orgId: A(), callId, credits: 50n, tokens: 100n }),
-    ).rejects.toMatchObject({ code: 'conflict' });
+    ).rejects.toMatchObject({ code: 'idempotency_in_progress' });
     // age the claim beyond the window of a live call (call timeout x attempts + backoff + margin)
     await e.sql(`UPDATE ai.reservations SET created_at = now() - interval '1 hour' WHERE id=$1`, [
       first.id,

@@ -25,13 +25,21 @@ export interface ExecOutcomeLike {
   stderr: string;
   durationMs: number;
   artifacts: { path: string; bytes: number; sha256?: string }[];
+  /** what a real runtime measured (CONTRACT-04-4, additive; a mock leaves it out) */
+  usage?: { cpuSeconds: number; peakMemoryMb: number; peakPids: number; diskMb: number };
 }
 export interface ExecutionPortLike {
   readonly origin: 'MOCK' | 'REAL';
   request(req: { orgId: string; runId: string; profile: string }): Promise<ExecDecisionLike>;
   run(
     decision: never,
-    ctx: { orgId: string; runId: string; approvalId?: string },
+    ctx: {
+      orgId: string;
+      runId: string;
+      approvalId?: string;
+      /** CONTRACT-04-4: which project version this run is for (a real port seeds its workspace from it; a mock ignores it) */
+      source?: { projectId: string; versionId: string };
+    },
   ): Promise<ExecOutcomeLike>;
 }
 
@@ -69,7 +77,12 @@ export class ExecutionBuildPort implements BuildPort {
     });
     if (!decision.allowed) return refused((decision.reasons ?? []).join(',') || 'not_allowed');
     if (decision.requiresApproval) return refused('approval_required');
-    const out = await this.port.run(decision as never, { orgId: req.orgId, runId: req.runId });
+    // the version being built travels with every call: the repair loop makes a NEW version each round, and a real port seeds its workspace from this one (never from a model)
+    const out = await this.port.run(decision as never, {
+      orgId: req.orgId,
+      runId: req.runId,
+      source: { projectId: req.projectId, versionId: req.versionId },
+    });
     // a run that "completed" with a non-zero exit code is a failed build
     const status: BuildStatus =
       out.status === 'completed' && out.exitCode !== 0 ? 'failed' : out.status;
@@ -82,6 +95,12 @@ export class ExecutionBuildPort implements BuildPort {
         sha256: a.sha256!,
         createdAt: this.now(),
       }));
-    return { status, logs: `${out.stdout}${out.stderr}`, artifacts, durationMs: out.durationMs };
+    return {
+      status,
+      logs: `${out.stdout}${out.stderr}`,
+      artifacts,
+      durationMs: out.durationMs,
+      ...(out.usage ? { usage: out.usage } : {}),
+    };
   }
 }

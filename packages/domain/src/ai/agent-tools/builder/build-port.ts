@@ -25,6 +25,8 @@ export interface BuildResult {
   logs: string;
   artifacts: ArtifactRef[];
   durationMs: number;
+  /** what the runtime measured, when it reports it (CONTRACT-04-4); absent for a mock */
+  usage?: { cpuSeconds: number; peakMemoryMb: number; peakPids: number; diskMb: number };
 }
 export interface Preflight {
   allowed: boolean;

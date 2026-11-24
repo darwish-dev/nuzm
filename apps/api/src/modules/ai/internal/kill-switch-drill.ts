@@ -74,11 +74,10 @@ export async function runKillSwitchDrill(
           : `AI is not available before the drill (${r}): the drill proves nothing`,
     };
   });
-  let engaged = false;
   let ok = base;
   try {
     if (base) {
-      engaged = await t('engage', async () => {
+      const engaged = await t('engage', async () => {
         await p.setEngaged(true);
         return { ok: true, detail: 'the global kill switch was engaged' };
       });

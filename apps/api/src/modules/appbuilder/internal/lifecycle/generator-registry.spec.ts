@@ -6,16 +6,22 @@ import { MemoryEnv, MemoryHost } from './lifecycle.testing';
 import type { FileGenerator } from './lifecycle.types';
 
 const T = builderTools;
+const body = (path: string, label: string): string =>
+  path === 'package.json'
+    ? '{"name":"app","version":"0.0.0"}\n'
+    : path.endsWith('.json')
+      ? '{}\n'
+      : path.endsWith('.sql')
+        ? `-- ${label}\n`
+        : path.endsWith('.md')
+          ? `# ${label}\n`
+          : `// ${label}\nexport {};\n`;
 const gen = (label: string, calls: string[]): FileGenerator => ({
   kind: 'model',
   async generate(i) {
     calls.push(`${label}:${i.task.id}`);
     return {
-      ops: i.task.files.map((path) => ({
-        op: 'add' as const,
-        path,
-        content: `// ${label}\nexport {};\n`,
-      })),
+      ops: i.task.files.map((path) => ({ op: 'add' as const, path, content: body(path, label) })),
     };
   },
 });

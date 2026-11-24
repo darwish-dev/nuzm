@@ -1,4 +1,4 @@
-# REPORT-P3-S03: Real agent loop and automatic code repair (PARTIAL: usage limit reached)
+# REPORT-P3-S03: Real agent loop and automatic code repair (batch 1 of 2, mergeable as inert code)
 
 Branch `claude/p3-s03-agent-loop-1c2f7a` from `ce16599d`. Nothing pushed or merged. No live provider, no untrusted code executed. All results below are **SIMULATED** unless stated: the model is a scripted stand-in; the build is the in-memory TypeScript compiler (real compiler, origin MOCK, executes nothing) or a static predicate.
 
@@ -21,3 +21,10 @@ Branch `claude/p3-s03-agent-loop-1c2f7a` from `ce16599d`. Nothing pushed or merg
 - Agent UI (repair table, evidence panel): i18n keys added, component and `viewFromEvents` changes NOT written.
 - No contract request files written: `apps/api` module wiring and `packages/i18n` block need Master review; no OpenAPI change made.
 - L1, L3, L4 against real model/runtime: BLOCKED on P3-S01/S02; model quality NOT VERIFIED.
+
+## Update after the usage-limit reset (light checks only: quiet window, no DB, no tsc over a package)
+- `generator-registry.spec.ts` fixed (the test generator wrote invalid `package.json`): 4 passed.
+- Agent UI done: `viewFromEvents` reads `lifecycle_repair` and `lifecycle_evidence`; the panel shows a repair table (class names translated, method, result as text) and an evidence block with the claim banner and reconciliation line. Unknown values collapse to safe ones (a hostile event cannot make the UI say LIVE-VERIFIED). `BuilderLifecycle.spec.tsx`: 27 passed (ar and en, i18n key parity included).
+- `reconcile.spec.ts`: 5 passed. Lifecycle runner + coverage specs: 36 passed. eslint clean on the lifecycle folder, the recorder script and the two web files.
+- Still NOT RUN: all DB integration specs (reconciliation against real rows, real-path refusal through the run engine, 29-checkpoint QA suite, DEFECT-14), API/web `tsc` after the last edits, the twin eval re-run. These go through `heavy-slot.sh` after the quiet window, with `DATABASE_ADMIN_URL`/`NUZM_TEST_ADMIN_URL` on port 54353. No database command was run by this session.
+- Contract requests for the Master: register flags `builder_lifecycle.repair_engine` and `builder_lifecycle.real_path` (default off; the real-path value is `{enabled, approvals:[{id,ref,recordedAt}]}`); review the delimited i18n block `Builder agent repair and evidence (P3-S03)`; `ProductGeneratorRegistry` is exported from `appbuilder/index.ts` for S04-S06 (`register(owner, productTypes, generator)`).

@@ -474,7 +474,7 @@ export const STEP_FNS: Record<StepId, StepFn> = {
       );
       return rec;
     };
-    let proposal: builderTools.RepairProposal | null = null;
+    let proposal: builderTools.RepairProposal | null;
     try {
       proposal = await c.invoke('propose_repair', { diagnostics: b.diagnostics }, () =>
         c.env.repair.propose({

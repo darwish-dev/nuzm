@@ -42,6 +42,24 @@ export interface QualificationRow {
   effectiveState: string;
   datasetVersion: string;
 }
+export const GOVERNANCE_STATES = [
+  'NOT_PROPOSED',
+  'PROPOSED',
+  'UNDER_REVIEW',
+  'CHANGES_REQUESTED',
+  'ACCEPTED',
+  'REJECTED',
+] as const;
+export type GovernanceState = (typeof GOVERNANCE_STATES)[number];
+export const VERDICTS = ['approve', 'request_changes', 'reject'] as const;
+export interface Governance {
+  state: GovernanceState;
+  proposedBy: string | null;
+  summary: string | null;
+  reviews: { by: string; verdict: (typeof VERDICTS)[number]; note: string }[];
+  decidedBy: string | null;
+  reason: string | null;
+}
 export const STAGE_IDS = ['A', 'B', 'C', 'D', 'E'] as const;
 export type StageId = (typeof STAGE_IDS)[number];
 export const PREREQUISITE_IDS = [
@@ -93,6 +111,7 @@ export interface Overview {
   thresholds: {
     version: string;
     status: 'PROPOSED' | 'ACCEPTED';
+    governance: Governance;
     acceptedBy: string | null;
     acceptedAt: string | null;
     items: ThresholdRow[];
@@ -160,6 +179,7 @@ export function parseOverview(raw: unknown): Overview {
         ? {
             version: th.version,
             status: th.status === 'ACCEPTED' ? 'ACCEPTED' : 'PROPOSED',
+            governance: parseGovernance(th.governance),
             acceptedBy: typeof acc.acceptedBy === 'string' ? acc.acceptedBy : null,
             acceptedAt: typeof acc.acceptedAt === 'string' ? acc.acceptedAt : null,
             items: arr(th.items).map((i) => {
@@ -224,6 +244,57 @@ export function parseOverview(raw: unknown): Overview {
     liveAvailable: live.available === true,
     stages: parseStages(live.stages),
   };
+}
+
+/** The governance state as sent by the API; an unknown or missing state is NOT_PROPOSED (the safe reading: nothing is accepted). */
+export function parseGovernance(raw: unknown): Governance {
+  const g = obj(raw);
+  const state = GOVERNANCE_STATES.find((x) => x === g.state) ?? 'NOT_PROPOSED';
+  return {
+    state,
+    proposedBy: typeof g.proposedBy === 'string' ? g.proposedBy : null,
+    summary: typeof g.summary === 'string' ? g.summary : null,
+    reviews: arr(g.reviews)
+      .map((r) => {
+        const x = obj(r);
+        const verdict = VERDICTS.find((v) => v === x.verdict);
+        return verdict ? { by: s(x.by), verdict, note: s(x.note) } : null;
+      })
+      .filter((r): r is Governance['reviews'][number] => r !== null),
+    decidedBy: typeof g.decidedBy === 'string' ? g.decidedBy : null,
+    reason: typeof g.reason === 'string' ? g.reason : null,
+  };
+}
+
+/** The body of a threshold-governance action. `requestId` makes a double click harmless. */
+export type GovernanceAction = 'propose' | 'review' | 'accept' | 'reject';
+export function governanceBody(
+  action: GovernanceAction,
+  version: string,
+  fields: { text?: string; verdict?: string },
+  requestId: string,
+): Record<string, unknown> {
+  const base = { action: `${action}_thresholds`, version, requestId };
+  if (action === 'propose') return { ...base, summary: fields.text ?? '' };
+  if (action === 'review')
+    return { ...base, verdict: fields.verdict ?? '', note: fields.text ?? '' };
+  if (action === 'reject') return { ...base, reason: fields.text ?? '' };
+  return base;
+}
+/** Which governance actions make sense in a state (the server enforces the rules; this only hides the impossible ones). */
+export function governanceActions(state: GovernanceState): GovernanceAction[] {
+  switch (state) {
+    case 'NOT_PROPOSED':
+    case 'REJECTED':
+      return ['propose'];
+    case 'PROPOSED':
+    case 'UNDER_REVIEW':
+      return ['review', 'accept', 'reject', 'propose'];
+    case 'CHANGES_REQUESTED':
+      return ['propose', 'reject'];
+    case 'ACCEPTED':
+      return ['reject'];
+  }
 }
 
 const minorOf = (v: unknown): string => (typeof v === 'string' && /^\d+$/.test(v) ? v : '0');

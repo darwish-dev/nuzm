@@ -12,6 +12,7 @@ import {
 } from '../lib/benchmarks';
 import { bt, type BenchKey } from '../lib/benchmarks-text';
 import { BenchmarksActions } from './benchmarks-actions';
+import { BenchmarksGovernanceForm } from './benchmarks-governance';
 
 /**
  * Benchmark dashboard (S-AG5): dataset, PROPOSED/ACCEPTED thresholds, recorded runs with their evidence label, qualification states and the (unavailable) live runner. Offline evidence is
@@ -21,11 +22,14 @@ export function BenchmarksDashboard({
   locale,
   overview,
   canRecord,
+  canApprove = false,
   scorecard = [],
 }: {
   locale: Locale;
   overview: Overview;
   canRecord: boolean;
+  /** may accept or reject thresholds (`admin:ai:approve`) */
+  canApprove?: boolean;
   /** the scorecard of the latest stored run (empty when there is none) */
   scorecard?: ScorecardRow[];
 }) {
@@ -79,6 +83,45 @@ export function BenchmarksDashboard({
           ) : (
             <Banner tone="warn">{k('thresholdsProposed')}</Banner>
           )}
+          <section aria-labelledby="bench-gov-thresholds">
+            <h3 className="nz-h3" id="bench-gov-thresholds">
+              {k('governanceTitle')}
+            </h3>
+            <p className="nz-muted">{k('governanceHelp')}</p>
+            <p>
+              <Badge tone={th.governance.state === 'ACCEPTED' ? 'success' : 'warn'}>
+                {bt(locale, `govState_${th.governance.state}` as BenchKey)}
+              </Badge>{' '}
+              {th.governance.proposedBy && (
+                <>{bt(locale, 'govProposedBy', { who: th.governance.proposedBy })} </>
+              )}
+              {th.governance.decidedBy && (
+                <>{bt(locale, 'govDecidedBy', { who: th.governance.decidedBy })} </>
+              )}
+              {th.governance.reason && (
+                <>{bt(locale, 'govReason', { reason: th.governance.reason })}</>
+              )}
+            </p>
+            <h4 className="nz-h3">{k('govReviews')}</h4>
+            {th.governance.reviews.length === 0 ? (
+              <p>{k('govNoReviews')}</p>
+            ) : (
+              <ul>
+                {th.governance.reviews.map((r) => (
+                  <li key={r.by}>
+                    <Ltr>{r.by}</Ltr>: {bt(locale, `verdict_${r.verdict}` as BenchKey)} — {r.note}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <BenchmarksGovernanceForm
+              locale={locale}
+              version={th.version}
+              state={th.governance.state}
+              canManage={canRecord}
+              canApprove={canApprove}
+            />
+          </section>
           <Table
             caption={k('thresholds')}
             rows={th.items}

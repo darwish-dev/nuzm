@@ -165,3 +165,23 @@ export {
   type ScorecardDimension,
   type ScorecardRow,
 } from './scorecard';
+export {
+  REVIEW_VERDICTS,
+  acceptanceFrom,
+  checkThresholdEvent,
+  foldThresholdGovernance,
+  type EventCheck,
+  type ReviewVerdict,
+  type ThresholdEvent,
+  type ThresholdGovernance,
+  type ThresholdGovernanceState,
+} from './threshold-governance';
+export {
+  EVIDENCE_SCHEMA,
+  buildEvidenceRecord,
+  evidenceRecordProblems,
+  type EvidenceApprovals,
+  type EvidenceInput,
+  type EvidenceRecord,
+  type EvidenceStatus,
+} from './evidence-record';

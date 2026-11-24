@@ -127,3 +127,63 @@ describe('dataset versioning', () => {
     expect(nextVersion('2.3.4', 'none')).toBe('2.3.4');
   });
 });
+
+describe('the 83 golden tasks stay available across the 23 categories (pinned, so a quiet change fails)', () => {
+  const PINNED_COUNTS: Record<string, number> = {
+    'landing-page': 3,
+    'business-website': 6,
+    'e-commerce': 3,
+    'web-application': 6,
+    'mobile-application': 3,
+    'flutter-application': 3,
+    'full-stack': 3,
+    erp: 3,
+    crm: 3,
+    saas: 3,
+    'backend-api': 3,
+    'database-architecture': 3,
+    authentication: 3,
+    'ui-implementation': 3,
+    'responsive-design': 3,
+    'arabic-rtl': 3,
+    accessibility: 3,
+    'code-editing': 5,
+    'multi-file-refactoring': 3,
+    'bug-fixing': 4,
+    'security-remediation': 4,
+    'tool-calling': 6,
+    'build-deployment-planning': 4,
+  };
+  it('has 83 tasks, exactly the pinned number in each of the 23 categories, each at least the minimum the gate needs', () => {
+    expect(GOLDEN_TASKS).toHaveLength(83);
+    expect(new Set(GOLDEN_TASKS.map((t) => t.id)).size).toBe(83);
+    const counts: Record<string, number> = {};
+    for (const t of GOLDEN_TASKS) counts[t.category] = (counts[t.category] ?? 0) + 1;
+    expect(counts).toEqual(PINNED_COUNTS);
+    expect(Object.keys(counts)).toHaveLength(23);
+    expect(new Set(Object.keys(counts))).toEqual(new Set(TASK_CATEGORIES));
+    for (const c of TASK_CATEGORIES)
+      expect(counts[c], c).toBeGreaterThanOrEqual(MIN_TASKS_PER_CATEGORY);
+    expect(Object.values(PINNED_COUNTS).reduce((a, b) => a + b, 0)).toBe(83);
+  });
+  it('the published lock is the pinned version and hash, and lists exactly the live task ids', () => {
+    // a deliberate pin: cutting a new dataset version means updating these two lines on purpose
+    expect(DATASET_LOCK.datasetVersion).toBe('2.1.0');
+    expect(DATASET_LOCK.hash).toBe(
+      'b71c1377278190e2f3e2599790d05635cea1d10fdd0899fd8d1839e337e3bdae',
+    );
+    expect(DATASET_VERSION).toBe(DATASET_LOCK.datasetVersion);
+    expect(buildManifest(GOLDEN_TASKS).hash).toBe(DATASET_LOCK.hash);
+    expect(DATASET_LOCK.entries.map((e) => e[0]).sort()).toEqual(
+      GOLDEN_TASKS.map((t) => t.id).sort(),
+    );
+    expect(DATASET_LOCK.entries).toHaveLength(83);
+  });
+  it('the changed task of 2.1.0 is at revision 2 and no other task moved', () => {
+    const rev = (id: string) => DATASET_LOCK.entries.find((e) => e[0] === id)![1];
+    expect(rev('sec-03-hardcoded-token-ar')).toBe(2);
+    expect(DATASET_LOCK.entries.filter((e) => e[1] !== 1).map((e) => e[0])).toEqual([
+      'sec-03-hardcoded-token-ar',
+    ]);
+  });
+});

@@ -3,11 +3,15 @@ import { BENCH_KEYS, EXTRA_TEXTS, bt, type ExtraBenchKey } from './benchmarks-te
 import {
   MOCK_SOURCES,
   barText,
+  GOVERNANCE_STATES,
   PREREQUISITE_IDS,
   SCORECARD_DIMENSIONS,
   STAGE_IDS,
   evidenceTone,
+  governanceActions,
+  governanceBody,
   money,
+  parseGovernance,
   parseOverview,
   parseScorecard,
   parseStages,
@@ -255,5 +259,52 @@ describe('money, stages and scorecard parsing', () => {
     expect(scorecardValue(rows[1]!, 'n/a')).toBe('n/a');
     expect(scorecardValue({ value: 0.8571, unit: 'rate' }, 'n/a')).toBe('85.7%');
     expect(scorecardValue({ value: 2160, unit: 'tokens' }, 'n/a')).toBe('2160');
+  });
+});
+
+describe('threshold governance parsing and actions', () => {
+  it('reads the state and reviews; unknown states and verdicts fall back safely (nothing accepted)', () => {
+    expect(parseGovernance(undefined).state).toBe('NOT_PROPOSED');
+    expect(parseGovernance({ state: 'ACCEPTED_BY_MAGIC' }).state).toBe('NOT_PROPOSED');
+    const g = parseGovernance({
+      state: 'UNDER_REVIEW',
+      proposedBy: 'dev',
+      summary: 's',
+      reviews: [
+        { by: 'r1', verdict: 'approve', note: 'ok' },
+        { by: 'r2', verdict: 'shrug', note: 'x' },
+      ],
+    });
+    expect(g.state).toBe('UNDER_REVIEW');
+    expect(g.reviews).toEqual([{ by: 'r1', verdict: 'approve', note: 'ok' }]);
+    expect(GOVERNANCE_STATES).toHaveLength(6);
+  });
+  it('offers only the actions that make sense in a state', () => {
+    expect(governanceActions('NOT_PROPOSED')).toEqual(['propose']);
+    expect(governanceActions('UNDER_REVIEW')).toContain('accept');
+    expect(governanceActions('CHANGES_REQUESTED')).not.toContain('accept');
+    expect(governanceActions('ACCEPTED')).toEqual(['reject']);
+    expect(governanceActions('REJECTED')).toEqual(['propose']);
+  });
+  it('builds each body with the version and a request id', () => {
+    const id = '00000000-0000-4000-8000-000000000001';
+    expect(governanceBody('propose', '2-proposed', { text: 's' }, id)).toEqual({
+      action: 'propose_thresholds',
+      version: '2-proposed',
+      requestId: id,
+      summary: 's',
+    });
+    expect(
+      governanceBody('review', '2-proposed', { text: 'n', verdict: 'approve' }, id),
+    ).toMatchObject({ action: 'review_thresholds', verdict: 'approve', note: 'n' });
+    expect(governanceBody('accept', '2-proposed', {}, id)).toEqual({
+      action: 'accept_thresholds',
+      version: '2-proposed',
+      requestId: id,
+    });
+    expect(governanceBody('reject', '2-proposed', { text: 'why' }, id)).toMatchObject({
+      action: 'reject_thresholds',
+      reason: 'why',
+    });
   });
 });

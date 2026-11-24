@@ -48,6 +48,7 @@ export default async function AiBenchmarks({ params }: { params: Promise<{ local
         overview={overview}
         scorecard={scorecard}
         canRecord={s.can('admin:ai:manage')}
+        canApprove={s.can('admin:ai:approve')}
       />
     ),
   );

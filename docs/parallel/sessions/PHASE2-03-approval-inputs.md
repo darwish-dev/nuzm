@@ -21,6 +21,7 @@ Author: Session 03 · 2026-11-24. These are **inputs to decisions, not decisions
 - **Impact:** decides who passes. Too strict: no model qualifies and nobody learns why. Too loose: an unreliable model reaches customers. The acceptance names the version; a later change needs a new acceptance.
 - **Blocks:** activation of every live stage (the preflight refuses without an acceptance of the current version). Does not block development. Accept **before any live result exists**, so thresholds cannot be fitted to a result.
 - **Engineering after acceptance:** small, tested change (new version `3-proposed`, the floor rule, T21 scope); the old list stays pinned by tests.
+- **How it is recorded (built):** the console records a proposal, then a review by someone else, then the owner's acceptance or rejection (reason required) as append-only events; the acceptance names the exact version, is never set automatically, requires the accepter to differ from the proposer and from the approving reviewer, and a later rejection withdraws it (`CONTRACT-S03-5`).
 
 ## Decision 2 — BUD: the benchmark budget (and the price card it is sized with)
 - **Question:** how much vendor money may the benchmark programme spend, per stage, and on what price?
@@ -97,3 +98,23 @@ Author: Session 03 · 2026-11-24. These are **inputs to decisions, not decisions
 
 ## What is not an owner decision
 Dataset content, scorers, regression detection, comparison, reviewer workflow, qualification state machine, budget ledger, the sealed live runner and the dashboard are engineering, done and tested offline. The only genuinely missing engineering piece is an adapter-backed `CaptureSource`, which is built against a verified provider (Session 02); it cannot be built to the standard "tested against the real thing" until D2–D6 and D9 exist, and is therefore listed as a dependency, not a decision.
+
+---
+
+## Reconciliation with Session 02's inputs (read 2026-11-24: `PHASE2-02-approval-inputs.md`, `LIVE-PROVIDER-PLAN.md`, `S-AG4-SPEND-CAPS.md`)
+| Item | Session 02 | Session 03 | Reconciled |
+|---|---|---|---|
+| Vendor price used | Claude Opus 5.5 list price $4 input / $20 output per million tokens, "to be confirmed against the agreement or the console (HG-09-01)" | the same figures, same date, same status `TO_BE_CONFIRMED_BY_S02_D6` | **identical**; the benchmark plan reads the price from the approved budget's price card once D6 confirms it |
+| Verification run (not a benchmark) | hard maximum **USD 0.197440** for all live steps (the suite alone USD 0.116720) | not part of any stage | stage A ($4.40 maximum) is about 22 times that; the two are separate spends |
+| D4 vendor cap | **USD 5 per month to start**, "sized for verification"; states that "benchmarks need their own, larger budget (BUD) and a vendor cap sized for it" | recommends the cap at the largest single-stage maximum of the month plus 20 % | **differs, deliberately**: $5 covers the verification run but **not even stage A plus its headroom once other spend is counted** ($4.40 maximum, leaving $0.60) and not B ($23.60). Recommended cap schedule for the dedicated workspace: verification month $5 (S02's figure); month with stage A: **$10**; month with stage B: **$30**; month with stage C: **$100**; a month of stage D (2 candidates): **$200**. The owner raises the cap before each stage and records it; the benchmark budget BUD is approved per stage at that stage's maximum |
+| Platform daily cap | credits cap at 80 % of the vendor cap divided by days | not specified | the benchmark runs outside the customer wallet (our cost, not a customer charge): its own budget ledger is the platform-side cap, and the vendor cap is the second line |
+| Per-call ceiling | `max_tokens` on every request; thinking tokens count inside it | the stage MAXIMUM excludes the overshoot of one call past a reservation | open input from S02: the adapter's per-call `max_tokens` for benchmark calls (to be confirmed); until then the maximum is a ledger ceiling plus at most one call |
+| Tool-use overhead for a forced tool choice | NOT STATED on the vendor page | not assumed; inside provider-reported usage | consistent |
+| Customer rate card (D6) | credits per million, FX and margin are the owner's; illustrative only | vendor cost only; no credits in the benchmark | consistent: the benchmark never uses the customer rate |
+
+## Running a stage (what exists today)
+Command (from the repository root; simulated by default):
+```bash
+pnpm exec tsx packages/domain/src/ai/benchmarks/cli/qualify.ts --stage A
+```
+It prints the stage plan with its **hard maximum cost first**, then a scorecard marked SIMULATED (a scripted mock model) and the evidence record. `--mode live` refuses (exit 3, nothing loaded or called) unless every approval above exists as a reference in the environment; then it needs the confirmation gate (`NUZM_BENCH_APPROVAL_REF` and `--confirm-max <the printed maximum in minor units>`) and a capture source module (`NUZM_BENCH_CAPTURE_SOURCE_MODULE`, S02's adapter-backed implementation, which does not exist yet). Details and the evidence record are in `docs/ai-intelligence/S-AG5-STAGES.md` §8.

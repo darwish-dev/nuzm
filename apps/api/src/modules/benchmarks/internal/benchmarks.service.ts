@@ -41,6 +41,7 @@ const requestIdOf = (b: Record<string, unknown>): string => {
     );
   return v;
 };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PROFILES = new Set<string>(bm.MOCK_PROFILES);
 const RATE: bm.RateCard = { creditsPerMillionInput: '3', creditsPerMillionOutput: '15' };
 
@@ -153,14 +154,52 @@ export class BenchmarksService {
     return row ? { row, payload: row.payload as T } : null;
   }
 
+  /**
+   * The threshold-governance log: events of kind `threshold_acceptance`, subject `thresholds`, oldest first. A row that is not a governance event (an old plain acceptance written
+   * before the workflow existed) is not an event and therefore grants nothing: an acceptance exists only as an `accept` event that passed the rules.
+   */
+  private async thresholdLog(): Promise<bm.ThresholdEvent[]> {
+    const rows = await this.store.records('threshold_acceptance', 'thresholds');
+    return rows
+      .map((r) => r.payload as bm.ThresholdEvent)
+      .filter(
+        (e) =>
+          typeof e === 'object' &&
+          e !== null &&
+          ['propose', 'review', 'accept', 'reject'].includes((e as { type?: string }).type ?? ''),
+      );
+  }
+  private async thresholdAcceptance(): Promise<bm.ThresholdAcceptance | null> {
+    return bm.acceptanceFrom(await this.thresholdLog());
+  }
+  /** Appends one governance event through the rules; a replay of the same `requestId` returns the stored event. */
+  private async recordThresholdEvent(
+    who: string,
+    requestId: string,
+    event: bm.ThresholdEvent,
+    action: string,
+  ) {
+    const rows = await this.store.records('threshold_acceptance', 'thresholds');
+    const prior = rows.find((r) => r.requestId === requestId);
+    if (prior) return { created: false as const, event: prior.payload as bm.ThresholdEvent };
+    const check = bm.checkThresholdEvent(await this.thresholdLog(), event);
+    if (!check.ok) return invalid(check.error);
+    const { created } = await this.put('threshold_acceptance', 'thresholds', event, who, requestId);
+    if (created)
+      await this.log(
+        action,
+        who,
+        { type: 'ai_benchmark_thresholds' },
+        { version: event.version, event: event.type },
+      );
+    return { created, event };
+  }
+
   // ---- read side
   async overview() {
     if (!(await this.flags.enabled())) return { enabled: false as const };
     const manifest = bm.buildManifest(bm.GOLDEN_TASKS);
-    const acceptance = await this.latest<bm.ThresholdAcceptance>(
-      'threshold_acceptance',
-      'thresholds',
-    );
+    const governance = bm.foldThresholdGovernance(await this.thresholdLog());
     const budget = await this.latest<StoredBudget>('budget', 'live');
     const security = await this.latest<bm.SecurityReviewRecord>('security_review', 'agent');
     const reviewers = await this.latest<bm.Reviewer[]>('reviewers', 'roster');
@@ -177,11 +216,9 @@ export class BenchmarksService {
       },
       thresholds: {
         version: bm.THRESHOLDS_VERSION,
-        status:
-          acceptance?.payload.version === bm.THRESHOLDS_VERSION
-            ? ('ACCEPTED' as const)
-            : ('PROPOSED' as const),
-        acceptance: acceptance?.payload ?? null,
+        status: governance.state === 'ACCEPTED' ? ('ACCEPTED' as const) : ('PROPOSED' as const),
+        governance,
+        acceptance: governance.acceptance,
         items: bm.PROPOSED_THRESHOLDS,
         categoryFloor: bm.CATEGORY_PASS_FLOOR,
         humanAcceptance: bm.HUMAN_ACCEPTANCE_PROPOSAL,
@@ -236,6 +273,7 @@ export class BenchmarksService {
   }
   async getRun(id: string) {
     await this.requireEnabled();
+    if (!UUID.test(id)) throw new ProblemException('not_found', 'benchmark run not found');
     const r = await this.store.getRun(id);
     if (!r) throw new ProblemException('not_found', 'benchmark run not found');
     return {
@@ -314,34 +352,82 @@ export class BenchmarksService {
   }
 
   // ---- governance records
+  /** A proposal of the thresholds in force (anyone with `admin:ai:manage`); it starts a review round. */
+  async proposeThresholds(who: string, b: Record<string, unknown>) {
+    await this.requireEnabled();
+    const requestId = requestIdOf(b);
+    return this.recordThresholdEvent(
+      who,
+      requestId,
+      {
+        type: 'propose',
+        version: this.versionOf(b),
+        by: who,
+        at: this.now().toISOString(),
+        summary: str(b.summary, 'summary', 2000),
+      },
+      'ai.benchmark.thresholds_proposed',
+    );
+  }
+  /** A review of the proposal: not the proposer, once per round, with a note. */
+  async reviewThresholds(who: string, b: Record<string, unknown>) {
+    await this.requireEnabled();
+    const requestId = requestIdOf(b);
+    return this.recordThresholdEvent(
+      who,
+      requestId,
+      {
+        type: 'review',
+        version: this.versionOf(b),
+        by: who,
+        at: this.now().toISOString(),
+        verdict: b.verdict as bm.ReviewVerdict,
+        note: str(b.note, 'note', 2000),
+      },
+      'ai.benchmark.thresholds_reviewed',
+    );
+  }
+  /** The owner's acceptance. It is RECORDED here, by the person acting, after the rules allow it; nothing else creates one. */
   async acceptThresholds(who: string, b: Record<string, unknown>) {
     await this.requireEnabled();
     const requestId = requestIdOf(b);
-    if (b.version !== bm.THRESHOLDS_VERSION)
-      invalid(
-        `the thresholds in force are version ${bm.THRESHOLDS_VERSION}; an acceptance must name exactly that version`,
-      );
-    const acceptance: bm.ThresholdAcceptance = {
-      version: bm.THRESHOLDS_VERSION,
-      acceptedBy: who,
-      acceptedAt: this.now().toISOString(),
-      ...(b.noBaselineAllowed === true ? { noBaselineAllowed: true } : {}),
-    };
-    const { created } = await this.put(
-      'threshold_acceptance',
-      'thresholds',
-      acceptance,
+    const r = await this.recordThresholdEvent(
       who,
       requestId,
+      {
+        type: 'accept',
+        version: this.versionOf(b),
+        by: who,
+        at: this.now().toISOString(),
+        ...(b.noBaselineAllowed === true ? { noBaselineAllowed: true } : {}),
+      },
+      'ai.benchmark.thresholds_accepted',
     );
-    if (created)
-      await this.log(
-        'ai.benchmark.thresholds_accepted',
-        who,
-        { type: 'ai_benchmark_thresholds' },
-        { version: acceptance.version, noBaselineAllowed: acceptance.noBaselineAllowed === true },
+    return { created: r.created, acceptance: await this.thresholdAcceptance(), event: r.event };
+  }
+  /** The owner's rejection (also withdraws an earlier acceptance of that version). */
+  async rejectThresholds(who: string, b: Record<string, unknown>) {
+    await this.requireEnabled();
+    const requestId = requestIdOf(b);
+    return this.recordThresholdEvent(
+      who,
+      requestId,
+      {
+        type: 'reject',
+        version: this.versionOf(b),
+        by: who,
+        at: this.now().toISOString(),
+        reason: str(b.reason, 'reason', 2000),
+      },
+      'ai.benchmark.thresholds_rejected',
+    );
+  }
+  private versionOf(b: Record<string, unknown>): string {
+    if (b.version !== bm.THRESHOLDS_VERSION)
+      invalid(
+        `the thresholds in force are version ${bm.THRESHOLDS_VERSION}; an event must name exactly that version`,
       );
-    return { created, acceptance };
+    return bm.THRESHOLDS_VERSION;
   }
   async setBudget(who: string, b: Record<string, unknown>) {
     await this.requireEnabled();
@@ -429,7 +515,8 @@ export class BenchmarksService {
   async createReviewPlan(who: string, b: Record<string, unknown>) {
     await this.requireEnabled();
     const requestId = requestIdOf(b);
-    const run = await this.store.getRun(str(b.runId, 'runId', 80));
+    const runId = str(b.runId, 'runId', 80);
+    const run = UUID.test(runId) ? await this.store.getRun(runId) : null;
     if (!run) throw new ProblemException('not_found', 'benchmark run not found');
     const roster = (await this.latest<bm.Reviewer[]>('reviewers', 'roster'))?.payload ?? [];
     const made = bm.createReviewPlan({
@@ -504,15 +591,16 @@ export class BenchmarksService {
   // ---- the gate
   async evaluateGate(who: string, b: Record<string, unknown>) {
     await this.requireEnabled();
-    const run = await this.store.getRun(str(b.runId, 'runId', 80));
+    const runId = str(b.runId, 'runId', 80);
+    const run = UUID.test(runId) ? await this.store.getRun(runId) : null;
     if (!run) throw new ProblemException('not_found', 'benchmark run not found');
     const baseline =
-      typeof b.baselineRunId === 'string' ? await this.store.getRun(b.baselineRunId) : null;
+      typeof b.baselineRunId === 'string' && UUID.test(b.baselineRunId)
+        ? await this.store.getRun(b.baselineRunId)
+        : null;
     if (typeof b.baselineRunId === 'string' && !baseline)
       throw new ProblemException('not_found', 'baseline run not found');
-    const acceptance =
-      (await this.latest<bm.ThresholdAcceptance>('threshold_acceptance', 'thresholds'))?.payload ??
-      null;
+    const acceptance = await this.thresholdAcceptance();
     const security =
       (await this.latest<bm.SecurityReviewRecord>('security_review', 'agent'))?.payload ?? null;
     let human: bm.HumanAcceptanceResult | null = null;
@@ -641,9 +729,7 @@ export class BenchmarksService {
     const requestId = requestIdOf(b);
     const stage = stageOf(b.stage);
     const env = this.env();
-    const acceptance =
-      (await this.latest<bm.ThresholdAcceptance>('threshold_acceptance', 'thresholds'))?.payload ??
-      null;
+    const acceptance = await this.thresholdAcceptance();
     const budget = (await this.latest<StoredBudget>('budget', 'live'))?.payload ?? null;
     const security =
       (await this.latest<bm.SecurityReviewRecord>('security_review', 'agent'))?.payload ?? null;

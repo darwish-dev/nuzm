@@ -6,6 +6,8 @@ import {
   assessLiveEvidence,
   liveSuiteCost,
   liveSuiteWorstCase,
+  tokenCostNano,
+  type WorstCase,
   reconcileLiveReport,
   runLiveVerification,
   type LiveReport,
@@ -80,6 +82,8 @@ export function evaluateSmokeGates(
   env: NodeJS.ProcessEnv,
   adapter: Pick<ModelAdapter, 'id' | 'pricing' | 'models'>,
   now: Date = new Date(),
+  /** what the run may use at most (default: the nine-check suite; the qualification tracks pass their own) */
+  worst: WorstCase = liveSuiteWorstCase(),
 ): { problems: string[]; approval?: LiveSuiteApproval; standing: string[] } {
   const problems: string[] = [];
   const cfg = loadAiConfig(env);
@@ -119,8 +123,8 @@ export function evaluateSmokeGates(
         problems.push(
           'the approval file asks for more requests or tokens than the recorded approval (AI_PROBE_APPROVALS)',
         );
-      const w = liveSuiteWorstCase();
-      const need = BigInt(liveSuiteCost(adapter.pricing).maxNano);
+      const w = worst;
+      const need = tokenCostNano(w.inputTokens, w.outputTokens, adapter.pricing);
       if (maxRequests < w.requests || maxTotalTokens < w.totalTokens)
         problems.push(
           `the approval does not cover the worst case (${w.requests} requests, ${w.totalTokens} tokens)`,

@@ -40,6 +40,7 @@ import { AI_CONFIG, loadAiConfig, type AiConfig } from './internal/model';
 import { probeAnthropic } from './internal/claude-probe';
 import { ModelProviderService } from './internal/provider.service';
 import { ProviderInsightsService } from './internal/provider-insights.service';
+import { AiContentAccess } from './internal/ai-content-access.service';
 import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/registry';
 
 /**
@@ -144,6 +145,11 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
       ],
     },
     {
+      provide: AiContentAccess,
+      useFactory: (db: Db, a: AuditSink) => new AiContentAccess(db, a),
+      inject: [DB, AuditSink],
+    },
+    {
       provide: ProviderInsightsService,
       useFactory: (
         db: Db,
@@ -234,6 +240,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     BudgetService,
     GatewayService,
     ProviderInsightsService,
+    AiContentAccess,
     RunKindRegistry,
     RunService,
     SessionService,

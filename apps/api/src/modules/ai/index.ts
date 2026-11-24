@@ -47,3 +47,5 @@ export type {
 export { AgentWorkspaceRegistry, StaticAgentWorkspaceRegistry } from './internal/agent-workspace';
 export type { AgentWorkspaceProvider } from './internal/agent-workspace';
 export { AI_AGENT_EXEC_TOOLS_FLAG, AI_AGENT_READ_TOOLS_FLAG } from './internal/flags';
+export { AiContentAccess, AI_CONTENT_OPERATIONS } from './internal/ai-content-access.service';
+export type { AiContentOperation } from './internal/ai-content-access.service';

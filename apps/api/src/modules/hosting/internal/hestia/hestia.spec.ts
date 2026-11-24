@@ -268,8 +268,10 @@ describe('HestiaHostingAdapter against the mock panel (NOT VERIFIED vs vendor)',
     expect((await adapter.deleteSite(ctx, NODE, name, T)).status).toBe('succeeded');
   });
 
-  it('backups are unsupported (never faked)', async () => {
-    expect((await adapter.backup()).error?.category).toBe('unsupported');
-    expect((await adapter.restore()).error?.category).toBe('unsupported');
+  it('without an off-server store, backups and restores are unsupported (never faked)', async () => {
+    const name = 's-aaaa11112222bbbb';
+    expect((await adapter.backup(ctx, NODE, name, T)).error?.category).toBe('unsupported');
+    const ref = { backupId: 'b', sizeBytes: 1, checksum: 'a'.repeat(64), manifest: [] };
+    expect((await adapter.restore(ctx, NODE, name, ref, T)).error?.category).toBe('unsupported');
   });
 });

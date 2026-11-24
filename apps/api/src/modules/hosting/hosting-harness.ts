@@ -188,6 +188,8 @@ export class HostingHarness {
       runtimes?: string[];
       price?: number | null;
       quotas?: object;
+      /** the application installed with the site (`wordpress` = Managed WordPress) */
+      app?: 'wordpress';
     } = {},
   ): Promise<string> {
     const [r] = await this.env.sql(
@@ -214,6 +216,11 @@ export class HostingHarness {
         over.price === undefined ? 10000 : over.price,
       ],
     );
+    if (over.app)
+      await this.env.sql(`UPDATE hosting.plan_definitions SET app_kind = $2 WHERE id = $1`, [
+        r!.id,
+        over.app,
+      ]);
     return r!.id as string;
   }
   async quote(who: string, org: string, planId: string, runtime: string) {

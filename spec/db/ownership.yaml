@@ -101,7 +101,7 @@ schemas:
     owner_module: hosting
     created_by: M06
     extended_by: [ M10, M06-INT ]
-    tables: [ abuse_cases, metering_marks, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, site_allocations, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports ]
+    tables: [ abuse_cases, metering_marks, monitor_alerts, node_agents, node_capacity, node_command_log, node_enrolment_tokens, node_overcommit_changes, nodes, plan_definitions, quota_events, restore_drills, site_allocations, site_apps, site_backups, site_domain_bindings, site_migrations, site_quotas, site_usage_reports, sites, ssl_certificates, wipe_reports ]
   domains:
     owner_module: domains
     created_by: M07
@@ -311,6 +311,8 @@ tenant_less:
   - hosting.plan_definitions
   - hosting.site_allocations
   - hosting.site_migrations
+  - hosting.restore_drills
+  - hosting.monitor_alerts
   - ai.model_providers
   - ai.model_capability_evidence
   - compliance.policy_versions
@@ -463,6 +465,8 @@ classification:
     hosting.sites.backup_key_ref: vault_ref
     hosting.ssl_certificates.secret_ref: vault_ref
     hosting.site_backups.enc_key_ref: vault_ref
+    hosting.site_apps.admin_secret_ref: vault_ref
+    hosting.site_apps.db_secret_ref: vault_ref
     invoicing.zatca_credentials_refs.key_ref: vault_ref
     invoicing.zatca_credentials_refs.token_ref: vault_ref
     invoicing.zatca_credentials_refs.secret_ref: vault_ref
@@ -2150,6 +2154,7 @@ classification:
       panel_port: internal
       panel_key_ref: credentials
       panel_tls_pin: internal
+      purpose: internal
       runtimes: internal
       overcommit_factor: internal
       overcommit_change_id: internal
@@ -2223,6 +2228,7 @@ classification:
       price_minor: public
       currency: public
       placeholder: public
+      app_kind: public
       created_at: internal
     hosting.sites:
       id: internal
@@ -2243,6 +2249,7 @@ classification:
       domain_primary: personal
       credentials_ref: credentials
       backup_key_ref: credentials
+      app_kind: internal
       settings: customer-content
       quote_id: internal
       operation_id: internal
@@ -2343,6 +2350,57 @@ classification:
       created_at: internal
       expires_at: internal
       deleted_at: internal
+      archive_name: internal
+      provider_state: internal
+    hosting.site_apps:
+      id: internal
+      site_id: internal
+      org_id: internal
+      app: internal
+      state: internal
+      phase: internal
+      admin_user: personal
+      admin_secret_ref: credentials
+      db_secret_ref: credentials
+      db_name: internal
+      locale: internal
+      handover_state: internal
+      handover_expires_at: internal
+      handover_consumed_at: internal
+      verification: internal
+      attempts: internal
+      last_error: internal
+      installed_at: internal
+      verified_at: internal
+      created_at: internal
+      updated_at: internal
+    hosting.restore_drills:
+      id: internal
+      backup_id: internal
+      site_id: internal
+      org_id: internal
+      node_id: internal
+      state: internal
+      checks: internal
+      error: internal
+      started_at: internal
+      finished_at: internal
+      duration_ms: internal
+      created_by: internal
+    hosting.monitor_alerts:
+      id: internal
+      kind: internal
+      severity: internal
+      scope_key: internal
+      node_id: internal
+      site_id: internal
+      org_id: internal
+      summary: internal
+      detail: internal
+      state: internal
+      opened_at: internal
+      last_seen_at: internal
+      resolved_at: internal
     hosting.site_migrations:
       id: internal
       site_id: internal

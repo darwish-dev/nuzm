@@ -18,6 +18,10 @@ export class HostingJobs {
   private running = false;
   private readonly handlers = new Map<string, Handler>();
   private readonly sweeps: { name: string; run: () => Promise<unknown> }[] = [];
+  private readonly onFailed = new Map<
+    string,
+    (orgId: string, input: Record<string, unknown>, message: string) => Promise<void>
+  >();
   constructor(
     private readonly ops: OperationsService,
     private readonly db: Db,
@@ -39,6 +43,13 @@ export class HostingJobs {
   }
   register(kind: string, h: Handler) {
     this.handlers.set(kind, h);
+  }
+  /** Called once an operation of `kind` has used its last attempt (the owning service records the terminal failure on its own row). */
+  registerOnFailed(
+    kind: string,
+    fn: (orgId: string, input: Record<string, unknown>, message: string) => Promise<void>,
+  ) {
+    this.onFailed.set(kind, fn);
   }
   registerSweep(name: string, run: () => Promise<unknown>) {
     this.sweeps.push({ name, run });
@@ -116,6 +127,14 @@ export class HostingJobs {
             code: permanent ? (e as PermanentError).code : 'error',
           })
           .catch(() => null);
+        if (failed?.state === 'failed' && this.onFailed.has(c.kind)) {
+          const op = await this.ops.get(c.orgId, c.id);
+          await this.onFailed.get(c.kind)!(
+            c.orgId,
+            (op?.input ?? {}) as Record<string, unknown>,
+            message,
+          ).catch(() => undefined);
+        }
         if (failed?.state === 'failed' && c.kind === KIND.create) {
           const op = await this.ops.get(c.orgId, c.id);
           await this.workflow

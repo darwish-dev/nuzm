@@ -42,6 +42,17 @@ export interface HostingCapabilityReport {
 export const RUNTIME_ID =
   /^(php|nodejs|python):[0-9]{1,2}(\.[0-9]{1,2})?$|^static$|^reverse-proxy$/;
 
+/** What a `backup()` call knows from the earlier attempts of the same backup row (idempotency across retries and restarts). */
+export interface BackupRequest {
+  idempotencyToken: string;
+  operationId: string;
+  backupId?: string;
+  /** archive names that existed BEFORE this backup was scheduled: anything else that appears is this backup's archive */
+  known?: string[];
+  /** false once the schedule command was sent for this backup: a retry only waits for the archive, it never schedules a second one */
+  scheduleAllowed?: boolean;
+}
+
 /* ───────────── HostingAdapter (docs/09 §3) ───────────── */
 export interface NodeRef {
   nodeId: string;
@@ -67,6 +78,8 @@ export interface SiteLimits {
   bandwidthGbMonth: number;
 }
 export interface SiteSpec {
+  /** key of the plan the site was bought on: the Hestia PACKAGE (limits, backups, shell) is named after it (`nz-<key>`, docs/runbooks/node-onboarding.md) */
+  planKey?: string;
   /** The site NAME on the node, derived from the idempotency token: `s-<12..40 lowercase alnum>`. Reconcile-before-retry looks sites up by it. */
   name: string;
   runtime: string;
@@ -98,9 +111,20 @@ export interface BackupRef {
   backupId: string;
   sizeBytes: number;
   checksum: string;
-  /** where the (already encrypted) archive was stored */
+  /** where the archive was stored OFF the node */
   sinkRef?: string;
   manifest: { path: string; sha256: string; bytes: number }[];
+  /** panel archive name (Hestia: `<user>.<timestamp>.tar`) */
+  archiveName?: string;
+  /** false when the panel's own archive carries no encryption (Hestia documents none); the sink then protects it (region, access, at-rest encryption) */
+  encrypted?: boolean;
+  /** what the account held when the archive was taken: the restore is verified against it (domains, databases) */
+  snapshot?: { domains: string[]; databases: number };
+}
+/** One archive as the node (or the off-server store) lists it. */
+export interface BackupArchive {
+  name: string;
+  sizeBytes: number | null;
 }
 export interface SiteUsage {
   observedAt: string;
@@ -146,7 +170,7 @@ export interface HostingAdapter {
     ctx: AccountContext,
     node: NodeRef,
     siteName: string,
-    patch: { limits?: SiteLimits; runtime?: string; domains?: string[] },
+    patch: { limits?: SiteLimits; runtime?: string; domains?: string[]; planKey?: string },
     t: { idempotencyToken: string; operationId: string },
   ): Promise<OperationResult<SiteInfo>>;
   suspendSite(
@@ -178,8 +202,21 @@ export interface HostingAdapter {
     ctx: AccountContext,
     node: NodeRef,
     siteName: string,
-    t: { idempotencyToken: string; operationId: string; backupId?: string },
+    t: BackupRequest,
   ): Promise<OperationResult<BackupRef>>;
+  /** Removes an archive that is still on the node (retention). An archive that is already gone is success. Optional. */
+  deleteBackup?(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+    archiveName: string,
+  ): Promise<OperationResult<void>>;
+  /** Archives of an account that exist on the node or off-server (Hestia: `v-list-user-backups` + the off-server store). Optional: an adapter without it takes the whole archive in `backup()`. */
+  listBackups?(
+    ctx: AccountContext,
+    node: NodeRef,
+    siteName: string,
+  ): Promise<OperationResult<BackupArchive[]>>;
   restore(
     ctx: AccountContext,
     node: NodeRef,
@@ -195,6 +232,64 @@ export interface HostingAdapter {
     siteName: string,
   ): Promise<OperationResult<SiteWipeReport>>;
 }
+
+/* ───────────── managed WordPress (ADR-068) ───────────── */
+/** What an HTTP look at the site says about WordPress: the OBSERVED phase drives the install, never a remembered one. */
+export type WpPhase = 'none' | 'unconfigured' | 'uninstalled' | 'installed';
+export interface SiteObservation {
+  /** the node answered HTTP for this host name */
+  answers: boolean;
+  phase: WpPhase;
+  /** `/wp-login.php` is served by an installed WordPress */
+  adminPage: boolean;
+  detail: string;
+}
+export interface SiteProbe {
+  observe(nodeId: string, domain: string): Promise<SiteObservation>;
+}
+export const SITE_PROBE = Symbol('HOSTING_SITE_PROBE');
+export interface WpSite {
+  name: string;
+  domain: string;
+  runtime: string;
+}
+/** Node-side steps of a WordPress install. Each one is idempotent or refuses safely (WP-CLI never overwrites an existing install/config). Secrets arrive as plain arguments and are never logged. */
+export interface WordPressNodePort {
+  ensureWpCli(ctx: AccountContext, node: NodeRef, site: WpSite): Promise<OperationResult<void>>;
+  ensureDatabase(
+    ctx: AccountContext,
+    node: NodeRef,
+    site: WpSite,
+    db: { name: string; user: string; password: string },
+  ): Promise<OperationResult<{ dbName: string; dbUser: string }>>;
+  prepareDocroot(ctx: AccountContext, node: NodeRef, site: WpSite): Promise<OperationResult<void>>;
+  download(
+    ctx: AccountContext,
+    node: NodeRef,
+    site: WpSite,
+    locale: string,
+  ): Promise<OperationResult<void>>;
+  configure(
+    ctx: AccountContext,
+    node: NodeRef,
+    site: WpSite,
+    c: { dbName: string; dbUser: string; dbPassword: string; prefix: string; locale: string },
+  ): Promise<OperationResult<void>>;
+  install(
+    ctx: AccountContext,
+    node: NodeRef,
+    site: WpSite,
+    i: { title: string; adminUser: string; adminPassword: string; adminEmail: string },
+  ): Promise<OperationResult<void>>;
+  resetAdminPassword(
+    ctx: AccountContext,
+    node: NodeRef,
+    site: WpSite,
+    r: { adminUser: string; password: string },
+  ): Promise<OperationResult<void>>;
+  applyTemplate(ctx: AccountContext, node: NodeRef, site: WpSite): Promise<OperationResult<void>>;
+}
+export const WORDPRESS_PORT = Symbol('HOSTING_WORDPRESS_PORT');
 
 /* ───────────── ports for other milestones (mocks now) ───────────── */
 /** M05: the platform-owned instance a node runs on. Real implementation = ComputeAdapter/`compute.instances` (assumption A-02). */
@@ -252,6 +347,14 @@ export interface BackupSink {
   get(ref: string): Promise<Buffer | null>;
   delete(ref: string): Promise<boolean>;
   exists(ref: string): Promise<boolean>;
+  /** Archives under `<region>/<siteName>/`: the node uploads them itself (Hestia's backup host), the control plane only observes them. */
+  list?(region: string, siteName: string): Promise<{ name: string; sizeBytes: number }[]>;
+  /** Size and sha256 of a stored archive WITHOUT holding it in memory. */
+  stat?(ref: string): Promise<{ sizeBytes: number; sha256: string } | null>;
+  /** The reference an archive of this site has in this sink (the node's backup host path is `<region>/<siteName>/`). */
+  refOf?(region: string, siteName: string, archiveName: string): string;
+  /** Reachability of the store itself (monitoring). */
+  health?(region: string): Promise<{ ok: boolean; detail?: string }>;
 }
 export const BACKUP_SINK = Symbol('BACKUP_SINK');
 
@@ -260,6 +363,8 @@ export interface VaultPort {
   put(ref: string, secret: Buffer | string): Promise<void>;
   exists(ref: string): Promise<boolean>;
   delete(ref: string): Promise<void>;
+  /** Returns a stored secret. Only the one-time handover and the node workflow call it; never a controller on its own. */
+  read(ref: string): Promise<Buffer | null>;
 }
 export const VAULT_PORT = Symbol('VAULT_PORT');
 

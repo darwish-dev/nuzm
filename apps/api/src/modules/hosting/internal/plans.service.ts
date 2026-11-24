@@ -21,6 +21,8 @@ export interface PlanDto {
   };
   price: { amountMinor: string; currency: string; placeholder: boolean } | null;
   runtimes: string[];
+  /** the application installed with the site (`wordpress` = Managed WordPress) */
+  app: 'none' | 'wordpress';
   /** data regions of the eligible nodes; `country` is set when exactly one. */
   regions: string[];
   country: string | null;
@@ -31,6 +33,7 @@ export interface PlanRow {
   status: string;
   quotas: PlanDto['quotas'];
   runtimes: string[];
+  appKind: 'none' | 'wordpress';
   reservation: { cpu_millicores: number; memory_mb: number; disk_mb: number };
   priceMinor: string | null;
   currency: string;
@@ -44,6 +47,7 @@ export const planRow = (r: Row): PlanRow => ({
   status: r.status as string,
   quotas: r.quotas as PlanDto['quotas'],
   runtimes: r.runtimes as string[],
+  appKind: ((r.app_kind as string | undefined) ?? 'none') as 'none' | 'wordpress',
   reservation: r.reservation as PlanRow['reservation'],
   priceMinor: r.price_minor === null ? null : String(r.price_minor),
   currency: (r.currency as string).trim(),
@@ -206,6 +210,7 @@ export class PlansService {
               ? null
               : { amountMinor: p.priceMinor, currency: p.currency, placeholder: p.placeholder },
           runtimes: rt,
+          app: p.appKind,
           regions: [...ok].sort(),
           country: ok.size === 1 ? [...ok][0]! : null,
         });

@@ -4310,7 +4310,12 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: providerKey, in: path, required: true, schema: { type: string, enum: [alibaba, huawei] } }
+        - {
+            name: providerKey,
+            in: path,
+            required: true,
+            schema: { type: string, enum: [alibaba, huawei] },
+          }
         - { name: regionId, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
@@ -4336,7 +4341,12 @@ paths:
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
       parameters:
-        - { name: providerKey, in: path, required: true, schema: { type: string, enum: [alibaba, huawei] } }
+        - {
+            name: providerKey,
+            in: path,
+            required: true,
+            schema: { type: string, enum: [alibaba, huawei] },
+          }
         - { name: regionId, in: path, required: true, schema: { type: string } }
       responses:
         '204': { description: Removed }
@@ -4348,7 +4358,7 @@ paths:
       operationId: adminConnectProviderAccount
       tags: [cloud]
       summary: 'Connect a provider with credentials typed in the console'
-      description: 'Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider''s adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created.'
+      description: "Body {providerId, name, credentials, scopeNote?, spendCap?}. `credentials` is the named field set the provider's adapter reads: alibaba {accessKeyId, accessKeySecret}; huawei {accessKey, secretKey} or {iamUser, iamPassword, domainName}; contabo {clientId, clientSecret, apiUser, apiPassword}. Write-only: the values go to the sealed secret store (non-production profiles only: the production vault is undecided, D-12, so production answers 422 unsupported_capability and a vault reference through adminCreateProviderAccount is the only way) and the account is created with the resulting vault reference. They are never stored in the database, logged, audited or returned. Needs admin:provider:manage and a recent MFA check. Audited as provider.account.created."
       x-nuzm-platform-permission: admin:provider:manage
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -6404,7 +6414,7 @@ paths:
       operationId: runHostingNodeInventory
       tags: [hosting]
       summary: Run the inventory job for a node now
-      description: 'Probe + inventory through the node''s HestiaCP panel (this is the connection test): version, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The panel connection must be set (409 otherwise). Permission admin:hosting:manage, MFA step-up.'
+      description: "Probe + inventory through the node's HestiaCP panel (this is the connection test): version, health, runtimes (as REPORTED by the probe) and capacity sizing (measured capacity minus the platform reserve). The panel connection must be set (409 otherwise). Permission admin:hosting:manage, MFA step-up."
       x-nuzm-platform-permission: admin:hosting:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -6865,7 +6875,7 @@ paths:
       operationId: createHostingSiteBackup
       tags: [hosting]
       summary: Create a backup of a site
-      description: 'Encrypted on the node with the PER-SITE key and stored in the backup sink of the site region (residency checked, 403 residency_denied). 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key.'
+      description: "HestiaCP schedules the archive and uploads it to the node's remote backup host; the platform then finds it OFF the node in the store of the site's region and records its size and sha256 (residency checked, 403 residency_denied). Hestia documents no encryption of its archives: the `encrypted` flag of the backup says so. 422 no_backup_sink while no sink is configured (production waits for D-07 / P-M06-1), 422 quota_exceeded at the plan backup count/size limit. 202 + operation. Needs Idempotency-Key."
       x-nuzm-permission: hosting:backup:create
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
       parameters:
@@ -6938,7 +6948,7 @@ paths:
       operationId: downloadHostingBackup
       tags: [hosting]
       summary: Download a backup archive
-      description: 'Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the encrypted per-site archive.'
+      description: 'Needs a session of the SAME organization and an unexpired token (410 when expired; another organization or a forged token is 404). The archive is the panel archive as stored (see `encrypted` on the backup).'
       x-nuzm-permission: hosting:backup:read
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
       parameters:
@@ -6981,6 +6991,92 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress:
+    get:
+      operationId: getHostingSiteWordPress
+      tags: [hosting]
+      summary: Installation state of a site's Managed WordPress
+      description: "The state is `ready` only after the site was LOOKED AT over HTTP: it answers, no installer redirect, and `wp-login.php` is served. 404 for a site without a managed application and for another organization's site. Never contains a password."
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPress' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress/retry:
+    post:
+      operationId: retryHostingSiteWordPress
+      tags: [hosting]
+      summary: Retry a failed WordPress installation
+      description: 'Only a `failed` installation (409 otherwise). The retry resumes from what the site shows: an existing download, configuration, database or installation is kept, WP-CLI never overwrites them. 202 + operation. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPressRetryResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress/admin-resets:
+    post:
+      operationId: resetHostingSiteWordPressAdmin
+      tags: [hosting]
+      summary: Set a new WordPress admin password
+      description: 'Runs `wp user update` as the site user with a generated password and opens a NEW one-time handover (the old password may be lost or already used). Only a `ready` installation set up by the platform. 202 + operation. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '202':
+          description: 'Accepted'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPressResetResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/wordpress/handover:
+    post:
+      operationId: handoverHostingSiteWordPress
+      tags: [hosting]
+      summary: Read the WordPress admin access ONCE
+      description: 'The one-time secure handover: the first successful call returns the admin username and the generated password and consumes them (the secret is deleted from the vault); a second call, parallel or later, is 409 (already used) and an unread handover expires after 7 days (410). The response is `Cache-Control: no-store`. Deliberately takes NO Idempotency-Key: an idempotency replay would keep the password. Audited.'
+      x-nuzm-permission: hosting:site:update
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'The access, once'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingWordPressHandover' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
   /v1/hosting/sites/{id}/usage:
     get:
       operationId: getHostingSiteUsage
@@ -7049,6 +7145,130 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/alerts:
+    get:
+      operationId: listHostingAlerts
+      tags: [hosting]
+      summary: Hosting alerts (capacity, activation, certificates, backups, panel link)
+      description: 'One open alert per (kind, scope); the monitoring sweep opens it once, refreshes it while the condition holds and resolves it when it is gone. Filter state (open by default, resolved, all). Admin-realm session; customers never see alerts. Thresholds are proposals (HOSTING_ALERT_* settings).'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [open, resolved, all] } }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingAlertList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/monitor-runs:
+    post:
+      operationId: runHostingMonitor
+      tags: [hosting]
+      summary: Run the monitoring sweep now
+      description: 'The sweep also runs on the hosting scheduler. A probe that fails leaves its alerts as they were (nothing is resolved on a guess). Needs Idempotency-Key and permission admin:hosting:manage.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMonitorRun' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/restore-drills:
+    get:
+      operationId: listHostingRestoreDrills
+      tags: [hosting]
+      summary: Restore drills with their duration and result
+      description: 'Newest first. A drill restores a real backup onto an isolated drill node and records what was checked.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingRestoreDrillList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: startHostingRestoreDrill
+      tags: [hosting]
+      summary: Restore a backup into an isolated node to prove it
+      description: "Body {backupId, nodeId}. The node must have purpose `restore_drill` (409 otherwise), be in `maintenance`, and be in the backup's own data region (403 residency_denied: customer data never leaves its region). The archive checksum is verified before anything is touched; the restored account is compared with the snapshot taken at backup time (and a WordPress site must answer with its admin page); the account is then wiped from the drill node, and a wipe that leaves anything fails the drill. 202 + operation; the verdict is the drill record (state passed|failed, checks, durationMs). Needs Idempotency-Key, admin:hosting:manage and a recent MFA check. Audited."
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StartHostingRestoreDrill' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StartHostingRestoreDrillResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/restore-drills/{id}:
+    get:
+      operationId: getHostingRestoreDrill
+      tags: [hosting]
+      summary: One restore drill
+      description: 'State, per-check result, error and duration.'
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingRestoreDrill' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/admin/hosting/node-packages:
+    get:
+      operationId: listHostingNodePackages
+      tags: [hosting]
+      summary: The Hestia packages and access profile a node is set up with
+      description: "One `.pkg` file per non-retired plan (named `nz-<plan key>`; created on each node with `v-add-user-package`) and the REST access-key profile that equals the adapter's command allow-list. Used by the node setup script (docs/runbooks/node-onboarding.md). Nothing here is a secret."
+      x-nuzm-platform-permission: admin:hosting:read
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingNodePackages' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/abuse-cases:
     get:
       operationId: listHostingAbuseCases
@@ -7523,7 +7743,7 @@ paths:
       operationId: saveDynadotRegistrarSettings
       tags: [domains]
       summary: Save the Dynadot connection settings (admin console)
-      description: 'Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot''s Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved).'
+      description: "Creates the Dynadot registrar account on the first save and updates it after that (owner request 2026-11-24). Body {label?, environment (sandbox → api-sandbox.dynadot.com, production → api.dynadot.com), timeoutMs? (1000..60000), searchBatch? (domains per search call, 1..100, default 1: a regular account may send one), dataRegion? (default US: confirm against the vendor DPA), currency? (default USD), and EITHER vaultRef (vault://…) OR credentials {apiKey, apiSecret?}}. Typed credentials are accepted outside production only (the production vault is undecided, D-12): they go to the sealed secret store and only the vault reference is kept; they are never stored in the database, logged, audited or returned (the response has credentialStored: true/false). Any save disables the account and clears its probe: it must be verified again. The adapter speaks Dynadot's Legacy API (api3.json), NOT VERIFIED until a human-run sandbox probe. Needs admin:domains:manage and a recent MFA check. Audited (registrar.dynadot.settings_saved)."
       x-nuzm-platform-permission: admin:domains:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -17673,7 +17893,7 @@ components:
         credentials: { $ref: '#/components/schemas/ProviderCredentials' }
     ProviderCredentials:
       type: object
-      description: 'Write-only named secret fields; only the fields of one provider''s adapter are accepted (3 to 400 printable characters, no spaces).'
+      description: "Write-only named secret fields; only the fields of one provider's adapter are accepted (3 to 400 printable characters, no spaces)."
       additionalProperties: { type: string }
     ProviderAccountUpdate:
       type: object
@@ -19215,12 +19435,19 @@ components:
         region: { type: string }
         dataRegion: { type: string }
         status: { type: string, enum: [active, draining, maintenance, retired] }
+        purpose:
+          type: string
+          enum: [customer, restore_drill]
+          description: A `restore_drill` node is an isolated machine that only restores backups to prove them; it never takes customer sites and stays in maintenance.
         panelKind: { type: string, enum: [hestia] }
         panelVersion: { type: [string, 'null'] }
         panelHost: { type: [string, 'null'] }
         panelPort: { type: [integer, 'null'] }
         panelConfigured:
-          { type: boolean, description: A panel host and an access key are set. The key itself is never returned. }
+          {
+            type: boolean,
+            description: A panel host and an access key are set. The key itself is never returned.,
+          }
         panelTlsPinned: { type: boolean }
         runtimes:
           {
@@ -19252,6 +19479,7 @@ components:
       properties:
         name: { type: string, pattern: '^[a-z0-9][a-z0-9-]{1,62}$' }
         computeInstanceId: { type: string, minLength: 1, maxLength: 200 }
+        purpose: { type: string, enum: [customer, restore_drill], default: customer }
     CreateHostingNodeResult:
       type: object
       required: [node]
@@ -19261,17 +19489,33 @@ components:
       type: object
       required: [host]
       properties:
-        host: { type: string, description: The panel's fully qualified domain name (no IP literal, no scheme). }
+        host:
+          {
+            type: string,
+            description: The panel's fully qualified domain name (no IP literal,
+            no scheme).,
+          }
         port: { type: integer, minimum: 1, maximum: 65535, description: Default 8083. }
         tlsPinSha256:
-          { type: string, description: SHA-256 fingerprint of a self-signed panel certificate (32 colon-separated hex pairs). }
-        vaultRef: { type: string, description: A vault:// reference of the access key. Not together with credentials. }
+          {
+            type: string,
+            description: SHA-256 fingerprint of a self-signed panel certificate (32 colon-separated hex pairs).,
+          }
+        vaultRef:
+          {
+            type: string,
+            description: A vault:// reference of the access key. Not together with credentials.,
+          }
         credentials:
           type: object
           description: Write-only; accepted outside production only (D-12).
           required: [accessKey]
           properties:
-            accessKey: { type: string, description: 'ACCESS_KEY_ID:SECRET_ACCESS_KEY of a HestiaCP access key.' }
+            accessKey:
+              {
+                type: string,
+                description: 'ACCESS_KEY_ID:SECRET_ACCESS_KEY of a HestiaCP access key.',
+              }
     PatchHostingNode:
       type: object
       properties:
@@ -19343,6 +19587,12 @@ components:
             currency: { type: string }
             placeholder: { type: boolean }
         runtimes: { type: array, items: { type: string } }
+        app:
+          {
+            type: string,
+            enum: [none, wordpress],
+            description: 'The application installed with the site (wordpress = Managed WordPress).',
+          }
         regions: { type: array, items: { type: string } }
         country: { type: [string, 'null'] }
     PublicComputePlan:
@@ -19447,6 +19697,12 @@ components:
               properties: { ar: { type: string }, en: { type: string } }
         dataRegion: { type: string }
         runtime: { type: string }
+        app:
+          {
+            type: string,
+            enum: [none, wordpress],
+            description: 'wordpress = Managed WordPress; its state is GET /v1/hosting/sites/{id}/wordpress.',
+          }
         primaryDomain: { type: [string, 'null'] }
         domains:
           type: array
@@ -19613,6 +19869,150 @@ components:
       properties:
         status: { type: string, enum: [suspended, active] }
         reason: { type: string, minLength: 5, maxLength: 200 }
+    HostingWordPress:
+      type: object
+      required: [app, state, handover, verification, attempts]
+      properties:
+        app: { type: string, enum: [wordpress] }
+        state: { type: string, enum: [pending, installing, ready, failed] }
+        phase:
+          type: [string, 'null']
+          enum: [none, unconfigured, uninstalled, installed, null]
+          description: What the site showed at the last look (the install is driven by this, not by memory).
+        siteUrl: { type: [string, 'null'] }
+        loginUrl: { type: [string, 'null'], description: Set once the state is ready. }
+        adminUser: { type: [string, 'null'] }
+        handover:
+          type: object
+          required: [state]
+          properties:
+            state: { type: string, enum: [none, pending, consumed, expired] }
+            expiresAt: { type: [string, 'null'], format: date-time }
+        verification:
+          type: object
+          properties:
+            answers: { type: boolean }
+            adminPage: { type: boolean }
+            checkedAt: { type: string, format: date-time }
+        attempts: { type: integer }
+        lastError: { type: [string, 'null'] }
+        installedAt: { type: [string, 'null'], format: date-time }
+        verifiedAt: { type: [string, 'null'], format: date-time }
+    HostingWordPressRetryResult:
+      type: object
+      required: [operationId, wordpress]
+      properties:
+        operationId: { type: string, format: uuid }
+        wordpress: { $ref: '#/components/schemas/HostingWordPress' }
+    HostingWordPressResetResult:
+      type: object
+      required: [operationId]
+      properties:
+        operationId: { type: string, format: uuid }
+    HostingWordPressHandover:
+      type: object
+      required: [username, password, loginUrl]
+      properties:
+        username: { type: string }
+        password: { type: string, description: 'Generated, shown once, never stored in a table.' }
+        loginUrl: { type: string }
+    HostingAlert:
+      type: object
+      required: [id, kind, severity, summary, state, openedAt, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum:
+            [
+              capacity_low,
+              activation_failed,
+              activation_stuck,
+              certificate_expiring,
+              certificate_failed,
+              backup_failed,
+              backup_missing,
+              backup_host_unreachable,
+              panel_unreachable,
+              wordpress_failed,
+              restore_drill_failed,
+            ]
+        severity: { type: string, enum: [info, warning, critical] }
+        summary: { type: string }
+        nodeId: { type: [string, 'null'], format: uuid }
+        siteId: { type: [string, 'null'], format: uuid }
+        detail: { type: object, additionalProperties: true }
+        state: { type: string, enum: [open, resolved] }
+        openedAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+    HostingAlertList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingAlert' } }
+    HostingMonitorRun:
+      type: object
+      required: [open, opened, resolved]
+      properties:
+        open: { type: integer }
+        opened: { type: integer }
+        resolved: { type: integer }
+    HostingRestoreDrill:
+      type: object
+      required: [id, backupId, siteId, nodeId, state, checks, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        backupId: { type: string, format: uuid }
+        siteId: { type: string, format: uuid }
+        nodeId: { type: string, format: uuid }
+        state: { type: string, enum: [running, passed, failed] }
+        checks:
+          type: object
+          additionalProperties: true
+          description: 'restore, account, wordpress (WordPress sites) and wipe: `passed` or `failed: <reason>`.'
+        error: { type: [string, 'null'] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        durationMs: { type: [integer, 'null'] }
+    HostingRestoreDrillList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingRestoreDrill' } }
+    StartHostingRestoreDrill:
+      type: object
+      required: [backupId, nodeId]
+      additionalProperties: false
+      properties:
+        backupId: { type: string, format: uuid }
+        nodeId: { type: string, format: uuid }
+    StartHostingRestoreDrillResult:
+      type: object
+      required: [drill, operationId]
+      properties:
+        drill: { $ref: '#/components/schemas/HostingRestoreDrill' }
+        operationId: { type: string, format: uuid }
+    HostingNodePackages:
+      type: object
+      required: [packages, accessProfile]
+      properties:
+        packages:
+          type: array
+          items:
+            type: object
+            required: [plan, name, file]
+            properties:
+              plan: { type: string }
+              name: { type: string }
+              file:
+                {
+                  type: string,
+                  description: The content of the `.pkg` file for `v-add-user-package`.,
+                }
+        accessProfile:
+          type: string
+          description: The Hestia access-key profile (`ROLE` and `COMMANDS`) equal to the adapter's allow-list.
     HostingBackup:
       type: object
       required: [id, kind, status, createdAt]
@@ -19622,7 +20022,16 @@ components:
         label: { type: [string, 'null'] }
         status: { type: string, enum: [creating, available, failed, corrupt, deleted] }
         sizeBytes: { type: [integer, 'null'] }
-        checksum: { type: [string, 'null'], description: SHA-256 of the encrypted archive. }
+        checksum:
+          {
+            type: [string, 'null'],
+            description: SHA-256 of the archive as measured in the off-server store.,
+          }
+        encrypted:
+          {
+            type: boolean,
+            description: "false = the archive carries no encryption of its own (HestiaCP documents none); the region's off-server store protects it.",
+          }
         createdAt: { type: string, format: date-time }
         expiresAt: { type: [string, 'null'], format: date-time }
         failureReason: { type: [string, 'null'] }

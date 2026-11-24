@@ -62,6 +62,14 @@ export class SealedVaultPort implements VaultPort {
       return false;
     }
   }
+  async read(ref: string): Promise<Buffer | null> {
+    try {
+      const raw = JSON.parse(await this.store.get(`vault://dev/${this.id(ref)}`)) as { v?: string };
+      return typeof raw.v === 'string' ? Buffer.from(raw.v, 'base64') : null;
+    } catch {
+      return null;
+    }
+  }
   async delete(ref: string): Promise<void> {
     try {
       await this.store.delete(`vault://dev/${this.id(ref)}`);

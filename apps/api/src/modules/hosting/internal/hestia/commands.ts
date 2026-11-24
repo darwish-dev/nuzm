@@ -18,6 +18,13 @@ export type ArgKind =
   | 'dbname'
   | 'flag' // `yes` | `no`
   | 'int'
+  | 'backuparchive' // a Hestia backup archive name: `<user>.<timestamp>.tar`
+  | 'backuptype' // the remote backup protocol of `v-list-backup-host`
+  | 'dbtype'
+  | 'docrootfile' // the two placeholder files Quick Install removes from a fresh docroot, and nothing else
+  | 'phpbin' // the PHP CLI of a pinned version
+  | 'wpbin' // the WP-CLI that `v-add-user-wp-cli` puts in the site user's home
+  | 'wparg' // one WP-CLI argument: no space, quote, `$`, backtick, `;`, `|`, `&`, `<` or `>`
   | 'text'; // short free text without control characters (names)
 
 const ARG: Record<ArgKind, RegExp> = {
@@ -31,6 +38,14 @@ const ARG: Record<ArgKind, RegExp> = {
   dbname: /^[a-z0-9_]{1,40}$/,
   flag: /^(yes|no)$/,
   int: /^[0-9]{1,6}$/,
+  backuparchive: /^s-[a-z0-9]{12,40}\.[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.tar$/,
+  backuptype: /^(sftp|ftp|rclone|local)$/,
+  dbtype: /^(mysql|pgsql)$/,
+  docrootfile:
+    /^\/home\/s-[a-z0-9]{12,40}\/web\/(?=.{1,253}\/)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\/public_html\/(index\.html|robots\.txt)$/,
+  phpbin: /^\/usr\/bin\/php[5-9]\.[0-9]{1,2}$/,
+  wpbin: /^\/home\/s-[a-z0-9]{12,40}\/\.wp-cli\/wp$/,
+  wparg: /^[A-Za-z0-9_.:/@=+,%-]{1,200}$/,
   // eslint-disable-next-line no-control-regex -- control characters are exactly what this pattern refuses
   text: /^[^\x00-\x1f\x7f'"`\\$;|&<>]{1,100}$/,
 };
@@ -94,6 +109,61 @@ export const HESTIA_COMMANDS = {
   changeBackendTemplate: def(
     'v-change-web-domain-backend-tpl',
     [user, dom, a('template', 'template'), a('restart', 'flag', true)],
+    true,
+  ),
+  // backups (https://hestiacp.com/docs/reference/cli: v-schedule-user-backup, v-list-user-backups, v-restore-user, v-delete-user-backup, v-list-backup-host).
+  // `v-add-backup-host` is deliberately NOT here: it carries the backup host's password and is run locally by the node setup script (docs/runbooks/node-onboarding.md).
+  // `v-schedule-user-restore` is deliberately NOT here either: its completion cannot be observed, `v-restore-user` answers when it is done.
+  scheduleBackup: def('v-schedule-user-backup', [user], true),
+  listBackups: def('v-list-user-backups', [user], false, true),
+  deleteUserBackup: def('v-delete-user-backup', [user, a('backup', 'backuparchive')], true),
+  restoreUser: def(
+    'v-restore-user',
+    [
+      user,
+      a('backup', 'backuparchive'),
+      a('web', 'flag'),
+      a('dns', 'flag'),
+      a('mail', 'flag'),
+      a('db', 'flag'),
+      a('cron', 'flag'),
+      a('udir', 'flag'),
+      a('notify', 'flag', true),
+    ],
+    true,
+  ),
+  listBackupHost: def('v-list-backup-host', [a('type', 'backuptype')], false, true),
+  listServices: def('v-list-sys-services', [], false, true),
+  // databases and the WordPress install (Quick Install is panel PHP with no CLI/REST entry: it is reproduced from the same documented commands)
+  listDatabases: def('v-list-databases', [user], false, true),
+  addDatabase: def(
+    'v-add-database',
+    [
+      user,
+      a('database', 'dbname'),
+      a('dbuser', 'dbname'),
+      a('dbpass', 'password'),
+      a('type', 'dbtype', true),
+      a('host', 'text', true),
+      a('charset', 'text', true),
+    ],
+    true,
+  ),
+  addWpCli: def('v-add-user-wp-cli', [user, a('update', 'flag', true)], true),
+  deleteFsFile: def('v-delete-fs-file', [user, a('file', 'docrootfile')], true),
+  changeWebTemplate: def(
+    'v-change-web-domain-tpl',
+    [user, dom, a('template', 'template'), a('restart', 'flag', true)],
+    true,
+  ),
+  runWpCli: def(
+    'v-run-cli-cmd',
+    [
+      user,
+      a('php', 'phpbin'),
+      a('wp', 'wpbin'),
+      ...Array.from({ length: 16 }, (_, i) => a(`w${i + 1}`, 'wparg', i > 0)),
+    ],
     true,
   ),
   // TLS (Let's Encrypt)

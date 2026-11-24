@@ -1,3 +1,4 @@
+import { v7 as uuidv7 } from 'uuid';
 import { builderTools } from '@nuzm/domain';
 import { ProblemException } from '../../../../common/errors';
 import {
@@ -292,7 +293,14 @@ export const STEP_FNS: Record<StepId, StepFn> = {
       if (produced.size > c.state.limits.maxGeneratedFiles)
         throw new StepFailure('too_many_files', `${produced.size}`);
     }
-    const ops = T.lifecycle.mergeOps(...lists);
+    // project memory is WRITTEN by the loop too: what the plan settled (stack, product type, notes) becomes agent-sourced memory in the same validated change, deduplicated against
+    // what the project already remembers (a second run adds nothing it already knows)
+    let learned = mem.ok ? mem.value : T.emptyMemory();
+    for (const e of T.entriesFromPlan(plan, c.host.now())) {
+      const r = T.addEntry(learned, e, () => `${uuidv7()}`);
+      if (r.ok) learned = r.value.memory;
+    }
+    const ops = T.lifecycle.mergeOps(...lists, T.memoryOps(files, learned));
     c.art.generator = c.env.generator.kind;
     c.art.generatedFiles = ops.length;
     c.art.changeSetRef = await c.host.storeArtifact('change_set', ops);

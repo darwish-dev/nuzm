@@ -51,6 +51,37 @@ describe('ExecutionBuildPort over the real MockExecutionPort', () => {
     expect(no.reasons).toContain('profile_not_enabled');
     expect(mock.calls).toEqual([]);
   });
+  it('H-9: every call names the project version it is for (ctx.source), so a repair round builds the NEW version', async () => {
+    const mock = createMockExecutionPort(ctx(['typecheck']));
+    const port = adapt(mock);
+    await port.build({ ...req, versionId: 'v1' });
+    await port.build({ ...req, versionId: 'v2' });
+    expect(mock.calls.map((c) => (c.ctx as { source?: unknown }).source)).toEqual([
+      { projectId: 'p', versionId: 'v1' },
+      { projectId: 'p', versionId: 'v2' },
+    ]);
+  });
+  it('a measured usage (a real runtime) is passed through; a mock reports none', async () => {
+    const mock = createMockExecutionPort(ctx(['typecheck']));
+    expect((await adapt(mock).build(req)).usage).toBeUndefined();
+    const usage = { cpuSeconds: 2, peakMemoryMb: 300, peakPids: 12, diskMb: 40 };
+    const fake = {
+      origin: 'REAL' as const,
+      request: async () => ({ allowed: true }),
+      run: async () => ({
+        status: 'completed' as const,
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        durationMs: 5,
+        artifacts: [],
+        usage,
+      }),
+    };
+    expect((await new ExecutionBuildPort(fake as never, () => 't').build(req)).usage).toEqual(
+      usage,
+    );
+  });
   it('a profile the organization has not enabled is refused by the real policy and nothing runs', async () => {
     const mock = createMockExecutionPort(ctx([]));
     const r = await adapt(mock).build(req);

@@ -14,6 +14,7 @@ test.beforeAll(resetDatabase);
  *  2. a run parked at the deployment approval: this stack runs no model and no execution runtime (S-AG6 is security-blocked), so the run's rows (session, run, events) are written with SQL
  *     exactly as the lifecycle runner writes them (event names and fields of `lifecycle.runner.ts`), and everything the screen shows is read for real by the API through the same SSE
  *     route the browser uses. The lifecycle itself, the approvals, cancellation and the billing gates are proved by `builder-lifecycle.int.spec.ts` on the real run engine;
+ *  Strengthened after Session 07's review (docs/security/PHASE2-E2E-REVIEW.md): hostile extra event fields never reach the DOM (E-10), malformed and unknown run ids (E-8), a read-only role (E-6), fixture aligned to the runner's real events (E-9). NOT added: a cross-tenant browser case (E-7: needs a second signed-in organization; proved at HTTP level by `builder-lifecycle.int.spec.ts` "another organization sees nothing") and E-5 (rendering only, stated above).
  *  3. a stopped run says why in words (never a raw code), a finished run shows the deployment preparation and the version it made; every result is labelled SIMULATED.
  */
 test.describe.configure({ mode: 'serial' });
@@ -120,8 +121,21 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
     ]),
   ];
 
+  const MARK = 'LEAK-MARKER-7f3a';
   const parked = await mkRun('waiting_approval', null);
   await events(parked, [
+    // hostile extra fields on an event (a prompt, a model output, a file path): only the declared fields are ever rendered
+    [
+      'lifecycle_step',
+      {
+        step: 'plan',
+        status: 'started',
+        round: 0,
+        prompt: MARK,
+        output: MARK,
+        path: `../../${MARK}`,
+      },
+    ],
     ...clean(),
     [
       'lifecycle_step',
@@ -147,6 +161,7 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
   );
   await expect(page.getByText(T(info, 'bt.lc.simulated'))).toBeVisible();
   await expect(page.getByRole('button', { name: T(info, 'bt.lc.cancel') })).toBeVisible();
+  expect(await page.content()).not.toContain(MARK);
   await audit(page, info, 'builder-agent-waiting');
 
   // ---- 3. a run that stopped: the reason in words, no raw code, no cancel button
@@ -199,6 +214,40 @@ test('the builder agent screen: flags off, a run waiting for approval, a stopped
     page.getByRole('button', { name: T(info, 'bt.lc.start.submit'), exact: true }),
   ).toBeVisible();
   await audit(page, info, 'builder-agent-done');
+
+  // ---- E-8: a malformed id and an unknown run never show a blank page, a stack trace or step names
+  await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=not-a-uuid`);
+  await expect(page.getByText(T(info, 'bt.lc.state.empty'))).toBeVisible();
+  expect(await page.content()).not.toMatch(/at \w+ \(|TypeError|undefined/);
+  await page.goto(
+    `${WEB}/${L}/builder/projects/${project}/agent?run=0198a3c0-aaaa-7000-8000-00000000dead`,
+  );
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(
+    page.getByRole('listitem').filter({ hasText: T(info, 'bt.lc.step.build') }),
+  ).toHaveCount(0);
+  await audit(page, info, 'builder-agent-unknown-run');
+
+  // ---- E-6: a viewer (read-only role) sees the run but has no way to start or cancel anything
+  await sql(`UPDATE tenancy.memberships SET role = 'viewer' WHERE org_id = $1 AND user_id = $2`, [
+    org,
+    owner,
+  ]);
+  try {
+    await page.goto(`${WEB}/${L}/builder/projects/${project}/agent?run=${parked}`);
+    await expect(page.getByText(T(info, 'bt.lc.run.waiting_approval'))).toBeVisible();
+    await expect(page.getByRole('button', { name: T(info, 'bt.lc.cancel') })).toHaveCount(0);
+    // an active run hides the start form, so a read-only member has no way to start anything either
+    await expect(
+      page.getByRole('button', { name: T(info, 'bt.lc.start.submit'), exact: true }),
+    ).toHaveCount(0);
+    await audit(page, info, 'builder-agent-viewer');
+  } finally {
+    await sql(`UPDATE tenancy.memberships SET role = 'owner' WHERE org_id = $1 AND user_id = $2`, [
+      org,
+      owner,
+    ]);
+  }
 
   await orgFlag(org, 'app_builder.enabled', null);
 });

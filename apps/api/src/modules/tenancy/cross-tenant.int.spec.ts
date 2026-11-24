@@ -597,6 +597,15 @@ describe('org B owner (session) vs org A ids → 404 on every id-bearing route',
   });
 });
 
+const BUILDER_TOOLS_GETS = [
+  '/version-diff',
+  '/review',
+  '/symbols',
+  '/import-analysis',
+  '/components',
+  '/memory',
+];
+
 describe('org B API key (every owner permission) vs org A ids → 404', () => {
   it.each(
     withIds
@@ -729,7 +738,11 @@ describe("after all the hostile calls, org A's data is untouched", () => {
           !x.path.startsWith('/v1/marketplace/purchases/') && // needs the ledger-backed invoice chain: see marketplace.int.spec
           !x.path.startsWith('/v1/offers/') && // needs an eligible provider offer: the 200 path is in compute-flow.int.spec
           !x.path.endsWith('/generation-plans/{id}/context') && // needs a template copy to assemble a pack: the 200 path is in knowledge/review.int.spec
-          !x.path.endsWith('/version-diff'), // the builder-tools routes answer 404 while flag builder_tools.enabled is off (default) and need two existing version ids; the flag-on HTTP path is a QA coverage item (Session 07)
+          // the builder-tools routes answer 404 while flag builder_tools.enabled is off (default) and need existing version ids; the flag-on HTTP path is a QA coverage item (Session 07)
+          !(
+            x.path.startsWith('/v1/builder/projects/{projectId}/') &&
+            BUILDER_TOOLS_GETS.some((t) => x.path.endsWith(t))
+          ),
       )) {
         const r = await app.inject({
           method: 'GET',

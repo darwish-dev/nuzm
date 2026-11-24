@@ -142,3 +142,13 @@ export function checkDependencyInstall(
   }
   return { ok: reasons.size === 0, reasons: [...reasons], stats };
 }
+
+/** the hosts of the allowed registries (the egress allowlist of the `registry-only` class is exactly these, port 443, and nothing else) */
+export function registryHosts(policy: DependencyPolicy = DEFAULT_DEPENDENCY_POLICY): string[] {
+  const out: string[] = [];
+  for (const r of policy.registries) {
+    const m = /^https:\/\/([^/:@?#]+)\/?/.exec(r);
+    if (m && !out.includes(m[1]!.toLowerCase())) out.push(m[1]!.toLowerCase());
+  }
+  return out;
+}

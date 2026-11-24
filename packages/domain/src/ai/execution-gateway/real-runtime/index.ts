@@ -6,3 +6,4 @@ export * from './simulated-attestation';
 export * from './fixtures';
 export * from './conformance';
 export * from './attestation-draft';
+export * from './handoff-conformance';

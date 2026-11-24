@@ -44,9 +44,39 @@ export interface CaseResult {
   layer: FixtureLayer | 'contract';
   status: CaseStatus;
   note: string;
+  /**
+   * what only a REAL attested node can show for this case (null: the case is fully about control-plane logic, which a simulated run does verify). A PASS with a non-null value
+   * here proves the policy and bookkeeping around the behaviour, NOT that the behaviour is enforced.
+   */
+  needsRealNode: string | null;
 }
+/** printed in every report: a simulated run is evidence about policy logic, never about isolation */
+export const SIMULATED_STATEMENT =
+  "SIMULATED: these results prove the control plane's policy, bookkeeping and refusals only. They do NOT prove isolation, resource enforcement, network segmentation or that hostile code is contained; only an attested real node can (see needsRealNode per case).";
+const REAL_NODE_BY_HAZARD: Record<string, string> = {
+  cpu: 'a real node must enforce the CPU/wall limit (cgroup cpu.max, a kill that removes the whole process group or VM)',
+  memory: 'a real node must enforce memory.max with OOM-kill and no swap',
+  pids: 'a real node must enforce pids.max in the sandbox',
+  disk: 'a real node must enforce the per-workspace disk and inode quota',
+  output:
+    'a real node must cap output at the source so a flood cannot exhaust the agent or the pipe',
+  network:
+    'a real node must enforce default-deny egress, the metadata block and the registry allowlist at the host firewall and proxy',
+  filesystem:
+    'a real node must prevent a symlink, hard link or mount from reaching outside the workspace',
+  environment:
+    'a real node must run the process with only the constant environment and no host secrets',
+  lifecycle: 'a real node must prove lifecycle scripts do not run and nothing outlives the run',
+};
+const realNodeNote = (f: SyntheticFixture): string | null =>
+  f.layer === 'policy' || f.layer === 'workspace' || f.layer === 'dependency'
+    ? null
+    : (REAL_NODE_BY_HAZARD[f.hazard] ??
+      'a real node must run the real files and show the real exit code, output and produced files');
 export interface ConformanceReport {
   conformanceVersion: string;
+  /** `SIMULATED_STATEMENT` for any non-live target */
+  statement: string;
   target: { name: string; origin: PortOrigin; label: ConformanceTarget['label'] };
   total: number;
   pass: number;
@@ -162,18 +192,20 @@ export async function runPortConformance(
     layer: CaseResult['layer'],
     status: CaseStatus,
     note: string,
-  ) => results.push({ id, title, layer, status, note });
+    needsRealNode: string | null = null,
+  ) => results.push({ id, title, layer, status, note, needsRealNode });
   const attempt = async (
     id: string,
     title: string,
     layer: CaseResult['layer'],
     fn: () => Promise<string | null>,
+    needs: string | null = null,
   ) => {
     try {
       const why = await fn();
-      add(id, title, layer, why === null ? 'PASS' : 'FAIL', why ?? 'as required');
+      add(id, title, layer, why === null ? 'PASS' : 'FAIL', why ?? 'as required', needs);
     } catch (e) {
-      add(id, title, layer, 'FAIL', `threw: ${(e as Error).message.slice(0, 120)}`);
+      add(id, title, layer, 'FAIL', `threw: ${(e as Error).message.slice(0, 120)}`, needs);
     }
   };
   const base = fixtures.find((x) => x.id === 'FX-OK-TYPECHECK') ?? SYNTHETIC_FIXTURES[0]!;
@@ -230,7 +262,11 @@ export async function runPortConformance(
     async () => {
       const { outcome } = await runFixture(target, base);
       if (!outcome) return 'no outcome';
-      const keys = Object.keys(outcome).sort().join(',');
+      // `usage` is the optional, additive measured-usage member (contract 0.1 + CONTRACT-04-4)
+      const keys = Object.keys(outcome)
+        .filter((k) => k !== 'usage')
+        .sort()
+        .join(',');
       if (keys !== 'artifacts,durationMs,exitCode,status,stderr,stdout,truncated')
         return `unexpected members: ${keys}`;
       if (
@@ -259,21 +295,28 @@ export async function runPortConformance(
   for (const f of fixtures) {
     const sup = target.supports(f.layer);
     if (sup !== true) {
-      add(f.id, f.title, f.layer, 'SKIPPED', sup);
+      add(f.id, f.title, f.layer, 'SKIPPED', sup, realNodeNote(f));
       continue;
     }
-    await attempt(f.id, f.title, f.layer, async () => {
-      const { refusal, outcome } = await runFixture(target, f);
-      const why = judge(f.expect, refusal, outcome);
-      if (why) return why;
-      const left = await target.leftovers();
-      return left.length === 0 ? null : `left behind: ${left.length} workspace(s)/process(es)`;
-    });
+    await attempt(
+      f.id,
+      f.title,
+      f.layer,
+      async () => {
+        const { refusal, outcome } = await runFixture(target, f);
+        const why = judge(f.expect, refusal, outcome);
+        if (why) return why;
+        const left = await target.leftovers();
+        return left.length === 0 ? null : `left behind: ${left.length} workspace(s)/process(es)`;
+      },
+      target.label === 'LIVE-VERIFIED' ? null : realNodeNote(f),
+    );
   }
   const count = (s: CaseStatus) => results.filter((r) => r.status === s).length;
   const fail = count('FAIL');
   return {
     conformanceVersion: CONFORMANCE_VERSION,
+    statement: target.label === 'LIVE-VERIFIED' ? 'LIVE-VERIFIED target' : SIMULATED_STATEMENT,
     target: { name: target.name, origin: target.origin, label: target.label },
     total: results.length,
     pass: count('PASS'),

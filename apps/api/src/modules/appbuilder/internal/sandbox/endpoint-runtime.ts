@@ -75,6 +75,7 @@ export class EndpointSandboxRuntime extends SandboxRuntime {
       runId: handle,
       runtimeClass: this.runtimeClass,
       image: this.image,
+      egressAllow: eg.registryHosts(),
     });
     const t0 = this.now();
     const { handle: h } = await this.node.start(spec);

@@ -253,6 +253,43 @@ describe('orchestrator: submit -> run for a profile without approval', () => {
       'not_a_regular_file_device',
     ]);
   });
+  it('settles quota on the CPU the runtime measured when it reports it, else on wall time, never beyond the reservation', async () => {
+    const cost = async (outcome: Record<string, unknown>) => {
+      let t = 1_000_000;
+      const ledger = new QuotaLedger(() => t);
+      const port = createMockExecutionPort(ctx);
+      port.script('typecheck', outcome);
+      const o = new ExecutionOrchestrator({
+        port,
+        ledger,
+        queue: new ExecutionQueue<string>(DEFAULT_QUEUE_CONFIG, () => t),
+        approvals: new ApprovalWorkflow(() => t, 60_000),
+        killSwitch: new ExecutionKillSwitch(),
+        audit: () => undefined,
+        gate: () => CLOSED_GATE,
+        flags: () => ({ execTools: true, aiKillSwitch: false }),
+        ceilings: () => ({ ...CEIL, rates: { currency: 'SAR', minorPerKiloCpuSecond: 1_000_000 } }),
+        canaries: () => [],
+        now: () => t,
+      });
+      await o.submit({
+        orgId: 'org-1',
+        runId: 'run-1',
+        idempotencyKey: 'idem-usage-01',
+        request: { orgId: 'org-1', runId: 'run-1', profile: 'typecheck' },
+      });
+      await o.runNext('w');
+      t += 1;
+      return ledger.snapshot('org-1').totalCostMinor;
+    };
+    const U = { peakMemoryMb: 1, peakPids: 1, diskMb: 1 };
+    expect(await cost({ durationMs: 10_000, usage: { cpuSeconds: 3, ...U } })).toBe(3000); // measured
+    expect(await cost({ durationMs: 10_000 })).toBe(10_000); // wall fallback
+    expect(await cost({ durationMs: 10_000, usage: { cpuSeconds: Number.NaN, ...U } })).toBe(
+      10_000,
+    ); // invalid -> fallback
+    expect(await cost({ durationMs: 1_000, usage: { cpuSeconds: 999_999, ...U } })).toBe(120_000); // capped at the reservation (typecheck cpu limit 120 s)
+  });
   it('rejects a malformed idempotency key', async () => {
     expect(await submit(rig(), 'typecheck', 'x')).toMatchObject({
       status: 'refused',

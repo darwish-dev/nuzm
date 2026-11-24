@@ -476,11 +476,17 @@ export class ExecutionOrchestrator {
     this.d.queue.complete(queueId, lease, final === 'terminated' ? 'terminated' : final);
     job.track.move(final, `port_${raw.status}`);
     if (job.reservation) {
-      // measured CPU is not part of the 0.1 outcome shape: settle on wall time as the conservative upper bound of CPU for a single-process run
+      // settle on the CPU the runtime measured when it reports it (a real port does); otherwise on wall time, the conservative upper bound for a single-process run. The ledger
+      // caps either at the reservation, so a runtime that over-reports cannot bill beyond what was admitted.
+      const measured = raw.usage?.cpuSeconds;
+      const cpuSeconds =
+        typeof measured === 'number' && Number.isFinite(measured) && measured >= 0
+          ? Math.ceil(measured)
+          : Math.ceil(raw.durationMs / 1000);
       this.d.ledger.release(
         job.reservation.id,
         job.orgId,
-        Math.ceil(raw.durationMs / 1000),
+        cpuSeconds,
         this.d.ceilings(job.orgId).rates,
       );
     }

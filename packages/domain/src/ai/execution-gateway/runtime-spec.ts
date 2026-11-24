@@ -38,6 +38,11 @@ export interface RuntimeSpec {
   mounts: readonly MountSpec[];
   /** paths that must never be mounted, whatever the source */
   network: { class: NetworkClass; ownNamespace: boolean; egressProxyOnly: boolean };
+  /**
+   * The DEFAULT-DENY egress allowlist the node's proxy applies (host names only, port 443). Empty for class `none`. For `registry-only` it is exactly the package-registry hosts
+   * of the dependency policy (`registryHosts`); anything not listed is dropped. NEEDS A REAL NODE to be enforced; here it is data that is validated.
+   */
+  egressAllow: readonly { host: string; port: 443 }[];
   limits: ExecLimits & { swapMb: number };
   /** one workspace per run: the identifier is the run id and the spec never names another */
   workspaceId: string;
@@ -77,6 +82,14 @@ export function validateRuntimeSpec(s: RuntimeSpec): string[] {
   if (s.network.class === 'registry-only' && !s.network.egressProxyOnly)
     v.push('egress_not_via_proxy');
   if (s.network.class === 'none' && s.network.egressProxyOnly) v.push('network_none_with_proxy');
+  if (s.network.class === 'none' && s.egressAllow.length > 0)
+    v.push('egress_allow_on_network_none');
+  if (s.network.class === 'registry-only') {
+    if (s.egressAllow.length === 0) v.push('egress_allowlist_empty');
+    if (s.egressAllow.length > 8) v.push('egress_allowlist_too_long');
+  }
+  for (const e of s.egressAllow)
+    if (!isAllowableEgressHost(e.host) || e.port !== 443) v.push('egress_allow_entry_invalid');
   for (const m of s.mounts) {
     if (!ALLOWED_MOUNT_TARGETS.has(m.target) || FORBIDDEN_MOUNT_TARGETS.includes(m.target))
       v.push('mount_target_not_allowed');
@@ -97,6 +110,14 @@ export function validateRuntimeSpec(s: RuntimeSpec): string[] {
   return [...new Set(v)];
 }
 
+/** a plain DNS name: no IP literal (v4 or v6), no wildcard, no single label, no internal-looking suffix, no port, no credentials */
+export function isAllowableEgressHost(h: unknown): boolean {
+  if (typeof h !== 'string' || h.length > 253 || h !== h.toLowerCase()) return false;
+  if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(h)) return false;
+  if (/^\d+(?:\.\d+)*$/.test(h)) return false;
+  return !/\.(internal|local|localhost|lan|corp|intranet|home|arpa)$/.test(h);
+}
+
 export interface RuntimeBuildInput {
   decision: {
     argv: string[];
@@ -109,6 +130,8 @@ export interface RuntimeBuildInput {
   runId: string;
   runtimeClass: string;
   image: string;
+  /** registry hosts the proxy may reach for class `registry-only` (from the dependency policy); ignored for class `none` */
+  egressAllow?: readonly string[];
 }
 export function buildRuntimeSpec(i: RuntimeBuildInput): RuntimeSpec {
   return {
@@ -136,6 +159,10 @@ export function buildRuntimeSpec(i: RuntimeBuildInput): RuntimeSpec {
       ownNamespace: true,
       egressProxyOnly: i.decision.network === 'registry-only',
     },
+    egressAllow:
+      i.decision.network === 'registry-only'
+        ? [...(i.egressAllow ?? [])].map((host) => ({ host, port: 443 as const }))
+        : [],
     limits: { ...i.decision.limits, swapMb: 0 },
     workspaceId: `ws-${i.runId}`,
     orgId: i.orgId,

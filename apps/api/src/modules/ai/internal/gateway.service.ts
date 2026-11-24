@@ -41,7 +41,12 @@ import type { FieldCipher } from '../../../common/field-crypto';
 import type { LedgerPostingService } from '../../billing';
 import { recipes } from '../../billing';
 import type { AiFlags } from './flags';
-import { BudgetDenied, type BudgetService, type Reservation } from './budget.service';
+import {
+  BudgetDenied,
+  withDeadlockRetry,
+  type BudgetService,
+  type Reservation,
+} from './budget.service';
 import type { GatewayCall, GatewayResult, AiConfig } from './model';
 import type { ModelProviderService, ProviderDto } from './provider.service';
 import type { ModelAdapterRegistry } from './registry';
@@ -642,113 +647,134 @@ export class GatewayService {
           { column: 'ai.model_usage.body_enc', row: `${orgId}:${call.callId}` },
         )
       : null;
-    const dup = await this.db.withOrg(orgId, async (c) => {
-      const ins = await c.query(
-        `INSERT INTO ai.model_usage (id, org_id, run_id, project_id, call_id, provider_code, model_ref, task, run_kind, tokens_in, tokens_out, estimated, cost_minor, cost_currency, credits, outcome, latency_ms, data_region, residency_evidence, body_enc, body_expires_at, created_at)
+    // the usage transaction takes the balance lock FIRST (the same order as reserve and release: DEFECT-7) and is rerun when PostgreSQL aborts it for a deadlock: the ledger debit above
+    // is already committed (idempotent on its key), so a settle that gave up would leave a charge with no usage record. If every attempt fails the failure is audited and thrown.
+    const dup = await withDeadlockRetry(() =>
+      this.db.withOrg(orgId, async (c) => {
+        await this.budgets.lockBalanceRow(c, orgId);
+        const ins = await c.query(
+          `INSERT INTO ai.model_usage (id, org_id, run_id, project_id, call_id, provider_code, model_ref, task, run_kind, tokens_in, tokens_out, estimated, cost_minor, cost_currency, credits, outcome, latency_ms, data_region, residency_evidence, body_enc, body_expires_at, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'ok',$16,$17,$18,$19, CASE WHEN $19::text IS NULL THEN NULL ELSE now() + make_interval(days => $20) END, $21)
          ON CONFLICT (org_id, call_id) DO NOTHING RETURNING id`,
-        [
-          uuidv7(),
-          orgId,
-          call.runId ?? null,
-          call.projectId ?? null,
-          call.callId,
-          offer.provider.code,
-          modelRef,
-          call.task,
-          call.runKind ?? null,
-          tin,
-          tout,
-          estimated,
-          cost.toString(),
-          offer.adapter.pricing.currency,
-          credits.toString(),
-          latencyMs,
-          offer.provider.region,
-          evidence,
-          body,
-          budget.bodyRetentionDays ?? 1,
-          reservation.createdAt,
-        ],
-      );
-      const first = ins.rows.length === 1;
-      if (first) {
-        const at = reservation.createdAt.toISOString();
-        const base = {
-          orgId,
-          unit: 'token',
-          windowStart: at,
-          windowEnd: at,
-          occurredAt: at,
-          dataRegion: offer.provider.region,
-          source: 'ai@M09',
-          resourceId: call.callId,
-          ...(call.runId ? { tags: { run_id: call.runId } } : {}),
-        };
-        const dims = { model_id: modelRef, region: offer.provider.region };
-        if (tin > 0)
-          await emitUsage(c, {
-            ...base,
-            eventId: usageEventId({
-              orgId,
-              meterId: 'ai.tokens_input',
-              resourceId: call.callId,
-              windowStart: at,
-            }),
-            meterId: 'ai.tokens_input',
-            quantity: String(tin),
-            dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
-          });
-        if (tout > 0)
-          await emitUsage(c, {
-            ...base,
-            eventId: usageEventId({
-              orgId,
-              meterId: 'ai.tokens_output',
-              resourceId: call.callId,
-              windowStart: at,
-            }),
-            meterId: 'ai.tokens_output',
-            quantity: String(tout),
-            dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
-          });
-        if (credits > 0n)
-          await emitUsage(c, {
-            ...base,
-            unit: 'credit',
-            eventId: usageEventId({
-              orgId,
-              meterId: 'ai.credits_consumed',
-              resourceId: call.callId,
-              windowStart: at,
-            }),
-            meterId: 'ai.credits_consumed',
-            quantity: credits.toString(),
-            dimensions: { run_kind: call.runKind ?? call.task },
-            tags: { settlement: 'wallet', ...(call.runId ? { run_id: call.runId } : {}) },
-          });
-        if (call.runId)
-          await c.query(
-            `UPDATE ai.runs SET spent_credits = spent_credits + $3, tokens_in = tokens_in + $4, tokens_out = tokens_out + $5, model_ref = $6 WHERE org_id=$1 AND id=$2`,
-            [orgId, call.runId, credits.toString(), tin, tout, modelRef],
-          );
-      }
-      const rel = await c.query(
-        `UPDATE ai.reservations SET state='settled', settled_credits=$2, closed_at=now() WHERE id=$1 AND state='held' RETURNING credits, run_id`,
-        [reservation.id, credits.toString()],
-      );
-      if (rel.rows[0]) {
-        await c.query(
-          `UPDATE ai.credit_balances SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND currency=$2`,
-          [orgId, this.cfg.currency, String(rel.rows[0].credits)],
+          [
+            uuidv7(),
+            orgId,
+            call.runId ?? null,
+            call.projectId ?? null,
+            call.callId,
+            offer.provider.code,
+            modelRef,
+            call.task,
+            call.runKind ?? null,
+            tin,
+            tout,
+            estimated,
+            cost.toString(),
+            offer.adapter.pricing.currency,
+            credits.toString(),
+            latencyMs,
+            offer.provider.region,
+            evidence,
+            body,
+            budget.bodyRetentionDays ?? 1,
+            reservation.createdAt,
+          ],
         );
-        if (rel.rows[0].run_id)
+        const first = ins.rows.length === 1;
+        if (first) {
+          const at = reservation.createdAt.toISOString();
+          const base = {
+            orgId,
+            unit: 'token',
+            windowStart: at,
+            windowEnd: at,
+            occurredAt: at,
+            dataRegion: offer.provider.region,
+            source: 'ai@M09',
+            resourceId: call.callId,
+            ...(call.runId ? { tags: { run_id: call.runId } } : {}),
+          };
+          const dims = { model_id: modelRef, region: offer.provider.region };
+          if (tin > 0)
+            await emitUsage(c, {
+              ...base,
+              eventId: usageEventId({
+                orgId,
+                meterId: 'ai.tokens_input',
+                resourceId: call.callId,
+                windowStart: at,
+              }),
+              meterId: 'ai.tokens_input',
+              quantity: String(tin),
+              dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
+            });
+          if (tout > 0)
+            await emitUsage(c, {
+              ...base,
+              eventId: usageEventId({
+                orgId,
+                meterId: 'ai.tokens_output',
+                resourceId: call.callId,
+                windowStart: at,
+              }),
+              meterId: 'ai.tokens_output',
+              quantity: String(tout),
+              dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
+            });
+          if (credits > 0n)
+            await emitUsage(c, {
+              ...base,
+              unit: 'credit',
+              eventId: usageEventId({
+                orgId,
+                meterId: 'ai.credits_consumed',
+                resourceId: call.callId,
+                windowStart: at,
+              }),
+              meterId: 'ai.credits_consumed',
+              quantity: credits.toString(),
+              dimensions: { run_kind: call.runKind ?? call.task },
+              tags: { settlement: 'wallet', ...(call.runId ? { run_id: call.runId } : {}) },
+            });
+          if (call.runId)
+            await c.query(
+              `UPDATE ai.runs SET spent_credits = spent_credits + $3, tokens_in = tokens_in + $4, tokens_out = tokens_out + $5, model_ref = $6 WHERE org_id=$1 AND id=$2`,
+              [orgId, call.runId, credits.toString(), tin, tout, modelRef],
+            );
+        }
+        const rel = await c.query(
+          `UPDATE ai.reservations SET state='settled', settled_credits=$2, closed_at=now() WHERE id=$1 AND state='held' RETURNING credits, run_id`,
+          [reservation.id, credits.toString()],
+        );
+        if (rel.rows[0]) {
           await c.query(
-            `UPDATE ai.runs SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND id=$2`,
-            [orgId, rel.rows[0].run_id, String(rel.rows[0].credits)],
+            `UPDATE ai.credit_balances SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND currency=$2`,
+            [orgId, this.cfg.currency, String(rel.rows[0].credits)],
           );
-      }
-      return !first;
+          if (rel.rows[0].run_id)
+            await c.query(
+              `UPDATE ai.runs SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND id=$2`,
+              [orgId, rel.rows[0].run_id, String(rel.rows[0].credits)],
+            );
+        }
+        return !first;
+      }),
+    ).catch(async (e: unknown) => {
+      // the debit is committed but the usage record could not be written: never silent (an operator reconciles `ai:call:*` ledger entries without a usage row)
+      await Promise.resolve(
+        this.audit.record({
+          action: 'ai.settle.incomplete',
+          actorType: 'system',
+          resource: { type: 'ai_call', id: call.callId },
+          outcome: 'failure',
+          detail: {
+            orgId,
+            callId: call.callId,
+            code: (e as { code?: string } | null)?.code ?? 'error',
+          },
+        }),
+      ).catch(() => undefined);
+      throw e;
     });
     // tool calls are validated against the DECLARED tools and their schemas; nothing is run. Calls without declared tools cannot exist: they are dropped.
     const checked =

@@ -141,6 +141,7 @@ export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}
         // Phase 2 spending-cap suite
         'mock-cap-ok',
         'mock-cap-vendor',
+        'mock-conc',
       ]),
     ],
   );

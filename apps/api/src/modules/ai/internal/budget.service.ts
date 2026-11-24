@@ -41,12 +41,41 @@ const big = (v: unknown): bigint => BigInt(String(v ?? 0));
  * project total, organization daily cap. All of that runs under one row lock per organization, so concurrent calls cannot jointly overspend: spent can never
  * exceed a cap by more than the in-flight reservations, and since a reservation must fit the REMAINING budget, not even by that.
  */
+/** PostgreSQL's serialization failure and deadlock codes: the work was rolled back as a whole and can be run again. */
+const RETRYABLE_PG = new Set(['40001', '40P01']);
+/**
+ * Runs `fn` again when PostgreSQL aborted it for a deadlock or serialization failure (DEFECT-7). Only for transactions that are SAFE to repeat: every statement of the AI settle and
+ * release transactions is idempotent (a unique key or a state guard), so a rerun can never double-count. After the last attempt the error is thrown, never swallowed.
+ */
+export async function withDeadlockRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const code = (e as { code?: string } | null)?.code;
+      if (i >= attempts || !code || !RETRYABLE_PG.has(code)) throw e;
+      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 25 * i)));
+    }
+  }
+}
+
 export class BudgetService {
   constructor(
     private readonly db: Db,
     private readonly audit: AuditSink,
     private readonly cfg: AiConfig,
   ) {}
+
+  /**
+   * THE lock order of every AI money transaction (DEFECT-7): the organization's `ai.credit_balances` row FIRST, then reservations, then `ai.runs`. Reserve, settle and release all
+   * start here, so two calls of one run can never wait for each other's locks in opposite orders. A missing row (no reservation was ever made) locks nothing.
+   */
+  async lockBalanceRow(c: PoolClient, orgId: string): Promise<void> {
+    await c.query(`SELECT 1 FROM ai.credit_balances WHERE org_id=$1 AND currency=$2 FOR UPDATE`, [
+      orgId,
+      this.cfg.currency,
+    ]);
+  }
 
   /** Lock + refresh the balance row for the organization inside `c`. Returns available credits (wallet − reserved). */
   async lockBalance(
@@ -87,21 +116,32 @@ export class BudgetService {
     return this.db.withOrg(p.orgId, async (c) => {
       const bal = await this.lockBalance(c, p.orgId);
       const existing = (
-        await c.query(`SELECT * FROM ai.reservations WHERE org_id=$1 AND call_id=$2`, [
-          p.orgId,
-          p.callId,
-        ])
+        await c.query(
+          `SELECT *, (extract(epoch from (now() - created_at)) * 1000)::float8 AS age_ms FROM ai.reservations WHERE org_id=$1 AND call_id=$2`,
+          [p.orgId, p.callId],
+        )
       ).rows[0] as Row | undefined;
       if (existing) {
-        // a retried call id: reuse the open reservation (never double hold)
-        if (existing.state === 'held')
-          return {
-            id: existing.id as string,
-            credits: big(existing.credits),
-            tokens: big(existing.tokens),
-            createdAt: existing.created_at as Date,
-          };
-        throw new ProblemException('conflict', 'this call id was already settled');
+        if (existing.state !== 'held')
+          throw new ProblemException('conflict', 'this call id was already settled');
+        // DEFECT-8: a held reservation is a CLAIM by the call that made it. While that call can still be running (its attempts, their timeouts and backoffs, plus a margin) a second
+        // caller with the same call id is refused instead of being sent to the provider as well; the provider is paid once per call id. Only a claim older than any live call can
+        // be (a crashed worker) is taken over, reusing the hold (never a double hold).
+        const window =
+          this.cfg.callTimeoutMs * this.cfg.attemptsPerCandidate +
+          this.cfg.retryMaxDelayMs * this.cfg.attemptsPerCandidate +
+          10_000;
+        if (Number(existing.age_ms) < window)
+          throw new ProblemException(
+            'conflict',
+            'call_in_progress: this call id is already being served; wait for it or use a new call id',
+          );
+        return {
+          id: existing.id as string,
+          credits: big(existing.credits),
+          tokens: big(existing.tokens),
+          createdAt: existing.created_at as Date,
+        };
       }
       const orgB = (
         await c.query(`SELECT * FROM ai.budgets WHERE org_id=$1 AND scope='org'`, [p.orgId])
@@ -214,7 +254,11 @@ export class BudgetService {
 
   /** Close a reservation WITHOUT spend (error before any billable result, or a sweep). Idempotent. */
   async release(orgId: string, reservationId: string): Promise<void> {
+    await withDeadlockRetry(() => this.releaseOnce(orgId, reservationId));
+  }
+  private async releaseOnce(orgId: string, reservationId: string): Promise<void> {
     await this.db.withOrg(orgId, async (c) => {
+      await this.lockBalanceRow(c, orgId);
       const r = (
         await c.query(
           `UPDATE ai.reservations SET state='released', closed_at=now() WHERE id=$1 AND state='held' RETURNING credits, run_id`,

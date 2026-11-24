@@ -202,7 +202,9 @@ export function verifyRecord(raw: unknown, ctx: VerifyContext, file = '(memory)'
   const rec = raw as Partial<EvidenceRecord>;
   const trackKnown =
     typeof rec.track === 'string' && (TRACKS as readonly string[]).includes(rec.track);
-  if (trackKnown) {
+  // The track schema describes what a REAL run must produce. A SIMULATED or NOT VERIFIED record carries whatever the stand-in produced (free-form object), which is
+  // still scanned for secrets and labels below; it can never reach a real column, so it is not held to the real shape.
+  if (trackKnown && rec.label === 'LIVE-VERIFIED') {
     for (const p of ctx.schemas.validate(trackSchemaId(rec.track as string), rec.details ?? null))
       add('schema', `/details${p.path === '/' ? '' : p.path}`, p.message);
   }
@@ -410,8 +412,9 @@ export interface VerifyAll {
 }
 export function listEvidenceFiles(
   root = repoRoot(),
+  dir?: string,
 ): { trackDir: string; fileName: string; abs: string }[] {
-  const base = evidenceDir(root);
+  const base = dir ?? evidenceDir(root);
   const out: { trackDir: string; fileName: string; abs: string }[] = [];
   for (const d of readdirSync(base).sort()) {
     const dir = join(base, d);
@@ -421,10 +424,11 @@ export function listEvidenceFiles(
   }
   return out;
 }
-export function verifyAll(root = repoRoot()): VerifyAll {
+/** `dir` overrides where the track directories are (the harness verifies what it wrote outside the repository); schemas always come from the repository */
+export function verifyAll(root = repoRoot(), dir?: string): VerifyAll {
   const schemas = loadSchemas(root);
   const results: Verified[] = [];
-  for (const f of listEvidenceFiles(root)) {
+  for (const f of listEvidenceFiles(root, dir)) {
     let raw: unknown;
     try {
       raw = JSON.parse(readFileSync(f.abs, 'utf8'));

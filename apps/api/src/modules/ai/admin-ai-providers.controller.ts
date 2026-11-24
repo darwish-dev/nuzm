@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { Platform, RequirePlatformPermission, type PlatformContext } from '../../common/access';
 import { ProblemException } from '../../common/errors';
 import { RealmOnly, StepUp } from '../identity';
+import { ProviderInsightsService } from './internal/provider-insights.service';
 import { ModelProviderService } from './internal/provider.service';
 
 /**
@@ -13,12 +14,48 @@ import { ModelProviderService } from './internal/provider.service';
 @RealmOnly('admin')
 @Controller('v1/admin/ai/model-providers')
 export class AdminAiProvidersController {
-  constructor(private readonly providers: ModelProviderService) {}
+  constructor(
+    private readonly providers: ModelProviderService,
+    private readonly insights: ProviderInsightsService,
+  ) {}
 
   @RequirePlatformPermission('admin:ai:read')
   @Get()
   list() {
     return this.providers.list();
+  }
+
+  /** Registered before the `:id` routes: literal segments. */
+  @RequirePlatformPermission('admin:ai:read')
+  @Get('capability-registry')
+  capabilityRegistry() {
+    return this.insights.capabilityRegistry();
+  }
+
+  @RequirePlatformPermission('admin:ai:read')
+  @Get('health')
+  health() {
+    return this.insights.health();
+  }
+
+  @RequirePlatformPermission('admin:ai:read')
+  @Get(':id/rate-card-versions')
+  rateCardVersions(@Param('id') id: string) {
+    return this.providers.rateCardHistory(id);
+  }
+
+  /** A LIVE, read-only request (a model listing) reconciled with the adapter's declared models. Needs `admin:ai:manage` and a recent MFA; refused while the live gate is closed; audited. */
+  @RequirePlatformPermission('admin:ai:read')
+  @StepUp()
+  @Post(':id/model-discovery')
+  @HttpCode(200)
+  async modelDiscovery(@Platform() who: PlatformContext, @Param('id') id: string) {
+    if (!who.permissions.has('admin:ai:manage'))
+      throw new ProblemException(
+        'forbidden',
+        'permission admin:ai:manage is required for this action',
+      );
+    return this.insights.discoverModels(who.userId, id);
   }
 
   /** A LIVE, read-only check that the stored Claude key is accepted. Needs `admin:ai:manage` and a recent MFA; changes nothing; audited. */

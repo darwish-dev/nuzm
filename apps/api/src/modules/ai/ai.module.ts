@@ -18,6 +18,7 @@ import { AccessModule, PolicyService } from '../access';
 import { IdentityModule } from '../identity';
 import { AdminAiProvidersController } from './admin-ai-providers.controller';
 import { AdminAiRunsController } from './admin-ai-runs.controller';
+import { AdminAiUsageController } from './admin-ai-usage.controller';
 import { AdminAiQualityController } from './admin-ai-quality.controller';
 import { EvaluationService } from './internal/evaluation.service';
 import { AiModelsController } from './ai-models.controller';
@@ -55,6 +56,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     AiSessionsController,
     AiRunsController,
     AdminAiRunsController,
+    AdminAiUsageController,
     AdminAiQualityController,
   ],
   providers: [

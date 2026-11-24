@@ -21,3 +21,4 @@ export * from './cleanup';
 export * from './runtime-spec';
 export * from './orchestrator';
 export * from './workspace';
+export * from './real-runtime';

@@ -4,6 +4,8 @@ import {
   LIVE_CHECK_IDS,
   LiveSuiteRefused,
   assertLiveSuiteAllowed,
+  decideUsageReconciliation,
+  reconcileLiveReport,
   liveSuiteCost,
   liveSuiteWorstCase,
   resilientInvoke,
@@ -385,5 +387,70 @@ describe('FaultInjectingAdapter and resilientInvoke', () => {
         .models()
         .map((m) => m.modelId),
     ).toContain(MOCK_SERIAL_TOOL_MODEL_ID);
+  });
+});
+
+describe('a vendor figure that arrives after the run (reconcileLiveReport)', () => {
+  it('turns NOT VERIFIED into a pass only when the figure is explained by the reports; makes no request', async () => {
+    const { target, primary } = twinTarget();
+    const rep = await runLiveVerification(target, approval());
+    const calls = primary.calls.length;
+    expect(rep.allPassed).toBe(false);
+    expect(rep.usage.reportedRequests).toBeGreaterThan(0);
+    const exact = {
+      inputTokens: rep.usage.reported.in,
+      outputTokens: rep.usage.reported.out,
+      source: 'synthetic console figure',
+    };
+    const ok = reconcileLiveReport(rep, exact);
+    expect(ok.checks.find((c) => c.id === 'usage_reconciliation')).toMatchObject({
+      ok: true,
+      ran: true,
+    });
+    expect(ok.allPassed).toBe(true);
+    // the vendor may have billed the cancelled stream we hold no report for: up to its ceiling is explained, one token more is not
+    const up = reconcileLiveReport(rep, {
+      ...exact,
+      inputTokens: exact.inputTokens + rep.usage.unreportedCeiling.in,
+      outputTokens: exact.outputTokens + rep.usage.unreportedCeiling.out,
+    });
+    expect(up.allPassed).toBe(true);
+    const over = reconcileLiveReport(rep, {
+      ...exact,
+      outputTokens: exact.outputTokens + rep.usage.unreportedCeiling.out + 1,
+    });
+    expect(over.allPassed).toBe(false);
+    // below what we report: we would be charging for tokens that were not used
+    const under = reconcileLiveReport(rep, { ...exact, inputTokens: exact.inputTokens - 1 });
+    expect(under.checks.find((c) => c.id === 'usage_reconciliation')!.ok).toBe(false);
+    expect(
+      reconcileLiveReport(rep, { ...exact, inputTokens: exact.inputTokens - 1 }, 1).allPassed,
+    ).toBe(true);
+    expect(primary.calls.length).toBe(calls);
+    // the original report is untouched
+    expect(rep.allPassed).toBe(false);
+  });
+  it('a run that stopped early or overran stays not-passed whatever the vendor says', async () => {
+    const { target, primary } = twinTarget();
+    primary.failNext(new ModelAdapterError('rate_limited', 'slow down'));
+    const rep = await runLiveVerification(target, approval());
+    const r = reconcileLiveReport(rep, { inputTokens: 1, outputTokens: 1, source: 'synthetic' });
+    expect(r.allPassed).toBe(false);
+  });
+  it('decideUsageReconciliation: no report at all is a failure, no vendor figure is not-run', () => {
+    const led = {
+      reported: { in: 0, out: 0 },
+      unreportedCeiling: { in: 0, out: 0 },
+      reportedRequests: 0,
+    };
+    expect(decideUsageReconciliation(led, null, 0, 'live')).toMatchObject({ ok: false, ran: true });
+    expect(
+      decideUsageReconciliation(
+        { ...led, reportedRequests: 2, reported: { in: 5, out: 5 } },
+        null,
+        0,
+        'live',
+      ),
+    ).toMatchObject({ ok: false, ran: false });
   });
 });

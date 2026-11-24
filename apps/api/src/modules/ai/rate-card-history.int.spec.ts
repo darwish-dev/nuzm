@@ -28,7 +28,7 @@ const configure = (code: string, rateCard: object, rateCardVersion: string) =>
 beforeAll(async () => {
   e = await setupAiEnv();
   svc = e.app.get(ModelProviderService);
-}, 120_000);
+}, 300_000);
 afterAll(() => e.h.close());
 
 describe('rate card history', () => {

@@ -1,12 +1,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { FileDevSecretStore } from '../../../common/secrets';
-import { runSmoke, type SmokeArgs } from './live-smoke';
+import { reconcileSavedReport, runSmoke, type SmokeArgs } from './live-smoke';
 
 /**
  * Operator entry point of the real-provider smoke runner (see `live-smoke.ts` for the gates). NOT a package script and never run by CI.
  *
  *   pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-smoke-cli.ts \
  *     --vault-ref vault://dev/ai-claude --approval ./approval.json --evidence ./evidence.json [--vendor-usage ./usage.json] [--report ./report.json] [--execute]
+ *   pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-smoke-cli.ts --reconcile ./report.json --vendor-usage ./usage.json [--tolerance 0] [--report ./report-reconciled.json]
  *
  * Without --execute it is a DRY RUN (nothing is sent). The key is read from the sealed dev vault (SESSION_SEAL_KEY seals it; the key file lives in ./.dev-vault) and is never an
  * argument or an environment variable. Files named here are the operator's, outside the repository: do not commit an approval, an evidence file or a report.
@@ -25,6 +26,27 @@ const json = (p: string | undefined): unknown => {
 };
 
 async function main(): Promise<number> {
+  // `--reconcile <report.json> --vendor-usage <usage.json>`: arithmetic on two saved files; no gate, no key, no request
+  if (arg('reconcile')) {
+    const r = reconcileSavedReport(
+      json(arg('reconcile')),
+      json(arg('vendor-usage')),
+      Number(arg('tolerance') ?? 0),
+    );
+    if (r.kind === 'refused') {
+      console.error('REFUSED:');
+      for (const p of r.problems) console.error(`  - ${p}`);
+      return 2;
+    }
+    const out = arg('report');
+    if (out) writeFileSync(out, JSON.stringify(r.report, null, 2), { mode: 0o600 });
+    const c = r.report.checks.find((x) => x.id === 'usage_reconciliation')!;
+    console.log(
+      `${c.ok && c.ran ? 'PASS' : 'FAIL'}  usage_reconciliation  [${c.evidence}]  ${c.detail}`,
+    );
+    console.log(`overall: ${r.report.allPassed ? 'all checks passed' : 'NOT all checks passed'}`);
+    return r.report.allPassed ? 0 : 1;
+  }
   const args: SmokeArgs = {
     execute: process.argv.includes('--execute'),
     provider: arg('provider') ?? 'claude',

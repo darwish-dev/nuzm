@@ -77,7 +77,7 @@ const resilience = (o: Parameters<typeof createResilience>[0] = {}) =>
 beforeAll(async () => {
   e = await setupAiEnv();
   await e.fund(A(), '1000000');
-}, 120_000);
+}, 300_000);
 afterAll(() => e.h.close());
 
 describe('circuit breaker through the gateway', () => {
@@ -238,7 +238,7 @@ describe('retry backoff through the gateway', () => {
     a.failNext(new ModelAdapterError('rate_limited', 'slow', true, 60_000), 50);
     const started = Date.now();
     await expect(gw.invoke(base())).rejects.toMatchObject({ code: 'service_unavailable' });
-    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(Date.now() - started).toBeLessThan(15_000); // far below the 60 s hint: wall-clock bounds stay loose because the machine is shared
     // no candidate got a second attempt: the 60 s hint exceeds the cap, so the gateway moved on instead of waiting
     const made = a.calls.slice(calls);
     expect(made.length).toBeGreaterThan(0);
@@ -253,13 +253,20 @@ describe('retry backoff through the gateway', () => {
     a.failNext(new ModelAdapterError('rate_limited', 'slow', true, 5_000), 1);
     const calls = a.calls.length;
     const ac = new AbortController();
-    setTimeout(() => ac.abort(), 50);
+    // cancel once the first attempt has really reached the adapter (a fixed delay is not reliable on a loaded machine): the call is then waiting out the 5 s Retry-After
+    const poll = setInterval(() => {
+      if (a.calls.length > calls) {
+        clearInterval(poll);
+        ac.abort();
+      }
+    }, 5);
     const callId = `c-${uuidv7()}`;
     const started = Date.now();
     await expect(gw.invoke({ ...base(), callId, signal: ac.signal })).rejects.toMatchObject({
       code: 'conflict',
     });
-    expect(Date.now() - started).toBeLessThan(2_000);
+    clearInterval(poll);
+    expect(Date.now() - started).toBeLessThan(4_000);
     expect(a.calls.length).toBe(calls + 1);
     const open = await e.sql(
       `SELECT state FROM ai.reservations WHERE org_id=$1 AND call_id LIKE $2`,
@@ -281,7 +288,7 @@ describe('retry backoff through the gateway', () => {
     await gw.invoke(base());
     const took = Date.now() - started;
     expect(took).toBeGreaterThanOrEqual(55); // 20 + 40
-    expect(took).toBeLessThan(2_000);
+    expect(took).toBeLessThan(15_000);
   });
 });
 

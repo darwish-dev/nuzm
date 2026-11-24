@@ -160,11 +160,91 @@ export interface LiveReport {
     | 'rate_limited'
     | 'aborted';
   checks: LiveCheckResult[];
+  /** what the reconciliation check needs, kept so a vendor figure that arrives LATER can still be checked (`reconcileLiveReport`) */
+  usage: UsageLedger;
   /** true when the reported usage exceeded the approved token or money ceiling (a provider can report more than the allowance) */
   overran: boolean;
   /** true only when EVERY check ran and passed and every non-simulated-by-design check had live evidence */
   allPassed: boolean;
   scope: 'this model, this adapter build, these requests, this moment';
+}
+
+/** Token totals of a run: those the provider REPORTED, and the ceiling of the requests it may have billed although we hold no report for them (a cancelled stream, a failed call). */
+export interface UsageLedger {
+  reported: { in: number; out: number };
+  unreportedCeiling: { in: number; out: number };
+  reportedRequests: number;
+}
+const sumTokens = (rs: { in: number; out: number }[]) =>
+  rs.reduce((a, r) => ({ in: a.in + r.in, out: a.out + r.out }), { in: 0, out: 0 });
+
+/**
+ * The reconciliation rule, pure. The vendor bills every request: the ones we hold a report for, plus (up to their ceilings) the ones we hold none for. A vendor figure BELOW our reported
+ * total means we would charge for tokens that were not used; ABOVE the ceiling of everything we could not see means we under-report. Within the window: reconciled.
+ */
+export function decideUsageReconciliation(
+  l: UsageLedger,
+  v: VendorUsage | null,
+  tol: number,
+  label: 'live' | 'simulated',
+): Pick<LiveCheckResult, 'id' | 'ok' | 'ran' | 'evidence' | 'detail'> {
+  const id = 'usage_reconciliation' as const;
+  if (
+    l.reportedRequests === 0 ||
+    !Number.isInteger(l.reported.in) ||
+    !Number.isInteger(l.reported.out)
+  )
+    return {
+      id,
+      ok: false,
+      ran: true,
+      evidence: 'none',
+      detail: 'no usable usage figures were reported by the provider',
+    };
+  if (!v)
+    return {
+      id,
+      ok: false,
+      ran: false,
+      evidence: 'none',
+      detail: `not verified: no vendor figure was supplied (our reported total: ${l.reported.in} in / ${l.reported.out} out)`,
+    };
+  const ok =
+    v.inputTokens >= l.reported.in - tol &&
+    v.inputTokens <= l.reported.in + l.unreportedCeiling.in + tol &&
+    v.outputTokens >= l.reported.out - tol &&
+    v.outputTokens <= l.reported.out + l.unreportedCeiling.out + tol;
+  return {
+    id,
+    ok,
+    ran: true,
+    evidence: label,
+    detail: ok
+      ? `the vendor figure lies within our reported usage and the ceiling of the requests we hold no report for (tolerance ${tol} tokens; reported ${l.reported.in} in / ${l.reported.out} out; source: ${v.source})`
+      : `the vendor figure is outside what our reports can explain (reported ${l.reported.in} in / ${l.reported.out} out; unreported ceiling ${l.unreportedCeiling.in} in / ${l.unreportedCeiling.out} out; vendor ${v.inputTokens} in / ${v.outputTokens} out; source: ${v.source})`,
+  };
+}
+
+/**
+ * A live run cannot know the vendor's figure at the end (the console's usage report lags). The operator reads it later for the run's window and calls this with the saved report: no
+ * request is made, no key is read. Returns a NEW report whose reconciliation check and overall verdict are recomputed; the rest is untouched.
+ */
+export function reconcileLiveReport(r: LiveReport, v: VendorUsage, tol = 0): LiveReport {
+  const label = r.mode === 'live' ? 'live' : 'simulated';
+  const prev = r.checks.find((c) => c.id === 'usage_reconciliation');
+  const next: LiveCheckResult = {
+    requests: 0,
+    tokensIn: 0,
+    tokensOut: 0,
+    ...decideUsageReconciliation(r.usage, v, tol, label),
+  };
+  const checks = r.checks.map((c) => (c.id === 'usage_reconciliation' ? next : c));
+  void prev;
+  return {
+    ...r,
+    checks,
+    allPassed: checks.every((c) => c.ok && c.ran) && !r.stoppedEarly && !r.overran,
+  };
 }
 
 export class LiveSuiteRefused extends Error {
@@ -956,53 +1036,24 @@ export async function runLiveVerification(
     });
   }
 
-  // 9 ───── usage and token accounting reconciliation against the vendor's own figure
+  // 9 ───── usage and token accounting reconciliation against the vendor's own figure (a live run usually has none yet: the vendor's report lags; see `reconcileLiveReport`)
   {
-    const ours = reported.reduce((a, r) => ({ i: a.i + r.in, o: a.o + r.out }), { i: 0, o: 0 });
-    const allReported = reported.length > 0;
-    const sane = reported.every(
-      (r) => Number.isInteger(r.in) && Number.isInteger(r.out) && r.in >= 0 && r.out >= 0,
-    );
     const v = target.vendorUsage ? await target.vendorUsage() : null;
-    const tol = opts.usageToleranceTokens ?? 0;
-    if (!allReported || !sane) {
-      set({
-        id: 'usage_reconciliation',
-        ok: false,
-        ran: true,
-        evidence: 'none',
-        detail: 'no usable usage figures were reported by the provider',
-      });
-    } else if (!v) {
-      set({
-        id: 'usage_reconciliation',
-        ok: false,
-        ran: false,
-        evidence: 'none',
-        detail: `not verified: no vendor figure was supplied (our reported total: ${ours.i} in / ${ours.o} out)`,
-      });
-    } else {
-      // the vendor bills every request: the ones we hold a report for, plus (up to their ceilings) the ones we hold none for. Below our reported total we would be charging
-      // for tokens that were not used; above the ceiling of everything we could not see, we would be under-reporting.
-      const lowIn = ours.i - tol;
-      const highIn = ours.i + unreported.in + tol;
-      const lowOut = ours.o - tol;
-      const highOut = ours.o + unreported.out + tol;
-      const ok =
-        v.inputTokens >= lowIn &&
-        v.inputTokens <= highIn &&
-        v.outputTokens >= lowOut &&
-        v.outputTokens <= highOut;
-      set({
-        id: 'usage_reconciliation',
-        ok,
-        ran: true,
-        evidence: realEvidence,
-        detail: ok
-          ? `the vendor figure lies within our reported usage and the ceiling of the requests we hold no report for (tolerance ${tol} tokens; reported ${ours.i} in / ${ours.o} out)`
-          : `the vendor figure is outside what our reports can explain (reported ${ours.i} in / ${ours.o} out; unreported ceiling ${unreported.in} in / ${unreported.out} out; vendor ${v.inputTokens} in / ${v.outputTokens} out)`,
-      });
-    }
+    set({
+      requests: 0,
+      tokensIn: 0,
+      tokensOut: 0,
+      ...decideUsageReconciliation(
+        {
+          reported: sumTokens(reported),
+          unreportedCeiling: { ...unreported },
+          reportedRequests: reported.length,
+        },
+        v,
+        opts.usageToleranceTokens ?? 0,
+        realEvidence,
+      ),
+    });
   }
 
   // a provider may report more than the allowance (tool schemas, system overhead): that is reported, never hidden, and a run that overran is not a clean pass
@@ -1034,6 +1085,11 @@ export async function runLiveVerification(
     currency: price.currency,
     ...(stopped ? { stoppedEarly: stopped } : {}),
     checks: ordered,
+    usage: {
+      reported: sumTokens(reported),
+      unreportedCeiling: { ...unreported },
+      reportedRequests: reported.length,
+    },
     overran,
     allPassed: ordered.every((c) => c.ok && c.ran) && !stopped && !overran,
     scope: 'this model, this adapter build, these requests, this moment',

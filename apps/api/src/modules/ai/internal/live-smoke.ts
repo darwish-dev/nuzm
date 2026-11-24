@@ -6,6 +6,7 @@ import {
   assessLiveEvidence,
   liveSuiteCost,
   liveSuiteWorstCase,
+  reconcileLiveReport,
   runLiveVerification,
   type LiveReport,
   type LiveSuiteApproval,
@@ -165,7 +166,13 @@ function parseVendorUsage(x: unknown): VendorUsage | null {
 export async function runSmoke(a: SmokeArgs, d: SmokeDeps): Promise<SmokeResult> {
   const make =
     d.makeAdapter ??
-    ((getApiKey) => new AnthropicModelAdapter({ getApiKey, contract: '1.1' }) as ModelAdapter);
+    ((getApiKey) =>
+      new AnthropicModelAdapter({
+        getApiKey,
+        contract: '1.1',
+        // the adapter checks the live gate itself before every call, exactly as in the application (the gates above are checked first; this is the second lock)
+        liveEnabled: () => loadAiConfig(d.env).liveProviders.includes(CLAUDE_PROVIDER_ID),
+      }) as ModelAdapter);
   // a throw-away adapter (no key can be read through it) gives the gates the price list and model list
   const probe = make(async () => null);
   const g = evaluateSmokeGates(a, d.env, probe, d.now?.());
@@ -222,3 +229,31 @@ export async function runSmoke(a: SmokeArgs, d: SmokeDeps): Promise<SmokeResult>
 }
 
 export { LIVE_REQUIRED_DECISIONS };
+
+/**
+ * Reconcile a SAVED report with the vendor's figure read later from the console (no request, no key, no gate needed: it only does arithmetic on two files).
+ * The saved report is untrusted JSON: it must have the shape of a live report, or it is refused.
+ */
+export function reconcileSavedReport(
+  report: unknown,
+  vendor: unknown,
+  tolerance = 0,
+): { kind: 'reconciled'; report: LiveReport } | { kind: 'refused'; problems: string[] } {
+  const v = parseVendorUsage(vendor);
+  const r = report as Partial<LiveReport> | null;
+  const problems: string[] = [];
+  if (!v)
+    problems.push('the vendor-usage file needs integer inputTokens and outputTokens and a source');
+  if (
+    !isObj(report) ||
+    !Array.isArray(r?.checks) ||
+    !isObj(r?.usage) ||
+    !isObj((r?.usage as LiveReport['usage']).reported) ||
+    !isObj((r?.usage as LiveReport['usage']).unreportedCeiling)
+  )
+    problems.push('the report file is not a live-verification report');
+  if (!Number.isInteger(tolerance) || tolerance < 0)
+    problems.push('the tolerance must be a non-negative integer');
+  if (problems.length > 0 || !v) return { kind: 'refused', problems };
+  return { kind: 'reconciled', report: reconcileLiveReport(r as LiveReport, v, tolerance) };
+}

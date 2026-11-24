@@ -7,7 +7,7 @@ import {
   liveSuiteWorstCase,
   type ModelAdapter,
 } from '@nuzm/adapter-model';
-import { runSmoke, type SmokeArgs, type SmokeDeps } from './live-smoke';
+import { reconcileSavedReport, runSmoke, type SmokeArgs, type SmokeDeps } from './live-smoke';
 
 // Everything here is SYNTHETIC: a scripted twin stands in for the provider, the "key" is a made-up string, the references are not real decisions. Nothing is sent anywhere.
 const KEY = `synthetic-key-${'q9Zx'.repeat(6)}`;
@@ -266,5 +266,33 @@ describe('smoke runner: dry run and execution', () => {
       problems: ['the report contained the credential and was discarded'],
     });
     expect(JSON.stringify(r)).not.toContain(KEY);
+  });
+});
+
+describe('reconcileSavedReport: arithmetic on two saved files', () => {
+  it('refuses a malformed report or vendor file, and reconciles a real report', async () => {
+    expect(
+      reconcileSavedReport({}, { inputTokens: 1, outputTokens: 1, source: 'synthetic' }),
+    ).toMatchObject({ kind: 'refused' });
+    expect(reconcileSavedReport(null, null)).toMatchObject({ kind: 'refused' });
+    const h = harness();
+    const ran = await runSmoke(args({ execute: true }), h.deps());
+    if (ran.kind !== 'ran') throw new Error('expected a run');
+    const u = ran.report.usage.reported;
+    expect(
+      reconcileSavedReport(ran.report, {
+        inputTokens: u.in,
+        outputTokens: u.out,
+        source: 'synthetic',
+      }),
+    ).toMatchObject({ kind: 'reconciled', report: { allPassed: true } });
+    expect(
+      reconcileSavedReport(
+        ran.report,
+        { inputTokens: u.in, outputTokens: u.out, source: 'synthetic' },
+        -1,
+      ),
+    ).toMatchObject({ kind: 'refused' });
+    expect(h.readKey).toHaveBeenCalledTimes(1); // only the run read the key; the reconciliation read none
   });
 });

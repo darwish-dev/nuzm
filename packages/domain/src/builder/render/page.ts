@@ -95,7 +95,7 @@ function header(ctx: RenderCtx): string {
     `<ul class="nav-list flex flex-wrap gap-x-5 gap-y-1 max-md:w-full max-md:flex-col max-md:in-[.js]:data-[open=false]:hidden" id="site-nav">\n${items.join('\n')}\n</ul>`,
     `</nav>`,
     other
-      ? `<a class="lang ms-auto" href="${pagePath(other, page.slug)}" lang="${other}" hreflang="${other}" aria-label="${esc(UI.switchLabel[locale])}">${esc(UI.switchTo[other])}</a>`
+      ? `<a class="lang ms-auto" href="${pagePath(other, page.slug)}" lang="${other}" hreflang="${other}">${esc(UI.switchTo[other])}</a>`
       : '',
     `</div>`,
     `</header>`,
@@ -146,6 +146,8 @@ export function renderPage(ctx: RenderCtx): { html: string; title: string } {
     meta('description', description),
     noindex ? meta('robots', 'noindex') : '',
     ...absoluteHead(ctx, title, description),
+    // a declared icon stops browsers asking the host for /favicon.ico (a 404 in the console of every site, DEFECT-22)
+    `<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">`,
     `<link rel="stylesheet" href="/assets/styles.css">`,
     ld ? `<script type="application/ld+json">${ld}</script>` : '',
   ]
@@ -181,7 +183,8 @@ export function renderRedirect(model: SiteModel, baseUrl: string | undefined): s
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(text(model.seo.siteTitle, l))}</title>
 <meta http-equiv="refresh" content="0; url=${target}">
-${baseUrl ? `<link rel="canonical" href="${esc(baseUrl + target)}">\n` : ''}<link rel="stylesheet" href="/assets/styles.css">
+${baseUrl ? `<link rel="canonical" href="${esc(baseUrl + target)}">\n` : ''}<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 <main id="main" class="mx-auto w-full max-w-3xl p-4">

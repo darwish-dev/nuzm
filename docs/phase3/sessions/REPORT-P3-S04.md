@@ -106,3 +106,30 @@ Mutation corpus (`qa.spec.ts`, 42 tests, all passed on the first run): 33 target
 - Browser QA runner, FIRST RUN (LIVE-VERIFIED locally: Chrome 158.0.8127.88, axe-core 4.14.0, loopback server, 10 pages x 2 viewports, services template): FAILED. One real finding, `label-content-name-mismatch` on the language-switch link (WCAG 2.5.3), 15 reported loads. Renderer file, so requested in `CONTRACT-P3-S04-2-language-link-accessible-name.md`. The jsdom gates had passed this artifact: the browser run adds real coverage.
 - Runner defect found and fixed by this run: `nav_order` false positive (footer links included); failed responses now report their URL. One unexplained console 404 seen once, not reproduced.
 - Only the `services` template was run in the browser; the other 7 templates and the W2 browser E2E are still NOT RUN.
+
+
+## Addendum 3: DEFECT-21 (language link name) and DEFECT-22 (favicon 404), both owner S04, fixed
+
+Ownership of `packages/domain/src/builder/render/**` was assigned to S04 by the Master with `templates/**`.
+
+### DEFECT-21: language-switch link failed WCAG 2.5.3 Label in Name (found by the real-Chrome pass)
+- Cause: `render/page.ts` gave the switch link `aria-label="تغيير اللغة"` / `"Change language"` while its visible text is the other language's name ("English" / "العربية"). jsdom axe and the Phase 2 E2E do not compute the rule.
+- Fix: the `aria-label` is removed (the link's name is its visible text, and `lang`/`hreflang` state its purpose); the unused `switchLabel` string was removed from `render/ui.ts`. No other `aria-label` on a link/button exists in the renderer (the `<nav aria-label>` landmarks are not links).
+- Regression test below the browser: `render/label-in-name.spec.ts` (every labelled link/button on every page of all 8 templates, ar + en, names its visible text; non-vacuity case proves the checker flags the old markup). No Phase 2 snapshot or golden test encoded the attribute (none changed).
+
+### DEFECT-22: every generated site 404'd `/favicon.ico`
+- What it was: no page declared an icon, so browsers request `/favicon.ico` and the host answers 404. Proven (not only inferred): with the icon removed from a built `services` and a built `clinic` artifact, the runner's server-side miss list names exactly `/favicon.ico` for both (`browser.favicon_missing`).
+- Why `clinic` looked clean in the first all-template pass: it did not differ in content. Chrome logs the failed favicon request as a console error only when the request completes inside the page's observation window, which is a race; with the icon removed, `clinic` showed the console 404 again in one run and `services` did not. The runner now reports the missing path from the server's own request log, which is deterministic, and the console-error rule is unchanged (no filtering, no relaxation).
+- Fix (generator): the renderer emits `assets/favicon.svg` (the first letter of the brand name in the default locale on the palette's primary colour; deterministic, text only) and every page, including the root redirect, declares `<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">`. First attempt, an inline `data:,` icon, was rejected by the renderer's own URL validator (it forbids `data:` URLs), so it was not used.
+- Guards: (1) QA structure gate `structure.favicon_missing` (error) + a mutation case in `qa.spec.ts`; (2) render-level `render/references.spec.ts`: every page declares an icon, and every `href`/`src` a page references resolves to a file in the artifact (form actions must be the platform forms endpoint); its non-vacuity case removes the favicon file and strips an icon and requires both to be caught.
+
+### Verification (printed results; real Chrome 158.0.8127.88 + axe-core 4.14.0, local loopback server, no network, no provider)
+| Check | Result |
+|---|---|
+| Real-Chrome pass, all 8 templates, 375 + 1280 px, ar + en (restaurant, clinic, retail, portfolio, services, education, ngo, landing) | 8 of 8 `PASSED`: 0 errors, 0 warnings; page loads 20 each (landing 4), 164 in total |
+| Same pass before the fixes | 7 of 8 failed with the console 404 (clinic passed by the race above); `services` also had 15 label-in-name findings |
+| `packages/domain` `vitest run src/builder` | 347 passed, 8 failed (only my first draft of `references.spec.ts`: it treated the form action as an artifact file). Fixed; `src/builder/render` 228 passed; `references.spec.ts` 9 passed |
+| `apps/api` qa specs (qa, artifact, evidence, templates-qa) | 69 passed (4 files) |
+| `tsc --noEmit` `packages/domain`, `apps/api` | exit 0, exit 0 |
+
+Caveats, stated plainly: the CLI runs used `--no-axe` for the jsdom pass only (the run says "PASSED WITH GATES SKIPPED" for that reason; real-Chrome axe ran in the browser pass); templates were run with the offline build only (no model), so this is evidence about the renderer and the shipped templates, not about model-generated sites (W1 is still NOT VERIFIED). The Phase 2 domain suites outside `src/builder` and the full `apps/api` suite were not re-run after the renderer change.

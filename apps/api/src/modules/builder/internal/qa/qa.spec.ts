@@ -125,6 +125,11 @@ describe('each gate catches what it exists for (mutation corpus)', () => {
       files: () => mutate(HOME_EN, (s) => s.replace(/<meta name="viewport"[^>]*>/, '')),
     },
     {
+      name: 'no icon declared (browsers request /favicon.ico: a 404, DEFECT-22)',
+      code: 'structure.favicon_missing',
+      files: () => mutate(HOME_EN, (s) => s.replace(/<link rel="icon"[^>]*>/, '')),
+    },
+    {
       name: 'zoom blocked',
       code: 'structure.viewport_zoom',
       files: () =>

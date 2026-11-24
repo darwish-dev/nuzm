@@ -86,7 +86,11 @@ interface AxeB {
   }>;
 }
 
-function serve(files: ArtifactFile[], policy: string): Promise<{ server: Server; origin: string }> {
+function serve(
+  files: ArtifactFile[],
+  policy: string,
+  misses: Set<string>,
+): Promise<{ server: Server; origin: string }> {
   const byPath = new Map(files.map((f) => [f.path, f]));
   const server = createServer((req, res) => {
     let p: string;
@@ -98,6 +102,7 @@ function serve(files: ArtifactFile[], policy: string): Promise<{ server: Server;
     if (p === '' || p.endsWith('/')) p += 'index.html';
     const f = p.includes('..') ? undefined : byPath.get(p);
     if (!f) {
+      misses.add(p);
       res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
       return;
     }
@@ -166,7 +171,8 @@ export async function runBrowserQa(
     message,
     ...(hint ? { hint } : {}),
   });
-  const { server, origin } = await serve(files, policy);
+  const misses = new Set<string>();
+  const { server, origin } = await serve(files, policy, misses);
   let browser: Browser | undefined;
   try {
     try {
@@ -196,6 +202,7 @@ export async function runBrowserQa(
             `window.addEventListener('securitypolicyviolation', e => { (window.__csp = window.__csp || []).push(e.violatedDirective + ' ' + e.blockedURI); });`,
           );
           page.on('console', ((m: { type(): string; text(): string }) => {
+            // any console error is a finding (a "Failed to load resource" line names no URL: the server's own miss list, below, names the path)
             if (m.type() === 'error') seen.push(`console: ${m.text().slice(0, 160)}`);
           }) as never);
           page.on('pageerror', ((e: Error) =>
@@ -292,6 +299,22 @@ export async function runBrowserQa(
         await ctx.close();
       }
     }
+    // what the browser asked the host for and the artifact does not contain (the browser's own console line names no URL)
+    for (const m of misses)
+      findings.push(
+        m === 'favicon.ico'
+          ? f(
+              'favicon_missing',
+              'browsers request /favicon.ico and the artifact has none (a 404 in every visitor console)',
+              'favicon.ico',
+              'declare <link rel="icon"> in the page head',
+            )
+          : f(
+              'missing_resource',
+              `the browser requested /${m} and the artifact has no such file`,
+              m,
+            ),
+      );
     return { status: 'ran', findings, metrics };
   } finally {
     await browser?.close().catch(() => undefined);

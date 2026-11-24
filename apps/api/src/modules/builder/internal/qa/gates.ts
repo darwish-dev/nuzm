@@ -83,6 +83,22 @@ export const structureGate: Gate = (c) => {
       );
     if (!byTag(root, 'meta').some((m) => m.attrs.charset !== undefined))
       out.push(f('charset', 'error', 'no <meta charset>', p.path));
+    // browsers ask the host for /favicon.ico when a page declares no icon: without a declared icon (or the file) every visitor's console shows a 404 (DEFECT-22)
+    if (
+      !byTag(root, 'link').some((l) =>
+        (attr(l, 'rel') ?? '').toLowerCase().split(/\s+/).includes('icon'),
+      ) &&
+      !c.files.some((x) => x.path === 'favicon.ico')
+    )
+      out.push(
+        f(
+          'favicon_missing',
+          'error',
+          'no <link rel="icon"> and no favicon.ico (browsers request /favicon.ico: a 404)',
+          p.path,
+          'add <link rel="icon" href="/assets/favicon.svg"> or ship a favicon',
+        ),
+      );
     const vp = byTag(root, 'meta').find((m) => attr(m, 'name') === 'viewport');
     if (!vp) out.push(f('viewport_missing', 'error', 'no viewport meta (not responsive)', p.path));
     else {

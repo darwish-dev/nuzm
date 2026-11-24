@@ -1,5 +1,3 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -15,55 +13,7 @@ import { describe, expect, it } from 'vitest';
  *  5. no route of the AI engine areas is public (except the pinned webhooks).
  * A reviewer who adds an entry must say WHY in the pull request. Removing an entry (a fix) is always welcome: a stale entry fails the suite so the list never rots.
  */
-type Route = { file: string; method: string; path: string; decos: string[] };
-// vitest runs with the package root (apps/api) as the working directory
-const SRC = `${join(process.cwd(), 'src')}/`;
-const walk = (d: string): string[] =>
-  readdirSync(d).flatMap((f) => {
-    const p = join(d, f);
-    if (f === 'node_modules') return [];
-    return statSync(p).isDirectory() ? walk(p) : [p];
-  });
-const HTTP = /^\s*@(Get|Post|Put|Patch|Delete)\(([^)]*)\)/;
-const routes = (): Route[] => {
-  const out: Route[] = [];
-  for (const f of walk(SRC)) {
-    if (!f.endsWith('.ts') || f.endsWith('.spec.ts') || f.includes('/testing/')) continue;
-    const src = readFileSync(f, 'utf8');
-    if (!src.includes('@Controller(')) continue;
-    const lines = src.split('\n');
-    let prefix = '';
-    let classDecos: string[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i]!;
-      const ctl = /^\s*@Controller\(([^)]*)\)/.exec(l);
-      if (ctl) {
-        prefix = ctl[1]!.replace(/['"`]/g, '');
-        classDecos = [];
-        for (let k = i - 1; k >= 0 && /^\s*@/.test(lines[k]!); k--)
-          classDecos.push(lines[k]!.trim());
-        for (let k = i + 1; k < lines.length && /^\s*@/.test(lines[k]!); k++)
-          classDecos.push(lines[k]!.trim());
-        continue;
-      }
-      const m = HTTP.exec(l);
-      if (!m) continue;
-      const decos: string[] = [l.trim()];
-      for (let k = i - 1; k >= 0 && /^\s*@/.test(lines[k]!); k--) decos.push(lines[k]!.trim());
-      for (let k = i + 1; k < lines.length && /^\s*@/.test(lines[k]!); k++)
-        decos.push(lines[k]!.trim());
-      out.push({
-        file: f.slice(SRC.length),
-        method: m[1]!.toUpperCase(),
-        path: `/${prefix}/${m[2]!.replace(/['"`]/g, '')}`.replace(/\/+/g, '/').replace(/\/$/, ''),
-        decos: [...decos, ...classDecos],
-      });
-    }
-  }
-  return out;
-};
-const has = (r: Route, n: string) => r.decos.some((d) => d.startsWith(`@${n}(`));
-const key = (r: Route) => `${r.method} ${r.path}`;
+import { has, key, routes, type Route } from './qa-route-scan';
 const diff = (actual: string[], pinned: string[]) => ({
   added: actual.filter((x) => !pinned.includes(x)).sort(),
   stale: pinned.filter((x) => !actual.includes(x)).sort(),

@@ -124,5 +124,11 @@ Machine note: load average reached 117-403 during this batch (other sessions); o
 
 Heavy-slot requests: (a) `MOBILE_FLUTTER_LOCAL=1 pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts src/modules/mobile/flutter-local.int.spec.ts` (Flutter pub get/analyze/test + an unsigned debug APK, 15-25 min, network to pub.dev), only under `mkdir /private/tmp/nuzm-heavy.lock`; (b) E2E specs for builder tools / provider admin / benchmark admin once their owners land them.
 
+### Batch 2
+| Item | State | Evidence |
+|---|---|---|
+| 5. Runtime isolation conformance against the mock (orchestrator + `MockExecutionPort`) | **VERIFIED, SIMULATED**: `qa-exec-orchestrator.int.spec.ts` = 15 passed + 2 expected-fail | ceiling under 12 concurrent workers, approval spent once, model/API-key/no-permission/other-org cannot approve, canary kill switch, emergency stop, 14 hostile artifact paths refused, throw path leaks nothing; DEFECT-10 (concurrent submit duplicates execution), CONCERN O-12 (forged decision), O-13 (artifact kind), O-11, O-14 |
+| 7. Independent review notes | started: findings doc section 6 (S04 + S02 money path) | `docs/security/AI-ENGINE-SECURITY-FINDINGS.md` |
+
 ### Not yet done in Phase 2 (next batches)
 E2E ar+en for builder tools, provider admin, benchmark admin (review + negative cases); agent-loop integration scaffolds (waiting for S05's wiring); authz matrix extension and both-setting tests for O-1/O-2/O-9 (waiting for the switches); prompt injection against tool results and project files; runtime-isolation conformance against the mock; accessibility ar/en; independent review notes on S02/S04/S06 Phase 2 changes (nothing merged yet).
